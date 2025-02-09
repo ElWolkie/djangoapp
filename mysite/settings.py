@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-ggouvpzm90ceckjc-ch+vr4h=h=7e!10-h=c)8o%#(b_3nuf+%
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['djangoapp-inky.vercel.app', '127.0.0.1', 'localhost'] #CAMBIAR PARA CORRER EN LOCAL
+ALLOWED_HOSTS = ['djangoapp-production-6ccf.up.railway.app', '127.0.0.1', 'localhost'] #CAMBIAR PARA CORRER EN LOCAL
 
 
 # Application definition
