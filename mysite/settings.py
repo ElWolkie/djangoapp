@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-ggouvpzm90ceckjc-ch+vr4h=h=7e!10-h=c)8o%#(b_3nuf+%
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['djangoapp-inky.vercel.app', '127.0.0.1', 'localhost'] #CAMBIAR PARA CORRER EN LOCAL
 
 
 # Application definition
@@ -115,7 +115,10 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
-STATIC_URL = 'static/'
+import os
+
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
