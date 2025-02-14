@@ -1,14 +1,8 @@
-# -*- encoding: utf-8 -*-
-"""
-Copyright (c) 2019 - present AppSeed.us
-"""
-
 from django.urls import path
-from .views import login_view, register_user
-from django.contrib.auth.views import LogoutView
+from .views import login_view, register_user, home_view
 
 urlpatterns = [
-    path('login/', login_view, name="login"),
-    path('register/', register_user, name="register"),
-    path("logout/", LogoutView.as_view(), name="logout")
+    path("login/", login_view, name="login"),  # URL para el inicio de sesión
+    path("register/", register_user, name="register"),  # URL para el registro
+    path("home/", home_view, name="index"),  # URL para la página de inicio
 ]

@@ -55,6 +55,7 @@ $
 $ # Virtualenv modules installation (Unix based systems)
 $ virtualenv env
 $ source env/bin/activate
+$ source env/Scripts/activate  #Windows
 $
 $ # Virtualenv modules installation (Windows based systems)
 $ # virtualenv env

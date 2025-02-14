@@ -1,80 +1,94 @@
 {% extends 'layouts/base-fullscreen.html' %}
 
-{% block title %} Login {% endblock title %}
+{% block title %}Iniciar Sesión{% endblock %}
 
-<!-- Specific CSS goes HERE -->
-{% block stylesheets %}{% endblock stylesheets %}
+{% block stylesheets %}
+<link rel="stylesheet" href="/static/assets/css/all.min.css"/>
+<link rel="stylesheet" href="/static/assets/css/style.css"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+{% endblock stylesheets %}
 
 {% block content %}
-
-    <!-- Page content -->
-    <div class="container mt--8 pb-5">
-      <div class="row justify-content-center">
-        <div class="col-lg-5 col-md-7">
-          <div class="card bg-secondary shadow border-0">
-            <div class="card-header bg-transparent pb-5">
-              <div class="text-muted text-center mt-2 mb-3">
-                Sign IN
-              </div>
-            </div>
-            <div class="card-body px-lg-5 py-lg-5">
-              <div class="text-center text-muted mb-4">
-
-                {% if msg %}
-                  <p>{{ msg }}</p>
-                {% else %}
-                  <p>
-                    Add your credentials
-                  </p>
-                {% endif %}  
-
-              </div>
-
-              <form method="POST">
-
-                {% csrf_token %}
-
-                <div class="form-group mb-3">
-                  <div class="input-group input-group-alternative">
-                    <div class="input-group-prepend">
-                      <span class="input-group-text"><i class="ni ni-hat-3"></i></span>
-                    </div>
-                    {{ form.username }}
-                  </div>
-                </div>
-                <div class="form-group">
-                  <div class="input-group input-group-alternative">
-                    <div class="input-group-prepend">
-                      <span class="input-group-text"><i class="ni ni-lock-circle-open"></i></span>
-                    </div>
-                    {{ form.password }}
-                  </div>
-                </div>
-                <div class="custom-control custom-control-alternative custom-checkbox">
-                  <input class="custom-control-input" id=" customCheckLogin" type="checkbox">
-                  <label class="custom-control-label" for=" customCheckLogin">
-                    <span class="text-muted">Remember me</span>
-                  </label>
-                </div>
-                <div class="text-center">
-                  <button type="submit" class="btn btn-primary my-4">Sign in</button>
-                </div>
-              </form>
-            </div>
-          </div>
-          <div class="row mt-3">
-            <div class="col-6">
-              <a href="{% url 'register' %}" class="text-light"><small>Register</small></a>
-            </div>
-            <div class="col-6 text-right">
-              <a href="https://appseed.us/support" class="text-light"><small>Get Support</small></a>
-            </div>
-          </div>
-        </div>
+<div class="container">
+  <input type="checkbox" id="flip" />
+  <div class="cover">
+    <div class="front">
+      <img src="/static/assets/img/theme/frontImg.jpg" alt="" />
+      <div class="text">
+        <span class="text-1">Cada nuevo amigo es una <br /> nueva aventura</span>
+        <span class="text-2">¡Conectémonos!</span>
       </div>
     </div>
+    <div class="back">
+      <img class="backImg" src="/static/assets/img/theme/backImg.jpg" alt="" />
+      <div class="text">
+        <span class="text-1">Completa millas de viaje <br /> con un paso</span>
+        <span class="text-2">¡Empecemos!</span>
+      </div>
+    </div>
+  </div>
+  <div class="forms">
+    <div class="form-content">
+      <div class="login-form">
+        <div class="title" style="font-weight: bold; font-size: 3.75vh;">Iniciar Sesión</div>
+        <form method="POST" autocomplete="off" action="{% url 'login' %}">
+          {% csrf_token %}
+          <div class="input-boxes">
+            <div class="input-box">
+              <i class="fas fa-envelope"></i>
+              <input type="text" name="username" placeholder="Ingrese su correo" />
+              <span class="error-message" id="email-error"></span>
+            </div>
+            <div class="input-box">
+              <i class="fas fa-lock"></i>
+              <input type="password" name="password" placeholder="Ingrese su contraseña" />
+              <span class="error-message" id="password-error"></span>
+            </div>
+            <div class="text">
+              <a href="#">Olvidó su contraseña?</a>
+            </div>
+            <div class="button input-box">
+              <input type="submit" value="Entrar" />
+            </div>
+            <div class="text sign-up-text">
+              ¿No tienes una cuenta? <label for="flip">Registrarse</label>
+            </div>
+          </div>
+        </form>
+      </div>
+  
 
+      <div class="signup-form">
+        <div class="title" style="font-weight: bold; font-size: 3.75vh;">Registro</div>
+        <form method="POST" action="#" autocomplete="off">
+          {% csrf_token %}
+          <div class="input-boxes">
+            <div class="input-box">
+              <i class="fas fa-user"></i>
+              <input type="text" placeholder="Ingrese su nombre" required />
+            </div>
+            <div class="input-box">
+              <i class="fas fa-envelope"></i>
+              <input type="email" placeholder="Ingrese su correo" required />
+            </div>
+            <div class="input-box">
+              <i class="fas fa-lock"></i>
+              <input type="password" placeholder="Ingrese su contraseña" required />
+            </div>
+            <div class="button input-box">
+              <input type="submit" value="Crear cuenta" />
+            </div>
+            <div class="text sign-up-text">
+              ¿Ya tienes una cuenta? <label for="flip">Iniciar sesión</label>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock content %}
 
-<!-- Specific JS goes HERE --> 
-{% block javascripts %}{% endblock javascripts %}
+{% block javascripts %}
+<script src="/static/assets/js/login.js"></script>
+{% endblock javascripts %}
