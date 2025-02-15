@@ -1,4 +1,11 @@
+{% block stylesheets %}
+
+<link rel="stylesheet" href="/static/assets/css/sidenav.css" />
+
+{% endblock stylesheets %}
+
 <nav class="sidenav navbar navbar-vertical  fixed-left  navbar-expand-xs navbar-light bg-white" id="sidenav-main">
+  
   <div class="scrollbar-inner">
     <!-- Brand -->
     <div class="sidenav-header  align-items-center">
@@ -25,10 +32,10 @@
             <div id="personaMenu" class="collapse">
               <ul class="nav flex-column ml-3">
                 <li class="nav-item">
-                  <a class="nav-link" href="/persona.html">Registrar</a>
+                  <a class="nav-link" href="/persona.html" style="padding-left: 15px;"><i class="ni ni-fat-add text-orange"></i>Registrar</a>
                 </li>
                 <li class="nav-item">
-                  <a class="nav-link" href="/tablaPersona.html">Consultar</a>
+                  <a class="nav-link" href="/tablaPersona.html" style="padding-left: 15px;"><i class="ni ni-collection text-orange"></i>Consultar</a>
                 </li>
                 <!-- <li class="nav-item">
                   <a class="nav-link" href="/persona3.html">adivina adivinador</a>
@@ -96,7 +103,28 @@
         <!-- Divider -->
         <hr class="my-3">
         <!-- Heading -->
-        
+
+        <script>
+          document.addEventListener("DOMContentLoaded", function () {
+              var dropdownTrigger = document.getElementById("personaDropdown");
+              var dropdownMenu = document.getElementById("personaMenu");
+
+              // Evento cuando el dropdown se abre
+              dropdownTrigger.addEventListener("click", function () {
+                  if (!dropdownMenu.classList.contains("show")) {
+                      dropdownTrigger.classList.add("active-dropdown");
+                  } else {
+                      dropdownTrigger.classList.remove("active-dropdown");
+                  }
+              });
+
+              // Evento cuando el dropdown se cierra
+              dropdownMenu.addEventListener("hidden.bs.collapse", function () {
+                  dropdownTrigger.classList.remove("active-dropdown");
+              });
+          });
+        </script>
+       
       </div>
     </div>
   </div>

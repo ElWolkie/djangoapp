@@ -1,25 +1,14 @@
-/* Google Font Link */
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@200;300;400;500;600;700&display=swap');
-
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-  font-family: "Poppins", sans-serif;
-}
-
 body {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 30px;
-  overflow-x: hidden;
-  background: linear-gradient(-45deg, #ff9176, #ec4b27, #0805b1, #627aff);
-  background-size: 400% 400%;
-  animation: gradient 15s ease infinite;
-  height: 100vh;
-}
+    min-height: 120vh;
+    align-items: center;
+    justify-content: center;
+    overflow-x: hidden;
+    background: linear-gradient(-45deg, #ff9176, #ec4b27, #0805b1, #627aff);
+    background-size: 400% 400%;
+    animation: gradient 15s ease infinite;
+    height: 115vh;
+    padding: 0px 80px;
+  }
 
 @keyframes gradient {
   0% {
@@ -38,7 +27,7 @@ body {
   max-width: 1200px;
   width: 150vh;
   background: rgba(255, 255, 255, 0.911); /* Fondo con transparencia */
-  padding: 30px 10px;
+  padding: 10px 10px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.425); /* Sombra más suave */
   perspective: 2700px;
   border-radius: 10px;
@@ -51,20 +40,6 @@ body {
     max-width: 100%;
     padding: 30px 20px;
   }
-}
-
-.container .cover {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  height: 100%;
-  width: 50%;
-  z-index: 98;
-  transition: all 1s ease;
-  transform-origin: left;
-  transform-style: preserve-3d;
-  backface-visibility: hidden;
-  border-radius: 10px;
 }
 
 .container #flip:checked ~ .cover {
@@ -85,18 +60,6 @@ body {
   border-radius: 10px;
 }
 
-.cover .back {
-  transform: rotateY(180deg);
-}
-
-.container .cover img {
-  position: absolute;
-  height: 100%;
-  width: 100%;
-  object-fit: cover;
-  z-index: 10;
-  border-radius: 10px;
-}
 
 .container .cover .text {
   position: absolute;
@@ -115,7 +78,7 @@ body {
   height: 100%;
   width: 100%;
   opacity: 0.5;
-  background: #ec4b27;
+  background: #000000;
   border-radius: 10px;
 }
 
@@ -144,12 +107,6 @@ body {
   justify-content: center;
 }
 
-.form-content .login-form,
-.form-content .signup-form {
-  width: 45%;
-  margin: 0 2.5%;
-}
-
 .forms .form-content .title {
   position: relative;
   font-size: 24px;
@@ -158,16 +115,6 @@ body {
   text-align: center;
 }
 
-.forms .form-content .title:before {
-  content: '';
-  position: absolute;
-  left: 50%;
-  bottom: 0;
-  transform: translateX(-50%);
-  height: 3px;
-  width: 180px;
-  background: #ec4b27;
-}
 
 .forms .signup-form .title:before {
   width: 100px;
@@ -200,7 +147,7 @@ body {
 
 /* Mostrar borde naranja solo cuando el campo está enfocado */
 .form-content .input-box input:focus {
-  border-color: #ec4b27; /* Borde naranja al enfocar */
+  border-color: #000000; /* Borde naranja al enfocar */
 }
 
 /* Eliminar el borde naranja cuando el campo es válido */
@@ -210,7 +157,7 @@ body {
 
 .form-content .input-box i {
   position: absolute;
-  color: #ec4b27;
+  color: #000000;
   font-size: 17px;
   left: 10px;
 }
@@ -218,7 +165,7 @@ body {
 .forms .form-content .text {
   font-size: 14px;
   font-weight: 500;
-  color: #333;
+  color: #000000;
 }
 
 .forms .form-content .text a {
@@ -251,7 +198,7 @@ body {
 }
 
 .forms .form-content label {
-  color: #ec4b27;
+  color: #000000;
   cursor: pointer;
 }
 
@@ -297,32 +244,5 @@ body {
 }
  
 .text-orange {
-  color: #fd7e14; /* Naranja brillante */
+  color: #000000; /* Naranja brillante */
 }
-
-/* Estilos para los campos inválidos 
-.input-box input:invalid {
-  border-bottom: 2px solid #ff3860; /* Borde rojo para campos inválidos 
-}
-*/
-
-/* Estilos para los mensajes de error 
-    .error-message {
-      color: #ff3860;
-      font-size: 12px;
-      margin-top: 5px;
-      display: none;
-      width: 100%;
-      text-align: left;
-    }
-
-    /* Mostrar mensajes de error cuando el campo es inválido 
-    .input-box input:invalid + .error-message {
-      display: block;
-    }
-
-    /* Mostrar mensajes de error cuando el campo es inválido 
-    .input-box input:invalid + .error-message {
-      display: block;
-    }
-*/
