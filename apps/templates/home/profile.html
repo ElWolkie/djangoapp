@@ -13,7 +13,7 @@
     <div class="row">
       <div class="col-lg-7 col-md-10">
         <h1 class="display-2 text-white"> 
-          Hello {{ request.user.username }}
+          Hello {{ request.user.first_name }}
         </h1>
         <p class="text-white mt-0 mb-5">This is your profile page. You can see the progress you've made with your work and manage your projects or assigned tasks</p>
         <a href="#!" class="btn btn-neutral">Edit profile</a>
@@ -63,7 +63,7 @@
           </div>
           <div class="text-center">
             <h5 class="h3">
-              {{ request.user.username }}
+              {{ request.user.first_name }}
             </h5>
             <div class="h5 font-weight-300">
               {{ request.user.email }}

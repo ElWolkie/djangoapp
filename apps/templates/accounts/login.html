@@ -31,58 +31,55 @@
     <div class="form-content">
       <div class="login-form">
         <div class="title" style="font-weight: bold; font-size: 3.75vh;">Iniciar Sesión</div>
-        <form method="POST" autocomplete="off" action="{% url 'login' %}">
+        <form method="POST" action="{% url 'login' %}" autocomplete="off">
           {% csrf_token %}
           <div class="input-boxes">
-            <div class="input-box">
-              <i class="fas fa-envelope"></i>
-              <input type="text" name="username" placeholder="Ingrese su correo" />
-              <span class="error-message" id="email-error"></span>
-            </div>
-            <div class="input-box">
-              <i class="fas fa-lock"></i>
-              <input type="password" name="password" placeholder="Ingrese su contraseña" />
-              <span class="error-message" id="password-error"></span>
-            </div>
-            <div class="text">
-              <a href="#">¿Olvidó su contraseña?</a>
-            </div>
-            <div class="button input-box">
-              <input type="submit" value="Entrar" />
-            </div>
-            <div class="text sign-up-text">
-              ¿No tienes una cuenta? <label for="flip">Registrarse</label>
-            </div>
+              <!-- Campos de login -->
+              <div class="input-box">
+                  <i class="fas fa-envelope"></i>
+                  <input type="text" name="username" placeholder="Ingrese su correo" />
+              </div>
+              <div class="input-box">
+                  <i class="fas fa-lock"></i>
+                  <input type="password" name="password" placeholder="Ingrese su contraseña" />
+              </div>
+              <div class="button input-box">
+                  <input type="submit" value="Entrar" />
+              </div>
+              <div class="text sign-up-text">
+                  ¿No tienes una cuenta? <label for="flip">Registrarse</label>
+              </div>
           </div>
-        </form>
+      </form>
       </div>
   
 
       <div class="signup-form">
         <div class="title" style="font-weight: bold; font-size: 3.75vh;">Registro</div>
-        <form method="POST" action="#" autocomplete="off">
+        <form method="POST" action="{% url 'login' %}" autocomplete="off">
           {% csrf_token %}
           <div class="input-boxes">
-            <div class="input-box">
-              <i class="fas fa-user"></i>
-              <input type="text" placeholder="Ingrese su nombre" required />
-            </div>
-            <div class="input-box">
-              <i class="fas fa-envelope"></i>
-              <input type="email" placeholder="Ingrese su correo" required />
-            </div>
-            <div class="input-box">
-              <i class="fas fa-lock"></i>
-              <input type="password" placeholder="Ingrese su contraseña" required />
-            </div>
-            <div class="button input-box">
-              <input type="submit" value="Crear cuenta" />
-            </div>
-            <div class="text sign-up-text">
-              ¿Ya tienes una cuenta? <label for="flip">Iniciar sesión</label>
-            </div>
+              <!-- Campos de registro -->
+              <div class="input-box">
+                  <i class="fas fa-user"></i>
+                  <input type="text" name="name" placeholder="Ingrese su nombre" required />
+              </div>
+              <div class="input-box">
+                  <i class="fas fa-envelope"></i>
+                  <input type="email" name="email" placeholder="Ingrese su correo" required />
+              </div>
+              <div class="input-box">
+                  <i class="fas fa-lock"></i>
+                  <input type="password" name="password" placeholder="Ingrese su contraseña" required />
+              </div>
+              <div class="button input-box">
+                  <input type="submit" value="Crear cuenta" />
+              </div>
+              <div class="text sign-up-text">
+                  ¿Ya tienes una cuenta? <label for="flip">Iniciar sesión</label>
+              </div>
           </div>
-        </form>
+      </form>
       </div>
     </div>
   </div>

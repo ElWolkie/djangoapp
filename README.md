@@ -54,7 +54,7 @@ $ cd argon-dashboard-django
 $
 $ # Virtualenv modules installation (Unix based systems)
 $ virtualenv env
-$ source env/bin/activate
+$ source env/bin/activate #Linux
 $ source env/Scripts/activate  #Windows
 $
 $ # Virtualenv modules installation (Windows based systems)
