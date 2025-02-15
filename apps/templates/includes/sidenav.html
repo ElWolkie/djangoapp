@@ -18,11 +18,33 @@
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link" href="/persona.html">
+            <a class="nav-link" href="#" id="personaDropdown" data-toggle="collapse" data-target="#personaMenu" aria-expanded="false" aria-controls="personaMenu">
               <i class="ni ni-single-02 text-orange"></i>
-              <span class="nav-link-text">Persona</span>
+              <span class="nav-link-text">Gestionar Persona</span>
             </a>
+            <div id="personaMenu" class="collapse">
+              <ul class="nav flex-column ml-3">
+                <li class="nav-item">
+                  <a class="nav-link" href="/persona.html">Registrar</a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="/tablaPersona.html">Consultar</a>
+                </li>
+                <!-- <li class="nav-item">
+                  <a class="nav-link" href="/persona3.html">adivina adivinador</a>
+                </li> -->
+              </ul>
+            </div>
           </li>
+          
+          <style>
+            #personaDropdown:hover {
+              background-color: #f8f9fa;
+            }
+            #personaMenu .nav-link:hover {
+              background-color: #e9ecef;
+            }
+          </style>
           <li class="nav-item">
             <a class="nav-link {% if 'icons' in segment %} active {% endif %}" href="/icons.html">
               <i class="ni ni-planet text-orange"></i>

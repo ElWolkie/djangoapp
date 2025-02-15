@@ -295,6 +295,10 @@ body {
     display: none;
   }
 }
+ 
+.text-orange {
+  color: #fd7e14; /* Naranja brillante */
+}
 
 /* Estilos para los campos inválidos 
 .input-box input:invalid {
