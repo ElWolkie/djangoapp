@@ -1,0 +1,51 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}Listado de Personas{% endblock title %}
+
+{% block stylesheets %}
+<link rel="stylesheet" href="/static/assets/css/styleForms.css" />
+<link rel="stylesheet" href="/static/assets/css/argon.css" />
+{% endblock stylesheets %}
+
+{% block content %}
+<div class="container mt-5">
+  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Lista de Personas Registradas</h2>
+
+  {% if messages %}
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        {{ message }}
+      </div>
+    {% endfor %}
+  {% endif %}
+
+  <table class="table table-striped text-gray-dark">
+    <thead class="text-darker">
+      <tr>
+        <th scope="col">Cédula</th>
+        <th scope="col">Nombres</th>
+        <th scope="col">Apellidos</th>
+        <th scope="col">Teléfono</th>
+        <th scope="col">Correo Electrónico</th>
+        <th scope="col">Tipo de Persona</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for persona in personas %}
+      <tr>
+        <td>{{ persona.cedula }}</td>
+        <td>{{ persona.nombres }}</td>
+        <td>{{ persona.apellidos }}</td>
+        <td>{{ persona.telefono }}</td>
+        <td>{{ persona.correo }}</td>
+        <td>{{ persona.idTP.nombre }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock content %}
+
+{% block javascripts %}
+<script src="/static/assets/js/validacionesPersona.js"></script>
+{% endblock javascripts %}

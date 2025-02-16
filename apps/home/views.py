@@ -5,6 +5,7 @@ from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from .forms import PersonaForm
+from .models import Personas
 
 @login_required(login_url="/login/")
 def index(request):
@@ -21,7 +22,7 @@ def pages(request):
 
         if load_template == "admin":
             return HttpResponseRedirect(reverse("admin:index"))
-        
+
         if load_template == "persona.html":
             if request.method == 'POST':
                 form = PersonaForm(request.POST)
@@ -36,6 +37,10 @@ def pages(request):
             else:
                 form = PersonaForm()
             context['form'] = form
+
+        if load_template == "tablaPersona.html":
+            personas = Personas.objects.all()
+            context['personas'] = personas
 
         context["segment"] = load_template
 

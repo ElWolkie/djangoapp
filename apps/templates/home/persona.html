@@ -3,32 +3,30 @@
 {% block title %}Registro de Persona{% endblock title %}
 
 {% block stylesheets %}
-<!-- Puedes agregar tus hojas de estilo aquí -->
 <link rel="stylesheet" href="/static/assets/css/styleForms.css" />
 <link rel="stylesheet" href="/static/assets/css/argon.css" />
 {% endblock stylesheets %}
 
 {% block content %}
 <div class="container mt-5">
-  <h2 class="text-center text-dark" style="margin: 0px auto; padding: 5px 0px 15px 0px;">Formulario de Registro</h2>
+  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Formulario de Registro</h2>
   
   {% if messages %}
-    <div class="alert alert-dismissible fade show" role="alert">
-      {% for message in messages %}
-        <div class="alert alert-{{ message.tags }}">{{ message }}</div>
-      {% endfor %}
-      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    </div>
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        {{ message }}
+      </div>
+    {% endfor %}
   {% endif %}
   
-  <form method="POST" class="mt-4 text-dark" autocomplete="off" style="font-weight: bold; font-weight: 580;">
+  <form method="POST" class="mt-4 text-dark" autocomplete="off" style="font-weight: bold;" id="registroForm">
     {% csrf_token %}
     <div class="row">
       <div class="col-md-6">
         <div class="form-group">
           <label for="tipoPersona">Tipo de Persona:</label>
           <button class="btn btn-warning btn-square btn-sm ml-2" type="button" title="Registrar Tipo de Persona">+</button>  
-          <select id="tipoPersona" name="idTP" class="form-control text-dark" required>
+          <select id="tipoPersona" name="idTP" class="form-control text-dark" tabindex="1" required>
             <option value="" disabled selected>Seleccione..</option>
             <option value="1" class="text-orange">Cliente</option>
             <option value="2" class="text-orange">Contratado</option>
@@ -38,25 +36,25 @@
         </div>
         <div class="form-group">
           <label for="nombres">Nombres:</label>
-          <input type="text" id="nombres" name="nombres" class="form-control text-dark" placeholder="Ingrese su nombre" required />
+          <input type="text" id="nombres" name="nombres" class="form-control text-dark" placeholder="Ingrese su nombre" tabindex="3" maxlength="100" required />
         </div>
         <div class="form-group">
           <label for="telefono">Teléfono:</label>
-          <input type="text" id="telefono" name="telefono" class="form-control text-dark" placeholder="0412-000-0000" required />
+          <input type="text" id="telefono" name="telefono" class="form-control text-dark" placeholder="0412-000-0000" tabindex="5" maxlength="15" required />
         </div>
       </div>
       <div class="col-md-6">
         <div class="form-group">
           <label for="cedula">Cédula:</label>
-          <input type="text" id="cedula" name="cedula" class="form-control text-dark" placeholder="Ingrese su cédula" required />
+          <input type="text" id="cedula" name="cedula" class="form-control text-dark" placeholder="Ingrese su cédula" tabindex="2" maxlength="10" required />
         </div>
         <div class="form-group">
           <label for="apellidos">Apellidos:</label>
-          <input type="text" id="apellidos" name="apellidos" class="form-control text-dark" placeholder="Ingrese su apellido" required />
+          <input type="text" id="apellidos" name="apellidos" class="form-control text-dark" placeholder="Ingrese su apellido" tabindex="4" maxlength="100" required />
         </div>
         <div class="form-group">
           <label for="correo">Correo Electrónico:</label>
-          <input type="email" id="correo" name="correo" class="form-control text-dark" placeholder="example@gmail.com" required />
+          <input type="email" id="correo" name="correo" class="form-control text-dark" placeholder="example@gmail.com" tabindex="6" maxlength="254" required />
           <input type="hidden" id="estadoPersona" name="estadoPersona" class="form-control text-dark" value="ACTIVO" />
         </div>
       </div>
@@ -67,3 +65,7 @@
   </form>
 </div>
 {% endblock content %}
+
+{% block javascripts %}
+<script src="/static/assets/js/validacionesPersona.js"></script>
+{% endblock javascripts %}

@@ -3,7 +3,7 @@ body {
     align-items: center;
     justify-content: center;
     overflow-x: hidden;
-    background: linear-gradient(-45deg, #ff9176, #ec4b27, #0805b1, #627aff);
+    background: linear-gradient(-45deg, #0c1379e8, #420474cc, #0805b1da, #627aff);
     background-size: 400% 400%;
     animation: gradient 15s ease infinite;
     height: 115vh;
@@ -20,6 +20,43 @@ body {
   100% {
     background-position: 0% 50%;
   }
+}
+
+.table-container {
+  background-color: #f8f9fa;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+.table th, .table td {
+  vertical-align: middle;
+  text-align: center;
+}
+.table thead {
+  background-color: #fafafada;
+  color: #000000;
+}
+.table thead tr th{
+  font-weight: bold;
+  font-weight: 700;
+  font-size: 12.5px;
+  color: #252525;
+}
+
+.table tbody tr:nth-child(odd) {
+  background-color: #f0f0f083;
+}
+.table tbody tr:hover {
+  background-color: #eeeeeee5;
+}
+.table tbody tr td {
+  font-weight: bold;
+}
+.table .avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
 }
 
 .container {

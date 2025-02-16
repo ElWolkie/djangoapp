@@ -68,16 +68,28 @@ WSGI_APPLICATION = "core.wsgi.application"
 # https://docs.djangoproject.com/en/3.0/ref/settings/#databases
 
 
+import os
+import platform
+from decouple import config
+
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": "fundacion",
-        "USER": "prueba", #aqui va el usuario del usuario en la pc
-        "PASSWORD": "Prueba2022", #aqui hay que poner la contraseña del usuario en la pc
-        "HOST": "localhost",  # O la dirección IP del servidor de base de datos
-        "PORT": "5432",       # El puerto por defecto de PostgreSQL
+        "NAME": config("DB_NAME", default="fundacion"),
+        "USER": config("DB_USER", default="prueba"),
+        "PASSWORD": config("DB_PASSWORD", default="Prueba2022"),
+        "HOST": config("DB_HOST", default="localhost"),
+        "PORT": config("DB_PORT", default="5432"),
+        "OPTIONS": {
+            "options": "-c client_encoding=UTF8"
+        }
     }
 }
+
+# Ajustes específicos para Windows
+if platform.system() == "Windows":
+    DATABASES["default"]["OPTIONS"]["client_encoding"] = "UTF8"
+
 
 # Password validation
 # https://docs.djangoproject.com/en/3.0/ref/settings/#auth-password-validators
