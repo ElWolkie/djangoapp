@@ -67,10 +67,15 @@ WSGI_APPLICATION = "core.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/3.0/ref/settings/#databases
 
+
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": "db.sqlite3",
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": "fundacion",
+        "USER": "prueba", #aqui va el usuario del usuario en la pc
+        "PASSWORD": "Prueba2022", #aqui hay que poner la contraseña del usuario en la pc
+        "HOST": "localhost",  # O la dirección IP del servidor de base de datos
+        "PORT": "5432",       # El puerto por defecto de PostgreSQL
     }
 }
 
@@ -115,7 +120,16 @@ STATIC_URL = "/static/"
 
 # Extra places for collectstatic to find static files.
 STATICFILES_DIRS = (os.path.join(CORE_DIR, "apps/static"),)
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+from django.contrib.messages import constants as messages
 
+MESSAGE_TAGS = {
+    messages.DEBUG: 'debug',
+    messages.INFO: 'info',
+    messages.SUCCESS: 'success',
+    messages.WARNING: 'warning',
+    messages.ERROR: 'danger',
+}
 #############################################################
 #############################################################

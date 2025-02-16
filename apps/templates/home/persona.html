@@ -6,12 +6,21 @@
 <!-- Puedes agregar tus hojas de estilo aquí -->
 <link rel="stylesheet" href="/static/assets/css/styleForms.css" />
 <link rel="stylesheet" href="/static/assets/css/argon.css" />
-
 {% endblock stylesheets %}
 
 {% block content %}
 <div class="container mt-5">
   <h2 class="text-center text-dark" style="margin: 0px auto; padding: 5px 0px 15px 0px;">Formulario de Registro</h2>
+  
+  {% if messages %}
+    <div class="alert alert-dismissible fade show" role="alert">
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+      {% endfor %}
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+  {% endif %}
+  
   <form method="POST" class="mt-4 text-dark" autocomplete="off" style="font-weight: bold; font-weight: 580;">
     {% csrf_token %}
     <div class="row">
@@ -21,13 +30,12 @@
           <button class="btn btn-warning btn-square btn-sm ml-2" type="button" title="Registrar Tipo de Persona">+</button>  
           <select id="tipoPersona" name="idTP" class="form-control text-dark" required>
             <option value="" disabled selected>Seleccione..</option>
-            <option value="Cliente" class="text-orange">Cliente</option>
-            <option value="Contratado" class="text-orange">Contratado</option>
-            <option value="Usuario Administrador" class="text-orange">Usuario Administrador</option>
-            <option value="Usuario Estandar" class="text-orange">Usuario Estandar</option>
+            <option value="1" class="text-orange">Cliente</option>
+            <option value="2" class="text-orange">Contratado</option>
+            <option value="3" class="text-orange">Usuario Administrador</option>
+            <option value="4" class="text-orange">Usuario Estandar</option>
           </select>
         </div>
-        
         <div class="form-group">
           <label for="nombres">Nombres:</label>
           <input type="text" id="nombres" name="nombres" class="form-control text-dark" placeholder="Ingrese su nombre" required />
@@ -46,10 +54,10 @@
           <label for="apellidos">Apellidos:</label>
           <input type="text" id="apellidos" name="apellidos" class="form-control text-dark" placeholder="Ingrese su apellido" required />
         </div>
-        
         <div class="form-group">
           <label for="correo">Correo Electrónico:</label>
           <input type="email" id="correo" name="correo" class="form-control text-dark" placeholder="example@gmail.com" required />
+          <input type="hidden" id="estadoPersona" name="estadoPersona" class="form-control text-dark" value="ACTIVO" />
         </div>
       </div>
     </div>
@@ -59,10 +67,3 @@
   </form>
 </div>
 {% endblock content %}
-
-{% block javascripts %}
-<script>
-  
-
-</script>
-{% endblock javascripts %}
