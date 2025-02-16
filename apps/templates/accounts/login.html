@@ -1,0 +1,91 @@
+{% extends 'layouts/base-fullscreen.html' %}
+
+{% block title %}Iniciar Sesión{% endblock %}
+
+{% block stylesheets %}
+<link rel="stylesheet" href="/static/assets/css/all.min.css"/>
+<link rel="stylesheet" href="/static/assets/css/style.css"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+{% endblock stylesheets %}
+
+{% block content %}
+<div class="container">
+  <input type="checkbox" id="flip" />
+  <div class="cover">
+    <div class="front">
+      <img src="/static/assets/img/theme/frontImg.jpg" alt="" />
+      <div class="text">
+        <span class="text-1">Cada nuevo amigo es una <br /> nueva aventura</span>
+        <span class="text-2">¡Conectémonos!</span>
+      </div>
+    </div>
+    <div class="back">
+      <img class="backImg" src="/static/assets/img/theme/backImg.jpg" alt="" />
+      <div class="text">
+        <span class="text-1">Completa millas de viaje <br /> con un paso</span>
+        <span class="text-2">¡Empecemos!</span>
+      </div>
+    </div>
+  </div>
+  <div class="forms">
+    <div class="form-content">
+      <div class="login-form">
+        <div class="title" style="font-weight: bold; font-size: 3.75vh;">Iniciar Sesión</div>
+        <form method="POST" action="{% url 'login' %}" autocomplete="off">
+          {% csrf_token %}
+          <div class="input-boxes">
+              <!-- Campos de login -->
+              <div class="input-box">
+                  <i class="fas fa-envelope"></i>
+                  <input type="text" name="username" placeholder="Ingrese su correo" />
+              </div>
+              <div class="input-box">
+                  <i class="fas fa-lock"></i>
+                  <input type="password" name="password" placeholder="Ingrese su contraseña" />
+              </div>
+              <div class="button input-box">
+                  <input type="submit" value="Entrar" />
+              </div>
+              <div class="text sign-up-text">
+                  ¿No tienes una cuenta? <label for="flip">Registrarse</label>
+              </div>
+          </div>
+      </form>
+      </div>
+  
+
+      <div class="signup-form">
+        <div class="title" style="font-weight: bold; font-size: 3.75vh;">Registro</div>
+        <form method="POST" action="{% url 'login' %}" autocomplete="off">
+          {% csrf_token %}
+          <div class="input-boxes">
+              <!-- Campos de registro -->
+              <div class="input-box">
+                  <i class="fas fa-user"></i>
+                  <input type="text" name="name" placeholder="Ingrese su nombre" required />
+              </div>
+              <div class="input-box">
+                  <i class="fas fa-envelope"></i>
+                  <input type="email" name="email" placeholder="Ingrese su correo" required />
+              </div>
+              <div class="input-box">
+                  <i class="fas fa-lock"></i>
+                  <input type="password" name="password" placeholder="Ingrese su contraseña" required />
+              </div>
+              <div class="button input-box">
+                  <input type="submit" value="Crear cuenta" />
+              </div>
+              <div class="text sign-up-text">
+                  ¿Ya tienes una cuenta? <label for="flip">Iniciar sesión</label>
+              </div>
+          </div>
+      </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}
+
+{% block javascripts %}
+<script src="/static/assets/js/login.js"></script>
+{% endblock javascripts %}

@@ -1,0 +1,55 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@200;300;400;500;600;700&display=swap');
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: "Poppins", sans-serif;
+  }
+
+span {
+    font-weight: bold;
+    font-size: 15px; 
+    font-weight: 580;
+}
+
+/* Aplica el estilo solo a la navegación dentro de la clase .nav */
+.nav {
+    font-weight: bold;
+    font-size: 15px; 
+}
+
+/* Aplica el estilo a los ítems de la lista dentro de la navegación */
+.nav.flex-column .nav-item {
+    font-weight: bold;
+    font-size: 15px;
+}
+
+/* Aplica el estilo a los enlaces dentro de los ítems de la navegación */
+.nav.flex-column .nav-item .nav-link {
+    font-weight: bold;
+    font-size: 14.5px;
+}
+
+/* Si los estilos siguen sin aplicarse, usa !important */
+ul {
+    font-weight: bold !important;
+    font-size: 15px !important;
+}
+
+a {
+    text-decoration: none;
+    background-image: linear-gradient(#b4b4b4, #afcfff);
+    background-position: 0% 100%;
+    background-repeat: no-repeat;
+    background-size: 0% 2px;
+    transition: background-size .6s;
+}
+
+a:hover, a:focus {
+    background-size: 100% 2px;
+}
+
+a.active-dropdown {
+    background-size: 0% 2px !important;
+}

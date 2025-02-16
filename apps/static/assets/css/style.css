@@ -1,0 +1,328 @@
+/* Google Font Link */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@200;300;400;500;600;700&display=swap');
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "Poppins", sans-serif;
+}
+
+body {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 30px;
+  overflow-x: hidden;
+  background: linear-gradient(-45deg, #ff9176, #ec4b27, #0805b1, #627aff);
+  background-size: 400% 400%;
+  animation: gradient 15s ease infinite;
+  height: 100vh;
+}
+
+@keyframes gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.container {
+  position: relative;
+  max-width: 1200px;
+  width: 150vh;
+  background: rgba(255, 255, 255, 0.911); /* Fondo con transparencia */
+  padding: 30px 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.425); /* Sombra más suave */
+  perspective: 2700px;
+  border-radius: 10px;
+  backdrop-filter: blur(15px); /* Efecto de desenfoque para mayor elegancia */
+}
+
+@media (max-width: 768px) {
+  .container {
+    width: 100%;
+    max-width: 100%;
+    padding: 30px 20px;
+  }
+}
+
+.container .cover {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  height: 100%;
+  width: 50%;
+  z-index: 98;
+  transition: all 1s ease;
+  transform-origin: left;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  border-radius: 10px;
+}
+
+.container #flip:checked ~ .cover {
+  transform: rotateY(-180deg);
+}
+
+.container #flip:checked ~ .forms .login-form {
+  pointer-events: none;
+}
+
+.container .cover .front,
+.container .cover .back {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 100%;
+  border-radius: 10px;
+}
+
+.cover .back {
+  transform: rotateY(180deg);
+}
+
+.container .cover img {
+  position: absolute;
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+  z-index: 10;
+  border-radius: 10px;
+}
+
+.container .cover .text {
+  position: absolute;
+  z-index: 10;
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.container .cover .text::before {
+  content: '';
+  position: absolute;
+  height: 100%;
+  width: 100%;
+  opacity: 0.5;
+  background: #ec4b27;
+  border-radius: 10px;
+}
+
+.cover .text .text-1,
+.cover .text .text-2 {
+  z-index: 20;
+  font-size: 26px;
+  font-weight: 600;
+  color: #fff;
+  text-align: center;
+}
+
+.cover .text .text-2 {
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.container .forms {
+  height: 100%;
+  width: 100%;
+}
+
+.container .form-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.form-content .login-form,
+.form-content .signup-form {
+  width: 45%;
+  margin: 0 2.5%;
+}
+
+.forms .form-content .title {
+  position: relative;
+  font-size: 24px;
+  font-weight: 500;
+  color: #333;
+  text-align: center;
+}
+
+.forms .form-content .title:before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  height: 3px;
+  width: 180px;
+  background: #ec4b27;
+}
+
+.forms .signup-form .title:before {
+  width: 100px;
+}
+
+.forms .form-content .input-boxes {
+  margin-top: 30px;
+}
+
+.forms .form-content .input-box {
+  display: flex;
+  align-items: center;
+  height: 50px;
+  width: 100%;
+  margin: 5px 0;
+  position: relative;
+}
+
+.form-content .input-box input {
+  height: 100%;
+  width: 100%;
+  outline: none;
+  border: none;
+  padding: 0 10px 0 40px;
+  font-size: 16px;
+  font-weight: 500;
+  border-bottom: 2px solid rgba(0, 0, 0, 0.2);
+  transition: all 0.3s ease;
+}
+
+/* Mostrar borde naranja solo cuando el campo está enfocado */
+.form-content .input-box input:focus {
+  border-color: #ec4b27; /* Borde naranja al enfocar */
+}
+
+/* Eliminar el borde naranja cuando el campo es válido */
+.form-content .input-box input:valid {
+  border-color: rgba(0, 0, 0, 0.2); /* Restaurar el borde normal */
+}
+
+.form-content .input-box i {
+  position: absolute;
+  color: #ec4b27;
+  font-size: 17px;
+  left: 10px;
+}
+
+.forms .form-content .text {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+}
+
+.forms .form-content .text a {
+  text-decoration: none;
+}
+
+.forms .form-content .text a:hover {
+  text-decoration: underline;
+}
+
+.forms .form-content .button {
+  color: #fff;
+  margin-top: 30px;
+}
+
+.forms .form-content .button input {
+  color: #fff;
+  background: #fb6340;
+  border-radius: 6px;
+  padding: 10px;
+  width: 50%;
+  height: 80%;
+  margin: 0 auto;
+  cursor: pointer;
+  transition: all 0.4s ease;
+}
+
+.forms .form-content .button input:hover {
+  background: #ec4b27;
+}
+
+.forms .form-content label {
+  color: #ec4b27;
+  cursor: pointer;
+}
+
+.forms .form-content label:hover {
+  text-decoration: underline;
+}
+
+.forms .form-content .login-text,
+.forms .form-content .sign-up-text {
+  text-align: center;
+  margin-top: 25px;
+}
+
+.container #flip {
+  display: none;
+}
+
+@media (max-width: 730px) {
+  .container .cover {
+    display: none;
+  }
+
+  .form-content {
+    width: 100%;
+  }
+
+  .form-content .login-form,
+  .form-content .signup-form {
+    width: 100%;
+  }
+
+  .form-content .signup-form {
+    display: none;
+  }
+
+  .container #flip:checked ~ .forms .signup-form {
+    display: block;
+  }
+
+  .container #flip:checked ~ .forms .login-form {
+    display: none;
+  }
+}
+ 
+.text-orange {
+  color: #fd7e14; /* Naranja brillante */
+}
+
+/* Estilos para los campos inválidos 
+.input-box input:invalid {
+  border-bottom: 2px solid #ff3860; /* Borde rojo para campos inválidos 
+}
+*/
+
+/* Estilos para los mensajes de error 
+    .error-message {
+      color: #ff3860;
+      font-size: 12px;
+      margin-top: 5px;
+      display: none;
+      width: 100%;
+      text-align: left;
+    }
+
+    /* Mostrar mensajes de error cuando el campo es inválido 
+    .input-box input:invalid + .error-message {
+      display: block;
+    }
+
+    /* Mostrar mensajes de error cuando el campo es inválido 
+    .input-box input:invalid + .error-message {
+      display: block;
+    }
+*/
