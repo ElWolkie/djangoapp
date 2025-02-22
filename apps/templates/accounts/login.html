@@ -6,6 +6,37 @@
 <link rel="stylesheet" href="/static/assets/css/all.min.css"/>
 <link rel="stylesheet" href="/static/assets/css/style.css"/>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+<style>
+  .input-box {
+    position: relative;
+    margin-bottom: 15px;
+  }
+
+  .input-box input {
+    width: 100%;
+    padding: 10px 10px 10px 40px;
+    box-sizing: border-box;
+  }
+
+  .input-box label {
+    position: absolute;
+    top: 50%;
+    left: 40px;
+    transform: translateY(-50%);
+    transition: 0.5s;
+    pointer-events: none;
+    color: #aaa;
+  }
+
+  .input-box input:focus + label,
+  .input-box input:not(:placeholder-shown) + label {
+    top: 5px;
+    left: 40px;
+    font-size: 11px;
+    color: #f84600;
+    opacity: .8;
+  }
+</style>
 {% endblock stylesheets %}
 
 {% block content %}
@@ -37,11 +68,13 @@
               <!-- Campos de login -->
               <div class="input-box">
                   <i class="fas fa-envelope"></i>
-                  <input type="text" name="username" placeholder="Ingrese su correo" />
+                  <input type="text" name="username" placeholder=" " />
+                  <label for="username">Correo electrónico</label>
               </div>
               <div class="input-box">
                   <i class="fas fa-lock"></i>
-                  <input type="password" name="password" placeholder="Ingrese su contraseña" />
+                  <input type="password" name="password" placeholder=" " />
+                  <label for="password">Contraseña</label>
               </div>
               <div class="button input-box">
                   <input type="submit" value="Entrar" />
@@ -53,7 +86,6 @@
       </form>
       </div>
   
-
       <div class="signup-form">
         <div class="title" style="font-weight: bold; font-size: 3.75vh;">Registro</div>
         <form method="POST" action="{% url 'login' %}" autocomplete="off">
@@ -62,15 +94,18 @@
               <!-- Campos de registro -->
               <div class="input-box">
                   <i class="fas fa-user"></i>
-                  <input type="text" name="name" placeholder="Ingrese su nombre" required />
+                  <input type="text" name="name" placeholder=" " />
+                  <label for="name">Usuario</label>
               </div>
               <div class="input-box">
                   <i class="fas fa-envelope"></i>
-                  <input type="email" name="email" placeholder="Ingrese su correo" required />
+                  <input type="email" name="email" placeholder=" " />
+                  <label for="email">Correo electrónico</label>
               </div>
               <div class="input-box">
                   <i class="fas fa-lock"></i>
-                  <input type="password" name="password" placeholder="Ingrese su contraseña" required />
+                  <input type="password" name="password" placeholder=" " />
+                  <label for="password">Contraseña</label>
               </div>
               <div class="button input-box">
                   <input type="submit" value="Crear cuenta" />

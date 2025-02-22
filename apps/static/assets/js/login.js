@@ -23,17 +23,17 @@ document.addEventListener('DOMContentLoaded', function () {
     const password = loginForm.querySelector('input[name="password"]').value.trim();
 
     if (email === '') {
-      alert('Por favor, ingresa tu correo electrónico.');
+      showAlert('Por favor, ingrese su Correo electrónico.', 'error');
       return false;
     }
 
     if (password === '') {
-      alert('Por favor, ingresa tu contraseña.');
+      showAlert('Por favor, ingrese su Contraseña.', 'error');
       return false;
     }
 
     if (!validateEmail(email)) {
-      alert('Por favor, ingresa un correo electrónico válido.');
+      showAlert('Por favor, ingrese un Correo electrónico válido.', 'error');
       return false;
     }
 
@@ -41,32 +41,32 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   function validateSignupForm() {
-    const name = signupForm.querySelector('input[type="text"]').value.trim();
-    const email = signupForm.querySelector('input[type="email"]').value.trim();
-    const password = signupForm.querySelector('input[type="password"]').value.trim();
+    const name = signupForm.querySelector('input[name="name"]').value.trim();
+    const email = signupForm.querySelector('input[name="email"]').value.trim();
+    const password = signupForm.querySelector('input[name="password"]').value.trim();
 
     if (name === '') {
-      alert('Por favor, ingresa tu nombre.');
+      showAlert('Por favor, ingrese su nombre de Usuario.', 'error');
       return false;
     }
 
     if (email === '') {
-      alert('Por favor, ingresa tu correo electrónico.');
+      showAlert('Por favor, ingrese su Correo electrónico.', 'error');
       return false;
     }
 
     if (password === '') {
-      alert('Por favor, ingresa tu contraseña.');
+      showAlert('Por favor, ingrese su Contraseña.', 'error');
       return false;
     }
 
     if (!validateEmail(email)) {
-      alert('Por favor, ingresa un correo electrónico válido.');
+      showAlert('Por favor, ingrese un Correo electrónico válido.', 'error');
       return false;
     }
 
     if (password.length < 8) {
-      alert('La contraseña debe tener al menos 8 caracteres.');
+      showAlert('La contraseña debe tener al menos 8 caracteres.', 'error');
       return false;
     }
 
@@ -76,5 +76,15 @@ document.addEventListener('DOMContentLoaded', function () {
   function validateEmail(email) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
+  }
+
+  function showAlert(message, type) {
+    const alertBox = document.createElement('div');
+    alertBox.className = `alert ${type}`;
+    alertBox.innerText = message;
+    document.body.appendChild(alertBox);
+    setTimeout(() => {
+      alertBox.remove();
+    }, 3000);
   }
 });

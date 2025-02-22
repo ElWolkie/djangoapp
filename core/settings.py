@@ -15,6 +15,8 @@ DEBUG = config("DEBUG", default=True, cast=bool)
 # load production server from .env
 ALLOWED_HOSTS = ["localhost", "127.0.0.1", config("SERVER", default="127.0.0.1")]
 
+CSRF_COOKIE_SECURE = False  # Si no estás usando HTTPS
+
 # Application definition
 
 INSTALLED_APPS = [
@@ -24,6 +26,10 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    'apps.api',  # La app donde estan las rutas y vistas
+    'rest_framework',  # Django Rest Framework
+    'rest_framework_simplejwt', #JWT para autenticacion
+    'apps.authentication',
     "apps.home",  # Enable the inner home (home)
 ]
 
@@ -41,7 +47,7 @@ MIDDLEWARE = [
 ROOT_URLCONF = "core.urls"
 LOGIN_URL = "/login/"
 LOGIN_REDIRECT_URL = "/home/"
-LOGOUT_REDIRECT_URL = "/home/"
+LOGOUT_REDIRECT_URL = "/login/"
 
 
 TEMPLATE_DIR = os.path.join(CORE_DIR, "apps/templates")  # ROOT dir for templates
@@ -84,6 +90,23 @@ DATABASES = {
             "options": "-c client_encoding=UTF8"
         }
     }
+}
+
+from datetime import timedelta
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',  # Autenticación JWT
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',  # Solo los usuarios autenticados pueden acceder
+    ),
+}
+
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
 }
 
 # Ajustes específicos para Windows
