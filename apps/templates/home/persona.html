@@ -23,17 +23,17 @@
     {% csrf_token %}
     <div class="row">
       <div class="col-md-6">
-      <div class="form-group">
-        <label for="tipoPersona">Tipo de Persona:</label>
-        <button class="btn btn-warning btn-square btn-sm my-2" type="button" title="Registrar Tipo de Persona" data-toggle="modal" data-target="#tipoPersonaModal">+</button>
-        <select id="tipoPersona" name="idTP" class="form-control text-dark" tabindex="1" required>
-        <option value="" disabled selected>Seleccione..</option>
-        
-        {% for tipopersona in tipopersonas %}
-          <option value="{{ tipopersona.idTP }}" class="text-orange">{{ tipopersona.nombreTP }}</option>
-        {% endfor %}
-        </select>
-      </div>
+        <div class="form-group">
+          <label for="tipoPersona">Tipo de Persona:</label>
+          <button class="btn btn-warning btn-square btn-sm ml-2" type="button" title="Registrar Tipo de Persona">+</button>  
+          <select id="tipoPersona" name="idTP" class="form-control text-dark" tabindex="1" required>
+            <option value="" disabled selected>Seleccione..</option>
+            <option value="1" class="text-orange">Cliente</option>
+            <option value="2" class="text-orange">Contratado</option>
+            <option value="3" class="text-orange">Usuario Administrador</option>
+            <option value="4" class="text-orange">Usuario Estandar</option>
+          </select>
+        </div>
         <div class="form-group">
           <label for="nombres">Nombres:</label>
           <input type="text" id="nombres" name="nombres" class="form-control text-dark" placeholder="Ingrese su nombre" tabindex="3" maxlength="100" required />
@@ -46,7 +46,7 @@
       <div class="col-md-6">
         <div class="form-group">
           <label for="cedula">Cédula:</label>
-          <input type="text" id="cedula" name="cedula" class="form-control text-dark" placeholder="Ingrese su cédula" tabindex="2" maxlength="8" required />
+          <input type="text" id="cedula" name="cedula" class="form-control text-dark" placeholder="Ingrese su cédula" tabindex="2" maxlength="10" required />
         </div>
         <div class="form-group">
           <label for="apellidos">Apellidos:</label>
@@ -64,66 +64,8 @@
     </div>
   </form>
 </div>
-<!-- Modal -->
-<div class="modal fade" id="tipoPersonaModal" tabindex="-1" role="dialog" aria-labelledby="tipoPersonaModalLabel" aria-hidden="true">
-  <div class="modal-dialog" role="document">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="tipoPersonaModalLabel">Registro de Persona</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
-      <div class="modal-body">
-        <!-- Contenedor para los mensajes -->
-        <div id="modalMessages"></div>
-        <!-- El contenido del formulario se cargará aquí -->
-      </div>
-    </div>
-  </div>
-</div>
 {% endblock content %}
 
 {% block javascripts %}
 <script src="/static/assets/js/validacionesPersona.js"></script>
-
-<script>
-  document.addEventListener("DOMContentLoaded", function() {
-    $('#tipoPersonaModal').on('show.bs.modal', function (e) {
-      var modal = $(this);
-      $.ajax({
-        url: 'apps/home/tipoPersona.html',
-        method: 'GET',
-        success: function(data) {
-          modal.find('.modal-body').html(data);
-        }
-      });
-    });
-
-    $(document).on('submit', '#registroForm', function(e) {
-      e.preventDefault();
-      var form = $(this);
-      $.ajax({
-        url: form.attr('action'),
-        method: form.attr('method'),
-        data: form.serialize(),
-        success: function(response) {
-          var messagesContainer = $('#modalMessages');
-          messagesContainer.empty();
-          if (response.success) {
-            messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
-            $('#tipoPersonaModal').modal('hide');
-            location.reload();  // Recargar la página para ver los cambios
-          } else {
-            // Mostrar errores en el modal
-            var errors = response.errors;
-            for (var field in errors) {
-              messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + errors[field] + '</div>');
-            }
-          }
-        }
-      });
-    });
-  });
-</script>
 {% endblock javascripts %}

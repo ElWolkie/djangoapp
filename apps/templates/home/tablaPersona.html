@@ -19,25 +19,7 @@
     {% endfor %}
   {% endif %}
 
-  <div class="row">
-    <div class="col-md-4">
-      <div class="input-group">
-        <div class="input-group-prepend">
-          <span class="input-group-text" style="background-color: #bcbcbc; border: none;">
-        <i class="fas fa-search text-warning"></i>
-          </span>
-        </div>
-        <input class="form-control" id="searchInput" type="text" placeholder="Buscar...">
-      </div>
-    </div>
-    <div class="col-md-4">
-      <a class="btn btn-warning btn-square btn-sm my-2" href="/persona.html" title="Registrar Persona">+</a>
-    </div>
-  <div class="col-md-4"></div>
-  </div>
-
-<br>
-  <table class="table table-striped text-gray-dark" id="personasTable">
+  <table class="table table-striped text-gray-dark">
     <thead class="text-darker">
       <tr>
         <th scope="col">Cédula</th>
@@ -56,7 +38,7 @@
         <td>{{ persona.apellidos }}</td>
         <td>{{ persona.telefono }}</td>
         <td>{{ persona.correo }}</td>
-        <td>{{ persona.idTP.nombreTP }}</td>
+        <td>{{ persona.idTP.nombre }}</td>
       </tr>
       {% endfor %}
     </tbody>
@@ -66,20 +48,4 @@
 
 {% block javascripts %}
 <script src="/static/assets/js/validacionesPersona.js"></script>
-<script>
-  document.getElementById('searchInput').addEventListener('keyup', function() {
-    var input = this.value.toLowerCase();
-    var rows = document.querySelectorAll('#personasTable tbody tr');
-    rows.forEach(function(row) {
-      var cells = row.querySelectorAll('td');
-      var match = false;
-      cells.forEach(function(cell) {
-        if (cell.textContent.toLowerCase().indexOf(input) > -1) {
-          match = true;
-        }
-      });
-      row.style.display = match ? '' : 'none';
-    });
-  });
-</script>
 {% endblock javascripts %}

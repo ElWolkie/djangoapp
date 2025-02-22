@@ -3,9 +3,8 @@ from django.contrib.auth.models import User
 
 class TipoPersona(models.Model):
     idTP = models.AutoField(primary_key=True)  # Definimos la clave primaria con el nombre idTP
-    nombreTP = models.CharField(max_length=100)
-    estadoTP = models.CharField(max_length=10)
-    fechaTP = models.DateField(auto_now_add=True)
+    nombre = models.CharField(max_length=100)
+
     class Meta:
         verbose_name = "Tipo de Persona"
         verbose_name_plural = "Tipos de Personas"
@@ -23,4 +22,4 @@ class Personas(models.Model):
     class Meta:
         verbose_name = "Persona"
         verbose_name_plural = "Personas"
-        ordering = ['idTP']
+        ordering = ['nombres']

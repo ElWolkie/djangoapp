@@ -1,0 +1,11 @@
+[33mdbbcff5[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mnueva-rama[m[33m)[m Conflictos resueltos
+[33mb8f83d3[m Api Rest framework añadida con persona
+[33m8df6a1f[m[33m ([m[1;31morigin/nueva-rama[m[33m)[m vista creada y funcional de tipo persona, primer modal integrado funcional con BD funcional. Falta agregar el modal a tablapersona, y convertir en un nico objeto el modal de tipopersona para disminuir codigo.
+[33m0aa8687[m Navegacion actualizada, persona y Consulta creada
+[33m2699809[m MODIFICANCION DEL SETTINGS.PY PARA QUE FUNCIONE CON LA BD, PERSONA YA REGISTRA Y TIENE MENSAJES DE ALERTA, USUARIO REGISTRA. (pendiente tipopersona y actualizar los atributos de usuario)
+[33m8beedf4[m cambios en la navegacion y persona
+[33m3ea5318[m  Personas fue modificado visualmente, para que sea mas atractivo y coincida con el estilo del login. el css style tambien fue modificado le añadi un nuevo estilo para colorear el texto de los selex del naranja. NOTA PARA EDGAR: Consideremos bajar la opacidad del fondo dinamico, luego de un rato los colores tan saturados resultaron fastidiosos, pero solo dentor dle sistema, fuera dejalo asi en el login
+[33m8e389b6[m login funcional con registro
+[33mfbf2f2f[m cambios al login
+[33m813783c[m login con css y js y redireccionamiento a home/index
+[33mf7eaf17[m Agregar nuevo proyecto a la nueva rama
