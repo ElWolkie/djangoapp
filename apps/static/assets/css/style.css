@@ -299,7 +299,10 @@ body {
 .text-orange {
   color: #fd7e14; /* Naranja brillante */
 }
-
+.text-blue-shadow {
+  color: #0000FF; /* Azul intenso */
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5); /* Sombra */
+}
 /* Estilos para los campos inválidos 
 .input-box input:invalid {
   border-bottom: 2px solid #ff3860; /* Borde rojo para campos inválidos 

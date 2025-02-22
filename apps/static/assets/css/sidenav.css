@@ -48,8 +48,11 @@ a {
 
 a:hover, a:focus {
     background-size: 100% 2px;
+    background-color: #e9e9e9;
 }
 
 a.active-dropdown {
     background-size: 0% 2px !important;
+    background-color: #cecdcd;
 }
+
