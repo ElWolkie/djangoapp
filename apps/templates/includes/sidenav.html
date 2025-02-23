@@ -36,7 +36,7 @@
         <div id="menu1" class="collapse">
           <ul class="nav flex-column ml-3">
           <li class="nav-item">
-            <a class="nav-link" href="/persona.html" style="padding-left: 15px;"><i class="ni ni-fat-add text-orange"></i>Registrar</a>
+            <a class="nav-link" href="/persona.html" style="padding-left: 15px;"><i class="ni ni-badge text-orange"></i>Registrar</a>
           </li>
           <li class="nav-item">
             <a class="nav-link" href="/tablaPersona.html" style="padding-left: 15px;"><i class="ni ni-collection text-orange"></i>Consultar</a>
@@ -49,34 +49,50 @@
           </ul>
         </div>
         </li>
-        
-        <li class="nav-item">
-        <a class="nav-link menu1" href="#" id="personaDropdown" data-toggle="collapse" data-target="#menu2" aria-expanded="false" aria-controls="menu2">
-          <i class="ni ni-hat-3 text-orange"></i>
-          <span class="nav-link-text">Gestionar Academia</span>
-        </a>
-        <div id="menu2" class="collapse">
-          <ul class="nav flex-column ml-3">
-          <li class="nav-item">
-            <a class="nav-link" href="/persona.html" style="padding-left: 15px;"><i class="ni ni-fat-add text-orange"></i>Ofertas</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="/tablaPersona.html" style="padding-left: 15px;"><i class="ni ni-books text-orange"></i>Materias</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="/tablaTipoPersona.html" style="padding-left: 15px;"> <i class="ni ni-bullet-list-67 text-orange"></i>Cohortes
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="/tablaTipoPersona.html" style="padding-left: 15px;"> <i class="ni ni-briefcase-24 text-orange"></i>Contratos
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="/tablaTipoPersona.html" style="padding-left: 15px;"> <i class="ni ni-money-coins text-orange"></i>Honorarios
-            </a>
-          </li>
-          </ul>
-        </div>
+        <li class="nav-item">  
+          <a class="nav-link menu1" href="#" id="personaDropdown" data-toggle="collapse" data-target="#menu2" aria-expanded="false" aria-controls="menu2">  
+            <i class="ni ni-hat-3 text-orange"></i>  
+            <span class="nav-link-text">Gestionar Academia</span>  
+          </a>  
+          <div id="menu2" class="collapse">  
+            <ul class="nav flex-column ml-3">  
+              <li class="nav-item">  
+                <a class="nav-link" href="#" id="ofertasDropdown" data-toggle="collapse" data-target="#ofertasMenu" aria-expanded="false" aria-controls="ofertasMenu" style="padding-left: 15px;">  
+                  <i class="ni ni-ruler-pencil text-orange"></i>Ofertas  
+                </a>  
+                <div id="ofertasMenu" class="collapse ml-3">  
+                  <ul class="nav flex-column">  
+                    <li class="nav-item">  
+                      <a class="nav-link" href="/tablaOfertas.html" style="padding-left: 30px;"><i class="ni ni-bullet-list-67 text-orange"></i>Consultar</a>  
+                    </li>  
+                    <li class="nav-item">  
+                      <a class="nav-link" href="/tablaTipoOfertas.html" style="padding-left: 30px;"><i class="ni ni-bullet-list-67 text-orange"></i>Tipo</a>  
+                    </li>  
+                    <li class="nav-item">  
+                      <a class="nav-link" href="/tablaCuotas.html" style="padding-left: 30px;"><i class="ni ni-bullet-list-67 text-orange"></i>Cuotas</a>  
+                    </li>  
+                  </ul>  
+                </div>  
+              </li>  
+              <li class="nav-item">  
+                <a class="nav-link" href="/tablaPersona.html" style="padding-left: 15px;"><i class="ni ni-books text-orange"></i>Materias</a>  
+              </li>  
+              <li class="nav-item">  
+                <a class="nav-link" href="/tablaTipoPersona.html" style="padding-left: 15px;"> <i class="ni ni-book-bookmark text-orange"></i>Cohortes</a>  
+              </li>  
+              <li class="nav-item">  
+                <a class="nav-link" href="/tablaTipoPersona.html" style="padding-left: 15px;"> <i class="ni ni-paper-diploma text-orange"></i>Contratos</a>  
+              </li>  
+              <li class="nav-item">  
+                <a class="nav-link" href="/cargos.html" style="padding-left: 15px;">  
+                    <i class="ni ni-circle-08 text-orange"></i> Cargos  
+                </a>  
+              </li>  
+              <li class="nav-item">  
+                <a class="nav-link" href="/tablaTipoPersona.html" style="padding-left: 15px;"> <i class="ni ni-money-coins text-orange"></i>Honorarios</a>  
+              </li>  
+            </ul>  
+          </div>  
         </li>
         
 
@@ -127,12 +143,12 @@
           </ul>
         </div>
         </li>
-          <!-- <li class="nav-item">
+          <li class="nav-item">
             <a class="nav-link {% if 'icons' in segment %} active {% endif %}" href="/icons.html">
               <i class="ni ni-planet text-orange"></i>
               <span class="nav-link-text">Icons</span>
             </a>
-          </li> -->
+          </li>
 
           <!-- <li class="nav-item">
             <a class="nav-link" href="/usuario.html">
