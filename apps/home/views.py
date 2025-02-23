@@ -5,8 +5,8 @@ from django.contrib.auth.decorators import login_required
 from django.template import loader
 from django.urls import reverse
 from django.contrib import messages
-from .forms import TipoPersonaForm, PersonaForm
-from .models import Personas, TipoPersona
+from .forms import TipoPersonaForm, PersonaForm, TipoOfertaForm, OfertaForm
+from .models import Personas, TipoPersona, Ofertas, TipoOferta
 
 @csrf_exempt
 def tipo_persona_modal(request):
@@ -21,6 +21,34 @@ def tipo_persona_modal(request):
     else:
         form = TipoPersonaForm()
     return render(request, 'home/tipo_persona_modal.html', {'form': form})
+
+@csrf_exempt
+def oferta_modal(request):
+    if request.method == 'POST':
+        form = OfertaForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
+        else:
+            errors = {field: error for field, error in form.errors.items()}
+            return JsonResponse({'success': False, 'errors': errors})
+    else:
+        form = OfertaForm()
+    return render(request, 'home/oferta_modal.html', {'form': form})
+
+@csrf_exempt
+def tipo_oferta_modal(request):
+    if request.method == 'POST':
+        form = TipoOfertaForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
+        else:
+            errors = {field: error for field, error in form.errors.items()}
+            return JsonResponse({'success': False, 'errors': errors})
+    else:
+        form = TipoOfertaForm()
+    return render(request, 'home/tipo_oferta_modal.html', {'form': form})
 
 @login_required(login_url="/login/")
 def index(request):
@@ -44,7 +72,7 @@ def pages(request):
                 if form.is_valid():
                     form.save()
                     messages.success(request, 'Registro exitoso.')
-                    return redirect('persona.html')  # Redirige a una URL de éxito
+                    return redirect('tablaPersona.html')  # Redirige a una URL de éxito
                 else:
                     for field, errors in form.errors.items():
                         for error in errors:

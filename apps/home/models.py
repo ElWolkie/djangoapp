@@ -10,6 +10,7 @@ class TipoPersona(models.Model):
         verbose_name = "Tipo de Persona"
         verbose_name_plural = "Tipos de Personas"
 
+
 class Personas(models.Model): 
     idTP = models.ForeignKey(TipoPersona, on_delete=models.CASCADE)  # Llave foránea hacia TipoPersona
     cedula = models.CharField(max_length=10)
@@ -24,3 +25,39 @@ class Personas(models.Model):
         verbose_name = "Persona"
         verbose_name_plural = "Personas"
         ordering = ['idTP']
+
+
+
+class Cuota(models.Model):  
+    idCuota = models.AutoField(primary_key=True)  # Clave primaria para el modelo  
+    nombreCuota = models.CharField(max_length=100)  # Nombre de la cuota  
+    estadoCuota = models.CharField(max_length=10)  # Estado de la cuota  
+    fechaCuota = models.DateField(auto_now_add=True)  # Fecha de creación de la cuota  
+
+    class Meta:  
+        verbose_name = "Cuota"  
+        verbose_name_plural = "Cuotas"  
+
+class TipoOferta(models.Model):  
+    idTipoOferta = models.AutoField(primary_key=True)  # Clave primaria para el modelo  
+    idCuota = models.ForeignKey('Cuota', on_delete=models.CASCADE)  # Asumiendo que 'Cuota' es otro modelo  
+    nombreTipoOferta = models.CharField(max_length=100)  
+    estadoTipoOferta = models.CharField(max_length=10)  
+    fechaTipoOferta = models.DateField(auto_now_add=True)  
+
+    class Meta:  
+        verbose_name = "Tipo de Oferta"  
+        verbose_name_plural = "Tipos de Ofertas"  
+
+class Ofertas(models.Model):  
+    idOferta = models.AutoField(primary_key=True)  # Definimos la clave primaria con el nombre idOferta  
+    idTipoOferta = models.ForeignKey('TipoOferta', on_delete=models.CASCADE)  
+    nombreOferta = models.CharField(max_length=100)  
+    duración = models.CharField(max_length=100)  # Para representar una duración, puede ser en días, horas, etc.  
+    estadoOferta = models.CharField(max_length=10)  
+    fechaOferta = models.DateField(auto_now_add=True)  
+
+    class Meta:  
+        verbose_name = "Oferta"  
+        verbose_name_plural = "Ofertas"  
+
