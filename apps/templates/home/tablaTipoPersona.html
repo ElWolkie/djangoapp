@@ -27,7 +27,7 @@
             <i class="fas fa-search text-warning"></i>
           </span>
         </div>
-        <input class="form-control" id="searchInput" type="text" placeholder="Buscar...">
+        <input class="form-control" id="searchInput" type="text" placeholder="Buscar..." onkeyup="filterTable()">
       </div>
     </div>
     <div class="col-md-4">
@@ -118,5 +118,27 @@
       });
     });
   });
+</script>
+<script>
+  function filterTable() {
+    var input, filter, table, tr, td, i, j, txtValue;
+    input = document.getElementById("searchInput");
+    filter = input.value.toUpperCase();
+    table = document.getElementById("personasTable");
+    tr = table.getElementsByTagName("tr");
+    for (i = 1; i < tr.length; i++) {
+      tr[i].style.display = "none";
+      td = tr[i].getElementsByTagName("td");
+      for (j = 0; j < td.length; j++) {
+        if (td[j]) {
+          txtValue = td[j].textContent || td[j].innerText;
+          if (txtValue.toUpperCase().indexOf(filter) > -1) {
+            tr[i].style.display = "";
+            break;
+          }
+        }
+      }
+    }
+  }
 </script>
 {% endblock javascripts %}

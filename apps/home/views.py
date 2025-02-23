@@ -44,7 +44,7 @@ def pages(request):
                 if form.is_valid():
                     form.save()
                     messages.success(request, 'Registro exitoso.')
-                    return redirect('persona.html')  # Redirige a una URL de éxito
+                    return redirect('tablaPersona.html')  # Redirige a una URL de éxito
                 else:
                     for field, errors in form.errors.items():
                         for error in errors:
