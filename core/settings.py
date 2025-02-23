@@ -71,7 +71,6 @@ TEMPLATES = [
 WSGI_APPLICATION = "core.wsgi.application"
 
 # Database
-# https://docs.djangoproject.com/en/3.0/ref/settings/#databases
 
 
 import os
@@ -99,7 +98,7 @@ REST_FRAMEWORK = {
         'rest_framework_simplejwt.authentication.JWTAuthentication',  # Autenticación JWT
     ),
     'DEFAULT_PERMISSION_CLASSES': (
-        'rest_framework.permissions.IsAuthenticated',  # Solo los usuarios autenticados pueden acceder
+        'rest_framework.permissions.AllowAny',  # Solo los usuarios autenticados pueden acceder
     ),
 }
 
