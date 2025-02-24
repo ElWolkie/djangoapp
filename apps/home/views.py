@@ -5,8 +5,8 @@ from django.contrib.auth.decorators import login_required
 from django.template import loader
 from django.urls import reverse
 from django.contrib import messages
-from .forms import TipoPersonaForm, PersonaForm, TipoOfertaForm, OfertaForm
-from .models import Personas, TipoPersona, Ofertas, TipoOferta
+from .forms import TipoPersonaForm, PersonaForm, TipoOfertaForm, OfertaForm, CuotaForm
+from .models import Personas, TipoPersona,  Cuota, TipoOferta, Ofertas
 
 @csrf_exempt
 def tipo_persona_modal(request):
@@ -20,7 +20,7 @@ def tipo_persona_modal(request):
             return JsonResponse({'success': False, 'errors': errors})
     else:
         form = TipoPersonaForm()
-    return render(request, 'home/tipo_persona_modal.html', {'form': form})
+    return render(request, 'home/tipoPersona.html', {'form': form})
 
 @csrf_exempt
 def oferta_modal(request):
@@ -49,6 +49,21 @@ def tipo_oferta_modal(request):
     else:
         form = TipoOfertaForm()
     return render(request, 'home/tipo_oferta_modal.html', {'form': form})
+
+@csrf_exempt
+def cuota_modal(request):
+    if request.method == 'POST':
+        form = CuotaForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
+        else:
+            errors = {field: error for field, error in form.errors.items()}
+            return JsonResponse({'success': False, 'errors': errors})
+    else:
+        form = CuotaForm()
+    return render(request, 'home/cuota_modal.html', {'form': form})
+
 
 @login_required(login_url="/login/")
 def index(request):
@@ -111,6 +126,37 @@ def pages(request):
             context['tipopersonas'] = tipopersonas
 
         context["segment"] = load_template
+
+        if load_template == "tablaCuotas.html":
+            cuotas = Cuota.objects.all()
+            context['cuota'] = cuotas
+
+        context["segment"] = load_template
+
+
+        if load_template == "tablaTipoOfertas.html":
+            tipoOfertas = TipoOferta.objects.all()
+            context['tipoOferta'] = tipoOfertas
+
+        context["segment"] = load_template
+
+        if load_template == "tablaOfertas.html":
+            ofertas = Ofertas.objects.all()
+            context['ofertas'] = ofertas
+
+        context["segment"] = load_template
+
+
+        if load_template == "oferta.html":
+            tipoOfertas = TipoOferta.objects.all()
+            context['tipoOferta'] = tipoOfertas
+        context["segment"] = load_template
+
+        if load_template == "tipoOferta.html":
+            cuotas = Cuota.objects.all()
+            context['cuota'] = cuotas
+        context["segment"] = load_template
+
 
         html_template = loader.get_template("home/" + load_template)
         return HttpResponse(html_template.render(context, request))

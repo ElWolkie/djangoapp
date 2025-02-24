@@ -40,21 +40,23 @@
     <thead class="text-darker">
       <tr>
         <th scope="col">ID</th>
+        <th scope="col">Tipo</th>
         <th scope="col">Nombre</th>
+        <th scope="col">Duración</th>
         <th scope="col">Estado</th>
         <th scope="col">Fecha</th>
       </tr>
     </thead>
     <tbody>
       <!-- Contenido de la tabla -->
-        {% for ofertasAcademicas in ofertaAcademica %}
+        {% for ofertas in ofertas %}
         <tr>
-          <td>{{ ofertaAcademica.idOferta }}</td>
-          <td>{{ ofertaAcademica.nombreOferta }}</td>
-          <td>{{ ofertaAcademica.idTipoOferta.nombreTipoOferta }}</td>
-          <td>{{ ofertaAcademica.duracionOferta }}</td>
-          <td>{{ ofertaAcademica.estadoOferta }}</td>
-          <td>{{ ofertaAcademica.fechaOferta }}</td>
+          <td>{{ ofertas.idOferta }}</td>
+          <td>{{ ofertas.idTipoOferta.nombreTipoOferta }}</td>
+          <td>{{ ofertas.nombreOferta }}</td>
+          <td>{{ ofertas.duracion }}</td>
+          <td>{{ ofertas.estadoOferta }}</td>
+          <td>{{ ofertas.fechaOferta }}</td>
         </tr>
         {% endfor %}
     </tbody>
@@ -65,7 +67,7 @@
   <div class="modal-dialog" role="document">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="ofertaModalLabel">Registro de Persona</h5>
+      <h5 class="modal-title" id="ofertaModalLabel">Registro de Oferta Académica</h5>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>

@@ -17,22 +17,26 @@
     
     <div class="form-row">  
       <div class="form-group col-md-6">  
-        <label for="tipoOferta">Tipo de Oferta:</label>  
+        <label for="idTipoOferta">Tipo de Oferta:</label>  
         <div class="input-group"> <!-- Usar input-group para alinear botón y select -->  
-          <select id="tipoOferta" name="tipoOferta" class="form-control text-dark" tabindex="1" required>  
+          <select id="idTipoOferta" name="idTipoOferta" class="form-control text-dark" tabindex="1" required>  
             <option value="" disabled selected>Seleccione..</option>  
-            <option value="1" disabled selected>POSTGRADO..</option>  
-            <!-- {% for tipopersona in tipopersonas %}  
-              <option value="{{ tipopersona.idTP }}" class="text-orange">{{ tipopersona.nombreTP }}</option>  
-            {% endfor %} -->  
+           {% for tipoOferta in tipoOferta %}  
+              <option value="{{ tipoOferta.idTipoOferta }}" class="text-orange">{{ tipoOferta.nombreTipoOferta }}</option>  
+            {% endfor %}
           </select>  
         </div>  
       </div>  
       
       <div class="form-group col-md-6">  
-        <label for="nombreTP">Nombre:</label>  
-        <input type="text" id="nombreTP" name="nombreTP" class="form-control text-dark" placeholder="Ingrese un nombre" tabindex="3" maxlength="100" required />  
-        <input type="hidden" id="estadoTP" name="estadoTP" class="form-control text-dark" value="ACTIVO" />  
+        <label for="nombreOferta">Nombre:</label>  
+        <input type="text" id="nombreOferta" name="nombreOferta" class="form-control text-dark" placeholder="Ingrese un nombre" tabindex="3" maxlength="100" required />  
+        <input type="hidden" id="estadoOferta" name="estadoOferta" class="form-control text-dark" value="ACTIVO" />  
+        
+      </div>  
+      <div class="form-group col-md-6">  
+        <label for="duracion">Duración:</label>  
+        <input type="text" id="duracion" name="duracion" class="form-control text-dark" placeholder="4 años" tabindex="3" maxlength="100" required />          
       </div>  
     </div>  
     
