@@ -17,14 +17,13 @@
     
     <div class="form-row">  
       <div class="form-group col-md-6">  
-        <label for="tipoOferta">Cuota:</label>  
+        <label for="idCuota">Cuota:</label>  
         <div class="input-group"> <!-- Usar input-group para alinear botón y select -->  
-          <select id="tipoOferta" name="tipoOferta" class="form-control text-dark" tabindex="1" required>  
+          <select id="idCuota" name="idCuota" class="form-control text-dark" tabindex="1" required>  
             <option value="" disabled selected>Seleccione..</option>  
-            <option value="1" disabled selected>1..</option>  
-            <!-- {% for tipopersona in tipopersonas %}  
+            {% for cuota in cuota %}  
               <option value="{{ cuota.idCuota }}" class="text-orange">{{ cuota.nombreCuota }}</option>  
-            {% endfor %} -->  
+            {% endfor %}
           </select>  
         </div>  
       </div>  

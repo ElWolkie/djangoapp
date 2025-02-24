@@ -19,7 +19,7 @@ class Personas(models.Model):
     telefono = models.CharField(max_length=15)
     correo = models.EmailField()
     estadoPersona = models.CharField(max_length=10)
-    fecha = models.DateField(auto_now_add=True)
+    fechaPersona = models.DateField(auto_now_add=True)
 
     class Meta:
         verbose_name = "Persona"
@@ -53,7 +53,7 @@ class Ofertas(models.Model):
     idOferta = models.AutoField(primary_key=True)  # Definimos la clave primaria con el nombre idOferta  
     idTipoOferta = models.ForeignKey('TipoOferta', on_delete=models.CASCADE)  
     nombreOferta = models.CharField(max_length=100)  
-    duración = models.CharField(max_length=100)  # Para representar una duración, puede ser en días, horas, etc.  
+    duracion = models.CharField(max_length=100)  # Para representar una duración, puede ser en días, horas, etc.  
     estadoOferta = models.CharField(max_length=10)  
     fechaOferta = models.DateField(auto_now_add=True)  
 

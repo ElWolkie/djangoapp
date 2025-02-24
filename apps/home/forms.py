@@ -31,7 +31,7 @@ class OfertaForm(forms.ModelForm):
 
     class Meta:  
         model = Ofertas  
-        fields = ['idOferta', 'idTipoOferta', 'nombreOferta', 'duración', 'estadoOferta']  
+        fields = ['idOferta', 'idTipoOferta', 'nombreOferta', 'duracion', 'estadoOferta']  
 
 class TipoOfertaForm(forms.ModelForm):  
     estadoTipoOferta = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  

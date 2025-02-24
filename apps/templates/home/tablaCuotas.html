@@ -1,6 +1,6 @@
 {% extends 'layouts/base.html' %}
 
-{% block title %}Listado de Personas{% endblock title %}
+{% block title %}Listado de Tipos de Cuotas{% endblock title %}
 
 {% block stylesheets %}
 <link rel="stylesheet" href="/static/assets/css/styleForms.css" />
@@ -9,7 +9,7 @@
 
 {% block content %}
 <div class="container mt-5">
-  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Lista de Tipos de Ofertas Registradas</h2>
+  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Lista de Tipos de Cuotas Registradas</h2>
 
   {% if messages %}
     {% for message in messages %}
@@ -31,41 +31,39 @@
       </div>
     </div>
     <div class="col-md-4">
-      <button class="btn btn-warning btn-square btn-sm my-2" type="button" title="Registrar Tipo Oferta Academica" data-toggle="modal" data-target="#tipoOfertaModal">+</button>
+      <button class="btn btn-warning btn-square btn-sm my-2" type="button" title="Registrar Cuota" data-toggle="modal" data-target="#cuotaModal">+</button>
     </div>
   </div>
 
   <br>
-  <table class="table table-striped text-gray-dark" id="tipoOfertasTable">
+  <table class="table table-striped text-gray-dark" id="cuotasTable">
     <thead class="text-darker">
-      <tr>
-        <th scope="col">ID</th>
-        <th scope="col">Nombre</th>
-        <th scope="col">Cuotas</th>
-        <th scope="col">Estado</th>
-        <th scope="col">Fecha</th>
-      </tr>
+        <tr>
+            <th scope="col">ID</th>
+            <th scope="col">Cantidad</th>
+            <th scope="col">Estado</th>
+            <th scope="col">Fecha</th>
+        </tr>
     </thead>
     <tbody>
-      <!-- Contenido de la tabla -->
-        {% for tipoOferta in tipoOferta %}
+        <!-- Contenido de la tabla -->
+        {% for cuota in cuota %}  <!-- Cambia "cuotas" a "cuota" para coincidir con el contexto -->
         <tr>
-          <td>{{ tipoOferta.idTipoOferta }}</td>
-          <td>{{ tipoOferta.nombreTipoOferta }}</td>
-          <td>{{ tipoOferta.idCuota.nombreCuota }}</td>
-          <td>{{ tipoOferta.estadoTipoOferta }}</td>
-          <td>{{ tipoOferta.fechaTipoOferta }}</td>
+            <td>{{ cuota.idCuota }}</td>
+            <td>{{ cuota.nombreCuota }}</td>
+            <td>{{ cuota.estadoCuota }}</td>
+            <td>{{ cuota.fechaCuota }}</td>
         </tr>
         {% endfor %}
     </tbody>
-  </table>
+</table>
 </div>
 <!-- Modal -->
-<div class="modal fade" id="tipoOfertaModal" tabindex="-1" role="dialog" aria-labelledby="tipoOfertaModalLabel" aria-hidden="true">
+<div class="modal fade" id="cuotaModal" tabindex="-1" role="dialog" aria-labelledby="cuotaModalLabel" aria-hidden="true">
   <div class="modal-dialog" role="document">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="tipoOfertaModalLabel">Registro de Tipo de Oferta</h5>
+        <h5 class="modal-title" id="cuotaModalLabel">Registro de Tipo de Oferta</h5>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
@@ -84,10 +82,10 @@
 <script src="/static/assets/js/validacionesPersona.js"></script>
 <script>
   document.addEventListener("DOMContentLoaded", function() {
-    $('#tipoOfertaModal').on('show.bs.modal', function (e) {
+    $('#cuotaModal').on('show.bs.modal', function (e) {
       var modal = $(this);
       $.ajax({
-        url: 'apps/home/tipoOferta.html',
+        url: 'apps/home/cuota.html',
         method: 'GET',
         success: function(data) {
           modal.find('.modal-body').html(data);
@@ -95,7 +93,7 @@
       });
     });
 
-    $(document).on('submit', '#tipoOfertaForm', function(e) {
+    $(document).on('submit', '#cuotaForm', function(e) {
       e.preventDefault();
       var form = $(this);
       $.ajax({
@@ -107,7 +105,7 @@
           messagesContainer.empty();
           if (response.success) {
             messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
-            $('#tipoOfertaModal').modal('hide');
+            $('#cuotaModal').modal('hide');
             location.reload();  // Recargar la página para ver los cambios
           } else {
             // Mostrar errores en el modal
