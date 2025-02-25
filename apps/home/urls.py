@@ -14,7 +14,13 @@ urlpatterns = [
     path('ofertaModal/', views.oferta_modal, name='oferta_modal'),
     # Specific route for cuota modal
     path('cuotaModal/', views.cuota_modal, name='cuota_modal'),
-    # Matches any html file
+       # Specific route for materia modal
+    path('materiaModal/', views.materia_modal, name='materia_modal'),
+   
+   
+   
+   
+    # Matches any html file no mover de lugar 
     re_path(r'^.*\.*', views.pages, name='pages'),
 
 

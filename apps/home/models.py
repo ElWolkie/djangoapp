@@ -1,31 +1,31 @@
-from django.db import models
-from django.contrib.auth.models import User
+from django.db import models  
+from django.contrib.auth.models import User  
 
-class TipoPersona(models.Model):
-    idTP = models.AutoField(primary_key=True)  # Definimos la clave primaria con el nombre idTP
-    nombreTP = models.CharField(max_length=100)
-    estadoTP = models.CharField(max_length=10)
-    fechaTP = models.DateField(auto_now_add=True)
-    class Meta:
-        verbose_name = "Tipo de Persona"
-        verbose_name_plural = "Tipos de Personas"
+class TipoPersona(models.Model):  
+    idTP = models.AutoField(primary_key=True)  # Definimos la clave primaria con el nombre idTP  
+    nombreTP = models.CharField(max_length=100)  
+    estadoTP = models.CharField(max_length=10)  
+    fechaTP = models.DateField(auto_now_add=True)  
+
+    class Meta:  
+        verbose_name = "Tipo de Persona"  
+        verbose_name_plural = "Tipos de Personas"  
 
 
-class Personas(models.Model): 
-    idTP = models.ForeignKey(TipoPersona, on_delete=models.CASCADE)  # Llave foránea hacia TipoPersona
-    cedula = models.CharField(max_length=10)
-    nombres = models.CharField(max_length=100)
-    apellidos = models.CharField(max_length=100)
-    telefono = models.CharField(max_length=15)
-    correo = models.EmailField()
-    estadoPersona = models.CharField(max_length=10)
-    fechaPersona = models.DateField(auto_now_add=True)
+class Personas(models.Model):  
+    idTP = models.ForeignKey(TipoPersona, on_delete=models.CASCADE)  # Llave foránea hacia TipoPersona  
+    cedula = models.CharField(max_length=10)  
+    nombres = models.CharField(max_length=100)  
+    apellidos = models.CharField(max_length=100)  
+    telefono = models.CharField(max_length=15)  
+    correo = models.EmailField()  
+    estadoPersona = models.CharField(max_length=10)  
+    fechaPersona = models.DateField(auto_now_add=True)  
 
-    class Meta:
-        verbose_name = "Persona"
-        verbose_name_plural = "Personas"
-        ordering = ['idTP']
-
+    class Meta:  
+        verbose_name = "Persona"  
+        verbose_name_plural = "Personas"  
+        ordering = ['idTP']  
 
 
 class Cuota(models.Model):  
@@ -38,6 +38,7 @@ class Cuota(models.Model):
         verbose_name = "Cuota"  
         verbose_name_plural = "Cuotas"  
 
+
 class TipoOferta(models.Model):  
     idTipoOferta = models.AutoField(primary_key=True)  # Clave primaria para el modelo  
     idCuota = models.ForeignKey('Cuota', on_delete=models.CASCADE)  # Asumiendo que 'Cuota' es otro modelo  
@@ -48,6 +49,7 @@ class TipoOferta(models.Model):
     class Meta:  
         verbose_name = "Tipo de Oferta"  
         verbose_name_plural = "Tipos de Ofertas"  
+
 
 class Ofertas(models.Model):  
     idOferta = models.AutoField(primary_key=True)  # Definimos la clave primaria con el nombre idOferta  
@@ -61,3 +63,14 @@ class Ofertas(models.Model):
         verbose_name = "Oferta"  
         verbose_name_plural = "Ofertas"  
 
+
+class Materia(models.Model):  
+    idMateria = models.AutoField(primary_key=True)  # Clave primaria para el modelo Materia  
+    idOferta = models.ForeignKey(Ofertas, on_delete=models.CASCADE)  # Llave foránea hacia Ofertas  
+    nombreMateria = models.CharField(max_length=100)  
+    estadoMateria = models.CharField(max_length=10)  
+    fechaMateria = models.DateField(auto_now_add=True)  # Fecha de creación de la materia  
+
+    class Meta:  
+        verbose_name = "Materia"  
+        verbose_name_plural = "Materias"

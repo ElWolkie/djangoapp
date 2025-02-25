@@ -1,20 +1,20 @@
-from django import forms
-from .models import TipoPersona, Personas, Ofertas, Cuota, TipoOferta
+from django import forms  
+from .models import TipoPersona, Personas, Ofertas, Cuota, TipoOferta, Materia  
 
-class TipoPersonaForm(forms.ModelForm):
-    estadoTP = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')
+class TipoPersonaForm(forms.ModelForm):  
+    estadoTP = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
 
-    class Meta:
-        model = TipoPersona
-        fields = ['nombreTP', 'estadoTP']
+    class Meta:  
+        model = TipoPersona  
+        fields = ['nombreTP', 'estadoTP']  
 
 
-class PersonaForm(forms.ModelForm):
-    estadoPersona = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')
+class PersonaForm(forms.ModelForm):  
+    estadoPersona = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
 
-    class Meta:
-        model = Personas
-        fields = ['idTP', 'cedula', 'nombres', 'apellidos', 'telefono', 'correo', 'estadoPersona']
+    class Meta:  
+        model = Personas  
+        fields = ['idTP', 'cedula', 'nombres', 'apellidos', 'telefono', 'correo', 'estadoPersona']  
 
 
 class CuotaForm(forms.ModelForm):  
@@ -25,13 +25,13 @@ class CuotaForm(forms.ModelForm):
         fields = ['idCuota', 'nombreCuota', 'estadoCuota']  
 
 
-
 class OfertaForm(forms.ModelForm):  
     estadoOferta = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
 
     class Meta:  
         model = Ofertas  
         fields = ['idOferta', 'idTipoOferta', 'nombreOferta', 'duracion', 'estadoOferta']  
+
 
 class TipoOfertaForm(forms.ModelForm):  
     estadoTipoOferta = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
@@ -40,3 +40,10 @@ class TipoOfertaForm(forms.ModelForm):
         model = TipoOferta  
         fields = ['idTipoOferta', 'idCuota', 'nombreTipoOferta', 'estadoTipoOferta']  
 
+
+class MateriaForm(forms.ModelForm):  
+    estadoMateria = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
+
+    class Meta:  
+        model = Materia  
+        fields = ['idOferta', 'nombreMateria', 'estadoMateria']  # Nota: No se incluye idMateria, ya que es auto generado.

@@ -5,8 +5,8 @@ from django.contrib.auth.decorators import login_required
 from django.template import loader
 from django.urls import reverse
 from django.contrib import messages
-from .forms import TipoPersonaForm, PersonaForm, TipoOfertaForm, OfertaForm, CuotaForm
-from .models import Personas, TipoPersona,  Cuota, TipoOferta, Ofertas
+from .forms import TipoPersonaForm, PersonaForm, TipoOfertaForm, OfertaForm, CuotaForm, MateriaForm
+from .models import Personas, TipoPersona,  Cuota, TipoOferta, Ofertas, Materia
 
 @csrf_exempt
 def tipo_persona_modal(request):
@@ -63,6 +63,20 @@ def cuota_modal(request):
     else:
         form = CuotaForm()
     return render(request, 'home/cuota_modal.html', {'form': form})
+
+@csrf_exempt
+def materia_modal(request):
+    if request.method == 'POST':
+        form = MateriaForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
+        else:
+            errors = {field: error for field, error in form.errors.items()}
+            return JsonResponse({'success': False, 'errors': errors})
+    else:
+        form = MateriaForm()
+    return render(request, 'home/materia_modal.html', {'form': form})
 
 
 @login_required(login_url="/login/")
@@ -157,7 +171,20 @@ def pages(request):
             context['cuota'] = cuotas
         context["segment"] = load_template
 
+        if load_template == "tablaMaterias.html":
+            materias = Materia.objects.all()
+            context['materias'] = materias
 
+        context["segment"] = load_template
+
+
+        if load_template == "materia.html":  
+            ofertas = Ofertas.objects.all()  
+            context['ofertas'] = ofertas  
+        else:  
+            context["ofertas"] = None  # O alguna lógica alternativa  
+
+    # Luego, asegúrate de que estás pasando context a tu render
         html_template = loader.get_template("home/" + load_template)
         return HttpResponse(html_template.render(context, request))
 
