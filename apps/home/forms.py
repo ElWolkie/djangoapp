@@ -1,5 +1,5 @@
 from django import forms  
-from .models import TipoPersona, Personas, Ofertas, Cuota, TipoOferta, Materia  
+from .models import TipoPersona, Personas, Ofertas, Cuota, TipoOferta, Materia, Cohorte
 
 class TipoPersonaForm(forms.ModelForm):  
     estadoTP = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
@@ -47,3 +47,11 @@ class MateriaForm(forms.ModelForm):
     class Meta:  
         model = Materia  
         fields = ['idOferta', 'nombreMateria', 'estadoMateria']  # Nota: No se incluye idMateria, ya que es auto generado.
+
+
+class CohorteForm(forms.ModelForm):  
+    estadoCohorte = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
+
+    class Meta:  
+        model = Cohorte  
+        fields = ['idCohorte', 'nombreCohorte', 'estadoCohorte']  

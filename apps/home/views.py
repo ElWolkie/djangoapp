@@ -5,8 +5,8 @@ from django.contrib.auth.decorators import login_required
 from django.template import loader
 from django.urls import reverse
 from django.contrib import messages
-from .forms import TipoPersonaForm, PersonaForm, TipoOfertaForm, OfertaForm, CuotaForm, MateriaForm
-from .models import Personas, TipoPersona,  Cuota, TipoOferta, Ofertas, Materia
+from .forms import TipoPersonaForm, PersonaForm, TipoOfertaForm, OfertaForm, CuotaForm, MateriaForm, CohorteForm
+from .models import Personas, TipoPersona,  Cuota, TipoOferta, Ofertas, Materia, Cohorte
 
 @csrf_exempt
 def tipo_persona_modal(request):
@@ -77,6 +77,20 @@ def materia_modal(request):
     else:
         form = MateriaForm()
     return render(request, 'home/materia_modal.html', {'form': form})
+
+@csrf_exempt
+def cohorte_modal(request):
+    if request.method == 'POST':
+        form = CohorteForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
+        else:
+            errors = {field: error for field, error in form.errors.items()}
+            return JsonResponse({'success': False, 'errors': errors})
+    else:
+        form = CuotaForm()
+    return render(request, 'home/cohorte_modal.html', {'form': form})
 
 
 @login_required(login_url="/login/")
@@ -154,12 +168,6 @@ def pages(request):
 
         context["segment"] = load_template
 
-        if load_template == "tablaOfertas.html":
-            ofertas = Ofertas.objects.all()
-            context['ofertas'] = ofertas
-
-        context["segment"] = load_template
-
 
         if load_template == "oferta.html":
             tipoOfertas = TipoOferta.objects.all()
@@ -184,7 +192,19 @@ def pages(request):
         else:  
             context["ofertas"] = None  # O alguna lógica alternativa  
 
-    # Luego, asegúrate de que estás pasando context a tu render
+        if load_template == "tablaOfertas.html":  
+            ofertas = Ofertas.objects.all()  
+            context['ofertas'] = ofertas  
+        else:  
+            context["ofertas"] = None  # O alguna lógica alternativa  
+    
+        if load_template == "tablaCohortes.html":
+            cohortes = Cohorte.objects.all()
+            context['cohortes'] = cohortes
+
+        context["segment"] = load_template
+
+
         html_template = loader.get_template("home/" + load_template)
         return HttpResponse(html_template.render(context, request))
 

@@ -74,3 +74,13 @@ class Materia(models.Model):
     class Meta:  
         verbose_name = "Materia"  
         verbose_name_plural = "Materias"
+
+class Cohorte(models.Model):  
+    idCohorte = models.AutoField(primary_key=True)  # Clave primaria para el modelo  
+    nombreCohorte = models.CharField(max_length=100)  # Nombre de la cuota  
+    estadoCohorte = models.CharField(max_length=10)  # Estado de la cuota  
+    fechaCohorte = models.DateField(auto_now_add=True)  # Fecha de creación de la cuota  
+
+    class Meta:  
+        verbose_name = "Cohorte"  
+        verbose_name_plural = "Cohortes"  

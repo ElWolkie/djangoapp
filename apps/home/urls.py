@@ -16,7 +16,8 @@ urlpatterns = [
     path('cuotaModal/', views.cuota_modal, name='cuota_modal'),
        # Specific route for materia modal
     path('materiaModal/', views.materia_modal, name='materia_modal'),
-   
+    # Specific route for cohorte modal
+    path('cohorteModal/', views.cohorte_modal, name='cohorte_modal'),
    
    
    
