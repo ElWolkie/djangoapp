@@ -84,3 +84,14 @@ class Cohorte(models.Model):
     class Meta:  
         verbose_name = "Cohorte"  
         verbose_name_plural = "Cohortes"  
+
+
+class Cargo(models.Model):  
+    idCargo = models.AutoField(primary_key=True)  # Clave primaria para el modelo  
+    nombreCargo = models.CharField(max_length=100)  # Nombre de la cuota  
+    estadoCargo = models.CharField(max_length=10)  # Estado de la cuota  
+    fechaCargo = models.DateField(auto_now_add=True)  # Fecha de creación de la cuota  
+
+    class Meta:  
+        verbose_name = "Cargo"  
+        verbose_name_plural = "Cargos"  

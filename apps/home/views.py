@@ -5,8 +5,8 @@ from django.contrib.auth.decorators import login_required
 from django.template import loader
 from django.urls import reverse
 from django.contrib import messages
-from .forms import TipoPersonaForm, PersonaForm, TipoOfertaForm, OfertaForm, CuotaForm, MateriaForm, CohorteForm
-from .models import Personas, TipoPersona,  Cuota, TipoOferta, Ofertas, Materia, Cohorte
+from .forms import TipoPersonaForm, PersonaForm, TipoOfertaForm, OfertaForm, CuotaForm, MateriaForm, CohorteForm, CargoForm
+from .models import Personas, TipoPersona,  Cuota, TipoOferta, Ofertas, Materia, Cohorte, Cargo
 
 @csrf_exempt
 def tipo_persona_modal(request):
@@ -91,6 +91,21 @@ def cohorte_modal(request):
     else:
         form = CuotaForm()
     return render(request, 'home/cohorte_modal.html', {'form': form})
+
+
+@csrf_exempt
+def cargo_modal(request):
+    if request.method == 'POST':
+        form = CargoForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
+        else:
+            errors = {field: error for field, error in form.errors.items()}
+            return JsonResponse({'success': False, 'errors': errors})
+    else:
+        form = CuotaForm()
+    return render(request, 'home/cargo_modal.html', {'form': form})
 
 
 @login_required(login_url="/login/")
@@ -201,6 +216,12 @@ def pages(request):
         if load_template == "tablaCohortes.html":
             cohortes = Cohorte.objects.all()
             context['cohortes'] = cohortes
+
+        context["segment"] = load_template
+
+        if load_template == "tablaCargos.html":
+            cargos = Cargo.objects.all()
+            context['cargos'] = cargos
 
         context["segment"] = load_template
 
