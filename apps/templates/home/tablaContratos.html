@@ -1,0 +1,153 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}Listado de Personas{% endblock title %}
+
+{% block stylesheets %}
+<link rel="stylesheet" href="/static/assets/css/styleForms.css" />
+<link rel="stylesheet" href="/static/assets/css/argon.css" />
+{% endblock stylesheets %}
+
+{% block content %}
+<div class="container mt-5">
+  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Lista de Contratos Registrados</h2>
+
+  {% if messages %}
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        {{ message }}
+      </div>
+    {% endfor %}
+  {% endif %}
+
+  <div class="row">
+    <div class="col-md-4">
+      <div class="input-group">
+        <div class="input-group-prepend">
+          <span class="input-group-text" style="background-color: #bcbcbc; border: none;">
+            <i class="fas fa-search text-warning"></i>
+          </span>
+        </div>
+        <input class="form-control" id="searchInput" type="text" placeholder="Buscar..." onkeyup="filterTable()">
+      </div>
+    </div>
+    <div class="col-md-4">
+      <button class="btn btn-warning btn-square btn-sm my-2" type="button" title="Registrar Contrato Académica" data-toggle="modal" data-target="#contratoModal">+</button>
+    </div>
+  </div>
+
+  <br>
+  <table class="table table-striped text-gray-dark" id="contratosTable">
+    <thead class="text-darker">
+      <tr>
+        <th scope="col">ID</th>
+        <th scope="col">Cédula</th>
+        <th scope="col">Nombres</th>
+        <th scope="col">Apellidos</th>
+        <th scope="col">Cargo</th>
+        <th scope="col">Cohorte</th>
+        <th scope="col">Materia</th>
+        <th scope="col">Estado</th>
+        <th scope="col">Fecha</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- Contenido de la tabla -->
+      {% for contrato in contratos %}
+      <tr>
+        <td>{{ contrato.idContrato }}</td>
+        <td>{{ contrato.idPersona.cedula }}</td>
+        <td>{{ contrato.idPersona.nombres }}</td>
+        <td>{{ contrato.idPersona.apellidos }}</td>
+        <td>{{ contrato.idCargo.nombreCargo }}</td>
+        <td>{{ contrato.idCohorte.nombreCohorte }}</td>
+        <td>{{ contrato.idMateria.nombreMateria }}</td>
+        <td>{{ contrato.estadoContrato }}</td>
+        <td>{{ contrato.fechaContrato }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<!-- Modal -->
+<div class="modal fade" id="contratoModal" tabindex="-1" role="dialog" aria-labelledby="contratoModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+      <h5 class="modal-title" id="contratoModalLabel">Registro de Contrato Académica</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <!-- Contenedor para los mensajes -->
+        <div id="modalMessages"></div>
+        <!-- El contenido del formulario se cargará aquí -->
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}
+
+{% block javascripts %}
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    $('#contratoModal').on('show.bs.modal', function (e) {
+      var modal = $(this);
+      $.ajax({
+        url: 'apps/home/contrato.html',
+        method: 'GET',
+        success: function(data) {
+          modal.find('.modal-body').html(data);
+        }
+      });
+    });
+
+    $(document).on('submit', '#contratoForm', function(e) {
+      e.preventDefault();
+      var form = $(this);
+      $.ajax({
+        url: form.attr('action'),
+        method: form.attr('method'),
+        data: form.serialize(),
+        success: function(response) {
+          var messagesContainer = $('#modalMessages');
+          messagesContainer.empty();
+          if (response.success) {
+            messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
+            $('#contratoModal').modal('hide');
+            location.reload();  // Recargar la página para ver los cambios
+          } else {
+            // Mostrar errores en el modal
+            var errors = response.errors;
+            for (var field in errors) {
+              messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + errors[field] + '</div>');
+            }
+          }
+        }
+      });
+    });
+  });
+</script>
+<script>
+  function filterTable() {
+    var input, filter, table, tr, td, i, j, txtValue;
+    input = document.getElementById("searchInput");
+    filter = input.value.toUpperCase();
+    table = document.getElementById("contratosTable");
+    tr = table.getElementsByTagName("tr");
+    for (i = 1; i < tr.length; i++) {
+      tr[i].style.display = "none";
+      td = tr[i].getElementsByTagName("td");
+      for (j = 0; j < td.length; j++) {
+        if (td[j]) {
+          txtValue = td[j].textContent || td[j].innerText;
+          if (txtValue.toUpperCase().indexOf(filter) > -1) {
+            tr[i].style.display = "";
+            break;
+          }
+        }
+      }
+    }
+  }
+</script>
+{% endblock javascripts %}

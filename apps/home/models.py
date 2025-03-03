@@ -13,6 +13,7 @@ class TipoPersona(models.Model):
 
 
 class Personas(models.Model):  
+    idPersona = models.AutoField(primary_key=True)  # Definimos la clave primaria con el nombre id
     idTP = models.ForeignKey(TipoPersona, on_delete=models.CASCADE)  # Llave foránea hacia TipoPersona  
     cedula = models.CharField(max_length=10)  
     nombres = models.CharField(max_length=100)  
@@ -95,3 +96,16 @@ class Cargo(models.Model):
     class Meta:  
         verbose_name = "Cargo"  
         verbose_name_plural = "Cargos"  
+
+class Contrato(models.Model):  
+    idContrato = models.AutoField(primary_key=True)  # Clave primaria para el modelo  
+    idPersona = models.ForeignKey(Personas, on_delete=models.CASCADE)  # Llave foránea hacia Persona
+    idCargo = models.ForeignKey(Cargo, on_delete=models.CASCADE)  # Llave foránea hacia Cargo  
+    idCohorte = models.ForeignKey(Cohorte, on_delete=models.CASCADE)  # Llave foránea hacia Cohorte  
+    idMateria = models.ForeignKey(Materia, on_delete=models.CASCADE)  # Llave foránea hacia Materia  
+    estadoContrato = models.CharField(max_length=10)  # Estado del contrato  
+    fechaContrato = models.DateField(auto_now_add=True)  # Fecha de creación del contrato  
+
+    class Meta:  
+        verbose_name = "Contrato"  
+        verbose_name_plural = "Contratos"  

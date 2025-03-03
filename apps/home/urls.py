@@ -20,6 +20,8 @@ urlpatterns = [
     path('cohorteModal/', views.cohorte_modal, name='cohorte_modal'),
     # Specific route for cohorte modal
     path('cargoModal/', views.cargo_modal, name='cargo_modal'),
+    # Specific route for cohorte modal
+    path('contratoModal/', views.contrato_modal, name='contrato_modal'),
    
    
     # Matches any html file no mover de lugar 
