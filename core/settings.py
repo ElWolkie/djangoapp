@@ -26,22 +26,24 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    'apps.api',  # La app donde estan las rutas y vistas
-    'rest_framework',  # Django Rest Framework
-    'rest_framework_simplejwt', #JWT para autenticacion
-    'apps.authentication',
+    "apps.api",  # La app donde estan las rutas y vistas
+    "rest_framework",  # Django Rest Framework
+    "rest_framework_simplejwt", #JWT para autenticacion
+    "corsheaders",  # Para permitir conexiones desde el frontend
+    "apps.authentication",
     "apps.home",  # Enable the inner home (home)
 ]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
-    "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
 ]
 
 ROOT_URLCONF = "core.urls"
@@ -69,6 +71,9 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = "core.wsgi.application"
+
+STATIC_URL = '/static/'
+STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 
 # Database
 
@@ -98,23 +103,27 @@ REST_FRAMEWORK = {
         'rest_framework_simplejwt.authentication.JWTAuthentication',  # Autenticación JWT
     ),
     'DEFAULT_PERMISSION_CLASSES': (
-        'rest_framework.permissions.AllowAny',  # Solo los usuarios autenticados pueden acceder
+        'rest_framework.permissions.AllowAny',  # Todos los usuarios autenticados pueden acceder
     ),
 }
 
+# Configuración de JWT (opcional pero recomendado)
+from datetime import timedelta
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
 }
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+]
 
 # Ajustes específicos para Windows
 if platform.system() == "Windows":
     DATABASES["default"]["OPTIONS"]["client_encoding"] = "UTF8"
 
-
-# Password validation
-# https://docs.djangoproject.com/en/3.0/ref/settings/#auth-password-validators
 
 AUTH_PASSWORD_VALIDATORS = [
     {

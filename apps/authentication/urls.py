@@ -1,8 +1,13 @@
+# apps/authentication/urls.py
 from django.urls import path
-from .views import login_view, logout_view, home_view
+from .views import login_view, logout_view, register_view, CustomTokenObtainPairView
 
 urlpatterns = [
-    path('login/', login_view, name='login'),  # Ruta para el inicio de sesión
-    path('logout/', logout_view, name='logout'),  # Ruta para el cierre de sesión
-    path('home/', home_view, name='home'),  # Ruta para la página de inicio (home)
+    # API JWT
+    path('api/login/', CustomTokenObtainPairView.as_view(), name='api_login'),  
+    
+    # Vistas tradicionales (HTML)
+    path('web/login/', login_view, name='login'),
+    path('web/register/', register_view, name='register'),
+    path('logout/', logout_view, name='logout'),
 ]

@@ -12,11 +12,14 @@
   <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Formulario de Registro</h2>
   
   {% if messages %}
-    {% for message in messages %}
-      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-        {{ message }}
-      </div>
-    {% endfor %}
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+      {% endfor %}
   {% endif %}
   
   <form method="POST" class="mt-4 text-dark" autocomplete="off" style="font-weight: bold;" id="registroPersona">
@@ -25,7 +28,7 @@
       <div class="col-md-6">
       <div class="form-group">
         <label for="tipoPersona">Tipo de Persona:</label>
-        &nbsp;<button class="btn btn-warning btn-square btn-sm my-2" type="button" title="Registrar Tipo de Persona" data-toggle="modal" data-target="#tipoPersonaModal" style="font-weight: bold;">+</button>
+        &nbsp; &nbsp;<button class="btn btn-warning btn-square btn-sm" type="button" title="Registrar Tipo de Persona" data-toggle="modal" data-target="#tipoPersonaModal" style="font-weight: bold;">+</button>
         <select id="tipoPersona" name="idTP" class="form-control text-dark" tabindex="1" required>
         <option value="" disabled selected>Seleccione..</option>
         
@@ -98,47 +101,65 @@
 
 <script>
   document.addEventListener("DOMContentLoaded", function() {
-    // Manejar el envío del formulario de tipo de persona
-    $(document).on('submit', '#registroTipoPersonaForm', function(e) {
-      e.preventDefault();  // Evitar el envío tradicional del formulario
-      var form = $(this);
-      var modal = $('#tipoPersonaModal');
-      var messagesContainer = $('#modalMessages');
+  // Función para obtener el token JWT del localStorage
+  function getJWTToken() {
+    return localStorage.getItem('access_token'); // Asegúrate de que el token se almacene aquí al iniciar sesión
+  }
 
-      $.ajax({
-        url: "{% url 'tipo_persona_modal' %}",  // URL a la que se envía el formulario
-        method: form.attr('method'),  // Método HTTP (POST)
-        data: form.serialize(),  // Datos del formulario
-        success: function(response) {
-          messagesContainer.empty();  // Limpiar mensajes anteriores
+  // Manejar el envío del formulario de tipo de persona
+  $(document).on('submit', '#registroTipoPersonaForm', function(e) {
+    e.preventDefault();  // Evitar el envío tradicional del formulario
+    var form = $(this);
+    var modal = $('#tipoPersonaModal');
+    var messagesContainer = $('#modalMessages');
 
-          if (response.success) {
-            // Mostrar mensaje de éxito
-            messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
+    // Limpiar mensajes anteriores
+    messagesContainer.empty();
 
-            // Cerrar el modal después de 1 segundo
-            setTimeout(function() {
-              modal.modal('hide');
-            }, 1000);
+    // Obtener el token JWT
+    const jwtToken = getJWTToken();
 
-            // Actualizar el select de tipo de persona
-            var select = $('#tipoPersona');
-            select.append('<option value="' + response.idTP + '">' + response.nombreTP + '</option>');
-            select.val(response.idTP);  // Seleccionar el nuevo tipo de persona
-          } else {
-            // Mostrar errores en el modal
-            var errors = response.errors;
-            for (var field in errors) {
-              messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + errors[field] + '</div>');
+    // Enviar la solicitud AJAX
+    $.ajax({
+      url: "{% url 'tipo_persona_modal' %}",  // URL a la que se envía el formulario
+      method: 'POST',
+      data: form.serialize(),  // Datos del formulario
+      headers: {
+        'Authorization': 'Bearer ' + jwtToken,  // Incluir el token JWT en los encabezados
+        'X-CSRFToken': form.find('input[name="csrfmiddlewaretoken"]').val()  // Incluir el token CSRF
+      },
+      success: function(response) {
+        if (response.success) {
+          // Mostrar mensaje de éxito
+          messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
+
+          // Cerrar el modal después de 1 segundo
+          setTimeout(function() {
+            modal.modal('hide');
+          }, 1000);
+
+          // Actualizar el select de tipo de persona
+          var select = $('#tipoPersona');
+          select.append('<option value="' + response.idTP + '">' + response.nombreTP + '</option>');
+          select.val(response.idTP);  // Seleccionar el nuevo tipo de persona
+        } else {
+          // Mostrar errores en el modal
+          if (response.errors) {
+            for (var field in response.errors) {
+              messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + response.errors[field] + '</div>');
             }
+          } else if (response.message) {
+            messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + response.message + '</div>');
           }
-        },
-        error: function(xhr, status, error) {
-          // Manejar errores de conexión o del servidor
-          messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">Error al enviar el formulario. Inténtelo de nuevo.</div>');
         }
-      });
+      },
+      error: function(xhr, status, error) {
+        // Manejar errores de conexión o del servidor
+        messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">Error al enviar el formulario. Inténtelo de nuevo.</div>');
+        console.error('AJAX Error:', error);
+      }
     });
   });
+});
 </script>
 {% endblock javascripts %}

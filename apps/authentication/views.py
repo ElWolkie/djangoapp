@@ -1,50 +1,59 @@
+# apps/authentication/views.py
 from django.shortcuts import render, redirect
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login, logout
-from .forms import LoginForm
+from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework.response import Response
+from rest_framework import status
 
-# Vista de inicio
-def home_view(request):
-    return render(request, "home/index.html")
+# Vista de inicio de sesión con JWT
+class CustomTokenObtainPairView(TokenObtainPairView):
+    # Añade estas líneas para deshabilitar las verificaciones de CSRF
+    authentication_classes = []  # Desactiva autenticaciones por defecto
+    permission_classes = []     # Desactiva permisos
 
+    def post(self, request, *args, **kwargs):
+        response = super().post(request, *args, **kwargs)
+        return Response({
+            'access': response.data['access'],
+            'refresh': response.data['refresh']
+        })
+
+# Vista de inicio de sesión tradicional (si es necesario)
 def login_view(request):
     if request.method == "POST":
-        # Verificar si es un inicio de sesión o un registro
-        if 'name' in request.POST:  # Esto indica que el usuario está registrándose
-            # Registro de usuario
-            name = request.POST.get("name")
-            email = request.POST.get("email")
-            password = request.POST.get("password")
+        username = request.POST.get("username")
+        password = request.POST.get("password")
 
-            # Validar si el usuario ya existe
-            if User.objects.filter(email=email).exists():
-                return render(request, "accounts/login.html", {"error": "Este correo ya está registrado."})
+        user = authenticate(request, username=username, password=password)
 
-            # Crear un nuevo usuario
-            user = User.objects.create_user(username=email, email=email, password=password, first_name=name)
-            user.save()
-
-            # Redirigir al home después del registro
+        if user is not None:
             login(request, user)
-            return redirect('/home/')  # O a donde quieras redirigir después del registro
-
-        else:  # Esto indica que el usuario está intentando iniciar sesión
-            # Intentar iniciar sesión
-            username = request.POST.get("username")
-            password = request.POST.get("password")
-
-            user = authenticate(request, username=username, password=password)
-
-            if user is not None:
-                login(request, user)
-                return redirect('/home/')  # Redirigir al home después de un inicio de sesión exitoso
-            else:
-                # Si el usuario no es válido, mostrar un error
-                return render(request, "accounts/login.html", {"error": "Credenciales incorrectas."})
-
+            return redirect('home')  # Redirigir al home después de un inicio de sesión exitoso
+        else:
+            return render(request, "accounts/login.html", {"error": "Credenciales incorrectas."})
     else:
-        return render(request, "accounts/login.html")  # Si no es un POST, simplemente renderiza el formulario
-    
+        return render(request, "accounts/login.html")
+
+# Vista de registro (si es necesario)
+def register_view(request):
+    if request.method == "POST":
+        name = request.POST.get("name")
+        email = request.POST.get("email")
+        password = request.POST.get("password")
+
+        if User.objects.filter(email=email).exists():
+            return render(request, "accounts/register.html", {"error": "Este correo ya está registrado."})
+
+        user = User.objects.create_user(username=email, email=email, password=password, first_name=name)
+        user.save()
+
+        login(request, user)
+        return redirect('home')
+    else:
+        return render(request, "accounts/register.html")
+
+# Vista de cierre de sesión
 def logout_view(request):
-    logout(request)  # Esto cierra la sesión
+    logout(request)
     return redirect('login')

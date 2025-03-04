@@ -2,22 +2,18 @@ from django.urls import path, re_path
 from . import views
 
 urlpatterns = [
-    path('', views.index, name='home'),  # Ruta para la página principal
-    re_path(r'^.*\.*', views.pages, name='pages'),  # Ruta para manejar páginas estáticas (como about.html, contact.html, etc.)
-
-    # The home page
+    # Ruta principal (Home)
     path('', views.index, name='home'),
-
-    # Specific route for tipoPersona modal
+    
+    # Ruta para el index (sin duplicados)
+    path('index/', views.index_view, name='index'),
+    
+    # Rutas específicas para modales
     path('tipoPersonaModal/', views.tipo_persona_modal, name='tipo_persona_modal'),
-    # Specific route for tipoCuota modal
     path('tipoOfertaModal/', views.tipo_oferta_modal, name='tipo_oferta_modal'),
-    # Specific route for oferta modal
     path('ofertaModal/', views.oferta_modal, name='oferta_modal'),
-    # Specific route for cuota modal
     path('cuotaModal/', views.cuota_modal, name='cuota_modal'),
-    # Matches any html file
+    
+    # Catch-all para páginas estáticas (DEBE IR AL FINAL) El orden de las URLs en Django es crítico. debe ir SIEMPRE AL FINAL.
     re_path(r'^.*\.*', views.pages, name='pages'),
-
-
 ]

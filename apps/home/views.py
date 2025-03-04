@@ -5,22 +5,35 @@ from django.contrib.auth.decorators import login_required
 from django.template import loader
 from django.urls import reverse
 from django.contrib import messages
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
 from .forms import TipoPersonaForm, PersonaForm, TipoOfertaForm, OfertaForm, CuotaForm
 from .models import Personas, TipoPersona,  Cuota, TipoOferta, Ofertas
 
+@csrf_exempt
+def index_view(request):
+    # Renderiza el template SIN verificar autenticación tradicional
+    return render(request, "home/index.html")
+
+@api_view(['POST'])
+@permission_classes([AllowAny])  # Permitir acceso sin autenticación (solo para pruebas)
 @csrf_exempt
 def tipo_persona_modal(request):
     if request.method == 'POST':
         form = TipoPersonaForm(request.POST)
         if form.is_valid():
-            form.save()
-            return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
+            tipo_persona = form.save()
+            return JsonResponse({
+                'success': True,
+                'message': 'Registro exitoso.',
+                'idTP': tipo_persona.idTP,
+                'nombreTP': tipo_persona.nombreTP
+            })
         else:
-            errors = {field: error for field, error in form.errors.items()}
+            errors = {field: error[0] for field, error in form.errors.items()}
             return JsonResponse({'success': False, 'errors': errors})
     else:
-        form = TipoPersonaForm()
-    return render(request, 'home/tipoPersona.html', {'form': form})
+        return JsonResponse({'success': False, 'message': 'Método no permitido.'})
 
 @csrf_exempt
 def oferta_modal(request):
@@ -65,14 +78,12 @@ def cuota_modal(request):
     return render(request, 'home/cuota_modal.html', {'form': form})
 
 
-@login_required(login_url="/login/")
 def index(request):
     context = {"segment": "index"}
 
     html_template = loader.get_template("home/index.html")
     return HttpResponse(html_template.render(context, request))
 
-@login_required(login_url="/login/")
 def pages(request):
     context = {}
     try:

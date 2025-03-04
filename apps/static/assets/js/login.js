@@ -1,12 +1,66 @@
+// Función para obtener el valor de una cookie (ámbito global)
+function getCookie(name) {
+  let cookieValue = null;
+  if (document.cookie && document.cookie !== '') {
+    const cookies = document.cookie.split(';');
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].trim();
+      if (cookie.substring(0, name.length + 1) === (name + '=')) {
+        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+        break;
+      }
+    }
+  }
+  return cookieValue;
+}
+
 document.addEventListener('DOMContentLoaded', function () {
   const loginForm = document.querySelector('.login-form form');
   const signupForm = document.querySelector('.signup-form form');
 
   if (loginForm) {
     loginForm.addEventListener('submit', function (event) {
-      if (!validateLoginForm()) {
-        event.preventDefault(); // Evita que el formulario se envíe si la validación falla
-      }
+      event.preventDefault();
+
+      if (!validateLoginForm()) return;
+
+      const email = loginForm.querySelector('input[name="username"]').value.trim();
+      const password = loginForm.querySelector('input[name="password"]').value.trim();
+
+      // --- Zona modificada ---
+      fetch('/auth/api/login/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',  // Solo este header es necesario
+        },
+        body: JSON.stringify({
+            username: email,
+            password: password
+        })
+    })
+      .then(response => {
+        // Verificamos si la respuesta es exitosa
+        if (!response.ok) {
+          throw new Error(`Error HTTP: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then(data => {
+        console.log('Respuesta completa del servidor:', data); // Debug
+        // Dentro del .then(data => ...)
+          if (data.access) {
+            localStorage.setItem('access_token', data.access);
+            console.log('Token almacenado:', localStorage.getItem('access_token')); 
+            
+            // Verifica manualmente el token en consola
+            alert('Token almacenado. Verifica en Application > Local Storage');
+            window.location.href = '/index/';  // Redirige SIN setTimeout
+          }
+      })
+      .catch(error => {
+        console.error('Error completo:', error);
+        showAlert('Error de conexión: ' + error.message, 'error');
+      });
     });
   }
 
