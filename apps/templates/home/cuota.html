@@ -26,4 +26,53 @@
 {% endblock content %}
 
 {% block javascripts %}
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    $('c').on('show.bs.modal', function (e) {
+      var modal = $(this);
+      $.ajax({
+        url: 'apps/home/cuota.html',
+        method: 'GET',
+        success: function(data) {
+          modal.find('.modal-body').html(data);
+        }
+      });
+    });
+    //Validar solo letras 
+  });
+  document.getElementById("nombreCuota").addEventListener("input", function() {
+    this.value = this.value.replace(/^\d+$/,'');
+
+    if (this.value.length > 20) {
+        this.value = this.value.slice(0, 20);
+    }
+  });
+  
+//Recarga dinamica
+
+$(document).on('submit', '#registroForm', function(e) {
+      e.preventDefault();
+      var form = $(this);
+      $.ajax({
+        url: form.attr('action'),
+        method: form.attr('method'),
+        data: form.serialize(),
+        success: function(response) {
+          var messagesContainer = $('#modalMessages');
+          messagesContainer.empty();
+          if (response.success) {
+            messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
+            $('#cuotaModal').modal('hide');
+            location.reload();  // Recargar la página para ver los cambios
+          } else {
+            // Mostrar errores en el modal
+            var errors = response.errors;
+            for (var field in errors) {
+              messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + errors[field] + '</div>');
+            }
+          }
+        }
+      });
+    });
+</script>
 {% endblock javascripts %}
