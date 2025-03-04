@@ -13,7 +13,16 @@ urlpatterns = [
     path('tipoOfertaModal/', views.tipo_oferta_modal, name='tipo_oferta_modal'),
     path('ofertaModal/', views.oferta_modal, name='oferta_modal'),
     path('cuotaModal/', views.cuota_modal, name='cuota_modal'),
-    
-    # Catch-all para páginas estáticas (DEBE IR AL FINAL) El orden de las URLs en Django es crítico. debe ir SIEMPRE AL FINAL.
+       # Specific route for materia modal
+    path('materiaModal/', views.materia_modal, name='materia_modal'),
+    # Specific route for cohorte modal
+    path('cohorteModal/', views.cohorte_modal, name='cohorte_modal'),
+    # Specific route for cohorte modal
+    path('cargoModal/', views.cargo_modal, name='cargo_modal'),
+    # Specific route for cohorte modal
+    path('contratoModal/', views.contrato_modal, name='contrato_modal'),
+   
+   
+    # Matches any html file no mover de lugar 
     re_path(r'^.*\.*', views.pages, name='pages'),
 ]

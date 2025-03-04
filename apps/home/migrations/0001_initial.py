@@ -13,6 +13,32 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
+            name='Cargo',
+            fields=[
+                ('idCargo', models.AutoField(primary_key=True, serialize=False)),
+                ('nombreCargo', models.CharField(max_length=100)),
+                ('estadoCargo', models.CharField(max_length=10)),
+                ('fechaCargo', models.DateField(auto_now_add=True)),
+            ],
+            options={
+                'verbose_name': 'Cargo',
+                'verbose_name_plural': 'Cargos',
+            },
+        ),
+        migrations.CreateModel(
+            name='Cohorte',
+            fields=[
+                ('idCohorte', models.AutoField(primary_key=True, serialize=False)),
+                ('nombreCohorte', models.CharField(max_length=100)),
+                ('estadoCohorte', models.CharField(max_length=10)),
+                ('fechaCohorte', models.DateField(auto_now_add=True)),
+            ],
+            options={
+                'verbose_name': 'Cohorte',
+                'verbose_name_plural': 'Cohortes',
+            },
+        ),
+        migrations.CreateModel(
             name='Cuota',
             fields=[
                 ('idCuota', models.AutoField(primary_key=True, serialize=False)),
@@ -53,6 +79,25 @@ class Migration(migrations.Migration):
             },
         ),
         migrations.CreateModel(
+            name='Personas',
+            fields=[
+                ('idPersona', models.AutoField(primary_key=True, serialize=False)),
+                ('cedula', models.CharField(max_length=10)),
+                ('nombres', models.CharField(max_length=100)),
+                ('apellidos', models.CharField(max_length=100)),
+                ('telefono', models.CharField(max_length=15)),
+                ('correo', models.EmailField(max_length=254)),
+                ('estadoPersona', models.CharField(max_length=10)),
+                ('fechaPersona', models.DateField(auto_now_add=True)),
+                ('idTP', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='home.tipopersona')),
+            ],
+            options={
+                'verbose_name': 'Persona',
+                'verbose_name_plural': 'Personas',
+                'ordering': ['idTP'],
+            },
+        ),
+        migrations.CreateModel(
             name='Ofertas',
             fields=[
                 ('idOferta', models.AutoField(primary_key=True, serialize=False)),
@@ -68,22 +113,33 @@ class Migration(migrations.Migration):
             },
         ),
         migrations.CreateModel(
-            name='Personas',
+            name='Materia',
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('cedula', models.CharField(max_length=10)),
-                ('nombres', models.CharField(max_length=100)),
-                ('apellidos', models.CharField(max_length=100)),
-                ('telefono', models.CharField(max_length=15)),
-                ('correo', models.EmailField(max_length=254)),
-                ('estadoPersona', models.CharField(max_length=10)),
-                ('fechaPersona', models.DateField(auto_now_add=True)),
-                ('idTP', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='home.tipopersona')),
+                ('idMateria', models.AutoField(primary_key=True, serialize=False)),
+                ('nombreMateria', models.CharField(max_length=100)),
+                ('estadoMateria', models.CharField(max_length=10)),
+                ('fechaMateria', models.DateField(auto_now_add=True)),
+                ('idOferta', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='home.ofertas')),
             ],
             options={
-                'verbose_name': 'Persona',
-                'verbose_name_plural': 'Personas',
-                'ordering': ['idTP'],
+                'verbose_name': 'Materia',
+                'verbose_name_plural': 'Materias',
+            },
+        ),
+        migrations.CreateModel(
+            name='Contrato',
+            fields=[
+                ('idContrato', models.AutoField(primary_key=True, serialize=False)),
+                ('estadoContrato', models.CharField(max_length=10)),
+                ('fechaContrato', models.DateField(auto_now_add=True)),
+                ('idCargo', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='home.cargo')),
+                ('idCohorte', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='home.cohorte')),
+                ('idMateria', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='home.materia')),
+                ('idPersona', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='home.personas')),
+            ],
+            options={
+                'verbose_name': 'Contrato',
+                'verbose_name_plural': 'Contratos',
             },
         ),
     ]

@@ -5,10 +5,12 @@ from django.contrib.auth.decorators import login_required
 from django.template import loader
 from django.urls import reverse
 from django.contrib import messages
+
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
-from .forms import TipoPersonaForm, PersonaForm, TipoOfertaForm, OfertaForm, CuotaForm
-from .models import Personas, TipoPersona,  Cuota, TipoOferta, Ofertas
+
+from .forms import TipoPersonaForm, PersonaForm, TipoOfertaForm, OfertaForm, CuotaForm, MateriaForm, CohorteForm, CargoForm, ContratoForm
+from .models import Personas, TipoPersona,  Cuota, TipoOferta, Ofertas, Materia, Cohorte, Cargo, Contrato
 
 @csrf_exempt
 def index_view(request):
@@ -77,6 +79,62 @@ def cuota_modal(request):
         form = CuotaForm()
     return render(request, 'home/cuota_modal.html', {'form': form})
 
+@csrf_exempt
+def materia_modal(request):
+    if request.method == 'POST':
+        form = MateriaForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
+        else:
+            errors = {field: error for field, error in form.errors.items()}
+            return JsonResponse({'success': False, 'errors': errors})
+    else:
+        form = MateriaForm()
+    return render(request, 'home/materia_modal.html', {'form': form})
+
+@csrf_exempt
+def cohorte_modal(request):
+    if request.method == 'POST':
+        form = CohorteForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
+        else:
+            errors = {field: error for field, error in form.errors.items()}
+            return JsonResponse({'success': False, 'errors': errors})
+    else:
+        form = CuotaForm()
+    return render(request, 'home/cohorte_modal.html', {'form': form})
+
+
+@csrf_exempt
+def cargo_modal(request):
+    if request.method == 'POST':
+        form = CargoForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
+        else:
+            errors = {field: error for field, error in form.errors.items()}
+            return JsonResponse({'success': False, 'errors': errors})
+    else:
+        form = CuotaForm()
+    return render(request, 'home/cargo_modal.html', {'form': form})
+@csrf_exempt
+def contrato_modal(request):
+    if request.method == 'POST':
+        form = ContratoForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
+        else:
+           # print(form.errors)  # esto para depurar errores
+            errors = {field: error for field, error in form.errors.items()}
+            return JsonResponse({'success': False, 'errors': errors})
+    else:
+        form = ContratoForm()
+    return render(request, 'home/contrato_modal.html', {'form': form})
 
 def index(request):
     context = {"segment": "index"}
@@ -151,12 +209,6 @@ def pages(request):
 
         context["segment"] = load_template
 
-        if load_template == "tablaOfertas.html":
-            ofertas = Ofertas.objects.all()
-            context['ofertas'] = ofertas
-
-        context["segment"] = load_template
-
 
         if load_template == "oferta.html":
             tipoOfertas = TipoOferta.objects.all()
@@ -166,6 +218,56 @@ def pages(request):
         if load_template == "tipoOferta.html":
             cuotas = Cuota.objects.all()
             context['cuota'] = cuotas
+        context["segment"] = load_template
+
+        if load_template == "tablaMaterias.html":
+            materias = Materia.objects.all()
+            context['materias'] = materias
+
+        context["segment"] = load_template
+
+
+        if load_template == "materia.html":  
+            ofertas = Ofertas.objects.all()  
+            context['ofertas'] = ofertas  
+        else:  
+            context["ofertas"] = None  # O alguna lógica alternativa  
+
+        if load_template == "tablaOfertas.html":  
+            ofertas = Ofertas.objects.all()  
+            context['ofertas'] = ofertas  
+        else:  
+            context["ofertas"] = None  # O alguna lógica alternativa  
+    
+        if load_template == "tablaCohortes.html":
+            cohortes = Cohorte.objects.all()
+            context['cohortes'] = cohortes
+
+        context["segment"] = load_template
+
+        if load_template == "tablaCargos.html":
+            cargos = Cargo.objects.all()
+            context['cargos'] = cargos
+
+        context["segment"] = load_template
+
+        if load_template == "contrato.html":
+            personas = Personas.objects.all()
+            context['personas'] = personas
+            cargos = Cargo.objects.all()
+            context['cargos'] = cargos
+            materias = Materia.objects.all()
+            context['materias'] = materias
+            cohortes = Cohorte.objects.all()
+            context['cohortes'] = cohortes
+
+        context["segment"] = load_template
+
+
+        if load_template == "tablaContratos.html":
+            contratos = Contrato.objects.all()
+            context['contratos'] = contratos
+
         context["segment"] = load_template
 
 

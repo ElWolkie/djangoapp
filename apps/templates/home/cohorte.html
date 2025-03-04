@@ -11,43 +11,28 @@
     {% endfor %}
   {% endif %}
 <div class=" mt-5">
-  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Registrar Tipo de Oferta Académica</h2>
-  <form method="POST" class="mt-3 text-dark" autocomplete="off" style="font-weight: bold; max-width: 600px; margin: 0 auto;" id="tipoOfertaForm" action="{% url 'tipo_oferta_modal' %}">  
-    {% csrf_token %}  
-    
-    <div class="form-row">  
-      <div class="form-group col-md-6">  
-        <label for="idCuota">Cuota:</label>  
-        <div class="input-group"> <!-- Usar input-group para alinear botón y select -->  
-          <select id="idCuota" name="idCuota" class="form-control text-dark" tabindex="1" required>  
-            <option value="" disabled selected>Seleccione..</option>  
-            {% for cuota in cuota %}  
-              <option value="{{ cuota.idCuota }}" class="text-orange">{{ cuota.nombreCuota }}</option>  
-            {% endfor %}
-          </select>  
-        </div>  
-      </div>  
-      
-      <div class="form-group col-md-6">  
-        <label for="nombreTipoOferta">Nombre:</label>  
-        <input type="text" id="nombreTipoOferta" name="nombreTipoOferta" class="form-control text-dark" placeholder="Ingrese un nombre" tabindex="3" maxlength="100" required />  
-        <input type="hidden" id="estadoTipoOferta" name="estadoTipoOferta" class="form-control text-dark" value="ACTIVO" />  
-      </div>  
-    </div>  
-    
-    <div class="text-center">  
-      <input type="submit" class="btn btn-warning mt-4" value="Guardar" />  
-    </div>  
+  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Registrar Cohorte</h2>
+  <form method="POST" class="mt-3 text-dark" autocomplete="off" style="font-weight: bold; max-width: 600px; margin: 0 auto;" id="cohorteForm" action="{% url 'cohorte_modal' %}">
+    {% csrf_token %}
+    <div class="form-group text-center">
+      <label for="nombreCohorte" class="d-block">Nombre:</label>
+      <input type="text" id="nombreCohorte" name="nombreCohorte" class="form-control text-dark mx-auto" placeholder="Ingrese un nombre" tabindex="3" maxlength="100" required style="width: 50%;" />
+      <input type="hidden" id="estadoCohorte" name="estadoCohorte" class="form-control text-dark" value="ACTIVO" />
+    </div>
+    <div class="text-center">
+      <input type="submit" class="btn btn-warning mt-4" value="Guardar" />
+    </div>
   </form>
 {% endblock content %}
 
 {% block javascripts %}
+
 <script>
   document.addEventListener("DOMContentLoaded", function() {
     $('c').on('show.bs.modal', function (e) {
       var modal = $(this);
       $.ajax({
-        url: 'apps/home/tipoOferta.html',
+        url: 'apps/home/cohorte.html',
         method: 'GET',
         success: function(data) {
           modal.find('.modal-body').html(data);
@@ -56,13 +41,8 @@
     });
     //Validar solo letras 
   });
-  document.getElementById("nombreTipoOferta").addEventListener("input", function() {
+  document.getElementById("nombreCohorte").addEventListener("input", function() {
     this.value = this.value.replace(/[^a-zA-Z\s]/g, '');
-
-    if (this.value.length > 20) {
-        this.value = this.value.slice(0, 20);
-    }
-
   });
   
 //Recarga dinamica
@@ -79,7 +59,7 @@ $(document).on('submit', '#registroForm', function(e) {
           messagesContainer.empty();
           if (response.success) {
             messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
-            $('#tipoOfertaModal').modal('hide');
+            $('#cohorteModal').modal('hide');
             location.reload();  // Recargar la página para ver los cambios
           } else {
             // Mostrar errores en el modal

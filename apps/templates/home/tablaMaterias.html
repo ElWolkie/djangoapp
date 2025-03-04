@@ -9,7 +9,7 @@
 
 {% block content %}
 <div class="container mt-5">
-  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Lista de Ofertas Registradas</h2>
+  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Lista de Materias Registradas</h2>
 
   {% if messages %}
     {% for message in messages %}
@@ -31,43 +31,41 @@
       </div>
     </div>
     <div class="col-md-4">
-      <button class="btn btn-warning btn-square btn-sm my-2" type="button" title="Registrar Oferta Académica" data-toggle="modal" data-target="#ofertaModal">+</button>
+      <button class="btn btn-warning btn-square btn-sm my-2" type="button" title="Registrar Materia" data-toggle="modal" data-target="#materiaModal">+</button>
     </div>
   </div>
 
   <br>
-  <table class="table table-striped text-gray-dark" id="ofertasTable">
+  <table class="table table-striped text-gray-dark" id="materiasTable">
     <thead class="text-darker">
       <tr>
         <th scope="col">ID</th>
-        <th scope="col">Tipo</th>
+        <th scope="col">Oferta</th>
         <th scope="col">Nombre</th>
-        <th scope="col">Duración</th>
         <th scope="col">Estado</th>
         <th scope="col">Fecha</th>
       </tr>
     </thead>
-      <tbody>
-        <!-- Contenido de la tabla -->
-        {% for oferta in ofertas %}
-        <tr>
-          <td>{{ oferta.idOferta }}</td>
-          <td>{{ oferta.idTipoOferta.nombreTipoOferta }}</td>
-          <td>{{ oferta.nombreOferta }}</td>
-          <td>{{ oferta.duracion }}</td>
-          <td>{{ oferta.estadoOferta }}</td>
-          <td>{{ oferta.fechaOferta }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
+    <tbody>
+      <!-- Contenido de la tabla -->
+      {% for materia in materias %}  
+      <tr>  
+          <td>{{ materia.idMateria }}</td>  
+          <td>{{ materia.idOferta.nombreOferta }}</td>  
+          <td>{{ materia.nombreMateria }}</td>  
+          <td>{{ materia.estadoMateria }}</td>  
+          <td>{{ materia.fechaMateria }}</td>  
+      </tr>  
+  {% endfor %}
+    </tbody>
   </table>
 </div>
 <!-- Modal -->
-<div class="modal fade" id="ofertaModal" tabindex="-1" role="dialog" aria-labelledby="ofertaModalLabel" aria-hidden="true">
+<div class="modal fade" id="materiaModal" tabindex="-1" role="dialog" aria-labelledby="materiaModalLabel" aria-hidden="true">
   <div class="modal-dialog" role="document">
     <div class="modal-content">
       <div class="modal-header">
-      <h5 class="modal-title" id="ofertaModalLabel">Registro de Oferta Académica</h5>
+      <h5 class="modal-title" id="materiaModalLabel">Registro de materia Académica</h5>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
@@ -86,10 +84,10 @@
 <script src="/static/assets/js/validacionesPersona.js"></script>
 <script>
   document.addEventListener("DOMContentLoaded", function() {
-    $('#ofertaModal').on('show.bs.modal', function (e) {
+    $('#materiaModal').on('show.bs.modal', function (e) {
       var modal = $(this);
       $.ajax({
-        url: 'apps/home/oferta.html',
+        url: 'apps/home/materia.html',
         method: 'GET',
         success: function(data) {
           modal.find('.modal-body').html(data);
@@ -97,7 +95,7 @@
       });
     });
 
-    $(document).on('submit', '#ofertaForm', function(e) {
+    $(document).on('submit', '#materiaForm', function(e) {
       e.preventDefault();
       var form = $(this);
       $.ajax({
@@ -109,7 +107,7 @@
           messagesContainer.empty();
           if (response.success) {
             messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
-            $('#ofertaModal').modal('hide');
+            $('#materiaModal').modal('hide');
             location.reload();  // Recargar la página para ver los cambios
           } else {
             // Mostrar errores en el modal
@@ -128,7 +126,7 @@
     var input, filter, table, tr, td, i, j, txtValue;
     input = document.getElementById("searchInput");
     filter = input.value.toUpperCase();
-    table = document.getElementById("ofertasTable");
+    table = document.getElementById("materiasTable");
     tr = table.getElementsByTagName("tr");
     for (i = 1; i < tr.length; i++) {
       tr[i].style.display = "none";
