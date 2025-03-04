@@ -101,65 +101,57 @@
 
 <script>
   document.addEventListener("DOMContentLoaded", function() {
-  // Función para obtener el token JWT del localStorage
-  function getJWTToken() {
-    return localStorage.getItem('access_token'); // Asegúrate de que el token se almacene aquí al iniciar sesión
-  }
+    // Manejar el envío del formulario de tipo de persona
+    $(document).on('submit', '#registroTipoPersonaForm', function(e) {
+      e.preventDefault();  // Evitar el envío tradicional del formulario
+      var form = $(this);
+      var modal = $('#tipoPersonaModal');
+      var messagesContainer = $('#modalMessages');
 
-  // Manejar el envío del formulario de tipo de persona
-  $(document).on('submit', '#registroTipoPersonaForm', function(e) {
-    e.preventDefault();  // Evitar el envío tradicional del formulario
-    var form = $(this);
-    var modal = $('#tipoPersonaModal');
-    var messagesContainer = $('#modalMessages');
+      // Limpiar mensajes anteriores
+      messagesContainer.empty();
 
-    // Limpiar mensajes anteriores
-    messagesContainer.empty();
+      // Enviar la solicitud AJAX
+      $.ajax({
+        url: "{% url 'tipo_persona_modal' %}",  // URL a la que se envía el formulario
+        method: 'POST',
+        data: form.serialize(),  // Datos del formulario
+        headers: {
+          'X-CSRFToken': form.find('input[name="csrfmiddlewaretoken"]').val()  // Incluir el token CSRF
+        },
+        success: function(response) {
+          if (response.success) {
+            // Mostrar mensaje de éxito
+            messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
 
-    // Obtener el token JWT
-    const jwtToken = getJWTToken();
+            // Cerrar el modal después de 1 segundo
+            setTimeout(function() {
+              modal.modal('hide');
+            }, 1000);
 
-    // Enviar la solicitud AJAX
-    $.ajax({
-      url: "{% url 'tipo_persona_modal' %}",  // URL a la que se envía el formulario
-      method: 'POST',
-      data: form.serialize(),  // Datos del formulario
-      headers: {
-        'Authorization': 'Bearer ' + jwtToken,  // Incluir el token JWT en los encabezados
-        'X-CSRFToken': form.find('input[name="csrfmiddlewaretoken"]').val()  // Incluir el token CSRF
-      },
-      success: function(response) {
-        if (response.success) {
-          // Mostrar mensaje de éxito
-          messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
-
-          // Cerrar el modal después de 1 segundo
-          setTimeout(function() {
-            modal.modal('hide');
-          }, 1000);
-
-          // Actualizar el select de tipo de persona
-          var select = $('#tipoPersona');
-          select.append('<option value="' + response.idTP + '">' + response.nombreTP + '</option>');
-          select.val(response.idTP);  // Seleccionar el nuevo tipo de persona
-        } else {
-          // Mostrar errores en el modal
-          if (response.errors) {
-            for (var field in response.errors) {
-              messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + response.errors[field] + '</div>');
+            // Actualizar el select de tipo de persona
+            var select = $('#tipoPersona');
+            select.append('<option value="' + response.idTP + '">' + response.nombreTP + '</option>');
+            select.val(response.idTP);  // Seleccionar el nuevo tipo de persona
+          } else {
+            // Mostrar errores en el modal
+            if (response.errors) {
+              for (var field in response.errors) {
+                messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + response.errors[field] + '</div>');
+              }
+            } else if (response.message) {
+              messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + response.message + '</div>');
             }
-          } else if (response.message) {
-            messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + response.message + '</div>');
           }
+        },
+        error: function(xhr, status, error) {
+          // Manejar errores de conexión o del servidor
+          messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">Error al enviar el formulario. Inténtelo de nuevo.</div>');
+          console.error('AJAX Error:', error);
         }
-      },
-      error: function(xhr, status, error) {
-        // Manejar errores de conexión o del servidor
-        messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">Error al enviar el formulario. Inténtelo de nuevo.</div>');
-        console.error('AJAX Error:', error);
-      }
+      });
     });
   });
-});
 </script>
+
 {% endblock javascripts %}

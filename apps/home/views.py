@@ -1,7 +1,7 @@
 from django.http import JsonResponse, HttpResponse, HttpResponseRedirect
 from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import render, redirect
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
 from django.template import loader
 from django.urls import reverse
 from django.contrib import messages
@@ -36,6 +36,27 @@ def tipo_persona_modal(request):
             return JsonResponse({'success': False, 'errors': errors})
     else:
         return JsonResponse({'success': False, 'message': 'Método no permitido.'})
+    
+
+def register_view(request):
+    if request.method == 'POST':
+        username = request.POST['username']
+        email = request.POST['email']
+        password = request.POST['password']
+
+        # Verifica que el usuario no exista ya
+        if User.objects.filter(username=username).exists():
+            messages.error(request, 'El nombre de usuario ya está en uso.')
+        elif User.objects.filter(email=email).exists():
+            messages.error(request, 'El correo electrónico ya está en uso.')
+        else:
+            user = User.objects.create_user(username=username, email=email, password=password)
+            user.save()
+            messages.success(request, 'Registro exitoso. Ahora puede iniciar sesión.')
+            return redirect('login')
+
+    return render(request, 'registration/register.html')
+
 
 @csrf_exempt
 def oferta_modal(request):

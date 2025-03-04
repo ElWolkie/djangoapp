@@ -4,7 +4,7 @@ from apps.home.models import Personas, TipoPersona, Cuota, Ofertas, TipoOferta  
 class PersonaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Personas  # Usa el modelo de home
-        fields = ['id', 'idTP', 'cedula', 'nombres', 'apellidos', 'telefono', 'correo', 'estadoPersona', 'fechaPersona']
+        fields = ['idPersona', 'idTP', 'cedula', 'nombres', 'apellidos', 'telefono', 'correo', 'estadoPersona', 'fechaPersona']
 
 class TipoPersonaSerializer(serializers.ModelSerializer):
     class Meta:
