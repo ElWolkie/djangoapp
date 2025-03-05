@@ -9,7 +9,7 @@
 
 {% block content %}
 <div class="container mt-5">
-  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Lista de Honorarios Registradas</h2>
+  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Lista de Honorario Registrados</h2>
 
   {% if messages %}
     {% for message in messages %}
@@ -31,18 +31,19 @@
       </div>
     </div>
     <div class="col-md-4">
-      <button class="btn btn-warning btn-square btn-sm my-2" type="button" title="Registrar Honorario Academico" data-toggle="modal" data-target="#honorarioModal">+</button>
+      <button class="btn btn-warning btn-square btn-sm my-2" type="button" title="Registrar Honorario Academica" data-toggle="modal" data-target="#honorarioModal">+</button>
     </div>
   </div>
-NO FUNCIONAL, SE DEBE TERMINAR 
+
   <br>
   <table class="table table-striped text-gray-dark" id="honorariosTable">
     <thead class="text-darker">
       <tr>
         <th scope="col">ID</th>
-        <th scope="col">ID Contrato</th>
+        <th scope="col">Contrato</th>
         <th scope="col">Cédula</th>
-        <th scope="col">Horas</th>
+        <th scope="col">Nombres</th>
+        <th scope="col">Apellidos</th>
         <th scope="col">Estado</th>
         <th scope="col">Fecha</th>
       </tr>
@@ -52,9 +53,10 @@ NO FUNCIONAL, SE DEBE TERMINAR
         {% for honorario in honorarios %}
         <tr>
           <td>{{ honorario.idHonorario }}</td>
-          <td>{{ honorario.idContrato }}</td>
+          <td>{{ honorario.idContrato.idContrato }}</td> <!-- Mostrar el ID del contrato -->
           <td>{{ honorario.idContrato.idPersona.cedula }}</td>
-          <td>{{ honorario.horas }}</td>
+          <td>{{ honorario.idContrato.idPersona.nombres }}</td>
+          <td>{{ honorario.idContrato.idPersona.apellidos }}</td>
           <td>{{ honorario.estadoHonorario }}</td>
           <td>{{ honorario.fechaHonorario }}</td>
         </tr>
@@ -128,7 +130,7 @@ NO FUNCIONAL, SE DEBE TERMINAR
     var input, filter, table, tr, td, i, j, txtValue;
     input = document.getElementById("searchInput");
     filter = input.value.toUpperCase();
-    table = document.getElementById("personasTable");
+    table = document.getElementById("honorariosTable");
     tr = table.getElementsByTagName("tr");
     for (i = 1; i < tr.length; i++) {
       tr[i].style.display = "none";

@@ -15,7 +15,7 @@
   <form method="POST" class="mt-3 text-dark" autocomplete="off" style="font-weight: bold; max-width: 600px; margin: 0 auto;" id="cuotaForm" action="{% url 'cuota_modal' %}">
     {% csrf_token %}
     <div class="form-group text-center">
-      <label for="nombreCuota" class="d-block">Nombre:</label>
+      <label for="nombreCuota" class="d-block">Cantidad:</label>
       <input type="text" id="nombreCuota" name="nombreCuota" class="form-control text-dark mx-auto" placeholder="Ingrese un nombre" tabindex="3" maxlength="100" required style="width: 50%;" />
       <input type="hidden" id="estadoCuota" name="estadoCuota" class="form-control text-dark" value="ACTIVO" />
     </div>
@@ -40,14 +40,13 @@
     });
     //Validar solo letras 
   });
-  document.getElementById("nombreCuota").addEventListener("input", function() {
-    this.value = this.value.replace(/^\d+$/,'');
+  document.getElementById("horas").addEventListener("input", function() {  
+    this.value = this.value.replace(/[^0-9,]/g, '');  
 
-    if (this.value.length > 20) {
-        this.value = this.value.slice(0, 20);
-    }
-  });
-  
+    if (this.value.length > 20) {  
+        this.value = this.value.slice(0, 20);  
+    }  
+});  
 //Recarga dinamica
 
 $(document).on('submit', '#registroForm', function(e) {
