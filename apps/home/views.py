@@ -212,20 +212,14 @@ def pages(request):
             context['materias'] = materias
 
         context["segment"] = load_template
+        
+        if load_template in ["materia.html", "tablaOfertas.html"]:
+            ofertas = Ofertas.objects.all()
+            context['ofertas'] = ofertas
+        else:
+            context['ofertas'] = None  # O alguna lógica alternativa
 
-
-        if load_template == "materia.html":  
-            ofertas = Ofertas.objects.all()  
-            context['ofertas'] = ofertas  
-        else:  
-            context["ofertas"] = None  # O alguna lógica alternativa  
-
-        if load_template == "tablaOfertas.html":  
-            ofertas = Ofertas.objects.all()  
-            context['ofertas'] = ofertas  
-        else:  
-            context["ofertas"] = None  # O alguna lógica alternativa  
-    
+        context["segment"] = load_template
         if load_template == "tablaCohortes.html":
             cohortes = Cohorte.objects.all()
             context['cohortes'] = cohortes
