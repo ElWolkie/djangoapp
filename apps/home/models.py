@@ -109,3 +109,14 @@ class Contrato(models.Model):
     class Meta:  
         verbose_name = "Contrato"  
         verbose_name_plural = "Contratos"  
+
+class Honorario(models.Model):  
+    idHonorario = models.AutoField(primary_key=True)  # Clave primaria para el modelo  
+    idContrato = models.ForeignKey(Contrato, on_delete=models.CASCADE)  # Llave foránea hacia Contrato
+    horas = models.FloatField()  # Cantidad de horas trabajadas  
+    estadoContrato = models.CharField(max_length=10)  # Estado del honorario  
+    fechaContrato = models.DateField(auto_now_add=True)  # Fecha de creación del honorario  
+
+    class Meta:  
+        verbose_name = "Honorario"  
+        verbose_name_plural = "Honorarios"  

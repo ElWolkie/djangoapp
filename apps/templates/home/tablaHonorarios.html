@@ -40,8 +40,9 @@ NO FUNCIONAL, SE DEBE TERMINAR
     <thead class="text-darker">
       <tr>
         <th scope="col">ID</th>
-        <th scope="col">Nombre</th>
-        <th scope="col">Cuotas</th>
+        <th scope="col">ID Contrato</th>
+        <th scope="col">Cédula</th>
+        <th scope="col">Horas</th>
         <th scope="col">Estado</th>
         <th scope="col">Fecha</th>
       </tr>
@@ -51,8 +52,9 @@ NO FUNCIONAL, SE DEBE TERMINAR
         {% for honorario in honorarios %}
         <tr>
           <td>{{ honorario.idHonorario }}</td>
-          <td>{{ honorario.nombreHonorario }}</td>
-          <td>{{ honorario.idCuota.nombreCuota }}</td>
+          <td>{{ honorario.idContrato }}</td>
+          <td>{{ honorario.idContrato.idPersona.cedula }}</td>
+          <td>{{ honorario.horas }}</td>
           <td>{{ honorario.estadoHonorario }}</td>
           <td>{{ honorario.fechaHonorario }}</td>
         </tr>
