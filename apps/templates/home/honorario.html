@@ -1,51 +1,20 @@
 {% block stylesheets %}
 <link rel="stylesheet" href="/static/assets/css/sidenav.css" />
-<style>
-
-    /* Forzar ajuste del thead al tbody */
-    table.dataTable thead {
-    width: 100%;
-  }
-
-  table.dataTable tbody {
-    width: 100%;
-  }
-
-    /* Ajustar el campo de búsqueda más arriba */
-    .dataTables_wrapper .dataTables_filter {
-    margin-bottom: 10px; /* Ajustar según sea necesario */
-  }
-  .page-item .page-link,
-.page-item span {
-  display: flex
-  ;
-      align-items: center;
-      justify-content: center;
-      padding: 0;
-      margin: 0px;
-      border-radius: 5% !important;
-      width: 50px;
-      height: 40px;
-      font-size: 0.875rem; }
-  .page-item.active .page-link {
-    z-index: 3;
-    color: #fff;
-    background-color: #fd4f1a;
-    border-color: #2142ff; }
- 
-
-</style>
 {% endblock stylesheets %}
 
 {% block content %}
 {% if messages %}
-    {% for message in messages %}
-      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-        {{ message }}
-      </div>
-    {% endfor %}
-{% endif %}
-<div class="mt-5">
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+      {% endfor %}
+  {% endif %}
+
+<div class="mt--5">
   <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Registrar Honorario Académico</h2>
   <form method="POST" class="mt-3 text-dark" autocomplete="off" style="font-weight: bold; max-width: 600px; margin: 0 auto;" id="honorarioForm" action="{% url 'honorario_modal' %}">  
     {% csrf_token %}  
@@ -55,43 +24,43 @@
         <div class="input-group">  
           <div class="table-responsive" id="contratosTableContainer">  
             <table id="contratosTable" class="table table-striped text-gray-dark">  
-                <thead style="width: 100%; important!;">  
-                    <tr>  
-                        <th scope="col">Nº Contrato</th>  
+                <thead style="width: 100% important!;">  
+                    <tr>
+                        <th scope="col">Nº Contrato</th> 
                         <th scope="col">Cédula</th>  
-                    </tr>  
-                </thead>  
-                <tbody>  
+                    </tr>
+                </thead>
+                <tbody style="cursor: pointer;">
                     {% for contrato in contratos %}  
                     <tr data-id="{{ contrato.idContrato }}">  
                         <td>Nº {{ contrato.idContrato }}</td>  
                         <td>{{ contrato.idPersona.cedula }}</td>  
-                    </tr>  
-                    {% endfor %}  
-                </tbody>  
-            </table>  
-        </div>  
-          <div class="d-flex">  
-            <div class="form-group col-md-6 d-flex align-items-center">  
-              <div id="selectedContratoContainer" class="d-none">  
-                  <label for="changeContrato">Contrato:</label>  
-                <div class="input-group">  
-                  <input type="text" id="selectedContrato" class="form-control" readonly>  
-                  <div class="input-group-append">  
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+          <div class="d-flex">
+            <div class="form-group col-md-6 d-flex align-items-center">
+              <div id="selectedContratoContainer" class="d-none">
+                  <label for="changeContrato">Contrato:</label>
+                <div class="input-group">
+                  <input type="text" id="selectedContrato" class="form-control" readonly>
+                  <div class="input-group-append">
                     <button type="button" class="btn btn-secondary" id="changeContrato" style="background-color: #bcbcbc; border: none;">  
-                      <i class="fas fa-exchange-alt text-warning"></i>  
-                    </button>  
-                  </div>  
-                </div>  
-                <input type="hidden" id="idContrato" name="idContrato" required>  
-              </div>  
-            </div>  
+                      <i class="fas fa-exchange-alt text-warning"></i>
+                    </button>
+                  </div>
+                </div>
+                <input type="hidden" id="idContrato" name="idContrato" required>
+              </div>
+            </div>
           
-            <div class="form-group col-md-6 d-flex align-items-center">  
-              <div>  
-                <label for="horas">Horas:</label>  
+            <div class="form-group col-md-6 d-flex align-items-center">
+              <div>
+                <label for="horas">Horas:</label>
                 <input type="text" id="horas" name="horas" class="form-control text-dark" placeholder="10" tabindex="3" maxlength="100" required />  
-                <input type="hidden" id="estadoHonorario" name="estadoHonorario" class="form-control text-dark" value="ACTIVO" />  
+                <input type="hidden" id="estadoHonorario" name="estadoHonorario" class="form-control text-dark" value="ACTIVO" />
               </div>  
             </div>  
           </div>  

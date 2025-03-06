@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from apps.home.models import Personas, TipoPersona, Cuota, Ofertas, TipoOferta  # Importa el modelo desde home
+from apps.home.models import Personas, TipoPersona, Cuota, Ofertas, TipoOferta, Materia, Cohorte, Cargo, Contrato, Honorario  # Importa el modelo desde home
 
 class PersonaSerializer(serializers.ModelSerializer):
     class Meta:
@@ -24,4 +24,29 @@ class OfertasSerializer(serializers.ModelSerializer):
 class TipoOfertaSerializer(serializers.ModelSerializer):
     class Meta:
         model = TipoOferta  # Usa el modelo de home
-        fields = ['idTipoOferta', 'idCuota', 'nombreTipoOferta', 'estadoTipoOferta', 'fechaTipoOferta'] 
+        fields = ['idTipoOferta', 'idCuota', 'nombreTipoOferta', 'estadoTipoOferta', 'fechaTipoOferta']
+
+class MateriaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Materia  # Usa el modelo de home
+        fields = ['idMateria', 'idOferta', 'nombreMateria', 'estadoMateria', 'fechaMateria']
+
+class CohorteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Cohorte  # Usa el modelo de home
+        fields = ['idCohorte', 'nombreCohorte', 'estadoCohorte', 'fechaCohorte']
+
+class CargoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Cargo  # Usa el modelo de home
+        fields = ['idCargo', 'nombreCargo', 'estadoCargo', 'fechaCargo']
+
+class ContratoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Contrato  # Usa el modelo de home
+        fields = ['idContrato', 'idPersona', 'idCargo', 'idCohorte', 'idMateria', 'estadoContrato', 'fechaContrato']
+
+class HonorarioSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Honorario  # Usa el modelo de home
+        fields = ['idHonorario', 'idContrato', 'horas', 'estadoHonorario', 'fechaHonorario']

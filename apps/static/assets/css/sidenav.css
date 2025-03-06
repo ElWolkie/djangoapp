@@ -37,7 +37,8 @@ ul {
     font-size: 15px !important;
 }
 
-a {
+/* Aplica los estilos solo a los enlaces de la barra de navegación lateral */
+.sidenav .nav-link {
     text-decoration: none;
     background-image: linear-gradient(#b4b4b4, #afcfff);
     background-position: 0% 100%;
@@ -46,13 +47,13 @@ a {
     transition: background-size .6s;
 }
 
-a:hover, a:focus {
+.sidenav .nav-link:hover,
+.sidenav .nav-link:focus {
     background-size: 100% 2px;
     background-color: #e9e9e9;
 }
 
-a.active-dropdown {
+.sidenav .nav-link.active-dropdown {
     background-size: 0% 2px !important;
     background-color: #cecdcd;
 }
-

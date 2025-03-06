@@ -8,7 +8,12 @@ urlpatterns = [
     path('tipo-personas/', views.TipoPersonaListCreate.as_view(), name='tipo-persona-list'),  # Nueva ruta
     path('cuota/', views.CuotaListCreate.as_view(), name='cuota-list'),
     path('ofertas/', views.OfertasListCreate.as_view(), name='oferta-list'),
-    path('tipo-oferta/', views.TipoOfertaListCreate.as_view(), name='tipo-oferta-list'),
+    path('materia/', views.MateriaListCreate.as_view(), name='materia-list'),
+    path('cohorte/', views.CohorteListCreate.as_view(), name='cohorte-list'),
+    path('cargo/', views.CargoListCreate.as_view(), name='cargo-list'),
+    path('contrato/', views.ContratoListCreate.as_view(), name='contrato-list'),
+    path('honorario/', views.HonorarioListCreate.as_view(), name='honorario-list'),
+
     path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),  # Solo permite POST
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),  # Solo permite POST
 ]

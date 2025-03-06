@@ -4,19 +4,21 @@
 
 {% block stylesheets %}
 <link rel="stylesheet" href="/static/assets/css/styleForms.css" />
-<link rel="stylesheet" href="/static/assets/css/argon.css" />
 {% endblock stylesheets %}
 
 {% block content %}
 <div class="container mt-5">
-  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Lista de Honorarios Registradas</h2>
+  <h2 class="text-center text-dark">Lista de Honorarios Registrados</h2>
 
   {% if messages %}
-    {% for message in messages %}
-      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-        {{ message }}
-      </div>
-    {% endfor %}
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+      {% endfor %}
   {% endif %}
 
   <div class="row">
@@ -34,7 +36,6 @@
       <button class="btn btn-warning btn-square btn-sm my-2" type="button" title="Registrar Honorario Academico" data-toggle="modal" data-target="#honorarioModal">+</button>
     </div>
   </div>
-NO FUNCIONAL, SE DEBE TERMINAR 
   <br>
   <table class="table table-striped text-gray-dark" id="honorariosTable">
     <thead class="text-darker">
@@ -52,7 +53,7 @@ NO FUNCIONAL, SE DEBE TERMINAR
         {% for honorario in honorarios %}
         <tr>
           <td>{{ honorario.idHonorario }}</td>
-          <td>{{ honorario.idContrato }}</td>
+          <td>{{ honorario.idContrato_id }}</td>
           <td>{{ honorario.idContrato.idPersona.cedula }}</td>
           <td>{{ honorario.horas }}</td>
           <td>{{ honorario.estadoHonorario }}</td>
@@ -67,7 +68,6 @@ NO FUNCIONAL, SE DEBE TERMINAR
   <div class="modal-dialog" role="document">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="honorarioModalLabel">Registro de Tipo de Oferta</h5>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
