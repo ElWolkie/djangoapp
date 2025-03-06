@@ -26,7 +26,9 @@ urlpatterns = [
     path('honorarioModal/', views.honorario_modal, name='honorario_modal'),
      # Specific route for cohorte modal
     path('requisitoModal/', views.requisito_modal, name='requisito_modal'),
-   
+    # Specific route for servicio modal
+    path('servicioModal/', views.servicio_modal, name='servicio_modal'),
+
     # Matches any html file no mover de lugar 
     re_path(r'^.*\.*', views.pages, name='pages'),
 

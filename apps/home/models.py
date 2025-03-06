@@ -134,3 +134,16 @@ class Requisito(models.Model):
     class Meta:  
         verbose_name = "Requisito"  
         verbose_name_plural = "Requisitos"  
+
+
+class Servicio(models.Model):  
+    idServicio = models.AutoField(primary_key=True)  # Clave primaria para Servicios  
+    nombreServicio = models.CharField(max_length=100)  # Nombre del Servicio  
+    tiempoServicio = models.CharField(max_length=100)  # Duración del Servicio  
+    precioServicio = models.CharField(max_length=100)  # Precio del Servicio  
+    estadoServicio = models.CharField(max_length=10)  # Estado del Servicio  
+    fechaServicio = models.DateField(auto_now_add=True)  # Fecha de creación del Servicio  
+        
+    class Meta:  
+        verbose_name = "Servicio"  
+        verbose_name_plural = "Servicios"  
