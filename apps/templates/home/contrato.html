@@ -17,17 +17,15 @@
     
     <div class="form-row">  
       <div class="form-group col-md-6">  
-        <label for="idPersona">Cédula del Contratado:</label>  
+        <label for="cedulaPersona">Cédula del Contratado:</label>  
         <div class="input-group"> <!-- Usar input-group para alinear botón y select -->  
-          <select id="id" name="idPersona" class="form-control text-dark" tabindex="1" required>  
-            <option value="" disabled selected>Seleccione..</option>  
-           {% for persona in personas %}  
-              <option value="{{ persona.idPersona}}" class="text-orange">{{ persona.cedula }}</option>  
-            {% endfor %}
-          </select>  
+            <input type="text" id="cedulaPersona" name="cedulaPersona" class="form-control text-dark" tabindex="1" required oninput="checkPersona()" placeholder="Ingrese cédula...">
+            <div class="input-group-append">
+                <span id="check-icon" class="input-group-text"></span>
+            </div>
+            <input type="hidden" id="idPersona" name="idPersona" />
         </div>  
-      </div>  
-      
+      </div>
       <div class="form-group col-md-6">  
         <label for="idCargo">Cargo:</label>  
         <div class="input-group"> <!-- Usar input-group para alinear botón y select -->  
@@ -53,16 +51,14 @@
       </div>  
 
       <div class="form-group col-md-6">  
-        <label for="idCohorte">Cohorte:</label>  
+        <label for="nombreCohorte">Cohorte:</label>  
         <div class="input-group"> <!-- Usar input-group para alinear botón y select -->  
-          <select id="idCohorte" name="idCohorte" class="form-control text-dark" tabindex="1" required>  
-            <option value="" disabled selected>Seleccione..</option>  
-           {% for cohorte in cohortes %}  
-              <option value="{{ cohorte.idCohorte }}" class="text-orange">{{ cohorte.nombreCohorte}}</option>  
-            {% endfor %}
-          </select>  
+          <input type="text" id="nombreCohorte" name="nombreCohorte" class="form-control text-dark" tabindex="1" required oninput="checkCohorte()" placeholder="Ingrese nombre de cohorte...">
+          <div class="input-group-append">
+              <span id="check-cohorte-icon" class="input-group-text"></span>
+          </div>
+          <input type="hidden" id="idCohorte" name="idCohorte" />
           <input type="hidden" id="estadoContrato" name="estadoContrato" class="form-control text-dark" value="ACTIVO" />
-
         </div>  
       </div>  
     </div>  
@@ -71,7 +67,53 @@
       <input type="submit" class="btn btn-warning mt-4" value="Guardar" />  
     </div>  
   </form>
-{% endblock content %}
+  {% block javascripts %}
+  <script>
+    const personas = [
+        {% for persona in personas %}
+            { idPersona: "{{ persona.idPersona|escapejs }}", cedula: "{{ persona.cedula|escapejs }}" },
+        {% endfor %}
+    ];
 
-{% block javascripts %}
-{% endblock javascripts %}
+    const cohortes = [
+        {% for cohorte in cohortes %}
+            { idCohorte: "{{ cohorte.idCohorte|escapejs }}", nombreCohorte: "{{ cohorte.nombreCohorte|escapejs }}" },
+        {% endfor %}
+    ];
+  
+    function checkPersona() {
+        const input = document.getElementById('cedulaPersona').value;
+        const icon = document.getElementById('check-icon');
+        const idPersonaInput = document.getElementById('idPersona');
+        const foundPersona = personas.find(persona => persona.cedula === input);
+  
+        if (foundPersona) {
+            icon.innerHTML = '✔️'; // Pajarito verde
+            icon.style.color = 'blue';
+            idPersonaInput.value = foundPersona.idPersona;
+        } else {
+            icon.innerHTML = '❌'; // X roja
+            icon.style.color = 'red';
+            idPersonaInput.value = '';
+        }
+    }
+
+    function checkCohorte() {
+        const input = document.getElementById('nombreCohorte').value;
+        const icon = document.getElementById('check-cohorte-icon');
+        const idCohorteInput = document.getElementById('idCohorte');
+        const foundCohorte = cohortes.find(cohorte => cohorte.nombreCohorte === input);
+  
+        if (foundCohorte) {
+            icon.innerHTML = '✔️'; // Pajarito verde
+            icon.style.color = 'blue';
+            idCohorteInput.value = foundCohorte.idCohorte;
+        } else {
+            icon.innerHTML = '❌'; // X roja
+            icon.style.color = 'red';
+            idCohorteInput.value = '';
+        }
+    }
+  </script>
+  {% endblock javascripts %}
+{% endblock content %}
