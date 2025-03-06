@@ -5,8 +5,8 @@ from django.contrib.auth.decorators import login_required
 from django.template import loader
 from django.urls import reverse
 from django.contrib import messages
-from .forms import TipoPersonaForm, PersonaForm, TipoOfertaForm, OfertaForm, CuotaForm, MateriaForm, CohorteForm, CargoForm, ContratoForm, HonorarioForm
-from .models import Personas, TipoPersona,  Cuota, TipoOferta, Ofertas, Materia, Cohorte, Cargo, Contrato, Honorario
+from .forms import TipoPersonaForm, PersonaForm, TipoOfertaForm, OfertaForm, CuotaForm, MateriaForm, CohorteForm, CargoForm, ContratoForm, HonorarioForm, RequisitoForm
+from .models import Personas, TipoPersona,  Cuota, TipoOferta, Ofertas, Materia, Cohorte, Cargo, Contrato, Honorario, Requisito
 
 @csrf_exempt
 def tipo_persona_modal(request):
@@ -136,6 +136,22 @@ def honorario_modal(request):
         form = HonorarioForm()
     return render(request, 'home/honorario_modal.html', {'form': form})
 
+@csrf_exempt
+def requisito_modal(request):
+    if request.method == 'POST':
+        form = RequisitoForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
+        else:
+            print(form.errors)  # esto para depurar errores
+            errors = {field: error for field, error in form.errors.items()}
+            return JsonResponse({'success': False, 'errors': errors})
+    else:
+        form = RequisitoForm()
+    return render(request, 'home/requisito_modal.html', {'form': form})
+
+
 @login_required(login_url="/login/")
 def index(request):
     context = {"segment": "index"}
@@ -264,6 +280,11 @@ def pages(request):
 
 
 
+        if load_template == "tablaRequisitos.html":
+            requisitos = Requisito.objects.all()
+            context['requisitos'] = requisitos
+
+        context["segment"] = load_template
 
         html_template = loader.get_template("home/" + load_template)
         return HttpResponse(html_template.render(context, request))

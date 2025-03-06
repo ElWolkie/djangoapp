@@ -2,10 +2,10 @@ from django.db import models
 from django.contrib.auth.models import User  
 
 class TipoPersona(models.Model):  
-    idTP = models.AutoField(primary_key=True)  # Definimos la clave primaria con el nombre idTP  
-    nombreTP = models.CharField(max_length=100)  
-    estadoTP = models.CharField(max_length=10)  
-    fechaTP = models.DateField(auto_now_add=True)  
+    idTP = models.AutoField(primary_key=True)  # Clave primaria para TipoPersona  
+    nombreTP = models.CharField(max_length=100)  # Nombre del TipoPersona  
+    estadoTP = models.CharField(max_length=10)  # Estado del TipoPersona  
+    fechaTP = models.DateField(auto_now_add=True)  # Fecha de creación del TipoPersona  
 
     class Meta:  
         verbose_name = "Tipo de Persona"  
@@ -13,27 +13,27 @@ class TipoPersona(models.Model):
 
 
 class Personas(models.Model):  
-    idPersona = models.AutoField(primary_key=True)  # Definimos la clave primaria con el nombre id
-    idTP = models.ForeignKey(TipoPersona, on_delete=models.CASCADE)  # Llave foránea hacia TipoPersona  
-    cedula = models.CharField(max_length=10)  
-    nombres = models.CharField(max_length=100)  
-    apellidos = models.CharField(max_length=100)  
-    telefono = models.CharField(max_length=15)  
-    correo = models.EmailField()  
-    estadoPersona = models.CharField(max_length=10)  
-    fechaPersona = models.DateField(auto_now_add=True)  
+    idPersona = models.AutoField(primary_key=True)  # Clave primaria para Personas  
+    idTP = models.ForeignKey(TipoPersona, on_delete=models.CASCADE)  # Clave foránea a TipoPersona  
+    cedula = models.CharField(max_length=10)  # Número de identificación  
+    nombres = models.CharField(max_length=100)  # Nombres  
+    apellidos = models.CharField(max_length=100)  # Apellidos  
+    telefono = models.CharField(max_length=15)  # Número de teléfono  
+    correo = models.EmailField()  # Dirección de correo electrónico  
+    estadoPersona = models.CharField(max_length=10)  # Estado de la Persona  
+    fechaPersona = models.DateField(auto_now_add=True)  # Fecha de creación de la Persona  
 
     class Meta:  
         verbose_name = "Persona"  
         verbose_name_plural = "Personas"  
-        ordering = ['idTP']  
+        ordering = ['idTP']  # Orden predeterminado por TipoPersona  
 
 
 class Cuota(models.Model):  
-    idCuota = models.AutoField(primary_key=True)  # Clave primaria para el modelo  
-    nombreCuota = models.CharField(max_length=100)  # Nombre de la cuota  
-    estadoCuota = models.CharField(max_length=10)  # Estado de la cuota  
-    fechaCuota = models.DateField(auto_now_add=True)  # Fecha de creación de la cuota  
+    idCuota = models.AutoField(primary_key=True)  # Clave primaria para Cuota  
+    nombreCuota = models.CharField(max_length=100)  # Nombre de la Cuota  
+    estadoCuota = models.CharField(max_length=10)  # Estado de la Cuota  
+    fechaCuota = models.DateField(auto_now_add=True)  # Fecha de creación de la Cuota  
 
     class Meta:  
         verbose_name = "Cuota"  
@@ -41,11 +41,11 @@ class Cuota(models.Model):
 
 
 class TipoOferta(models.Model):  
-    idTipoOferta = models.AutoField(primary_key=True)  # Clave primaria para el modelo  
-    idCuota = models.ForeignKey('Cuota', on_delete=models.CASCADE)  # Asumiendo que 'Cuota' es otro modelo  
-    nombreTipoOferta = models.CharField(max_length=100)  
-    estadoTipoOferta = models.CharField(max_length=10)  
-    fechaTipoOferta = models.DateField(auto_now_add=True)  
+    idTipoOferta = models.AutoField(primary_key=True)  # Clave primaria para TipoOferta  
+    idCuota = models.ForeignKey(Cuota, on_delete=models.CASCADE)  # Clave foránea a Cuota  
+    nombreTipoOferta = models.CharField(max_length=100)  # Nombre del TipoOferta  
+    estadoTipoOferta = models.CharField(max_length=10)  # Estado del TipoOferta  
+    fechaTipoOferta = models.DateField(auto_now_add=True)  # Fecha de creación del TipoOferta  
 
     class Meta:  
         verbose_name = "Tipo de Oferta"  
@@ -53,12 +53,12 @@ class TipoOferta(models.Model):
 
 
 class Ofertas(models.Model):  
-    idOferta = models.AutoField(primary_key=True)  # Definimos la clave primaria con el nombre idOferta  
-    idTipoOferta = models.ForeignKey('TipoOferta', on_delete=models.CASCADE)  
-    nombreOferta = models.CharField(max_length=100)  
-    duracion = models.CharField(max_length=100)  # Para representar una duración, puede ser en días, horas, etc.  
-    estadoOferta = models.CharField(max_length=10)  
-    fechaOferta = models.DateField(auto_now_add=True)  
+    idOferta = models.AutoField(primary_key=True)  # Clave primaria para Ofertas  
+    idTipoOferta = models.ForeignKey(TipoOferta, on_delete=models.CASCADE)  # Clave foránea a TipoOferta  
+    nombreOferta = models.CharField(max_length=100)  # Nombre de la Oferta  
+    duracion = models.CharField(max_length=100)  # Duración de la Oferta  
+    estadoOferta = models.CharField(max_length=10)  # Estado de la Oferta  
+    fechaOferta = models.DateField(auto_now_add=True)  # Fecha de creación de la Oferta  
 
     class Meta:  
         verbose_name = "Oferta"  
@@ -66,21 +66,22 @@ class Ofertas(models.Model):
 
 
 class Materia(models.Model):  
-    idMateria = models.AutoField(primary_key=True)  # Clave primaria para el modelo Materia  
-    idOferta = models.ForeignKey(Ofertas, on_delete=models.CASCADE)  # Llave foránea hacia Ofertas  
-    nombreMateria = models.CharField(max_length=100)  
-    estadoMateria = models.CharField(max_length=10)  
-    fechaMateria = models.DateField(auto_now_add=True)  # Fecha de creación de la materia  
+    idMateria = models.AutoField(primary_key=True)  # Clave primaria para Materia  
+    idOferta = models.ForeignKey(Ofertas, on_delete=models.CASCADE)  # Clave foránea a Ofertas  
+    nombreMateria = models.CharField(max_length=100)  # Nombre de la Materia  
+    estadoMateria = models.CharField(max_length=10)  # Estado de la Materia  
+    fechaMateria = models.DateField(auto_now_add=True)  # Fecha de creación de la Materia  
 
     class Meta:  
         verbose_name = "Materia"  
         verbose_name_plural = "Materias"
 
+
 class Cohorte(models.Model):  
-    idCohorte = models.AutoField(primary_key=True)  # Clave primaria para el modelo  
-    nombreCohorte = models.CharField(max_length=100)  # Nombre de la cuota  
-    estadoCohorte = models.CharField(max_length=10)  # Estado de la cuota  
-    fechaCohorte = models.DateField(auto_now_add=True)  # Fecha de creación de la cuota  
+    idCohorte = models.AutoField(primary_key=True)  # Clave primaria para Cohorte  
+    nombreCohorte = models.CharField(max_length=100)  # Nombre de la Cohorte  
+    estadoCohorte = models.CharField(max_length=10)  # Estado de la Cohorte  
+    fechaCohorte = models.DateField(auto_now_add=True)  # Fecha de creación de la Cohorte  
 
     class Meta:  
         verbose_name = "Cohorte"  
@@ -88,35 +89,48 @@ class Cohorte(models.Model):
 
 
 class Cargo(models.Model):  
-    idCargo = models.AutoField(primary_key=True)  # Clave primaria para el modelo  
-    nombreCargo = models.CharField(max_length=100)  # Nombre de la cuota  
-    estadoCargo = models.CharField(max_length=10)  # Estado de la cuota  
-    fechaCargo = models.DateField(auto_now_add=True)  # Fecha de creación de la cuota  
+    idCargo = models.AutoField(primary_key=True)  # Clave primaria para Cargo  
+    nombreCargo = models.CharField(max_length=100)  # Nombre del Cargo  
+    estadoCargo = models.CharField(max_length=10)  # Estado del Cargo  
+    fechaCargo = models.DateField(auto_now_add=True)  # Fecha de creación del Cargo  
 
     class Meta:  
         verbose_name = "Cargo"  
         verbose_name_plural = "Cargos"  
 
+
 class Contrato(models.Model):  
-    idContrato = models.AutoField(primary_key=True)  # Clave primaria para el modelo  
-    idPersona = models.ForeignKey(Personas, on_delete=models.CASCADE)  # Llave foránea hacia Persona
-    idCargo = models.ForeignKey(Cargo, on_delete=models.CASCADE)  # Llave foránea hacia Cargo  
-    idCohorte = models.ForeignKey(Cohorte, on_delete=models.CASCADE)  # Llave foránea hacia Cohorte  
-    idMateria = models.ForeignKey(Materia, on_delete=models.CASCADE)  # Llave foránea hacia Materia  
-    estadoContrato = models.CharField(max_length=10)  # Estado del contrato  
-    fechaContrato = models.DateField(auto_now_add=True)  # Fecha de creación del contrato  
+    idContrato = models.AutoField(primary_key=True)  # Clave primaria para Contrato  
+    idPersona = models.ForeignKey(Personas, on_delete=models.CASCADE)  # Clave foránea a Personas  
+    idCargo = models.ForeignKey(Cargo, on_delete=models.CASCADE)  # Clave foránea a Cargo  
+    idCohorte = models.ForeignKey(Cohorte, on_delete=models.CASCADE)  # Clave foránea a Cohorte  
+    idMateria = models.ForeignKey(Materia, on_delete=models.CASCADE)  # Clave foránea a Materia  
+    estadoContrato = models.CharField(max_length=10)  # Estado del Contrato  
+    fechaContrato = models.DateField(auto_now_add=True)  # Fecha de creación del Contrato  
 
     class Meta:  
         verbose_name = "Contrato"  
         verbose_name_plural = "Contratos"  
 
+
 class Honorario(models.Model):  
-    idHonorario = models.AutoField(primary_key=True)  # Clave primaria para el modelo  
-    idContrato = models.ForeignKey(Contrato, on_delete=models.CASCADE)  # Llave foránea hacia Contrato
-    horas = models.FloatField()  # Cantidad de horas trabajadas  
-    estadoHonorario = models.CharField(max_length=10)  # Estado del honorario  
-    fechaHonorario = models.DateField(auto_now_add=True)  # Fecha de creación del honorario  
+    idHonorario = models.AutoField(primary_key=True)  # Clave primaria para Honorario  
+    idContrato = models.ForeignKey(Contrato, on_delete=models.CASCADE)  # Clave foránea a Contrato  
+    horas = models.FloatField()  # Número de horas trabajadas  
+    estadoHonorario = models.CharField(max_length=10)  # Estado del Honorario  
+    fechaHonorario = models.DateField(auto_now_add=True)  # Fecha de creación del Honorario  
 
     class Meta:  
         verbose_name = "Honorario"  
         verbose_name_plural = "Honorarios"  
+
+
+class Requisito(models.Model):  
+    idRequisito = models.AutoField(primary_key=True)  # Clave primaria para Requisito  
+    nombreRequisito = models.CharField(max_length=100)  # Nombre del Requisito  
+    estadoRequisito = models.CharField(max_length=10)  # Estado del Requisito  
+    fechaRequisito = models.DateField(auto_now_add=True)  # Fecha de creación del Requisito  
+
+    class Meta:  
+        verbose_name = "Requisito"  
+        verbose_name_plural = "Requisitos"  
