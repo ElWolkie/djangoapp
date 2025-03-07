@@ -1,0 +1,109 @@
+{% block stylesheets %}
+<link rel="stylesheet" href="/static/assets/css/styleForms.css" />
+<link rel="stylesheet" href="/static/assets/css/argon.css" />
+{% endblock stylesheets %}
+{% block content %}
+{% if messages %}
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        {{ message }}
+      </div>
+    {% endfor %}
+  {% endif %}
+<div class=" mt-5">
+  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Registrar Tramite Expedito</h2>
+  <form method="POST" class="mt-3 text-dark" autocomplete="off" style="font-weight: bold; max-width: 600px; margin: 0 auto;" id="tramiteForm" action="{% url 'tramite_modal' %}">  
+    {% csrf_token %}  
+    
+    <div class="form-row">  
+      
+      <div class="form-group col-md-6">  
+        <label for="nombreTramite">Nombre:</label>  
+        <input type="text" id="nombreTramite" name="nombreTramite" class="form-control text-dark" placeholder="Ingrese un nombre" tabindex="3" maxlength="100" required />          
+      </div>  
+      <div class="form-group col-md-6">  
+        <label for="diasTramite">Tiempo de Respuesta:</label>  
+        <input type="text" id="diaTramite" name="diasTramite" class="form-control text-dark" placeholder="4 días" tabindex="3" maxlength="100" required />          
+      </div>  
+      <div class="form-group col-md-6">  
+        <label for="precioTramite">Precio:</label>  
+        <input type="text" id="precioTramite" name="precioTramite" class="form-control text-dark" placeholder="4 años" tabindex="3" maxlength="100" required />    
+        <input type="hidden" id="estadoTramite" name="estadoTramite" class="form-control text-dark" value="ACTIVO" />        
+      </div>  
+    </div>  
+    
+    <div class="text-center">  
+      <input type="submit" class="btn btn-warning mt-4" value="Guardar" />  
+    </div>  
+  </form>
+{% endblock content %}
+
+{% block javascripts %}
+
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    $('c').on('show.bs.modal', function (e) {
+      var modal = $(this);
+      $.ajax({
+        url: 'apps/home/tramite.html',
+        method: 'GET',
+        success: function(data) {
+          modal.find('.modal-body').html(data);
+        }
+      });
+    });
+    //Validar solo letras 
+  });
+  document.getElementById("nombreTramite").addEventListener("input", function() {
+    this.value = this.value.replace(/[^a-zA-Z\s]/g, '');
+
+    if (this.value.length > 40) {
+        this.value = this.value.slice(0, 35);
+    }
+  });
+  document.getElementById("duracion").addEventListener("input", function() {
+    this.value = this.value.replace(/[^a-zA-Z0-9ñÑ ^]+$/, '');
+
+    if (this.value.length > 6) {
+        this.value = this.value.slice(0, 6);
+    }
+
+  });
+  
+  
+//Recarga dinamica
+
+$(document).on('submit', '#registroForm', function(e) {
+      e.preventDefault();
+      var form = $(this);
+      $.ajax({
+        url: form.attr('action'),
+        method: form.attr('method'),
+        data: form.serialize(),
+        success: function(response) {
+          var messagesContainer = $('#modalMessages');
+          messagesContainer.empty();
+          if (response.success) {
+            messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
+            $('#tramiteModal').modal('hide');
+            location.reload();  // Recargar la página para ver los cambios
+          } else {
+            // Mostrar errores en el modal
+            var errors = response.errors;
+            for (var field in errors) {
+              messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + errors[field] + '</div>');
+            }
+          }
+        }
+      });
+    });
+</script>
+
+
+
+
+
+
+
+
+{% endblock javascripts %}

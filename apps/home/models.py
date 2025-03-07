@@ -147,3 +147,16 @@ class Servicio(models.Model):
     class Meta:  
         verbose_name = "Servicio"  
         verbose_name_plural = "Servicios"  
+
+
+class Tramite(models.Model):  
+    idTramite = models.AutoField(primary_key=True)  # Clave primaria para Tramites  
+    nombreTramite = models.CharField(max_length=100)  # Nombre del Tramite  
+    diasTramite = models.CharField(max_length=100)  # Duración del Tramite  
+    precioTramite = models.CharField(max_length=100)  # Precio del Tramite  
+    estadoTramite = models.CharField(max_length=10)  # Estado del Tramite  
+    fechaTramite = models.DateField(auto_now_add=True)  # Fecha de creación del Tramite  
+        
+    class Meta:  
+        verbose_name = "Tramite"  
+        verbose_name_plural = "Tramites"  

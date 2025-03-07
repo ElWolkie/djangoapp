@@ -5,8 +5,8 @@ from django.contrib.auth.decorators import login_required
 from django.template import loader
 from django.urls import reverse
 from django.contrib import messages
-from .forms import TipoPersonaForm, PersonaForm, TipoOfertaForm, OfertaForm, CuotaForm, MateriaForm, CohorteForm, CargoForm, ContratoForm, HonorarioForm, RequisitoForm, ServicioForm
-from .models import Personas, TipoPersona,  Cuota, TipoOferta, Ofertas, Materia, Cohorte, Cargo, Contrato, Honorario, Requisito, Servicio
+from .forms import TipoPersonaForm, PersonaForm, TipoOfertaForm, OfertaForm, CuotaForm, MateriaForm, CohorteForm, CargoForm, ContratoForm, HonorarioForm, RequisitoForm, ServicioForm, TramiteForm
+from .models import Personas, TipoPersona,  Cuota, TipoOferta, Ofertas, Materia, Cohorte, Cargo, Contrato, Honorario, Requisito, Servicio, Tramite
 
 @csrf_exempt
 def tipo_persona_modal(request):
@@ -168,6 +168,22 @@ def servicio_modal(request):
     return render(request, 'home/servicio_modal.html', {'form': form})
 
 
+@csrf_exempt
+def tramite_modal(request):
+    if request.method == 'POST':
+        form = TramiteForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
+        else:
+            print(form.errors)  # esto para depurar errores
+            errors = {field: error for field, error in form.errors.items()}
+            return JsonResponse({'success': False, 'errors': errors})
+    else:
+        form = TramiteForm()
+    return render(request, 'home/tramite_modal.html', {'form': form})
+
+
 @login_required(login_url="/login/")
 def index(request):
     context = {"segment": "index"}
@@ -303,10 +319,16 @@ def pages(request):
         context["segment"] = load_template
 
 
-
         if load_template == "tablaServicios.html":
             servicios = Servicio.objects.all()
             context['servicios'] = servicios
+
+        context["segment"] = load_template
+
+
+        if load_template == "tablaTramites.html":
+            tramites = Tramite.objects.all()
+            context['tramites'] = tramites
 
         context["segment"] = load_template
 
