@@ -5,8 +5,8 @@ from django.contrib.auth.decorators import login_required
 from django.template import loader
 from django.urls import reverse
 from django.contrib import messages
-from .forms import TipoPersonaForm, PersonaForm, TipoOfertaForm, OfertaForm, CuotaForm, MateriaForm, CohorteForm, CargoForm, ContratoForm, HonorarioForm, RequisitoForm, ServicioForm, TramiteForm
-from .models import Personas, TipoPersona,  Cuota, TipoOferta, Ofertas, Materia, Cohorte, Cargo, Contrato, Honorario, Requisito, Servicio, Tramite
+from .forms import TipoPersonaForm, PersonaForm, TipoOfertaForm, OfertaForm, CuotaForm, MateriaForm, CohorteForm, CargoForm, ContratoForm, HonorarioForm, RequisitoForm, ServicioForm, TramiteForm, SolicitudForm
+from .models import Personas, TipoPersona,  Cuota, TipoOferta, Ofertas, Materia, Cohorte, Cargo, Contrato, Honorario, Requisito, Servicio, Tramite, Solicitud
 
 @csrf_exempt
 def tipo_persona_modal(request):
@@ -215,6 +215,24 @@ def pages(request):
                 form = PersonaForm()
             context['form'] = form
 
+
+
+        if load_template == "solicitud.html":
+            if request.method == 'POST':
+                form = SolicitudForm(request.POST)
+                if form.is_valid():
+                    form.save()
+                    messages.success(request, 'Registro exitoso.')
+                    return redirect('solicitud.html')  # Redirige a una URL de éxito
+                else:
+                    for field, errors in form.errors.items():
+                        for error in errors:
+                            messages.error(request, f"Error en el campo {field}: {error}")
+            else:
+                form = SolicitudForm()
+            context['form'] = form
+
+
         if load_template == "tipoPersona.html":
             if request.method == 'POST':
                 form = TipoPersonaForm(request.POST)
@@ -331,6 +349,19 @@ def pages(request):
             context['tramites'] = tramites
 
         context["segment"] = load_template
+
+
+        if load_template in [ "solicitud.html", "tablaSolicitud.html"]:
+            solicitudes = Solicitud.objects.all()
+            context['solicitudes'] = solicitudes
+            tramites = Tramite.objects.all()
+            context['tramites'] = tramites
+            servicios = Servicio.objects.all()
+            context['servicios'] = servicios
+            personas = Personas.objects.all()
+            context['personas'] = personas
+        context["segment"] = load_template
+
 
         html_template = loader.get_template("home/" + load_template)
         return HttpResponse(html_template.render(context, request))

@@ -1,5 +1,5 @@
 from django import forms  
-from .models import TipoPersona, Personas, Ofertas, Cuota, TipoOferta, Materia, Cohorte, Cargo, Contrato, Honorario, Requisito, Servicio, Tramite
+from .models import TipoPersona, Personas, Ofertas, Cuota, TipoOferta, Materia, Cohorte, Cargo, Contrato, Honorario, Requisito, Servicio, Tramite, Solicitud
 
 class TipoPersonaForm(forms.ModelForm):  
     estadoTP = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
@@ -103,3 +103,12 @@ class TramiteForm(forms.ModelForm):
     class Meta:  
         model = Tramite  
         fields = ['idTramite', 'nombreTramite', 'diasTramite', 'precioTramite', 'estadoTramite']  
+
+class SolicitudForm(forms.ModelForm):  
+    estadoSolicitud = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
+  
+    class Meta:  
+        model = Solicitud  
+        fields = ['idSoli', 'idPersona', 'idTramite', 'idServicio', 'montoTotal', 'estadoSolicitud', 'fechaEntrega']  
+
+
