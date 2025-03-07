@@ -174,3 +174,13 @@ class Solicitud(models.Model):
     class Meta:
         verbose_name = "Solicitud"
         verbose_name_plural = "Solicitudes"
+
+class Denominacion(models.Model):  
+    idDenominacion = models.AutoField(primary_key=True)  # Clave primaria para Denominacion  
+    nombreDenominacion = models.CharField(max_length=100)  # Nombre del Denominacion  
+    estadoDenominacion = models.CharField(max_length=10)  # Estado del Denominacion  
+    fechaDenominacion = models.DateField(auto_now_add=True)  # Fecha de creación del Denominacion  
+
+    class Meta:  
+        verbose_name = "Denominacion"  
+        verbose_name_plural = "Denominaciones"  
