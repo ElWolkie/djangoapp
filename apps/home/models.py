@@ -219,3 +219,14 @@ class Tasa(models.Model):
     class Meta:  
         verbose_name = "Tasa"  
         verbose_name_plural = "Tasas"  
+
+
+class TipoIngreso(models.Model):  
+    idTipoIngreso = models.AutoField(primary_key=True)  # Clave primaria para TipoIngreso  
+    nombreTipoIngreso = models.CharField(max_length=100)  # Nombre de la TipoIngreso  
+    estadoTipoIngreso = models.CharField(max_length=10)  # Estado de la TipoIngreso  
+    fechaTipoIngreso = models.DateField(auto_now_add=True)  # Fecha de creación de la TipoIngreso  
+
+    class Meta:  
+        verbose_name = "TipoIngreso"  
+        verbose_name_plural = "TipoIngresos"  

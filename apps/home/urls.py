@@ -38,6 +38,8 @@ urlpatterns = [
     path('monedaModal/', views.moneda_modal, name='moneda_modal'),
      # Specific route for banco modal
     path('tasaModal/', views.tasa_modal, name='tasa_modal'),
+    # Specific route for tipoIngreso modal
+    path('tipoIngresoModal/', views.tipoIngreso_modal, name='tipoIngreso_modal'),
 
     # Matches any html file no mover de lugar 
     re_path(r'^.*\.*', views.pages, name='pages'),

@@ -5,8 +5,8 @@ from django.contrib.auth.decorators import login_required
 from django.template import loader
 from django.urls import reverse
 from django.contrib import messages
-from .forms import TipoPersonaForm, PersonaForm, TipoOfertaForm, OfertaForm,CuotaForm, MateriaForm, CohorteForm, CargoForm, ContratoForm, HonorarioForm, RequisitoForm, ServicioForm, TramiteForm, SolicitudForm, DenominacionForm, BancoForm, MonedaForm, TasaForm
-from .models import Personas, TipoPersona,  Cuota, TipoOferta, Ofertas, Materia, Cohorte, Cargo, Contrato, Honorario, Requisito, Servicio, Tramite, Solicitud, Denominacion, Banco, Moneda, Tasa
+from .forms import TipoPersonaForm, PersonaForm, TipoOfertaForm, OfertaForm,CuotaForm, MateriaForm, CohorteForm, CargoForm, ContratoForm, HonorarioForm, RequisitoForm, ServicioForm, TramiteForm, SolicitudForm, DenominacionForm, BancoForm, MonedaForm, TasaForm, TipoIngresoForm
+from .models import Personas, TipoPersona,  Cuota, TipoOferta, Ofertas, Materia, Cohorte, Cargo, Contrato, Honorario, Requisito, Servicio, Tramite, Solicitud, Denominacion, Banco, Moneda, Tasa, TipoIngreso
 
 @csrf_exempt
 def tipo_persona_modal(request):
@@ -245,6 +245,22 @@ def tasa_modal(request):
         form = TasaForm()
     return render(request, 'home/tasa_modal.html', {'form': form})
 
+@csrf_exempt
+def tipoIngreso_modal(request):
+    if request.method == 'POST':
+        form = TipoIngresoForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
+        else:
+           # print(form.errors)  # esto para depurar errores
+            errors = {field: error for field, error in form.errors.items()}
+            return JsonResponse({'success': False, 'errors': errors})
+    else:
+        form = TipoIngresoForm()
+    return render(request, 'home/tipoIngreso_modal.html', {'form': form})
+
+
 @login_required(login_url="/login/")
 def index(request):
     context = {"segment": "index"}
@@ -448,6 +464,11 @@ def pages(request):
             context['monedas'] = monedas
         context["segment"] = load_template
         
+        if load_template == "tablaTipoIngresos.html":
+            tipoIngresos = TipoIngreso.objects.all()
+            context['tipoIngresos'] = tipoIngresos
+
+        context["segment"] = load_template
 
 
         html_template = loader.get_template("home/" + load_template)
