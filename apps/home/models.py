@@ -230,3 +230,15 @@ class TipoIngreso(models.Model):
     class Meta:  
         verbose_name = "TipoIngreso"  
         verbose_name_plural = "TipoIngresos"  
+
+
+
+class TipoEgreso(models.Model):  
+    idTipoEgreso = models.AutoField(primary_key=True)  # Clave primaria para TipoIngreso  
+    nombreTipoEgreso = models.CharField(max_length=100)  # Nombre de la TipoIngreso  
+    estadoTipoEgreso = models.CharField(max_length=10)  # Estado de la TipoIngreso  
+    fechaTipoEgreso = models.DateField(auto_now_add=True)  # Fecha de creación de la TipoIngreso  
+
+    class Meta:  
+        verbose_name = "TipoEgreso"  
+        verbose_name_plural = "TipoEgresos"  

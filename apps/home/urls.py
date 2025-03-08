@@ -40,6 +40,10 @@ urlpatterns = [
     path('tasaModal/', views.tasa_modal, name='tasa_modal'),
     # Specific route for tipoIngreso modal
     path('tipoIngresoModal/', views.tipoIngreso_modal, name='tipoIngreso_modal'),
+    # Specific route for tipoEgreso modal
+    path('tipoEgresoModal/', views.tipoEgreso_modal, name='tipoEgreso_modal'),
+
+
 
     # Matches any html file no mover de lugar 
     re_path(r'^.*\.*', views.pages, name='pages'),

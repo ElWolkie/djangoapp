@@ -5,8 +5,8 @@ from django.contrib.auth.decorators import login_required
 from django.template import loader
 from django.urls import reverse
 from django.contrib import messages
-from .forms import TipoPersonaForm, PersonaForm, TipoOfertaForm, OfertaForm,CuotaForm, MateriaForm, CohorteForm, CargoForm, ContratoForm, HonorarioForm, RequisitoForm, ServicioForm, TramiteForm, SolicitudForm, DenominacionForm, BancoForm, MonedaForm, TasaForm, TipoIngresoForm
-from .models import Personas, TipoPersona,  Cuota, TipoOferta, Ofertas, Materia, Cohorte, Cargo, Contrato, Honorario, Requisito, Servicio, Tramite, Solicitud, Denominacion, Banco, Moneda, Tasa, TipoIngreso
+from .forms import TipoPersonaForm, PersonaForm, TipoOfertaForm, OfertaForm,CuotaForm, MateriaForm, CohorteForm, CargoForm, ContratoForm, HonorarioForm, RequisitoForm, ServicioForm, TramiteForm, SolicitudForm, DenominacionForm, BancoForm, MonedaForm, TasaForm, TipoIngresoForm, TipoEgresoForm
+from .models import Personas, TipoPersona,  Cuota, TipoOferta, Ofertas, Materia, Cohorte, Cargo, Contrato, Honorario, Requisito, Servicio, Tramite, Solicitud, Denominacion, Banco, Moneda, Tasa, TipoIngreso, TipoEgreso
 
 @csrf_exempt
 def tipo_persona_modal(request):
@@ -260,6 +260,21 @@ def tipoIngreso_modal(request):
         form = TipoIngresoForm()
     return render(request, 'home/tipoIngreso_modal.html', {'form': form})
 
+@csrf_exempt
+def tipoEgreso_modal(request):
+    if request.method == 'POST':
+        form = TipoEgresoForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
+        else:
+           # print(form.errors)  # esto para depurar errores
+            errors = {field: error for field, error in form.errors.items()}
+            return JsonResponse({'success': False, 'errors': errors})
+    else:
+        form = TipoEgresoForm()
+    return render(request, 'home/tipoEgreso_modal.html', {'form': form})
+
 
 @login_required(login_url="/login/")
 def index(request):
@@ -469,7 +484,12 @@ def pages(request):
             context['tipoIngresos'] = tipoIngresos
 
         context["segment"] = load_template
+       
+        if load_template == "tablaTipoEgresos.html":
+            tipoEgresos = TipoEgreso.objects.all()
+            context['tipoEgresos'] = tipoEgresos
 
+        context["segment"] = load_template
 
         html_template = loader.get_template("home/" + load_template)
         return HttpResponse(html_template.render(context, request))
