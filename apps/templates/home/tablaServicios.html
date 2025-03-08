@@ -4,21 +4,19 @@
 
 {% block stylesheets %}
 <link rel="stylesheet" href="/static/assets/css/styleForms.css" />
+<link rel="stylesheet" href="/static/assets/css/argon.css" />
 {% endblock stylesheets %}
 
 {% block content %}
 <div class="container mt-5">
-  <h2 class="text-center text-dark">Lista de Honorarios Registrados</h2>
+  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Lista de Servicios Registradas</h2>
 
   {% if messages %}
-      {% for message in messages %}
-        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-          {{ message }}
-          <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-            <span aria-hidden="true">&times;</span>
-          </button>
-        </div>
-      {% endfor %}
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        {{ message }}
+      </div>
+    {% endfor %}
   {% endif %}
 
   <div class="row">
@@ -33,43 +31,43 @@
       </div>
     </div>
     <div class="col-md-4">
-      <button class="btn btn-warning btn-square btn-sm my-2" type="button" title="Registrar Honorario Academica" data-toggle="modal" data-target="#honorarioModal">+</button>
+      <button class="btn btn-warning btn-square btn-sm my-2" type="button" title="Registrar Servicio Académica" data-toggle="modal" data-target="#servicioModal">+</button>
     </div>
   </div>
+
   <br>
-  <table class="table table-striped text-gray-dark" id="honorariosTable">
+  <table class="table table-striped text-gray-dark" id="serviciosTable">
     <thead class="text-darker">
       <tr>
         <th scope="col">ID</th>
-        <th scope="col">Contrato</th>
-        <th scope="col">Cédula</th>
-        <th scope="col">Nombres</th>
-        <th scope="col">Apellidos</th>
+        <th scope="col">Nombre</th>
+        <th scope="col">Tiempo de Respuesta</th>
+        <th scope="col">Precio</th>
         <th scope="col">Estado</th>
         <th scope="col">Fecha</th>
       </tr>
     </thead>
-    <tbody>
-      <!-- Contenido de la tabla -->
-        {% for honorario in honorarios %}
+      <tbody>
+        <!-- Contenido de la tabla -->
+        {% for servicio in servicios %}
         <tr>
-          <td>{{ honorario.idHonorario }}</td>
-          <td>{{ honorario.idContrato.idContrato }}</td> <!-- Mostrar el ID del contrato -->
-          <td>{{ honorario.idContrato.idPersona.cedula }}</td>
-          <td>{{ honorario.idContrato.idPersona.nombres }}</td>
-          <td>{{ honorario.idContrato.idPersona.apellidos }}</td>
-          <td>{{ honorario.estadoHonorario }}</td>
-          <td>{{ honorario.fechaHonorario }}</td>
+          <td>{{ servicio.idServicio }}</td>
+          <td>{{ servicio.nombreServicio }}</td>
+          <td>{{ servicio.tiempoServicio }}</td>
+          <td>{{ servicio.precioServicio }}</td>
+          <td>{{ servicio.estadoServicio }}</td>
+          <td>{{ servicio.fechaServicio }}</td>
         </tr>
         {% endfor %}
-    </tbody>
+      </tbody>
   </table>
 </div>
 <!-- Modal -->
-<div class="modal fade" id="honorarioModal" tabindex="-1" role="dialog" aria-labelledby="honorarioModalLabel" aria-hidden="true">
+<div class="modal fade" id="servicioModal" tabindex="-1" role="dialog" aria-labelledby="servicioModalLabel" aria-hidden="true">
   <div class="modal-dialog" role="document">
     <div class="modal-content">
       <div class="modal-header">
+      <h5 class="modal-title" id="servicioModalLabel">Registro de Servicio Académica</h5>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
@@ -88,10 +86,10 @@
 <script src="/static/assets/js/validacionesPersona.js"></script>
 <script>
   document.addEventListener("DOMContentLoaded", function() {
-    $('#honorarioModal').on('show.bs.modal', function (e) {
+    $('#servicioModal').on('show.bs.modal', function (e) {
       var modal = $(this);
       $.ajax({
-        url: 'apps/home/honorario.html',
+        url: 'apps/home/servicio.html',
         method: 'GET',
         success: function(data) {
           modal.find('.modal-body').html(data);
@@ -99,7 +97,7 @@
       });
     });
 
-    $(document).on('submit', '#honorarioForm', function(e) {
+    $(document).on('submit', '#servicioForm', function(e) {
       e.preventDefault();
       var form = $(this);
       $.ajax({
@@ -111,7 +109,7 @@
           messagesContainer.empty();
           if (response.success) {
             messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
-            $('#honorarioModal').modal('hide');
+            $('#servicioModal').modal('hide');
             location.reload();  // Recargar la página para ver los cambios
           } else {
             // Mostrar errores en el modal
@@ -130,7 +128,7 @@
     var input, filter, table, tr, td, i, j, txtValue;
     input = document.getElementById("searchInput");
     filter = input.value.toUpperCase();
-    table = document.getElementById("honorariosTable");
+    table = document.getElementById("serviciosTable");
     tr = table.getElementsByTagName("tr");
     for (i = 1; i < tr.length; i++) {
       tr[i].style.display = "none";

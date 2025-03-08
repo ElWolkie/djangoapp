@@ -1,24 +1,22 @@
 {% extends 'layouts/base.html' %}
 
-{% block title %}Listado de Personas{% endblock title %}
+{% block title %}Listado de Tipos de TipoIngresos{% endblock title %}
 
 {% block stylesheets %}
 <link rel="stylesheet" href="/static/assets/css/styleForms.css" />
+<link rel="stylesheet" href="/static/assets/css/argon.css" />
 {% endblock stylesheets %}
 
 {% block content %}
 <div class="container mt-5">
-  <h2 class="text-center text-dark">Lista de Honorarios Registrados</h2>
+  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Lista de Tipos de Ingresos Registrados</h2>
 
   {% if messages %}
-      {% for message in messages %}
-        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-          {{ message }}
-          <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-            <span aria-hidden="true">&times;</span>
-          </button>
-        </div>
-      {% endfor %}
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        {{ message }}
+      </div>
+    {% endfor %}
   {% endif %}
 
   <div class="row">
@@ -33,43 +31,39 @@
       </div>
     </div>
     <div class="col-md-4">
-      <button class="btn btn-warning btn-square btn-sm my-2" type="button" title="Registrar Honorario Academica" data-toggle="modal" data-target="#honorarioModal">+</button>
+      <button class="btn btn-warning btn-square btn-sm my-2" type="button" title="Registrar TipoIngreso" data-toggle="modal" data-target="#tipoIngresoModal">+</button>
     </div>
   </div>
+
   <br>
-  <table class="table table-striped text-gray-dark" id="honorariosTable">
+  <table class="table table-striped text-gray-dark" id="tipoIngresosTable">
     <thead class="text-darker">
-      <tr>
-        <th scope="col">ID</th>
-        <th scope="col">Contrato</th>
-        <th scope="col">Cédula</th>
-        <th scope="col">Nombres</th>
-        <th scope="col">Apellidos</th>
-        <th scope="col">Estado</th>
-        <th scope="col">Fecha</th>
-      </tr>
+        <tr>
+            <th scope="col">ID</th>
+            <th scope="col">Nombre</th>
+            <th scope="col">Estado</th>
+            <th scope="col">Fecha</th>
+        </tr>
     </thead>
     <tbody>
-      <!-- Contenido de la tabla -->
-        {% for honorario in honorarios %}
+        <!-- Contenido de la tabla -->
+        {% for tipoIngreso in tipoIngresos %}  <!-- Cambia "tipoIngresos" a "tipoIngreso" para coincidir con el contexto -->
         <tr>
-          <td>{{ honorario.idHonorario }}</td>
-          <td>{{ honorario.idContrato.idContrato }}</td> <!-- Mostrar el ID del contrato -->
-          <td>{{ honorario.idContrato.idPersona.cedula }}</td>
-          <td>{{ honorario.idContrato.idPersona.nombres }}</td>
-          <td>{{ honorario.idContrato.idPersona.apellidos }}</td>
-          <td>{{ honorario.estadoHonorario }}</td>
-          <td>{{ honorario.fechaHonorario }}</td>
+            <td>{{ tipoIngreso.idTipoIngreso }}</td>
+            <td>{{ tipoIngreso.nombreTipoIngreso }}</td>
+            <td>{{ tipoIngreso.estadoTipoIngreso }}</td>
+            <td>{{ tipoIngreso.fechaTipoIngreso }}</td>
         </tr>
         {% endfor %}
     </tbody>
-  </table>
+</table>
 </div>
 <!-- Modal -->
-<div class="modal fade" id="honorarioModal" tabindex="-1" role="dialog" aria-labelledby="honorarioModalLabel" aria-hidden="true">
+<div class="modal fade" id="tipoIngresoModal" tabindex="-1" role="dialog" aria-labelledby="tipoIngresoModalLabel" aria-hidden="true">
   <div class="modal-dialog" role="document">
     <div class="modal-content">
       <div class="modal-header">
+        <h5 class="modal-title" id="tipoIngresoModalLabel">Registro de Tipo de Egreso</h5>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
@@ -88,10 +82,10 @@
 <script src="/static/assets/js/validacionesPersona.js"></script>
 <script>
   document.addEventListener("DOMContentLoaded", function() {
-    $('#honorarioModal').on('show.bs.modal', function (e) {
+    $('#tipoIngresoModal').on('show.bs.modal', function (e) {
       var modal = $(this);
       $.ajax({
-        url: 'apps/home/honorario.html',
+        url: 'apps/home/tipoIngreso.html',
         method: 'GET',
         success: function(data) {
           modal.find('.modal-body').html(data);
@@ -99,7 +93,7 @@
       });
     });
 
-    $(document).on('submit', '#honorarioForm', function(e) {
+    $(document).on('submit', '#tipoIngresoForm', function(e) {
       e.preventDefault();
       var form = $(this);
       $.ajax({
@@ -111,7 +105,7 @@
           messagesContainer.empty();
           if (response.success) {
             messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
-            $('#honorarioModal').modal('hide');
+            $('#tipoIngresoModal').modal('hide');
             location.reload();  // Recargar la página para ver los cambios
           } else {
             // Mostrar errores en el modal
@@ -130,7 +124,7 @@
     var input, filter, table, tr, td, i, j, txtValue;
     input = document.getElementById("searchInput");
     filter = input.value.toUpperCase();
-    table = document.getElementById("honorariosTable");
+    table = document.getElementById("tipoIngresosTable");
     tr = table.getElementsByTagName("tr");
     for (i = 1; i < tr.length; i++) {
       tr[i].style.display = "none";

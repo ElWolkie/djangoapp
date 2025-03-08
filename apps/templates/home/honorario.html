@@ -1,7 +1,6 @@
 {% block stylesheets %}
 <link rel="stylesheet" href="/static/assets/css/sidenav.css" />
 {% endblock stylesheets %}
-
 {% block content %}
 {% if messages %}
       {% for message in messages %}
@@ -69,66 +68,110 @@
       <input type="submit" class="btn btn-warning mt-4" value="Guardar" />  
     </div>  
   </form>
-</div>
 {% endblock content %}
+
 {% block javascripts %}
-<script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
-<script src="https://cdn.datatables.net/1.10.21/js/jquery.dataTables.min.js"></script>
-<script src="https://cdn.datatables.net/1.10.21/js/dataTables.bootstrap4.min.js"></script>
 <script>
-  $(document).ready(function() {
-    var contratosTable = $('#contratosTable').DataTable({
-      "paging": true,
-      "pageLength": 5, // Número de filas por página
-      "lengthChange": false, // Deshabilita el select de "Mostrar"
-      "info": true, // Muestra la información de la tabla
-      "scrollY": false,
-      "autoWidth": true, // Ajusta el ancho de las columnas al contenido
-      "scrollCollapse": false,
-      "language": {
-        "lengthMenu": "Mostrar _MENU_ registros por página",
-        "zeroRecords": "No se encontraron registros",
-        "info": " Página _PAGE_ de _PAGES_",
-        "infoEmpty": "No hay registros disponibles",
-        "infoFiltered": "(filtrado de _MAX_ registros totales)",
-        "search": "Buscar:",
-        "paginate": {
-          "first": "Primera",
-          "last": "Última",
-            "next": "<i class='fas fa-arrow-right'></i>",
-            "previous": "<i class='fas fa-arrow-left'></i>"
+  document.addEventListener("DOMContentLoaded", function() {
+    $('c').on('show.bs.modal', function (e) {
+      var modal = $(this);
+      $.ajax({
+        url: 'apps/home/honorario.html',
+        method: 'GET',
+        success: function(data) {
+          modal.find('.modal-body').html(data);
         }
-      }
+      });
     });
-
-    // Ajustar las columnas después de la inicialización
-    contratosTable.columns.adjust().draw();
-
-    // Ajustar las columnas cuando la tabla se redibuja
-    contratosTable.on('draw', function() {
-      contratosTable.columns.adjust();
-    });
-    // Mostrar u ocultar elementos al seleccionar una fila
-    $('#contratosTable tbody').on('click', 'tr', function() {
-      var contratoId = $(this).data('id');
-      $('#idContrato').val(contratoId);
-      $('#selectedContrato').val('Nº ' + contratoId);
-      $('#contratosTableContainer').addClass('d-none');
-      $('#selectedContratoContainer').removeClass('d-none');
-      $('.form-group').not('.form-group.col-md-12').removeClass('d-none');
-    });
-
-    // Cambiar la selección del contrato
-    $('#changeContrato').on('click', function() {
-      $('#contratosTableContainer').removeClass('d-none');
-      $('#selectedContratoContainer').addClass('d-none');
-      $('#idContrato').val('');
-      $('#selectedContrato').val('');
-      $('.form-group').not('.form-group.col-md-12').addClass('d-none');
-    });
-
-    // Inicialmente oculta los demás elementos del formulario
-    $('.form-group').not('.form-group.col-md-12').addClass('d-none');
   });
+  document.getElementById("horas").addEventListener("input", function() {  
+    this.value = this.value.replace(/[^0-9,]/g, '');  
+
+    if (this.value.length > 20) {  
+        this.value = this.value.slice(0, 20);  
+    }  
+});  
+  
+//Recarga dinamica
+
+$(document).on('submit', '#registroForm', function(e) {
+      e.preventDefault();
+      var form = $(this);
+      $.ajax({
+        url: form.attr('action'),
+        method: form.attr('method'),
+        data: form.serialize(),
+        success: function(response) {
+          var messagesContainer = $('#modalMessages');
+          messagesContainer.empty();
+          if (response.success) {
+            messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
+            $('#honorarioModal').modal('hide');
+            location.reload();  // Recargar la página para ver los cambios
+          } else {
+            // Mostrar errores en el modal
+            var errors = response.errors;
+            for (var field in errors) {
+              messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + errors[field] + '</div>');
+            }
+          }
+        }
+      });
+    });
+</script>
+<script>
+  const contratos = [
+      {% for contrato in contratos %}
+          { 
+              idContrato: "{{ contrato.idContrato|escapejs }}", 
+              cedula: "{{ contrato.idPersona.cedula|escapejs }}", 
+              nombres: "{{ contrato.idPersona.nombres|escapejs }}", 
+              apellidos: "{{ contrato.idPersona.apellidos|escapejs }}" 
+          },
+      {% endfor %}
+  ];
+
+  function checkContrato() {
+      const input = document.getElementById('idContrato').value;
+      const icon = document.getElementById('check-icon');
+      const foundContrato = contratos.find(contrato => contrato.idContrato === input);
+
+      if (foundContrato) {
+          icon.innerHTML = '✔️'; // Pajarito verde
+          icon.style.color = 'blue';
+
+          // Mostrar alerta con los datos del contrato
+          const alertHTML = `
+          <div class="alert alert-success alert-dismissible fade show" role="alert">
+              <strong style="color: orange; font-size: 1.2em;">Contrato encontrado:</strong><br>
+              <span style="font-style: italic;">Cédula: ${foundContrato.cedula}</span><br>
+              <span style="font-style: italic;">Nombres: ${foundContrato.nombres}</span><br>
+              <span style="font-style: italic;">Apellidos: ${foundContrato.apellidos}</span>
+              <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                  <span aria-hidden="true">&times;</span>
+              </button>
+          </div>
+          `;
+
+          // Insertar la alerta en el DOM
+          document.getElementById('alert-container').innerHTML = alertHTML;
+      } else {
+          icon.innerHTML = '❌'; // X roja
+          icon.style.color = 'red';
+
+          // Mostrar alerta de que no se encontró el contrato
+          const alertHTML = `
+              <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                  <strong>Contrato no encontrado</strong>
+                  <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                      <span aria-hidden="true">&times;</span>
+                  </button>
+              </div>
+          `;
+
+          // Insertar la alerta en el DOM
+          document.getElementById('alert-container').innerHTML = alertHTML;
+      }
+  }
 </script>
 {% endblock javascripts %}

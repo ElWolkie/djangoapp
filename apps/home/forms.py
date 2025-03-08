@@ -1,5 +1,5 @@
 from django import forms  
-from .models import TipoPersona, Personas, Ofertas, Cuota, TipoOferta, Materia, Cohorte, Cargo, Contrato, Honorario
+from .models import TipoPersona, Personas, Ofertas, Cuota, TipoOferta, Materia, Cohorte, Cargo, Contrato, Honorario, Requisito, Servicio, Tramite, Solicitud, Denominacion, Banco, Moneda, Tasa, TipoIngreso, TipoEgreso
 
 class TipoPersonaForm(forms.ModelForm):  
     estadoTP = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
@@ -78,3 +78,87 @@ class HonorarioForm(forms.ModelForm):
     class Meta:  
         model = Honorario  
         fields = ['idHonorario','idContrato', 'horas', 'estadoHonorario']  
+
+
+
+class RequisitoForm(forms.ModelForm):  
+    estadoRequisito = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
+
+    class Meta:  
+        model = Requisito  
+        fields = ['idRequisito', 'nombreRequisito', 'estadoRequisito']  
+
+
+class ServicioForm(forms.ModelForm):  
+    estadoServicio = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
+
+    class Meta:  
+        model = Servicio  
+        fields = ['idServicio', 'nombreServicio', 'tiempoServicio', 'precioServicio', 'estadoServicio']  
+
+
+class TramiteForm(forms.ModelForm):  
+    estadoTramite = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
+
+    class Meta:  
+        model = Tramite  
+        fields = ['idTramite', 'nombreTramite', 'diasTramite', 'precioTramite', 'estadoTramite']  
+
+class SolicitudForm(forms.ModelForm):  
+    estadoSolicitud = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
+  
+    class Meta:  
+        model = Solicitud  
+        fields = ['idSoli', 'idPersona', 'idTramite', 'idServicio', 'montoTotal', 'estadoSolicitud', 'fechaEntrega']  
+
+
+class DenominacionForm(forms.ModelForm):  
+    estadoDenominacion = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
+
+    class Meta:  
+        model = Denominacion  
+        fields = ['idDenominacion', 'nombreDenominacion', 'estadoDenominacion']  
+
+
+class BancoForm(forms.ModelForm):  
+    estadoBanco = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
+
+    class Meta:  
+        model = Banco
+        fields = ['idBanco', 'codBanco', 'codContable', 'nombreBanco', 'estadoBanco']  
+
+
+class MonedaForm(forms.ModelForm):  
+    estadoMoneda = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
+
+    class Meta:  
+        model = Moneda
+        fields = ['idMoneda', 'nombreMoneda','simboloMoneda', 'estadoMoneda']  
+
+
+
+class TasaForm(forms.ModelForm):  
+    estadoTasa = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
+
+    class Meta:  
+        model = Tasa
+        fields = ['idTasa', 'idMoneda', 'montoTasa','estadoTasa']  
+
+
+
+class TipoIngresoForm(forms.ModelForm):  
+    estadoTipoIngreso = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
+
+    class Meta:  
+        model = TipoIngreso  
+        fields = ['idTipoIngreso', 'nombreTipoIngreso', 'estadoTipoIngreso']  
+
+
+
+class TipoEgresoForm(forms.ModelForm):  
+    estadoTipoEgreso = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
+
+    class Meta:  
+        model = TipoEgreso  
+        fields = ['idTipoEgreso', 'nombreTipoEgreso', 'estadoTipoEgreso']  
+

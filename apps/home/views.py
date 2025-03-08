@@ -9,8 +9,8 @@ from django.contrib import messages
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 
-from .forms import TipoPersonaForm, PersonaForm, TipoOfertaForm, OfertaForm, CuotaForm, MateriaForm, CohorteForm, CargoForm, ContratoForm, HonorarioForm
-from .models import Personas, TipoPersona,  Cuota, TipoOferta, Ofertas, Materia, Cohorte, Cargo, Contrato, Honorario
+from .forms import TipoPersonaForm, PersonaForm, TipoOfertaForm, OfertaForm,CuotaForm, MateriaForm, CohorteForm, CargoForm, ContratoForm, HonorarioForm, RequisitoForm, ServicioForm, TramiteForm, SolicitudForm, DenominacionForm, BancoForm, MonedaForm, TasaForm, TipoIngresoForm, TipoEgresoForm
+from .models import Personas, TipoPersona,  Cuota, TipoOferta, Ofertas, Materia, Cohorte, Cargo, Contrato, Honorario, Requisito, Servicio, Tramite, Solicitud, Denominacion, Banco, Moneda, Tasa, TipoIngreso, TipoEgreso
 
 @csrf_exempt
 def index_view(request):
@@ -172,6 +172,147 @@ def honorario_modal(request):
         form = HonorarioForm()
     return render(request, 'home/honorario_modal.html', {'form': form})
 
+@csrf_exempt
+def requisito_modal(request):
+    if request.method == 'POST':
+        form = RequisitoForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
+        else:
+            print(form.errors)  # esto para depurar errores
+            errors = {field: error for field, error in form.errors.items()}
+            return JsonResponse({'success': False, 'errors': errors})
+    else:
+        form = RequisitoForm()
+    return render(request, 'home/requisito_modal.html', {'form': form})
+
+
+@csrf_exempt
+def servicio_modal(request):
+    if request.method == 'POST':
+        form = ServicioForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
+        else:
+            print(form.errors)  # esto para depurar errores
+            errors = {field: error for field, error in form.errors.items()}
+            return JsonResponse({'success': False, 'errors': errors})
+    else:
+        form = ServicioForm()
+    return render(request, 'home/servicio_modal.html', {'form': form})
+
+
+@csrf_exempt
+def tramite_modal(request):
+    if request.method == 'POST':
+        form = TramiteForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
+        else:
+            print(form.errors)  # esto para depurar errores
+            errors = {field: error for field, error in form.errors.items()}
+            return JsonResponse({'success': False, 'errors': errors})
+    else:
+        form = TramiteForm()
+    return render(request, 'home/tramite_modal.html', {'form': form})
+
+@csrf_exempt
+def denominacion_modal(request):
+    if request.method == 'POST':
+        form = DenominacionForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
+        else:
+            print(form.errors)  # esto para depurar errores
+            errors = {field: error for field, error in form.errors.items()}
+            return JsonResponse({'success': False, 'errors': errors})
+    else:
+        form = DenominacionForm()
+    return render(request, 'home/denominacion_modal.html', {'form': form})
+
+
+@csrf_exempt
+def banco_modal(request):
+    if request.method == 'POST':
+        form = BancoForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
+        else:
+           # print(form.errors)  # esto para depurar errores
+            errors = {field: error for field, error in form.errors.items()}
+            return JsonResponse({'success': False, 'errors': errors})
+    else:
+        form = BancoForm()
+    return render(request, 'home/banco_modal.html', {'form': form})
+
+@csrf_exempt
+def moneda_modal(request):
+    if request.method == 'POST':
+        form = MonedaForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
+        else:
+           # print(form.errors)  # esto para depurar errores
+            errors = {field: error for field, error in form.errors.items()}
+            return JsonResponse({'success': False, 'errors': errors})
+    else:
+        form = MonedaForm()
+    return render(request, 'home/moneda_modal.html', {'form': form})
+
+
+@csrf_exempt
+def tasa_modal(request):
+    if request.method == 'POST':
+        form = TasaForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
+        else:
+           # print(form.errors)  # esto para depurar errores
+            errors = {field: error for field, error in form.errors.items()}
+            return JsonResponse({'success': False, 'errors': errors})
+    else:
+        form = TasaForm()
+    return render(request, 'home/tasa_modal.html', {'form': form})
+
+@csrf_exempt
+def tipoIngreso_modal(request):
+    if request.method == 'POST':
+        form = TipoIngresoForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
+        else:
+           # print(form.errors)  # esto para depurar errores
+            errors = {field: error for field, error in form.errors.items()}
+            return JsonResponse({'success': False, 'errors': errors})
+    else:
+        form = TipoIngresoForm()
+    return render(request, 'home/tipoIngreso_modal.html', {'form': form})
+
+@csrf_exempt
+def tipoEgreso_modal(request):
+    if request.method == 'POST':
+        form = TipoEgresoForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
+        else:
+           # print(form.errors)  # esto para depurar errores
+            errors = {field: error for field, error in form.errors.items()}
+            return JsonResponse({'success': False, 'errors': errors})
+    else:
+        form = TipoEgresoForm()
+    return render(request, 'home/tipoEgreso_modal.html', {'form': form})
+
+
+# @login_required(login_url="/login/")
 def index(request):
     context = {"segment": "index"}
 
@@ -200,6 +341,24 @@ def pages(request):
             else:
                 form = PersonaForm()
             context['form'] = form
+
+
+
+        if load_template == "solicitud.html":
+            if request.method == 'POST':
+                form = SolicitudForm(request.POST)
+                if form.is_valid():
+                    form.save()
+                    messages.success(request, 'Registro exitoso.')
+                    return redirect('solicitud.html')  # Redirige a una URL de éxito
+                else:
+                    for field, errors in form.errors.items():
+                        for error in errors:
+                            messages.error(request, f"Error en el campo {field}: {error}")
+            else:
+                form = SolicitudForm()
+            context['form'] = form
+
 
         if load_template == "tipoPersona.html":
             if request.method == 'POST':
@@ -298,6 +457,74 @@ def pages(request):
 
 
 
+        if load_template == "tablaRequisitos.html":
+            requisitos = Requisito.objects.all()
+            context['requisitos'] = requisitos
+
+        context["segment"] = load_template
+
+
+        if load_template == "tablaServicios.html":
+            servicios = Servicio.objects.all()
+            context['servicios'] = servicios
+
+        context["segment"] = load_template
+
+
+        if load_template == "tablaTramites.html":
+            tramites = Tramite.objects.all()
+            context['tramites'] = tramites
+
+        context["segment"] = load_template
+
+
+        if load_template in [ "solicitud.html", "tablaSolicitud.html"]:
+            solicitudes = Solicitud.objects.all()
+            context['solicitudes'] = solicitudes
+            tramites = Tramite.objects.all()
+            context['tramites'] = tramites
+            servicios = Servicio.objects.all()
+            context['servicios'] = servicios
+            personas = Personas.objects.all()
+            context['personas'] = personas
+        context["segment"] = load_template
+
+        if load_template == "tablaDenominaciones.html":
+            denominaciones = Denominacion.objects.all()
+            context['denominaciones'] = denominaciones
+
+        context["segment"] = load_template
+
+        if load_template == "tablaBancos.html":
+            bancos = Banco.objects.all()
+            context['bancos'] = bancos
+
+        context["segment"] = load_template
+
+        if load_template == "tablaMonedas.html":
+            monedas = Moneda.objects.all()
+            context['monedas'] = monedas
+
+        context["segment"] = load_template
+
+        if load_template in [ "tablaTasas.html", "tasa.html"]:
+            tasas = Tasa.objects.all()
+            context['tasas'] = tasas
+            monedas = Moneda.objects.all()
+            context['monedas'] = monedas
+        context["segment"] = load_template
+        
+        if load_template == "tablaTipoIngresos.html":
+            tipoIngresos = TipoIngreso.objects.all()
+            context['tipoIngresos'] = tipoIngresos
+
+        context["segment"] = load_template
+       
+        if load_template == "tablaTipoEgresos.html":
+            tipoEgresos = TipoEgreso.objects.all()
+            context['tipoEgresos'] = tipoEgresos
+
+        context["segment"] = load_template
 
         html_template = loader.get_template("home/" + load_template)
         return HttpResponse(html_template.render(context, request))
