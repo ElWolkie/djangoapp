@@ -1,5 +1,5 @@
 from django import forms  
-from .models import TipoPersona, Personas, Ofertas, Cuota, TipoOferta, Materia, Cohorte, Cargo, Contrato, Honorario, Requisito, Servicio, Tramite, Solicitud, Denominacion
+from .models import TipoPersona, Personas, Ofertas, Cuota, TipoOferta, Materia, Cohorte, Cargo, Contrato, Honorario, Requisito, Servicio, Tramite, Solicitud, Denominacion, Banco, Moneda, Tasa
 
 class TipoPersonaForm(forms.ModelForm):  
     estadoTP = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
@@ -118,3 +118,29 @@ class DenominacionForm(forms.ModelForm):
     class Meta:  
         model = Denominacion  
         fields = ['idDenominacion', 'nombreDenominacion', 'estadoDenominacion']  
+
+
+class BancoForm(forms.ModelForm):  
+    estadoBanco = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
+
+    class Meta:  
+        model = Banco
+        fields = ['idBanco', 'codBanco', 'codContable', 'nombreBanco', 'estadoBanco']  
+
+
+class MonedaForm(forms.ModelForm):  
+    estadoMoneda = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
+
+    class Meta:  
+        model = Moneda
+        fields = ['idMoneda', 'nombreMoneda','simboloMoneda', 'estadoMoneda']  
+
+
+
+class TasaForm(forms.ModelForm):  
+    estadoTasa = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
+
+    class Meta:  
+        model = Tasa
+        fields = ['idTasa', 'idMoneda', 'montoTasa','estadoTasa']  
+

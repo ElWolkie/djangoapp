@@ -5,8 +5,8 @@ from django.contrib.auth.decorators import login_required
 from django.template import loader
 from django.urls import reverse
 from django.contrib import messages
-from .forms import TipoPersonaForm, PersonaForm, TipoOfertaForm, OfertaForm, CuotaForm, MateriaForm, CohorteForm, CargoForm, ContratoForm, HonorarioForm, RequisitoForm, ServicioForm, TramiteForm, SolicitudForm, DenominacionForm
-from .models import Personas, TipoPersona,  Cuota, TipoOferta, Ofertas, Materia, Cohorte, Cargo, Contrato, Honorario, Requisito, Servicio, Tramite, Solicitud, Denominacion
+from .forms import TipoPersonaForm, PersonaForm, TipoOfertaForm, OfertaForm,CuotaForm, MateriaForm, CohorteForm, CargoForm, ContratoForm, HonorarioForm, RequisitoForm, ServicioForm, TramiteForm, SolicitudForm, DenominacionForm, BancoForm, MonedaForm, TasaForm
+from .models import Personas, TipoPersona,  Cuota, TipoOferta, Ofertas, Materia, Cohorte, Cargo, Contrato, Honorario, Requisito, Servicio, Tramite, Solicitud, Denominacion, Banco, Moneda, Tasa
 
 @csrf_exempt
 def tipo_persona_modal(request):
@@ -199,6 +199,52 @@ def denominacion_modal(request):
     return render(request, 'home/denominacion_modal.html', {'form': form})
 
 
+@csrf_exempt
+def banco_modal(request):
+    if request.method == 'POST':
+        form = BancoForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
+        else:
+           # print(form.errors)  # esto para depurar errores
+            errors = {field: error for field, error in form.errors.items()}
+            return JsonResponse({'success': False, 'errors': errors})
+    else:
+        form = BancoForm()
+    return render(request, 'home/banco_modal.html', {'form': form})
+
+@csrf_exempt
+def moneda_modal(request):
+    if request.method == 'POST':
+        form = MonedaForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
+        else:
+           # print(form.errors)  # esto para depurar errores
+            errors = {field: error for field, error in form.errors.items()}
+            return JsonResponse({'success': False, 'errors': errors})
+    else:
+        form = MonedaForm()
+    return render(request, 'home/moneda_modal.html', {'form': form})
+
+
+@csrf_exempt
+def tasa_modal(request):
+    if request.method == 'POST':
+        form = TasaForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
+        else:
+           # print(form.errors)  # esto para depurar errores
+            errors = {field: error for field, error in form.errors.items()}
+            return JsonResponse({'success': False, 'errors': errors})
+    else:
+        form = TasaForm()
+    return render(request, 'home/tasa_modal.html', {'form': form})
+
 @login_required(login_url="/login/")
 def index(request):
     context = {"segment": "index"}
@@ -382,6 +428,27 @@ def pages(request):
             context['denominaciones'] = denominaciones
 
         context["segment"] = load_template
+
+        if load_template == "tablaBancos.html":
+            bancos = Banco.objects.all()
+            context['bancos'] = bancos
+
+        context["segment"] = load_template
+
+        if load_template == "tablaMonedas.html":
+            monedas = Moneda.objects.all()
+            context['monedas'] = monedas
+
+        context["segment"] = load_template
+
+        if load_template in [ "tablaTasas.html", "tasa.html"]:
+            tasas = Tasa.objects.all()
+            context['tasas'] = tasas
+            monedas = Moneda.objects.all()
+            context['monedas'] = monedas
+        context["segment"] = load_template
+        
+
 
         html_template = loader.get_template("home/" + load_template)
         return HttpResponse(html_template.render(context, request))

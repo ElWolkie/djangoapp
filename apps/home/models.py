@@ -184,3 +184,38 @@ class Denominacion(models.Model):
     class Meta:  
         verbose_name = "Denominacion"  
         verbose_name_plural = "Denominaciones"  
+
+class Banco(models.Model):  
+    idBanco = models.AutoField(primary_key=True)  # Clave primaria para Banco  
+    nombreBanco = models.CharField(max_length=100)  # Nombre del Banco  
+    codBanco = models.CharField(max_length=100)  # Codigo del Banco  
+    codContable = models.CharField(max_length=100)  # Codigo contable del Banco  
+    estadoBanco = models.CharField(max_length=10)  # Estado del Banco  
+    fechaBanco = models.DateField(auto_now_add=True)  # Fecha de creación del Banco  
+
+    class Meta:  
+        verbose_name = "Banco"  
+        verbose_name_plural = "Bancos"  
+
+class Moneda(models.Model):  
+    idMoneda = models.AutoField(primary_key=True)  # Clave primaria para Moneda  
+    nombreMoneda = models.CharField(max_length=100)  # Nombre del Moneda  
+    simboloMoneda = models.CharField(max_length=5)  # Codigo del Moneda  
+    estadoMoneda = models.CharField(max_length=10)  # Estado del Moneda  
+    fechaMoneda = models.DateField(auto_now_add=True)  # Fecha de creación del Moneda  
+
+    class Meta:  
+        verbose_name = "Moneda"  
+        verbose_name_plural = "Monedas"  
+
+
+class Tasa(models.Model):  
+    idTasa = models.AutoField(primary_key=True)  # Clave primaria para Banco  
+    idMoneda = models.ForeignKey(Moneda, on_delete=models.CASCADE)  # Clave foránea a Moneda  
+    montoTasa = models.CharField(max_length=100)  # Codigo del Banco  
+    estadoTasa = models.CharField(max_length=10)  # Estado del Banco  
+    fechaTasa = models.DateField(auto_now_add=True)  # Fecha de creación del Banco  
+
+    class Meta:  
+        verbose_name = "Tasa"  
+        verbose_name_plural = "Tasas"  
