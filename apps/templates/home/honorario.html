@@ -19,51 +19,24 @@
     {% csrf_token %}  
     
     <div class="form-row">  
-      <div class="form-group col-md-12">  
-        <div class="input-group">  
-          <div class="table-responsive" id="contratosTableContainer">  
-            <table id="contratosTable" class="table table-striped text-gray-dark">  
-                <thead style="width: 100% important!;">  
-                    <tr>
-                        <th scope="col">Nº Contrato</th> 
-                        <th scope="col">Cédula</th>  
-                    </tr>
-                </thead>
-                <tbody style="cursor: pointer;">
-                    {% for contrato in contratos %}  
-                    <tr data-id="{{ contrato.idContrato }}">  
-                        <td>Nº {{ contrato.idContrato }}</td>  
-                        <td>{{ contrato.idPersona.cedula }}</td>  
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-          <div class="d-flex">
-            <div class="form-group col-md-6 d-flex align-items-center">
-              <div id="selectedContratoContainer" class="d-none">
-                  <label for="changeContrato">Contrato:</label>
-                <div class="input-group">
-                  <input type="text" id="selectedContrato" class="form-control" readonly>
-                  <div class="input-group-append">
-                    <button type="button" class="btn btn-secondary" id="changeContrato" style="background-color: #bcbcbc; border: none;">  
-                      <i class="fas fa-exchange-alt text-warning"></i>
-                    </button>
-                  </div>
-                </div>
-                <input type="hidden" id="idContrato" name="idContrato" required>
-              </div>
+      <div class="form-group col-md-6">  
+        <label for="idContrato">Nº de Contrato:</label>  
+        <div class="input-group"> <!-- Usar input-group para alinear botón y select -->  
+            <input type="text" id="idContrato" name="idContrato" class="form-control text-dark" tabindex="1" required oninput="checkContrato()" placeholder="245345...">
+            <div class="input-group-append">
+                <span id="check-icon" class="input-group-text"></span>
             </div>
-          
-            <div class="form-group col-md-6 d-flex align-items-center">
-              <div>
-                <label for="horas">Horas:</label>
-                <input type="text" id="horas" name="horas" class="form-control text-dark" placeholder="10" tabindex="3" maxlength="100" required />  
-                <input type="hidden" id="estadoHonorario" name="estadoHonorario" class="form-control text-dark" value="ACTIVO" />
-              </div>  
-            </div>  
-          </div>  
-    
+        </div>  
+      </div>
+      
+      <div class="form-group col-md-6">  
+        <label for="horas">Horas:</label>  
+        <input type="text" id="horas" name="horas" class="form-control text-dark" placeholder="Ingrese las horas" tabindex="3" maxlength="100" required />  
+        <input type="hidden" id="estadoHonorario" name="estadoHonorario" class="form-control text-dark" value="ACTIVO" />  
+      </div>  
+    </div>  
+          <div id="alert-container"></div> <!-- Contenedor para las alertas -->
+
     <div class="text-center">  
       <input type="submit" class="btn btn-warning mt-4" value="Guardar" />  
     </div>  

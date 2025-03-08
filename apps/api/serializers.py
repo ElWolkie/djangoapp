@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from apps.home.models import Personas, TipoPersona, Cuota, Ofertas, TipoOferta, Materia, Cohorte, Cargo, Contrato, Honorario  # Importa el modelo desde home
+from apps.home.models import Personas, TipoPersona, Cuota, Ofertas, TipoOferta, Materia, Cohorte, Cargo, Contrato, Honorario, Requisito, Servicio, Tramite, Solicitud, Denominacion, Banco, Moneda, Tasa, TipoIngreso, TipoEgreso  # Importa el modelo desde home
 
 class PersonaSerializer(serializers.ModelSerializer):
     class Meta:
@@ -50,3 +50,53 @@ class HonorarioSerializer(serializers.ModelSerializer):
     class Meta:
         model = Honorario  # Usa el modelo de home
         fields = ['idHonorario', 'idContrato', 'horas', 'estadoHonorario', 'fechaHonorario']
+
+class RequisitoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Requisito  # Usa el modelo de home
+        fields = ['idRequisito', 'nombreRequisito', 'estadoRequisito', 'fechaRequisito']
+
+class ServicioSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Servicio  # Usa el modelo de home
+        fields = ['idServicio', 'nombreServicio', 'tiempoServicio', 'precioServicio', 'estadoServicio', 'fechaServicio']
+
+class TramiteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Tramite  # Usa el modelo de home
+        fields = ['idTramite', 'nombreTramite', 'diasTramite', 'precioTramite', 'estadoTramite', 'fechaTramite']
+
+class SolicitudSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Solicitud  # Usa el modelo de home
+        fields = ['idSoli', 'idPersona', 'idTramite', 'idServicio', 'montoTotal', 'estadoSolicitud', 'fechaEntrega', 'fechaSolicitud']
+
+class DenominacionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Denominacion  # Usa el modelo de home
+        fields = ['idDenominacion', 'nombreDenominacion', 'estadoDenominacion', 'fechaDenominacion']
+
+class BancoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Banco  # Usa el modelo de home
+        fields = ['idBanco', 'nombreBanco', 'codBanco', 'codContable', 'estadoBanco', 'fechaBanco']
+
+class MonedaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Moneda  # Usa el modelo de home
+        fields = ['idMoneda', 'nombreMoneda', 'simboloMoneda', 'estadoMoneda', 'fechaMoneda']
+
+class TasaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Tasa  # Usa el modelo de home
+        fields = ['idTasa', 'idMoneda', 'montoTasa', 'estadoTasa', 'fechaTasa']
+
+class TipoIngresoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TipoIngreso  # Usa el modelo de home
+        fields = ['idTipoIngreso', 'nombreTipoIngreso', 'estadoTipoIngreso', 'fechaTipoIngreso']
+
+class TipoEgresoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TipoEgreso  # Usa el modelo de home
+        fields = ['idTipoEgreso', 'nombreTipoEgreso', 'estadoTipoEgreso', 'fechaTipoEgreso']
