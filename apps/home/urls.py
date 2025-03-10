@@ -42,7 +42,8 @@ urlpatterns = [
     path('tipoIngresoModal/', views.tipoIngreso_modal, name='tipoIngreso_modal'),
     # Specific route for tipoEgreso modal
     path('tipoEgresoModal/', views.tipoEgreso_modal, name='tipoEgreso_modal'),
-
+    # Specific route for tipoEgreso modal
+    path('ingresoModal/', views.ingreso_modal, name='ingreso_modal'),
 
 
     # Matches any html file no mover de lugar 

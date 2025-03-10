@@ -242,3 +242,20 @@ class TipoEgreso(models.Model):
     class Meta:  
         verbose_name = "TipoEgreso"  
         verbose_name_plural = "TipoEgresos"  
+
+
+class Ingreso(models.Model):  
+    idIngreso = models.AutoField(primary_key=True)  # Clave primaria para Ingreso  
+    idDenominacion = models.ForeignKey(Denominacion, on_delete=models.CASCADE)  # Clave foránea a Denominacion
+    idTipoIngreso = models.ForeignKey(TipoIngreso, on_delete=models.CASCADE)  # Clave foránea a TipoIngreso  
+    idBanco = models.ForeignKey(Banco, on_delete=models.CASCADE)  # Clave foránea a Banco
+    idTasa = models.ForeignKey(Tasa, on_delete=models.CASCADE)  # Clave foránea a Tasa
+    montoIngreso = models.DecimalField(max_digits=10, decimal_places=2)  # Monto del Ingreso
+    referencia = models.CharField(max_length=100)  # Descripción del Ingreso
+    descripcion = models.TextField()  # Descripción del Ingreso
+    estadoIngreso = models.CharField(max_length=10)  # Estado del Ingreso  
+    fechaIngreso = models.DateField(auto_now_add=True)  # Fecha de creación del Ingreso  
+
+    class Meta:  
+        verbose_name = "Ingreso"  
+        verbose_name_plural = "Ingresos"
