@@ -7,11 +7,10 @@ from unipath import Path
 BASE_DIR = Path(__file__).parent
 CORE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = config("SECRET_KEY", default="S#perS3crEt_1122")
+SECRET_KEY = config('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config("DEBUG", default=True, cast=bool)
+DEBUG = config("DEBUG", default=False, cast=bool)
 
 # load production server from .env
 ALLOWED_HOSTS = ["localhost", "127.0.0.1", config("SERVER", default="127.0.0.1")]
@@ -19,7 +18,7 @@ ALLOWED_HOSTS = ["localhost", "127.0.0.1", config("SERVER", default="127.0.0.1")
 CSRF_COOKIE_SECURE = False  # Si no estás usando HTTPS
 
 # Application definition
-
+ALLOWED_HOSTS = ['djangoapp-6wxv.onrender.com']
 
 DATABASES = {
     'default': dj_database_url.config(
@@ -58,6 +57,8 @@ MIDDLEWARE = [
 
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+# Configura archivos estáticos para producción
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 ROOT_URLCONF = "core.urls"
 LOGIN_URL = "/login/"
