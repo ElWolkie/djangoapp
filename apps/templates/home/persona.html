@@ -23,17 +23,22 @@
     {% csrf_token %}
     <div class="row">
       <div class="col-md-6">
-      <div class="form-group">
-        <label for="tipoPersona">Tipo de Persona:</label>
-        <button class="btn btn-warning btn-square btn-sm my-2" type="button" title="Registrar Tipo de Persona" data-toggle="modal" data-target="#tipoPersonaModal">+</button>
-        <select id="tipoPersona" name="idTP" class="form-control text-dark" tabindex="1" required>
-        <option value="" disabled selected>Seleccione..</option>
-        
-        {% for tipopersona in tipopersonas %}
-          <option value="{{ tipopersona.idTP }}" class="text-orange">{{ tipopersona.nombreTP }}</option>
-        {% endfor %}
-        </select>
-      </div>
+        <div class="form-group">
+          <label for="tipoPersona">Tipo de Persona:</label>
+          <button class="btn btn-warning btn-square btn-sm my-2" type="button" title="Registrar Tipo de Persona" data-toggle="modal" data-target="#tipoPersonaModal">+</button>
+            <div class="row">
+            {% for tipopersona in tipopersonas %}
+              <div class="col-md-6">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="tipos_persona" id="tipoPersona{{ tipopersona.idTP }}" value="{{ tipopersona.idTP }}">
+                <label class="form-check-label" for="tipoPersona{{ tipopersona.idTP }}">
+                {{ tipopersona.nombreTP }}
+                </label>
+              </div>
+              </div>
+            {% endfor %}
+            </div>
+        </div>
         <div class="form-group">
           <label for="nombres">Nombres:</label>
           <input type="text" id="nombres" name="nombres" class="form-control text-dark" placeholder="Ingrese su nombre" tabindex="3" maxlength="100" required />

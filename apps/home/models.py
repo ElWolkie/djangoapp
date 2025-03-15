@@ -1,5 +1,6 @@
 from django.db import models  
 from django.contrib.auth.models import User  
+from django.db import models
 
 class TipoPersona(models.Model):  
     idTP = models.AutoField(primary_key=True)  # Clave primaria para TipoPersona  
@@ -11,11 +12,13 @@ class TipoPersona(models.Model):
         verbose_name = "Tipo de Persona"  
         verbose_name_plural = "Tipos de Personas"  
 
+    def __str__(self):
+        return self.nombreTP  # Representación legible en el admin de Django
+
 
 class Personas(models.Model):  
     idPersona = models.AutoField(primary_key=True)  # Clave primaria para Personas  
-    idTP = models.ForeignKey(TipoPersona, on_delete=models.CASCADE)  # Clave foránea a TipoPersona  
-    cedula = models.CharField(max_length=10)  # Número de identificación  
+    cedula = models.CharField(max_length=10)  # Número de cedula  
     nombres = models.CharField(max_length=100)  # Nombres  
     apellidos = models.CharField(max_length=100)  # Apellidos  
     telefono = models.CharField(max_length=15)  # Número de teléfono  
@@ -26,7 +29,27 @@ class Personas(models.Model):
     class Meta:  
         verbose_name = "Persona"  
         verbose_name_plural = "Personas"  
-        ordering = ['idTP']  # Orden predeterminado por TipoPersona  
+        ordering = ['idPersona']  # Orden predeterminado por idPersona
+
+    def __str__(self):
+        return f"{self.nombres} {self.apellidos}"  # Representación legible en el admin de Django
+
+
+# Tabla intermedia para la relación muchos a muchos entre Personas y TipoPersona
+class PersonaTipoPersona(models.Model):
+    idPersona = models.ForeignKey(Personas, on_delete=models.CASCADE)  # Clave foránea a Personas
+    idTP = models.ForeignKey(TipoPersona, on_delete=models.CASCADE)  # Clave foránea a TipoPersona
+    fechaAsignacion = models.DateField(auto_now_add=True)  # Fecha de asignación del tipo a la persona
+
+    class Meta:
+        verbose_name = "Asignación de Tipo a Persona"
+        verbose_name_plural = "Asignaciones de Tipos a Personas"
+        unique_together = ('idPersona', 'idTP')  # Evita duplicados
+
+    def __str__(self):
+        return f"{self.idPersona} - {self.idTP}"  # Representación legible en el admin de Django
+    
+
 
 
 class Cuota(models.Model):  
@@ -174,3 +197,88 @@ class Solicitud(models.Model):
     class Meta:
         verbose_name = "Solicitud"
         verbose_name_plural = "Solicitudes"
+
+class Denominacion(models.Model):  
+    idDenominacion = models.AutoField(primary_key=True)  # Clave primaria para Denominacion  
+    nombreDenominacion = models.CharField(max_length=100)  # Nombre del Denominacion  
+    estadoDenominacion = models.CharField(max_length=10)  # Estado del Denominacion  
+    fechaDenominacion = models.DateField(auto_now_add=True)  # Fecha de creación del Denominacion  
+
+    class Meta:  
+        verbose_name = "Denominacion"  
+        verbose_name_plural = "Denominaciones"  
+
+class Banco(models.Model):  
+    idBanco = models.AutoField(primary_key=True)  # Clave primaria para Banco  
+    nombreBanco = models.CharField(max_length=100)  # Nombre del Banco  
+    codBanco = models.CharField(max_length=100)  # Codigo del Banco  
+    codContable = models.CharField(max_length=100)  # Codigo contable del Banco  
+    estadoBanco = models.CharField(max_length=10)  # Estado del Banco  
+    fechaBanco = models.DateField(auto_now_add=True)  # Fecha de creación del Banco  
+
+    class Meta:  
+        verbose_name = "Banco"  
+        verbose_name_plural = "Bancos"  
+
+class Moneda(models.Model):  
+    idMoneda = models.AutoField(primary_key=True)  # Clave primaria para Moneda  
+    nombreMoneda = models.CharField(max_length=100)  # Nombre del Moneda  
+    simboloMoneda = models.CharField(max_length=5)  # Codigo del Moneda  
+    estadoMoneda = models.CharField(max_length=10)  # Estado del Moneda  
+    fechaMoneda = models.DateField(auto_now_add=True)  # Fecha de creación del Moneda  
+
+    class Meta:  
+        verbose_name = "Moneda"  
+        verbose_name_plural = "Monedas"  
+
+
+class Tasa(models.Model):  
+    idTasa = models.AutoField(primary_key=True)  # Clave primaria para Banco  
+    idMoneda = models.ForeignKey(Moneda, on_delete=models.CASCADE)  # Clave foránea a Moneda  
+    montoTasa = models.CharField(max_length=100)  # Codigo del Banco  
+    estadoTasa = models.CharField(max_length=10)  # Estado del Banco  
+    fechaTasa = models.DateField(auto_now_add=True)  # Fecha de creación del Banco  
+
+    class Meta:  
+        verbose_name = "Tasa"  
+        verbose_name_plural = "Tasas"  
+
+
+class TipoIngreso(models.Model):  
+    idTipoIngreso = models.AutoField(primary_key=True)  # Clave primaria para TipoIngreso  
+    nombreTipoIngreso = models.CharField(max_length=100)  # Nombre de la TipoIngreso  
+    estadoTipoIngreso = models.CharField(max_length=10)  # Estado de la TipoIngreso  
+    fechaTipoIngreso = models.DateField(auto_now_add=True)  # Fecha de creación de la TipoIngreso  
+
+    class Meta:  
+        verbose_name = "TipoIngreso"  
+        verbose_name_plural = "TipoIngresos"  
+
+
+
+class TipoEgreso(models.Model):  
+    idTipoEgreso = models.AutoField(primary_key=True)  # Clave primaria para TipoIngreso  
+    nombreTipoEgreso = models.CharField(max_length=100)  # Nombre de la TipoIngreso  
+    estadoTipoEgreso = models.CharField(max_length=10)  # Estado de la TipoIngreso  
+    fechaTipoEgreso = models.DateField(auto_now_add=True)  # Fecha de creación de la TipoIngreso  
+
+    class Meta:  
+        verbose_name = "TipoEgreso"  
+        verbose_name_plural = "TipoEgresos"  
+
+
+class Ingreso(models.Model):  
+    idIngreso = models.AutoField(primary_key=True)  # Clave primaria para Ingreso  
+    idDenominacion = models.ForeignKey(Denominacion, on_delete=models.CASCADE)  # Clave foránea a Denominacion
+    idTipoIngreso = models.ForeignKey(TipoIngreso, on_delete=models.CASCADE)  # Clave foránea a TipoIngreso  
+    idBanco = models.ForeignKey(Banco, on_delete=models.CASCADE)  # Clave foránea a Banco
+    idTasa = models.ForeignKey(Tasa, on_delete=models.CASCADE)  # Clave foránea a Tasa
+    montoIngreso = models.DecimalField(max_digits=10, decimal_places=2)  # Monto del Ingreso
+    referencia = models.CharField(max_length=100)  # Descripción del Ingreso
+    descripcion = models.TextField()  # Descripción del Ingreso
+    estadoIngreso = models.CharField(max_length=10)  # Estado del Ingreso  
+    fechaIngreso = models.DateField(auto_now_add=True)  # Fecha de creación del Ingreso  
+
+    class Meta:  
+        verbose_name = "Ingreso"  
+        verbose_name_plural = "Ingresos"
