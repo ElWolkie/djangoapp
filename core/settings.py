@@ -25,6 +25,12 @@ DATABASES = {
     )
 }
 
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+    "https://djangoapp-6wxv.onrender.com",  # Dominio de Render
+]
+
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -88,25 +94,7 @@ STATIC_URL = '/static/'
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 
 # Database
-
-
-import os
 import platform
-from decouple import config
-
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": config("DB_NAME", default="fundacion"),
-        "USER": config("DB_USER", default="prueba"),
-        "PASSWORD": config("DB_PASSWORD", default="Prueba2022"),
-        "HOST": config("DB_HOST", default="localhost"),
-        "PORT": config("DB_PORT", default="5432"),
-        "OPTIONS": {
-            "options": "-c client_encoding=UTF8"
-        }
-    }
-}
 
 from datetime import timedelta
 
@@ -126,12 +114,6 @@ SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
 }
-
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:8000",
-    "http://127.0.0.1:8000",
-    "https://djangoapp-6wxv.onrender.com",  # Dominio de Render
-]
 
 # Ajustes específicos para Windows
 if platform.system() == "Windows":
