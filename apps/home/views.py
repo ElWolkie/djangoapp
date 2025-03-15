@@ -6,7 +6,7 @@ from django.template import loader
 from django.urls import reverse
 from django.contrib import messages
 from .forms import TipoPersonaForm, PersonaForm, TipoOfertaForm, OfertaForm,CuotaForm, MateriaForm, CohorteForm, CargoForm, ContratoForm, HonorarioForm, RequisitoForm, ServicioForm, TramiteForm, SolicitudForm, DenominacionForm, BancoForm, MonedaForm, TasaForm, TipoIngresoForm, TipoEgresoForm, IngresoForm
-from .models import Personas, TipoPersona,  Cuota, TipoOferta, Ofertas, Materia, Cohorte, Cargo, Contrato, Honorario, Requisito, Servicio, Tramite, Solicitud, Denominacion, Banco, Moneda, Tasa, TipoIngreso, TipoEgreso, Ingreso
+from .models import Personas, TipoPersona, PersonaTipoPersona, Cuota, TipoOferta, Ofertas, Materia, Cohorte, Cargo, Contrato, Honorario, Requisito, Servicio, Tramite, Solicitud, Denominacion, Banco, Moneda, Tasa, TipoIngreso, TipoEgreso, Ingreso
 
 @csrf_exempt
 def tipo_persona_modal(request):
@@ -311,16 +311,30 @@ def pages(request):
             if request.method == 'POST':
                 form = PersonaForm(request.POST)
                 if form.is_valid():
-                    form.save()
+                    # Guardar la persona
+                    persona = form.save()
+
+                    # Obtener los tipos de persona seleccionados
+                    tipos_persona_ids = request.POST.getlist('tipos_persona')
+
+                    # Asignar los tipos a la persona
+                    for tipo_id in tipos_persona_ids:
+                        tipo = TipoPersona.objects.get(idTP=tipo_id)
+                        PersonaTipoPersona.objects.create(idPersona=persona, idTP=tipo)
+
                     messages.success(request, 'Registro exitoso.')
                     return redirect('tablaPersona.html')  # Redirige a una URL de éxito
                 else:
+                    # Mostrar errores de validación del formulario
                     for field, errors in form.errors.items():
                         for error in errors:
                             messages.error(request, f"Error en el campo {field}: {error}")
             else:
                 form = PersonaForm()
+
+            # Pasar el formulario y los tipos de persona al contexto
             context['form'] = form
+            context['tipopersonas'] = TipoPersona.objects.all()  # Lista de tipos de persona
 
 
 

@@ -1,5 +1,6 @@
 from django.db import models  
 from django.contrib.auth.models import User  
+from django.db import models
 
 class TipoPersona(models.Model):  
     idTP = models.AutoField(primary_key=True)  # Clave primaria para TipoPersona  
@@ -11,11 +12,13 @@ class TipoPersona(models.Model):
         verbose_name = "Tipo de Persona"  
         verbose_name_plural = "Tipos de Personas"  
 
+    def __str__(self):
+        return self.nombreTP  # Representación legible en el admin de Django
+
 
 class Personas(models.Model):  
     idPersona = models.AutoField(primary_key=True)  # Clave primaria para Personas  
-    idTP = models.ForeignKey(TipoPersona, on_delete=models.CASCADE)  # Clave foránea a TipoPersona  
-    cedula = models.CharField(max_length=10)  # Número de identificación  
+    cedula = models.CharField(max_length=10)  # Número de cedula  
     nombres = models.CharField(max_length=100)  # Nombres  
     apellidos = models.CharField(max_length=100)  # Apellidos  
     telefono = models.CharField(max_length=15)  # Número de teléfono  
@@ -26,7 +29,27 @@ class Personas(models.Model):
     class Meta:  
         verbose_name = "Persona"  
         verbose_name_plural = "Personas"  
-        ordering = ['idTP']  # Orden predeterminado por TipoPersona  
+        ordering = ['idPersona']  # Orden predeterminado por idPersona
+
+    def __str__(self):
+        return f"{self.nombres} {self.apellidos}"  # Representación legible en el admin de Django
+
+
+# Tabla intermedia para la relación muchos a muchos entre Personas y TipoPersona
+class PersonaTipoPersona(models.Model):
+    idPersona = models.ForeignKey(Personas, on_delete=models.CASCADE)  # Clave foránea a Personas
+    idTP = models.ForeignKey(TipoPersona, on_delete=models.CASCADE)  # Clave foránea a TipoPersona
+    fechaAsignacion = models.DateField(auto_now_add=True)  # Fecha de asignación del tipo a la persona
+
+    class Meta:
+        verbose_name = "Asignación de Tipo a Persona"
+        verbose_name_plural = "Asignaciones de Tipos a Personas"
+        unique_together = ('idPersona', 'idTP')  # Evita duplicados
+
+    def __str__(self):
+        return f"{self.idPersona} - {self.idTP}"  # Representación legible en el admin de Django
+    
+
 
 
 class Cuota(models.Model):  
