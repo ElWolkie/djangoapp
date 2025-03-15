@@ -16,6 +16,7 @@ CSRF_COOKIE_SECURE = False  # Si no estás usando HTTPS
 
 # Application definition
 ALLOWED_HOSTS = ['djangoapp-6wxv.onrender.com']
+WSGI_APPLICATION = "core.wsgi.application"
 
 DATABASES = {
     'default': dj_database_url.config(
@@ -87,8 +88,6 @@ TEMPLATES = [
         },
     },
 ]
-
-WSGI_APPLICATION = "core.wsgi.application"
 
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
