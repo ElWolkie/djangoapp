@@ -5,7 +5,7 @@ Copyright (c) 2019 - present AppSeed.us
 
 import os
 import sys
-
+os.environ.setdefault('PGCLIENTENCODING', 'UTF8') 
 def main():
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
     try:

@@ -12,9 +12,16 @@ urlpatterns = [
     path('tipoOfertaModal/', views.tipo_oferta_modal, name='tipo_oferta_modal'),
     # Specific route for oferta modal
     path('ofertaModal/', views.oferta_modal, name='oferta_modal'),
-    # Specific route for cuota modal
-    path('cuotaModal/', views.cuota_modal, name='cuota_modal'),
+    # Specific route for cuota 
+   
+    path('cuotaModal/', views.cuota_modal, name='cuota_modal'), # URL para la creación
+    path('editCuota/<int:pk>/', views.edit_view, name='edit_cuota'), # URL para la edición	
+    path('deleteCuota/<int:pk>/', views.delete_view, name='delete_cuota'),  # URL para la eliminación lógica
+    path('reactivateCuota/<int:pk>/', views.reactivate_view, name='reactivate_cuota'),  # URL para la reactivación
+    path('tablaCuotas/', views.tabla_cuotas, name='tabla_cuotas'), # URL para la tabla de cuotas
+
        # Specific route for materia modal
+
     path('materiaModal/', views.materia_modal, name='materia_modal'),
     # Specific route for cohorte modal
     path('cohorteModal/', views.cohorte_modal, name='cohorte_modal'),
