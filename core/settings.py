@@ -1,4 +1,5 @@
 import os
+import dj_database_url
 from decouple import config
 from unipath import Path
 
@@ -18,6 +19,14 @@ ALLOWED_HOSTS = ["localhost", "127.0.0.1", config("SERVER", default="127.0.0.1")
 CSRF_COOKIE_SECURE = False  # Si no estás usando HTTPS
 
 # Application definition
+
+
+DATABASES = {
+    'default': dj_database_url.config(
+        default='postgresql://usuario:contraseña@localhost:5432/fundacion',
+        conn_max_age=600
+    )
+}
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -44,7 +53,11 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "corsheaders.middleware.CorsMiddleware",
+    'whitenoise.middleware.WhiteNoiseMiddleware',
 ]
+
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 ROOT_URLCONF = "core.urls"
 LOGIN_URL = "/login/"
