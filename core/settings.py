@@ -19,8 +19,9 @@ ALLOWED_HOSTS = ['djangoapp-6wxv.onrender.com']
 
 DATABASES = {
     'default': dj_database_url.config(
-        default='DATABASE_URL',
-        conn_max_age=600
+        default=config('DATABASE_URL'),
+        conn_max_age=600,
+        ssl_require=True  #SSL habilitado para Render
     )
 }
 
@@ -129,6 +130,7 @@ SIMPLE_JWT = {
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:8000",
     "http://127.0.0.1:8000",
+    "https://djangoapp-6wxv.onrender.com",  # Dominio de Render
 ]
 
 # Ajustes específicos para Windows
