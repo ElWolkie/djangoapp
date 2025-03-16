@@ -231,8 +231,6 @@ class TipoIngreso(models.Model):
         verbose_name = "TipoIngreso"  
         verbose_name_plural = "TipoIngresos"  
 
-
-
 class TipoEgreso(models.Model):  
     idTipoEgreso = models.AutoField(primary_key=True)  # Clave primaria para TipoIngreso  
     nombreTipoEgreso = models.CharField(max_length=100)  # Nombre de la TipoIngreso  

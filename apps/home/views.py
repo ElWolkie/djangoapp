@@ -526,6 +526,12 @@ def pages(request):
 
         context["segment"] = load_template
 
+        if load_template == "configuracion.html":
+            monedas = Moneda.objects.all()
+            context['monedas'] = monedas
+            
+        context["segment"] = load_template
+
         html_template = loader.get_template("home/" + load_template)
         return HttpResponse(html_template.render(context, request))
 
