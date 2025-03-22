@@ -36,7 +36,13 @@
   </div>
 
   <br>
-  <table class="table table-striped text-gray-dark" id="cuotasTable">
+
+  <div class="form-check form-switch mb-3">
+    <input type="checkbox" class="form-check-input" id="toggleInactivos" role="switch">
+    <label class="form-check-label" for="toggleInactivos">Ver todos (incluyendo inactivos)</label>
+  </div>
+
+<table class="table table-striped text-gray-dark" id="cuotasTable">
     <thead class="text-darker">
         <tr>
             <th scope="col">ID</th>
@@ -47,19 +53,18 @@
         </tr>
     </thead>
     <tbody>
-        <!-- Contenido de la tabla -->
-        {% for cuota in cuota %}  <!-- Cambia "cuotas" a "cuota" para coincidir con el contexto -->
-        <tr>
+        {% for cuota in cuota %}
+        <tr data-estado="{{ cuota.estadoCuota }}">
             <td>{{ cuota.idCuota }}</td>
             <td>{{ cuota.nombreCuota }}</td>
             <td>{{ cuota.estadoCuota }}</td>
             <td>{{ cuota.fechaCuota }}</td>
             <td>
-              <button class="btn btn-sm btn-primary" type="button" data-toggle="modal" data-target="#editModal" data-url="{% url 'edit_cuota' cuota.idCuota %}">Editar</button>         
-              <button class="btn btn-sm btn-danger" type="button" onclick="deleteCuota('{{ cuota.idCuota }}')">Eliminar</button>
-              {% if user.is_superuser %}
-              <button class="btn btn-sm btn-success" type="button" onclick="reactivateCuota('{{ cuota.idCuota }}')">Reactivar</button>
-              {% endif %}
+                <button class="btn btn-sm btn-primary" type="button" data-toggle="modal" data-target="#editModal" data-url="{% url 'edit_cuota' cuota.idCuota %}">Editar</button>
+                <button class="btn btn-sm btn-danger" type="button" onclick="deleteCuota('{{ cuota.idCuota }}')">Eliminar</button>
+                {% if cuota.estadoCuota == 'INACTIVO' %}
+                <button class="btn btn-sm btn-success" type="button" onclick="reactivateCuota('{{ cuota.idCuota }}')">Reactivar</button>
+                {% endif %}
             </td>
         </tr>
         {% endfor %}
@@ -106,6 +111,32 @@
 
 {% block javascripts %}
 <script src="/static/assets/js/validacionesPersona.js"></script>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+      const toggleInactivos = document.getElementById('toggleInactivos');
+      const tableRows = document.querySelectorAll('#cuotasTable tbody tr');
+
+      // Función para actualizar la visibilidad de las filas
+      function updateTableVisibility() {
+          const showInactivos = toggleInactivos.checked;
+
+          tableRows.forEach(row => {
+              const estado = row.getAttribute('data-estado');
+              if (estado === 'INACTIVO') {
+                  row.style.display = showInactivos ? '' : 'none';
+              }
+          });
+      }
+
+      // Escuchar cambios en el checkbox
+      toggleInactivos.addEventListener('change', updateTableVisibility);
+
+      // Aplicar la visibilidad inicial al cargar la página
+      updateTableVisibility();
+  });
+</script>
+
 <script>
   document.addEventListener("DOMContentLoaded", function() {
     $('#cuotaModal, editModal').on('show.bs.modal', function (e) {
@@ -168,7 +199,6 @@
         },
         success: function(response) {
           if (response.success) {
-            alert(response.message);
             location.reload();  // Recargar la página para ver los cambios
           } else {
             alert('Error al eliminar la cuota.');
@@ -187,7 +217,6 @@
         },
         success: function(response) {
           if (response.success) {
-            alert(response.message);
             location.reload();  // Recargar la página para ver los cambios
           } else {
             alert('Error al reactivar la cuota.');
@@ -207,6 +236,7 @@
   }
 
 </script>
+
 <script>
   function filterTable() {
     var input, filter, table, tr, td, i, j, txtValue;

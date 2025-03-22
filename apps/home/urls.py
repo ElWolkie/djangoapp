@@ -12,9 +12,6 @@ urlpatterns = [
     path('tipoPersonaModal/', views.tipo_persona_modal, name='tipo_persona_modal'),
     path('tipoOfertaModal/', views.tipo_oferta_modal, name='tipo_oferta_modal'),
     path('ofertaModal/', views.oferta_modal, name='oferta_modal'),
-<<<<<<< HEAD
-    path('cuotaModal/', views.cuota_modal, name='cuota_modal'),
-=======
     # Specific route for cuota 
    
     path('cuotaModal/', views.cuota_modal, name='cuota_modal'), # URL para la creación
@@ -23,7 +20,6 @@ urlpatterns = [
     path('reactivateCuota/<int:pk>/', views.reactivate_view, name='reactivate_cuota'),  # URL para la reactivación
     path('tablaCuotas/', views.tabla_cuotas, name='tabla_cuotas'), # URL para la tabla de cuotas
 
->>>>>>> feature/respaldo-funcionalidadesJG
        # Specific route for materia modal
 
     path('materiaModal/', views.materia_modal, name='materia_modal'),
