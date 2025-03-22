@@ -1,6 +1,6 @@
 # [Django App Fundación UPTYAB]
 
-![Argon Dashboard Django - Admin Dashboard coded in Django.](https://github.com/creativetimofficial/argon-dashboard-django/blob/master/media/argon-dashboard-django-screen.png)
+![Argon Dashboard Django - Admin Dashboard coded in Django.](https://github.com/ElWolkie/djangoapp/blob/rama-api/media/photo.png)
 
 <br />
 
