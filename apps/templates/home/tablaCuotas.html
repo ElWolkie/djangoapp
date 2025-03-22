@@ -43,6 +43,7 @@
             <th scope="col">Cantidad</th>
             <th scope="col">Estado</th>
             <th scope="col">Fecha</th>
+            <th scope="col">Acciones</th>
         </tr>
     </thead>
     <tbody>
@@ -53,6 +54,13 @@
             <td>{{ cuota.nombreCuota }}</td>
             <td>{{ cuota.estadoCuota }}</td>
             <td>{{ cuota.fechaCuota }}</td>
+            <td>
+              <button class="btn btn-sm btn-primary" type="button" data-toggle="modal" data-target="#editModal" data-url="{% url 'edit_cuota' cuota.idCuota %}">Editar</button>         
+              <button class="btn btn-sm btn-danger" type="button" onclick="deleteCuota('{{ cuota.idCuota }}')">Eliminar</button>
+              {% if user.is_superuser %}
+              <button class="btn btn-sm btn-success" type="button" onclick="reactivateCuota('{{ cuota.idCuota }}')">Reactivar</button>
+              {% endif %}
+            </td>
         </tr>
         {% endfor %}
     </tbody>
@@ -76,16 +84,47 @@
     </div>
   </div>
 </div>
+<!-- Modal para editar -->
+<div class="modal fade" id="editModal" tabindex="-1" role="dialog" aria-labelledby="editModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="editModalLabel">Modificar Cuota</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <!-- Contenedor para los mensajes -->
+        <div id="modalMessages"></div>
+        <!-- El contenido del formulario se cargará aquí -->
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock content %}
 
 {% block javascripts %}
 <script src="/static/assets/js/validacionesPersona.js"></script>
 <script>
   document.addEventListener("DOMContentLoaded", function() {
-    $('#cuotaModal').on('show.bs.modal', function (e) {
+    $('#cuotaModal, editModal').on('show.bs.modal', function (e) {
       var modal = $(this);
       $.ajax({
         url: 'apps/home/cuota.html',
+        method: 'GET',
+        success: function(data) {
+          modal.find('.modal-body').html(data);
+        }
+      });
+    });
+
+    // Manejar la apertura del modal para editar
+    $('#editModal').on('show.bs.modal', function (e) {
+      var modal = $(this);
+      var url = $(e.relatedTarget).data('url'); // Obtener la URL desde el botón que abrió el modal
+      $.ajax({
+        url: url,
         method: 'GET',
         success: function(data) {
           modal.find('.modal-body').html(data);
@@ -105,7 +144,7 @@
           messagesContainer.empty();
           if (response.success) {
             messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
-            $('#cuotaModal').modal('hide');
+            $('#cuotaModal, #editModal ').modal('hide');
             location.reload();  // Recargar la página para ver los cambios
           } else {
             // Mostrar errores en el modal
@@ -118,6 +157,55 @@
       });
     });
   });
+
+  function deleteCuota(id) {
+    if (confirm('¿Estás seguro de que deseas eliminar esta cuota?')) {
+      $.ajax({
+        url: '{% url "delete_cuota" 0 %}'.replace('0', id),
+        method: 'POST',
+        data: {
+          csrfmiddlewaretoken: '{{ csrf_token }}'
+        },
+        success: function(response) {
+          if (response.success) {
+            alert(response.message);
+            location.reload();  // Recargar la página para ver los cambios
+          } else {
+            alert('Error al eliminar la cuota.');
+          }
+        }
+      });
+    }
+  }
+  function reactivateCuota(id) {
+    if (confirm('¿Estás seguro de que deseas reactivar esta cuota?')) {
+      $.ajax({
+        url: '{% url "reactivate_cuota" 0 %}'.replace('0', id),
+        method: 'POST',
+        data: {
+          csrfmiddlewaretoken: '{{ csrf_token }}'
+        },
+        success: function(response) {
+          if (response.success) {
+            alert(response.message);
+            location.reload();  // Recargar la página para ver los cambios
+          } else {
+            alert('Error al reactivar la cuota.');
+          }
+        }
+      });
+    }
+  }
+
+  function filterInactiveRows() {
+    var rows = document.querySelectorAll('#cuotasTable tbody tr');
+    rows.forEach(function(row) {
+      if (row.getAttribute('data-estado') === 'INACTIVO') {
+        row.style.display = 'none';
+      }
+    });
+  }
+
 </script>
 <script>
   function filterTable() {
