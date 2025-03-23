@@ -1,6 +1,7 @@
 from django.http import JsonResponse, HttpResponse, HttpResponseRedirect
 from django.views.decorators.csrf import csrf_exempt
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import User
 from django.template import loader
 from django.urls import reverse
@@ -85,7 +86,7 @@ def tipo_oferta_modal(request):
     else:
         form = TipoOfertaForm()
     return render(request, 'home/tipo_oferta_modal.html', {'form': form})
-
+#Cuota
 @csrf_exempt
 def cuota_modal(request):
     if request.method == 'POST':
@@ -101,6 +102,44 @@ def cuota_modal(request):
     return render(request, 'home/cuota_modal.html', {'form': form})
 
 @csrf_exempt
+def edit_view(request, pk):
+    instance = get_object_or_404(Cuota, pk=pk)
+    if request.method == 'POST':
+        form = CuotaForm(request.POST, instance=instance)
+        if form.is_valid():
+            form.save()  # Guarda los cambios en la base de datos
+            return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
+        else:
+            errors = {field: error for field, error in form.errors.items()}
+            return JsonResponse({'success': False, 'errors': errors})
+    else:
+        form = CuotaForm(instance=instance)
+    return render(request, 'home/edit_view.html', {'form': form, 'cuota': instance})
+
+@csrf_exempt
+def delete_view(request, pk):
+    instance = get_object_or_404(Cuota, pk=pk)
+    instance.estadoCuota = 'INACTIVO'
+    instance.save()
+    return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
+
+@csrf_exempt
+def reactivate_view(request, pk):
+    instance = get_object_or_404(Cuota, pk=pk)
+    instance.estadoCuota = 'ACTIVO'
+    instance.save()
+    return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
+
+def tabla_cuotas(request):
+    if request.user.is_superuser:
+        cuotas = Cuota.objects.all()  # Mostrar todas las cuotas para superusuarios
+    else:
+        cuotas = Cuota.objects.filter(estadoCuota='ACTIVO')  # Filtrar solo las cuotas activas
+    return render(request, 'home/tablaCuotas.html', {'cuotas': cuotas})
+
+
+#Materia
+@csrf_exempt
 def materia_modal(request):
     if request.method == 'POST':
         form = MateriaForm(request.POST)
@@ -113,6 +152,7 @@ def materia_modal(request):
     else:
         form = MateriaForm()
     return render(request, 'home/materia_modal.html', {'form': form})
+
 
 @csrf_exempt
 def cohorte_modal(request):
@@ -127,6 +167,7 @@ def cohorte_modal(request):
     else:
         form = CuotaForm()
     return render(request, 'home/cohorte_modal.html', {'form': form})
+
 
 
 @csrf_exempt
@@ -524,6 +565,12 @@ def pages(request):
             tipoEgresos = TipoEgreso.objects.all()
             context['tipoEgresos'] = tipoEgresos
 
+        context["segment"] = load_template
+
+        if load_template == "configuracion.html":
+            monedas = Moneda.objects.all()
+            context['monedas'] = monedas
+            
         context["segment"] = load_template
 
         html_template = loader.get_template("home/" + load_template)

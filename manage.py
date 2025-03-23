@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import os
 import sys
-
+os.environ.setdefault('PGCLIENTENCODING', 'UTF8') 
 def main():
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "core.settings")
     try:

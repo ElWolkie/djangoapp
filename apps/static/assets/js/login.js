@@ -53,7 +53,6 @@ document.addEventListener('DOMContentLoaded', function () {
             console.log('Token almacenado:', localStorage.getItem('access_token')); 
             
             // Verifica manualmente el token en consola
-            alert('Token almacenado. Verifica en Application > Local Storage');
             window.location.href = '/index/';  // Redirige SIN setTimeout
           }
       })
