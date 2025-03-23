@@ -28,8 +28,6 @@ urlpatterns = [
     # Specific route for cohorte modal
     path('cargoModal/', views.cargo_modal, name='cargo_modal'),
     # Specific route for cohorte modal
-    path('contratoModal/', views.contrato_modal, name='contrato_modal'),    
-    # Specific route for cohorte modal
     path('honorarioModal/', views.honorario_modal, name='honorario_modal'),
      # Specific route for cohorte modal
     path('requisitoModal/', views.requisito_modal, name='requisito_modal'),

@@ -5,8 +5,8 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.template import loader
 from django.urls import reverse
 from django.contrib import messages
-from .forms import TipoPersonaForm, PersonaForm, TipoOfertaForm, OfertaForm,CuotaForm, MateriaForm, CohorteForm, CargoForm, ContratoForm, HonorarioForm, RequisitoForm, ServicioForm, TramiteForm, SolicitudForm, DenominacionForm, BancoForm, MonedaForm, TasaForm, TipoIngresoForm, TipoEgresoForm, IngresoForm
-from .models import Personas, TipoPersona, PersonaTipoPersona, Cuota, TipoOferta, Ofertas, Materia, Cohorte, Cargo, Contrato, Honorario, Requisito, Servicio, Tramite, Solicitud, Denominacion, Banco, Moneda, Tasa, TipoIngreso, TipoEgreso, Ingreso
+from .forms import TipoPersonaForm, PersonaForm, TipoOfertaForm, OfertaForm,CuotaForm, MateriaForm, CohorteForm, CargoForm, HonorarioForm, RequisitoForm, ServicioForm, TramiteForm, SolicitudForm, DenominacionForm, BancoForm, MonedaForm, TasaForm, TipoIngresoForm, TipoEgresoForm, IngresoForm
+from .models import Personas, TipoPersona, PersonaTipoPersona, Cuota, TipoOferta, Ofertas, Materia, Cohorte, Cargo, Honorario, Requisito, Servicio, Tramite, Solicitud, Denominacion, Banco, Moneda, Tasa, TipoIngreso, TipoEgreso, Ingreso
 
 @csrf_exempt
 def tipo_persona_modal(request):
@@ -146,20 +146,6 @@ def cargo_modal(request):
     else:
         form = CuotaForm()
     return render(request, 'home/cargo_modal.html', {'form': form})
-@csrf_exempt
-def contrato_modal(request):
-    if request.method == 'POST':
-        form = ContratoForm(request.POST)
-        if form.is_valid():
-            form.save()
-            return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
-        else:
-            print(form.errors)  # esto para depurar errores
-            errors = {field: error for field, error in form.errors.items()}
-            return JsonResponse({'success': False, 'errors': errors})
-    else:
-        form = ContratoForm()
-    return render(request, 'home/contrato_modal.html', {'form': form})
 
 @csrf_exempt
 def honorario_modal(request):
@@ -474,7 +460,7 @@ def pages(request):
 
         context["segment"] = load_template
 
-        if load_template in [ "contrato.html", "honorario.html", "tablaContratos.html", "tablaHonorarios.html"]:
+        if load_template in [ "honorario.html", "tablaContratos.html", "tablaHonorarios.html"]:
             personas = Personas.objects.all()
             context['personas'] = personas
             cargos = Cargo.objects.all()
@@ -483,8 +469,6 @@ def pages(request):
             context['materias'] = materias
             cohortes = Cohorte.objects.all()
             context['cohortes'] = cohortes
-            contratos = Contrato.objects.all()
-            context['contratos'] = contratos
             honorarios = Honorario.objects.all()
             context['honorarios'] = honorarios
         context["segment"] = load_template

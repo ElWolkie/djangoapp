@@ -40,10 +40,13 @@
     <thead class="text-darker">
       <tr>
         <th scope="col">ID</th>
-        <th scope="col">Contrato</th>
+        <th scope="col">Cargo</th>
         <th scope="col">Cédula</th>
         <th scope="col">Nombres</th>
         <th scope="col">Apellidos</th>
+        <th scope="col">Materia</th>
+        <th scope="col">Horas</th>
+        <th scope="col">Cohorte</th>
         <th scope="col">Estado</th>
         <th scope="col">Fecha</th>
       </tr>
@@ -53,12 +56,15 @@
         {% for honorario in honorarios %}
         <tr>
           <td>{{ honorario.idHonorario }}</td>
-          <td>{{ honorario.idContrato.idContrato }}</td> <!-- Mostrar el ID del contrato -->
-          <td>{{ honorario.idContrato.idPersona.cedula }}</td>
-          <td>{{ honorario.idContrato.idPersona.nombres }}</td>
-          <td>{{ honorario.idContrato.idPersona.apellidos }}</td>
+          <td>{{ honorario.idCargo.nombreCargo }}</td> <!-- Mostrar el ID del contrato -->
+          <td>{{ honorario.idPersona.cedula }}</td>
+          <td>{{ honorario.idPersona.nombres }}</td>
+          <td>{{ honorario.idPersona.apellidos }}</td>  
+          <td>{{ honorario.idMateria.nombreMateria }}</td>
+          <td>{{ honorario.horas }}</td>
+          <td>{{ honorario.idCohorte.nombreCohorte }}</td>
           <td>{{ honorario.estadoHonorario }}</td>
-          <td>{{ honorario.fechaHonorario }}</td>
+          <td>{{ honorario.fechaHonorario|date:"d/m/Y" }}</td>
         </tr>
         {% endfor %}
     </tbody>

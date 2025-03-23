@@ -122,23 +122,12 @@ class Cargo(models.Model):
         verbose_name_plural = "Cargos"  
 
 
-class Contrato(models.Model):  
-    idContrato = models.AutoField(primary_key=True)  # Clave primaria para Contrato  
+class Honorario(models.Model):  
+    idHonorario = models.AutoField(primary_key=True)  # Clave primaria para Honorario  
     idPersona = models.ForeignKey(Personas, on_delete=models.CASCADE)  # Clave foránea a Personas  
     idCargo = models.ForeignKey(Cargo, on_delete=models.CASCADE)  # Clave foránea a Cargo  
     idCohorte = models.ForeignKey(Cohorte, on_delete=models.CASCADE)  # Clave foránea a Cohorte  
     idMateria = models.ForeignKey(Materia, on_delete=models.CASCADE)  # Clave foránea a Materia  
-    estadoContrato = models.CharField(max_length=10)  # Estado del Contrato  
-    fechaContrato = models.DateField(auto_now_add=True)  # Fecha de creación del Contrato  
-
-    class Meta:  
-        verbose_name = "Contrato"  
-        verbose_name_plural = "Contratos"  
-
-
-class Honorario(models.Model):  
-    idHonorario = models.AutoField(primary_key=True)  # Clave primaria para Honorario  
-    idContrato = models.ForeignKey(Contrato, on_delete=models.CASCADE)  # Clave foránea a Contrato  
     horas = models.FloatField()  # Número de horas trabajadas  
     estadoHonorario = models.CharField(max_length=10)  # Estado del Honorario  
     fechaHonorario = models.DateField(auto_now_add=True)  # Fecha de creación del Honorario  
