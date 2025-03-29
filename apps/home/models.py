@@ -226,7 +226,7 @@ class Tasa(models.Model):
     idMoneda = models.ForeignKey(Moneda, on_delete=models.CASCADE)  # Clave foránea a Moneda  
     montoTasa = models.CharField(max_length=100)  # Codigo del Banco  
     estadoTasa = models.CharField(max_length=10)  # Estado del Banco  
-    fechaTasa = models.DateField(auto_now_add=True)  # Fecha de creación del Banco  
+    fechaTasa = models.DateTimeField(auto_now_add=True)  # Fecha y hora de creación del Banco  
 
     class Meta:  
         verbose_name = "Tasa"  
@@ -258,15 +258,16 @@ class TipoEgreso(models.Model):
 
 class Ingreso(models.Model):  
     idIngreso = models.AutoField(primary_key=True)  # Clave primaria para Ingreso  
-    idDenominacion = models.ForeignKey(Denominacion, on_delete=models.CASCADE)  # Clave foránea a Denominacion
-    idTipoIngreso = models.ForeignKey(TipoIngreso, on_delete=models.CASCADE)  # Clave foránea a TipoIngreso  
-    idBanco = models.ForeignKey(Banco, on_delete=models.CASCADE)  # Clave foránea a Banco
-    idTasa = models.ForeignKey(Tasa, on_delete=models.CASCADE)  # Clave foránea a Tasa
-    montoIngreso = models.DecimalField(max_digits=10, decimal_places=2)  # Monto del Ingreso
-    referencia = models.CharField(max_length=100)  # Descripción del Ingreso
-    descripcion = models.TextField()  # Descripción del Ingreso
-    estadoIngreso = models.CharField(max_length=10)  # Estado del Ingreso  
-    fechaIngreso = models.DateField(auto_now_add=True)  # Fecha de creación del Ingreso  
+    idTipoIngreso = models.ForeignKey(TipoIngreso, on_delete=models.CASCADE)  # Relación con TipoIngreso  
+    idDenominacion = models.ForeignKey(Denominacion, on_delete=models.CASCADE)  # Relación con Denominacion  
+    idBanco = models.ForeignKey(Banco, on_delete=models.CASCADE, null=True, blank=True)  # Banco opcional
+    idTasa = models.ForeignKey(Tasa, on_delete=models.CASCADE)  # Relación con Tasa  
+    tipoPago = models.CharField(max_length=100)  # Tipo de pago del Ingreso  
+    referencia = models.CharField(max_length=100, null=True, blank=True)  # Referencia opcional    idTasa = models.ForeignKey(Tasa, on_delete=models.CASCADE)  # Relación con Tasa  
+    montoIngreso = models.DecimalField(max_digits=10, decimal_places=2)  # Monto del Ingreso  
+    descripcion = models.TextField()  # Descripción detallada del Ingreso  
+    estadoIngreso = models.CharField(max_length=10)  # Estado del Ingreso (activo/inactivo)  
+    fechaIngreso = models.DateTimeField(auto_now_add=True)  # Fecha de registro del Ingreso  
 
     class Meta:  
         verbose_name = "Ingreso"  

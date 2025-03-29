@@ -165,4 +165,15 @@ class IngresoForm(forms.ModelForm):
 
     class Meta:  
         model = Ingreso  
-        fields = ['idIngreso', 'idDenominacion', 'idTipoIngreso', 'idBanco', 'idTasa', 'referencia', 'montoIngreso', 'descripcion', 'estadoIngreso']  
+        fields = [
+            'idIngreso', 
+            'idTipoIngreso', 
+            'idDenominacion', 
+            'idBanco', 
+            'idTasa', 
+            'tipoPago', 
+            'referencia', 
+            'montoIngreso', 
+            'descripcion', 
+            'estadoIngreso'
+        ]

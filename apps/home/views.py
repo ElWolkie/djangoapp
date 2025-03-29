@@ -3,6 +3,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.template import loader
+from django.db.models import OuterRef, Subquery, Max
 from django.urls import reverse
 from django.contrib import messages
 from .forms import TipoPersonaForm, PersonaForm, TipoOfertaForm, OfertaForm,CuotaForm, MateriaForm, CohorteForm, CargoForm, HonorarioForm, RequisitoForm, ServicioForm, TramiteForm, SolicitudForm, DenominacionForm, BancoForm, MonedaForm, TasaForm, TipoIngresoForm, TipoEgresoForm, IngresoForm
@@ -309,14 +310,12 @@ def ingreso_modal(request):
             form.save()
             return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
         else:
-           # print(form.errors)  # esto para depurar errores
             errors = {field: error for field, error in form.errors.items()}
             return JsonResponse({'success': False, 'errors': errors})
     else:
         form = IngresoForm()
-    return render(request, 'home/ingreso_modal.html', {'form': form})
-
-
+      
+    return render(request, 'home/ingreso_modal.html')
 @login_required(login_url="/login/")
 def index(request):
     context = {"segment": "index"}
@@ -554,10 +553,25 @@ def pages(request):
             context['denominaciones'] = denominaciones   
             bancos = Banco.objects.all()
             context['bancos'] = bancos
-            tasas = Tasa.objects.all()
-            context['tasas'] = tasas
-            monedas = Moneda.objects.all()
-            context['monedas'] = monedas
+           
+            # Subconsulta para encontrar la última tasa por moneda
+            subconsulta = Tasa.objects.filter(idMoneda=OuterRef('idMoneda')).order_by('-fechaTasa')
+
+            # Obtener todas las monedas con su última tasa
+            monedas_con_ultimas_tasas = Moneda.objects.annotate(
+                ultima_idTasa=Subquery(subconsulta.values('idTasa')[:1]),  # Último monto de tasa
+                ultima_tasa=Subquery(subconsulta.values('montoTasa')[:1]),  # Último monto de tasa
+                ultima_fecha=Subquery(subconsulta.values('fechaTasa')[:1])  # Última fecha de tasa
+            )
+
+                # Imprimir las monedas y sus últimas tasas en la consola
+            for moneda in monedas_con_ultimas_tasas:
+                print(f"Moneda: {moneda.nombreMoneda}, Última Tasa: {moneda.ultima_tasa}, Fecha: {moneda.ultima_fecha},  Fecha: {moneda.ultima_idTasa}")
+
+            # Agregar las monedas con sus últimas tasas al contexto
+            context['monedas'] = monedas_con_ultimas_tasas
+
+           
         context["segment"] = load_template
 
         html_template = loader.get_template("home/" + load_template)

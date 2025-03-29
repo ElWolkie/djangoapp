@@ -63,7 +63,7 @@
       </div>  
       <div class="form-group col-md-6">  
         <label for="horas">Horas:</label>  
-        <input type="text" id="horas" name="horas" class="form-control text-dark" placeholder="Ingrese las horas" tabindex="3" maxlength="100" required />  
+        <input type="text" id="horas" name="horas" class="form-control text-dark" placeholder="Ingrese las horas (HH:mm)" tabindex="3" required pattern="^([0-9]|1[0-9]|2[0-3]):[0-5][0-9]$" title="Ingrese un formato válido de horas (HH:mm)" />  
         <input type="hidden" id="estadoHonorario" name="estadoHonorario" class="form-control text-dark" value="ACTIVO" />  
       </div>  
     </div>  

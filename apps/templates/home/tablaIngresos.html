@@ -36,27 +36,36 @@
   </div>
 
   <br>
-  <table class="table table-striped text-gray-dark" id="ingresosTable">
+  <table class="table table-striped  table-responsive text-gray-dark" id="ingresosTable">
     <thead class="text-darker">
       <tr>
         <th scope="col">ID</th>
-        <th scope="col">Oferta</th>
-        <th scope="col">Nombre</th>
+        <th scope="col">Tipo Ingreso</th>
+        <th scope="col">Denominación</th>
+        <th scope="col">Tipo de Pago</th>
+        <th scope="col">Monto</th>
+        <th scope="col">Banco</th>
+        <th scope="col">Referencia</th>
         <th scope="col">Estado</th>
         <th scope="col">Fecha</th>
       </tr>
     </thead>
     <tbody>
       <!-- Contenido de la tabla -->
-      {% for ingreso in ingresos %}  
-      <tr>  
-          <td>{{ ingreso.idIngreso }}</td>  
-          <td>{{ ingreso.idTipoIngreso.nombreTipoIngreso }}</td>  
-          <td>{{ ingreso.nombreIngreso }}</td>  
-          <td>{{ ingreso.estadoIngreso }}</td>  
-          <td>{{ ingreso.fechaIngreso }}</td>  
-      </tr>  
-  {% endfor %}
+      {% for ingreso in ingresos %}
+      <tr>
+        <td>{{ ingreso.idIngreso }}</td>
+        <td>{{ ingreso.idTipoIngreso.nombreTipoIngreso }}</td>
+        <td>{{ ingreso.idDenominacion.nombreDenominacion }}</td>
+        <td>{{ ingreso.tipoPago }}</td>
+        <td>{{ ingreso.montoIngreso }} {{ ingreso.idTasa.idMoneda.simboloMoneda }}</td>
+
+        <td>{{ ingreso.idBanco.nombreBanco|default:"No Aplica" }}</td>
+        <td>{{ ingreso.referencia|default:"No Aplica" }}</td>
+        <td>{{ ingreso.estadoIngreso }}</td>
+        <td>{{ ingreso.fechaIngreso|date:"d/m/Y" }}</td>
+      </tr>
+      {% endfor %}
     </tbody>
   </table>
 </div>

@@ -1,88 +1,119 @@
-{% block stylesheets %}
-<link rel="stylesheet" href="/static/assets/css/styleForms.css" />
-<link rel="stylesheet" href="/static/assets/css/argon.css" />
-{% endblock stylesheets %}
-{% block content %}
-{% if messages %}
-    {% for message in messages %}
-      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-        {{ message }}
-      </div>
-    {% endfor %}
-  {% endif %}
-<div class=" mt-5">
-  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Registrar Ingreso</h2>
+{% block stylesheets %}  
+<link rel="stylesheet" href="/static/assets/css/styleForms.css" />  
+<link rel="stylesheet" href="/static/assets/css/argon.css" />  
+{% endblock stylesheets %}  
+
+{% block content %}  
+{% if messages %}  
+  {% for message in messages %}  
+    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">  
+      {{ message }}  
+    </div>  
+  {% endfor %}  
+{% endif %}  
+<div class="mt-5">  
+  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Registrar Ingreso</h2>  
   <form method="POST" class="mt-3 text-dark" autocomplete="off" style="font-weight: bold; max-width: 600px; margin: 0 auto;" id="ingresoForm" action="{% url 'ingreso_modal' %}">  
     {% csrf_token %}  
     
     <div class="form-row">  
       <div class="form-group col-md-6">  
-      <label for="idOferta">Tipo de Ingreso:</label>  
-      <div class="input-group"> <!-- Usar input-group para alinear botón y select -->  
-        <select id="idOferta" name="idOferta" class="form-control text-dark" tabindex="1" required>  
+        <label for="tipoPago">Tipo de Pago:</label>  
+        <div class="form-check">  
+          <input class="form-check-input" type="radio" name="tipoPago" id="pagoEfectivo" value="efectivo" required onclick="toggleFields()">  
+          <label class="form-check-label" for="pagoEfectivo">Efectivo</label>  
+        </div>  
+        <div class="form-check">  
+          <input class="form-check-input" type="radio" name="tipoPago" id="pagoDigital" value="digital" required onclick="toggleFields()">  
+          <label class="form-check-label" for="pagoDigital">Digital</label>  
+        </div>  
+      </div>  
+      
+      <div class="form-group col-md-6">  
+        <label for="idOferta">Tipo de Ingreso:</label>  
+        <div class="input-group">  
+          <select id="idTipoIngreso" name="idTipoIngreso" class="form-control text-dark" tabindex="1" required>  
+            <option value="" disabled selected>Seleccione...</option>  
+            {% for tipoIngreso in tipoIngresos %}  
+              <option value="{{ tipoIngreso.idTipoIngreso }}" class="text-orange">{{ tipoIngreso.nombreTipoIngreso }}</option>  
+            {% endfor %}  
+          </select>  
+        </div>  
+      </div>  
+      
+      <div class="form-group col-md-6">  
+        <label for="idDenominacion">Denominación:</label>  
+        <select id="idDenominacion" name="idDenominacion" class="form-control text-dark" tabindex="2" required>  
           <option value="" disabled selected>Seleccione...</option>  
-          {% for tipoIngreso in tipoIngresos %}  
-            <option value="{{ tipoIngreso.idTipoIngreso }}" class="text-orange">{{ tipoIngreso.nombreTipoIngreso }}</option>  
+          {% for denominacion in denominaciones %}  
+            <option value="{{ denominacion.idDenominacion }}" class="text-orange">{{ denominacion.nombreDenominacion }}</option>  
+          {% endfor %}  
+        </select>  
+        <input type="hidden" id="estadoIngreso" name="estadoIngreso" class="form-control text-dark" value="ACTIVO" />  
+      </div>  
+
+      <div class="form-group col-md-6">  
+        <label for="moneda">Moneda:</label>  
+        <select id="moneda" name="idTasa" class="form-control text-dark" tabindex="2" required>  
+          <option value="" disabled selected>Seleccione...</option>  
+          {% for moneda in monedas %}  
+            <option value="{{ moneda.ultima_idTasa }}" class="text-orange">  
+              {{ moneda.nombreMoneda }}{% if moneda.ultima_tasa %} | Tasa: {{ moneda.ultima_tasa }}{% else %} - Sin tasa{% endif %}  
+            </option>  
           {% endfor %}  
         </select>  
       </div>  
-      </div>
-        <div class="form-group col-md-6">
-          <label for="idDenominacion">Denominación:</label>
-          <select id="idDenominacion" name="idDenominacion" class="form-control text-dark" tabindex="2" required>
-            <option value="" disabled selected>Seleccione...</option>
-            {% for denominacion in denominaciones %}
-              <option value="{{ denominacion.idDenominacion }}" class="text-orange">{{ denominacion.nombreDenominacion }}</option>
-            {% endfor %}
-          </select>
-          <input type="hidden" id="estadoIngreso" name="estadoIngreso" class="form-control text-dark" value="ACTIVO" />  
-        </div>
-        <div class="form-group col-md-6">
-          <label for="idBanco">Banco:</label>
-          <select id="idBanco" name="idBanco" class="form-control text-dark" tabindex="4" required>
-            <option value="" disabled selected>Seleccione...</option>
-            {% for banco in bancos %}
-              <option value="{{ banco.idBanco }}" class="text-orange">{{ banco.nombreBanco }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="form-group col-md-6">
-          <label for="idTasa">Tasa:</label>
-          <select id="idTasa" name="idTasa" class="form-control text-dark" tabindex="5" required>
-            <option value="" disabled selected>Seleccione...</option>
-            {% for tasa in tasas %}
-              <option value="{{ tasa.idTasa }}" class="text-orange">{{ tasa.nombreTasa }}</option>
-            {% endfor %}
-          </select>
-        </div>
+
+      <div class="form-group col-md-6" id="bancoField" style="display: none;">  
+        <label for="idBanco">Banco:</label>  
+        <select id="idBanco" name="idBanco" value="" class="form-control text-dark" tabindex="4">  
+          <option value="" disabled selected>Seleccione...</option>  
+          {% for banco in bancos %}  
+            <option value="{{ banco.idBanco }}" class="text-orange">{{ banco.nombreBanco }}</option>  
+          {% endfor %}  
+        </select>  
+      </div>  
+
+      <div class="form-group col-md-6" id="referenciaField" style="display: none;">  
+        <label for="referencia">Referencia:</label>  
+        <input type="text" id="referencia" name="referencia" class="form-control text-dark" value="" placeholder="Ingrese la referencia" tabindex="7" maxlength="100" />  
+      </div>  
+    
     </div>  
 
-    <div class="form-row">
+    <div class="form-row">  
+      <div class="form-group col-md-6">  
+        <label for="montoIngreso">Monto:</label>  
+        <input type="number" id="montoIngreso" name="montoIngreso" class="form-control text-dark" placeholder="Ingrese el monto" tabindex="6" step="0.01" max="99999999.99" required />  
+      </div>  
 
+      <div class="form-group col-md-6">  
+        <label for="descripcion">Descripción:</label>  
+        <textarea id="descripcion" name="descripcion" class="form-control text-dark" placeholder="Ingrese la descripción" tabindex="8" rows="3" required></textarea>  
+      </div>  
+    </div>  
 
-      <div class="form-group col-md-6">
-      <label for="montoIngreso">Monto:</label>
-      <input type="number" id="montoIngreso" name="montoIngreso" class="form-control text-dark" placeholder="Ingrese el monto" tabindex="6" step="0.01" max="99999999.99" required />
-      </div>
-    </div>
-
-    <div class="form-row">
-      <div class="form-group col-md-6">
-      <label for="referencia">Referencia:</label>
-      <input type="text" id="referencia" name="referencia" class="form-control text-dark" placeholder="Ingrese la referencia" tabindex="7" maxlength="100" required />
-      </div>
-
-      <div class="form-group col-md-6">
-      <label for="descripcion">Descripción:</label>
-      <textarea id="descripcion" name="descripcion" class="form-control text-dark" placeholder="Ingrese la descripción" tabindex="8" rows="3" required></textarea>
-      </div>
-    </div>
-    
     <div class="text-center">  
       <input type="submit" class="btn btn-warning mt-4" value="Guardar" />  
     </div>  
-  </form>
-{% endblock content %}
+  </form>  
+</div>  
 
-{% block javascripts %}
-{% endblock javascripts %}
+{% block javascripts %}  
+<script>  
+  function toggleFields() {  
+    const pagoEfectivo = document.getElementById('pagoEfectivo').checked;  
+    const bancoField = document.getElementById('bancoField');  
+    const referenciaField = document.getElementById('referenciaField');  
+    
+    if (pagoEfectivo) {  
+      bancoField.style.display = 'none';  
+      referenciaField.style.display = 'none';  
+    } else {  
+      bancoField.style.display = 'block';  
+      referenciaField.style.display = 'block';  
+    }  
+  }  
+</script>  
+{% endblock javascripts %}  
+{% endblock content %}
