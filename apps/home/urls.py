@@ -8,17 +8,26 @@ urlpatterns = [
 
     # Specific route for tipoPersona modal
     path('tipoPersonaModal/', views.tipo_persona_modal, name='tipo_persona_modal'),
-    # Specific route for tipoCuota modal
-    path('tipoOfertaModal/', views.tipo_oferta_modal, name='tipo_oferta_modal'),
-    # Specific route for oferta modal
-    path('ofertaModal/', views.oferta_modal, name='oferta_modal'),
+    
+    # Specific route for tipoFormacion modal
+    path('tipoFormacionModal/', views.tipo_formacion_modal, name='tipo_formacion_modal'),
+    path('deleteTF/<int:pk>/', views.delete_tipo_formacion, name='delete_tf'),
+    path('reactivateTF/<int:pk>/', views.reactivate_tipo_formacion, name='reactivate_tf'),
+    path('editTF/<int:pk>/', views.edit_tipo_formacion, name='edit_tf'),    
+    path('tablaTipoFormaciones/', views.tabla_tipo_formaciones, name='tabla_tipo_formaciones'),    
+    # Specific route for formacion modal
+    path('formacionModal/', views.formacion_modal, name='formacion_modal'),
+    path('editFormacion/<int:pk>/', views.edit_formacion, name='edit_formacion'),
+    path('deleteFormacion/<int:pk>/', views.delete_formacion, name='delete_formacion'),
+    path('reactivateFormacion/<int:pk>/', views.reactivate_formacion, name='reactivate_formacion'),
+    path('tablaFormaciones/', views.tabla_formaciones, name='tabla_formaciones'),
     # Specific route for cuota 
    
-    path('cuotaModal/', views.cuota_modal, name='cuota_modal'), # URL para la creación
-    path('editCuota/<int:pk>/', views.edit_view, name='edit_cuota'), # URL para la edición	
-    path('deleteCuota/<int:pk>/', views.delete_view, name='delete_cuota'),  # URL para la eliminación lógica
-    path('reactivateCuota/<int:pk>/', views.reactivate_view, name='reactivate_cuota'),  # URL para la reactivación
-    path('tablaCuotas/', views.tabla_cuotas, name='tabla_cuotas'), # URL para la tabla de cuotas
+    #path('cuotaModal/', views.cuota_modal, name='cuota_modal'), # URL para la creación
+    #path('editCuota/<int:pk>/', views.edit_view, name='edit_cuota'), # URL para la edición	
+    #path('deleteCuota/<int:pk>/', views.delete_view, name='delete_cuota'),  # URL para la eliminación lógica
+    #path('reactivateCuota/<int:pk>/', views.reactivate_view, name='reactivate_cuota'),  # URL para la reactivación
+    #path('tablaCuotas/', views.tabla_cuotas, name='tabla_cuotas'), # URL para la tabla de cuotas
 
        # Specific route for materia modal
 

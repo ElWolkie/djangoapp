@@ -1,5 +1,5 @@
 from django import forms  
-from .models import TipoPersona, Personas,  PersonaTipoPersona, Ofertas, Cuota, TipoOferta, Materia, Cohorte, Cargo, Honorario, Requisito, Servicio, Tramite, Solicitud, Denominacion, Banco, Moneda, Tasa, TipoMovimiento, Movimiento
+from .models import TipoPersona, Personas, PersonaTipoPersona, Formacion,TipoFormacion, Materia, Cohorte, Cargo, Honorario, Requisito, Servicio, Tramite, Solicitud, Denominacion, Banco, Moneda, Tasa, TipoMovimiento, Movimiento
 
 class TipoPersonaForm(forms.ModelForm):  
     estadoTP = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
@@ -21,28 +21,21 @@ class PersonaTipoPersonaForm(forms.ModelForm):
         model = PersonaTipoPersona
         fields = ['idPersona', 'idTP']
 
-class CuotaForm(forms.ModelForm):  
-    estadoCuota = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
+
+class TipoFormacionForm(forms.ModelForm):  
+    estadoTipoFormacion = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
 
     class Meta:  
-        model = Cuota  
-        fields = ['idCuota', 'nombreCuota', 'estadoCuota']  
+        model = TipoFormacion  
+        fields = ['nombreTipoFormacion','cuotas', 'estadoTipoFormacion']  
 
 
-class OfertaForm(forms.ModelForm):  
-    estadoOferta = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
-
-    class Meta:  
-        model = Ofertas  
-        fields = ['idOferta', 'idTipoOferta', 'nombreOferta', 'duracion', 'estadoOferta']  
-
-
-class TipoOfertaForm(forms.ModelForm):  
-    estadoTipoOferta = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
+class FormacionForm(forms.ModelForm):  
+    estadoFormacion = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
 
     class Meta:  
-        model = TipoOferta  
-        fields = ['idTipoOferta', 'idCuota', 'nombreTipoOferta', 'estadoTipoOferta']  
+        model = Formacion  
+        fields = ['idTF', 'nombreFormacion', 'duracion', 'estadoFormacion']
 
 
 class MateriaForm(forms.ModelForm):  
@@ -50,7 +43,7 @@ class MateriaForm(forms.ModelForm):
 
     class Meta:  
         model = Materia  
-        fields = ['idOferta', 'nombreMateria', 'estadoMateria']  # Nota: No se incluye idMateria, ya que es auto generado.
+        fields = ['idFormacion', 'nombreMateria', 'estadoMateria']  # Nota: No se incluye idMateria, ya que es auto generado.
 
 
 class CohorteForm(forms.ModelForm):  

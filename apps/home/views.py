@@ -6,8 +6,11 @@ from django.template import loader
 from django.db.models import OuterRef, Subquery, Max
 from django.urls import reverse
 from django.contrib import messages
-from .forms import TipoPersonaForm, PersonaForm, TipoOfertaForm, OfertaForm,CuotaForm, MateriaForm, CohorteForm, CargoForm, HonorarioForm, RequisitoForm, ServicioForm, TramiteForm, SolicitudForm, DenominacionForm, BancoForm, MonedaForm, TasaForm, TipoMovimientoForm, MovimientoForm
-from .models import Personas, TipoPersona, PersonaTipoPersona, Cuota, TipoOferta, Ofertas, Materia, Cohorte, Cargo, Honorario, Requisito, Servicio, Tramite, Solicitud, Denominacion, Banco, Moneda, Tasa, TipoIngreso, Movimiento, TipoMovimiento
+from .forms import TipoPersonaForm, PersonaForm, TipoFormacionForm, FormacionForm, MateriaForm, CohorteForm, CargoForm, HonorarioForm, RequisitoForm, ServicioForm, TramiteForm, SolicitudForm, DenominacionForm, BancoForm, MonedaForm, TasaForm
+from .models import Personas, TipoPersona, PersonaTipoPersona,   TipoFormacion, Formacion, Materia, Cohorte, Cargo, Honorario, Requisito, Servicio, Tramite, Solicitud, Denominacion, Banco, Moneda, Tasa
+from django.template.loader import render_to_string
+from .forms import TipoPersonaForm, PersonaForm,TipoFormacionForm, FormacionForm, MateriaForm, CohorteForm, CargoForm, HonorarioForm, RequisitoForm, ServicioForm, TramiteForm, SolicitudForm, DenominacionForm, BancoForm, MonedaForm, TasaForm, TipoMovimientoForm, MovimientoForm
+from .models import Personas, TipoPersona, PersonaTipoPersona,TipoFormacion, Formacion, Materia, Cohorte, Cargo, Honorario, Requisito, Servicio, Tramite, Solicitud, Denominacion, Banco, Moneda, Tasa,Movimiento, TipoMovimiento
 
 @csrf_exempt
 def tipo_persona_modal(request):
@@ -24,9 +27,9 @@ def tipo_persona_modal(request):
     return render(request, 'home/tipoPersona.html', {'form': form})
 
 @csrf_exempt
-def oferta_modal(request):
+def formacion_modal(request):
     if request.method == 'POST':
-        form = OfertaForm(request.POST)
+        form = FormacionForm(request.POST)
         if form.is_valid():
             form.save()
             return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
@@ -34,72 +37,99 @@ def oferta_modal(request):
             errors = {field: error for field, error in form.errors.items()}
             return JsonResponse({'success': False, 'errors': errors})
     else:
-        form = OfertaForm()
-    return render(request, 'home/oferta_modal.html', {'form': form})
+        form = FormacionForm()
+        tipos_formacion = TipoFormacion.objects.all()  # Obtener los tipos de formación
+    return render(request, 'home/formaciones.html', {'form': form, 'tipos_formacion': tipos_formacion})
 
 @csrf_exempt
-def tipo_oferta_modal(request):
+def edit_formacion(request, pk):
+    formacion = get_object_or_404(Formacion, pk=pk)
     if request.method == 'POST':
-        form = TipoOfertaForm(request.POST)
+        form = FormacionForm(request.POST, instance=formacion)
         if form.is_valid():
             form.save()
-            return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
+            return JsonResponse({'success': True, 'message': 'Formación actualizada exitosamente.'})
         else:
             errors = {field: error for field, error in form.errors.items()}
             return JsonResponse({'success': False, 'errors': errors})
     else:
-        form = TipoOfertaForm()
-    return render(request, 'home/tipo_oferta_modal.html', {'form': form})
-#Cuota
-@csrf_exempt
-def cuota_modal(request):
-    if request.method == 'POST':
-        form = CuotaForm(request.POST)
-        if form.is_valid():
-            form.save()
-            return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
-        else:
-            errors = {field: error for field, error in form.errors.items()}
-            return JsonResponse({'success': False, 'errors': errors})
-    else:
-        form = CuotaForm()
-    return render(request, 'home/cuota_modal.html', {'form': form})
+        form = FormacionForm(instance=formacion)
+        tipos_formacion = TipoFormacion.objects.all()
+        return render(request, 'home/modales/editFormaciones.html', {
+            'form': form,
+            'formacion': formacion,
+            'tipos_formacion': tipos_formacion
+        })
 
 @csrf_exempt
-def edit_view(request, pk):
-    instance = get_object_or_404(Cuota, pk=pk)
-    if request.method == 'POST':
-        form = CuotaForm(request.POST, instance=instance)
-        if form.is_valid():
-            form.save()  # Guarda los cambios en la base de datos
-            return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
-        else:
-            errors = {field: error for field, error in form.errors.items()}
-            return JsonResponse({'success': False, 'errors': errors})
-    else:
-        form = CuotaForm(instance=instance)
-    return render(request, 'home/edit_view.html', {'form': form, 'cuota': instance})
-
-@csrf_exempt
-def delete_view(request, pk):
-    instance = get_object_or_404(Cuota, pk=pk)
-    instance.estadoCuota = 'INACTIVO'
+def delete_formacion(request, pk):
+    instance = get_object_or_404(Formacion, pk=pk)
+    instance.estadoFormacion = 'INACTIVO'
     instance.save()
     return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
 
 @csrf_exempt
-def reactivate_view(request, pk):
-    instance = get_object_or_404(Cuota, pk=pk)
-    instance.estadoCuota = 'ACTIVO'
+def reactivate_formacion(request, pk):
+    instance = get_object_or_404(Formacion, pk=pk)
+    instance.estadoFormacion = 'ACTIVO'
     instance.save()
     return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
 
-def tabla_cuotas(request):
+def tabla_formaciones(request):
     if request.user.is_superuser:
-        cuotas = Cuota.objects.all()  # Mostrar todas las cuotas para superusuarios
+        formaciones = Formacion.objects.select_related('idTF').all().distinct  # Usar select_related para optimizar la consulta
     else:
-        cuotas = Cuota.objects.filter(estadoCuota='ACTIVO')  # Filtrar solo las cuotas activas
-    return render(request, 'home/tablaCuotas.html', {'cuotas': cuotas})
+        formaciones = Formacion.objects.select_related('idTF').filter(estadoFormacion='ACTIVO').distinct  # Filtrar solo las activas
+    return render(request, 'home/tablaFormaciones.html', {'formaciones': formaciones})
+
+# Tipo de formación
+@csrf_exempt
+def tipo_formacion_modal(request):
+    if request.method == 'POST':
+        form = TipoFormacionForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
+        else:
+            errors = {field: error for field, error in form.errors.items()}
+            return JsonResponse({'success': False, 'errors': errors})
+    else:
+        form = TipoFormacionForm()
+    return render(request, 'home/tipoFormacion.html', {'form': form})
+
+@csrf_exempt
+def edit_tipo_formacion(request, pk):
+    instance = get_object_or_404(TipoFormacion, pk=pk)
+    if request.method == 'POST':
+        form = TipoFormacionForm(request.POST, instance=instance)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({'success': True, 'message': 'Edición exitosa.'})  # Respuesta JSON
+        else:
+            errors = {field: error for field, error in form.errors.items()}
+            return JsonResponse({'success': False, 'errors': errors})  # Respuesta JSON con errores
+    else:
+        form = TipoFormacionForm(instance=instance)
+    return render(request, 'home/modales/editTipoFormacion.html', {'form': form, 'tipoFormacion': instance})
+
+@csrf_exempt
+def delete_tipo_formacion(request, pk):
+    instance = get_object_or_404(TipoFormacion, pk=pk)
+    instance.estadoTipoFormacion = 'INACTIVO'
+    instance.save()
+    return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
+
+@csrf_exempt
+def reactivate_tipo_formacion(request, pk):
+    instance = get_object_or_404(TipoFormacion, pk=pk)
+    instance.estadoTipoFormacion = 'ACTIVO'
+    instance.save()
+    return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
+
+def tabla_tipo_formaciones(request):
+    tipo_formaciones = TipoFormacion.objects.all()
+
+    return render(request, 'home/tablaTipoFormaciones.html', {'tipo_formaciones': tipo_formaciones})
 
 
 #Materia
@@ -129,7 +159,7 @@ def cohorte_modal(request):
             errors = {field: error for field, error in form.errors.items()}
             return JsonResponse({'success': False, 'errors': errors})
     else:
-        form = CuotaForm()
+        form = CohorteForm()
     return render(request, 'home/cohorte_modal.html', {'form': form})
 
 
@@ -145,7 +175,7 @@ def cargo_modal(request):
             errors = {field: error for field, error in form.errors.items()}
             return JsonResponse({'success': False, 'errors': errors})
     else:
-        form = CuotaForm()
+        form = CargoForm()
     return render(request, 'home/cargo_modal.html', {'form': form})
 
 @csrf_exempt
@@ -396,29 +426,19 @@ def pages(request):
 
         context["segment"] = load_template
 
-        if load_template == "tablaCuotas.html":
-            cuotas = Cuota.objects.all()
-            context['cuota'] = cuotas
+ 
+
+        if load_template == "tablaTipoFormaciones.html":
+            tipoFormaciones = TipoFormacion.objects.all()
+            context['tipoFormaciones'] = tipoFormaciones
 
         context["segment"] = load_template
 
-
-        if load_template == "tablaTipoOfertas.html":
-            tipoOfertas = TipoOferta.objects.all()
-            context['tipoOferta'] = tipoOfertas
-
+        if load_template == "formacion.html":
+            formaciones = TipoFormacion.objects.all()
+            context['formaciones'] = formaciones
         context["segment"] = load_template
 
-
-        if load_template == "oferta.html":
-            tipoOfertas = TipoOferta.objects.all()
-            context['tipoOferta'] = tipoOfertas
-        context["segment"] = load_template
-
-        if load_template == "tipoOferta.html":
-            cuotas = Cuota.objects.all()
-            context['cuota'] = cuotas
-        context["segment"] = load_template
 
         if load_template == "tablaMaterias.html":
             materias = Materia.objects.all()
@@ -426,11 +446,13 @@ def pages(request):
 
         context["segment"] = load_template
         
-        if load_template in ["materia.html", "tablaOfertas.html"]:
-            ofertas = Ofertas.objects.all()
-            context['ofertas'] = ofertas
+        if load_template in ["materia.html", "tablaFormaciones.html"]:
+            formaciones = Formacion.objects.all()
+            context['formaciones'] = formaciones
         else:
-            context['ofertas'] = None  # O alguna lógica alternativa
+            context['formaciones'] = None  # O alguna lógica alternativa
+
+        context["segment"] = load_template
 
         context["segment"] = load_template
         if load_template == "tablaCohortes.html":
@@ -557,6 +579,8 @@ def pages(request):
 
            
         context["segment"] = load_template
+
+
 
         if load_template in [ "tablaEgresos.html", "movimiento.html"]:   
             tipoMovimientos = TipoMovimiento.objects.all()

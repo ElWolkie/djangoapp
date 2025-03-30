@@ -50,47 +50,35 @@ class PersonaTipoPersona(models.Model):
         return f"{self.idPersona} - {self.idTP}"  # Representación legible en el admin de Django
     
 
-
-
-class Cuota(models.Model):  
-    idCuota = models.AutoField(primary_key=True)  # Clave primaria para Cuota  
-    nombreCuota = models.CharField(max_length=100)  # Nombre de la Cuota  
-    estadoCuota = models.CharField(max_length=10)  # Estado de la Cuota  
-    fechaCuota = models.DateField(auto_now_add=True)  # Fecha de creación de la Cuota  
-
-    class Meta:  
-        verbose_name = "Cuota"  
-        verbose_name_plural = "Cuotas"  
-
-
-class TipoOferta(models.Model):  
-    idTipoOferta = models.AutoField(primary_key=True)  # Clave primaria para TipoOferta  
-    idCuota = models.ForeignKey(Cuota, on_delete=models.CASCADE)  # Clave foránea a Cuota  
-    nombreTipoOferta = models.CharField(max_length=100)  # Nombre del TipoOferta  
-    estadoTipoOferta = models.CharField(max_length=10)  # Estado del TipoOferta  
-    fechaTipoOferta = models.DateField(auto_now_add=True)  # Fecha de creación del TipoOferta  
+class TipoFormacion(models.Model):  
+    idTF = models.AutoField(primary_key=True)  # Clave primaria para TipoFormacion  
+    nombreTipoFormacion = models.CharField(max_length=100)  # Nombre del TipoFormacion  
+    estadoTipoFormacion = models.CharField(max_length=10)  # Estado del TipoFormacion  
+    cuotas= models.CharField(max_length=5) #Cantidad de Cuotas
+    fechaTipoFormacion = models.DateField(auto_now_add=True)  # Fecha de creación del TipoFormacion  
+    
 
     class Meta:  
-        verbose_name = "Tipo de Oferta"  
-        verbose_name_plural = "Tipos de Ofertas"  
+        verbose_name = "TipoFormación"  
+        verbose_name_plural = "TiposFormacion"  
 
 
-class Ofertas(models.Model):  
-    idOferta = models.AutoField(primary_key=True)  # Clave primaria para Ofertas  
-    idTipoOferta = models.ForeignKey(TipoOferta, on_delete=models.CASCADE)  # Clave foránea a TipoOferta  
-    nombreOferta = models.CharField(max_length=100)  # Nombre de la Oferta  
-    duracion = models.CharField(max_length=100)  # Duración de la Oferta  
-    estadoOferta = models.CharField(max_length=10)  # Estado de la Oferta  
-    fechaOferta = models.DateField(auto_now_add=True)  # Fecha de creación de la Oferta  
+class Formacion(models.Model):  
+    idFormacion = models.AutoField(primary_key=True)  # Clave primaria para Formacion  
+    idTF = models.ForeignKey(TipoFormacion, on_delete=models.CASCADE, related_name='formaciones')  # Clave foránea a TipoFormacion  
+    nombreFormacion = models.CharField(max_length=100)  # Nombre de la Formación  
+    duracion = models.CharField(max_length=100)  # Duración de la Formación  
+    estadoFormacion = models.CharField(max_length=10)  # Estado de la Formación  
+    fechaFormacion = models.DateField(auto_now_add=True)  # Fecha de creación de la Formación  
 
     class Meta:  
-        verbose_name = "Oferta"  
-        verbose_name_plural = "Ofertas"  
+        verbose_name = "Formacion"  
+        verbose_name_plural = "Formaciones"
 
 
 class Materia(models.Model):  
     idMateria = models.AutoField(primary_key=True)  # Clave primaria para Materia  
-    idOferta = models.ForeignKey(Ofertas, on_delete=models.CASCADE)  # Clave foránea a Ofertas  
+    idFormacion = models.ForeignKey(TipoFormacion, on_delete=models.CASCADE)  # Clave foránea a Ofertas  
     nombreMateria = models.CharField(max_length=100)  # Nombre de la Materia  
     estadoMateria = models.CharField(max_length=10)  # Estado de la Materia  
     fechaMateria = models.DateField(auto_now_add=True)  # Fecha de creación de la Materia  
@@ -272,5 +260,5 @@ class Movimiento(models.Model):
     fechaMovimiento = models.DateTimeField(auto_now_add=True)  # Fecha de registro del Ingreso  
 
     class Meta:  
-        verbose_name = "Movimiento"  
-        verbose_name_plural = "Movimientos"
+        verbose_name = "Ingreso"  
+        verbose_name_plural = "Ingresos"
