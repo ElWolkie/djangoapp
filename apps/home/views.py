@@ -6,8 +6,8 @@ from django.template import loader
 from django.db.models import OuterRef, Subquery, Max
 from django.urls import reverse
 from django.contrib import messages
-from .forms import TipoPersonaForm, PersonaForm, TipoOfertaForm, OfertaForm,CuotaForm, MateriaForm, CohorteForm, CargoForm, HonorarioForm, RequisitoForm, ServicioForm, TramiteForm, SolicitudForm, DenominacionForm, BancoForm, MonedaForm, TasaForm, TipoIngresoForm, TipoEgresoForm, IngresoForm
-from .models import Personas, TipoPersona, PersonaTipoPersona, Cuota, TipoOferta, Ofertas, Materia, Cohorte, Cargo, Honorario, Requisito, Servicio, Tramite, Solicitud, Denominacion, Banco, Moneda, Tasa, TipoIngreso, TipoEgreso, Ingreso
+from .forms import TipoPersonaForm, PersonaForm, TipoOfertaForm, OfertaForm,CuotaForm, MateriaForm, CohorteForm, CargoForm, HonorarioForm, RequisitoForm, ServicioForm, TramiteForm, SolicitudForm, DenominacionForm, BancoForm, MonedaForm, TasaForm, TipoMovimientoForm, MovimientoForm
+from .models import Personas, TipoPersona, PersonaTipoPersona, Cuota, TipoOferta, Ofertas, Materia, Cohorte, Cargo, Honorario, Requisito, Servicio, Tramite, Solicitud, Denominacion, Banco, Moneda, Tasa, TipoIngreso, Movimiento, TipoMovimiento
 
 @csrf_exempt
 def tipo_persona_modal(request):
@@ -273,9 +273,9 @@ def tasa_modal(request):
     return render(request, 'home/tasa_modal.html', {'form': form})
 
 @csrf_exempt
-def tipoIngreso_modal(request):
+def tipoMovimiento_modal(request):
     if request.method == 'POST':
-        form = TipoIngresoForm(request.POST)
+        form = TipoMovimientoForm(request.POST)
         if form.is_valid():
             form.save()
             return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
@@ -284,38 +284,24 @@ def tipoIngreso_modal(request):
             errors = {field: error for field, error in form.errors.items()}
             return JsonResponse({'success': False, 'errors': errors})
     else:
-        form = TipoIngresoForm()
-    return render(request, 'home/tipoIngreso_modal.html', {'form': form})
-
+        form = TipoMovimientoForm()
+    return render(request, 'home/tipoMovimiento_modal.html', {'form': form})
 @csrf_exempt
-def tipoEgreso_modal(request):
+def movimiento_modal(request):
     if request.method == 'POST':
-        form = TipoEgresoForm(request.POST)
+        form = MovimientoForm(request.POST)
         if form.is_valid():
             form.save()
             return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
         else:
-           # print(form.errors)  # esto para depurar errores
+            # Agrega esta línea para depurar errores
+            print(form.errors)  # Esto imprimirá los errores en la consola
             errors = {field: error for field, error in form.errors.items()}
             return JsonResponse({'success': False, 'errors': errors})
     else:
-        form = TipoEgresoForm()
-    return render(request, 'home/tipoEgreso_modal.html', {'form': form})
-
-@csrf_exempt
-def ingreso_modal(request):
-    if request.method == 'POST':
-        form = IngresoForm(request.POST)
-        if form.is_valid():
-            form.save()
-            return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
-        else:
-            errors = {field: error for field, error in form.errors.items()}
-            return JsonResponse({'success': False, 'errors': errors})
-    else:
-        form = IngresoForm()
+        form = MovimientoForm()
       
-    return render(request, 'home/ingreso_modal.html')
+    return render(request, 'home/movimiento_modal.html')
 @login_required(login_url="/login/")
 def index(request):
     context = {"segment": "index"}
@@ -530,25 +516,23 @@ def pages(request):
             monedas = Moneda.objects.all()
             context['monedas'] = monedas
         context["segment"] = load_template
-        
         if load_template == "tablaTipoIngresos.html":
-            tipoIngresos = TipoIngreso.objects.all()
-            context['tipoIngresos'] = tipoIngresos
+            tipoMovimientos = TipoMovimiento.objects.filter(naturaleza="ingreso")
+            context['tipoMovimientos'] = tipoMovimientos
 
         context["segment"] = load_template
-       
         if load_template == "tablaTipoEgresos.html":
-            tipoEgresos = TipoEgreso.objects.all()
-            context['tipoEgresos'] = tipoEgresos
+            tipoMovimientos = TipoMovimiento.objects.filter(naturaleza="egreso")
+            context['tipoMovimientos'] = tipoMovimientos
 
         context["segment"] = load_template
 
 
-        if load_template in [ "tablaIngresos.html", "ingreso.html"]:   
-            tipoIngresos = TipoIngreso.objects.all()
-            context['tipoIngresos'] = tipoIngresos
-            ingresos = Ingreso.objects.all()
-            context['ingresos'] = ingresos
+        if load_template in [ "tablaIngresos.html", "movimiento.html"]:   
+            tipoMovimientos = TipoMovimiento.objects.all()
+            context['tipoMovimientos'] = tipoMovimientos
+            movimientos = Movimiento.objects.filter(naturaleza="ingreso")
+            context['movimientos'] = movimientos
             denominaciones = Denominacion.objects.all()
             context['denominaciones'] = denominaciones   
             bancos = Banco.objects.all()
@@ -574,6 +558,35 @@ def pages(request):
            
         context["segment"] = load_template
 
+        if load_template in [ "tablaEgresos.html", "movimiento.html"]:   
+            tipoMovimientos = TipoMovimiento.objects.all()
+            context['tipoMovimientos'] = tipoMovimientos
+            movimientos = Movimiento.objects.filter(naturaleza="egreso")
+            context['movimientos'] = movimientos
+            denominaciones = Denominacion.objects.all()
+            context['denominaciones'] = denominaciones   
+            bancos = Banco.objects.all()
+            context['bancos'] = bancos
+           
+            # Subconsulta para encontrar la última tasa por moneda
+            subconsulta = Tasa.objects.filter(idMoneda=OuterRef('idMoneda')).order_by('-fechaTasa')
+
+            # Obtener todas las monedas con su última tasa
+            monedas_con_ultimas_tasas = Moneda.objects.annotate(
+                ultima_idTasa=Subquery(subconsulta.values('idTasa')[:1]),  # Último monto de tasa
+                ultima_tasa=Subquery(subconsulta.values('montoTasa')[:1]),  # Último monto de tasa
+                ultima_fecha=Subquery(subconsulta.values('fechaTasa')[:1])  # Última fecha de tasa
+            )
+
+                # Imprimir las monedas y sus últimas tasas en la consola
+            for moneda in monedas_con_ultimas_tasas:
+                print(f"Moneda: {moneda.nombreMoneda}, Última Tasa: {moneda.ultima_tasa}, Fecha: {moneda.ultima_fecha},  Fecha: {moneda.ultima_idTasa}")
+
+            # Agregar las monedas con sus últimas tasas al contexto
+            context['monedas'] = monedas_con_ultimas_tasas
+
+           
+        context["segment"] = load_template
         html_template = loader.get_template("home/" + load_template)
         return HttpResponse(html_template.render(context, request))
 

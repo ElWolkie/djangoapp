@@ -44,11 +44,9 @@ urlpatterns = [
      # Specific route for banco modal
     path('tasaModal/', views.tasa_modal, name='tasa_modal'),
     # Specific route for tipoIngreso modal
-    path('tipoIngresoModal/', views.tipoIngreso_modal, name='tipoIngreso_modal'),
-    # Specific route for tipoEgreso modal
-    path('tipoEgresoModal/', views.tipoEgreso_modal, name='tipoEgreso_modal'),
-    # Specific route for tipoEgreso modal
-    path('ingresoModal/', views.ingreso_modal, name='ingreso_modal'),
+    path('tipoMovimientoModal/', views.tipoMovimiento_modal, name='tipoMovimiento_modal'),
+    # Specific route for tipoIngreso modal
+    path('movimientoModal/', views.movimiento_modal, name='movimiento_modal'),
 
 
     # Matches any html file no mover de lugar 

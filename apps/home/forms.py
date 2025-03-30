@@ -1,5 +1,5 @@
 from django import forms  
-from .models import TipoPersona, Personas,  PersonaTipoPersona, Ofertas, Cuota, TipoOferta, Materia, Cohorte, Cargo, Honorario, Requisito, Servicio, Tramite, Solicitud, Denominacion, Banco, Moneda, Tasa, TipoIngreso, TipoEgreso, Ingreso
+from .models import TipoPersona, Personas,  PersonaTipoPersona, Ofertas, Cuota, TipoOferta, Materia, Cohorte, Cargo, Honorario, Requisito, Servicio, Tramite, Solicitud, Denominacion, Banco, Moneda, Tasa, TipoMovimiento, Movimiento
 
 class TipoPersonaForm(forms.ModelForm):  
     estadoTP = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
@@ -143,37 +143,28 @@ class TasaForm(forms.ModelForm):
 
 
 
-class TipoIngresoForm(forms.ModelForm):  
-    estadoTipoIngreso = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
+class TipoMovimientoForm(forms.ModelForm):  
+    estadoTipoMovimiento = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
 
     class Meta:  
-        model = TipoIngreso  
-        fields = ['idTipoIngreso', 'nombreTipoIngreso', 'estadoTipoIngreso']  
+        model = TipoMovimiento  
+        fields = ['idTipoMovimiento', 'naturaleza', 'nombreTipoMovimiento', 'estadoTipoMovimiento']  
+  
 
-
-
-class TipoEgresoForm(forms.ModelForm):  
-    estadoTipoEgreso = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
-
-    class Meta:  
-        model = TipoEgreso  
-        fields = ['idTipoEgreso', 'nombreTipoEgreso', 'estadoTipoEgreso']  
-
-
-class IngresoForm(forms.ModelForm):  
-    estadoIngreso = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
+class MovimientoForm(forms.ModelForm):  
+    estadoMovimiento = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
 
     class Meta:  
-        model = Ingreso  
+        model = Movimiento  
         fields = [
-            'idIngreso', 
-            'idTipoIngreso', 
+            'idTipoMovimiento', 
             'idDenominacion', 
             'idBanco', 
             'idTasa', 
+            'naturaleza',   
             'tipoPago', 
             'referencia', 
-            'montoIngreso', 
+            'monto', 
             'descripcion', 
-            'estadoIngreso'
+            'estadoMovimiento'
         ]

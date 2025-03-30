@@ -245,30 +245,32 @@ class TipoIngreso(models.Model):
 
 
 
-class TipoEgreso(models.Model):  
-    idTipoEgreso = models.AutoField(primary_key=True)  # Clave primaria para TipoIngreso  
-    nombreTipoEgreso = models.CharField(max_length=100)  # Nombre de la TipoIngreso  
-    estadoTipoEgreso = models.CharField(max_length=10)  # Estado de la TipoIngreso  
-    fechaTipoEgreso = models.DateField(auto_now_add=True)  # Fecha de creación de la TipoIngreso  
+class TipoMovimiento(models.Model):  
+    idTipoMovimiento = models.AutoField(primary_key=True)  # Clave primaria para TipoIngreso  
+    naturaleza = models.CharField(max_length=10)  # Nombre de la TipoIngreso  
+    nombreTipoMovimiento = models.CharField(max_length=100)  # Nombre de la TipoIngreso  
+    estadoTipoMovimiento = models.CharField(max_length=10)  # Estado de la TipoIngreso  
+    fechaTipoMovimiento = models.DateField(auto_now_add=True)  # Fecha de creación de la TipoIngreso  
 
     class Meta:  
-        verbose_name = "TipoEgreso"  
-        verbose_name_plural = "TipoEgresos"  
+        verbose_name = "TipoMovimiento"  
+        verbose_name_plural = "TipoMovimientos"  
 
 
-class Ingreso(models.Model):  
-    idIngreso = models.AutoField(primary_key=True)  # Clave primaria para Ingreso  
-    idTipoIngreso = models.ForeignKey(TipoIngreso, on_delete=models.CASCADE)  # Relación con TipoIngreso  
+class Movimiento(models.Model):  
+    idMovimiento = models.AutoField(primary_key=True)  # Clave primaria para Ingreso  
+    idTipoMovimiento = models.ForeignKey(TipoMovimiento, on_delete=models.CASCADE)  # Relación con TipoIngreso  
     idDenominacion = models.ForeignKey(Denominacion, on_delete=models.CASCADE)  # Relación con Denominacion  
     idBanco = models.ForeignKey(Banco, on_delete=models.CASCADE, null=True, blank=True)  # Banco opcional
     idTasa = models.ForeignKey(Tasa, on_delete=models.CASCADE)  # Relación con Tasa  
+    naturaleza = models.CharField(max_length=10)  # NATURALEZA detallada del Ingreso  
     tipoPago = models.CharField(max_length=100)  # Tipo de pago del Ingreso  
     referencia = models.CharField(max_length=100, null=True, blank=True)  # Referencia opcional    idTasa = models.ForeignKey(Tasa, on_delete=models.CASCADE)  # Relación con Tasa  
-    montoIngreso = models.DecimalField(max_digits=10, decimal_places=2)  # Monto del Ingreso  
+    monto = models.DecimalField(max_digits=10, decimal_places=2)  # Monto del Ingreso  
     descripcion = models.TextField()  # Descripción detallada del Ingreso  
-    estadoIngreso = models.CharField(max_length=10)  # Estado del Ingreso (activo/inactivo)  
-    fechaIngreso = models.DateTimeField(auto_now_add=True)  # Fecha de registro del Ingreso  
+    estadoMovimiento = models.CharField(max_length=10)  # Estado del Ingreso (activo/inactivo)  
+    fechaMovimiento = models.DateTimeField(auto_now_add=True)  # Fecha de registro del Ingreso  
 
     class Meta:  
-        verbose_name = "Ingreso"  
-        verbose_name_plural = "Ingresos"
+        verbose_name = "Movimiento"  
+        verbose_name_plural = "Movimientos"
