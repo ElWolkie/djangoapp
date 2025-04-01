@@ -78,7 +78,7 @@ class Formacion(models.Model):
 
 class Materia(models.Model):  
     idMateria = models.AutoField(primary_key=True)  # Clave primaria para Materia  
-    idFormacion = models.ForeignKey(TipoFormacion, on_delete=models.CASCADE)  # Clave foránea a Ofertas  
+    idFormacion = models.ForeignKey(Formacion, on_delete=models.CASCADE)  # Clave foránea a Ofertas  
     nombreMateria = models.CharField(max_length=100)  # Nombre de la Materia  
     estadoMateria = models.CharField(max_length=10)  # Estado de la Materia  
     fechaMateria = models.DateField(auto_now_add=True)  # Fecha de creación de la Materia  
