@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     "corsheaders",  # Para permitir conexiones desde el frontend
     "apps.authentication",
     "apps.home",  # Enable the inner home (home)
+    "home",
 ]
 
 MIDDLEWARE = [
@@ -124,6 +125,8 @@ CORS_ALLOWED_ORIGINS = [
 if platform.system() == "Windows":
     DATABASES["default"]["OPTIONS"]["client_encoding"] = "UTF8"
 
+
+AUTH_USER_MODEL = 'home.Usuarios'
 
 AUTH_PASSWORD_VALIDATORS = [
     {

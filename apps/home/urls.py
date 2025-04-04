@@ -1,7 +1,10 @@
 from django.urls import path, re_path
 from . import views
+from .views import login_view
 
 urlpatterns = [
+    path('login/', login_view, name='login'),  # URL para la vista de login personalizada
+
     # Ruta principal (Home)
     path('', views.index, name='home'),
     
