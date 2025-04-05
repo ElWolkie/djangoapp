@@ -32,7 +32,7 @@ INSTALLED_APPS = [
     "corsheaders",  # Para permitir conexiones desde el frontend
     "apps.authentication",
     "apps.home",  # Enable the inner home (home)
-    'django_extensions'
+    'django_extensions',
 ]
 
 MIDDLEWARE = [
