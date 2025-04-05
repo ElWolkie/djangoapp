@@ -22,7 +22,7 @@
       {% endfor %}
   {% endif %}
   
-  <form method="POST" class="mt-4 text-dark" autocomplete="off" style="font-weight: bold;" id="registroUsuario">
+  <form method="POST" action="{% url 'registrar_usuario' %}" class="mt-4 text-dark" autocomplete="off" style="font-weight: bold;" id="registroUsuario">
     {% csrf_token %}
     <div class="row">
       <div class="col-md-6">
@@ -73,10 +73,23 @@
 
 {% block javascripts %}
 <script>
+// Validación de contraseña (eliminar la verificación de confirmación)
+document.getElementById('registroUsuario').addEventListener('submit', function(e) {
+  const password = document.getElementById('password').value;
+  
+  // Validación básica de longitud
+  if (password.length < 8) {
+    e.preventDefault();
+    alert('La contraseña debe tener al menos 8 caracteres');
+    document.getElementById('password').focus();
+  }
+});
+
+// Verificación de cédula via AJAX (mantener igual)
 document.getElementById('cedula').addEventListener('blur', function() {
   const cedula = this.value;
   if (cedula.length >= 6) {
-    fetch(`/api/verificar-cedula/?cedula=${cedula}`)  // Nota el /api/
+    fetch(`/api/verificar-cedula/?cedula=${cedula}`)
       .then(response => {
         if (!response.ok) throw new Error('Error en la verificación');
         return response.json();

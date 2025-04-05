@@ -1,6 +1,6 @@
 from django.urls import path, re_path
 from . import views
-from .views import login_view, index_view, logout_view
+from .views import login_view, index_view, logout_view, registrar_usuario
 
 urlpatterns = [
     # Ruta principal (Home)
@@ -8,6 +8,8 @@ urlpatterns = [
     path('login/', login_view, name='login'),
     path('logout/', logout_view, name='logout'),
     path('dashboard/', index_view, name='dashboard'),  # Opcional
+
+    path('registrar-usuario/', registrar_usuario, name='registrar_usuario'),
 
     # Rutas específicas para modales
     path('tipoPersonaModal/', views.tipo_persona_modal, name='tipo_persona_modal'),

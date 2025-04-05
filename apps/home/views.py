@@ -4,11 +4,10 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.template import loader
 from django.urls import reverse
 from django.contrib import messages
-
+from django.db import IntegrityError
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.hashers import make_password
-
 
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
@@ -62,17 +61,18 @@ def registrar_usuario(request):
         respuesta = request.POST.get('respuestaSeguridad')
         
         try:
-            # Verificar que la persona existe
+            # Obtener la persona por cédula
             persona = Personas.objects.get(cedula=cedula)
             
-            # Verificar que no exista ya un usuario con esta persona
+            # Verificar si ya existe un usuario para esta persona
             if Usuarios.objects.filter(idPersona=persona).exists():
-                messages.error(request, 'Ya existe un usuario registrado con esta cédula')
+                messages.error(request, 'Ya existe un usuario para esta cédula')
                 return render(request, 'usuario.html')
             
-            # Crear el usuario - FORMA CORRECTA
-            usuario = Usuarios(
-                idPersona=persona,  # Pasamos el objeto Persona directamente
+            # Usar el manager para crear el usuario CORRECTAMENTE
+            usuario = Usuarios.objects.create_user(
+                idPersona=persona.idPersona,  # Pasar el ID numérico
+                password=password,
                 preguntaSeguridad=pregunta,
                 respuestaSeguridad=respuesta,
                 coloresUsuario='default',
@@ -80,21 +80,18 @@ def registrar_usuario(request):
                 is_staff=False,
                 is_superuser=False
             )
-            usuario.set_password(password)  # Encriptar contraseña manualmente
-            usuario.save()
-
-            print(f"Usuario creado - ID: {usuario.idUsuario}")
-            print(f"Persona asociada: {usuario.idPersona.cedula}")
-            print(f"Contraseña encriptada: {usuario.password}")
             
-            messages.success(request, 'Usuario registrado exitosamente!')
+            messages.success(request, '¡Usuario registrado exitosamente!')
             return redirect('dashboard')
             
         except Personas.DoesNotExist:
-            messages.error(request, 'La cédula no está registrada en Personas')
+            messages.error(request, 'Cédula no registrada en Personas')
+        except IntegrityError as e:
+            messages.error(request, 'Error: Posible usuario duplicado o datos inválidos')
+            print(f"Error de integridad: {str(e)}")
         except Exception as e:
-            messages.error(request, f'Error al registrar usuario: {str(e)}')
-            print(f"Error detallado: {str(e)}")  # Log para depuración
+            messages.error(request, f'Error inesperado: {str(e)}')
+            print(f"Error detallado: {str(e)}")
     
     return render(request, 'usuario.html')
 
