@@ -1,76 +1,141 @@
 {% extends 'layouts/base-fullscreen.html' %}
 
-{% block title %} Login {% endblock title %}
+{% block title %}Iniciar Sesión{% endblock %}
 
-<!-- Specific CSS goes HERE -->
-{% block stylesheets %}{% endblock stylesheets %}
+{% block stylesheets %}
+<link rel="stylesheet" href="/static/assets/css/all.min.css"/>
+<link rel="stylesheet" href="/static/assets/css/style.css"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+<style>
+  .input-box {
+    position: relative;
+    margin-bottom: 15px;
+  }
+
+  .input-box input {
+    width: 100%;
+    padding: 10px 10px 10px 40px;
+    box-sizing: border-box;
+  }
+
+  .input-box label {
+    position: absolute;
+    top: 50%;
+    left: 40px;
+    transform: translateY(-50%);
+    transition: 0.5s;
+    pointer-events: none;
+    color: #aaa;
+  }
+
+  .input-box input:focus + label,
+  .input-box input:not(:placeholder-shown) + label {
+    top: 5px;
+    left: 40px;
+    font-size: 11px;
+    color: #f84600;
+    opacity: .8;
+  }
+.text-blue-shadow {
+  color: #01013c; /* Azul intenso */
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.903); /* Sombra */
+}
+
+</style>
+{% endblock stylesheets %}
 
 {% block content %}
-
-    <!-- Page content -->
-    <div class="container mt--8 pb-5">
-      <div class="row justify-content-center">
-        <div class="col-lg-5 col-md-7">
-          <div class="card bg-secondary border-0 mb-0">
-            <div class="card-header bg-transparent pb-5">
-              <div class="text-muted text-center mt-2 mb-3"><small>Sign in with</small></div>
-              <div class="btn-wrapper text-center">
-                <a href="#" class="btn btn-neutral btn-icon">
-                  <span class="btn-inner--icon"><img src="/static/assets/img/icons/common/github.svg"></span>
-                  <span class="btn-inner--text">Github</span>
-                </a>
-                <a href="#" class="btn btn-neutral btn-icon">
-                  <span class="btn-inner--icon"><img src="/static/assets/img/icons/common/google.svg"></span>
-                  <span class="btn-inner--text">Google</span>
-                </a>
-              </div>
-            </div>
-            <div class="card-body px-lg-5 py-lg-5">
-              <div class="text-center text-muted mb-4">
-                <small>Or sign in with credentials</small>
-              </div>
-              <form role="form" action="/">
-                <div class="form-group mb-3">
-                  <div class="input-group input-group-merge input-group-alternative">
-                    <div class="input-group-prepend">
-                      <span class="input-group-text"><i class="ni ni-email-83"></i></span>
-                    </div>
-                    <input class="form-control" placeholder="Email" type="email">
-                  </div>
-                </div>
-                <div class="form-group">
-                  <div class="input-group input-group-merge input-group-alternative">
-                    <div class="input-group-prepend">
-                      <span class="input-group-text"><i class="ni ni-lock-circle-open"></i></span>
-                    </div>
-                    <input class="form-control" placeholder="Password" type="password">
-                  </div>
-                </div>
-                <div class="custom-control custom-control-alternative custom-checkbox">
-                  <input class="custom-control-input" id=" customCheckLogin" type="checkbox">
-                  <label class="custom-control-label" for=" customCheckLogin">
-                    <span class="text-muted">Remember me</span>
-                  </label>
-                </div>
-                <div class="text-center">
-                  <button type="button" class="btn btn-primary my-4">Sign in</button>
-                </div>
-              </form>
-            </div>
-          </div>
-          <div class="row mt-3">
-            <div class="col-6">
-              <a href="/register.html" class="text-light"><small>Create Account</small></a>
-            </div>
-            <div class="col-6 text-right">
-              <a href="https://appseed.us?ref=j2-argon-demo" class="text-light"><small>Get Support</small></a>
-            </div>
-          </div>
-        </div>
+<div class="container">
+  <input type="checkbox" id="flip" />
+  <div class="cover">
+    <div class="front">
+      <img src="/static/assets/img/theme/frontImg.jpg" alt="" />
+      <div class="text">
+        <span class="text-1 text-blue-shadow text-white"><b>FUNDACIÓN UPTYAB</b><br /> Trámites académicos</span>
+        <span class="text-2 text-blue-shadow">¡Conectémonos!</span>
       </div>
     </div>
+    <div class="back">
+      <img class="backImg" src="/static/assets/img/theme/backImg.jpg" alt="" />
+      <div class="text">
+        <span class="text-1">Completa millas de viaje <br /> con un paso</span>
+        <span class="text-2">¡Empecemos!</span>
+      </div>
+    </div>
+  </div>
+  <div class="forms">
+    <div class="form-content">
+      <div class="login-form">
+        <div class="title" style="font-weight: bold; font-size: 3.75vh;">Iniciar Sesión</div>
+        <form method="POST" autocomplete="off" action="{% url 'login' %}">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ next|default:'dashboard' }}">
+          
+          <div class="input-boxes">
+            <!-- Campos de login -->
+            <div class="input-box">
+              <i class="fas fa-id-card"></i>
+              <input type="text" name="cedula" placeholder=" " required />
+              <label for="cedula">Cédula</label>
+            </div>
+            <div class="input-box">
+              <i class="fas fa-lock"></i>
+              <input type="password" name="password" placeholder=" " required />
+              <label for="password">Contraseña</label>
+            </div>
+            
+            {% if error_message %}
+            <div class="alert alert-error">
+              {{ error_message }}
+            </div>
+            {% endif %}
 
+            <!-- <div class="text sign-up-text">
+                  ¿No tienes una cuenta? <label for="flip">Registrarse</label>
+              </div> -->
+            
+            <div class="button input-box">
+              <input type="submit" value="Entrar" />
+            </div>
+          </div>
+        </form>
+      </div>
+  
+      <div class="signup-form">
+        <div class="title" style="font-weight: bold; font-size: 3.75vh;">Registro</div>
+        <form method="POST" action="{% url 'register' %}" autocomplete="off">
+          {% csrf_token %}
+          <div class="input-boxes">
+              <!-- Campos de registro -->
+              <div class="input-box">
+                  <i class="fas fa-user"></i>
+                  <input type="text" name="name" placeholder=" " />
+                  <label for="name">Usuario</label>
+              </div>
+              <div class="input-box">
+                  <i class="fas fa-envelope"></i>
+                  <input type="email" name="email" placeholder=" " />
+                  <label for="email">Correo electrónico</label>
+              </div>
+              <div class="input-box">
+                  <i class="fas fa-lock"></i>
+                  <input type="password" name="password" placeholder=" " />
+                  <label for="password">Contraseña</label>
+              </div>
+              <div class="button input-box">
+                  <input type="submit" value="Crear cuenta" />
+              </div>
+              <div class="text sign-up-text">
+                  ¿Ya tienes una cuenta? <label for="flip">Iniciar sesión</label>
+              </div>
+          </div>
+      </form>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock content %}
 
-<!-- Specific JS goes HERE --> 
-{% block javascripts %}{% endblock javascripts %}
+{% block javascripts %}
+<script src="/static/assets/js/login.js"></script>
+{% endblock javascripts %}

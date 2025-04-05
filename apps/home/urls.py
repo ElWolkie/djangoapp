@@ -1,16 +1,14 @@
 from django.urls import path, re_path
 from . import views
-from .views import login_view
+from .views import login_view, index_view, logout_view
 
 urlpatterns = [
-    path('login/', login_view, name='login'),  # URL para la vista de login personalizada
-
     # Ruta principal (Home)
-    path('', views.index, name='home'),
-    
-    # Ruta para el index (sin duplicados)
-    path('index/', views.index_view, name='index'),
-    
+    path('', index_view, name='home'),  # Página principal
+    path('login/', login_view, name='login'),
+    path('logout/', logout_view, name='logout'),
+    path('dashboard/', index_view, name='dashboard'),  # Opcional
+
     # Rutas específicas para modales
     path('tipoPersonaModal/', views.tipo_persona_modal, name='tipo_persona_modal'),
     path('tipoOfertaModal/', views.tipo_oferta_modal, name='tipo_oferta_modal'),
@@ -52,8 +50,6 @@ urlpatterns = [
     path('tipoIngresoModal/', views.tipoIngreso_modal, name='tipoIngreso_modal'),
     # Specific route for tipoEgreso modal
     path('tipoEgresoModal/', views.tipoEgreso_modal, name='tipoEgreso_modal'),
-
-
 
     # Matches any html file no mover de lugar 
     re_path(r'^.*\.*', views.pages, name='pages'),

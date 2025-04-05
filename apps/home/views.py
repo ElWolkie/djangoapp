@@ -1,13 +1,12 @@
 from django.http import JsonResponse, HttpResponse, HttpResponseRedirect
 from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required, user_passes_test
 from django.template import loader
 from django.urls import reverse
 from django.contrib import messages
 
-from django.contrib.auth import authenticate, login
-from .models import Usuarios
+from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.decorators import login_required
 
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
@@ -15,47 +14,42 @@ from rest_framework.permissions import AllowAny
 from .forms import TipoPersonaForm, PersonaForm, TipoOfertaForm, OfertaForm,CuotaForm, MateriaForm, CohorteForm, CargoForm, ContratoForm, HonorarioForm, RequisitoForm, ServicioForm, TramiteForm, SolicitudForm, DenominacionForm, BancoForm, MonedaForm, TasaForm, TipoIngresoForm, TipoEgresoForm
 from .models import Personas, TipoPersona,  Cuota, TipoOferta, Ofertas, Materia, Cohorte, Cargo, Contrato, Honorario, Requisito, Servicio, Tramite, Solicitud, Denominacion, Banco, Moneda, Tasa, TipoIngreso, TipoEgreso
 
-@csrf_exempt
-def index_view(request):
-    # Renderiza el template SIN verificar autenticación tradicional
-    return render(request, "home/index.html")
-
 def login_view(request):
-    if request.method == 'POST':
-        idPersona = request.POST.get('idPersona')  # Recibe el valor ingresado en el campo idPersona (cédula)
-        contrasenia = request.POST.get('contrasenia')  # Recibe la contraseña ingresada
-
-        # Autentica al usuario usando idPersona y contrasenia
-        user = authenticate(request, idPersona=idPersona, password=contrasenia)
-        if user is not None:
-            login(request, user)  # Inicia sesión
-            messages.success(request, 'Inicio de sesión exitoso.')
-            return redirect('index')  # Redirige al index después de iniciar sesión
-        else:
-            messages.error(request, 'Cédula o contraseña incorrecta.')
+    if request.user.is_authenticated:
+        return redirect('dashboard')  # Si ya está autenticado, redirige
     
-    # Si es un GET o falló el login, renderiza el formulario
-    return render(request, 'registration/login.html')
+    if request.method == 'POST':
+        cedula = request.POST.get('cedula')
+        password = request.POST.get('password')
+        
+        try:
+            persona = Personas.objects.get(cedula=cedula)
+            user = authenticate(request, idPersona=persona.idPersona, password=password)
+            
+            if user is not None:
+                login(request, user)
+                # Redirige según parámetro 'next' o a la URL por defecto
+                next_url = request.POST.get('next', 'dashboard')
+                return redirect(next_url)
+            else:
+                messages.error(request, "Contraseña incorrecta")
+        except Personas.DoesNotExist:
+            messages.error(request, "No existe un usuario con esta cédula")
+        except Exception as e:
+            messages.error(request, f"Error al iniciar sesión: {str(e)}")
+    
+    # Añade el parámetro next al contexto si viene en la URL
+    next_param = request.GET.get('next', '')
+    return render(request, 'home/login.html', {'next': next_param})
 
-# def register_view(request):
-#     if request.method == 'POST':
-#         username = request.POST['username']
-#         email = request.POST['email']
-#         password = request.POST['password']
+def dashboard_view(request):
+    if not request.user.is_authenticated:
+        return redirect('login')
+    return render(request, 'home/index.html')
 
-#         # Verifica que el usuario no exista ya
-#         if User.objects.filter(username=username).exists():
-#             messages.error(request, 'El nombre de usuario ya está en uso.')
-#         elif User.objects.filter(email=email).exists():
-#             messages.error(request, 'El correo electrónico ya está en uso.')
-#         else:
-#             user = User.objects.create_user(username=username, email=email, password=password)
-#             user.save()
-#             messages.success(request, 'Registro exitoso. Ahora puede iniciar sesión.')
-#             return redirect('login')
-
-#     return render(request, 'registration/register.html')
-
+def logout_view(request):
+    logout(request)
+    return redirect('login')  # Redirige a la página de login
 
 @api_view(['POST'])
 @permission_classes([AllowAny])  # Permitir acceso sin autenticación (solo para pruebas)
@@ -77,7 +71,6 @@ def tipo_persona_modal(request):
     else:
         return JsonResponse({'success': False, 'message': 'Método no permitido.'})
     
-
 
 @csrf_exempt
 def oferta_modal(request):
@@ -373,12 +366,10 @@ def tipoEgreso_modal(request):
     return render(request, 'home/tipoEgreso_modal.html', {'form': form})
 
 
-# @login_required(login_url="/login/")
-def index(request):
-    context = {"segment": "index"}
-
-    html_template = loader.get_template("home/index.html")
-    return HttpResponse(html_template.render(context, request))
+@login_required(login_url='login')
+def index_view(request):
+    """Vista principal del dashboard (requiere autenticación)"""
+    return render(request, "home/index.html")
 
 def pages(request):
     context = {}

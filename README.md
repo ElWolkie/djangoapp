@@ -36,6 +36,7 @@ $ # Start the app - custom port
 $ # python manage.py runserver 0.0.0.0:<your_port>
 $
 $ # Access the web app in browser: http://127.0.0.1:8000/
+# python manage.py show_urls  | grep "/api/"  LISTAR LOS ENDPOINTS DE LA API
 ```
 
 > Note: Para usar esta aplicación es necesario tener un usuario autenticado para acceder a las pantallas.

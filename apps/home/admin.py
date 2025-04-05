@@ -1,5 +1,6 @@
 from django.contrib import admin
-from .models import Personas, TipoPersona, Cuota, Ofertas, TipoOferta, Materia, Cohorte, Cargo, Contrato, Honorario, Requisito, Servicio, Tramite, Solicitud, Denominacion, Banco, Moneda, Tasa, TipoIngreso, TipoEgreso
+from django.contrib.auth.admin import UserAdmin
+from .models import Personas, Usuarios, TipoPersona, Cuota, Ofertas, TipoOferta, Materia, Cohorte, Cargo, Contrato, Honorario, Requisito, Servicio, Tramite, Solicitud, Denominacion, Banco, Moneda, Tasa, TipoIngreso, TipoEgreso
 
 # Personalización de la vista de Personas en el admin
 class PersonaAdmin(admin.ModelAdmin):
@@ -16,6 +17,44 @@ class TipoPersonaAdmin(admin.ModelAdmin):
 
 # Registra el modelo con las personalizaciones
 admin.site.register(TipoPersona, TipoPersonaAdmin)
+
+@admin.register(Usuarios)
+class UsuarioAdmin(UserAdmin):
+    list_display = ('get_cedula', 'get_nombre_completo', 'is_staff', 'is_superuser')
+    search_fields = ('idPersona__cedula', 'idPersona__nombres', 'idPersona__apellidos', 'idPersona__correo')
+    ordering = ('idPersona',)
+    readonly_fields = ('fechaUsuario', 'last_login')  # Campos de solo lectura
+    
+    fieldsets = (
+        (None, {'fields': ('idPersona', 'password')}),
+        ('Seguridad', {'fields': ('preguntaSeguridad', 'respuestaSeguridad')}),
+        ('Preferencias', {'fields': ('coloresUsuario',)}),
+        ('Permisos', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
+        ('Fechas importantes', {'fields': ('last_login', 'fechaUsuario')}),  # Usamos solo los campos que existen
+    )
+    
+    add_fieldsets = (
+        (None, {
+            'classes': ('wide',),
+            'fields': ('idPersona', 'password1', 'password2'),
+        }),
+    )
+    
+    raw_id_fields = ('idPersona',)
+    list_filter = ('is_staff', 'is_superuser', 'is_active', 'groups')
+    
+    def get_cedula(self, obj):
+        return obj.idPersona.cedula if obj.idPersona else ''
+    get_cedula.short_description = 'Cédula'
+    
+    def get_nombre_completo(self, obj):
+        return f"{obj.idPersona.nombres} {obj.idPersona.apellidos}" if obj.idPersona else ''
+    get_nombre_completo.short_description = 'Nombre Completo'
+    
+    def get_correo(self, obj):
+        return obj.idPersona.correo if obj.idPersona else ''
+    get_correo.short_description = 'Correo'
+
 
 # Personalización de la vista de Cuota en el admin
 class CuotaAdmin(admin.ModelAdmin):

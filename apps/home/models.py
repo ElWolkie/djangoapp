@@ -1,59 +1,7 @@
 from django.db import models  
-from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 
 # from django.contrib.auth.models import User    COMENTADO POR SI SE NECESITA USAR
-
-class UsuarioManager(BaseUserManager):
-    def create_user(self, idPersona, contrasenia, **extra_fields):
-        if not idPersona:
-            raise ValueError('El campo idPersona es obligatorio')
-        user = self.model(idPersona=idPersona, **extra_fields)
-        user.set_password(contrasenia)
-        user.save(using=self._db)
-        return user
-
-    def create_superuser(self, idPersona, contrasenia, **extra_fields):
-        extra_fields.setdefault('is_staff', True)
-        extra_fields.setdefault('is_superuser', True)
-
-        if extra_fields.get('is_staff') is not True:
-            raise ValueError('El superusuario debe tener is_staff=True.')
-        if extra_fields.get('is_superuser') is not True:
-            raise ValueError('El superusuario debe tener is_superuser=True.')
-
-        return self.create_user(idPersona, contrasenia, **extra_fields)
-
-class Usuario(AbstractBaseUser):
-    idUsuario = models.AutoField(primary_key=True)
-    idPersona = models.OneToOneField('Personas', on_delete=models.CASCADE, related_name='usuario')
-    contrasenia = models.CharField(max_length=128)  # Usaremos AbstractBaseUser para manejo de contraseñas
-    preguntaSeguridad = models.CharField(max_length=255)
-    respuestaSeguridad = models.CharField(max_length=255)
-    coloresUsuario = models.CharField(max_length=50, blank=True, null=True)
-    estadoUsuario = models.BooleanField(default=True)
-    fechaUsuario = models.DateTimeField(auto_now_add=True)
-
-    # Campos adicionales para roles/administración
-    is_active = models.BooleanField(default=True)
-    is_staff = models.BooleanField(default=False)
-    is_superuser = models.BooleanField(default=False)
-
-    # Administrador de usuarios
-    objects = UsuarioManager()
-
-    # Campo que se usará como identificador único
-    USERNAME_FIELD = 'idPersona'  # Autenticación con idPersona
-    REQUIRED_FIELDS = []  # No requerimos otros campos obligatorios además de USERNAME_FIELD
-
-    def __str__(self):
-        return f"Usuario {self.idUsuario} - Persona: {self.idPersona}"
-
-    def has_perm(self, perm, obj=None):
-        return True
-
-    def has_module_perms(self, app_label):
-        return True
-
 
 class TipoPersona(models.Model):  
     idTP = models.AutoField(primary_key=True)  # Clave primaria para TipoPersona  
@@ -63,7 +11,7 @@ class TipoPersona(models.Model):
 
     class Meta:  
         verbose_name = "Tipo de Persona"  
-        verbose_name_plural = "Tipos de Personas"  
+        verbose_name_plural = "Tipos de Personas"
 
 
 class Personas(models.Model):  
@@ -80,7 +28,75 @@ class Personas(models.Model):
     class Meta:  
         verbose_name = "Persona"  
         verbose_name_plural = "Personas"  
-        ordering = ['idTP']  # Orden predeterminado por TipoPersona  
+        ordering = ['idTP']  # Orden predeterminado por TipoPersona 
+
+class UsuarioManager(BaseUserManager):
+    def create_user(self, idPersona, password=None, **extra_fields):
+        """
+        Crea y guarda un usuario con el idPersona y contraseña dados.
+        """
+        if not idPersona:
+            raise ValueError('El idPersona es obligatorio')
+        
+        # Obtener la instancia de Personas
+        try:
+            persona = Personas.objects.get(pk=idPersona)
+        except Personas.DoesNotExist:
+            raise ValueError(f'No existe una Persona con idPersona={idPersona}')
+        
+        # Campos obligatorios para usuarios normales
+        extra_fields.setdefault('preguntaSeguridad', 'pregunta_default')
+        extra_fields.setdefault('respuestaSeguridad', 'respuesta_default')
+        
+        user = self.model(idPersona=persona, **extra_fields)
+        
+        # Establecer la contraseña usando el sistema de Django
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
+
+    def create_superuser(self, idPersona, password=None, **extra_fields):
+        """
+        Crea y guarda un superusuario con el idPersona y contraseña dados.
+        """
+        extra_fields.setdefault('is_staff', True)
+        extra_fields.setdefault('is_superuser', True)
+        extra_fields.setdefault('preguntaSeguridad', 'admin_seguridad') # Modificable
+        extra_fields.setdefault('respuestaSeguridad', 'admin_respuesta') # Modificable
+
+        if extra_fields.get('is_staff') is not True:
+            raise ValueError('Superuser must have is_staff=True.')
+        if extra_fields.get('is_superuser') is not True:
+            raise ValueError('Superuser must have is_superuser=True.')
+
+        return self.create_user(idPersona, password, **extra_fields)
+
+class Usuarios(AbstractBaseUser, PermissionsMixin):
+    idUsuario = models.AutoField(primary_key=True)
+    idPersona = models.OneToOneField('Personas', on_delete=models.CASCADE)
+    preguntaSeguridad = models.CharField(max_length=255)
+    respuestaSeguridad = models.CharField(max_length=255)
+    coloresUsuario = models.CharField(max_length=50, blank=True, null=True)
+    fechaUsuario = models.DateTimeField(auto_now_add=True)
+
+    is_active = models.BooleanField(default=True) #Necesario para activo o inactivo
+    is_staff = models.BooleanField(default=False)  # Necesario para admin
+    is_superuser = models.BooleanField(default=False)  # Necesario para permisos de superusuario
+
+    # class Meta:
+    #     db_table = 'usuarios'  # Esto forzará el nombre de tabla exacto
+
+    objects = UsuarioManager()
+
+    USERNAME_FIELD = 'idUsuario'
+    REQUIRED_FIELDS = []
+
+    def __str__(self):
+        return f"{self.idPersona}"
+    
+    class Meta:
+        verbose_name = 'Usuario'
+        verbose_name_plural = 'Usuarios'
 
 
 class Cuota(models.Model):  
