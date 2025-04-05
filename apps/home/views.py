@@ -7,12 +7,14 @@ from django.contrib import messages
 
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.hashers import make_password
+
 
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 
 from .forms import TipoPersonaForm, PersonaForm, TipoOfertaForm, OfertaForm,CuotaForm, MateriaForm, CohorteForm, CargoForm, ContratoForm, HonorarioForm, RequisitoForm, ServicioForm, TramiteForm, SolicitudForm, DenominacionForm, BancoForm, MonedaForm, TasaForm, TipoIngresoForm, TipoEgresoForm
-from .models import Personas, TipoPersona,  Cuota, TipoOferta, Ofertas, Materia, Cohorte, Cargo, Contrato, Honorario, Requisito, Servicio, Tramite, Solicitud, Denominacion, Banco, Moneda, Tasa, TipoIngreso, TipoEgreso
+from .models import Personas, Usuarios, TipoPersona,  Cuota, TipoOferta, Ofertas, Materia, Cohorte, Cargo, Contrato, Honorario, Requisito, Servicio, Tramite, Solicitud, Denominacion, Banco, Moneda, Tasa, TipoIngreso, TipoEgreso
 
 def login_view(request):
     if request.user.is_authenticated:
@@ -50,6 +52,51 @@ def dashboard_view(request):
 def logout_view(request):
     logout(request)
     return redirect('login')  # Redirige a la página de login
+
+
+def registrar_usuario(request):
+    if request.method == 'POST':
+        cedula = request.POST.get('cedula')
+        password = request.POST.get('password')
+        pregunta = request.POST.get('preguntaSeguridad')
+        respuesta = request.POST.get('respuestaSeguridad')
+        
+        try:
+            # Verificar que la persona existe
+            persona = Personas.objects.get(cedula=cedula)
+            
+            # Verificar que no exista ya un usuario con esta persona
+            if Usuarios.objects.filter(idPersona=persona).exists():
+                messages.error(request, 'Ya existe un usuario registrado con esta cédula')
+                return render(request, 'usuario.html')
+            
+            # Crear el usuario - FORMA CORRECTA
+            usuario = Usuarios(
+                idPersona=persona,  # Pasamos el objeto Persona directamente
+                preguntaSeguridad=pregunta,
+                respuestaSeguridad=respuesta,
+                coloresUsuario='default',
+                is_active=True,
+                is_staff=False,
+                is_superuser=False
+            )
+            usuario.set_password(password)  # Encriptar contraseña manualmente
+            usuario.save()
+
+            print(f"Usuario creado - ID: {usuario.idUsuario}")
+            print(f"Persona asociada: {usuario.idPersona.cedula}")
+            print(f"Contraseña encriptada: {usuario.password}")
+            
+            messages.success(request, 'Usuario registrado exitosamente!')
+            return redirect('dashboard')
+            
+        except Personas.DoesNotExist:
+            messages.error(request, 'La cédula no está registrada en Personas')
+        except Exception as e:
+            messages.error(request, f'Error al registrar usuario: {str(e)}')
+            print(f"Error detallado: {str(e)}")  # Log para depuración
+    
+    return render(request, 'usuario.html')
 
 @api_view(['POST'])
 @permission_classes([AllowAny])  # Permitir acceso sin autenticación (solo para pruebas)

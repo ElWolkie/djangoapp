@@ -1,11 +1,15 @@
 from django.urls import path
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from . import views
+from .endpoints import verificar_cedula  # Nueva función
 
 urlpatterns = [
     path('personas/', views.PersonaListCreate.as_view(), name='persona-list'),
     path('personas/<int:pk>/', views.PersonaRetrieveUpdateDestroy.as_view(), name='persona-detail'),
     path('tipo-personas/', views.TipoPersonaListCreate.as_view(), name='tipo-persona-list'),  # Nueva ruta
+
+    path('verificar-cedula/', verificar_cedula, name='verificar-cedula'),
+    
     path('cuota/', views.CuotaListCreate.as_view(), name='cuota-list'),
     path('ofertas/', views.OfertasListCreate.as_view(), name='oferta-list'),
     path('materia/', views.MateriaListCreate.as_view(), name='materia-list'),

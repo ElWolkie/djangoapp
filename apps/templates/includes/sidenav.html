@@ -49,6 +49,7 @@
           </ul>
         </div>
         </li>
+
         <li class="nav-item">  
           <a class="nav-link menu1" href="#" id="personaDropdown" data-toggle="collapse" data-target="#menu2" aria-expanded="false" aria-controls="menu2">  
             <i class="ni ni-hat-3 text-orange"></i>  
@@ -95,7 +96,7 @@
         
 
         <li class="nav-item">
-        <a class="nav-link menu1" href="#" id="personaDropdown" data-toggle="collapse" data-target="#menu3" aria-expanded="false" aria-controls="menu3">
+        <a class="nav-link menu3" href="#" id="personaDropdown" data-toggle="collapse" data-target="#menu3" aria-expanded="false" aria-controls="menu3">
           <i class="ni ni-folder-17 text-orange"></i>
           <span class="nav-link-text">Gestionar Trámite</span> 
         </a>
@@ -138,7 +139,7 @@
         <div id="menu4" class="collapse">
           <ul class="nav flex-column ml-3">
             <li class="nav-item">  
-              <a class="nav-link" href="#" id="tramiteDropdown" data-toggle="collapse" data-target="#ingresoMenu" aria-expanded="false" aria-controls="ingresoMenu" style="padding-left: 15px;">  
+              <a class="nav-link" href="#" id="ingresoDropdown" data-toggle="collapse" data-target="#ingresoMenu" aria-expanded="false" aria-controls="ingresoMenu" style="padding-left: 15px;">  
                 <i class="ni  ni-caps-small text-orange"></i>Ingreso</a>  
               <div id="ingresoMenu" class="collapse ml-3">  
                 <ul class="nav flex-column">  
@@ -155,7 +156,7 @@
             </li>  
 
             <li class="nav-item">  
-              <a class="nav-link" href="#" id="tramiteDropdown" data-toggle="collapse" data-target="#egresoMenu" aria-expanded="false" aria-controls="egresoMenu" style="padding-left: 15px;">  
+              <a class="nav-link" href="#" id="egresoDropdown" data-toggle="collapse" data-target="#egresoMenu" aria-expanded="false" aria-controls="egresoMenu" style="padding-left: 15px;">  
                 <i class="fas fa-hand-holding-usd text-orange"></i>Egresos</a>  
               <div id="egresoMenu" class="collapse ml-3">  
                 <ul class="nav flex-column">  
@@ -186,6 +187,24 @@
           </ul>
         </div>
         </li>
+
+        <li class="nav-item">
+          <a class="nav-link usuarioMenu {% if 'usuario' in segment %} active {% endif %}" href="#" id="usuarioDropdown" data-toggle="collapse" data-target="#usuarioMenu" aria-expanded="false" aria-controls="menu1">
+            <i class="ni ni-circle-08 text-orange"></i>
+            <span class="nav-link-text">Gestionar Usuario</span>
+          </a>
+          <div id="usuarioMenu" class="collapse">
+            <ul class="nav flex-column ml-3">
+            <li class="nav-item">
+              <a class="nav-link" href="/usuario.html" style="padding-left: 15px;"><i class="ni ni-badge text-orange"></i>Registrar</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="/tablaUsuario.html" style="padding-left: 15px;"><i class="ni ni-collection text-orange"></i>Consultar</a>
+            </li>
+            </ul>
+          </div>
+          </li>
+
           <li class="nav-item">
             <a class="nav-link {% if 'icons' in segment %} active {% endif %}" href="/icons.html">
               <i class="ni ni-planet text-orange"></i>
