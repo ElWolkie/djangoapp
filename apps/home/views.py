@@ -56,6 +56,10 @@ def logout_view(request):
     logout(request)
     return redirect('login')  # Redirige a la página de login
 
+@login_required(login_url='login')
+def index_view(request):
+    """Vista principal del dashboard (requiere autenticación)"""
+    return render(request, "home/index.html")
 
 def registrar_usuario(request):
     if request.method == 'POST':
@@ -426,9 +430,6 @@ def movimiento_modal(request):
         form = MovimientoForm()
       
     return render(request, 'home/movimiento_modal.html')
-@login_required(login_url="/login/")
-def index(request):
-    context = {"segment": "index"}
 
 def pages(request):
     context = {}

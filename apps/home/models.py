@@ -19,7 +19,7 @@ class Personas(models.Model):
     idPersona = models.AutoField(primary_key=True)  # Clave primaria para Personas  
     cedula = models.CharField(max_length=10)  # Número de cedula  
     nombres = models.CharField(max_length=100)  # Nombres  
-    apellidos = models.CharField(max_length=100)  # Apellidos  
+    apellidos = models.CharField(max_length=100)  # Apellidos
     telefono = models.CharField(max_length=15)  # Número de teléfono  
     correo = models.EmailField()  # Dirección de correo electrónico  
     estadoPersona = models.CharField(max_length=10)  # Estado de la Persona  
@@ -28,7 +28,11 @@ class Personas(models.Model):
     class Meta:  
         verbose_name = "Persona"  
         verbose_name_plural = "Personas"  
-        ordering = ['idTP']  # Orden predeterminado por TipoPersona 
+        ordering = ['idPersona']  # Orden predeterminado por idPersona
+        
+    def __str__(self):
+        return f"{self.nombres} {self.apellidos}"  # Representación legible en el admin de Django
+
 
 class UsuarioManager(BaseUserManager):
     def create_user(self, idPersona, password=None, **extra_fields):
@@ -97,12 +101,7 @@ class Usuarios(AbstractBaseUser, PermissionsMixin):
     class Meta:
         verbose_name = 'Usuario'
         verbose_name_plural = 'Usuarios'
-        ordering = ['idPersona']  # Orden predeterminado por idPersona
-
-    def __str__(self):
-        return f"{self.nombres} {self.apellidos}"  # Representación legible en el admin de Django
-
-
+    
 # Tabla intermedia para la relación muchos a muchos entre Personas y TipoPersona
 class PersonaTP(models.Model):
     idPersona = models.ForeignKey(Personas, on_delete=models.CASCADE)  # Clave foránea a Personas
@@ -116,7 +115,7 @@ class PersonaTP(models.Model):
 
     def __str__(self):
         return f"{self.idPersona} - {self.idTP}"  # Representación legible en el admin de Django
-    
+
 
 class TipoFormacion(models.Model):  
     idTF = models.AutoField(primary_key=True)  # Clave primaria para TipoFormacion  

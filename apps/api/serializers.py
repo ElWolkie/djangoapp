@@ -1,30 +1,35 @@
 from rest_framework import serializers
-from apps.home.models import Personas, TipoPersona, Cuota, Ofertas, TipoOferta, Materia, Cohorte, Cargo, Contrato, Honorario, Requisito, Servicio, Tramite, Solicitud, Denominacion, Banco, Moneda, Tasa, TipoIngreso, TipoEgreso  # Importa el modelo desde home
+from apps.home.models import Personas, TipoPersona, PersonaTP, Materia, Cohorte, Cargo, Honorario, Requisito, Servicio, Tramite, Solicitud, Denominacion, Banco, Moneda, Tasa, TipoIngreso
 
 class PersonaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Personas  # Usa el modelo de home
-        fields = ['idPersona', 'idTP', 'cedula', 'nombres', 'apellidos', 'telefono', 'correo', 'estadoPersona', 'fechaPersona']
+        fields = ['idPersona', 'cedula', 'nombres', 'apellidos', 'telefono', 'correo', 'estadoPersona', 'fechaPersona']
 
 class TipoPersonaSerializer(serializers.ModelSerializer):
     class Meta:
         model = TipoPersona  # Usa el modelo de home
         fields = ['idTP', 'nombreTP', 'estadoTP', 'fechaTP']
 
-class CuotaSerializer(serializers.ModelSerializer):
+class PersonaTPSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Cuota  # Usa el modelo de home
-        fields = ['idCuota', 'nombreCuota', 'estadoCuota', 'fechaCuota']
+        model = PersonaTP  # Usa el modelo de home
+        fields = ['idPersona', 'idTP', 'fechaAsignacion']
 
-class OfertasSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Ofertas  # Usa el modelo de home
-        fields = ['idOferta', 'idTipoOferta', 'nombreOferta', 'duracion', 'estadoOferta', 'fechaOferta']
+# class CuotaSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = Cuota  # Usa el modelo de home
+#         fields = ['idCuota', 'nombreCuota', 'estadoCuota', 'fechaCuota']
 
-class TipoOfertaSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = TipoOferta  # Usa el modelo de home
-        fields = ['idTipoOferta', 'idCuota', 'nombreTipoOferta', 'estadoTipoOferta', 'fechaTipoOferta']
+# class OfertasSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = Ofertas  # Usa el modelo de home
+#         fields = ['idOferta', 'idTipoOferta', 'nombreOferta', 'duracion', 'estadoOferta', 'fechaOferta']
+
+# class TipoOfertaSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = TipoOferta  # Usa el modelo de home
+#         fields = ['idTipoOferta', 'idCuota', 'nombreTipoOferta', 'estadoTipoOferta', 'fechaTipoOferta']
 
 class MateriaSerializer(serializers.ModelSerializer):
     class Meta:
@@ -41,10 +46,10 @@ class CargoSerializer(serializers.ModelSerializer):
         model = Cargo  # Usa el modelo de home
         fields = ['idCargo', 'nombreCargo', 'estadoCargo', 'fechaCargo']
 
-class ContratoSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Contrato  # Usa el modelo de home
-        fields = ['idContrato', 'idPersona', 'idCargo', 'idCohorte', 'idMateria', 'estadoContrato', 'fechaContrato']
+# class ContratoSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = Contrato  # Usa el modelo de home
+#         fields = ['idContrato', 'idPersona', 'idCargo', 'idCohorte', 'idMateria', 'estadoContrato', 'fechaContrato']
 
 class HonorarioSerializer(serializers.ModelSerializer):
     class Meta:
@@ -96,7 +101,7 @@ class TipoIngresoSerializer(serializers.ModelSerializer):
         model = TipoIngreso  # Usa el modelo de home
         fields = ['idTipoIngreso', 'nombreTipoIngreso', 'estadoTipoIngreso', 'fechaTipoIngreso']
 
-class TipoEgresoSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = TipoEgreso  # Usa el modelo de home
-        fields = ['idTipoEgreso', 'nombreTipoEgreso', 'estadoTipoEgreso', 'fechaTipoEgreso']
+# class TipoEgresoSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = TipoEgreso  # Usa el modelo de home
+#         fields = ['idTipoEgreso', 'nombreTipoEgreso', 'estadoTipoEgreso', 'fechaTipoEgreso']
