@@ -377,22 +377,29 @@ def pages(request):
             context['tipopersonas'] = TipoPersona.objects.all()  # Lista de tipos de persona
 
 
-
         if load_template == "solicitud.html":
             if request.method == 'POST':
-                form = SolicitudForm(request.POST)
-                if form.is_valid():
-                    form.save()
-                    messages.success(request, 'Registro exitoso.')
-                    return redirect('solicitud.html')  # Redirige a una URL de éxito
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':  # Verificar si es una solicitud AJAX
+                    form = SolicitudForm(request.POST)
+                    if form.is_valid():
+                        form.save()
+                        return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
+                    else:
+                        errors = {field: error[0] for field, error in form.errors.items()}
+                        return JsonResponse({'success': False, 'errors': errors})
                 else:
-                    for field, errors in form.errors.items():
-                        for error in errors:
-                            messages.error(request, f"Error en el campo {field}: {error}")
+                    form = SolicitudForm(request.POST)
+                    if form.is_valid():
+                        form.save()
+                        messages.success(request, 'Registro exitoso.')
+                        return redirect('solicitud.html')  # Redirige a una URL de éxito
+                    else:
+                        for field, errors in form.errors.items():
+                            for error in errors:
+                                messages.error(request, f"Error en el campo {field}: {error}")
             else:
                 form = SolicitudForm()
             context['form'] = form
-
 
         if load_template == "tipoPersona.html":
             if request.method == 'POST':
@@ -502,7 +509,7 @@ def pages(request):
         context["segment"] = load_template
 
 
-        if load_template in [ "solicitud.html", "tablaSolicitud.html"]:
+        if load_template in [ "solicitud.html", "solicitud2.html", "tablaSolicitud.html"]:
             solicitudes = Solicitud.objects.all()
             context['solicitudes'] = solicitudes
             tramites = Tramite.objects.all()
