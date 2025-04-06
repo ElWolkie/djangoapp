@@ -17,12 +17,12 @@
     
     <div class="form-row">  
       <div class="form-group col-md-6">  
-        <label for="idOferta">Oferta Académica:</label>  
+        <label for="idOferta">Formación Académica:</label>  
         <div class="input-group"> <!-- Usar input-group para alinear botón y select -->  
-            <select id="idOferta" name="idOferta" class="form-control text-dark" tabindex="1" required>  
+            <select id="idFormacion" name="idFormacion" class="form-control text-dark" tabindex="1" required>  
                 <option value="" disabled selected>Seleccione...</option>  
-                {% for oferta in ofertas %}  
-                    <option value="{{ oferta.idOferta }}" class="text-orange">{{ oferta.nombreOferta }}</option>  
+                {% for formacion  in formaciones %}  
+                    <option value="{{ formacion.idFormacion }}" class="text-orange">{{ formacion.nombreFormacion }}</option>  
                 {% endfor %}  
             </select>  
         </div>  

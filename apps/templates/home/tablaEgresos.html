@@ -1,0 +1,180 @@
+{% extends 'layouts/base.html' %}  
+
+{% block title %}Listado de Personas{% endblock title %}  
+
+{% block stylesheets %}  
+<link rel="stylesheet" href="/static/assets/css/styleForms.css" />  
+<link rel="stylesheet" href="/static/assets/css/argon.css" />  
+{% endblock stylesheets %}  
+
+{% block content %}  
+<div class="container mt-5">  
+  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Lista de Egresos Registrados</h2>  
+
+  {% if messages %}  
+    {% for message in messages %}  
+      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">  
+        {{ message }}  
+      </div>  
+    {% endfor %}  
+  {% endif %}  
+
+  <div class="row">  
+    <div class="col-md-4">  
+      <div class="input-group">  
+        <div class="input-group-prepend">  
+          <span class="input-group-text" style="background-color: #bcbcbc; border: none;">  
+            <i class="fas fa-search text-warning"></i>  
+          </span>  
+        </div>  
+        <input class="form-control" id="searchInput" type="text" placeholder="Buscar..." onkeyup="filterTable()">  
+      </div>  
+    </div>  
+    <div class="col-md-4">  
+      <button class="btn btn-warning btn-square btn-sm my-2" type="button" title="Registrar Egreso"   
+      data-toggle="modal" data-target="#movimientoModal" data-naturaleza="egreso">+</button>  
+    </div>  
+  </div>  
+
+  <br>  
+  <table class="table table-striped table-responsive text-gray-dark" id="egresosTable">  
+    <thead class="text-darker">  
+      <tr>  
+        <th scope="col">ID</th>  
+        <th scope="col">Tipo</th>  
+        <th scope="col">Denominación</th>  
+        <th scope="col">Tipo de Pago</th>  
+        <th scope="col">Monto</th>  
+        <th scope="col">Banco</th>  
+        <th scope="col">Referencia</th>  
+        <th scope="col">Estado</th>  
+        <th scope="col">Fecha</th>  
+      </tr>  
+    </thead>  
+    <tbody>  
+      <!-- Contenido de la tabla -->  
+      {% for movimiento in movimientos %}  
+      <tr>  
+        <td>{{ movimiento.idMovimiento }}</td>  
+        <td>{{ movimiento.idTipoMovimiento.nombreTipoMovimiento }}</td>  
+        <td>{{ movimiento.idDenominacion.nombreDenominacion }}</td>  
+        <td>{{ movimiento.tipoPago }}</td>  
+        <td>{{ movimiento.monto }} {{ movimiento.idTasa.idMoneda.simboloMoneda }}</td>  
+        <td>{{ movimiento.idBanco.nombreBanco|default:"No Aplica" }}</td>  
+        <td>{{ movimiento.referencia|default:"No Aplica" }}</td>  
+        <td>{{ movimiento.estadoMovimiento }}</td>  
+        <td>{{ movimiento.fechaMovimiento|date:"d/m/Y" }}</td>  
+      </tr>  
+      {% endfor %}  
+    </tbody>  
+  </table>  
+</div>  
+
+<!-- Modal -->  
+<div class="modal fade" id="movimientoModal" tabindex="-1" role="dialog" aria-labelledby="movimientoModalLabel" aria-hidden="true">  
+  <div class="modal-dialog" role="document">  
+    <div class="modal-content">  
+      <div class="modal-header">  
+        <h5 class="modal-title" id="movimientoModalLabel">Registro de Movimiento</h5>  
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">  
+          <span aria-hidden="true">&times;</span>  
+        </button>  
+      </div>  
+      <div class="modal-body">  
+        <!-- Contenedor para los mensajes -->  
+        <div id="modalMessages"></div>  
+        <!-- El contenido del formulario se cargará aquí -->  
+      </div>  
+    </div>  
+  </div>  
+</div>  
+{% endblock content %}  
+{% block javascripts %}  
+<script>  
+  document.addEventListener("DOMContentLoaded", function() {  
+    $('#movimientoModal').on('show.bs.modal', function (e) {  
+      var button = $(e.relatedTarget); // Botón que abrió el modal  
+      var naturaleza = button.data('naturaleza'); // Obtener el valor de data-naturaleza  
+      var modal = $(this);  
+
+      // Cargar el formulario en el modal  
+      $.ajax({  
+        url: 'apps/home/movimiento.html',  
+        method: 'GET',  
+        success: function(data) {  
+          modal.find('.modal-body').html(data);  
+
+          // Establecer el valor del input naturaleza  
+          var naturalezaInput = modal.find('input[name="naturaleza"]');  
+          naturalezaInput.val(naturaleza);  
+
+          // Filtrar los tipos de movimiento según la naturaleza  
+          filterTipoMovimiento(naturaleza);  
+        }  
+      });  
+    });  
+
+    $(document).on('submit', '#movimientoForm', function(e) {  
+      e.preventDefault();  
+      var form = $(this);  
+      $.ajax({  
+        url: form.attr('action'),  
+        method: form.attr('method'),  
+        data: form.serialize(),  
+        success: function(response) {  
+          var messagesContainer = $('#modalMessages');  
+          messagesContainer.empty();  
+          if (response.success) {  
+            messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');  
+            $('#movimientoModal').modal('hide');  
+            location.reload();  // Recargar la página para ver los cambios  
+          } else {  
+            // Mostrar errores en el modal  
+            var errors = response.errors;  
+            for (var field in errors) {  
+              messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + errors[field] + '</div>');  
+            }  
+          }  
+        }  
+      });  
+    });  
+
+    // Función para filtrar el select de tipo de movimiento  
+    function filterTipoMovimiento(naturaleza) {  
+      const tipoMovimientoSelect = $('#idTipoMovimiento');  
+
+      // Muestra todas las opciones por defecto  
+      tipoMovimientoSelect.find('option').show();  
+
+      // Oculta las opciones que no coinciden con la naturaleza  
+      tipoMovimientoSelect.find('option').each(function() {  
+        if ($(this).data('naturaleza') !== naturaleza) {  
+          $(this).hide();  
+        }  
+      });  
+    }  
+
+    // Función para filtrar la tabla de resultados  
+    window.filterTable = function() {  
+      var input, filter, table, tr, td, i, j, txtValue;  
+      input = document.getElementById("searchInput");  
+      filter = input.value.toUpperCase();  
+      table = document.getElementById("egresosTable");  
+      tr = table.getElementsByTagName("tr");  
+      for (i = 1; i < tr.length; i++) {  
+        tr[i].style.display = "none";  
+        td = tr[i].getElementsByTagName("td");  
+        for (j = 0; j < td.length; j++) {  
+          if (td[j]) {  
+            txtValue = td[j].textContent || td[j].innerText;  
+            if (txtValue.toUpperCase().indexOf(filter) > -1) {  
+              tr[i].style.display = "";  
+              break;  
+            }  
+          }  
+        }  
+      }  
+    }  
+  });  
+</script>  
+{% endblock javascripts %}  

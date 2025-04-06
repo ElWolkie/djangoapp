@@ -40,7 +40,7 @@
     <thead class="text-darker">
       <tr>
         <th scope="col">ID</th>
-        <th scope="col">Oferta</th>
+        <th scope="col">Formación</th>
         <th scope="col">Nombre</th>
         <th scope="col">Estado</th>
         <th scope="col">Fecha</th>
@@ -51,10 +51,10 @@
       {% for materia in materias %}  
       <tr>  
           <td>{{ materia.idMateria }}</td>  
-          <td>{{ materia.idOferta.nombreOferta }}</td>  
+          <td>{{ materia.idFormacion.nombreFormacion }}</td>  
           <td>{{ materia.nombreMateria }}</td>  
           <td>{{ materia.estadoMateria }}</td>  
-          <td>{{ materia.fechaMateria }}</td>  
+          <td>{{ materia.fechaMateria|date:"d/m/Y" }}</td>  
       </tr>  
   {% endfor %}
     </tbody>
