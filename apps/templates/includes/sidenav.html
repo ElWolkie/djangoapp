@@ -29,26 +29,37 @@
         </li>
         
         <li class="nav-item">
-        <a class="nav-link menu1" href="#" id="personaDropdown" data-toggle="collapse" data-target="#menu1" aria-expanded="false" aria-controls="menu1">
-          <i class="ni ni-single-02 text-orange"></i>
-          <span class="nav-link-text">Gestionar Persona</span>
-        </a>
-        <div id="menu1" class="collapse">
-          <ul class="nav flex-column ml-3">
-          <li class="nav-item">
-            <a class="nav-link" href="/persona.html" style="padding-left: 15px;"><i class="ni ni-badge text-orange"></i>Registrar</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="/tablaPersona.html" style="padding-left: 15px;"><i class="ni ni-collection text-orange"></i>Consultar</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="/tablaTipoPersona.html" style="padding-left: 15px;">
-            <i class="ni ni-bullet-list-67 text-orange"></i>Tipo
+          <a class="nav-link menu1" href="#" id="persona1Dropdown" data-toggle="collapse" data-target="#menu1" aria-expanded="false" aria-controls="menu1">
+            <i class="ni ni-single-02 text-orange"></i>
+            <span class="nav-link-text">Gestionar Cliente</span>
+          </a>
+          <div id="menu1" class="collapse">
+            <ul class="nav flex-column ml-3">
+            <li class="nav-item">
+              <a class="nav-link" href="/persona.html?idTP=2" style="padding-left: 15px;"><i class="ni ni-badge text-orange"></i>Registrar</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="/tablaPersona.html" style="padding-left: 15px;"><i class="ni ni-collection text-orange"></i>Consultar</a>
+            </li>
+          
+            </ul>
+          </div>
+          </li>  <li class="nav-item">
+            <a class="nav-link menu1" href="#" id="persona2Dropdown" data-toggle="collapse" data-target="#menu2" aria-expanded="false" aria-controls="menu2">
+              <i class="ni ni-single-02 text-orange"></i>
+              <span class="nav-link-text">Gestionar Proveedor</span>
             </a>
-          </li>
-          </ul>
-        </div>
-        </li>
+            <div id="menu2" class="collapse">
+              <ul class="nav flex-column ml-3">
+                <li class="nav-item">
+                  <a class="nav-link" href="/persona.html?idTP=3" style="padding-left: 15px;"><i class="ni ni-badge text-orange"></i>Registrar</a>
+                </li>
+              <li class="nav-item">
+                <a class="nav-link" href="/tablaPersona.html" style="padding-left: 15px;"><i class="ni ni-collection text-orange"></i>Consultar</a>
+              </li>
+              </ul>
+            </div>
+            </li> 
         <li class="nav-item">  
           <a class="nav-link menu1" href="#" id="personaDropdown" data-toggle="collapse" data-target="#menu2" aria-expanded="false" aria-controls="menu2">  
             <i class="ni ni-hat-3 text-orange"></i>  
@@ -195,13 +206,26 @@
             </a>
           </li>
         -->
-
-          <li class="nav-item">
-            <a class="nav-link" href="/">
-              <i class="ni ni-settings-gear-65 text-default"></i>
-              <span class="nav-link-text">Configuración</span>
-            </a>
-          </li>
+        <li class="nav-item"></li>
+          <a class="nav-link menu1" href="#" id="configuracionDropdown" data-toggle="collapse" data-target="#configuracionMenu" aria-expanded="false" aria-controls="configuracionMenu">
+            <i class="ni ni-settings-gear-65 text-default"></i>
+            <span class="nav-link-text">Configurar</span>
+          </a>
+          <div id="configuracionMenu" class="collapse">
+            <ul class="nav flex-column ml-3">
+              <li class="nav-item">
+                <a class="nav-link" href="/tablaTipoPersona.html" style="padding-left: 15px;">
+                  <i class="ni ni-bullet-list-67 text-orange"></i>Tipo Persona
+                </a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="/sistema.html" style="padding-left: 15px;">
+                  <i class="ni ni-laptop text-orange"></i>Sistema
+                </a>
+              </li>
+            </ul>
+          </div>
+        </li>
 
           <!-- <li class="nav-item">
             <a class="nav-link {% if 'map' in segment %} active {% endif %}" href="/map.html">

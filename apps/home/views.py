@@ -7,10 +7,10 @@ from django.db.models import OuterRef, Subquery, Max
 from django.urls import reverse
 from django.contrib import messages
 from .forms import TipoPersonaForm, PersonaForm, TipoFormacionForm, FormacionForm, MateriaForm, CohorteForm, CargoForm, HonorarioForm, RequisitoForm, ServicioForm, TramiteForm, SolicitudForm, DenominacionForm, BancoForm, MonedaForm, TasaForm
-from .models import Personas, TipoPersona, PersonaTipoPersona,   TipoFormacion, Formacion, Materia, Cohorte, Cargo, Honorario, Requisito, Servicio, Tramite, Solicitud, Denominacion, Banco, Moneda, Tasa
+from .models import Personas, TipoPersona, PersonaTP,   TipoFormacion, Formacion, Materia, Cohorte, Cargo, Honorario, Requisito, Servicio, Tramite, Solicitud, Denominacion, Banco, Moneda, Tasa
 from django.template.loader import render_to_string
 from .forms import TipoPersonaForm, PersonaForm,TipoFormacionForm, FormacionForm, MateriaForm, CohorteForm, CargoForm, HonorarioForm, RequisitoForm, ServicioForm, TramiteForm, SolicitudForm, DenominacionForm, BancoForm, MonedaForm, TasaForm, TipoMovimientoForm, MovimientoForm
-from .models import Personas, TipoPersona, PersonaTipoPersona,TipoFormacion, Formacion, Materia, Cohorte, Cargo, Honorario, Requisito, Servicio, Tramite, Solicitud, Denominacion, Banco, Moneda, Tasa,Movimiento, TipoMovimiento
+from .models import Personas, TipoPersona, PersonaTP,TipoFormacion, Formacion, Materia, Cohorte, Cargo, Honorario, Requisito, Servicio, Tramite, Solicitud, Denominacion, Banco, Moneda, Tasa,Movimiento, TipoMovimiento
 
 @csrf_exempt
 def tipo_persona_modal(request):
@@ -347,32 +347,31 @@ def pages(request):
 
         if load_template == "admin":
             return HttpResponseRedirect(reverse("admin:index"))
-
         if load_template == "persona.html":
             if request.method == 'POST':
-                form = PersonaForm(request.POST)
-                if form.is_valid():
-                    # Guardar la persona
-                    persona = form.save()
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':  # Verificar si es una solicitud AJAX
+                    form = PersonaForm(request.POST)
+                    if form.is_valid():
+                        # Guardar la persona
+                        persona = form.save()
 
-                    # Obtener los tipos de persona seleccionados
-                    tipos_persona_ids = request.POST.getlist('tipos_persona')
+                        # Obtener los tipos de persona seleccionados
+                        tipos_persona_ids = request.POST.getlist('tipoPersona')
 
-                    # Asignar los tipos a la persona
-                    for tipo_id in tipos_persona_ids:
-                        tipo = TipoPersona.objects.get(idTP=tipo_id)
-                        PersonaTipoPersona.objects.create(idPersona=persona, idTP=tipo)
+                        # Asignar los tipos a la persona
+                        for tipo_id in tipos_persona_ids:
+                            tipo = TipoPersona.objects.get(idTP=tipo_id)
+                            PersonaTP.objects.create(idPersona=persona, idTP=tipo)
 
-                    messages.success(request, 'Registro exitoso.')
-                    return redirect('tablaPersona.html')  # Redirige a una URL de éxito
+                        return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
+                    else:
+                        # Devolver errores de validación
+                        errors = {field: error[0] for field, error in form.errors.items()}
+                        return JsonResponse({'success': False, 'errors': errors})
                 else:
-                    # Mostrar errores de validación del formulario
-                    for field, errors in form.errors.items():
-                        for error in errors:
-                            messages.error(request, f"Error en el campo {field}: {error}")
+                    form = PersonaForm()
             else:
                 form = PersonaForm()
-
             # Pasar el formulario y los tipos de persona al contexto
             context['form'] = form
             context['tipopersonas'] = TipoPersona.objects.all()  # Lista de tipos de persona
@@ -467,7 +466,7 @@ def pages(request):
 
         context["segment"] = load_template
 
-        if load_template in [ "honorario.html", "tablaContratos.html", "tablaHonorarios.html"]:
+        if load_template in [ "honorario.html", "honorario2.html", "tablaContratos.html", "tablaHonorarios.html"]:
             personas = Personas.objects.all()
             context['personas'] = personas
             cargos = Cargo.objects.all()

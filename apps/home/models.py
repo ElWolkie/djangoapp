@@ -36,7 +36,7 @@ class Personas(models.Model):
 
 
 # Tabla intermedia para la relación muchos a muchos entre Personas y TipoPersona
-class PersonaTipoPersona(models.Model):
+class PersonaTP(models.Model):
     idPersona = models.ForeignKey(Personas, on_delete=models.CASCADE)  # Clave foránea a Personas
     idTP = models.ForeignKey(TipoPersona, on_delete=models.CASCADE)  # Clave foránea a TipoPersona
     fechaAsignacion = models.DateField(auto_now_add=True)  # Fecha de asignación del tipo a la persona

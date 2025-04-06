@@ -57,7 +57,7 @@
       <td>{{ persona.telefono }}</td>
       <td>{{ persona.correo }}</td>
       <td>
-        {% for tipo in persona.personatipopersona_set.all %}
+        {% for tipo in persona.personatp_set.all %}
           {{ tipo.idTP.nombreTP }}{% if not forloop.last %}, {% endif %}
         {% endfor %}
       </td>
