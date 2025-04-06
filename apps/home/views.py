@@ -516,6 +516,12 @@ def pages(request):
 
         context["segment"] = load_template
 
+        if load_template == "tablaUsuario.html":
+            usuarios = Usuarios.objects.all()
+            context['usuarios'] = usuarios
+
+        context["segment"] = load_template
+
  
 
         if load_template == "tablaTipoFormaciones.html":
