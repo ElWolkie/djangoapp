@@ -36,17 +36,7 @@
   </div>
 
   <br>
-<<<<<<< HEAD:apps/templates/home/tablaCuotas.html
-
-  <div class="form-check form-switch mb-3">
-    <input type="checkbox" class="form-check-input" id="toggleInactivos" role="switch">
-    <label class="form-check-label" for="toggleInactivos">Ver todos (incluyendo inactivos)</label>
-  </div>
-
-<table class="table table-striped text-gray-dark" id="cuotasTable">
-=======
   <table class="table table-striped text-gray-dark" id="tipoFormacionesTable">
->>>>>>> nueva-rama:apps/templates/home/tablaTipoFormaciones.html
     <thead class="text-darker">
       <tr>
         <th scope="col">ID</th>
@@ -59,23 +49,6 @@
       </tr>
     </thead>
     <tbody>
-<<<<<<< HEAD:apps/templates/home/tablaCuotas.html
-        {% for cuota in cuota %}
-        <tr data-estado="{{ cuota.estadoCuota }}">
-            <td>{{ cuota.idCuota }}</td>
-            <td>{{ cuota.nombreCuota }}</td>
-            <td>{{ cuota.estadoCuota }}</td>
-            <td>{{ cuota.fechaCuota }}</td>
-            <td>
-                <button class="btn btn-sm btn-primary" type="button" data-toggle="modal" data-target="#editModal" data-url="{% url 'edit_cuota' cuota.idCuota %}">Editar</button>
-                <button class="btn btn-sm btn-danger" type="button" onclick="deleteCuota('{{ cuota.idCuota }}')">Eliminar</button>
-                {% if cuota.estadoCuota == 'INACTIVO' %}
-                <button class="btn btn-sm btn-success" type="button" onclick="reactivateCuota('{{ cuota.idCuota }}')">Reactivar</button>
-                {% endif %}
-            </td>
-        </tr>
-        {% endfor %}
-=======
       {% for tipoFormacion in tipoFormaciones %}
       <tr>
         <td>{{ tipoFormacion.idTF }}</td>
@@ -108,7 +81,6 @@
         <td colspan="5" class="text-center">No hay registros disponibles.</td>
       </tr>
       {% endfor %}
->>>>>>> nueva-rama:apps/templates/home/tablaTipoFormaciones.html
     </tbody>
   </table>
 </div>
@@ -153,36 +125,6 @@
 {% endblock content %}
 
 {% block javascripts %}
-<<<<<<< HEAD:apps/templates/home/tablaCuotas.html
-<script src="/static/assets/js/validacionesPersona.js"></script>
-
-<script>
-  document.addEventListener('DOMContentLoaded', function () {
-      const toggleInactivos = document.getElementById('toggleInactivos');
-      const tableRows = document.querySelectorAll('#cuotasTable tbody tr');
-
-      // Función para actualizar la visibilidad de las filas
-      function updateTableVisibility() {
-          const showInactivos = toggleInactivos.checked;
-
-          tableRows.forEach(row => {
-              const estado = row.getAttribute('data-estado');
-              if (estado === 'INACTIVO') {
-                  row.style.display = showInactivos ? '' : 'none';
-              }
-          });
-      }
-
-      // Escuchar cambios en el checkbox
-      toggleInactivos.addEventListener('change', updateTableVisibility);
-
-      // Aplicar la visibilidad inicial al cargar la página
-      updateTableVisibility();
-  });
-</script>
-
-=======
->>>>>>> nueva-rama:apps/templates/home/tablaTipoFormaciones.html
 <script>
   
   document.addEventListener("DOMContentLoaded", function() {
@@ -250,11 +192,8 @@
           var messagesContainer = $('#modalMessages');
           messagesContainer.empty();
           if (response.success) {
-<<<<<<< HEAD:apps/templates/home/tablaCuotas.html
-=======
             messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
             $('#editModal ').modal('hide');
->>>>>>> nueva-rama:apps/templates/home/tablaTipoFormaciones.html
             location.reload();  // Recargar la página para ver los cambios
           } else {
             // Mostrar errores en el modal
@@ -265,36 +204,6 @@
           }
         }
       });
-<<<<<<< HEAD:apps/templates/home/tablaCuotas.html
-    }
-  }
-  function reactivateCuota(id) {
-    if (confirm('¿Estás seguro de que deseas reactivar esta cuota?')) {
-      $.ajax({
-        url: '{% url "reactivate_cuota" 0 %}'.replace('0', id),
-        method: 'POST',
-        data: {
-          csrfmiddlewaretoken: '{{ csrf_token }}'
-        },
-        success: function(response) {
-          if (response.success) {
-            location.reload();  // Recargar la página para ver los cambios
-          } else {
-            alert('Error al reactivar la cuota.');
-          }
-        }
-      });
-    }
-  }
-
-  function filterInactiveRows() {
-    var rows = document.querySelectorAll('#cuotasTable tbody tr');
-    rows.forEach(function(row) {
-      if (row.getAttribute('data-estado') === 'INACTIVO') {
-        row.style.display = 'none';
-      }
-=======
->>>>>>> nueva-rama:apps/templates/home/tablaTipoFormaciones.html
     });
   
   
@@ -338,12 +247,6 @@
     }
   }
 
-<<<<<<< HEAD:apps/templates/home/tablaCuotas.html
-</script>
-
-<script>
-=======
->>>>>>> nueva-rama:apps/templates/home/tablaTipoFormaciones.html
   function filterTable() {
     var input, filter, table, tr, td, i, txtValue;
     input = document.getElementById("searchInput");
