@@ -19,30 +19,40 @@ urlpatterns = [
     path('deleteTF/<int:pk>/', views.delete_tipo_formacion, name='delete_tf'),
     path('reactivateTF/<int:pk>/', views.reactivate_tipo_formacion, name='reactivate_tf'),
     path('editTF/<int:pk>/', views.edit_tipo_formacion, name='edit_tf'),    
-    path('tablaTipoFormaciones/', views.tabla_tipo_formaciones, name='tabla_tipo_formaciones'),    
+    path('tablaTipoFormaciones/', views.tabla_tipo_formaciones, name='tabla_tipo_formaciones'),   
+
     # Specific route for formacion modal
     path('formacionModal/', views.formacion_modal, name='formacion_modal'),
     path('editFormacion/<int:pk>/', views.edit_formacion, name='edit_formacion'),
     path('deleteFormacion/<int:pk>/', views.delete_formacion, name='delete_formacion'),
     path('reactivateFormacion/<int:pk>/', views.reactivate_formacion, name='reactivate_formacion'),
     path('tablaFormaciones/', views.tabla_formaciones, name='tabla_formaciones'),
-    # Specific route for cuota 
-   
-    #path('cuotaModal/', views.cuota_modal, name='cuota_modal'), # URL para la creación
-    #path('editCuota/<int:pk>/', views.edit_view, name='edit_cuota'), # URL para la edición	
-    #path('deleteCuota/<int:pk>/', views.delete_view, name='delete_cuota'),  # URL para la eliminación lógica
-    #path('reactivateCuota/<int:pk>/', views.reactivate_view, name='reactivate_cuota'),  # URL para la reactivación
-    #path('tablaCuotas/', views.tabla_cuotas, name='tabla_cuotas'), # URL para la tabla de cuotas
 
        # Specific route for materia modal
-
     path('materiaModal/', views.materia_modal, name='materia_modal'),
+    path('editMateria/<int:pk>/', views.edit_materias, name='edit_materias'),
+    path('deleteMateria/<int:pk>/', views.delete_materias, name='delete_materias'),
+    path('reactivateMateria/<int:pk>/', views.reactivate_materias, name='reactivate_materias'),
+    path('tablaMaterias/', views.tabla_materias, name='tabla_materias'),
+
     # Specific route for cohorte modal
     path('cohorteModal/', views.cohorte_modal, name='cohorte_modal'),
+    path('editCohorte/<int:pk>/', views.edit_cohorte, name='edit_cohorte'),
+    path('deleteCohorte/<int:pk>/', views.delete_cohorte, name='delete_cohorte'),
+    path('reactivateCohorte/<int:pk>/', views.reactivate_cohorte, name='reactivate_cohorte'),
+
     # Specific route for cohorte modal
     path('cargoModal/', views.cargo_modal, name='cargo_modal'),
+    path('editCargo/<int:pk>/', views.edit_cargo, name='edit_cargo'),
+    path('deleteCargo/<int:pk>/', views.delete_cargo, name='delete_cargo'),
+    path('reactivateCargo/<int:pk>/', views.reactivate_cargo, name='reactivate_cargo'),
+
     # Specific route for cohorte modal
     path('honorarioModal/', views.honorario_modal, name='honorario_modal'),
+    path('editHonorario/<int:pk>/', views.edit_honorario, name='edit_honorario'),
+    path('deleteHonorario/<int:pk>/', views.delete_honorario, name='delete_honorario'),
+    path('reactivateHonorario/<int:pk>/', views.reactivate_honorario, name='reactivate_honorario'),
+
      # Specific route for cohorte modal
     path('requisitoModal/', views.requisito_modal, name='requisito_modal'),
     # Specific route for servicio modal

@@ -1,6 +1,6 @@
 {% extends 'layouts/base.html' %}
 
-{% block title %}Listado de Tipos de Cohortes{% endblock title %}
+{% block title %}Listado de Cohortes{% endblock title %}
 
 {% block stylesheets %}
 <link rel="stylesheet" href="/static/assets/css/styleForms.css" />
@@ -43,35 +43,79 @@
             <th scope="col">Nombre</th>
             <th scope="col">Estado</th>
             <th scope="col">Fecha</th>
+            <th scope="col">Acciones</th>
         </tr>
     </thead>
     <tbody>
-        <!-- Contenido de la tabla -->
-        {% for cohorte in cohortes %}  <!--"cohortes" a "cohorte" para coincidir con el contexto -->
+        {% for cohorte in cohortes %}
         <tr>
             <td>{{ cohorte.idCohorte }}</td>
             <td>{{ cohorte.nombreCohorte }}</td>
             <td>{{ cohorte.estadoCohorte }}</td>
-            <td>{{ cohorte.fechaCohorte }}</td>
+            <td>{{ cohorte.fechaCohorte|date:"d/m/Y" }}</td>
+            <td>
+              <button class="btn btn-sm btn-primary" type="button" data-toggle="modal" data-target="#editModal" data-url="{% url 'edit_cohorte' cohorte.idCohorte %}">
+                Editar
+              </button>
+
+              {% if cohorte.estadoCohorte == "ACTIVO" %}
+              <button class="btn btn-sm btn-danger" type="button" onclick="deleteCohorte('{{ cohorte.idCohorte }}')">
+                Eliminar
+              </button>
+              {% endif %}
+
+              {% if cohorte.estadoCohorte == "INACTIVO" %}
+              <button class="btn btn-sm btn-success" type="button" onclick="reactivateCohorte('{{ cohorte.idCohorte }}')">
+                Reactivar
+              </button>
+              {% endif %}
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="5" class="text-center">No hay registros disponibles.</td>
         </tr>
         {% endfor %}
     </tbody>
 </table>
 </div>
-<!-- Modal -->
+
+<!-- Modal para registrar -->
 <div class="modal fade" id="cohorteModal" tabindex="-1" role="dialog" aria-labelledby="cohorteModalLabel" aria-hidden="true">
   <div class="modal-dialog" role="document">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="cohorteModalLabel">Registro de Tipo de Oferta</h5>
+        <h5 class="modal-title" id="cohorteModalLabel">Registro de Cohorte</h5>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
       </div>
       <div class="modal-body">
-        <!-- Contenedor para los mensajes -->
         <div id="modalMessages"></div>
-        <!-- El contenido del formulario se cargará aquí -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal para editar -->
+<div class="modal fade" id="editCargoModal" tabindex="-1" role="dialog" aria-labelledby="editCargoModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="editCargoModalLabel">Modificar Cohorte</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div id="modalMessages">
+
+          <form id="editCohorteForm">
+            <!-- El contenido del formulario de edición se cargará aquí -->
+          </form>
+
+
+        </div>
       </div>
     </div>
   </div>
@@ -79,7 +123,6 @@
 {% endblock content %}
 
 {% block javascripts %}
-<script src="/static/assets/js/validacionesPersona.js"></script>
 <script>
   document.addEventListener("DOMContentLoaded", function() {
     $('#cohorteModal').on('show.bs.modal', function (e) {
@@ -93,6 +136,22 @@
       });
     });
 
+    // Manejar modal de edición
+    $('#editModal').on('show.bs.modal', function (e) {
+      var modal = $(this);
+      var url = $(e.relatedTarget).data('url');
+      $.ajax({
+        url: url,
+        method: 'GET',
+        success: function(data) {
+          modal.find('.modal-body').html(data);
+        },
+        error: function() {
+          alert('Error al cargar el formulario de edición.');
+        }
+      });
+    });
+
     $(document).on('submit', '#cohorteForm', function(e) {
       e.preventDefault();
       var form = $(this);
@@ -101,37 +160,79 @@
         method: form.attr('method'),
         data: form.serialize(),
         success: function(response) {
-          var messagesContainer = $('#modalMessages');
-          messagesContainer.empty();
-          if (response.success) {
-            messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
-            $('#cohorteModal').modal('hide');
-            location.reload();  // Recargar la página para ver los cambios
-          } else {
-            // Mostrar errores en el modal
-            var errors = response.errors;
-            for (var field in errors) {
-              messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + errors[field] + '</div>');
-            }
-          }
+          handleFormResponse(response, '#cohorteModal');
+        }
+      });
+    });
+
+    $(document).on('submit', '#editCohorteForm', function(e) {
+      e.preventDefault();
+      var form = $(this);
+      $.ajax({
+        url: form.attr('action'),
+        method: form.attr('method'),
+        data: form.serialize(),
+        success: function(response) {
+          handleFormResponse(response, '#editModal');
         }
       });
     });
   });
-</script>
-<script>
+
+  function handleFormResponse(response, modalId) {
+    var messagesContainer = $('#modalMessages');
+    messagesContainer.empty();
+    if (response.success) {
+      messagesContainer.append('<div class="alert alert-success">' + response.message + '</div>');
+      $(modalId).modal('hide');
+      setTimeout(() => location.reload(), 1500);
+    } else {
+      $.each(response.errors, function(field, error) {
+        messagesContainer.append('<div class="alert alert-danger">' + error + '</div>');
+      });
+    }
+  }
+
+  function deleteCohorte(id) {
+    if (confirm('¿Estás seguro de eliminar esta cohorte?')) {
+      $.ajax({
+        url: '{% url "delete_cohorte" 0 %}'.replace('0', id),
+        method: 'POST',
+        data: { csrfmiddlewaretoken: '{{ csrf_token }}' },
+        success: function(response) {
+          alert(response.message);
+          location.reload();
+        }
+      });
+    }
+  }
+
+  function reactivateCohorte(id) {
+    if (confirm('¿Estás seguro de reactivar esta cohorte?')) {
+      $.ajax({
+        url: '{% url "reactivate_cohorte" 0 %}'.replace('0', id),
+        method: 'POST',
+        data: { csrfmiddlewaretoken: '{{ csrf_token }}' },
+        success: function(response) {
+          alert(response.message);
+          location.reload();
+        }
+      });
+    }
+  }
+
   function filterTable() {
-    var input, filter, table, tr, td, i, j, txtValue;
-    input = document.getElementById("searchInput");
-    filter = input.value.toUpperCase();
-    table = document.getElementById("cohorteTable");
-    tr = table.getElementsByTagName("tr");
-    for (i = 1; i < tr.length; i++) {
+    var input = document.getElementById("searchInput");
+    var filter = input.value.toUpperCase();
+    var table = document.getElementById("cohorteTable");
+    var tr = table.getElementsByTagName("tr");
+    
+    for (let i = 1; i < tr.length; i++) {
       tr[i].style.display = "none";
-      td = tr[i].getElementsByTagName("td");
-      for (j = 0; j < td.length; j++) {
-        if (td[j]) {
-          txtValue = td[j].textContent || td[j].innerText;
+      let tds = tr[i].getElementsByTagName("td");
+      for (let j = 0; j < tds.length; j++) {
+        if (tds[j]) {
+          let txtValue = tds[j].textContent || tds[j].innerText;
           if (txtValue.toUpperCase().indexOf(filter) > -1) {
             tr[i].style.display = "";
             break;
