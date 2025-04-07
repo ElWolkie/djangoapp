@@ -87,8 +87,8 @@ class Usuarios(AbstractBaseUser, PermissionsMixin):
     is_staff = models.BooleanField(default=False)  # Necesario para admin
     is_superuser = models.BooleanField(default=False)  # Necesario para permisos de superusuario
 
-    # class Meta:
-    #     db_table = 'usuarios'  # Esto forzará el nombre de tabla exacto
+    class Meta:
+        db_table = 'home_usuarios'  # Nombre explícito
 
     objects = UsuarioManager()
 
