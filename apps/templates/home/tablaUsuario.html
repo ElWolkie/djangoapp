@@ -1,0 +1,109 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}Listado de Usuarios{% endblock title %}
+
+{% block stylesheets %}
+<link rel="stylesheet" href="/static/assets/css/styleForms.css" />
+<link rel="stylesheet" href="/static/assets/css/argon.css" />
+
+<style>
+  .badge {
+  font-size: 0.68rem;    /* Ajusta según el tamaño deseado */
+  padding: 0.35em 0.35em;  /* Ajusta los valores para obtener el espacio adecuado */
+}
+
+</style>
+{% endblock stylesheets %}
+
+{% block content %}
+<div class="container mt-5">
+  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Lista de Usuarios Registrados</h2>
+
+  {% if messages %}
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+      {% endfor %}
+  {% endif %}
+
+  <div class="row">
+    <div class="col-md-4">
+      <div class="input-group">
+        <div class="input-group-prepend">
+          <span class="input-group-text" style="background-color: #bcbcbc; border: none;">
+            <i class="fas fa-search text-warning"></i>
+          </span>
+        </div>
+        <input class="form-control" id="searchInput" type="text" placeholder="Buscar...">
+      </div>
+    </div>
+    <div class="col-md-4"></div>
+  </div>
+
+  <br>
+  <table class="table table-striped text-gray-dark" id="usuariosTable">
+    <thead class="text-darker">
+      <tr>
+        <th scope="col">Cédula</th>
+        <th scope="col">Nombre Completo</th>
+        <th scope="col">Fecha Registro</th>
+        <th scope="col">Estado</th>
+        <th scope="col">Tipo Usuario</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for usuario in usuarios %}
+        <tr>
+          <td>{{ usuario.idPersona.cedula }}</td>
+          <td>{{ usuario.idPersona.nombres }} {{ usuario.idPersona.apellidos }}</td>
+          <td>{{ usuario.fechaUsuario|date:"d/m/Y H:i" }}</td>
+          <td>
+            {% if usuario.is_active %}
+              <span class="badge badge-success"><i class="fas fa-check-circle"></i> Activo</span>
+            {% else %}
+              <span class="badge badge-danger"><i class="fas fa-times-circle"></i> Inactivo</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if usuario.is_superuser %}
+              <span class="badge badge-primary">Superusuario</span>
+            {% elif usuario.is_staff %}
+              <span class="badge badge-info">Staff</span>
+            {% else %}
+              <span class="badge badge-secondary">Normal</span>
+            {% endif %}
+          </td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="5" class="text-center">No se encontraron usuarios registrados</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+      
+  </table>
+</div>
+{% endblock content %}
+
+{% block javascripts %}
+<script>
+  document.getElementById('searchInput').addEventListener('keyup', function() {
+    var input = this.value.toLowerCase();
+    var rows = document.querySelectorAll('#usuariosTable tbody tr');
+    rows.forEach(function(row) {
+      var cells = row.querySelectorAll('td');
+      var match = false;
+      cells.forEach(function(cell) {
+        if (cell.textContent.toLowerCase().indexOf(input) > -1) {
+          match = true;
+        }
+      });
+      row.style.display = match ? '' : 'none';
+    });
+  });
+</script>
+{% endblock javascripts %}

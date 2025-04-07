@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     "corsheaders",  # Para permitir conexiones desde el frontend
     "apps.authentication",
     "apps.home",  # Enable the inner home (home)
+    'django_extensions',
 ]
 
 MIDDLEWARE = [
@@ -66,10 +67,6 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 ROOT_URLCONF = "core.urls"
-LOGIN_URL = "/login/"
-LOGIN_REDIRECT_URL = "/home/"
-LOGOUT_REDIRECT_URL = "/login/"
-
 
 TEMPLATE_DIR = os.path.join(CORE_DIR, "apps/templates")  # ROOT dir for templates
 
@@ -119,6 +116,18 @@ if platform.system() == "Windows":
     DATABASES["default"]["OPTIONS"]["client_encoding"] = "UTF8"
 
 
+# Configuración de autenticación
+LOGIN_URL = '/login/'
+LOGIN_REDIRECT_URL = '/dashboard/'  # O '/home/' según prefieras
+LOGOUT_REDIRECT_URL = '/login/'
+
+AUTH_USER_MODEL = 'home.Usuarios'
+
+AUTHENTICATION_BACKENDS = [
+    'apps.home.backends.CedulaBackend',  # Asegúrate de crear este archivo
+    'django.contrib.auth.backends.ModelBackend',
+]
+
 AUTH_PASSWORD_VALIDATORS = [
     {
         "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
@@ -139,7 +148,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = "en-us"
 
-TIME_ZONE = "UTC"
+IME_ZONE = 'America/Caracas'
 
 USE_I18N = True
 

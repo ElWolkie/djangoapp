@@ -40,10 +40,12 @@
     <thead class="text-darker">
       <tr>
         <th scope="col">ID</th>
-        <th scope="col">Oferta</th>
+        <th scope="col">Formación</th>
         <th scope="col">Nombre</th>
         <th scope="col">Estado</th>
         <th scope="col">Fecha</th>
+        <th scope="col">Acciones</th>
+
       </tr>
     </thead>
     <tbody>
@@ -51,10 +53,15 @@
       {% for materia in materias %}  
       <tr>  
           <td>{{ materia.idMateria }}</td>  
-          <td>{{ materia.idOferta.nombreOferta }}</td>  
+          <td>{{ materia.idFormacion.nombreFormacion }}</td>  
           <td>{{ materia.nombreMateria }}</td>  
           <td>{{ materia.estadoMateria }}</td>  
-          <td>{{ materia.fechaMateria }}</td>  
+          <td>{{ materia.fechaMateria|date:"d/m/Y" }}</td>  
+          <td>
+            <button class="btn btn-sm btn-primary" type="button" data-toggle="modal" data-target="#editMateriaModal" data-id="{{ materia.idMateria }}">Editar</button>
+            <button class="btn btn-sm btn-danger" type="button" onclick="deleteMaterias('{{ materia.idMateria }}')">Eliminar</button>
+            <button class="btn btn-sm btn-success" type="button" onclick="reactivateMaterias('{{ materia.idMateria }}')">Reactivar</button>
+          </td>
       </tr>  
   {% endfor %}
     </tbody>
@@ -78,10 +85,33 @@
     </div>
   </div>
 </div>
-{% endblock content %}
 
+<div class="modal fade" id="editMateriaModal" tabindex="-1" role="dialog" aria-labelledby="editMateriaModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+      <h5 class="modal-title" id="editMateriaModalLabel">Modificar Materia</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <!-- Contenedor para los mensajes -->
+        <div id="modalMessages"></div>
+        <form id="editMateriaForm" >
+          <!-- Aquí se cargará el formulario de edición -->
+          <div id="editMateriaContent">
+            <!-- El contenido del formulario se cargará aquí -->
+          </div>
+         
+      </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock content %}
 {% block javascripts %}
-<script src="/static/assets/js/validacionesPersona.js"></script>
 <script>
   document.addEventListener("DOMContentLoaded", function() {
     $('#materiaModal').on('show.bs.modal', function (e) {
@@ -95,7 +125,54 @@
       });
     });
 
-    $(document).on('submit', '#materiaForm', function(e) {
+   // Función para cargar el formulario en el modal de edición
+   $('#editMateriaModal').on('show.bs.modal', function (e) {
+    var button = $(e.relatedTarget); // Botón que activó el modal
+    var idMateria = button.data('id'); // Extraer la información de los atributos data-*
+    var modal = $(this);
+    $.ajax({
+      url: '/editMateria/' + idMateria + '/',
+      type: 'get',
+      dataType: 'html',
+      success: function(data) {
+        modal.find('.modal-body').html(data);
+
+        // Adjuntar el evento submit al formulario de edición después de cargarlo
+        $(document).off('submit', '#editMateriaForm').on('submit', '#editMateriaForm', function(e) {
+          e.preventDefault();
+          var form = $(this);
+          $.ajax({
+            url: form.attr('action'),
+            method: 'POST',
+            data: form.serialize(),
+            success: function(response) {
+              var messagesContainer = $('#modalMessagesEdit');
+              messagesContainer.empty();
+              if (response.success) {
+                messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
+                $('#editMateriaModal').modal('hide');
+                location.reload();
+              } else {
+                var errors = response.errors;
+                for (var field in errors) {
+                  messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + errors[field] + '</div>');
+                }
+              }
+            },
+            error: function() {
+              alert('Error al procesar la solicitud.');
+            },
+          });
+        });
+      },
+      error: function(error) {
+        console.log(error);
+      }
+    });
+  });
+
+    // Adjuntar el evento submit al formulario de registro después de cargarlo
+    $(document).on('submit', '#editMateriaForm', function(e) {
       e.preventDefault();
       var form = $(this);
       $.ajax({
@@ -107,7 +184,7 @@
           messagesContainer.empty();
           if (response.success) {
             messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
-            $('#materiaModal').modal('hide');
+            $('#editMateriaModal').modal('hide');
             location.reload();  // Recargar la página para ver los cambios
           } else {
             // Mostrar errores en el modal
@@ -120,6 +197,52 @@
       });
     });
   });
+
+// Función para eliminar una materia
+function deleteMaterias(id) {
+  if (confirm('¿Estás seguro de que deseas eliminar esta materia?')) {
+    $.ajax({
+      url: '{% url "delete_materias" 0 %}'.replace('0', id),
+      method: 'POST',
+      data: {
+        csrfmiddlewaretoken: '{{ csrf_token }}'
+      },
+      success: function(response) {
+        if (response.success) {
+          alert(response.message);
+          location.reload();  // Recargar la página para ver los cambios
+        } else {
+          alert('Error al eliminar la materia.');
+        }
+      }
+    });
+  }
+}
+
+// Función para reactivar una materia
+function reactivateMaterias(id) {
+  if (confirm('¿Estás seguro de que deseas reactivar esta, materia?')) {
+    $.ajax({
+      url: '{% url "reactivate_materias" 0 %}'.replace('0', id),
+      method: 'POST',
+      data: {
+        csrfmiddlewaretoken: '{{ csrf_token }}'
+      },
+      success: function(response) {
+        if (response.success) {
+          alert(response.message);
+          location.reload();  // Recargar la página para ver los cambios
+        } else {
+          alert('Error al reactivar la, materia.');
+        }
+      }
+    });
+  }
+}
+
+
+
+
 </script>
 <script>
   function filterTable() {

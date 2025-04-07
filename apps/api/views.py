@@ -1,6 +1,6 @@
 from rest_framework import generics
-from apps.home.models import Personas, TipoPersona, Cuota, Ofertas, TipoOferta, Materia, Cohorte, Cargo, Contrato, Honorario, Requisito, Servicio, Tramite, Solicitud, Denominacion, Banco, Moneda, Tasa, TipoIngreso, TipoEgreso
-from .serializers import PersonaSerializer, TipoPersonaSerializer, CuotaSerializer, OfertasSerializer, TipoOfertaSerializer, MateriaSerializer, CohorteSerializer, CargoSerializer, ContratoSerializer, HonorarioSerializer, RequisitoSerializer, ServicioSerializer, TramiteSerializer, SolicitudSerializer, DenominacionSerializer, BancoSerializer, MonedaSerializer, TasaSerializer, TipoIngresoSerializer, TipoEgresoSerializer  # Importa ambos serializadores
+from apps.home.models import Personas, TipoPersona, PersonaTP, Materia, Cohorte, Cargo, Honorario, Requisito, Servicio, Tramite, Solicitud, Denominacion, Banco, Moneda, Tasa, TipoIngreso
+from .serializers import PersonaSerializer, TipoPersonaSerializer, PersonaTPSerializer, MateriaSerializer, CohorteSerializer, CargoSerializer, HonorarioSerializer, RequisitoSerializer, ServicioSerializer, TramiteSerializer, SolicitudSerializer, DenominacionSerializer, BancoSerializer, MonedaSerializer, TasaSerializer, TipoIngresoSerializer  # Importa ambos serializadores
 
 # Vista para Personas
 class PersonaListCreate(generics.ListCreateAPIView):
@@ -12,25 +12,30 @@ class TipoPersonaListCreate(generics.ListCreateAPIView):
     queryset = TipoPersona.objects.all()  # Usa el modelo TipoPersona
     serializer_class = TipoPersonaSerializer  # Usa el serializador TipoPersonaSerializer
 
+# Vista para TipoPersona
+class PersonaTPListCreate(generics.ListCreateAPIView):
+    queryset = PersonaTP.objects.all()  # Usa el modelo PersonaTP
+    serializer_class = PersonaTPSerializer  # Usa el serializador PersonaTPSerializer
+
 # Vista para operaciones de detalle, actualización y eliminación de Personas
 class PersonaRetrieveUpdateDestroy(generics.RetrieveUpdateDestroyAPIView):
     queryset = Personas.objects.all()  # Usa el modelo Personas
     serializer_class = PersonaSerializer  # Usa el serializador PersonaSerializer
 
-# Vista para Cuotas
-class CuotaListCreate(generics.ListCreateAPIView):
-    queryset = Cuota.objects.all()  # Usa el modelo Cuota
-    serializer_class = CuotaSerializer  # Usa el serializador CuotaSerializer
+# # Vista para Cuotas
+# class CuotaListCreate(generics.ListCreateAPIView):
+#     queryset = Cuota.objects.all()  # Usa el modelo Cuota
+#     serializer_class = CuotaSerializer  # Usa el serializador CuotaSerializer
 
-# Vista para Ofertas
-class OfertasListCreate(generics.ListCreateAPIView):
-    queryset = Ofertas.objects.all()  # Usa el modelo Ofertas
-    serializer_class = OfertasSerializer  # Usa el serializador OfertasSerializer
+# # Vista para Ofertas
+# class OfertasListCreate(generics.ListCreateAPIView):
+#     queryset = Ofertas.objects.all()  # Usa el modelo Ofertas
+#     serializer_class = OfertasSerializer  # Usa el serializador OfertasSerializer
 
-# Vista para TipoOferta
-class TipoOfertaListCreate(generics.ListCreateAPIView):
-    queryset = TipoOferta.objects.all()  # Usa el modelo TipoOferta
-    serializer_class = TipoOfertaSerializer  # Usa el serializador TipoOfertaSerializer
+# # Vista para TipoOferta
+# class TipoOfertaListCreate(generics.ListCreateAPIView):
+#     queryset = TipoOferta.objects.all()  # Usa el modelo TipoOferta
+#     serializer_class = TipoOfertaSerializer  # Usa el serializador TipoOfertaSerializer
 
 class MateriaListCreate(generics.ListCreateAPIView):
     queryset = Materia.objects.all()  # Usa el modelo Materia
@@ -44,9 +49,9 @@ class CargoListCreate(generics.ListCreateAPIView):
     queryset = Cargo.objects.all()  # Usa el modelo Cargo
     serializer_class = CargoSerializer  # Usa el serializador CargoSerializer
 
-class ContratoListCreate(generics.ListCreateAPIView):
-    queryset = Contrato.objects.all()  # Usa el modelo Contrato
-    serializer_class = ContratoSerializer  # Usa el serializador ContratoSerializer
+# class ContratoListCreate(generics.ListCreateAPIView):
+#     queryset = Contrato.objects.all()  # Usa el modelo Contrato
+#     serializer_class = ContratoSerializer  # Usa el serializador ContratoSerializer
 
 class HonorarioListCreate(generics.ListCreateAPIView):
     queryset = Honorario.objects.all()  # Usa el modelo Honorario
@@ -88,6 +93,6 @@ class TipoIngresoListCreate(generics.ListCreateAPIView):
     queryset = TipoIngreso.objects.all()  # Usa el modelo TipoIngreso
     serializer_class = TipoIngresoSerializer  # Usa el serializador TipoIngresoSerializer
 
-class TipoEgresoListCreate(generics.ListCreateAPIView):
-    queryset = TipoEgreso.objects.all()  # Usa el modelo TipoEgreso
-    serializer_class = TipoEgresoSerializer  # Usa el serializador TipoEgresoSerializer
+# class TipoEgresoListCreate(generics.ListCreateAPIView):
+#     queryset = TipoEgreso.objects.all()  # Usa el modelo TipoEgreso
+#     serializer_class = TipoEgresoSerializer  # Usa el serializador TipoEgresoSerializer

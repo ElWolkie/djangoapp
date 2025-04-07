@@ -1,5 +1,5 @@
 from django import forms  
-from .models import TipoPersona, Personas, Ofertas, Cuota, TipoOferta, Materia, Cohorte, Cargo, Contrato, Honorario, Requisito, Servicio, Tramite, Solicitud, Denominacion, Banco, Moneda, Tasa, TipoIngreso, TipoEgreso
+from .models import TipoPersona, Personas, PersonaTP, Formacion,TipoFormacion, Materia, Cohorte, Cargo, Honorario, Requisito, Servicio, Tramite, Solicitud, Denominacion, Banco, Moneda, Tasa, TipoMovimiento, Movimiento
 
 class TipoPersonaForm(forms.ModelForm):  
     estadoTP = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
@@ -14,31 +14,28 @@ class PersonaForm(forms.ModelForm):
 
     class Meta:  
         model = Personas  
-        fields = ['idTP', 'cedula', 'nombres', 'apellidos', 'telefono', 'correo', 'estadoPersona']  
+        fields = ['cedula', 'nombres', 'apellidos', 'telefono', 'correo', 'estadoPersona']  
+
+class PersonaTPForm(forms.ModelForm):
+    class Meta:
+        model = PersonaTP
+        fields = ['idPersona', 'idTP']
 
 
-class CuotaForm(forms.ModelForm):  
-    estadoCuota = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
-
-    class Meta:  
-        model = Cuota  
-        fields = ['idCuota', 'nombreCuota', 'estadoCuota']  
-
-
-class OfertaForm(forms.ModelForm):  
-    estadoOferta = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
+class TipoFormacionForm(forms.ModelForm):  
+    estadoTipoFormacion = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
 
     class Meta:  
-        model = Ofertas  
-        fields = ['idOferta', 'idTipoOferta', 'nombreOferta', 'duracion', 'estadoOferta']  
+        model = TipoFormacion  
+        fields = ['nombreTipoFormacion','cuotas', 'estadoTipoFormacion']  
 
 
-class TipoOfertaForm(forms.ModelForm):  
-    estadoTipoOferta = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
+class FormacionForm(forms.ModelForm):  
+    estadoFormacion = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
 
     class Meta:  
-        model = TipoOferta  
-        fields = ['idTipoOferta', 'idCuota', 'nombreTipoOferta', 'estadoTipoOferta']  
+        model = Formacion  
+        fields = ['idTF', 'nombreFormacion', 'duracion', 'estadoFormacion']
 
 
 class MateriaForm(forms.ModelForm):  
@@ -46,7 +43,7 @@ class MateriaForm(forms.ModelForm):
 
     class Meta:  
         model = Materia  
-        fields = ['idOferta', 'nombreMateria', 'estadoMateria']  # Nota: No se incluye idMateria, ya que es auto generado.
+        fields = ['idFormacion', 'nombreMateria', 'estadoMateria']  # Nota: No se incluye idMateria, ya que es auto generado.
 
 
 class CohorteForm(forms.ModelForm):  
@@ -64,20 +61,13 @@ class CargoForm(forms.ModelForm):
         model = Cargo  
         fields = ['idCargo', 'nombreCargo', 'estadoCargo']  
 
-class ContratoForm(forms.ModelForm):  
-    estadoContrato = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
-            
-    class Meta:  
-        model = Contrato  
-        fields = ['idContrato', 'idPersona', 'idCargo', 'idCohorte', 'idMateria', 'estadoContrato']  
-
 
 class HonorarioForm(forms.ModelForm):  
     estadoHonorario = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
             
     class Meta:  
         model = Honorario  
-        fields = ['idHonorario','idContrato', 'horas', 'estadoHonorario']  
+        fields = ['idHonorario', 'idPersona', 'idCargo', 'idCohorte', 'idMateria', 'horas', 'estadoHonorario']  
 
 
 
@@ -146,19 +136,28 @@ class TasaForm(forms.ModelForm):
 
 
 
-class TipoIngresoForm(forms.ModelForm):  
-    estadoTipoIngreso = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
+class TipoMovimientoForm(forms.ModelForm):  
+    estadoTipoMovimiento = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
 
     class Meta:  
-        model = TipoIngreso  
-        fields = ['idTipoIngreso', 'nombreTipoIngreso', 'estadoTipoIngreso']  
+        model = TipoMovimiento  
+        fields = ['idTipoMovimiento', 'naturaleza', 'nombreTipoMovimiento', 'estadoTipoMovimiento']  
+  
 
-
-
-class TipoEgresoForm(forms.ModelForm):  
-    estadoTipoEgreso = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
+class MovimientoForm(forms.ModelForm):  
+    estadoMovimiento = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
 
     class Meta:  
-        model = TipoEgreso  
-        fields = ['idTipoEgreso', 'nombreTipoEgreso', 'estadoTipoEgreso']  
-
+        model = Movimiento  
+        fields = [
+            'idTipoMovimiento', 
+            'idDenominacion', 
+            'idBanco', 
+            'idTasa', 
+            'naturaleza',   
+            'tipoPago', 
+            'referencia', 
+            'monto', 
+            'descripcion', 
+            'estadoMovimiento'
+        ]

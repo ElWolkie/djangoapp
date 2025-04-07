@@ -1,6 +1,6 @@
 {% extends 'layouts/base.html' %}
 
-{% block title %}Listado de Tipos de Cuotas{% endblock title %}
+{% block title %}Listado de Tipos de Formación{% endblock title %}
 
 {% block stylesheets %}
 <link rel="stylesheet" href="/static/assets/css/styleForms.css" />
@@ -9,7 +9,7 @@
 
 {% block content %}
 <div class="container mt-5">
-  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Lista de Tipos de Cuotas Registradas</h2>
+  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Lista de Tipos de Formación Registrados</h2>
 
   {% if messages %}
     {% for message in messages %}
@@ -31,52 +31,66 @@
       </div>
     </div>
     <div class="col-md-4">
-      <button class="btn btn-warning btn-square btn-sm my-2" type="button" title="Registrar Cuota" data-toggle="modal" data-target="#cuotaModal">+</button>
+      <button class="btn btn-warning btn-square btn-sm my-2" type="button" title="Registrar Tipo de Formación" data-toggle="modal" data-target="#tipoFormacionModal">+</button>
     </div>
   </div>
 
   <br>
-
-  <div class="form-check form-switch mb-3">
-    <input type="checkbox" class="form-check-input" id="toggleInactivos" role="switch">
-    <label class="form-check-label" for="toggleInactivos">Ver todos (incluyendo inactivos)</label>
-  </div>
-
-<table class="table table-striped text-gray-dark" id="cuotasTable">
+  <table class="table table-striped text-gray-dark" id="tipoFormacionesTable">
     <thead class="text-darker">
-        <tr>
-            <th scope="col">ID</th>
-            <th scope="col">Cantidad</th>
-            <th scope="col">Estado</th>
-            <th scope="col">Fecha</th>
-            <th scope="col">Acciones</th>
-        </tr>
+      <tr>
+        <th scope="col">ID</th>
+        <th scope="col">Nombre</th>
+        <th scope="col">Estado</th>
+        <th scope="col">Cuotas</th>
+        <th scope="col">Fecha</th>
+        <th scope="col">Acciones</th>
+        
+      </tr>
     </thead>
     <tbody>
-        {% for cuota in cuota %}
-        <tr data-estado="{{ cuota.estadoCuota }}">
-            <td>{{ cuota.idCuota }}</td>
-            <td>{{ cuota.nombreCuota }}</td>
-            <td>{{ cuota.estadoCuota }}</td>
-            <td>{{ cuota.fechaCuota }}</td>
-            <td>
-                <button class="btn btn-sm btn-primary" type="button" data-toggle="modal" data-target="#editModal" data-url="{% url 'edit_cuota' cuota.idCuota %}">Editar</button>
-                <button class="btn btn-sm btn-danger" type="button" onclick="deleteCuota('{{ cuota.idCuota }}')">Eliminar</button>
-                {% if cuota.estadoCuota == 'INACTIVO' %}
-                <button class="btn btn-sm btn-success" type="button" onclick="reactivateCuota('{{ cuota.idCuota }}')">Reactivar</button>
-                {% endif %}
-            </td>
-        </tr>
-        {% endfor %}
+      {% for tipoFormacion in tipoFormaciones %}
+      <tr>
+        <td>{{ tipoFormacion.idTF }}</td>
+        <td>{{ tipoFormacion.nombreTipoFormacion }}</td>
+        <td>{{ tipoFormacion.estadoTipoFormacion }}</td>
+        <td>{{ tipoFormacion.cuotas}}</td>
+        <td>{{ tipoFormacion.fechaTipoFormacion }}</td>
+        <td>
+          <button class="btn btn-sm btn-primary" type="button" data-toggle="modal" data-target="#editModal" data-url="{% url 'edit_tf' tipoFormacion.idTF %}">
+            Editar
+          </button>
+
+          <!-- Botón para eliminar lógico -->
+          {% if tipoFormacion.estadoTipoFormacion == "ACTIVO" %}
+          <button class="btn btn-sm btn-danger" type="button" onclick="deleteTipoFormacion('{{ tipoFormacion.idTF }}')">
+            Eliminar
+          </button>
+          {% endif %}
+
+          <!-- Botón para reactivar -->
+          {% if tipoFormacion.estadoTipoFormacion == "INACTIVO" %}
+          <button class="btn btn-sm btn-success" type="button" onclick="reactivateTipoFormacion('{{ tipoFormacion.idTF }}')">
+            Reactivar
+          </button>
+          {% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="5" class="text-center">No hay registros disponibles.</td>
+      </tr>
+      {% endfor %}
     </tbody>
-</table>
+  </table>
 </div>
-<!-- Modal -->
-<div class="modal fade" id="cuotaModal" tabindex="-1" role="dialog" aria-labelledby="cuotaModalLabel" aria-hidden="true">
+
+<!-- Modal para registrar -->
+<div class="modal fade" id="tipoFormacionModal" tabindex="-1" role="dialog" aria-labelledby="tipoFormacionModalLabel" aria-hidden="true">
   <div class="modal-dialog" role="document">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="cuotaModalLabel">Registro de Tipo de Oferta</h5>
+        <h5 class="modal-title" id="tipoFormacionModalLabel">Registro de Tipo de Formación</h5>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
@@ -89,12 +103,13 @@
     </div>
   </div>
 </div>
+
 <!-- Modal para editar -->
 <div class="modal fade" id="editModal" tabindex="-1" role="dialog" aria-labelledby="editModalLabel" aria-hidden="true">
   <div class="modal-dialog" role="document">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="editModalLabel">Modificar Cuota</h5>
+        <h5 class="modal-title" id="editModalLabel">Modificar Tipo de Formación</h5>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
@@ -110,39 +125,13 @@
 {% endblock content %}
 
 {% block javascripts %}
-<script src="/static/assets/js/validacionesPersona.js"></script>
-
 <script>
-  document.addEventListener('DOMContentLoaded', function () {
-      const toggleInactivos = document.getElementById('toggleInactivos');
-      const tableRows = document.querySelectorAll('#cuotasTable tbody tr');
-
-      // Función para actualizar la visibilidad de las filas
-      function updateTableVisibility() {
-          const showInactivos = toggleInactivos.checked;
-
-          tableRows.forEach(row => {
-              const estado = row.getAttribute('data-estado');
-              if (estado === 'INACTIVO') {
-                  row.style.display = showInactivos ? '' : 'none';
-              }
-          });
-      }
-
-      // Escuchar cambios en el checkbox
-      toggleInactivos.addEventListener('change', updateTableVisibility);
-
-      // Aplicar la visibilidad inicial al cargar la página
-      updateTableVisibility();
-  });
-</script>
-
-<script>
+  
   document.addEventListener("DOMContentLoaded", function() {
-    $('#cuotaModal, editModal').on('show.bs.modal', function (e) {
+    $('#tipoFormacionModal').on('show.bs.modal', function (e) {
       var modal = $(this);
       $.ajax({
-        url: 'apps/home/cuota.html',
+        url: 'apps/home/tipoFormacion.html',
         method: 'GET',
         success: function(data) {
           modal.find('.modal-body').html(data);
@@ -155,15 +144,18 @@
       var modal = $(this);
       var url = $(e.relatedTarget).data('url'); // Obtener la URL desde el botón que abrió el modal
       $.ajax({
-        url: url,
-        method: 'GET',
-        success: function(data) {
-          modal.find('.modal-body').html(data);
-        }
-      });
+      url: url, // URL para cargar el formulario de edición
+      method: 'GET',
+      success: function (data) {
+      modal.find('.modal-body').html(data); // Cargar el contenido del formulario en el modal
+      },
+      error: function () {
+      alert('Error al cargar el formulario de edición.');
+      }
+    });
     });
 
-    $(document).on('submit', '#cuotaForm', function(e) {
+    $(document).on('submit', '#tipoFormacionForm', function(e) {
       e.preventDefault();
       var form = $(this);
       $.ajax({
@@ -175,7 +167,7 @@
           messagesContainer.empty();
           if (response.success) {
             messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
-            $('#cuotaModal, #editModal ').modal('hide');
+            $('#tipoFormacionModal ').modal('hide');
             location.reload();  // Recargar la página para ver los cambios
           } else {
             // Mostrar errores en el modal
@@ -189,65 +181,82 @@
     });
   });
 
-  function deleteCuota(id) {
-    if (confirm('¿Estás seguro de que deseas eliminar esta cuota?')) {
+  $(document).on('submit', '#editTipoFormacionForm', function(e) {
+      e.preventDefault();
+      var form = $(this);
       $.ajax({
-        url: '{% url "delete_cuota" 0 %}'.replace('0', id),
-        method: 'POST',
-        data: {
-          csrfmiddlewaretoken: '{{ csrf_token }}'
-        },
+        url: form.attr('action'),
+        method: form.attr('method'),
+        data: form.serialize(),
         success: function(response) {
+          var messagesContainer = $('#modalMessages');
+          messagesContainer.empty();
           if (response.success) {
+            messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
+            $('#editModal ').modal('hide');
             location.reload();  // Recargar la página para ver los cambios
           } else {
-            alert('Error al eliminar la cuota.');
+            // Mostrar errores en el modal
+            var errors = response.errors;
+            for (var field in errors) {
+              messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + errors[field] + '</div>');
+            }
           }
         }
       });
-    }
-  }
-  function reactivateCuota(id) {
-    if (confirm('¿Estás seguro de que deseas reactivar esta cuota?')) {
-      $.ajax({
-        url: '{% url "reactivate_cuota" 0 %}'.replace('0', id),
-        method: 'POST',
-        data: {
-          csrfmiddlewaretoken: '{{ csrf_token }}'
-        },
-        success: function(response) {
-          if (response.success) {
-            location.reload();  // Recargar la página para ver los cambios
-          } else {
-            alert('Error al reactivar la cuota.');
-          }
-        }
-      });
-    }
-  }
-
-  function filterInactiveRows() {
-    var rows = document.querySelectorAll('#cuotasTable tbody tr');
-    rows.forEach(function(row) {
-      if (row.getAttribute('data-estado') === 'INACTIVO') {
-        row.style.display = 'none';
-      }
     });
+  
+  
+  function deleteTipoFormacion(id) {
+    if (confirm('¿Estás seguro de que deseas eliminar este tipo de formación?')) {
+      $.ajax({
+        url: '{% url "delete_tf" 0 %}'.replace('0', id),
+        method: 'POST',
+        data: {
+          csrfmiddlewaretoken: '{{ csrf_token }}'
+        },
+        success: function(response) {
+          if (response.success) {
+            alert(response.message);
+            location.reload();  // Recargar la página para ver los cambios
+          } else {
+            alert('Error al eliminar el tipo de formación.');
+          }
+        }
+      });
+    }
   }
 
-</script>
+  function reactivateTipoFormacion(id) {
+    if (confirm('¿Estás seguro de que deseas reactivar este tipo de formación?')) {
+      $.ajax({
+        url: '{% url "reactivate_tf" 0 %}'.replace('0', id),
+        method: 'POST',
+        data: {
+          csrfmiddlewaretoken: '{{ csrf_token }}'
+        },
+        success: function(response) {
+          if (response.success) {
+            alert(response.message);
+            location.reload();  // Recargar la página para ver los cambios
+          } else {
+            alert('Error al reactivar el tipo de formación.');
+          }
+        }
+      });
+    }
+  }
 
-<script>
   function filterTable() {
-    var input, filter, table, tr, td, i, j, txtValue;
+    var input, filter, table, tr, td, i, txtValue;
     input = document.getElementById("searchInput");
     filter = input.value.toUpperCase();
-    table = document.getElementById("cuotasTable");
+    table = document.getElementById("tipoFormacionesTable");
     tr = table.getElementsByTagName("tr");
     for (i = 1; i < tr.length; i++) {
       tr[i].style.display = "none";
       td = tr[i].getElementsByTagName("td");
-      for (j = 0; j < td.length; j++) {
+      for (var j = 0; j < td.length; j++) {
         if (td[j]) {
           txtValue = td[j].textContent || td[j].innerText;
           if (txtValue.toUpperCase().indexOf(filter) > -1) {

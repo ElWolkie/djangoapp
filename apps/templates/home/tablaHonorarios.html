@@ -41,12 +41,16 @@
     <thead class="text-darker">
       <tr>
         <th scope="col">ID</th>
-        <th scope="col">Contrato</th>
+        <th scope="col">Cargo</th>
         <th scope="col">Cédula</th>
         <th scope="col">Nombres</th>
         <th scope="col">Apellidos</th>
+        <th scope="col">Materia</th>
+        <th scope="col">Horas</th>
+        <th scope="col">Cohorte</th>
         <th scope="col">Estado</th>
         <th scope="col">Fecha</th>
+        <th scope="col">Acciones</th>
       </tr>
     </thead>
     <tbody>
@@ -54,12 +58,39 @@
         {% for honorario in honorarios %}
         <tr>
           <td>{{ honorario.idHonorario }}</td>
-          <td>{{ honorario.idContrato.idContrato }}</td> <!-- Mostrar el ID del contrato -->
-          <td>{{ honorario.idContrato.idPersona.cedula }}</td>
-          <td>{{ honorario.idContrato.idPersona.nombres }}</td>
-          <td>{{ honorario.idContrato.idPersona.apellidos }}</td>
+          <td>{{ honorario.idCargo.nombreCargo }}</td> <!-- Mostrar el ID del contrato -->
+          <td>{{ honorario.idPersona.cedula }}</td>
+          <td>{{ honorario.idPersona.nombres }}</td>
+          <td>{{ honorario.idPersona.apellidos }}</td>  
+          <td>{{ honorario.idMateria.nombreMateria }}</td>
+          <td>{{ honorario.horas }}</td>
+          <td>{{ honorario.idCohorte.nombreCohorte }}</td>
           <td>{{ honorario.estadoHonorario }}</td>
-          <td>{{ honorario.fechaHonorario }}</td>
+          <td>{{ honorario.fechaHonorario|date:"d/m/Y" }}</td>
+          <td>
+
+            <button class="btn btn-sm btn-primary" type="button" data-toggle="modal" data-target="#editHonorarioModal" data-id="{{ honorario.idHonorario }}">
+              Editar
+            </button>
+
+            {% if honorario.estadoHonorario == "ACTIVO" %}
+            <button class="btn btn-sm btn-danger" type="button" onclick="deleteHonorario('{{ honorario.idHonorario }}')">
+              Eliminar
+            </button>
+            {% endif %}
+
+            {% if honorario.estadoHonorario == "INACTIVO" %}
+            <button class="btn btn-sm btn-success" type="button" onclick="reactivateHonorario('{{ honorario.idHonorario }}')">
+              Reactivar
+            </button>
+            {% endif %}
+          </td>
+      </tr>
+      {% empty %}
+      <tr>
+          <td colspan="5" class="text-center">No hay registros disponibles.</td>
+      </tr>
+          </td>
         </tr>
         {% endfor %}
     </tbody>
@@ -83,6 +114,32 @@
     </div>
   </div>
 </div>
+
+<!-- Modal -->
+<div class="modal fade" id="editHonorarioModal" tabindex="-1" role="dialog" aria-labelledby="editHonorarioModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="editHonorarioModalLabel">Actualizar Honorario</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <!-- Contenedor para los mensajes -->
+        <div id="modalMessages">
+
+          <form id="editHonorarioForm">
+            <!-- El contenido del formulario de edición se cargará aquí -->
+          </form>
+        </div>
+        <!-- El contenido del formulario se cargará aquí -->
+      </div>
+    </div>
+  </div>
+</div>
+
+
 {% endblock content %}
 
 {% block javascripts %}
@@ -99,7 +156,8 @@
         }
       });
     });
-
+    
+    
     $(document).on('submit', '#honorarioForm', function(e) {
       e.preventDefault();
       var form = $(this);
@@ -125,6 +183,99 @@
       });
     });
   });
+
+   // Función para cargar el formulario en el modal de edición
+   $('#editHonorarioModal').on('show.bs.modal', function (e) {
+    var button = $(e.relatedTarget);
+    var idHonorario = button.data('id');
+    var modal = $(this);
+    
+    $.ajax({
+        url: '/editHonorario/' + idHonorario + '/',
+        type: 'get',
+        dataType: 'html',
+        success: function(data) {
+            modal.find('.modal-body').html(data);
+
+            // Manejar el envío del formulario
+            modal.find('#editHonorarioForm').off('submit').on('submit', function(e) {
+                e.preventDefault();
+                var form = $(this);
+                
+                $.ajax({
+                    url: form.attr('action'),
+                    method: 'POST',
+                    data: form.serialize(),
+                    success: function(response) {
+                        if(response.success) {
+                            $('#editHonorarioModal').modal('hide');
+                            location.reload();
+                        } else {
+                            // Mostrar errores en el contenedor correcto
+                            var errors = response.errors;
+                            $('#modalMessagesEdit').empty();
+                            for (var field in errors) {
+                                $('#modalMessagesEdit').append(
+                                    '<div class="alert alert-danger">' + errors[field] + '</div>'
+                                );
+                            }
+                        }
+                    },
+                    error: function(xhr) {
+                        console.error('Error:', xhr.responseText);
+                    }
+                });
+            });
+        },
+        error: function(xhr) {
+            console.error('Error al cargar el formulario:', xhr.responseText);
+        }
+    });
+});
+
+
+  
+
+// Eliminar honorario
+function deleteHonorario(id) {
+  if(confirm('¿Está seguro de eliminar este registro?')) {
+    $.ajax({
+      url: "{% url 'delete_honorario' 0 %}".replace('0', id),
+      method: 'POST',
+      data: {
+        csrfmiddlewaretoken: '{{ csrf_token }}'
+      },
+      success: function(response) {
+        if(response.success) {
+          location.reload();
+        } else {
+          alert('Error al eliminar');
+        }
+      }
+    });
+  }
+}
+
+// Reactivar honorario
+function reactivateHonorario(id) {
+  if(confirm('¿Está seguro de reactivar este registro?')) {
+    $.ajax({
+      url: "{% url 'reactivate_honorario' 0 %}".replace('0', id),
+      method: 'POST',
+      data: {
+        csrfmiddlewaretoken: '{{ csrf_token }}'
+      },
+      success: function(response) {
+        if(response.success) {
+          location.reload();
+        } else {
+          alert('Error al reactivar');
+        }
+      }
+    });
+  }
+}
+
 </script>
 <script>
   function filterTable() {

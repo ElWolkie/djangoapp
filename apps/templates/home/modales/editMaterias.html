@@ -11,13 +11,13 @@
     {% endfor %}
   {% endif %}
 <div class=" mt-5">
-  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Registrar Materia</h2>
-  <form method="POST" class="mt-3 text-dark" autocomplete="off" style="font-weight: bold; max-width: 600px; margin: 0 auto;" id="materiaForm" action="{% url 'materia_modal' %}">  
+  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Modificar Materia</h2>
+  <form method="POST" class="mt-3 text-dark" autocomplete="off" style="font-weight: bold; max-width: 600px; margin: 0 auto;" id="editMateriaForm" action="{% url 'edit_materias' materia.pk %}">  
     {% csrf_token %}  
     
     <div class="form-row">  
       <div class="form-group col-md-6">  
-        <label for="idOferta">Formación Académica:</label>  
+        <label for="idFormacion">Formación Académica:</label>  
         <div class="input-group"> <!-- Usar input-group para alinear botón y select -->  
             <select id="idFormacion" name="idFormacion" class="form-control text-dark" tabindex="1" required>  
                 <option value="" disabled selected>Seleccione...</option>  
@@ -38,7 +38,7 @@
     </div>  
     
     <div class="text-center">  
-      <input type="submit" class="btn btn-warning mt-4" value="Guardar" />  
+      <input type="submit" class="btn btn-warning mt-4" value="Actualizar" />  
     </div>  
   </form>
 {% endblock content %}

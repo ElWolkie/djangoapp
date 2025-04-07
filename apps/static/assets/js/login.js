@@ -1,143 +1,94 @@
-// Función para obtener el valor de una cookie (ámbito global)
-function getCookie(name) {
-  let cookieValue = null;
-  if (document.cookie && document.cookie !== '') {
-    const cookies = document.cookie.split(';');
-    for (let i = 0; i < cookies.length; i++) {
-      const cookie = cookies[i].trim();
-      if (cookie.substring(0, name.length + 1) === (name + '=')) {
-        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-        break;
-      }
-    }
-  }
-  return cookieValue;
-}
-
-document.addEventListener('DOMContentLoaded', function () {
-  const loginForm = document.querySelector('.login-form form');
-  const signupForm = document.querySelector('.signup-form form');
+document.addEventListener('DOMContentLoaded', function() {
+  const loginForm = document.getElementById('loginForm');
+  const cedulaInput = document.getElementById('cedulaInput');
+  const passwordInput = document.getElementById('passwordInput');
+  const submitBtn = document.getElementById('submitBtn');
 
   if (loginForm) {
-    loginForm.addEventListener('submit', function (event) {
-      event.preventDefault();
-
-      if (!validateLoginForm()) return;
-
-      const email = loginForm.querySelector('input[name="username"]').value.trim();
-      const password = loginForm.querySelector('input[name="password"]').value.trim();
-
-      // --- Zona modificada ---
-      fetch('/auth/api/login/', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',  // Solo este header es necesario
-        },
-        body: JSON.stringify({
-            username: email,
-            password: password
-        })
-    })
-      .then(response => {
-        // Verificamos si la respuesta es exitosa
-        if (!response.ok) {
-          throw new Error(`Error HTTP: ${response.status}`);
-        }
-        return response.json();
-      })
-      .then(data => {
-        console.log('Respuesta completa del servidor:', data); // Debug
-        // Dentro del .then(data => ...)
-          if (data.access) {
-            localStorage.setItem('access_token', data.access);
-            console.log('Token almacenado:', localStorage.getItem('access_token')); 
-            
-            // Verifica manualmente el token en consola
-            window.location.href = '/index/';  // Redirige SIN setTimeout
+    loginForm.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Verificando...';
+      
+      const cedula = cedulaInput.value.trim();
+      const password = passwordInput.value.trim();
+      
+      // Validación básica
+      if (!cedula) {
+        showError('Por favor ingrese su cédula');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Entrar';
+        return;
+      }
+      
+      if (!password) {
+        showError('Por favor ingrese su contraseña');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Entrar';
+        return;
+      }
+      
+      try {
+        const response = await fetch('/login/', {
+          method: 'POST',
+          headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: `cedula=${encodeURIComponent(cedula)}&password=${encodeURIComponent(password)}`
+        });
+        
+        if (response.redirected) {
+          window.location.href = response.url; // Redirige al dashboard
+        } else {
+          const data = await response.json();
+          if (data.error) {
+            showError(data.error);
           }
-      })
-      .catch(error => {
-        console.error('Error completo:', error);
-        showAlert('Error de conexión: ' + error.message, 'error');
-      });
-    });
-  }
-
-  if (signupForm) {
-    signupForm.addEventListener('submit', function (event) {
-      if (!validateSignupForm()) {
-        event.preventDefault(); // Evita que el formulario se envíe si la validación falla
+        }
+      } catch (error) {
+        showError('Error de conexión con el servidor');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Entrar';
       }
     });
   }
-
-  function validateLoginForm() {
-    const email = loginForm.querySelector('input[name="username"]').value.trim();
-    const password = loginForm.querySelector('input[name="password"]').value.trim();
-
-    if (email === '') {
-      showAlert('Por favor, ingrese su Correo electrónico.', 'error');
-      return false;
+  
+  function showError(message) {
+    // Eliminar mensajes anteriores
+    const oldAlerts = document.querySelectorAll('.alert-messages .alert');
+    oldAlerts.forEach(alert => alert.remove());
+    
+    // Crear nuevo mensaje
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-error';
+    alertDiv.textContent = message;
+    
+    const alertContainer = document.querySelector('.alert-messages') || document.createElement('div');
+    if (!document.querySelector('.alert-messages')) {
+      alertContainer.className = 'alert-messages';
+      loginForm.insertBefore(alertContainer, loginForm.querySelector('.button'));
     }
-
-    if (password === '') {
-      showAlert('Por favor, ingrese su Contraseña.', 'error');
-      return false;
-    }
-
-    if (!validateEmail(email)) {
-      showAlert('Por favor, ingrese un Correo electrónico válido.', 'error');
-      return false;
-    }
-
-    return true;
+    
+    alertContainer.prepend(alertDiv);
+    
+    // Scroll al mensaje
+    alertDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
-
-  function validateSignupForm() {
-    const name = signupForm.querySelector('input[name="name"]').value.trim();
-    const email = signupForm.querySelector('input[name="email"]').value.trim();
-    const password = signupForm.querySelector('input[name="password"]').value.trim();
-
-    if (name === '') {
-      showAlert('Por favor, ingrese su nombre de Usuario.', 'error');
-      return false;
+  
+  function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+      const cookies = document.cookie.split(';');
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
+      }
     }
-
-    if (email === '') {
-      showAlert('Por favor, ingrese su Correo electrónico.', 'error');
-      return false;
-    }
-
-    if (password === '') {
-      showAlert('Por favor, ingrese su Contraseña.', 'error');
-      return false;
-    }
-
-    if (!validateEmail(email)) {
-      showAlert('Por favor, ingrese un Correo electrónico válido.', 'error');
-      return false;
-    }
-
-    if (password.length < 8) {
-      showAlert('La contraseña debe tener al menos 8 caracteres.', 'error');
-      return false;
-    }
-
-    return true;
-  }
-
-  function validateEmail(email) {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  }
-
-  function showAlert(message, type) {
-    const alertBox = document.createElement('div');
-    alertBox.className = `alert ${type}`;
-    alertBox.innerText = message;
-    document.body.appendChild(alertBox);
-    setTimeout(() => {
-      alertBox.remove();
-    }, 3000);
+    return cookieValue;
   }
 });

@@ -1,5 +1,5 @@
 from django.db import models  
-from django.contrib.auth.models import User  
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 
 class TipoPersona(models.Model):  
     idTP = models.AutoField(primary_key=True)  # Clave primaria para TipoPersona  
@@ -9,15 +9,17 @@ class TipoPersona(models.Model):
 
     class Meta:  
         verbose_name = "Tipo de Persona"  
-        verbose_name_plural = "Tipos de Personas"  
+        verbose_name_plural = "Tipos de Personas"
+
+    def __str__(self):
+        return self.nombreTP  # Representación legible en el admin de Django
 
 
 class Personas(models.Model):  
     idPersona = models.AutoField(primary_key=True)  # Clave primaria para Personas  
-    idTP = models.ForeignKey(TipoPersona, on_delete=models.CASCADE)  # Clave foránea a TipoPersona  
-    cedula = models.CharField(max_length=10)  # Número de identificación  
+    cedula = models.CharField(max_length=10)  # Número de cedula  
     nombres = models.CharField(max_length=100)  # Nombres  
-    apellidos = models.CharField(max_length=100)  # Apellidos  
+    apellidos = models.CharField(max_length=100)  # Apellidos
     telefono = models.CharField(max_length=15)  # Número de teléfono  
     correo = models.EmailField()  # Dirección de correo electrónico  
     estadoPersona = models.CharField(max_length=10)  # Estado de la Persona  
@@ -26,48 +28,124 @@ class Personas(models.Model):
     class Meta:  
         verbose_name = "Persona"  
         verbose_name_plural = "Personas"  
-        ordering = ['idTP']  # Orden predeterminado por TipoPersona  
+        ordering = ['idPersona']  # Orden predeterminado por idPersona
+        
+    def __str__(self):
+        return f"{self.nombres} {self.apellidos}"  # Representación legible en el admin de Django
 
 
-class Cuota(models.Model):  
-    idCuota = models.AutoField(primary_key=True)  # Clave primaria para Cuota  
-    nombreCuota = models.CharField(max_length=100)  # Nombre de la Cuota  
-    estadoCuota = models.CharField(max_length=10)  # Estado de la Cuota  
-    fechaCuota = models.DateField(auto_now_add=True)  # Fecha de creación de la Cuota  
+class UsuarioManager(BaseUserManager):
+    def create_user(self, idPersona, password=None, **extra_fields):
+        """
+        Crea y guarda un usuario con el idPersona y contraseña dados.
+        """
+        if not idPersona:
+            raise ValueError('El idPersona es obligatorio')
+        
+        # Obtener la instancia de Personas
+        try:
+            persona = Personas.objects.get(pk=idPersona)
+        except Personas.DoesNotExist:
+            raise ValueError(f'No existe una Persona con idPersona={idPersona}')
+        
+        # Campos obligatorios para usuarios normales
+        extra_fields.setdefault('preguntaSeguridad', 'pregunta_default')
+        extra_fields.setdefault('respuestaSeguridad', 'respuesta_default')
+        
+        user = self.model(idPersona=persona, **extra_fields)
+        
+        # Establecer la contraseña usando el sistema de Django
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
+
+    def create_superuser(self, idPersona, password=None, **extra_fields):
+        """
+        Crea y guarda un superusuario con el idPersona y contraseña dados.
+        """
+        extra_fields.setdefault('is_staff', True)
+        extra_fields.setdefault('is_superuser', True)
+        extra_fields.setdefault('preguntaSeguridad', 'admin_seguridad') # Modificable
+        extra_fields.setdefault('respuestaSeguridad', 'admin_respuesta') # Modificable
+
+        if extra_fields.get('is_staff') is not True:
+            raise ValueError('Superuser must have is_staff=True.')
+        if extra_fields.get('is_superuser') is not True:
+            raise ValueError('Superuser must have is_superuser=True.')
+
+        return self.create_user(idPersona, password, **extra_fields)
+
+class Usuarios(AbstractBaseUser, PermissionsMixin):
+    idUsuario = models.AutoField(primary_key=True)
+    idPersona = models.OneToOneField('Personas', on_delete=models.CASCADE)
+    preguntaSeguridad = models.CharField(max_length=255)
+    respuestaSeguridad = models.CharField(max_length=255)
+    coloresUsuario = models.CharField(max_length=50, blank=True, null=True)
+    fechaUsuario = models.DateTimeField(auto_now_add=True)
+
+    is_active = models.BooleanField(default=True) #Necesario para activo o inactivo
+    is_staff = models.BooleanField(default=False)  # Necesario para admin
+    is_superuser = models.BooleanField(default=False)  # Necesario para permisos de superusuario
+
+    # class Meta:
+    #     db_table = 'usuarios'  # Esto forzará el nombre de tabla exacto
+
+    objects = UsuarioManager()
+
+    USERNAME_FIELD = 'idPersona'
+    REQUIRED_FIELDS = []
+
+    def __str__(self):
+        return f"{self.idPersona}"
+    
+    class Meta:
+        verbose_name = 'Usuario'
+        verbose_name_plural = 'Usuarios'
+    
+# Tabla intermedia para la relación muchos a muchos entre Personas y TipoPersona
+class PersonaTP(models.Model):
+    idPersona = models.ForeignKey(Personas, on_delete=models.CASCADE)  # Clave foránea a Personas
+    idTP = models.ForeignKey(TipoPersona, on_delete=models.CASCADE)  # Clave foránea a TipoPersona
+    fechaAsignacion = models.DateField(auto_now_add=True)  # Fecha de asignación del tipo a la persona
+
+    class Meta:
+        verbose_name = "Asignación de Tipo a Persona"
+        verbose_name_plural = "Asignaciones de Tipos a Personas"
+        unique_together = ('idPersona', 'idTP')  # Evita duplicados
+
+    def __str__(self):
+        return f"{self.idPersona} - {self.idTP}"  # Representación legible en el admin de Django
+
+
+class TipoFormacion(models.Model):  
+    idTF = models.AutoField(primary_key=True)  # Clave primaria para TipoFormacion  
+    nombreTipoFormacion = models.CharField(max_length=100)  # Nombre del TipoFormacion  
+    estadoTipoFormacion = models.CharField(max_length=10)  # Estado del TipoFormacion  
+    cuotas= models.CharField(max_length=5) #Cantidad de Cuotas
+    fechaTipoFormacion = models.DateField(auto_now_add=True)  # Fecha de creación del TipoFormacion  
+    
 
     class Meta:  
-        verbose_name = "Cuota"  
-        verbose_name_plural = "Cuotas"  
+        verbose_name = "TipoFormación"  
+        verbose_name_plural = "TiposFormacion"  
 
 
-class TipoOferta(models.Model):  
-    idTipoOferta = models.AutoField(primary_key=True)  # Clave primaria para TipoOferta  
-    idCuota = models.ForeignKey(Cuota, on_delete=models.CASCADE)  # Clave foránea a Cuota  
-    nombreTipoOferta = models.CharField(max_length=100)  # Nombre del TipoOferta  
-    estadoTipoOferta = models.CharField(max_length=10)  # Estado del TipoOferta  
-    fechaTipoOferta = models.DateField(auto_now_add=True)  # Fecha de creación del TipoOferta  
-
-    class Meta:  
-        verbose_name = "Tipo de Oferta"  
-        verbose_name_plural = "Tipos de Ofertas"  
-
-
-class Ofertas(models.Model):  
-    idOferta = models.AutoField(primary_key=True)  # Clave primaria para Ofertas  
-    idTipoOferta = models.ForeignKey(TipoOferta, on_delete=models.CASCADE)  # Clave foránea a TipoOferta  
-    nombreOferta = models.CharField(max_length=100)  # Nombre de la Oferta  
-    duracion = models.CharField(max_length=100)  # Duración de la Oferta  
-    estadoOferta = models.CharField(max_length=10)  # Estado de la Oferta  
-    fechaOferta = models.DateField(auto_now_add=True)  # Fecha de creación de la Oferta  
+class Formacion(models.Model):  
+    idFormacion = models.AutoField(primary_key=True)  # Clave primaria para Formacion  
+    idTF = models.ForeignKey(TipoFormacion, on_delete=models.CASCADE, related_name='formaciones')  # Clave foránea a TipoFormacion  
+    nombreFormacion = models.CharField(max_length=100)  # Nombre de la Formación  
+    duracion = models.CharField(max_length=100)  # Duración de la Formación  
+    estadoFormacion = models.CharField(max_length=10)  # Estado de la Formación  
+    fechaFormacion = models.DateField(auto_now_add=True)  # Fecha de creación de la Formación  
 
     class Meta:  
-        verbose_name = "Oferta"  
-        verbose_name_plural = "Ofertas"  
+        verbose_name = "Formacion"  
+        verbose_name_plural = "Formaciones"
 
 
 class Materia(models.Model):  
     idMateria = models.AutoField(primary_key=True)  # Clave primaria para Materia  
-    idOferta = models.ForeignKey(Ofertas, on_delete=models.CASCADE)  # Clave foránea a Ofertas  
+    idFormacion = models.ForeignKey(Formacion, on_delete=models.CASCADE)  # Clave foránea a Ofertas  
     nombreMateria = models.CharField(max_length=100)  # Nombre de la Materia  
     estadoMateria = models.CharField(max_length=10)  # Estado de la Materia  
     fechaMateria = models.DateField(auto_now_add=True)  # Fecha de creación de la Materia  
@@ -99,23 +177,12 @@ class Cargo(models.Model):
         verbose_name_plural = "Cargos"  
 
 
-class Contrato(models.Model):  
-    idContrato = models.AutoField(primary_key=True)  # Clave primaria para Contrato  
+class Honorario(models.Model):  
+    idHonorario = models.AutoField(primary_key=True)  # Clave primaria para Honorario  
     idPersona = models.ForeignKey(Personas, on_delete=models.CASCADE)  # Clave foránea a Personas  
     idCargo = models.ForeignKey(Cargo, on_delete=models.CASCADE)  # Clave foránea a Cargo  
     idCohorte = models.ForeignKey(Cohorte, on_delete=models.CASCADE)  # Clave foránea a Cohorte  
     idMateria = models.ForeignKey(Materia, on_delete=models.CASCADE)  # Clave foránea a Materia  
-    estadoContrato = models.CharField(max_length=10)  # Estado del Contrato  
-    fechaContrato = models.DateField(auto_now_add=True)  # Fecha de creación del Contrato  
-
-    class Meta:  
-        verbose_name = "Contrato"  
-        verbose_name_plural = "Contratos"  
-
-
-class Honorario(models.Model):  
-    idHonorario = models.AutoField(primary_key=True)  # Clave primaria para Honorario  
-    idContrato = models.ForeignKey(Contrato, on_delete=models.CASCADE)  # Clave foránea a Contrato  
     horas = models.FloatField()  # Número de horas trabajadas  
     estadoHonorario = models.CharField(max_length=10)  # Estado del Honorario  
     fechaHonorario = models.DateField(auto_now_add=True)  # Fecha de creación del Honorario  
@@ -214,7 +281,7 @@ class Tasa(models.Model):
     idMoneda = models.ForeignKey(Moneda, on_delete=models.CASCADE)  # Clave foránea a Moneda  
     montoTasa = models.CharField(max_length=100)  # Codigo del Banco  
     estadoTasa = models.CharField(max_length=10)  # Estado del Banco  
-    fechaTasa = models.DateField(auto_now_add=True)  # Fecha de creación del Banco  
+    fechaTasa = models.DateTimeField(auto_now_add=True)  # Fecha y hora de creación del Banco  
 
     class Meta:  
         verbose_name = "Tasa"  
@@ -231,12 +298,33 @@ class TipoIngreso(models.Model):
         verbose_name = "TipoIngreso"  
         verbose_name_plural = "TipoIngresos"  
 
-class TipoEgreso(models.Model):  
-    idTipoEgreso = models.AutoField(primary_key=True)  # Clave primaria para TipoIngreso  
-    nombreTipoEgreso = models.CharField(max_length=100)  # Nombre de la TipoIngreso  
-    estadoTipoEgreso = models.CharField(max_length=10)  # Estado de la TipoIngreso  
-    fechaTipoEgreso = models.DateField(auto_now_add=True)  # Fecha de creación de la TipoIngreso  
+
+class TipoMovimiento(models.Model):  
+    idTipoMovimiento = models.AutoField(primary_key=True)  # Clave primaria para TipoIngreso  
+    naturaleza = models.CharField(max_length=10)  # Nombre de la TipoIngreso  
+    nombreTipoMovimiento = models.CharField(max_length=100)  # Nombre de la TipoIngreso  
+    estadoTipoMovimiento = models.CharField(max_length=10)  # Estado de la TipoIngreso  
+    fechaTipoMovimiento = models.DateField(auto_now_add=True)  # Fecha de creación de la TipoIngreso  
 
     class Meta:  
-        verbose_name = "TipoEgreso"  
-        verbose_name_plural = "TipoEgresos"  
+        verbose_name = "TipoMovimiento"  
+        verbose_name_plural = "TipoMovimientos"  
+
+
+class Movimiento(models.Model):  
+    idMovimiento = models.AutoField(primary_key=True)  # Clave primaria para Ingreso  
+    idTipoMovimiento = models.ForeignKey(TipoMovimiento, on_delete=models.CASCADE)  # Relación con TipoIngreso  
+    idDenominacion = models.ForeignKey(Denominacion, on_delete=models.CASCADE)  # Relación con Denominacion  
+    idBanco = models.ForeignKey(Banco, on_delete=models.CASCADE, null=True, blank=True)  # Banco opcional
+    idTasa = models.ForeignKey(Tasa, on_delete=models.CASCADE)  # Relación con Tasa  
+    naturaleza = models.CharField(max_length=10)  # NATURALEZA detallada del Ingreso  
+    tipoPago = models.CharField(max_length=100)  # Tipo de pago del Ingreso  
+    referencia = models.CharField(max_length=100, null=True, blank=True)  # Referencia opcional    idTasa = models.ForeignKey(Tasa, on_delete=models.CASCADE)  # Relación con Tasa  
+    monto = models.DecimalField(max_digits=10, decimal_places=2)  # Monto del Ingreso  
+    descripcion = models.TextField()  # Descripción detallada del Ingreso  
+    estadoMovimiento = models.CharField(max_length=10)  # Estado del Ingreso (activo/inactivo)  
+    fechaMovimiento = models.DateTimeField(auto_now_add=True)  # Fecha de registro del Ingreso  
+
+    class Meta:  
+        verbose_name = "Ingreso"  
+        verbose_name_plural = "Ingresos"

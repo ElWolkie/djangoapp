@@ -42,12 +42,28 @@
     //Validar solo letras 
   });
   document.getElementById("nombreCohorte").addEventListener("input", function() {
-    this.value = this.value.replace(/[^a-zA-Z\s]/g, '');
-  });
+    const input = this;
+    const errorElement = document.getElementById("roman-error");
+    
+    // 1. Forzar mayúsculas y filtrar caracteres
+    input.value = input.value.toUpperCase().replace(/[^MDCLXVI]/g, '');
+    
+    // 2. Validación estricta de número romano
+    const isValid = /^M{0,3}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})$/.test(input.value);
+    
+    // 3. Mostrar feedback
+    if (input.value && !isValid) {
+        input.classList.add("is-invalid");
+        errorElement.textContent = "Formato inválido. Ejemplos válidos: VIII, XIX, MMXXIII";
+    } else {
+        input.classList.remove("is-invalid");
+        errorElement.textContent = "";
+    }
+});
   
 //Recarga dinamica
 
-$(document).on('submit', '#registroForm', function(e) {
+$(document).on('submit', '#CohorteForm', function(e) {
       e.preventDefault();
       var form = $(this);
       $.ajax({

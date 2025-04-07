@@ -1,9 +1,10 @@
 from django.contrib import admin
-from .models import Personas, TipoPersona, Cuota, Ofertas, TipoOferta, Materia, Cohorte, Cargo, Contrato, Honorario, Requisito, Servicio, Tramite, Solicitud, Denominacion, Banco, Moneda, Tasa, TipoIngreso, TipoEgreso
+from django.contrib.auth.admin import UserAdmin
+from .models import Personas, Usuarios, TipoPersona, Materia, Cohorte, Cargo, Honorario, Requisito, Servicio, Tramite, Solicitud, Denominacion, Banco, Moneda, Tasa, TipoIngreso
 
 # Personalización de la vista de Personas en el admin
 class PersonaAdmin(admin.ModelAdmin):
-    list_display = ('idTP', 'cedula', 'nombres', 'apellidos', 'telefono', 'correo',  'estadoPersona', 'fechaPersona')  # Muestra estos campos en la lista
+    list_display = ('idPersona', 'cedula', 'nombres', 'apellidos', 'telefono', 'correo',  'estadoPersona', 'fechaPersona')  # Muestra estos campos en la lista
     search_fields = ('cedula', 'nombres', 'apellidos')  # Permite buscar por estos campos
 
 # Registra el modelo con las personalizaciones
@@ -17,33 +18,71 @@ class TipoPersonaAdmin(admin.ModelAdmin):
 # Registra el modelo con las personalizaciones
 admin.site.register(TipoPersona, TipoPersonaAdmin)
 
-# Personalización de la vista de Cuota en el admin
-class CuotaAdmin(admin.ModelAdmin):
-    list_display = ('idCuota', 'nombreCuota', 'estadoCuota', 'fechaCuota')  # Muestra estos campos en la lista
-    search_fields = ('nombreCuota','estadoCuota','fechaCuota')  # Permite buscar por estos campos, corregido a tupla
+@admin.register(Usuarios)
+class UsuarioAdmin(UserAdmin):
+    list_display = ('get_cedula', 'get_nombre_completo', 'is_staff', 'is_superuser')
+    search_fields = ('idPersona__cedula', 'idPersona__nombres', 'idPersona__apellidos', 'idPersona__correo')
+    ordering = ('idPersona',)
+    readonly_fields = ('fechaUsuario', 'last_login')  # Campos de solo lectura
+    
+    fieldsets = (
+        (None, {'fields': ('idPersona', 'password')}),
+        ('Seguridad', {'fields': ('preguntaSeguridad', 'respuestaSeguridad')}),
+        ('Preferencias', {'fields': ('coloresUsuario',)}),
+        ('Permisos', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
+        ('Fechas importantes', {'fields': ('last_login', 'fechaUsuario')}),  # Usamos solo los campos que existen
+    )
+    
+    add_fieldsets = (
+        (None, {
+            'classes': ('wide',),
+            'fields': ('idPersona', 'password1', 'password2'),
+        }),
+    )
+    
+    raw_id_fields = ('idPersona',)
+    list_filter = ('is_staff', 'is_superuser', 'is_active', 'groups')
+    
+    def get_cedula(self, obj):
+        return obj.idPersona.cedula if obj.idPersona else ''
+    get_cedula.short_description = 'Cédula'
+    
+    def get_nombre_completo(self, obj):
+        return f"{obj.idPersona.nombres} {obj.idPersona.apellidos}" if obj.idPersona else ''
+    get_nombre_completo.short_description = 'Nombre Completo'
+    
+    def get_correo(self, obj):
+        return obj.idPersona.correo if obj.idPersona else ''
+    get_correo.short_description = 'Correo'
 
-# Registra el modelo con las personalizaciones
-admin.site.register(Cuota, CuotaAdmin)
 
-# Personalización de la vista de Ofertas en el admin
-class OfertasAdmin(admin.ModelAdmin):
-    list_display = ('idOferta', 'idTipoOferta', 'nombreOferta', 'duracion', 'estadoOferta', 'fechaOferta')  # Muestra estos campos en la lista
-    search_fields = ('nombreOferta','estadoOferta','fechaOferta')  # Permite buscar por estos campos, corregido a tupla
+# # Personalización de la vista de Cuota en el admin
+# class CuotaAdmin(admin.ModelAdmin):
+#     list_display = ('idCuota', 'nombreCuota', 'estadoCuota', 'fechaCuota')  # Muestra estos campos en la lista
+#     search_fields = ('nombreCuota','estadoCuota','fechaCuota')  # Permite buscar por estos campos, corregido a tupla
 
-# Registra el modelo con las personalizaciones
-admin.site.register(Ofertas, OfertasAdmin)
+# # Registra el modelo con las personalizaciones
+# admin.site.register(Cuota, CuotaAdmin)
 
-# Personalización de la vista de TipoOferta en el admin
-class TipoOfertaAdmin(admin.ModelAdmin):
-    list_display = ('idTipoOferta', 'idCuota', 'nombreTipoOferta', 'estadoTipoOferta', 'fechaTipoOferta')  # Muestra estos campos en la lista
-    search_fields = ('nombreTipoOferta','estadoTipoOferta','fechaTipoOferta')  # Permite buscar por estos campos, corregido a tupla
+# # Personalización de la vista de Ofertas en el admin
+# class OfertasAdmin(admin.ModelAdmin):
+#     list_display = ('idOferta', 'idTipoOferta', 'nombreOferta', 'duracion', 'estadoOferta', 'fechaOferta')  # Muestra estos campos en la lista
+#     search_fields = ('nombreOferta','estadoOferta','fechaOferta')  # Permite buscar por estos campos, corregido a tupla
 
-# Registra el modelo con las personalizaciones
-admin.site.register(TipoOferta, TipoOfertaAdmin)
+# # Registra el modelo con las personalizaciones
+# admin.site.register(Ofertas, OfertasAdmin)
+
+# # Personalización de la vista de TipoOferta en el admin
+# class TipoOfertaAdmin(admin.ModelAdmin):
+#     list_display = ('idTipoOferta', 'idCuota', 'nombreTipoOferta', 'estadoTipoOferta', 'fechaTipoOferta')  # Muestra estos campos en la lista
+#     search_fields = ('nombreTipoOferta','estadoTipoOferta','fechaTipoOferta')  # Permite buscar por estos campos, corregido a tupla
+
+# # Registra el modelo con las personalizaciones
+# admin.site.register(TipoOferta, TipoOfertaAdmin)
 
 # Personalización de la vista de Materia en el admin
 class MateriaAdmin(admin.ModelAdmin):
-    list_display = ('idMateria', 'idOferta', 'nombreMateria', 'estadoMateria', 'fechaMateria')  # Muestra estos campos en la lista
+    list_display = ('idMateria', 'idFormacion', 'nombreMateria', 'estadoMateria', 'fechaMateria')  # Muestra estos campos en la lista
     search_fields = ('nombreMateria','estadoMateria','fechaMateria')  # Permite buscar por estos campos, corregido a tupla
 
 # Registra el modelo con las personalizaciones
@@ -65,17 +104,17 @@ class CargoAdmin(admin.ModelAdmin):
 # Registra el modelo con las personalizaciones
 admin.site.register(Cargo, CargoAdmin)
 
-# Personalización de la vista de Contrato en el admin
-class ContratoAdmin(admin.ModelAdmin):
-    list_display = ('idContrato', 'idPersona', 'idCargo', 'idCohorte', 'idMateria', 'estadoContrato', 'fechaContrato')  # Muestra estos campos en la lista
-    search_fields = ('idContrato','estadoContrato','fechaContrato')  # Permite buscar por estos campos, corregido a tupla
+# # Personalización de la vista de Contrato en el admin
+# class ContratoAdmin(admin.ModelAdmin):
+#     list_display = ('idContrato', 'idPersona', 'idCargo', 'idCohorte', 'idMateria', 'estadoContrato', 'fechaContrato')  # Muestra estos campos en la lista
+#     search_fields = ('idContrato','estadoContrato','fechaContrato')  # Permite buscar por estos campos, corregido a tupla
 
-# Registra el modelo con las personalizaciones
-admin.site.register(Contrato, ContratoAdmin)
+# # Registra el modelo con las personalizaciones
+# admin.site.register(Contrato, ContratoAdmin)
 
 # Personalización de la vista de Honorario en el admin
 class HonorarioAdmin(admin.ModelAdmin):
-    list_display = ('idHonorario', 'idContrato', 'horas', 'estadoHonorario', 'fechaHonorario')  # Muestra estos campos en la lista
+    list_display = ('idHonorario', 'idPersona', 'idCargo', 'idCohorte', 'idMateria', 'horas', 'estadoHonorario', 'fechaHonorario')  # Muestra estos campos en la lista
     search_fields = ('idHonorario','estadoHonorario','fechaHonorario')  # Permite buscar por estos campos, corregido a tupla
 
 # Registra el modelo con las personalizaciones
@@ -148,9 +187,9 @@ class TipoIngresoAdmin(admin.ModelAdmin):
 # Registra el modelo con las personalizaciones
 admin.site.register(TipoIngreso, TipoIngresoAdmin)
 
-class TipoEgresoAdmin(admin.ModelAdmin):
-    list_display = ('idTipoEgreso', 'nombreTipoEgreso', 'estadoTipoEgreso', 'fechaTipoEgreso')  # Muestra estos campos en la lista
-    search_fields = ('idTipoEgreso','nombreTipoEgreso','estadoTipoEgreso', 'fechaTipoEgreso')  # Permite buscar por estos campos, corregido a tupla
+# class TipoEgresoAdmin(admin.ModelAdmin):
+#     list_display = ('idTipoEgreso', 'nombreTipoEgreso', 'estadoTipoEgreso', 'fechaTipoEgreso')  # Muestra estos campos en la lista
+#     search_fields = ('idTipoEgreso','nombreTipoEgreso','estadoTipoEgreso', 'fechaTipoEgreso')  # Permite buscar por estos campos, corregido a tupla
 
-# Registra el modelo con las personalizaciones
-admin.site.register(TipoEgreso, TipoEgresoAdmin)
+# # Registra el modelo con las personalizaciones
+# admin.site.register(TipoEgreso, TipoEgresoAdmin)

@@ -130,14 +130,104 @@
   </form>
 </div>
 
+<!-- Modal de Moneda (copiado de tablaMonedas.html) -->
+<div class="modal fade" id="monedaModal" tabindex="-1" role="dialog" aria-labelledby="monedaModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="monedaModalLabel">Registro de Moneda</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div id="modalMessages"></div>
+        <!-- El formulario se cargará aquí via AJAX -->
+      </div>
+    </div>
+  </div>
+</div>
+
 {% endblock content %}
 
 {% block javascripts %}
 <script>
-  // Cambiar el color principal dinámicamente
-  function setColor(color) {
-    document.getElementById('colorPrincipal').value = color;
-    alert('Color seleccionado: ' + color);
-  }
+  document.addEventListener("DOMContentLoaded", function() {
+    // Verificar que jQuery esté disponible
+    if (typeof jQuery === 'undefined') {
+      console.error('jQuery no está cargado.');
+      return;
+    }
+    
+    // Código para cargar el formulario del modal vía AJAX (si es que se hace de esta forma)
+    $('#monedaModal').on('show.bs.modal', function (e) {
+      var modal = $(this);
+      $.ajax({
+        url: 'apps/home/moneda.html',  // Verifica que esta ruta sea correcta y que devuelva el formulario
+        method: 'GET',
+        success: function(data) {
+          modal.find('.modal-body').html(data);
+        },
+        error: function() {
+          modal.find('.modal-body').html('<div class="alert alert-danger">Error al cargar el formulario</div>');
+        }
+      });
+    });
+    
+    // Manejar envío del formulario de moneda
+    $(document).on('submit', '#monedaForm', function(e) {
+      e.preventDefault();  // Evita el envío tradicional del formulario
+      var form = $(this);
+      var messagesContainer = $('#modalMessages');  // Contenedor de mensajes en el modal
+      messagesContainer.empty();  // Limpiar mensajes anteriores
+
+      $.ajax({
+        url: form.attr('action'),             // La URL en el atributo action del formulario debe estar bien definida
+        method: form.attr('method') || 'POST',  // Método POST
+        data: form.serialize(),                // Serializa los datos del formulario
+        success: function(response) {
+          if (response.success) {
+            messagesContainer.append(
+              '<div class="alert alert-success alert-dismissible fade show" role="alert">' +
+              response.message +
+              '</div>'
+            );
+            // Cierra el modal después de 1 segundo
+            setTimeout(function() {
+              $('#monedaModal').modal('hide');
+              // Actualiza el select de moneda: Agrega la nueva moneda y la selecciona
+              var select = $('#idMoneda');
+              select.append('<option value="' + response.idMoneda + '">' + response.nombreMoneda + '</option>');
+              select.val(response.idMoneda);
+            }, 1000);
+          } else {
+            // Muestra los errores en el modal
+            if (response.errors) {
+              $.each(response.errors, function(field, error) {
+                messagesContainer.append(
+                  '<div class="alert alert-danger alert-dismissible fade show" role="alert">' +
+                  error +
+                  '</div>'
+                );
+              });
+            } else if (response.message) {
+              messagesContainer.append(
+                '<div class="alert alert-danger alert-dismissible fade show" role="alert">' +
+                response.message +
+                '</div>'
+              );
+            }
+          }
+        },
+        error: function(xhr, status, error) {
+          messagesContainer.append(
+            '<div class="alert alert-danger alert-dismissible fade show" role="alert">Error al enviar el formulario. Inténtelo de nuevo.</div>'
+          );
+          console.error('AJAX Error:', error);
+        }
+      });
+    });
+  });
 </script>
 {% endblock javascripts %}
+

@@ -40,30 +40,34 @@
   </div>
 
 <br>
-  <table class="table table-striped text-gray-dark" id="personasTable">
-    <thead class="text-darker">
-      <tr>
-        <th scope="col">Cédula</th>
-        <th scope="col">Nombres</th>
-        <th scope="col">Apellidos</th>
-        <th scope="col">Teléfono</th>
-        <th scope="col">Correo Electrónico</th>
-        <th scope="col">Tipo de Persona</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for persona in personas %}
-      <tr>
-        <td>{{ persona.cedula }}</td>
-        <td>{{ persona.nombres }}</td>
-        <td>{{ persona.apellidos }}</td>
-        <td>{{ persona.telefono }}</td>
-        <td>{{ persona.correo }}</td>
-        <td>{{ persona.idTP.nombreTP }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+<table class="table table-striped text-gray-dark" id="personasTable">
+  <thead class="text-darker">
+    <tr>
+      <th scope="col">Cédula</th>
+      <th scope="col">Nombres</th>
+      <th scope="col">Apellidos</th>
+      <th scope="col">Teléfono</th>
+      <th scope="col">Correo Electrónico</th>
+      <th scope="col">Tipo de Persona</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for persona in personas %}
+    <tr>
+      <td>{{ persona.cedula }}</td>
+      <td>{{ persona.nombres }}</td>
+      <td>{{ persona.apellidos }}</td>
+      <td>{{ persona.telefono }}</td>
+      <td>{{ persona.correo }}</td>
+      <td>
+        {% for tipo in persona.personatp_set.all %}
+          {{ tipo.idTP.nombreTP }}{% if not forloop.last %}, {% endif %}
+        {% endfor %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
 </div>
 {% endblock content %}
 
