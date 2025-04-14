@@ -8,22 +8,22 @@
 
 <style>
     /* Clase para los botones de selector de color (círculos divididos) */
-.split-circle-btn {
-    width: 50px;
-    height: 50px;
-    border-radius: 50%;
-    border: none;
-    outline: none;
-    cursor: pointer;
-    /* Fondo predeterminado: mitad azul y mitad naranja */
-    background: conic-gradient(#5e72e4 0deg 90deg, #fb6340 90deg 270deg, #cecdcd 270deg 360deg);
-    transition: transform 0.3s;
-}
+    .split-circle-btn {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        border: none;
+        outline: none;
+        cursor: pointer;
+        /* Fondo predeterminado: mitad azul y mitad naranja */
+        background: conic-gradient(#5e72e4 0deg 90deg, #fb6340 90deg 270deg, #cecdcd 270deg 360deg);
+        transition: transform 0.3s;
+    }
 
-/* Efecto hover para dar un feedback visual */
-.split-circle-btn:hover {
-    transform: scale(1.10);
-}
+    /* Efecto hover para dar un feedback visual */
+    .split-circle-btn:hover {
+        transform: scale(1.10);
+    }
 </style>
 {% endblock stylesheets %}
 
@@ -52,65 +52,85 @@
         <!-- Campo: Nombre de la Institución -->
         <div class="form-group">
           <label for="nombreInstitucion">Nombre de la Institución:</label>
-          <input type="text" id="nombreInstitucion" name="nombreInstitucion" class="form-control text-dark" placeholder="Ingrese el nombre de la institución" tabindex="1" maxlength="150" required />
+          <input type="text" id="nombreInstitucion" name="nombreInstitucion" class="form-control text-dark" 
+                 placeholder="Ingrese el nombre de la institución" maxlength="150" required />
         </div>
-        <!-- Campo: Moneda -->
-        <div class="form-group">
-          <label for="moneda">Moneda:</label>
-          &nbsp; &nbsp;<button class="btn btn-warning btn-square btn-sm" type="button" title="Registrar Moneda" data-toggle="modal" data-target="#monedaModal" style="font-weight: bold;">+</button>
-          <select id="idMoneda" name="idMoneda" class="form-control text-dark" tabindex="1" required>
-            <option value="" disabled selected>Seleccione una moneda...</option>
-            {% for moneda in monedas %}
-                <option value="{{ moneda.idMoneda }}" class="text-orange">{{ moneda.nombreMoneda }}</option>
-            {% endfor %}
-          </select>
-        </div>
-      </div>
-      <div class="col-md-6">
+        
         <!-- Campo: RIF -->
         <div class="form-group">
           <label for="rif">RIF:</label>
-          <input type="text" id="rif" name="rif" class="form-control text-dark" placeholder="Ingrese el RIF de la institución" tabindex="2" maxlength="15" required />
+          <input type="text" id="rif" name="rif" class="form-control text-dark" 
+                 placeholder="Ej: J-12345678-9" maxlength="15" required />
         </div>
+      </div>
+      
+      <div class="col-md-6">
+        <!-- Campo: Moneda -->
+        <div class="form-group">
+          <label for="moneda">Moneda:</label>
+          &nbsp; &nbsp;<button class="btn btn-warning btn-square btn-sm" type="button" 
+                  title="Registrar Moneda" data-toggle="modal" data-target="#monedaModal" 
+                  style="font-weight: bold;">+</button>
+          <select id="moneda" name="moneda" class="form-control text-dark" required>
+            <option value="" disabled selected>Seleccione una moneda...</option>
+            {% for moneda in monedas %}
+                <option value="{{ moneda.idMoneda }}">{{ moneda.nombreMoneda }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        
         <!-- Campo: Correo Electrónico -->
         <div class="form-group">
           <label for="correoInstitucion">Correo Electrónico:</label>
-          <input type="email" id="correoInstitucion" name="correoInstitucion" class="form-control text-dark" placeholder="example@institucion.com" tabindex="4" maxlength="254" required />
+          <input type="email" id="correoInstitucion" name="correoInstitucion" class="form-control text-dark" 
+                 placeholder="contacto@institucion.com" maxlength="254" required />
         </div>
       </div>
     </div>
 
-    <!-- Cargar Imagen de la Institución -->
+    <!-- Cargar Imágenes Institucionales -->
     <hr class="my-4" />
-    <h4 class="text-center text-dark">Cargar Imagen de la Institución</h4>
-    <div class="form-group">
-      <label for="logoInstitucion">Logotipo de la Institución:</label>
-      <input type="file" id="logoInstitucion" name="logoInstitucion" class="form-control-file text-dark" accept="image/*" required />
+    <h4 class="text-center text-dark">Imágenes Institucionales</h4>
+    
+    <div class="row">
+      <div class="col-md-6">
+        <!-- Campo: Logo -->
+        <div class="form-group">
+          <label for="logo">Logotipo:</label>
+          <input type="file" id="logo" name="logo" class="form-control-file text-dark" 
+                 accept="image/*" required />
+          <small class="text-muted">Formatos aceptados: JPG, PNG, SVG. Tamaño recomendado: 300x300px</small>
+        </div>
+      </div>
+      
+      <div class="col-md-6">
+        <!-- Campo: Firma -->
+        <div class="form-group">
+          <label for="firma">Firma Autorizada:</label>
+          <input type="file" id="firma" name="firma" class="form-control-file text-dark" 
+                 accept="image/*" required />
+          <small class="text-muted">Firma digital para documentos oficiales</small>
+        </div>
+      </div>
     </div>
 
-    <!-- Personalizar Web -->
+    <!-- SECCIÓN COMENTADA PARA USO FUTURO EN CONFIGURACIÓN DE USUARIO -->
+    <!--
     <hr class="my-4" />
     <h4 class="text-center text-dark">Personalizar Web</h4>
     <div class="row">
-      <!-- Selector de Colores -->
-        <div class="col-md-6">
-            <h6 class="text-dark font-weight-bold">Seleccionar Color Principal:</h6>
-            <div class="d-flex justify-content-around mt-3">
-            <!-- Botón predeterminado: mitad azul y mitad naranja -->
-            <button class="btn split-circle-btn" type="button" title="Gris/Azul/Naranja" onclick="setColor('split-blue-orange')"></button>
-            
-            <!-- Otros botones personalizados -->
-            <!-- Ejemplo: Botón dividido: mitad azul y mitad morado -->
-            <button class="btn split-circle-btn" type="button" title="Gris/Azul/Morado" onclick="setColor('split-blue-purple')" style="background: conic-gradient(#5e72e4 0deg 90deg, #5603ad 90deg 270deg, #cecdcd 270deg 360deg);"></button>
-            
-            <!-- Ejemplo: Botón dividido: mitad rojo y mitad negro -->
-            <button class="btn split-circle-btn" type="button" title="Gris/Negro/Rojo" onclick="setColor('split-red-black')" style="background: conic-gradient(#212529 0deg 90deg, #f5365c 90deg 270deg, #cecdcd 270deg 360deg);"></button>
-            </div>
-            <input type="hidden" id="colorPrincipal" name="colorPrincipal" value="split-blue-orange" />
+      <div class="col-md-6">
+        <h6 class="text-dark font-weight-bold">Seleccionar Color Principal:</h6>
+        <div class="d-flex justify-content-around mt-3">
+          <button class="btn split-circle-btn" type="button" title="Gris/Azul/Naranja" onclick="setColor('split-blue-orange')"></button>
+          <button class="btn split-circle-btn" type="button" title="Gris/Azul/Morado" onclick="setColor('split-blue-purple')" 
+                  style="background: conic-gradient(#5e72e4 0deg 90deg, #5603ad 90deg 270deg, #cecdcd 270deg 360deg);"></button>
+          <button class="btn split-circle-btn" type="button" title="Gris/Negro/Rojo" onclick="setColor('split-red-black')" 
+                  style="background: conic-gradient(#212529 0deg 90deg, #f5365c 90deg 270deg, #cecdcd 270deg 360deg);"></button>
         </div>
-  
+        <input type="hidden" id="colorPrincipal" name="colorPrincipal" value="split-blue-orange" />
+      </div>
       
-      <!-- Selector de Tema Claro/Oscuro -->
       <div class="col-md-6 text-center">
         <h6 class="text-dark font-weight-bold">Tema:</h6>
         <div class="btn-group btn-group-toggle mt-3" data-toggle="buttons">
@@ -123,14 +143,17 @@
         </div>
       </div>
     </div>
-<br>
-    <div class="text-center">
-      <input type="submit" class="btn btn-warning mt-4"  value="Guardar" />
+    -->
+    
+    <div class="text-center mt-4">
+      <button type="submit" class="btn btn-warning btn-lg">
+        <i class="fas fa-save"></i> Guardar Configuración
+      </button>
     </div>
   </form>
 </div>
 
-<!-- Modal de Moneda (copiado de tablaMonedas.html) -->
+<!-- Modal de Moneda -->
 <div class="modal fade" id="monedaModal" tabindex="-1" role="dialog" aria-labelledby="monedaModalLabel" aria-hidden="true">
   <div class="modal-dialog" role="document">
     <div class="modal-content">
@@ -159,75 +182,74 @@
       return;
     }
     
-    // Código para cargar el formulario del modal vía AJAX (si es que se hace de esta forma)
+    // Código para cargar el formulario del modal vía AJAX
     $('#monedaModal').on('show.bs.modal', function (e) {
       var modal = $(this);
       $.ajax({
-        url: 'apps/home/moneda.html',  // Verifica que esta ruta sea correcta y que devuelva el formulario
+        url: '{% url "formulario_moneda" %}',  // Asegúrate de tener esta URL configurada
         method: 'GET',
         success: function(data) {
           modal.find('.modal-body').html(data);
         },
         error: function() {
-          modal.find('.modal-body').html('<div class="alert alert-danger">Error al cargar el formulario</div>');
+          modal.find('.modal-body').html(
+            '<div class="alert alert-danger">Error al cargar el formulario</div>'
+          );
         }
       });
     });
     
     // Manejar envío del formulario de moneda
     $(document).on('submit', '#monedaForm', function(e) {
-      e.preventDefault();  // Evita el envío tradicional del formulario
+      e.preventDefault();
       var form = $(this);
-      var messagesContainer = $('#modalMessages');  // Contenedor de mensajes en el modal
-      messagesContainer.empty();  // Limpiar mensajes anteriores
+      var messagesContainer = $('#modalMessages');
+      messagesContainer.empty();
 
       $.ajax({
-        url: form.attr('action'),             // La URL en el atributo action del formulario debe estar bien definida
-        method: form.attr('method') || 'POST',  // Método POST
-        data: form.serialize(),                // Serializa los datos del formulario
+        url: form.attr('action'),
+        method: 'POST',
+        data: new FormData(form),
+        processData: false,
+        contentType: false,
         success: function(response) {
           if (response.success) {
-            messagesContainer.append(
-              '<div class="alert alert-success alert-dismissible fade show" role="alert">' +
-              response.message +
-              '</div>'
+            messagesContainer.html(
+              '<div class="alert alert-success">' + response.message + '</div>'
             );
-            // Cierra el modal después de 1 segundo
+            
             setTimeout(function() {
               $('#monedaModal').modal('hide');
-              // Actualiza el select de moneda: Agrega la nueva moneda y la selecciona
-              var select = $('#idMoneda');
-              select.append('<option value="' + response.idMoneda + '">' + response.nombreMoneda + '</option>');
-              select.val(response.idMoneda);
+              var select = $('#moneda');
+              select.append($('<option>', {
+                value: response.idMoneda,
+                text: response.nombreMoneda,
+                selected: true
+              }));
             }, 1000);
           } else {
-            // Muestra los errores en el modal
-            if (response.errors) {
-              $.each(response.errors, function(field, error) {
-                messagesContainer.append(
-                  '<div class="alert alert-danger alert-dismissible fade show" role="alert">' +
-                  error +
-                  '</div>'
-                );
-              });
-            } else if (response.message) {
-              messagesContainer.append(
-                '<div class="alert alert-danger alert-dismissible fade show" role="alert">' +
-                response.message +
-                '</div>'
-              );
-            }
+            var errorsHtml = '<div class="alert alert-danger"><ul>';
+            $.each(response.errors, function(key, value) {
+              errorsHtml += '<li>' + value + '</li>';
+            });
+            errorsHtml += '</ul></div>';
+            messagesContainer.html(errorsHtml);
           }
         },
-        error: function(xhr, status, error) {
-          messagesContainer.append(
-            '<div class="alert alert-danger alert-dismissible fade show" role="alert">Error al enviar el formulario. Inténtelo de nuevo.</div>'
+        error: function(xhr) {
+          messagesContainer.html(
+            '<div class="alert alert-danger">Error en la solicitud</div>'
           );
-          console.error('AJAX Error:', error);
+          console.error('Error:', xhr.responseText);
         }
       });
     });
   });
+
+  // Función para validar el formulario antes de enviar
+  function validarFormulario() {
+    // Puedes agregar validaciones adicionales aquí si es necesario
+    return true;
+  }
 </script>
 {% endblock javascripts %}
-
