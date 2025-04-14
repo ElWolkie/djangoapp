@@ -85,7 +85,7 @@
     $('#tipoPersonaModal').on('show.bs.modal', function (e) {
       var modal = $(this);
       $.ajax({
-        url: 'apps/home/tipoPersona.html',
+        url: 'apps/persona/tipoPersona.html',
         method: 'GET',
         success: function(data) {
           modal.find('.modal-body').html(data);

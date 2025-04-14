@@ -6,9 +6,7 @@ urlpatterns = [
     # The home page
     path('', views.index, name='home'),
 
-    # Specific route for tipoPersona modal
-    path('tipoPersonaModal/', views.tipo_persona_modal, name='tipo_persona_modal'),
-    
+
     # Specific route for tipoFormacion modal
     path('tipoFormacionModal/', views.tipo_formacion_modal, name='tipo_formacion_modal'),
     path('deleteTF/<int:pk>/', views.delete_tipo_formacion, name='delete_tf'),

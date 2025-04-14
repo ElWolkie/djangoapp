@@ -262,3 +262,15 @@ class Movimiento(models.Model):
     class Meta:  
         verbose_name = "Ingreso"  
         verbose_name_plural = "Ingresos"
+
+class Inscripcion(models.Model):
+    idInscripcion = models.AutoField(primary_key=True)  # Clave primaria para Inscripcion
+    idCohorte = models.ForeignKey(Cohorte, on_delete=models.CASCADE)  # Relación con Cohorte
+    idTF = models.ForeignKey(TipoFormacion, on_delete=models.CASCADE)  # Relación con TipoFormacion
+    idFormacion = models.ForeignKey(Formacion, on_delete=models.CASCADE)  # Relación con Formacion
+    is_active = models.BooleanField(default=True) # Estado de la Inscripcion
+    fechaInscripcion = models.DateField(auto_now_add=True)  # Fecha de inscripción
+
+    class Meta:
+        verbose_name = "Inscripción"
+        verbose_name_plural = "Inscripciones"

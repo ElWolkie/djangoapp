@@ -24,7 +24,11 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    "apps.home",  # Enable the inner home (home)
+    "apps.home",  # Habilita la aplicación principal (home)
+    "apps.persona",  # Habilita la aplicación para gestionar personas
+    # "apps.cargo",  # Habilita la aplicación para gestionar cargos
+    # "apps.cohorte",  # Habilita la aplicación para gestionar cohortes
+    # "apps.denominacion",  # Habilita la aplicación para gestionar denominaciones
 ]
 
 MIDDLEWARE = [
@@ -76,8 +80,8 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": config("DB_NAME", default="fundacion"),
-        "USER": config("DB_USER", default="postgres"),
-        "PASSWORD": config("DB_PASSWORD", default="rafaeljesus"),
+        "USER": config("DB_USER", default="prueba"),
+        "PASSWORD": config("DB_PASSWORD", default="Prueba2022"),
         "HOST": config("DB_HOST", default="localhost"),
         "PORT": config("DB_PORT", default="5432"),
         "OPTIONS": {

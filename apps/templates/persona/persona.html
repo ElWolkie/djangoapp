@@ -104,7 +104,7 @@
     $('#tipoPersonaModal').on('show.bs.modal', function (e) {
       var modal = $(this);
       $.ajax({
-        url: 'apps/home/tipoPersona.html',
+        url: '/persona/tipoPersona.html',
         method: 'GET',
         success: function(data) {
           modal.find('.modal-body').html(data);
@@ -182,7 +182,7 @@
             // Construir las opciones según los checkboxes seleccionados
             const opciones = [];
             if (tipoPersonaSeleccionados.includes("tipoCliente")) {
-              opciones.push({ text: "Solicitud", value: `solicitud.html?cedula=${cedula}` });
+              opciones.push({ text: "Solicitud", value: `/home/solicitud.html?cedula=${cedula}` });
               opciones.push({ text: "Inscripción", value: `inscripcion.html?cedula=${cedula}` });
             }
             if (tipoPersonaSeleccionados.includes("tipoProveedor")) {
