@@ -145,10 +145,8 @@
     </div>
     -->
     
-    <div class="text-center mt-4">
-      <button type="submit" class="btn btn-warning btn-lg">
-        <i class="fas fa-save"></i> Guardar Configuración
-      </button>
+    <div class="text-center">
+      <input type="submit" class="btn btn-warning mt-4"  value="Guardar" />
     </div>
   </form>
 </div>
@@ -176,80 +174,72 @@
 {% block javascripts %}
 <script>
   document.addEventListener("DOMContentLoaded", function() {
-    // Verificar que jQuery esté disponible
-    if (typeof jQuery === 'undefined') {
-      console.error('jQuery no está cargado.');
-      return;
-    }
-    
-    // Código para cargar el formulario del modal vía AJAX
-    $('#monedaModal').on('show.bs.modal', function (e) {
-      var modal = $(this);
-      $.ajax({
-        url: '{% url "formulario_moneda" %}',  // Asegúrate de tener esta URL configurada
-        method: 'GET',
-        success: function(data) {
-          modal.find('.modal-body').html(data);
-        },
-        error: function() {
-          modal.find('.modal-body').html(
-            '<div class="alert alert-danger">Error al cargar el formulario</div>'
-          );
-        }
+      // Verificar que jQuery esté disponible
+      if (typeof jQuery === 'undefined') {
+          console.error('jQuery no está cargado.');
+          return;
+      }
+      
+      // Código para cargar el formulario del modal desde moneda.html
+      $('#monedaModal').on('show.bs.modal', function (e) {
+          var modal = $(this);
+          $.ajax({
+              url: 'moneda.html',  // Asegúrate que este archivo existe en la ruta correcta
+              method: 'GET',
+              success: function(data) {
+                  modal.find('.modal-body').html(data);
+              },
+              error: function() {
+                  modal.find('.modal-body').html(
+                      '<div class="alert alert-danger">Error al cargar el formulario de moneda</div>'
+                  );
+              }
+          });
       });
-    });
-    
-    // Manejar envío del formulario de moneda
-    $(document).on('submit', '#monedaForm', function(e) {
-      e.preventDefault();
-      var form = $(this);
-      var messagesContainer = $('#modalMessages');
-      messagesContainer.empty();
-
-      $.ajax({
-        url: form.attr('action'),
-        method: 'POST',
-        data: new FormData(form),
-        processData: false,
-        contentType: false,
-        success: function(response) {
-          if (response.success) {
-            messagesContainer.html(
-              '<div class="alert alert-success">' + response.message + '</div>'
-            );
-            
-            setTimeout(function() {
-              $('#monedaModal').modal('hide');
-              var select = $('#moneda');
-              select.append($('<option>', {
-                value: response.idMoneda,
-                text: response.nombreMoneda,
-                selected: true
-              }));
-            }, 1000);
-          } else {
-            var errorsHtml = '<div class="alert alert-danger"><ul>';
-            $.each(response.errors, function(key, value) {
-              errorsHtml += '<li>' + value + '</li>';
-            });
-            errorsHtml += '</ul></div>';
-            messagesContainer.html(errorsHtml);
-          }
-        },
-        error: function(xhr) {
-          messagesContainer.html(
-            '<div class="alert alert-danger">Error en la solicitud</div>'
-          );
-          console.error('Error:', xhr.responseText);
-        }
+      
+      // Manejar envío del formulario de moneda
+      $(document).on('submit', '#monedaForm', function(e) {
+          e.preventDefault();
+          var form = $(this);
+          var messagesContainer = $('#modalMessages');
+          messagesContainer.empty();
+  
+          $.ajax({
+              url: form.attr('action') || window.location.href,  // Usa la acción del form o la URL actual
+              method: 'POST',
+              data: form.serialize(),
+              success: function(response) {
+                  if (response.success) {
+                      messagesContainer.html(
+                          '<div class="alert alert-success">' + response.message + '</div>'
+                      );
+                      
+                      setTimeout(function() {
+                          $('#monedaModal').modal('hide');
+                          var select = $('#idMoneda');  // Asegúrate que coincida con tu select
+                          select.append($('<option>', {
+                              value: response.idMoneda,
+                              text: response.nombreMoneda,
+                              selected: true
+                          }));
+                      }, 1000);
+                  } else {
+                      var errorsHtml = '<div class="alert alert-danger"><ul>';
+                      $.each(response.errors, function(key, value) {
+                          errorsHtml += '<li>' + value + '</li>';
+                      });
+                      errorsHtml += '</ul></div>';
+                      messagesContainer.html(errorsHtml);
+                  }
+              },
+              error: function(xhr) {
+                  messagesContainer.html(
+                      '<div class="alert alert-danger">Error en la solicitud</div>'
+                  );
+                  console.error('Error:', xhr.responseText);
+              }
+          });
       });
-    });
   });
-
-  // Función para validar el formulario antes de enviar
-  function validarFormulario() {
-    // Puedes agregar validaciones adicionales aquí si es necesario
-    return true;
-  }
-</script>
+  </script>
 {% endblock javascripts %}

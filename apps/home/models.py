@@ -21,7 +21,7 @@ class Personas(models.Model):
     nombres = models.CharField(max_length=100)  # Nombres  
     apellidos = models.CharField(max_length=100)  # Apellidos
     telefono = models.CharField(max_length=15)  # Número de teléfono  
-    correo = models.EmailField()  # Dirección de correo electrónico  
+    correo = models.EmailField()  # Dirección de correo electrónicos 
     estadoPersona = models.CharField(max_length=10)  # Estado de la Persona  
     fechaPersona = models.DateField(auto_now_add=True)  # Fecha de creación de la Persona  
 
@@ -328,3 +328,24 @@ class Movimiento(models.Model):
     class Meta:  
         verbose_name = "Ingreso"  
         verbose_name_plural = "Ingresos"
+
+
+
+class Configuracion(models.Model):
+    idConfig = models.AutoField(primary_key=True, verbose_name="ID Configuración")
+    nombreInstitucion = models.CharField(max_length=150, verbose_name="Nombre de la Institución")
+    rif = models.CharField(max_length=15, verbose_name="RIF")
+    correoInstitucion = models.EmailField(max_length=254, verbose_name="Correo Institucional")
+    logo = models.ImageField(upload_to='configuracion/logos/', verbose_name="Logo Institucional")
+    firma = models.ImageField(upload_to='configuracion/firmas/', verbose_name="Firma Autorizada")
+    moneda = models.ForeignKey(Moneda, on_delete=models.PROTECT, verbose_name="Moneda Principal")
+    fechaConfiguracion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Configuración")
+
+    class Meta:
+        verbose_name = "Configuración Institucional"
+        verbose_name_plural = "Configuraciones Institucionales"
+        ordering = ['-fechaConfiguracion']  # Ordenar por la más reciente primero
+        db_table = 'configuraciones_institucionales'  # Nombre explícito para la tabla
+
+    def __str__(self):
+        return f"{self.nombreInstitucion} (Últ. actualización: {self.fechaConfiguracion.strftime('%d/%m/%Y')})"
