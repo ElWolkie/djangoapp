@@ -1,6 +1,9 @@
 import os
+import platform
 from decouple import config
 from unipath import Path
+# Configuración de JWT (opcional pero recomendado)
+from datetime import timedelta
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = Path(__file__).parent
@@ -72,12 +75,11 @@ WSGI_APPLICATION = "core.wsgi.application"
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 
+#Media
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
 # Database
-
-
-import os
-import platform
-from decouple import config
 
 DATABASES = {
     "default": {
@@ -93,8 +95,6 @@ DATABASES = {
     }
 }
 
-from datetime import timedelta
-
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',  # Autenticación JWT
@@ -103,9 +103,6 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.AllowAny',  # Todos los usuarios autenticados pueden acceder
     ),
 }
-
-# Configuración de JWT (opcional pero recomendado)
-from datetime import timedelta
 
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
