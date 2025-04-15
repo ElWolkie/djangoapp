@@ -8,9 +8,11 @@ from django.urls import reverse
 from django.contrib import messages
 
 from django.template.loader import render_to_string
-from .forms import TipoPersonaForm, PersonaForm,TipoFormacionForm, FormacionForm, MateriaForm, CohorteForm, CargoForm, HonorarioForm, RequisitoForm, ServicioForm, TramiteForm, SolicitudForm, DenominacionForm, BancoForm, MonedaForm, TasaForm, TipoMovimientoForm, MovimientoForm
-from .models import PersonaTP, Personas, TipoPersona,TipoFormacion, Formacion, Materia, Cohorte, Cargo, Honorario, Requisito, Servicio, Tramite, Solicitud, Denominacion, Banco, Moneda, Tasa,Movimiento, TipoMovimiento
-from apps.persona.models import Personas
+from .forms import TipoFormacionForm, FormacionForm, MateriaForm, CohorteForm, CargoForm, RequisitoForm, ServicioForm, TramiteForm, SolicitudForm, DenominacionForm, BancoForm, MonedaForm, TasaForm, TipoMovimientoForm, MovimientoForm
+from .models import  TipoFormacion, Formacion, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Solicitud, Denominacion, Banco, Moneda, Tasa,Movimiento, TipoMovimiento
+from apps.persona.models import Personas, PersonaTP, TipoPersona
+from apps.persona.forms import TipoPersonaForm, PersonaForm
+from apps.honorario.models import Honorario
 
 @csrf_exempt
 def formacion_modal(request):
@@ -271,69 +273,6 @@ def reactivate_cargo(request, pk):
 def tabla_cargos(request):
     cargos = Cargo.objects.all()
     return render(request, 'home/tablaCargos.html', {'cargos': cargos})
-
-#Honarario
-@csrf_exempt
-def honorario_modal(request):
-    if request.method == 'POST':
-        form = HonorarioForm(request.POST)
-        if form.is_valid():
-            form.save()
-            return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
-        else:
-            print(form.errors)  # esto para depurar errores
-            errors = {field: error for field, error in form.errors.items()}
-            return JsonResponse({'success': False, 'errors': errors})
-    else:
-        form = HonorarioForm()
-    return render(request, 'home/honorario_modal.html', {'form': form})
-
-@csrf_exempt
-def edit_honorario(request, pk):
-    instance = get_object_or_404(Honorario, pk=pk)
-    if request.method == 'POST':
-        form = HonorarioForm(request.POST, instance=instance)
-        if form.is_valid():
-            form.save()
-            return JsonResponse({'success': True, 'message': 'Honorario actualizado.'})
-        else:
-            errors = {field: error for field, error in form.errors.items()}
-            return JsonResponse({'success': False, 'errors': errors})
-    else:
-        form = HonorarioForm(instance=instance)
-        # Obtener datos relacionados para los dropdowns
-        personas = Personas.objects.all()
-        cargos = Cargo.objects.all()
-        materias = Materia.objects.all()
-        cohortes = Cohorte.objects.all()
-        
-    return render(request, 'home/modales/editHonorario.html', {
-        'form': form,
-        'honorario': instance,
-        'personas': personas,
-        'cargos': cargos,
-        'materias': materias,
-        'cohortes': cohortes
-    })
-
-@csrf_exempt
-def delete_honorario(request, pk):
-    instance = get_object_or_404(Honorario, pk=pk)
-    instance.estadoHonorario = 'INACTIVO'
-    instance.save()
-    return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
-
-@csrf_exempt
-def reactivate_honorario(request, pk):
-    instance = get_object_or_404(Honorario, pk=pk)
-    instance.estadoHonorario = 'ACTIVO'
-    instance.save()
-    return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
-
-@csrf_exempt
-def tabla_honorarios(request):
-    honorarios = Honorario.objects.all()
-    return render(request, 'home/tablaHonorarios.html', {'honorarios': honorarios})
 
 #Requisito
 @csrf_exempt

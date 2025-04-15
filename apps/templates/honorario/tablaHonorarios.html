@@ -36,7 +36,8 @@
   </div>
 
   <br>
-  <table class="table table-striped text-gray-dark" id="honorariosTable">
+  <div class="table-responsive">
+    <table class="table table-striped text-gray-dark" id="honorariosTable">
     <thead class="text-darker">
       <tr>
         <th scope="col">ID</th>
@@ -148,7 +149,7 @@
     $('#honorarioModal').on('show.bs.modal', function (e) {
       var modal = $(this);
       $.ajax({
-        url: 'apps/home/honorario.html',
+        url: 'apps/honorario/honorario.html',
         method: 'GET',
         success: function(data) {
           modal.find('.modal-body').html(data);
@@ -190,7 +191,7 @@
     var modal = $(this);
     
     $.ajax({
-        url: '/editHonorario/' + idHonorario + '/',
+        url: '/honorario/editHonorario/' + idHonorario + '/',
         type: 'get',
         dataType: 'html',
         success: function(data) {
