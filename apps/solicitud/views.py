@@ -1,6 +1,6 @@
 from django.http import JsonResponse, HttpResponse, HttpResponseRedirect
 from django.views.decorators.csrf import csrf_exempt
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.template import loader
 from django.urls import reverse
@@ -15,6 +15,48 @@ from apps.home.models import Tramite, Servicio
 def tabla_solicitud(request):
     solicitudes = Solicitud.objects.all()
     return render(request, 'solicitud/tablaSolicitud.html', {'solicitudes': solicitudes})
+
+
+#Solicitud
+def edit_solicitud(request, pk):
+    instance = get_object_or_404(Solicitud, pk=pk)
+    if request.method == 'POST':
+        form = SolicitudForm(request.POST, instance=instance)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({'success': True, 'message': 'Solicitud actualizada.'})
+        else:
+            errors = {field: error for field, error in form.errors.items()}
+            return JsonResponse({'success': False, 'errors': errors})
+    else:
+        form = SolicitudForm(instance=instance)
+        # Obtener datos necesarios para los dropdowns
+        tramites = Tramite.objects.all()  # Agregado
+        servicios = Servicio.objects.all()  # Agregado
+        personas = Personas.objects.all()
+        
+    return render(request, 'solicitud/editSolicitud.html', {
+        'form': form,
+        'solicitud': instance,
+        'tramites': tramites,  
+        'servicios': servicios,  
+        'personas': personas
+    })
+
+@csrf_exempt
+def delete_solicitud(request, pk):
+    instance = get_object_or_404(Solicitud, pk=pk)
+    instance.estadoSolicitud = 'INACTIVO'
+    instance.save()
+    return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
+
+@csrf_exempt
+def reactivate_solicitud(request, pk):
+    instance = get_object_or_404(Solicitud, pk=pk)
+    instance.estadoSolicitud = 'ACTIVO'
+    instance.save()
+    return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
+
 
 
 @login_required(login_url="/login/")

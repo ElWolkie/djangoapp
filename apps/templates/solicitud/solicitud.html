@@ -58,7 +58,7 @@
         </div>
         <div class="form-group">
           <label for="fechaEntrega">Fecha de Entrega:</label>
-          <input type="date" id="fechaEntrega" name="fechaEntrega" class="form-control text-dark"  tabindex="4" maxlength="100" required />
+          <input type="date" id="fechaEntrega" name="fechaEntrega" class="form-control text-dark" value="{{ fechaEntrega|date:'Y-m-d' }}" tabindex="4" maxlength="100" required />
           <input type="hidden" id="estadoSolicitud" name="estadoSolicitud" class="form-control text-dark" value="ACTIVO" />
         </div>
       </div>

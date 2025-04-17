@@ -1,26 +1,5 @@
 from django import forms  
-from .models import TipoPersona, Personas, PersonaTP, Formacion,TipoFormacion, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Denominacion, Banco, Moneda, Tasa, TipoMovimiento, Movimiento
-
-class TipoPersonaForm(forms.ModelForm):  
-    estadoTP = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
-
-    class Meta:  
-        model = TipoPersona  
-        fields = ['nombreTP', 'estadoTP']  
-
-
-class PersonaForm(forms.ModelForm):  
-    estadoPersona = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
-
-    class Meta:  
-        model = Personas  
-        fields = ['cedula', 'nombres', 'apellidos', 'telefono', 'correo', 'estadoPersona']  
-
-class PersonaTPForm(forms.ModelForm):
-    class Meta:
-        model = PersonaTP
-        fields = ['idPersona', 'idTP']
-
+from .models import  Formacion,TipoFormacion, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Denominacion, Banco, Moneda, Tasa, TipoMovimiento, Movimiento
 
 class TipoFormacionForm(forms.ModelForm):  
     estadoTipoFormacion = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  

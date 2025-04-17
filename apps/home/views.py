@@ -8,8 +8,8 @@ from django.urls import reverse
 from django.contrib import messages
 
 from django.template.loader import render_to_string
-from .forms import TipoFormacionForm, FormacionForm, MateriaForm, CohorteForm, CargoForm, RequisitoForm, ServicioForm,SolicitudForm, TramiteForm, DenominacionForm, BancoForm, MonedaForm, TasaForm, TipoMovimientoForm, MovimientoForm
-from .models import  TipoFormacion, Formacion, Materia, Cohorte, Cargo, Requisito, Servicio,Solicitud, Tramite, Denominacion, Banco, Moneda, Tasa,Movimiento, TipoMovimiento
+from .forms import TipoFormacionForm, FormacionForm, MateriaForm, CohorteForm, CargoForm, RequisitoForm, ServicioForm, TramiteForm, DenominacionForm, BancoForm, MonedaForm, TasaForm, TipoMovimientoForm, MovimientoForm
+from .models import  TipoFormacion, Formacion, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Denominacion, Banco, Moneda, Tasa,Movimiento, TipoMovimiento
 from apps.persona.models import Personas, PersonaTP, TipoPersona
 from apps.persona.forms import TipoPersonaForm, PersonaForm
 from apps.honorario.models import Honorario
@@ -422,53 +422,6 @@ def reactivate_tramite(request, pk):
 def tabla_tramites(request):
     servicios = Servicio.objects.all()
     return render(request, 'home/tablaTramites.html', {'servicios': servicios})
-
-
-#Solicitud
-def edit_solicitud(request, pk):
-    instance = get_object_or_404(Solicitud, pk=pk)
-    if request.method == 'POST':
-        form = SolicitudForm(request.POST, instance=instance)
-        if form.is_valid():
-            form.save()
-            return JsonResponse({'success': True, 'message': 'Solicitud actualizada.'})
-        else:
-            errors = {field: error for field, error in form.errors.items()}
-            return JsonResponse({'success': False, 'errors': errors})
-    else:
-        form = SolicitudForm(instance=instance)
-        # Obtener datos necesarios para los dropdowns
-        tramites = Tramite.objects.all()  # Agregado
-        servicios = Servicio.objects.all()  # Agregado
-        personas = Personas.objects.all()
-        
-    return render(request, 'home/modales/editSolicitud.html', {
-        'form': form,
-        'solicitud': instance,
-        'tramites': tramites,  
-        'servicios': servicios,  
-        'personas': personas
-    })
-
-@csrf_exempt
-def delete_solicitud(request, pk):
-    instance = get_object_or_404(Solicitud, pk=pk)
-    instance.estadoSolicitud = 'INACTIVO'
-    instance.save()
-    return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
-
-@csrf_exempt
-def reactivate_solicitud(request, pk):
-    instance = get_object_or_404(Solicitud, pk=pk)
-    instance.estadoSolicitud = 'ACTIVO'
-    instance.save()
-    return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
-
-@csrf_exempt
-def tabla_solicitudes(request):
-    solicitudes = Servicio.objects.all()
-    return render(request, 'home/tablaSolicitud.html', {'solicitudes': solicitudes})
-
 
 #Denominacion
 @csrf_exempt

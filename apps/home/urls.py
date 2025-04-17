@@ -61,12 +61,6 @@ urlpatterns = [
     path('reactivateTramite/<int:pk>/', views.reactivate_tramite, name='reactivate_tramite'),
     path('tablaTramites/', views.tabla_tramites, name='tabla_tramites'),
 
-    # Specific route for solicitud modal
-    path('editSolicitud/<int:pk>/', views.edit_solicitud, name='edit_solicitud'),
-    path('deleteSolicitud/<int:pk>/', views.delete_solicitud, name='delete_solicitud'),
-    path('reactivateSolicitud/<int:pk>/', views.reactivate_solicitud, name='reactivate_solicitud'),
-    path('tablaSolicitudes/', views.tabla_solicitudes, name='tabla_solicitudes'),
-
     # Specific route for denominacion modal
     path('denominacionModal/', views.denominacion_modal, name='denominacion_modal'),
     path('editDenominacion/<int:pk>/', views.edit_denominacion, name='edit_denominacion'),
