@@ -26,6 +26,9 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "apps.home",  # Habilita la aplicación principal (home)
     "apps.persona",  # Habilita la aplicación para gestionar personas
+    "apps.honorario",  # Habilita la aplicación para gestionar honorario
+    "apps.inscripcion",  # Habilita la aplicación para gestionar honorario
+    "apps.solicitud",  # Habilita la aplicación para gestionar solicitud
     # "apps.cargo",  # Habilita la aplicación para gestionar cargos
     # "apps.cohorte",  # Habilita la aplicación para gestionar cohortes
     # "apps.denominacion",  # Habilita la aplicación para gestionar denominaciones

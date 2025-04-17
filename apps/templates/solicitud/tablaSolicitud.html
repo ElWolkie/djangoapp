@@ -31,7 +31,7 @@
       </div>
     </div>
     <div class="col-md-4">
-      <a class="btn btn-warning btn-square btn-sm my-2" href="/solicitud.html" title="Registrar Solicitud">+</a>
+      <a class="btn btn-warning btn-square btn-sm my-2" href="/solicitud/solicitud.html" title="Registrar Solicitud">+</a>
     </div>
   <div class="col-md-4"></div>
   </div>
@@ -55,7 +55,7 @@
       {% for solicitud in solicitudes %}
       <tr>
         <td>{{ solicitud.idSoli }}</td>
-        <td>{{ solicitud.idPersona.nombres }} {{ solicitud.idPersona.apellidos }}</td>
+        <td>{{ solicitud.idPersona.nombres }} {{ solicitud.idPersona.apellidos }}</td> 
         <td>{{ solicitud.idTramite.nombreTramite }}</td>
         <td>{{ solicitud.idServicio.nombreServicio }}</td>
         <td>{{ solicitud.montoTotal }}</td>

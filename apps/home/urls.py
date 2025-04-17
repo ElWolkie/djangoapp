@@ -40,12 +40,6 @@ urlpatterns = [
     path('deleteCargo/<int:pk>/', views.delete_cargo, name='delete_cargo'),
     path('reactivateCargo/<int:pk>/', views.reactivate_cargo, name='reactivate_cargo'),
 
-    # Specific route for cohorte modal
-    path('honorarioModal/', views.honorario_modal, name='honorario_modal'),
-    path('editHonorario/<int:pk>/', views.edit_honorario, name='edit_honorario'),
-    path('deleteHonorario/<int:pk>/', views.delete_honorario, name='delete_honorario'),
-    path('reactivateHonorario/<int:pk>/', views.reactivate_honorario, name='reactivate_honorario'),
-
      # Specific route for cohorte modal
     path('requisitoModal/', views.requisito_modal, name='requisito_modal'),
     path('editRequisito/<int:pk>/', views.edit_requisito, name='edit_requisito'),

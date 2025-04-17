@@ -81,7 +81,7 @@
     $('c').on('show.bs.modal', function (e) {
       var modal = $(this);
       $.ajax({
-        url: 'apps/home/honorario.html',
+        url: 'apps/honorario/honorario.html',
         method: 'GET',
         success: function(data) {
           modal.find('.modal-body').html(data);

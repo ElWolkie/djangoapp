@@ -1,0 +1,152 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}Listado de Personas{% endblock title %}
+
+{% block stylesheets %}
+<link rel="stylesheet" href="/static/assets/css/styleForms.css" />
+<link rel="stylesheet" href="/static/assets/css/argon.css" />
+{% endblock stylesheets %}
+
+{% block content %}
+<div class="container mt-5">
+  <h2 class="text-center text-dark mb-4">Lista de Inscripcion Registrados</h2>
+
+  {% if messages %}
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        {{ message }}
+      </div>
+    {% endfor %}
+  {% endif %}
+
+  <div class="row mb-3">
+    <div class="col-md-4">
+      <div class="input-group">
+        <div class="input-group-prepend">
+          <span class="input-group-text bg-secondary border-0"></span>
+            <i class="fas fa-search text-warning"></i>
+          </span>
+        </div>
+        <input class="form-control" id="searchInput" type="text" placeholder="Buscar..." onkeyup="filterTable()">
+      </div>
+    </div>
+    <div class="col-md-4">
+      <a class="btn btn-warning btn-square btn-sm my-2" href="/inscripcion/inscripcion.html" title="Registrar inscripción">+</a>
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-striped text-gray-dark" id="inscripcionesTable">
+      <thead class="text-darker">
+      <tr>
+        <th>ID</th>
+        <th>Cédula</th>
+        <th>Cohorte</th>
+        <th>Tipo Formación</th>
+        <th>Formación</th>
+        <th>Estado</th>
+        <th>Fecha</th>
+        <th>Acciones</th>
+      </tr>
+      </thead>
+      <tbody>
+      {% for inscripcion in inscripciones %}
+      <tr>
+        <td>{{ inscripcion.idInscripcion }}</td>
+        <td>{{ inscripcion.idPersona.cedula }}</td>
+        <td>{{ inscripcion.idCohorte.nombreCohorte }}</td>
+        <td>{{ inscripcion.idTF.nombreTipoFormacion }}</td>
+        <td>{{ inscripcion.idFormacion.nombreFormacion }}</td>
+        <td>{{ inscripcion.is_active|yesno:"ACTIVO,INACTIVO" }}</td>
+        <td>{{ inscripcion.fechaInscripcion|date:"d/m/Y" }}</td>
+        <td>
+        <button class="btn btn-sm btn-primary" type="button" data-toggle="modal" data-target="#editInscripcionModal" data-id="{{ inscripcion.idInscripcion }}">Editar</button>
+        {% if inscripcion.is_active %}
+        <button class="btn btn-sm btn-danger" type="button" onclick="manageInscripcion('{{ inscripcion.idInscripcion }}', 'delete')">Eliminar</button>
+        {% else %}
+        <button class="btn btn-sm btn-success" type="button" onclick="manageInscripcion('{{ inscripcion.idInscripcion }}', 'reactivate')">Reactivar</button>
+        {% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="8" class="text-center">No hay registros disponibles.</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal Registro -->
+<div class="modal fade" id="inscripcionModal" tabindex="-1" role="dialog" aria-labelledby="inscripcionModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="inscripcionModalLabel">Registro de Inscripcion</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body" id="modalMessages"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Edición -->
+<div class="modal fade" id="editInscripcionModal" tabindex="-1" role="dialog" aria-labelledby="editInscripcionModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="editInscripcionModalLabel">Actualizar Inscripcion</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body" id="modalMessagesEdit"></div>
+    </div>
+  </div>
+</div>
+{% endblock content %}
+
+{% block javascripts %}
+<script src="/static/assets/js/validacionesPersona.js"></script>
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    $('#inscripcionModal').on('show.bs.modal', function () {
+      $.get('apps/inscripcion/inscripcion.html', function(data) {
+        $('#modalMessages').html(data);
+      });
+    });
+
+    $('#editInscripcionModal').on('show.bs.modal', function (e) {
+      const idInscripcion = $(e.relatedTarget).data('id');
+      $.get(`/inscripcion/editInscripcion/${idInscripcion}/`, function(data) {
+        $('#modalMessagesEdit').html(data);
+      });
+    });
+  });
+
+  function manageInscripcion(id, action) {
+    const confirmMessage = action === 'delete' ? '¿Está seguro de eliminar este registro?' : '¿Está seguro de reactivar este registro?';
+    if (confirm(confirmMessage)) {
+      const url = action === 'delete' ? "{% url 'delete_inscripcion' 0 %}".replace('0', id) : "{% url 'reactivate_inscripcion' 0 %}".replace('0', id);
+      $.post(url, {
+        csrfmiddlewaretoken: '{{ csrf_token }}'
+      }).done(function(response) {
+        if (response.success) location.reload();
+        else alert(`Error al ${action === 'delete' ? 'eliminar' : 'reactivar'}`);
+      });
+    }
+  }
+
+  function filterTable() {
+    const filter = document.getElementById("searchInput").value.toUpperCase();
+    const rows = document.querySelectorAll("#inscripcionesTable tbody tr");
+    rows.forEach(row => {
+      const cells = row.querySelectorAll("td");
+      row.style.display = Array.from(cells).some(cell => cell.textContent.toUpperCase().includes(filter)) ? "" : "none";
+    });
+  }
+</script>
+{% endblock javascripts %}

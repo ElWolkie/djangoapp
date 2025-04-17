@@ -110,19 +110,6 @@ class Cargo(models.Model):
         verbose_name_plural = "Cargos"  
 
 
-class Honorario(models.Model):  
-    idHonorario = models.AutoField(primary_key=True)  # Clave primaria para Honorario  
-    idPersona = models.ForeignKey(Personas, on_delete=models.CASCADE)  # Clave foránea a Personas  
-    idCargo = models.ForeignKey(Cargo, on_delete=models.CASCADE)  # Clave foránea a Cargo  
-    idCohorte = models.ForeignKey(Cohorte, on_delete=models.CASCADE)  # Clave foránea a Cohorte  
-    idMateria = models.ForeignKey(Materia, on_delete=models.CASCADE)  # Clave foránea a Materia  
-    horas = models.FloatField()  # Número de horas trabajadas  
-    estadoHonorario = models.CharField(max_length=10)  # Estado del Honorario  
-    fechaHonorario = models.DateField(auto_now_add=True)  # Fecha de creación del Honorario  
-
-    class Meta:  
-        verbose_name = "Honorario"  
-        verbose_name_plural = "Honorarios"  
 
 
 class Requisito(models.Model):  
@@ -161,19 +148,6 @@ class Tramite(models.Model):
         verbose_name = "Tramite"  
         verbose_name_plural = "Tramites"  
 
-class Solicitud(models.Model):
-    idSoli = models.AutoField(primary_key=True)  # Clave primaria para Solicitud
-    idPersona = models.ForeignKey(Personas, on_delete=models.CASCADE)  # Clave foránea a Personas  
-    idTramite = models.ForeignKey(Tramite, on_delete=models.CASCADE)  # Clave foránea a Tramite
-    idServicio = models.ForeignKey(Servicio, on_delete=models.CASCADE)  # Clave foránea a Servicio
-    montoTotal = models.DecimalField(max_digits=10, decimal_places=2)  # Monto total de la Solicitud
-    estadoSolicitud = models.CharField(max_length=10)  # Estado de la Solicitud
-    fechaEntrega = models.DateField()  # Fecha de entrega de la Solicitud
-    fechaSolicitud = models.DateField(auto_now_add=True)  # Fecha de creación de la Solicitud
-
-    class Meta:
-        verbose_name = "Solicitud"
-        verbose_name_plural = "Solicitudes"
 
 class Denominacion(models.Model):  
     idDenominacion = models.AutoField(primary_key=True)  # Clave primaria para Denominacion  
@@ -262,15 +236,3 @@ class Movimiento(models.Model):
     class Meta:  
         verbose_name = "Ingreso"  
         verbose_name_plural = "Ingresos"
-
-class Inscripcion(models.Model):
-    idInscripcion = models.AutoField(primary_key=True)  # Clave primaria para Inscripcion
-    idCohorte = models.ForeignKey(Cohorte, on_delete=models.CASCADE)  # Relación con Cohorte
-    idTF = models.ForeignKey(TipoFormacion, on_delete=models.CASCADE)  # Relación con TipoFormacion
-    idFormacion = models.ForeignKey(Formacion, on_delete=models.CASCADE)  # Relación con Formacion
-    is_active = models.BooleanField(default=True) # Estado de la Inscripcion
-    fechaInscripcion = models.DateField(auto_now_add=True)  # Fecha de inscripción
-
-    class Meta:
-        verbose_name = "Inscripción"
-        verbose_name_plural = "Inscripciones"
