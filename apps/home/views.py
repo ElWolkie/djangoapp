@@ -351,7 +351,42 @@ def requisito_modal(request):
         form = RequisitoForm()
     return render(request, 'home/requisito_modal.html', {'form': form})
 
+@csrf_exempt
+def edit_requisito(request, pk):
+    requisito = get_object_or_404(Requisito, pk=pk)
+    if request.method == 'POST':
+        form = RequisitoForm(request.POST, instance=requisito)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({'success': True, 'message': 'requisito actualizado.'})
+        else:
+            return JsonResponse({'success': False, 'errors': form.errors})
+    else:
+        form = RequisitoForm(instance=requisito)
+    return render(request, 'home/modales/editRequisito.html', {'form': form, 'requisito':requisito})
 
+@csrf_exempt
+def delete_requisito(request, pk):
+    instance = get_object_or_404(Requisito, pk=pk)
+    instance.estadoRequisito = 'INACTIVO'
+    instance.save()
+    return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
+
+
+@csrf_exempt
+def reactivate_requisito(request, pk):
+    instance = get_object_or_404(Requisito, pk=pk)
+    instance.estadoRequisito = 'ACTIVO'
+    instance.save()
+    return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
+
+@csrf_exempt
+def tabla_requisitos(request):
+    requisitos = Requisito.objects.all()
+    return render(request, 'home/tablaRequisitos.html', {'requisitos': requisitos})
+
+
+#Servicio
 @csrf_exempt
 def servicio_modal(request):
     if request.method == 'POST':
@@ -367,7 +402,41 @@ def servicio_modal(request):
         form = ServicioForm()
     return render(request, 'home/servicio_modal.html', {'form': form})
 
+@csrf_exempt
+def edit_servicio(request, pk):
+    servicio = get_object_or_404(Servicio, pk=pk)
+    if request.method == 'POST':
+        form = ServicioForm(request.POST, instance=servicio)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({'success': True, 'message': 'servicio actualizado.'})
+        else:
+            return JsonResponse({'success': False, 'errors': form.errors})
+    else:
+        form = ServicioForm(instance=servicio)
+    return render(request, 'home/modales/editServicio.html', {'form': form, 'servicio':servicio})
 
+
+@csrf_exempt
+def delete_servicio(request, pk):
+    instance = get_object_or_404(Servicio, pk=pk)
+    instance.estadoServicio = 'INACTIVO'
+    instance.save()
+    return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
+
+@csrf_exempt
+def reactivate_servicio(request, pk):
+    instance = get_object_or_404(Servicio, pk=pk)
+    instance.estadoServicio = 'ACTIVO'
+    instance.save()
+    return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
+
+@csrf_exempt
+def tabla_servicios(request):
+    servicios = Servicio.objects.all()
+    return render(request, 'home/tablaServicios.html', {'servicios': servicios})
+
+#Tramite
 @csrf_exempt
 def tramite_modal(request):
     if request.method == 'POST':
@@ -383,6 +452,86 @@ def tramite_modal(request):
         form = TramiteForm()
     return render(request, 'home/tramite_modal.html', {'form': form})
 
+def edit_tramite(request, pk):
+    tramite = get_object_or_404(Tramite, pk=pk)
+    if request.method == 'POST':
+        form = TramiteForm(request.POST, instance=tramite)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({'success': True, 'message': 'tramite actualizado.'})
+        else:
+            return JsonResponse({'success': False, 'errors': form.errors})
+    else:
+        form = TramiteForm(instance=tramite)
+    return render(request, 'home/modales/editTramite.html', {'form': form, 'tramite':tramite})
+
+@csrf_exempt
+def delete_tramite(request, pk):
+    instance = get_object_or_404(Tramite, pk=pk)
+    instance.estadoTramite = 'INACTIVO'
+    instance.save()
+    return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
+
+@csrf_exempt
+def reactivate_tramite(request, pk):
+    instance = get_object_or_404(Tramite, pk=pk)
+    instance.estadoTramite = 'ACTIVO'
+    instance.save()
+    return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
+
+@csrf_exempt
+def tabla_tramites(request):
+    servicios = Servicio.objects.all()
+    return render(request, 'home/tablaTramites.html', {'servicios': servicios})
+
+
+#Solicitud
+def edit_solicitud(request, pk):
+    instance = get_object_or_404(Solicitud, pk=pk)
+    if request.method == 'POST':
+        form = SolicitudForm(request.POST, instance=instance)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({'success': True, 'message': 'Solicitud actualizada.'})
+        else:
+            errors = {field: error for field, error in form.errors.items()}
+            return JsonResponse({'success': False, 'errors': errors})
+    else:
+        form = SolicitudForm(instance=instance)
+        # Obtener datos necesarios para los dropdowns
+        tramites = Tramite.objects.all()  # Agregado
+        servicios = Servicio.objects.all()  # Agregado
+        personas = Personas.objects.all()
+        
+    return render(request, 'home/modales/editSolicitud.html', {
+        'form': form,
+        'solicitud': instance,
+        'tramites': tramites,  
+        'servicios': servicios,  
+        'personas': personas
+    })
+
+@csrf_exempt
+def delete_solicitud(request, pk):
+    instance = get_object_or_404(Solicitud, pk=pk)
+    instance.estadoSolicitud = 'INACTIVO'
+    instance.save()
+    return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
+
+@csrf_exempt
+def reactivate_solicitud(request, pk):
+    instance = get_object_or_404(Solicitud, pk=pk)
+    instance.estadoSolicitud = 'ACTIVO'
+    instance.save()
+    return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
+
+@csrf_exempt
+def tabla_solicitudes(request):
+    solicitudes = Servicio.objects.all()
+    return render(request, 'home/tablaSolicitud.html', {'solicitudes': solicitudes})
+
+
+#Denominacion
 @csrf_exempt
 def denominacion_modal(request):
     if request.method == 'POST':
@@ -398,7 +547,41 @@ def denominacion_modal(request):
         form = DenominacionForm()
     return render(request, 'home/denominacion_modal.html', {'form': form})
 
+@csrf_exempt
+def edit_denominacion(request, pk):
+    instance = get_object_or_404(Denominacion, pk=pk)
+    if request.method == 'POST':
+        form = DenominacionForm(request.POST, instance=instance)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({'success': True, 'message': 'Edición exitosa.'})  # Respuesta JSON
+        else:
+            errors = {field: error for field, error in form.errors.items()}
+            return JsonResponse({'success': False, 'errors': errors})  # Respuesta JSON con errores
+    else:
+        form = DenominacionForm(instance=instance)
+    return render(request, 'home/modales/editDenominacion.html', {'form': form, 'denominacion': instance})
 
+@csrf_exempt
+def delete_denominacion(request, pk):
+    instance = get_object_or_404(Denominacion, pk=pk)
+    instance.estadoDenominacion = 'INACTIVO'
+    instance.save()
+    return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
+
+@csrf_exempt
+def reactivate_denominacion(request, pk):
+    instance = get_object_or_404(Denominacion, pk=pk)
+    instance.estadoDenominacion = 'ACTIVO'
+    instance.save()
+    return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
+
+def tabla_denominaciones(request):
+    denominaciones = Banco.objects.all()
+
+    return render(request, 'home/tablaDenominaciones.html', {'denominaciones': denominaciones})
+
+#Banco
 @csrf_exempt
 def banco_modal(request):
     if request.method == 'POST':
@@ -415,6 +598,41 @@ def banco_modal(request):
     return render(request, 'home/banco_modal.html', {'form': form})
 
 @csrf_exempt
+def edit_banco(request, pk):
+    instance = get_object_or_404(Banco, pk=pk)
+    if request.method == 'POST':
+        form = BancoForm(request.POST, instance=instance)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({'success': True, 'message': 'Edición exitosa.'})  # Respuesta JSON
+        else:
+            errors = {field: error for field, error in form.errors.items()}
+            return JsonResponse({'success': False, 'errors': errors})  # Respuesta JSON con errores
+    else:
+        form = BancoForm(instance=instance)
+    return render(request, 'home/modales/editBanco.html', {'form': form, 'banco': instance})
+
+@csrf_exempt
+def delete_banco(request, pk):
+    instance = get_object_or_404(Banco, pk=pk)
+    instance.estadoBanco = 'INACTIVO'
+    instance.save()
+    return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
+
+@csrf_exempt
+def reactivate_banco(request, pk):
+    instance = get_object_or_404(Banco, pk=pk)
+    instance.estadoBanco = 'ACTIVO'
+    instance.save()
+    return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
+
+def tabla_bancos(request):
+    bancos = Banco.objects.all()
+
+    return render(request, 'home/tablaBancos.html', {'bancos': bancos})
+
+#Moneda
+@csrf_exempt
 def moneda_modal(request):
     if request.method == 'POST':
         form = MonedaForm(request.POST)
@@ -429,7 +647,41 @@ def moneda_modal(request):
         form = MonedaForm()
     return render(request, 'home/moneda_modal.html', {'form': form})
 
+@csrf_exempt
+def edit_moneda(request, pk):
+    instance = get_object_or_404(Moneda, pk=pk)
+    if request.method == 'POST':
+        form = MonedaForm(request.POST, instance=instance)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({'success': True, 'message': 'Edición exitosa.'})  # Respuesta JSON
+        else:
+            errors = {field: error for field, error in form.errors.items()}
+            return JsonResponse({'success': False, 'errors': errors})  # Respuesta JSON con errores
+    else:
+        form = MonedaForm(instance=instance)
+    return render(request, 'home/modales/editMoneda.html', {'form': form, 'moneda': instance})
 
+@csrf_exempt
+def delete_moneda(request, pk):
+    instance = get_object_or_404(Moneda, pk=pk)
+    instance.estadoMoneda = 'INACTIVO'
+    instance.save()
+    return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
+
+@csrf_exempt
+def reactivate_moneda(request, pk):
+    instance = get_object_or_404(Moneda, pk=pk)
+    instance.estadoMoneda = 'ACTIVO'
+    instance.save()
+    return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
+
+def tabla_monedas(request):
+    monedas = Moneda.objects.all()
+
+    return render(request, 'home/tablaMonedas.html', {'monedas': monedas})
+
+#Tasa
 @csrf_exempt
 def tasa_modal(request):
     if request.method == 'POST':
@@ -444,6 +696,41 @@ def tasa_modal(request):
     else:
         form = TasaForm()
     return render(request, 'home/tasa_modal.html', {'form': form})
+
+@csrf_exempt
+def edit_tasa(request, pk):
+    instance = get_object_or_404(Tasa, pk=pk)
+    if request.method == 'POST':
+        form = TasaForm(request.POST, instance=instance)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({'success': True, 'message': 'Edición exitosa.'})  # Respuesta JSON
+        else:
+            errors = {field: error for field, error in form.errors.items()}
+            return JsonResponse({'success': False, 'errors': errors})  # Respuesta JSON con errores
+    else:
+        form = TasaForm(instance=instance)
+        monedas = Moneda.objects.all()
+    return render(request, 'home/modales/editTasa.html', {'form': form, 'tasa': instance,'monedas':monedas})
+
+@csrf_exempt
+def delete_tasa(request, pk):
+    instance = get_object_or_404(Tasa, pk=pk)
+    instance.estadoTasa = 'INACTIVO'
+    instance.save()
+    return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
+
+@csrf_exempt
+def reactivate_tasa(request, pk):
+    instance = get_object_or_404(Tasa, pk=pk)
+    instance.estadoTasa = 'ACTIVO'
+    instance.save()
+    return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
+
+def tabla_tasas(request):
+    tasas = Tasa.objects.all()
+
+    return render(request, 'home/tablaTasas.html', {'tasas': tasas})
 
 @csrf_exempt
 def tipoMovimiento_modal(request):

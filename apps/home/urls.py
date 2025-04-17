@@ -48,18 +48,60 @@ urlpatterns = [
 
      # Specific route for cohorte modal
     path('requisitoModal/', views.requisito_modal, name='requisito_modal'),
+    path('editRequisito/<int:pk>/', views.edit_requisito, name='edit_requisito'),
+    path('deleteRequisito/<int:pk>/', views.delete_requisito, name='delete_requisito'),
+    path('reactivateRequisito/<int:pk>/', views.reactivate_requisito, name='reactivate_requisito'),
+    path('tablaRequisitos/', views.tabla_requisitos, name='tabla_requisitos'),
+
     # Specific route for servicio modal
     path('servicioModal/', views.servicio_modal, name='servicio_modal'),
-    # Specific route for servicio modal
+    path('editServicio/<int:pk>/', views.edit_servicio, name='edit_servicio'),
+    path('deleteServicio/<int:pk>/', views.delete_servicio, name='delete_servicio'),
+    path('reactivateServicio/<int:pk>/', views.reactivate_servicio, name='reactivate_servicio'),
+    path('tablaServicios/', views.tabla_servicios, name='tabla_servicios'),
+
+    # Specific route for tramite modal
     path('tramiteModal/', views.tramite_modal, name='tramite_modal'),
-    # Specific route for cohorte modal
+    path('editTramite/<int:pk>/', views.edit_tramite, name='edit_tramite'),
+    path('deleteTramite/<int:pk>/', views.delete_tramite, name='delete_tramite'),
+    path('reactivateTramite/<int:pk>/', views.reactivate_tramite, name='reactivate_tramite'),
+    path('tablaTramites/', views.tabla_tramites, name='tabla_tramites'),
+
+    # Specific route for solicitud modal
+    path('editSolicitud/<int:pk>/', views.edit_solicitud, name='edit_solicitud'),
+    path('deleteSolicitud/<int:pk>/', views.delete_solicitud, name='delete_solicitud'),
+    path('reactivateSolicitud/<int:pk>/', views.reactivate_solicitud, name='reactivate_solicitud'),
+    path('tablaSolicitudes/', views.tabla_solicitudes, name='tabla_solicitudes'),
+
+    # Specific route for denominacion modal
     path('denominacionModal/', views.denominacion_modal, name='denominacion_modal'),
+    path('editDenominacion/<int:pk>/', views.edit_denominacion, name='edit_denominacion'),
+    path('deleteDenominacion/<int:pk>/', views.delete_denominacion, name='delete_denominacion'),
+    path('reactivateDenominacion/<int:pk>/', views.reactivate_denominacion, name='reactivate_denominacion'),
+    path('tablaDenominaciones/', views.tabla_denominaciones, name='tabla_denominaciones'),
+
     # Specific route for banco modal
     path('bancoModal/', views.banco_modal, name='banco_modal'),
-    # Specific route for banco modal
+    path('editBanco/<int:pk>/', views.edit_banco, name='edit_banco'),
+    path('deleteBanco/<int:pk>/', views.delete_banco, name='delete_banco'),
+    path('reactivateBanco/<int:pk>/', views.reactivate_banco, name='reactivate_banco'),
+    path('tablaBancos/', views.tabla_bancos, name='tabla_bancos'),
+
+    # Specific route for moneda modal
     path('monedaModal/', views.moneda_modal, name='moneda_modal'),
-     # Specific route for banco modal
+    path('editMoneda/<int:pk>/', views.edit_moneda, name='edit_moneda'),
+    path('deleteMoneda/<int:pk>/', views.delete_moneda, name='delete_moneda'),
+    path('reactivateMoneda/<int:pk>/', views.reactivate_moneda, name='reactivate_moneda'),
+    path('tablaMonedas/', views.tabla_monedas, name='tabla_monedas'),
+
+    # Specific route for tasa modal
     path('tasaModal/', views.tasa_modal, name='tasa_modal'),
+    path('editTasa/<int:pk>/', views.edit_tasa, name='edit_tasa'),
+    path('deleteTasa/<int:pk>/', views.delete_tasa, name='delete_tasa'),
+    path('reactivateTasa/<int:pk>/', views.reactivate_tasa, name='reactivate_tasa'),
+    path('tablaTasas/', views.tabla_tasas, name='tabla_tasas'),
+
+
     # Specific route for tipoIngreso modal
     path('tipoMovimientoModal/', views.tipoMovimiento_modal, name='tipoMovimiento_modal'),
     # Specific route for tipoIngreso modal

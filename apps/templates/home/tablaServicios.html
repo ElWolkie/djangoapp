@@ -45,6 +45,7 @@
         <th scope="col">Precio</th>
         <th scope="col">Estado</th>
         <th scope="col">Fecha</th>
+        <th scope="col">Acciones</th>
       </tr>
     </thead>
       <tbody>
@@ -56,7 +57,17 @@
           <td>{{ servicio.tiempoServicio }}</td>
           <td>{{ servicio.precioServicio }}</td>
           <td>{{ servicio.estadoServicio }}</td>
-          <td>{{ servicio.fechaServicio }}</td>
+          <td>{{ servicio.fechaServicio|date:"d/m/Y" }}</td>
+          <td>
+            <button class="btn btn-sm btn-primary" type="button" data-toggle="modal" data-target="#editServicioModal" data-id="{{ servicio.idServicio }}" data-url="{% url 'edit_servicio' servicio.idServicio %}">Editar</button>
+            {% if servicio.estadoServicio == "ACTIVO" %}
+            <button class="btn btn-sm btn-danger" type="button" onclick="deleteServicio('{{ servicio.idServicio }}')">Eliminar</button>
+            {% endif %}
+            {% if servicio.estadoServicio == "INACTIVO" %}
+            <button class="btn btn-sm btn-success" type="button" onclick="reactivateServicio('{{ servicio.idServicio }}')">Reactivar</button>
+            {% endif %}
+
+          </td>
         </tr>
         {% endfor %}
       </tbody>
@@ -80,6 +91,33 @@
     </div>
   </div>
 </div>
+
+<!-- Editar Modal -->
+<div class="modal fade" id="editServicioModal" tabindex="-1" role="dialog" aria-labelledby="editServicioModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="editServicioModalLabel">Editar servicio</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <!-- Contenedor para los mensajes -->
+        <div id="modalMessages"></div>
+        <form id="editServicioForm">
+          <!-- El contenido del formulario de edición se cargará aquí -->
+        </form>
+        <!-- El contenido del formulario se cargará aquí -->
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+
+
 {% endblock content %}
 
 {% block javascripts %}
@@ -96,6 +134,25 @@
         }
       });
     });
+
+      // Manejar la apertura del modal para editar
+      $('#editServicioModal').on('show.bs.modal', function (e) {
+      var modal = $(this);
+      var url = $(e.relatedTarget).data('url'); // Obtener la URL desde el botón que abrió el modal
+      $.ajax({
+      url: url, // URL para cargar el formulario de edición
+      method: 'GET',
+      success: function (data) {
+      modal.find('.modal-body').html(data); // Cargar el contenido del formulario en el modal
+      },
+      error: function () {
+      alert('Error al cargar el formulario de edición.');
+      }
+    });
+    });
+
+
+
 
     $(document).on('submit', '#servicioForm', function(e) {
       e.preventDefault();
@@ -122,6 +179,79 @@
       });
     });
   });
+
+
+
+
+      // Manejar el envío del formulario de edición
+      $(document).on('submit', '#editServicioForm', function(e) {
+      e.preventDefault();
+      var form = $(this);
+      
+      $.ajax({
+        url: form.attr('action'),
+        method: form.attr('method'),
+        data: form.serialize(),
+        success: function(response) {
+          if (response.success) {
+            // Cierra el modal y recarga la página
+            $('#editServicioModal').modal('hide');
+            location.reload();
+          } else {
+            // Muestra errores de validación
+            var messagesContainer = $('#modalMessages');
+            messagesContainer.empty();
+            for (var field in response.errors) {
+              messagesContainer.append('<div class="alert alert-danger">' + response.errors[field] + '</div>');
+            }
+          }
+        },
+        error: function() {
+          alert('Error al procesar la solicitud');
+        }
+      });
+    });
+  
+
+  function deleteServicio(id) {
+    if (confirm('¿Estás seguro de que deseas eliminar este Servicio?')) {
+      $.ajax({
+        url: '{% url "delete_servicio" 0 %}'.replace('0', id),
+        method: 'POST',
+        data: {
+          csrfmiddlewaretoken: '{{ csrf_token }}'
+        },
+        success: function(response) {
+          if (response.success) {
+            alert(response.message);
+            location.reload();  // Recargar la página para ver los cambios
+          } else {
+            alert('Error al eliminar el Servicio.');
+          }
+        }
+      });
+    }
+  }
+
+  function reactivateServicio(id) {
+    if (confirm('¿Estás seguro de que deseas reactivar este Servicio?')) {
+      $.ajax({
+        url: '{% url "reactivate_servicio" 0 %}'.replace('0', id),
+        method: 'POST',
+        data: {
+          csrfmiddlewaretoken: '{{ csrf_token }}'
+        },
+        success: function(response) {
+          if (response.success) {
+            alert(response.message);
+            location.reload();  // Recargar la página para ver los cambios
+          } else {
+            alert('Error al reactivar el Servicio.');
+          }
+        }
+      });
+    }
+  }
 </script>
 <script>
   function filterTable() {

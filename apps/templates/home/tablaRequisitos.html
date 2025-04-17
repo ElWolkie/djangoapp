@@ -43,6 +43,7 @@
             <th scope="col">Nombre</th>
             <th scope="col">Estado</th>
             <th scope="col">Fecha</th>
+            <th scope="col">Acciones</th>
         </tr>
     </thead>
     <tbody>
@@ -52,7 +53,17 @@
             <td>{{ requisito.idRequisito }}</td>
             <td>{{ requisito.nombreRequisito }}</td>
             <td>{{ requisito.estadoRequisito }}</td>
-            <td>{{ requisito.fechaRequisito }}</td>
+            <td>{{ requisito.fechaRequisito|date:"d/m/Y" }}</td>
+            <td>
+              <button class="btn btn-sm btn-primary" type="button" data-toggle="modal" data-target="#editRequisitoModal" data-id="{{ requisito.idRequisito }}" data-url="{% url 'edit_requisito' requisito.idRequisito %}">Editar</button>
+              {% if requisito.estadoRequisito == "ACTIVO" %}
+              <button class="btn btn-sm btn-danger" type="button" onclick="deleteRequisito('{{ requisito.idRequisito }}')">Eliminar</button>
+              {% endif %}
+              {% if requisito.estadoRequisito == "INACTIVO" %}
+              <button class="btn btn-sm btn-success" type="button" onclick="reactivateRequisito('{{ requisito.idRequisito }}')">Reactivar</button>
+              {% endif %}
+
+            </td>
         </tr>
         {% endfor %}
     </tbody>
@@ -63,7 +74,7 @@
   <div class="modal-dialog" role="document">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="requisitoModalLabel">Registro de Tipo de Oferta</h5>
+        <h5 class="modal-title" id="requisitoModalLabel">Registro de requisito</h5>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
@@ -76,10 +87,32 @@
     </div>
   </div>
 </div>
+
+<!-- Editar Modal -->
+<div class="modal fade" id="editRequisitoModal" tabindex="-1" role="dialog" aria-labelledby="editRequisitoModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="editRequisitoModalLabel">Editar requisito</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <!-- Contenedor para los mensajes -->
+        <div id="modalMessages"></div>
+        <form id="editRequisitoForm">
+          <!-- El contenido del formulario de edición se cargará aquí -->
+        </form>
+        <!-- El contenido del formulario se cargará aquí -->
+      </div>
+    </div>
+  </div>
+</div>
+
 {% endblock content %}
 
 {% block javascripts %}
-<script src="/static/assets/js/validacionesPersona.js"></script>
 <script>
   document.addEventListener("DOMContentLoaded", function() {
     $('#requisitoModal').on('show.bs.modal', function (e) {
@@ -92,6 +125,24 @@
         }
       });
     });
+
+      // Manejar la apertura del modal para editar
+      $('#editRequisitoModal').on('show.bs.modal', function (e) {
+      var modal = $(this);
+      var url = $(e.relatedTarget).data('url'); // Obtener la URL desde el botón que abrió el modal
+      $.ajax({
+      url: url, // URL para cargar el formulario de edición
+      method: 'GET',
+      success: function (data) {
+      modal.find('.modal-body').html(data); // Cargar el contenido del formulario en el modal
+      },
+      error: function () {
+      alert('Error al cargar el formulario de edición.');
+      }
+    });
+    });
+
+
 
     $(document).on('submit', '#requisitoForm', function(e) {
       e.preventDefault();
@@ -118,6 +169,79 @@
       });
     });
   });
+
+      // Manejar el envío del formulario de edición
+      $(document).on('submit', '#editRequisitoForm', function(e) {
+      e.preventDefault();
+      var form = $(this);
+      
+      $.ajax({
+        url: form.attr('action'),
+        method: form.attr('method'),
+        data: form.serialize(),
+        success: function(response) {
+          if (response.success) {
+            // Cierra el modal y recarga la página
+            $('#editRequisitoModal').modal('hide');
+            location.reload();
+          } else {
+            // Muestra errores de validación
+            var messagesContainer = $('#modalMessages');
+            messagesContainer.empty();
+            for (var field in response.errors) {
+              messagesContainer.append('<div class="alert alert-danger">' + response.errors[field] + '</div>');
+            }
+          }
+        },
+        error: function() {
+          alert('Error al procesar la solicitud');
+        }
+      });
+    });
+  
+
+
+
+  function deleteRequisito(id) {
+    if (confirm('¿Estás seguro de que deseas eliminar este Requisito?')) {
+      $.ajax({
+        url: '{% url "delete_requisito" 0 %}'.replace('0', id),
+        method: 'POST',
+        data: {
+          csrfmiddlewaretoken: '{{ csrf_token }}'
+        },
+        success: function(response) {
+          if (response.success) {
+            alert(response.message);
+            location.reload();  // Recargar la página para ver los cambios
+          } else {
+            alert('Error al eliminar el Requisito.');
+          }
+        }
+      });
+    }
+  }
+
+  function reactivateRequisito(id) {
+    if (confirm('¿Estás seguro de que deseas reactivar este Requisito?')) {
+      $.ajax({
+        url: '{% url "reactivate_requisito" 0 %}'.replace('0', id),
+        method: 'POST',
+        data: {
+          csrfmiddlewaretoken: '{{ csrf_token }}'
+        },
+        success: function(response) {
+          if (response.success) {
+            alert(response.message);
+            location.reload();  // Recargar la página para ver los cambios
+          } else {
+            alert('Error al reactivar el Requisito.');
+          }
+        }
+      });
+    }
+  }
+
 </script>
 <script>
   function filterTable() {
