@@ -95,7 +95,13 @@
               <li class="nav-item">  
                 <a class="nav-link" href="{% url 'tabla_honorarios' %}" style="padding-left: 15px;">
                   <i class="ni ni-money-coins text-orange"></i>Honorario
-              </a>              </li>  
+              </a>              
+            </li>   
+            <li class="nav-item">  
+                <a class="nav-link" href="{% url 'tabla_inscripciones' %}" style="padding-left: 15px;">
+                  <i class="ni ni-money-coins text-orange"></i>Inscripción
+              </a>              
+            </li>  
             </ul>  
           </div>  
         </li>
@@ -118,7 +124,7 @@
                     <a class="nav-link" href="/solicitud.html" style="padding-left: 30px;"><i class="ni ni-fat-add  text-orange"></i>Solicitud</a>  
                   </li>  
                   <li class="nav-item">  
-                    <a class="nav-link" href="/tablaSolicitud.html" style="padding-left: 30px;"><i class="ni ni-bullet-list-67 text-orange"></i>Consultar</a>  
+                    <a class="nav-link" href="{% url 'tabla_solicitud' %}" style="padding-left: 30px;"><i class="ni ni-bullet-list-67 text-orange"></i>Consultar</a>  
                   </li>  
                   <li class="nav-item">  
                     <a class="nav-link" href="/tablaTramites.html" style="padding-left: 30px;"><i class="ni ni-single-copy-04 text-orange"></i>Tipo de Trámite</a>  

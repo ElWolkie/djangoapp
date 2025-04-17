@@ -182,8 +182,8 @@
             // Construir las opciones según los checkboxes seleccionados
             const opciones = [];
             if (tipoPersonaSeleccionados.includes("tipoCliente")) {
-              opciones.push({ text: "Solicitud", value: `/home/solicitud.html?cedula=${cedula}` });
-              opciones.push({ text: "Inscripción", value: `inscripcion.html?cedula=${cedula}` });
+              opciones.push({ text: "Solicitud", value: `/solicitud/solicitud.html?cedula=${cedula}` });
+              opciones.push({ text: "Inscripción", value: `/inscripcion/inscripcion.html?cedula=${cedula}` });
             }
             if (tipoPersonaSeleccionados.includes("tipoProveedor")) {
               opciones.push({ text: "Honorario", value: `/honorario/honorario2.html?cedula=${cedula}` });

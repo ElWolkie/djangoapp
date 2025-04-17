@@ -9,7 +9,7 @@
 
 {% block content %}
 <div class="container mt-5">
-  <h2 class="text-center text-dark mb-4">Lista de Honorario Registrados</h2>
+  <h2 class="text-center text-dark mb-4">Lista de Inscripcion Registrados</h2>
 
   {% if messages %}
     {% for message in messages %}
@@ -31,65 +31,59 @@
       </div>
     </div>
     <div class="col-md-4">
-      <button class="btn btn-warning btn-sm" type="button" title="Registrar Honorario" data-toggle="modal" data-target="#honorarioModal">+</button>
+      <a class="btn btn-warning btn-square btn-sm my-2" href="/inscripcion/inscripcion.html" title="Registrar inscripción">+</a>
     </div>
   </div>
 
   <div class="table-responsive">
-    <table class="table table-striped text-gray-dark" id="honorariosTable">
+    <table class="table table-striped text-gray-dark" id="inscripcionesTable">
       <thead class="text-darker">
-        <tr>
-          <th>ID</th>
-          <th>Cargo</th>
-          <th>Cédula</th>
-          <th>Nombres</th>
-          <th>Apellidos</th>
-          <th>Materia</th>
-          <th>Horas</th>
-          <th>Cohorte</th>
-          <th>Estado</th>
-          <th>Fecha</th>
-          <th>Acciones</th>
-        </tr>
+      <tr>
+        <th>ID</th>
+        <th>Cédula</th>
+        <th>Cohorte</th>
+        <th>Tipo Formación</th>
+        <th>Formación</th>
+        <th>Estado</th>
+        <th>Fecha</th>
+        <th>Acciones</th>
+      </tr>
       </thead>
       <tbody>
-        {% for honorario in honorarios %}
-        <tr>
-          <td>{{ honorario.idHonorario }}</td>
-          <td>{{ honorario.idCargo.nombreCargo }}</td>
-          <td>{{ honorario.idPersona.cedula }}</td>
-          <td>{{ honorario.idPersona.nombres }}</td>
-          <td>{{ honorario.idPersona.apellidos }}</td>
-          <td>{{ honorario.idMateria.nombreMateria }}</td>
-          <td>{{ honorario.horas }}</td>
-          <td>{{ honorario.idCohorte.nombreCohorte }}</td>
-          <td>{{ honorario.estadoHonorario }}</td>
-          <td>{{ honorario.fechaHonorario|date:"d/m/Y" }}</td>
-          <td>
-            <button class="btn btn-sm btn-primary" type="button" data-toggle="modal" data-target="#editHonorarioModal" data-id="{{ honorario.idHonorario }}">Editar</button>
-            {% if honorario.estadoHonorario == "ACTIVO" %}
-            <button class="btn btn-sm btn-danger" type="button" onclick="manageHonorario('{{ honorario.idHonorario }}', 'delete')">Eliminar</button>
-            {% else %}
-            <button class="btn btn-sm btn-success" type="button" onclick="manageHonorario('{{ honorario.idHonorario }}', 'reactivate')">Reactivar</button>
-            {% endif %}
-          </td>
-        </tr>
-        {% empty %}
-        <tr>
-          <td colspan="11" class="text-center">No hay registros disponibles.</td>
-        </tr>
-        {% endfor %}
+      {% for inscripcion in inscripciones %}
+      <tr>
+        <td>{{ inscripcion.idInscripcion }}</td>
+        <td>{{ inscripcion.idPersona.cedula }}</td>
+        <td>{{ inscripcion.idCohorte.nombreCohorte }}</td>
+        <td>{{ inscripcion.idTF.nombreTipoFormacion }}</td>
+        <td>{{ inscripcion.idFormacion.nombreFormacion }}</td>
+        <td>{{ inscripcion.is_active|yesno:"ACTIVO,INACTIVO" }}</td>
+        <td>{{ inscripcion.fechaInscripcion|date:"d/m/Y" }}</td>
+        <td>
+        <button class="btn btn-sm btn-primary" type="button" data-toggle="modal" data-target="#editInscripcionModal" data-id="{{ inscripcion.idInscripcion }}">Editar</button>
+        {% if inscripcion.is_active %}
+        <button class="btn btn-sm btn-danger" type="button" onclick="manageInscripcion('{{ inscripcion.idInscripcion }}', 'delete')">Eliminar</button>
+        {% else %}
+        <button class="btn btn-sm btn-success" type="button" onclick="manageInscripcion('{{ inscripcion.idInscripcion }}', 'reactivate')">Reactivar</button>
+        {% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="8" class="text-center">No hay registros disponibles.</td>
+      </tr>
+      {% endfor %}
       </tbody>
     </table>
   </div>
 </div>
 
 <!-- Modal Registro -->
-<div class="modal fade" id="honorarioModal" tabindex="-1" role="dialog" aria-labelledby="honorarioModalLabel" aria-hidden="true">
+<div class="modal fade" id="inscripcionModal" tabindex="-1" role="dialog" aria-labelledby="inscripcionModalLabel" aria-hidden="true">
   <div class="modal-dialog" role="document">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="honorarioModalLabel">Registro de Honorario</h5>
+        <h5 class="modal-title" id="inscripcionModalLabel">Registro de Inscripcion</h5>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
@@ -100,11 +94,11 @@
 </div>
 
 <!-- Modal Edición -->
-<div class="modal fade" id="editHonorarioModal" tabindex="-1" role="dialog" aria-labelledby="editHonorarioModalLabel" aria-hidden="true">
+<div class="modal fade" id="editInscripcionModal" tabindex="-1" role="dialog" aria-labelledby="editInscripcionModalLabel" aria-hidden="true">
   <div class="modal-dialog" role="document">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="editHonorarioModalLabel">Actualizar Honorario</h5>
+        <h5 class="modal-title" id="editInscripcionModalLabel">Actualizar Inscripcion</h5>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
@@ -119,24 +113,24 @@
 <script src="/static/assets/js/validacionesPersona.js"></script>
 <script>
   document.addEventListener("DOMContentLoaded", function() {
-    $('#honorarioModal').on('show.bs.modal', function () {
-      $.get('apps/honorario/honorario.html', function(data) {
+    $('#inscripcionModal').on('show.bs.modal', function () {
+      $.get('apps/inscripcion/inscripcion.html', function(data) {
         $('#modalMessages').html(data);
       });
     });
 
-    $('#editHonorarioModal').on('show.bs.modal', function (e) {
-      const idHonorario = $(e.relatedTarget).data('id');
-      $.get(`/honorario/editHonorario/${idHonorario}/`, function(data) {
+    $('#editInscripcionModal').on('show.bs.modal', function (e) {
+      const idInscripcion = $(e.relatedTarget).data('id');
+      $.get(`/inscripcion/editInscripcion/${idInscripcion}/`, function(data) {
         $('#modalMessagesEdit').html(data);
       });
     });
   });
 
-  function manageHonorario(id, action) {
+  function manageInscripcion(id, action) {
     const confirmMessage = action === 'delete' ? '¿Está seguro de eliminar este registro?' : '¿Está seguro de reactivar este registro?';
     if (confirm(confirmMessage)) {
-      const url = action === 'delete' ? "{% url 'delete_honorario' 0 %}".replace('0', id) : "{% url 'reactivate_honorario' 0 %}".replace('0', id);
+      const url = action === 'delete' ? "{% url 'delete_inscripcion' 0 %}".replace('0', id) : "{% url 'reactivate_inscripcion' 0 %}".replace('0', id);
       $.post(url, {
         csrfmiddlewaretoken: '{{ csrf_token }}'
       }).done(function(response) {
@@ -148,7 +142,7 @@
 
   function filterTable() {
     const filter = document.getElementById("searchInput").value.toUpperCase();
-    const rows = document.querySelectorAll("#honorariosTable tbody tr");
+    const rows = document.querySelectorAll("#inscripcionesTable tbody tr");
     rows.forEach(row => {
       const cells = row.querySelectorAll("td");
       row.style.display = Array.from(cells).some(cell => cell.textContent.toUpperCase().includes(filter)) ? "" : "none";

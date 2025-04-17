@@ -8,8 +8,8 @@ from django.urls import reverse
 from django.contrib import messages
 
 from django.template.loader import render_to_string
-from .forms import TipoFormacionForm, FormacionForm, MateriaForm, CohorteForm, CargoForm, RequisitoForm, ServicioForm, TramiteForm, SolicitudForm, DenominacionForm, BancoForm, MonedaForm, TasaForm, TipoMovimientoForm, MovimientoForm
-from .models import  TipoFormacion, Formacion, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Solicitud, Denominacion, Banco, Moneda, Tasa,Movimiento, TipoMovimiento
+from .forms import TipoFormacionForm, FormacionForm, MateriaForm, CohorteForm, CargoForm, RequisitoForm, ServicioForm, TramiteForm, DenominacionForm, BancoForm, MonedaForm, TasaForm, TipoMovimientoForm, MovimientoForm
+from .models import  TipoFormacion, Formacion, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Denominacion, Banco, Moneda, Tasa,Movimiento, TipoMovimiento
 from apps.persona.models import Personas, PersonaTP, TipoPersona
 from apps.persona.forms import TipoPersonaForm, PersonaForm
 from apps.honorario.models import Honorario
@@ -430,30 +430,7 @@ def pages(request):
         if load_template == "admin":
             return HttpResponseRedirect(reverse("admin:index"))
 ##################################################################################################
-        if load_template == "solicitud.html":
-            if request.method == 'POST':
-                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':  # Verificar si es una solicitud AJAX
-                    form = SolicitudForm(request.POST)
-                    if form.is_valid():
-                        form.save()
-                        return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
-                    else:
-                        errors = {field: error[0] for field, error in form.errors.items()}
-                        return JsonResponse({'success': False, 'errors': errors})
-                else:
-                    form = SolicitudForm(request.POST)
-                    if form.is_valid():
-                        form.save()
-                        messages.success(request, 'Registro exitoso.')
-                        return redirect('solicitud.html')  # Redirige a una URL de éxito
-                    else:
-                        for field, errors in form.errors.items():
-                            for error in errors:
-                                messages.error(request, f"Error en el campo {field}: {error}")
-            else:
-                form = SolicitudForm()
-            context['form'] = form
-
+      
  
 
         if load_template == "tablaTipoFormaciones.html":
@@ -530,17 +507,6 @@ def pages(request):
 
         context["segment"] = load_template
 
-
-        if load_template in [ "solicitud.html", "solicitud2.html", "tablaSolicitud.html"]:
-            solicitudes = Solicitud.objects.all()
-            context['solicitudes'] = solicitudes
-            tramites = Tramite.objects.all()
-            context['tramites'] = tramites
-            servicios = Servicio.objects.all()
-            context['servicios'] = servicios
-            personas = Personas.objects.all()
-            context['personas'] = personas
-        context["segment"] = load_template
 
         if load_template == "tablaDenominaciones.html":
             denominaciones = Denominacion.objects.all()
