@@ -1,4 +1,5 @@
-from django.db import models  
+from django.db import models
+from django.utils import timezone # Para la fecha
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 
 class TipoPersona(models.Model):  
@@ -252,28 +253,39 @@ class Denominacion(models.Model):
         verbose_name = "Denominacion"  
         verbose_name_plural = "Denominaciones"  
 
-class Banco(models.Model):  
-    idBanco = models.AutoField(primary_key=True)  # Clave primaria para Banco  
-    nombreBanco = models.CharField(max_length=100)  # Nombre del Banco  
-    codBanco = models.CharField(max_length=100)  # Codigo del Banco  
-    codContable = models.CharField(max_length=100)  # Codigo contable del Banco  
-    estadoBanco = models.CharField(max_length=10)  # Estado del Banco  
-    fechaBanco = models.DateField(auto_now_add=True)  # Fecha de creación del Banco  
 
-    class Meta:  
-        verbose_name = "Banco"  
-        verbose_name_plural = "Bancos"  
+class Banco(models.Model):
+    idBanco = models.AutoField(primary_key=True) # ID autoincremental
+    nombreBanco = models.CharField(max_length=150, verbose_name="Nombre del Banco")
+    codBanco = models.CharField(max_length=4, unique=True, db_index=True, verbose_name="Código SUDEBAN")
+    # Código contable, por defecto '0000'
+    codContable = models.CharField(max_length=10, default='0000', verbose_name="Código Contable")
+    estadoBanco = models.CharField(max_length=10, default='ACTIVO', verbose_name="Estado")
+    fechaBanco = models.DateField(default=timezone.now, verbose_name="Fecha Registro")
 
-class Moneda(models.Model):  
-    idMoneda = models.AutoField(primary_key=True)  # Clave primaria para Moneda  
-    nombreMoneda = models.CharField(max_length=100)  # Nombre del Moneda  
-    simboloMoneda = models.CharField(max_length=5)  # Codigo del Moneda  
-    estadoMoneda = models.CharField(max_length=10)  # Estado del Moneda  
-    fechaMoneda = models.DateField(auto_now_add=True)  # Fecha de creación del Moneda  
+    class Meta:
+        verbose_name = "Banco"
+        verbose_name_plural = "Bancos"
+        ordering = ['nombreBanco'] # Ordenar por nombre
 
-    class Meta:  
-        verbose_name = "Moneda"  
-        verbose_name_plural = "Monedas"  
+    def __str__(self):
+        return f"{self.nombreBanco} ({self.codBanco})"
+
+
+class Moneda(models.Model):
+    idMoneda = models.AutoField(primary_key=True)
+    nombreMoneda = models.CharField(max_length=100)
+    simboloMoneda = models.CharField(max_length=5, unique=True, db_index=True)
+    estadoMoneda = models.CharField(max_length=10)
+    fechaMoneda = models.DateField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Moneda"
+        verbose_name_plural = "Monedas"
+        ordering = ['nombreMoneda']
+
+    def __str__(self):
+        return f"{self.nombreMoneda} ({self.simboloMoneda})"
 
 
 class Tasa(models.Model):  
@@ -330,7 +342,6 @@ class Movimiento(models.Model):
         verbose_name_plural = "Ingresos"
 
 
-
 class Configuracion(models.Model):
     idConfig = models.AutoField(primary_key=True, verbose_name="ID Configuración")
     nombreInstitucion = models.CharField(max_length=150, verbose_name="Nombre de la Institución")
@@ -345,7 +356,6 @@ class Configuracion(models.Model):
         verbose_name = "Configuración Institucional"
         verbose_name_plural = "Configuraciones Institucionales"
         ordering = ['-fechaConfiguracion']  # Ordenar por la más reciente primero
-        db_table = 'configuraciones_institucionales'  # Nombre explícito para la tabla
 
     def __str__(self):
         return f"{self.nombreInstitucion} (Últ. actualización: {self.fechaConfiguracion.strftime('%d/%m/%Y')})"

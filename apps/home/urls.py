@@ -13,7 +13,13 @@ urlpatterns = [
 
     # Rutas específicas para modales
     path('tipoPersonaModal/', views.tipo_persona_modal, name='tipo_persona_modal'),
-    
+
+    path('configuracion/', views.configuracion, name='configuracion'),
+    path('actualizar-monedas/', views.actualizar_monedas_api, name='actualizar_monedas_api'),
+    path('monedas/', views.tabla_monedas, name='tabla_monedas'),
+    path('actualizar-bancos/', views.actualizar_bancos_api, name='actualizar_bancos_api'),
+    path('bancos/', views.tabla_bancos, name='tabla_bancos'),
+
     # Specific route for tipoFormacion modal
     path('tipoFormacionModal/', views.tipo_formacion_modal, name='tipo_formacion_modal'),
     path('deleteTF/<int:pk>/', views.delete_tipo_formacion, name='delete_tf'),

@@ -1,3 +1,4 @@
+import requests
 from django.http import JsonResponse, HttpResponse, HttpResponseRedirect
 from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import render, redirect, get_object_or_404
@@ -5,6 +6,7 @@ from django.template import loader
 from django.db.models import OuterRef, Subquery, Max
 from django.urls import reverse
 from django.contrib import messages
+from django.utils import timezone # Importar timezone
 
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
@@ -13,8 +15,8 @@ from django.db import IntegrityError
 
 from django.template.loader import render_to_string
 
-from .forms import TipoPersonaForm, PersonaForm, TipoFormacionForm, FormacionForm, MateriaForm, CohorteForm, CargoForm, HonorarioForm, RequisitoForm, ServicioForm, TramiteForm, SolicitudForm, DenominacionForm, BancoForm, MonedaForm, TasaForm, TipoMovimientoForm, MovimientoForm
-from .models import Personas, Usuarios, TipoPersona, PersonaTP, TipoFormacion, Formacion, Materia, Cohorte, Cargo, Honorario, Requisito, Servicio, Tramite, Solicitud, Denominacion, Banco, Moneda, Tasa, Movimiento, TipoMovimiento
+from .forms import TipoPersonaForm, PersonaForm, TipoFormacionForm, FormacionForm, MateriaForm, CohorteForm, CargoForm, HonorarioForm, RequisitoForm, ServicioForm, TramiteForm, SolicitudForm, DenominacionForm, BancoForm, MonedaForm, TasaForm, TipoMovimientoForm, MovimientoForm, ConfiguracionForm
+from .models import Personas, Usuarios, TipoPersona, PersonaTP, TipoFormacion, Formacion, Materia, Cohorte, Cargo, Honorario, Requisito, Servicio, Tramite, Solicitud, Denominacion, Banco, Moneda, Tasa, Movimiento, TipoMovimiento, Configuracion
 
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
@@ -90,7 +92,7 @@ def registrar_usuario(request):
             )
             
             messages.success(request, '¡Usuario registrado exitosamente!')
-            return redirect('dashboard')
+            return redirect('tablaUsuario.html')
             
         except Personas.DoesNotExist:
             messages.error(request, 'Cédula no registrada en Personas')
@@ -531,15 +533,18 @@ def moneda_modal(request):
     if request.method == 'POST':
         form = MonedaForm(request.POST)
         if form.is_valid():
-            form.save()
-            return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
-        else:
-           # print(form.errors)  # esto para depurar errores
-            errors = {field: error for field, error in form.errors.items()}
-            return JsonResponse({'success': False, 'errors': errors})
+            m = form.save()
+            return JsonResponse({
+                'success': True,
+                'message': 'Moneda registrada.',
+                'idMoneda': m.idMoneda,
+                'nombreMoneda': m.nombreMoneda,
+                'simboloMoneda': getattr(m, 'simboloMoneda', '')
+            })
+        return JsonResponse({'success': False, 'errors': form.errors})
     else:
         form = MonedaForm()
-    return render(request, 'home/moneda_modal.html', {'form': form})
+    return render(request, 'home/moneda.html', {'form': form})
 
 
 @csrf_exempt
@@ -587,6 +592,195 @@ def movimiento_modal(request):
         form = MovimientoForm()
       
     return render(request, 'home/movimiento_modal.html')
+
+@csrf_exempt
+def configuracion(request):
+    config_existente = Configuracion.objects.order_by('-fechaConfiguracion').first()
+    monedas = Moneda.objects.filter(estadoMoneda='ACTIVO')
+
+    if request.method == 'POST':
+        # Si hay config_existente, pasamos 'instance' para actualizarla, sino, se crea una nueva.
+        form = ConfiguracionForm(request.POST, request.FILES, instance=config_existente)
+        if form.is_valid():
+            try:
+                configuracion_guardada = form.save()
+                messages.success(request, f'Configuración institucional {"actualizada" if config_existente else "guardada"} exitosamente.')
+                return redirect('configuracion') # Redirige a la misma página para ver los cambios
+            except Exception as e:
+                 messages.error(request, f'Ocurrió un error al guardar la configuración: {e}. Por favor, intente de nuevo.')
+
+        else:
+            messages.error(request, 'Por favor corrige los errores indicados en el formulario.')
+    else:
+        form = ConfiguracionForm(instance=config_existente)
+
+    # Prepara el contexto para el template
+    context = {
+        'form': form,
+        'monedas': monedas, # La lista de monedas activas para el select
+        'configuracion_actual': config_existente # El objeto de configuración actual (o None)
+        
+    }
+    return render(request, 'home/configuracion.html', context)
+
+def tabla_monedas(request):
+    monedas = Moneda.objects.all()
+    return render(request, 'home/tablaMonedas.html', {'monedas': monedas})
+
+# Vista para actualizar monedas desde la API
+def actualizar_monedas_api(request):
+    # Solo permitir método POST para esta acción que modifica datos
+    if request.method != 'POST':
+        messages.error(request, "Método no permitido.")
+        return redirect('configuracion') # O a donde quieras redirigir
+
+    # URL de la API (puedes ponerla en settings.py si prefieres)
+    CURRENCY_API_URL = 'https://openexchangerates.org/api/currencies.json'
+    nuevas_monedas_contador = 0
+    monedas_fallidas = []
+
+    try:
+        # --- 1. Llamada a la API ---
+        print(f"DEBUG: Llamando a la API: {CURRENCY_API_URL}") # Debug
+        response = requests.get(CURRENCY_API_URL, timeout=15) # Timeout de 15 segundos
+        response.raise_for_status() # Lanza un error si la respuesta no es 2xx (OK)
+
+        # --- 2. Procesar Respuesta JSON ---
+        api_currencies = response.json()
+        print(f"DEBUG: Recibidas {len(api_currencies)} monedas de la API.") # Debug
+
+        # --- 3. Obtener Símbolos Existentes en BD ---
+        # Usamos values_list y flat=True para obtener una lista plana de símbolos
+        # y set() para búsquedas rápidas (O(1) en promedio)
+        codigos_existentes = set(Moneda.objects.values_list('simboloMoneda', flat=True))
+        print(f"DEBUG: {len(codigos_existentes)} códigos de moneda existentes en BD.") # Debug
+
+        # --- 4. Comparar y Añadir Nuevas Monedas ---
+        monedas_para_crear = []
+        for codigo, nombre in api_currencies.items():
+            # Limitar longitud si es necesario (aunque los códigos suelen ser 3 chars)
+            codigo_limpio = codigo.strip()[:5]
+            nombre_limpio = nombre.strip()[:100]
+
+            if codigo_limpio not in codigos_existentes:
+                # Añadir a la lista para creación masiva (más eficiente)
+                monedas_para_crear.append(
+                    Moneda(
+                        nombreMoneda=nombre_limpio,
+                        simboloMoneda=codigo_limpio,
+                        estadoMoneda='ACTIVO' # Estado por defecto al crear
+                        # fechaMoneda se añade automáticamente
+                    )
+                )
+                codigos_existentes.add(codigo_limpio) # Añadir al set para evitar duplicados en este lote
+
+        # --- 5. Guardar Nuevas Monedas en BD (si hay) ---
+        if monedas_para_crear:
+            try:
+                # bulk_create es más eficiente para insertar muchos objetos
+                Moneda.objects.bulk_create(monedas_para_crear)
+                nuevas_monedas_contador = len(monedas_para_crear)
+                print(f"DEBUG: Añadidas {nuevas_monedas_contador} nuevas monedas.") # Debug
+                messages.success(request, f'¡Actualización completada! Se añadieron {nuevas_monedas_contador} nuevas monedas.')
+            except Exception as db_error: # Captura errores de BD (ej. violación de unique)
+                print(f"ERROR DB al guardar monedas: {db_error}") # Debug
+                messages.error(request, f'Error al guardar las nuevas monedas en la base de datos: {db_error}')
+        else:
+            print("DEBUG: No se encontraron nuevas monedas para añadir.") # Debug
+            messages.info(request, '¡Todo al día! No se encontraron nuevas monedas en la API.')
+
+    except requests.exceptions.RequestException as e:
+        print(f"ERROR API: {e}") # Debug
+        messages.error(request, f"Error al conectar con la API de monedas: {e}")
+    except Exception as e: # Captura otros errores (ej. JSON inválido, etc.)
+        print(f"ERROR General: {e}") # Debug
+        messages.error(request, f"Ocurrió un error inesperado durante la actualización: {e}")
+
+    # --- 6. Redirigir de vuelta ---
+    return redirect('tabla_monedas') # Redirige a la página de moneda
+
+
+def tabla_bancos(request):
+    bancos = Banco.objects.all()
+    return render(request, 'home/tablaBancos.html', {'bancos': bancos})
+
+# Vista para actualizar Bancos de Venezuela desde fuente externa
+def actualizar_bancos_api(request):
+    # Solo permitir método POST
+    if request.method != 'POST':
+        messages.error(request, "Método no permitido.")
+        return redirect('configuracion') # O a donde prefieras
+
+    # Usaremos un archivo JSON conocido de un repositorio de GitHub
+    # Siempre apunta al enlace "Raw" del archivo
+    BANK_API_URL = 'https://raw.githubusercontent.com/andresmdev/bankListVEN/refs/heads/master/bankVEN.json'
+    nuevos_bancos_contador = 0
+
+    try:
+        # --- 1. Llamada a la "API" (Archivo JSON) ---
+        print(f"DEBUG: Obteniendo datos de bancos desde: {BANK_API_URL}") # Debug
+        response = requests.get(BANK_API_URL, timeout=15)
+        response.raise_for_status() # Verifica si la descarga fue exitosa (código 2xx)
+
+        # --- 2. Procesar Respuesta JSON ---
+        api_bancos = response.json()
+        print(f"DEBUG: Recibidos {len(api_bancos)} bancos de la fuente.") # Debug
+
+        # --- 3. Obtener Códigos Existentes en BD ---
+        codigos_existentes = set(Banco.objects.values_list('codBanco', flat=True))
+        print(f"DEBUG: {len(codigos_existentes)} códigos de banco existentes en BD.") # Debug
+
+        # --- 4. Comparar y Añadir Nuevos Bancos ---
+        bancos_para_crear = []
+        for banco_data in api_bancos:
+            # Extraer código y nombre, asegurándose que existan
+            codigo = banco_data.get('code')
+            nombre = banco_data.get('shortName')
+
+            if codigo and nombre: # Solo procesar si tenemos ambos datos
+                codigo_limpio = codigo.strip()[:4] # Limitar a 4 caracteres
+                nombre_limpio = nombre.strip()[:150] # Limitar a la longitud del modelo
+
+                if codigo_limpio not in codigos_existentes:
+                    bancos_para_crear.append(
+                        Banco(
+                            nombreBanco=nombre_limpio,
+                            codBanco=codigo_limpio,
+                            codContable='0000', # Valor por defecto
+                            estadoBanco='ACTIVO', # Valor por defecto
+                            # fechaBanco usa default=timezone.now
+                        )
+                    )
+                    # Añadir al set para evitar intentar crear duplicados en este mismo lote
+                    codigos_existentes.add(codigo_limpio)
+            else:
+                 print(f"DEBUG: Dato de banco incompleto ignorado: {banco_data}") # Debug
+
+        # --- 5. Guardar Nuevos Bancos en BD (si hay) ---
+        if bancos_para_crear:
+            try:
+                Banco.objects.bulk_create(bancos_para_crear)
+                nuevos_bancos_contador = len(bancos_para_crear)
+                print(f"DEBUG: Añadidos {nuevos_bancos_contador} nuevos bancos.") # Debug
+                messages.success(request, f'¡Actualización completada! Se añadieron {nuevos_bancos_contador} nuevos bancos.')
+            except Exception as db_error:
+                print(f"ERROR DB al guardar bancos: {db_error}") # Debug
+                messages.error(request, f'Error al guardar los nuevos bancos en la base de datos: {db_error}')
+        else:
+            print("DEBUG: No se encontraron nuevos bancos para añadir.") # Debug
+            messages.info(request, '¡Todo al día! No se encontraron nuevos bancos en la fuente de datos.')
+
+    except requests.exceptions.RequestException as e:
+        print(f"ERROR API/Red: {e}") # Debug
+        messages.error(request, f"Error al obtener los datos de los bancos: {e}")
+    except Exception as e: # Otros errores (JSON inválido, etc.)
+        print(f"ERROR General: {e}") # Debug
+        messages.error(request, f"Ocurrió un error inesperado durante la actualización: {e}")
+
+    # --- 6. Redirigir de vuelta ---
+    return redirect('tabla_bancos') # Redirige al banco
+
+
 
 def pages(request):
     context = {}
