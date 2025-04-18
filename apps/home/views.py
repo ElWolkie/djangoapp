@@ -18,6 +18,8 @@ from django.template.loader import render_to_string
 from .forms import TipoFormacionForm, FormacionForm, MateriaForm, CohorteForm, CargoForm, RequisitoForm, ServicioForm, TramiteForm, DenominacionForm, BancoForm, MonedaForm, TasaForm, TipoMovimientoForm, MovimientoForm, ConfiguracionForm
 from .models import Personas, Usuarios, TipoFormacion, Formacion, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Denominacion, Banco, Moneda, Tasa, Movimiento, TipoMovimiento, Configuracion
 
+from apps.persona.models import PersonaTP, TipoPersona
+from apps.persona.forms import TipoPersonaForm, PersonaForm
 from apps.honorario.models import Honorario
 
 from rest_framework.decorators import api_view, permission_classes
@@ -94,7 +96,7 @@ def registrar_usuario(request):
             )
             
             messages.success(request, '¡Usuario registrado exitosamente!')
-            return redirect('tablaUsuario.html')
+            return redirect('lista_usuarios')
             
         except Personas.DoesNotExist:
             messages.error(request, 'Cédula no registrada en Personas')
@@ -106,6 +108,14 @@ def registrar_usuario(request):
             print(f"Error detallado: {str(e)}")
     
     return render(request, 'usuario.html')
+
+@login_required(login_url='login')
+def lista_usuarios(request):
+    # Trae todos los usuarios con su persona asociada en una sola consulta
+    usuarios = Usuarios.objects.select_related('idPersona').all()
+    return render(request, 'home/tablaUsuario.html', {
+        'usuarios': usuarios
+    })
 
 @csrf_exempt
 def formacion_modal(request):

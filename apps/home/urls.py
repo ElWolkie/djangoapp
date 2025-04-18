@@ -10,6 +10,7 @@ urlpatterns = [
     path('dashboard/', index_view, name='dashboard'),  # Opcional
 
     path('registrar-usuario/', registrar_usuario, name='registrar_usuario'),
+    path('usuarios/', views.lista_usuarios, name='lista_usuarios'),
 
     # Rutas específicas para modales
     path('configuracion/', views.configuracion, name='configuracion'),

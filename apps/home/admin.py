@@ -1,8 +1,11 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import Personas, Usuarios, TipoPersona, Materia, Cohorte, Cargo, Honorario, Requisito, Servicio, Tramite, Solicitud, Denominacion, Banco, Moneda, Tasa, TipoIngreso
+from .models import Personas, Usuarios, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Denominacion, Banco, Moneda, Tasa, TipoIngreso
+from apps.persona.models import TipoPersona
+from apps.honorario.models import Honorario
+from apps.solicitud.models import Solicitud
 
-# Personalización de la vista de Personas en el admin
+# Personalización de la vista de Personas en el admini
 class PersonaAdmin(admin.ModelAdmin):
     list_display = ('idPersona', 'cedula', 'nombres', 'apellidos', 'telefono', 'correo',  'estadoPersona', 'fechaPersona')  # Muestra estos campos en la lista
     search_fields = ('cedula', 'nombres', 'apellidos')  # Permite buscar por estos campos

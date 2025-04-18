@@ -46,7 +46,7 @@ class UsuarioManager(BaseUserManager):
 
 class Usuarios(AbstractBaseUser, PermissionsMixin):
     idUsuario = models.AutoField(primary_key=True)
-    idPersona = models.OneToOneField('Personas', on_delete=models.CASCADE)
+    idPersona = models.OneToOneField(Personas, on_delete=models.CASCADE)
     preguntaSeguridad = models.CharField(max_length=255)
     respuestaSeguridad = models.CharField(max_length=255)
     coloresUsuario = models.CharField(max_length=50, blank=True, null=True)

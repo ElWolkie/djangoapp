@@ -121,7 +121,7 @@
               <div id="tramiteMenu" class="collapse ml-3">  
                 <ul class="nav flex-column">  
                   <li class="nav-item">  
-                    <a class="nav-link" href="/solicitud.html" style="padding-left: 30px;"><i class="ni ni-fat-add  text-orange"></i>Solicitud</a>  
+                    <a class="nav-link" href="solicitud/solicitud.html" style="padding-left: 30px;"><i class="ni ni-fat-add  text-orange"></i>Solicitud</a>  
                   </li>  
                   <li class="nav-item">  
                     <a class="nav-link" href="{% url 'tabla_solicitud' %}" style="padding-left: 30px;"><i class="ni ni-bullet-list-67 text-orange"></i>Consultar</a>  
@@ -210,9 +210,14 @@
             <li class="nav-item">
               <a class="nav-link" href="/usuario.html" style="padding-left: 15px;"><i class="ni ni-badge text-orange"></i>Registrar</a>
             </li>
-            <li class="nav-item">
-              <a class="nav-link" href="/tablaUsuario.html" style="padding-left: 15px;"><i class="ni ni-collection text-orange"></i>Consultar</a>
-            </li>
+              {% load static %}
+              {% load i18n %}
+                <li class="nav-item">
+                  <a class="nav-link" href="{% url 'lista_usuarios' %}" style="padding-left: 15px;">
+                    <i class="ni ni-collection text-orange"></i>
+                    <span class="nav-link-text">{% trans "Consultar Usuarios" %}</span>
+                  </a>
+                </li>
             </ul>
           </div>
           </li>
