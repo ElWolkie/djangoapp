@@ -1,26 +1,5 @@
 from django import forms  
-from .models import TipoPersona, Personas, PersonaTP, Formacion,TipoFormacion, Materia, Cohorte, Cargo, Honorario, Requisito, Servicio, Tramite, Solicitud, Denominacion, Banco, Moneda, Tasa, TipoMovimiento, Movimiento, Configuracion
-
-class TipoPersonaForm(forms.ModelForm):  
-    estadoTP = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
-
-    class Meta:  
-        model = TipoPersona  
-        fields = ['nombreTP', 'estadoTP']  
-
-
-class PersonaForm(forms.ModelForm):  
-    estadoPersona = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
-
-    class Meta:  
-        model = Personas  
-        fields = ['cedula', 'nombres', 'apellidos', 'telefono', 'correo', 'estadoPersona']  
-
-class PersonaTPForm(forms.ModelForm):
-    class Meta:
-        model = PersonaTP
-        fields = ['idPersona', 'idTP']
-
+from .models import  Formacion,TipoFormacion, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Denominacion, Banco, Moneda, Tasa, TipoMovimiento, Movimiento, Configuracion
 
 class TipoFormacionForm(forms.ModelForm):  
     estadoTipoFormacion = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
@@ -62,14 +41,6 @@ class CargoForm(forms.ModelForm):
         fields = ['idCargo', 'nombreCargo', 'estadoCargo']  
 
 
-class HonorarioForm(forms.ModelForm):  
-    estadoHonorario = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
-            
-    class Meta:  
-        model = Honorario  
-        fields = ['idHonorario', 'idPersona', 'idCargo', 'idCohorte', 'idMateria', 'horas', 'estadoHonorario']  
-
-
 
 class RequisitoForm(forms.ModelForm):  
     estadoRequisito = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
@@ -93,13 +64,6 @@ class TramiteForm(forms.ModelForm):
     class Meta:  
         model = Tramite  
         fields = ['idTramite', 'nombreTramite', 'diasTramite', 'precioTramite', 'estadoTramite']  
-
-class SolicitudForm(forms.ModelForm):  
-    estadoSolicitud = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
-  
-    class Meta:  
-        model = Solicitud  
-        fields = ['idSoli', 'idPersona', 'idTramite', 'idServicio', 'montoTotal', 'estadoSolicitud', 'fechaEntrega']  
 
 
 class DenominacionForm(forms.ModelForm):  

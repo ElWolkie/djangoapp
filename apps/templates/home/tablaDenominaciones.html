@@ -43,6 +43,7 @@
             <th scope="col">Nombre</th>
             <th scope="col">Estado</th>
             <th scope="col">Fecha</th>
+            <th scope="col">Acciones</th>
         </tr>
     </thead>
     <tbody>
@@ -52,7 +53,17 @@
             <td>{{ denominacion.idDenominacion }}</td>
             <td>{{ denominacion.nombreDenominacion }}</td>
             <td>{{ denominacion.estadoDenominacion }}</td>
-            <td>{{ denominacion.fechaDenominacion }}</td>
+            <td>{{ denominacion.fechaDenominacion|date:"d/m/Y" }}</td>
+            <td>
+              <button class="btn btn-sm btn-primary" type="button" data-toggle="modal" data-target="#editDenominacionModal" data-id="{{ denominacion.idDenominacion }}" data-url="{% url 'edit_denominacion' denominacion.idDenominacion %}">Editar</button>
+              {% if denominacion.estadoDenominacion == "ACTIVO" %}
+              <button class="btn btn-sm btn-danger" type="button" onclick="deleteDenominacion('{{ denominacion.idDenominacion }}')">Eliminar</button>
+              {% endif %}
+              {% if denominacion.estadoDenominacion == "INACTIVO" %}
+              <button class="btn btn-sm btn-success" type="button" onclick="reactivateDenominacion('{{ denominacion.idDenominacion }}')">Reactivar</button>
+              {% endif %}
+
+            </td>
         </tr>
         {% endfor %}
     </tbody>
@@ -71,6 +82,28 @@
       <div class="modal-body">
         <!-- Contenedor para los mensajes -->
         <div id="modalMessages"></div>
+        <!-- El contenido del formulario se cargará aquí -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Editar Modal -->
+<div class="modal fade" id="editDenominacionModal" tabindex="-1" role="dialog" aria-labelledby="editDenominacionModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="editDenominacionModalLabel">Editar Denominacion</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <!-- Contenedor para los mensajes -->
+        <div id="modalMessages"></div>
+        <form id="editDenominacionForm">
+          <!-- El contenido del formulario de edición se cargará aquí -->
+        </form>
         <!-- El contenido del formulario se cargará aquí -->
       </div>
     </div>
@@ -118,6 +151,92 @@
       });
     });
   });
+
+      // Manejar la apertura del modal para editar
+      $('#editDenominacionModal').on('show.bs.modal', function (e) {
+      var modal = $(this);
+      var url = $(e.relatedTarget).data('url'); // Obtener la URL desde el botón que abrió el modal
+      $.ajax({
+      url: url, // URL para cargar el formulario de edición
+      method: 'GET',
+      success: function (data) {
+      modal.find('.modal-body').html(data); // Cargar el contenido del formulario en el modal
+      },
+      error: function () {
+      alert('Error al cargar el formulario de edición.');
+      }
+    });
+    });
+  
+          // Manejar el envío del formulario de edición
+      $(document).on('submit', '#editDenominacionForm', function(e) {
+      e.preventDefault();
+      var form = $(this);
+      
+      $.ajax({
+        url: form.attr('action'),
+        method: form.attr('method'),
+        data: form.serialize(),
+        success: function(response) {
+          if (response.success) {
+            // Cierra el modal y recarga la página
+            $('#editDenominacionModal').modal('hide');
+            location.reload();
+          } else {
+            // Muestra errores de validación
+            var messagesContainer = $('#modalMessages');
+            messagesContainer.empty();
+            for (var field in response.errors) {
+              messagesContainer.append('<div class="alert alert-danger">' + response.errors[field] + '</div>');
+            }
+          }
+        },
+        error: function() {
+          alert('Error al procesar la solicitud');
+        }
+      });
+    });
+  
+
+    function deleteDenominacion(id) {
+    if (confirm('¿Estás seguro de que deseas eliminar esta denominacion?')) {
+      $.ajax({
+        url: '{% url "delete_denominacion" 0 %}'.replace('0', id),
+        method: 'POST',
+        data: {
+          csrfmiddlewaretoken: '{{ csrf_token }}'
+        },
+        success: function(response) {
+          if (response.success) {
+            alert(response.message);
+            location.reload();  // Recargar la página para ver los cambios
+          } else {
+            alert('Error al eliminar el Requisito.');
+          }
+        }
+      });
+    }
+  }
+
+  function reactivateDenominacion(id) {
+    if (confirm('¿Estás seguro de que deseas reactivar esta denominacion?')) {
+      $.ajax({
+        url: '{% url "reactivate_denominacion" 0 %}'.replace('0', id),
+        method: 'POST',
+        data: {
+          csrfmiddlewaretoken: '{{ csrf_token }}'
+        },
+        success: function(response) {
+          if (response.success) {
+            alert(response.message);
+            location.reload();  // Recargar la página para ver los cambios
+          } else {
+            alert('Error al reactivar el Requisito.');
+          }
+        }
+      });
+    }
+  }
 </script>
 <script>
   function filterTable() {

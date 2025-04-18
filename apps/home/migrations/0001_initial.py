@@ -96,24 +96,6 @@ class Migration(migrations.Migration):
             },
         ),
         migrations.CreateModel(
-            name='Personas',
-            fields=[
-                ('idPersona', models.AutoField(primary_key=True, serialize=False)),
-                ('cedula', models.CharField(max_length=10)),
-                ('nombres', models.CharField(max_length=100)),
-                ('apellidos', models.CharField(max_length=100)),
-                ('telefono', models.CharField(max_length=15)),
-                ('correo', models.EmailField(max_length=254)),
-                ('estadoPersona', models.CharField(max_length=10)),
-                ('fechaPersona', models.DateField(auto_now_add=True)),
-            ],
-            options={
-                'verbose_name': 'Persona',
-                'verbose_name_plural': 'Personas',
-                'ordering': ['idPersona'],
-            },
-        ),
-        migrations.CreateModel(
             name='Requisito',
             fields=[
                 ('idRequisito', models.AutoField(primary_key=True, serialize=False)),
@@ -183,19 +165,6 @@ class Migration(migrations.Migration):
             },
         ),
         migrations.CreateModel(
-            name='TipoPersona',
-            fields=[
-                ('idTP', models.AutoField(primary_key=True, serialize=False)),
-                ('nombreTP', models.CharField(max_length=100)),
-                ('estadoTP', models.CharField(max_length=10)),
-                ('fechaTP', models.DateField(auto_now_add=True)),
-            ],
-            options={
-                'verbose_name': 'Tipo de Persona',
-                'verbose_name_plural': 'Tipos de Personas',
-            },
-        ),
-        migrations.CreateModel(
             name='Tramite',
             fields=[
                 ('idTramite', models.AutoField(primary_key=True, serialize=False)),
@@ -242,25 +211,7 @@ class Migration(migrations.Migration):
                 'db_table': 'configuraciones_institucionales',
                 'ordering': ['-fechaConfiguracion'],
             },
-        ),
-        migrations.CreateModel(
-            name='Honorario',
-            fields=[
-                ('idHonorario', models.AutoField(primary_key=True, serialize=False)),
-                ('horas', models.FloatField()),
-                ('estadoHonorario', models.CharField(max_length=10)),
-                ('fechaHonorario', models.DateField(auto_now_add=True)),
-                ('idCargo', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='home.cargo')),
-                ('idCohorte', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='home.cohorte')),
-                ('idMateria', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='home.materia')),
-                ('idPersona', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='home.personas')),
-            ],
-            options={
-                'verbose_name': 'Honorario',
-                'verbose_name_plural': 'Honorarios',
-            },
-        ),
-        migrations.CreateModel(
+        ),        migrations.CreateModel(
             name='Usuarios',
             fields=[
                 ('password', models.CharField(max_length=128, verbose_name='password')),
@@ -320,37 +271,6 @@ class Migration(migrations.Migration):
             options={
                 'verbose_name': 'Ingreso',
                 'verbose_name_plural': 'Ingresos',
-            },
-        ),
-        migrations.CreateModel(
-            name='Solicitud',
-            fields=[
-                ('idSoli', models.AutoField(primary_key=True, serialize=False)),
-                ('montoTotal', models.DecimalField(decimal_places=2, max_digits=10)),
-                ('estadoSolicitud', models.CharField(max_length=10)),
-                ('fechaEntrega', models.DateField()),
-                ('fechaSolicitud', models.DateField(auto_now_add=True)),
-                ('idPersona', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='home.personas')),
-                ('idServicio', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='home.servicio')),
-                ('idTramite', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='home.tramite')),
-            ],
-            options={
-                'verbose_name': 'Solicitud',
-                'verbose_name_plural': 'Solicitudes',
-            },
-        ),
-        migrations.CreateModel(
-            name='PersonaTP',
-            fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('fechaAsignacion', models.DateField(auto_now_add=True)),
-                ('idPersona', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='home.personas')),
-                ('idTP', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='home.tipopersona')),
-            ],
-            options={
-                'verbose_name': 'Asignación de Tipo a Persona',
-                'verbose_name_plural': 'Asignaciones de Tipos a Personas',
-                'unique_together': {('idPersona', 'idTP')},
             },
         ),
     ]
