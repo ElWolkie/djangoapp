@@ -7,4 +7,4 @@ def create_default_tipo_persona(sender, **kwargs):
     if sender.name == "apps.persona":  # Asegúrate de que coincida con el nombre de la app
         default_tipos = ["Usuario", "Cliente", "Proveedor"]
         for tipo in default_tipos:
-            TipoPersona.objects.get_or_create(nombreTP=tipo, defaults={"estadoTP": "Activo"})
+            TipoPersona.objects.get_or_create(nombreTP=tipo, defaults={"estadoTP": "ACTIVO"})

@@ -19,20 +19,21 @@
     {% endfor %}
   {% endif %}
 
-  <div class="row mb-3">
+  <div class="row">
     <div class="col-md-4">
       <div class="input-group">
         <div class="input-group-prepend">
-          <span class="input-group-text bg-secondary border-0"></span>
-            <i class="fas fa-search text-warning"></i>
+          <span class="input-group-text" style="background-color: #bcbcbc; border: none;">
+        <i class="fas fa-search text-warning"></i>
           </span>
         </div>
-        <input class="form-control" id="searchInput" type="text" placeholder="Buscar..." onkeyup="filterTable()">
+        <input class="form-control" id="searchInput" type="text" placeholder="Buscar...">
       </div>
     </div>
     <div class="col-md-4">
-      <a class="btn btn-warning btn-square btn-sm my-2" href="/inscripcion/inscripcion.html" title="Registrar inscripción">+</a>
+      <a class="btn btn-warning btn-square btn-sm my-2" href="/inscripcion/inscripcion.html" title="Registrar Inscripcion">+</a>
     </div>
+  <div class="col-md-4"></div>
   </div>
 
   <div class="table-responsive">
