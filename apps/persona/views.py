@@ -64,14 +64,14 @@ def edit_persona(request, pk):
 @csrf_exempt
 def delete_persona(request, pk):
     instance = get_object_or_404(Personas, pk=pk)
-    instance.estadoPersona = "Inactivo"
+    instance.estadoPersona = "INACTIVO"
     instance.save()
     return JsonResponse({'success': True, 'message': 'Eliminación exitosa.'})
 
 @csrf_exempt
 def reactivate_persona(request, pk):
     instance = get_object_or_404(Personas, pk=pk)
-    instance.estadoPersona = "Activo"
+    instance.estadoPersona = "ACTIVO"
     instance.save()
     return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
 

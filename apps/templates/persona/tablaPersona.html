@@ -66,10 +66,10 @@
       <td>{{ persona.estadoPersona }}</td>
       <td>
         <button class="btn btn-sm btn-primary" data-toggle="modal" data-target="#editPersonaModal" data-id="{{ persona.idPersona }}">Editar</button>
-        {% if persona.estadoPersona == "Activo" %}
+        {% if persona.estadoPersona == "ACTIVO" %}
           <button class="btn btn-sm btn-danger" onclick="managePersona('{{ persona.idPersona }}', 'delete')">Eliminar</button>
         {% endif %}
-        {% if persona.estadoPersona == "Inactivo" %}
+        {% if persona.estadoPersona == "INACTIVO" %}
           <button class="btn btn-sm btn-success" onclick="managePersona('{{ persona.idPersona }}', 'reactivate')">Reactivar</button>
         {% endif %}
       </td>
