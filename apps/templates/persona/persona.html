@@ -226,8 +226,12 @@
               opciones.push({ text: "Honorario", value: `/honorario/honorario2.html?cedula=${cedula}` });
             }
             if (tipoPersonaSeleccionados.includes("tipoUsuario")) {
-              opciones.push({ text: "Usuario", value: `usuario.html?cedula=${cedula}` });
-            }
+              opciones.push({ 
+                  text: "Usuario", 
+                  value: "{% url 'registrar_usuario' %}?cedula=" + cedula
+              });
+          }
+          
 
             // Si solo hay un tipo seleccionado, redirigir directamente
             if (opciones.length === 1) {

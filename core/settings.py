@@ -127,9 +127,9 @@ if platform.system() == "Windows":
 
 
 # Configuración de autenticación
-LOGIN_URL = '/login/'
-LOGIN_REDIRECT_URL = '/dashboard/'  # O '/home/' según prefieras
-LOGOUT_REDIRECT_URL = '/login/'
+LOGIN_URL = 'login'
+LOGIN_REDIRECT_URL = 'home'
+LOGOUT_REDIRECT_URL = 'login'
 
 AUTH_USER_MODEL = 'home.Usuarios'
 

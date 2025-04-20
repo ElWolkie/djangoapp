@@ -153,8 +153,12 @@ class Servicio(models.Model):
     fechaServicio = models.DateField(auto_now_add=True)  # Fecha de creación del Servicio  
         
     class Meta:  
-        verbose_name = "Servicio"  
-        verbose_name_plural = "Servicios"  
+        verbose_name = "Servicio"
+        verbose_name_plural = "Servicios"
+
+    @property
+    def solicitudes(self):
+        return self.solicitud_set.count()  # Relación inversa automática
 
 
 class Tramite(models.Model):  

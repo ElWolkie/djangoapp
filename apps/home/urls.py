@@ -1,16 +1,16 @@
 from django.urls import path, re_path
 from . import views
-from .views import login_view, index_view, logout_view, registrar_usuario
+from .views import registrar_usuario
 
 urlpatterns = [
     # Ruta principal (Home)
-    path('', index_view, name='home'),  # Página principal
-    path('login/', login_view, name='login'),
-    path('logout/', logout_view, name='logout'),
-    path('dashboard/', index_view, name='dashboard'),  # Opcional
+    path('', views.home, name='home'),
+    path('login/', views.login_view, name='login'),
+    path('logout/', views.logout_view, name='logout'),
 
     path('registrar-usuario/', registrar_usuario, name='registrar_usuario'),
     path('usuarios/', views.lista_usuarios, name='lista_usuarios'),
+    path('recover-password/', views.recover_password, name='recover_password'),
 
     # Rutas específicas para modales
     path('configuracion/', views.configuracion, name='configuracion'),

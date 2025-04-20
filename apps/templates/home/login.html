@@ -41,12 +41,42 @@
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.903); /* Sombra */
 }
 
+.custom-alert {
+  padding-right: 2rem; /* Espacio para la X */
+}
+
+.custom-alert .close {
+  position: absolute;
+  right: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 0;
+  color: inherit;
+}
+
+.custom-alert .alert-message {
+  padding-right: 1.5rem; /* Espacio entre texto y X */
+}
+
 </style>
 {% endblock stylesheets %}
 
+
 {% block content %}
+
+{% if messages %}
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags }} alert-dismissible fade show custom-alert" role="alert">
+        <div class="alert-message">{{ message }}</div>
+        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+    {% endfor %}
+{% endif %}
+
 <div class="container">
-  <input type="checkbox" id="flip" />
+  <input type="checkbox" id="flip" {% if show_recover_form %}checked{% endif %} />
   <div class="cover">
     <div class="front">
       <img src="/static/assets/img/theme/frontImg.jpg" alt="" />
@@ -69,7 +99,7 @@
         <div class="title" style="font-weight: bold; font-size: 3.75vh;">Iniciar Sesión</div>
         <form method="POST" autocomplete="off" action="{% url 'login' %}">
           {% csrf_token %}
-          <input type="hidden" name="next" value="{{ next|default:'dashboard' }}">
+          <input type="hidden" name="next" value="{{ next }}">
           
           <div class="input-boxes">
             <!-- Campos de login -->
@@ -84,51 +114,78 @@
               <label for="password">Contraseña</label>
             </div>
             
-            {% if error_message %}
-            <div class="alert alert-error">
-              {{ error_message }}
-            </div>
-            {% endif %}
-
-            <!-- <div class="text sign-up-text">
-                  ¿No tienes una cuenta? <label for="flip">Registrarse</label>
-              </div> -->
-            
             <div class="button input-box">
               <input type="submit" value="Entrar" />
             </div>
+
+            <div class="text sign-up-text">
+              <label for="flip">Olvidó su contraseña?</label>
+          </div>
           </div>
         </form>
       </div>
   
+      <!-- Formulario de Recuperar Contraseña -->
       <div class="signup-form">
-        <div class="title" style="font-weight: bold; font-size: 3.75vh;">Registro</div>
-        <form method="POST" action="{% url 'register' %}" autocomplete="off">
+        <div class="title" style="font-weight: bold; font-size: 3.75vh;">Recuperar Contraseña</div>
+        <form method="POST" action="{% url 'recover_password' %}" autocomplete="off">
           {% csrf_token %}
           <div class="input-boxes">
-              <!-- Campos de registro -->
-              <div class="input-box">
-                  <i class="fas fa-user"></i>
-                  <input type="text" name="name" placeholder=" " />
-                  <label for="name">Usuario</label>
-              </div>
-              <div class="input-box">
-                  <i class="fas fa-envelope"></i>
-                  <input type="email" name="email" placeholder=" " />
-                  <label for="email">Correo electrónico</label>
-              </div>
-              <div class="input-box">
-                  <i class="fas fa-lock"></i>
-                  <input type="password" name="password" placeholder=" " />
-                  <label for="password">Contraseña</label>
-              </div>
-              <div class="button input-box">
-                  <input type="submit" value="Crear cuenta" />
-              </div>
-              <div class="text sign-up-text">
-                  ¿Ya tienes una cuenta? <label for="flip">Iniciar sesión</label>
-              </div>
-          </div>
+            <!-- Paso 1: Campo de Cédula -->
+            <div class="input-box">
+              <i class="fas fa-id-card"></i>
+              <input type="text" name="cedula" id="cedula_recover" placeholder=" " required 
+                    value="{{ cedula|default:'' }}" />
+              <label for="cedula_recover">Cédula</label>
+            </div>
+            
+            <!-- Paso 2: Pregunta de seguridad y campo de respuesta -->
+            {% if security_question %}
+                {# Div para mostrar la pregunta, sin la clase input-box #}
+                <div style="position: relative; margin-bottom: 15px; padding: 10px 10px 10px 40px; border: 1px solid #ced4da; border-radius: .25rem; background-color: #e9ecef;"> {# Estilo similar al input desactivado #}
+                    <i class="fas fa-question-circle" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #6c757d;"></i> {# Icono posicionado #}
+                    <p style="margin: 0; font-weight: bold; color: #495057;"> {# Texto de la pregunta #}
+                        {{ security_question }}
+                    </p>
+                </div>
+
+                {# La caja para la RESPUESTA sí mantiene la clase input-box #}
+                <div class="input-box">
+                    <i class="fas fa-edit"></i>
+                    <input type="text" name="respuestaSeguridad" id="respuestaSeguridad" placeholder=" " required />
+                    <label for="respuestaSeguridad">Respuesta de Seguridad</label>
+                </div>
+            {% endif %}
+            
+            <!-- Paso 3: Campos para nueva contraseña -->
+            {% if show_password_fields %}
+            <div class="input-box">
+              <i class="fas fa-lock"></i>
+              <input type="password" name="nueva_contrasenia" id="nueva_contrasenia" placeholder=" " required />
+              <label for="nueva_contrasenia">Nueva Contraseña</label>
+            </div>
+            <div class="input-box">
+              <i class="fas fa-lock"></i>
+              <input type="password" name="confirmar_contrasenia" id="confirmar_contrasenia" placeholder=" " required />
+              <label for="confirmar_contrasenia">Confirmar Nueva Contraseña</label>
+            </div>
+            {% endif %}
+            
+            <!-- Botón de envío, cuyo texto varía según el paso -->
+            <div class="button input-box">
+              {% if not security_question %}
+                <input type="submit" value="Verificar Cédula" />
+              {% elif security_question and not show_password_fields %}
+                <input type="submit" value="Verificar Respuesta" />
+              {% elif show_password_fields %}
+                <input type="submit" value="Actualizar Contraseña" />
+              {% endif %}
+            </div>
+            
+            <!-- Enlace para volver al login -->
+            <div class="text sign-up-text">
+              <label for="flip">Volver</label>
+            </div>
       </form>
       </div>
     </div>

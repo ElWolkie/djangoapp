@@ -8,8 +8,8 @@
 
 <style>
   .badge {
-  font-size: 0.68rem;    /* Ajusta según el tamaño deseado */
-  padding: 0.35em 0.35em;  /* Ajusta los valores para obtener el espacio adecuado */
+  font-size: 0.70rem;    /* Ajusta según el tamaño deseado */
+  padding: 0.40em 0.40em;  /* Ajusta los valores para obtener el espacio adecuado */
 }
 
 </style>
@@ -72,7 +72,7 @@
             {% if usuario.is_superuser %}
               <span class="badge badge-primary">Superusuario</span>
             {% elif usuario.is_staff %}
-              <span class="badge badge-info">Staff</span>
+              <span class="badge badge-info">Admin</span>
             {% else %}
               <span class="badge badge-secondary">Normal</span>
             {% endif %}

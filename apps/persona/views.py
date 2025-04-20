@@ -11,8 +11,7 @@ from django.template.loader import render_to_string
 from .forms import TipoPersonaForm, PersonaForm
 from .models import PersonaTP, Personas, TipoPersona
 
-
-@csrf_exempt
+@login_required(login_url="/login/")
 def tipo_persona_modal(request):
     if request.method == 'POST':
         form = TipoPersonaForm(request.POST)
@@ -86,8 +85,6 @@ def pages(request):
         context["segment"] = load_template
         html_template = loader.get_template("persona/" + load_template)
         return HttpResponse(html_template.render(context, request))
-
-
 
     except loader.TemplateDoesNotExist:
         html_template = loader.get_template("home/page-404.html")

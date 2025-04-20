@@ -3,17 +3,19 @@ from django.http import JsonResponse, HttpResponse, HttpResponseRedirect
 from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import render, redirect, get_object_or_404
 from django.template import loader
-from django.db.models import OuterRef, Subquery, Max
+from django.db.models import OuterRef, Subquery, Max, Count, Sum, F
 from django.urls import reverse
 from django.contrib import messages
 from django.utils import timezone # Importar timezone
 
 from django.contrib.auth import authenticate, login, logout
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.hashers import make_password
 from django.db import IntegrityError
 
 from django.template.loader import render_to_string
+
+from django.db.models.functions import ExtractMonth
 
 from .forms import TipoFormacionForm, FormacionForm, MateriaForm, CohorteForm, CargoForm, RequisitoForm, ServicioForm, TramiteForm, DenominacionForm, BancoForm, MonedaForm, TasaForm, TipoMovimientoForm, MovimientoForm, ConfiguracionForm
 from .models import Personas, Usuarios, TipoFormacion, Formacion, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Denominacion, Banco, Moneda, Tasa, Movimiento, TipoMovimiento, Configuracion
@@ -21,17 +23,75 @@ from .models import Personas, Usuarios, TipoFormacion, Formacion, Materia, Cohor
 from apps.persona.models import PersonaTP, TipoPersona
 from apps.persona.forms import TipoPersonaForm, PersonaForm
 from apps.honorario.models import Honorario
+from apps.solicitud.models import Solicitud
 
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 
+# Vista única para el dashboard
+@login_required(login_url='login')
+def home(request):
+    # Solicitudes
+    total_solicitudes = Solicitud.objects.filter(estadoSolicitud='Activo').count()
+    ultima_solicitud = Solicitud.objects.order_by('-fechaSolicitud').first()
+    
+    # Servicios
+    total_servicios = Servicio.objects.filter(estadoServicio='Activo').count()
+    try:
+        servicio_popular = Servicio.objects.annotate(
+            total_solicitudes=Count('solicitud')
+        ).order_by('-total_solicitudes').first().nombreServicio
+    except AttributeError:
+        servicio_popular = "N/A"
+    
+    # Honorarios
+    honorarios_data = Honorario.objects.filter(estadoHonorario='Activo').aggregate(
+        total=Count('idHonorario'),
+        horas=Sum('horas')
+    )
+    
+    # Cohortes
+    cohorte_reciente = Cohorte.objects.order_by('-fechaCohorte').first()
+    
+    # Gráfico de solicitudes por mes
+    meses = [0]*12
+    solicitudes_por_mes = Solicitud.objects.annotate(
+        month=ExtractMonth('fechaSolicitud')
+    ).values('month').annotate(total=Count('idSoli'))
+
+    for mes in solicitudes_por_mes:
+        # Restamos 1 porque los meses en la lista van de 0 (Enero) a 11 (Diciembre)
+        meses[mes['month'] - 1] = mes['total']
+    
+    context = {
+        'total_solicitudes': total_solicitudes,
+        'ultima_solicitud': ultima_solicitud.fechaSolicitud if ultima_solicitud else None,
+        'total_servicios': total_servicios,
+        'servicio_popular': servicio_popular,
+        'total_honorarios': honorarios_data['total'],
+        'total_horas': honorarios_data['horas'] or 0,
+        'total_cohortes': Cohorte.objects.filter(estadoCohorte='Activo').count(),
+        'cohorte_reciente': cohorte_reciente.nombreCohorte if cohorte_reciente else "N/A",
+        'chart_data': meses,
+    }
+    return render(request, 'home/index.html', context)
+
+# Vista de logout
+def logout_view(request):
+    logout(request)
+    return redirect('login')
+
+# Vista de login
 def login_view(request):
     if request.user.is_authenticated:
-        return redirect('dashboard')  # Si ya está autenticado, redirige
+        return redirect('home')
+    
+    next_param = request.GET.get('next', 'home')  # Obtener next de la URL
     
     if request.method == 'POST':
         cedula = request.POST.get('cedula')
         password = request.POST.get('password')
+        next_param = request.POST.get('next', 'home')  # Obtener next del POST
         
         try:
             persona = Personas.objects.get(cedula=cedula)
@@ -39,9 +99,7 @@ def login_view(request):
             
             if user is not None:
                 login(request, user)
-                # Redirige según parámetro 'next' o a la URL por defecto
-                next_url = request.POST.get('next', 'dashboard')
-                return redirect(next_url)
+                return redirect(next_param)
             else:
                 messages.error(request, "Contraseña incorrecta")
         except Personas.DoesNotExist:
@@ -49,24 +107,14 @@ def login_view(request):
         except Exception as e:
             messages.error(request, f"Error al iniciar sesión: {str(e)}")
     
-    # Añade el parámetro next al contexto si viene en la URL
-    next_param = request.GET.get('next', '')
     return render(request, 'home/login.html', {'next': next_param})
 
-def dashboard_view(request):
-    if not request.user.is_authenticated:
-        return redirect('login')
-    return render(request, 'home/index.html')
-
-def logout_view(request):
-    logout(request)
-    return redirect('login')  # Redirige a la página de login
+# Vista para el superuser
+def es_superuser(user):
+    return user.is_superuser
 
 @login_required(login_url='login')
-def index_view(request):
-    """Vista principal del dashboard (requiere autenticación)"""
-    return render(request, "home/index.html")
-
+@user_passes_test(es_superuser)
 def registrar_usuario(request):
     if request.method == 'POST':
         cedula = request.POST.get('cedula')
@@ -107,7 +155,7 @@ def registrar_usuario(request):
             messages.error(request, f'Error inesperado: {str(e)}')
             print(f"Error detallado: {str(e)}")
     
-    return render(request, 'usuario.html')
+    return render(request, 'home/usuario.html')
 
 @login_required(login_url='login')
 def lista_usuarios(request):
@@ -117,7 +165,101 @@ def lista_usuarios(request):
         'usuarios': usuarios
     })
 
-@csrf_exempt
+# PARA LA RECUPERACION DE CONTRASEÑA
+def recover_password(request):
+    context = {}
+    cedula = request.POST.get('cedula') if request.method == 'POST' else None
+
+    if request.method == 'POST':
+
+        # --- Validación básica de Cédula ---
+        if not cedula:
+             messages.error(request, "Por favor, ingrese su cédula.")
+             return render(request, 'home/login.html', {'show_recover_form': True}) # Mostrar recover form
+
+        try:
+            persona = Personas.objects.get(cedula=cedula)
+            usuario = Usuarios.objects.select_related('idPersona').get(idPersona=persona)
+
+        except Personas.DoesNotExist:
+            messages.error(request, "La cédula no se encuentra registrada.")
+            context['cedula'] = cedula
+            context['show_recover_form'] = True # Mantener vista recover
+            return render(request, 'home/login.html', context)
+        except Usuarios.DoesNotExist:
+            messages.error(request, "No existe un usuario vinculado a esta cédula.")
+            context['cedula'] = cedula
+            context['show_recover_form'] = True # Mantener vista recover
+            return render(request, 'home/login.html', context)
+        except Exception as e:
+             messages.error(request, "Ocurrió un error buscando la información del usuario.")
+             print(f"Error buscando usuario/persona: {e}")
+             context['cedula'] = cedula
+             context['show_recover_form'] = True # Mantener vista recover
+             return render(request, 'home/login.html', context)
+
+        # --- Lógica de Pasos ---
+        respuesta_input = request.POST.get('respuestaSeguridad')
+        nueva_contrasenia_input = request.POST.get('nueva_contrasenia')
+        confirmar_contrasenia_input = request.POST.get('confirmar_contrasenia')
+
+        # Paso 3: Procesar cambio de contraseña
+        if nueva_contrasenia_input is not None and confirmar_contrasenia_input is not None:
+            context['security_question'] = usuario.preguntaSeguridad
+            context['cedula'] = cedula
+            context['show_password_fields'] = True
+            context['show_recover_form'] = True # <-- Mantener flip
+
+            if nueva_contrasenia_input != confirmar_contrasenia_input:
+                messages.error(request, "Las contraseñas no coinciden.")
+                return render(request, 'home/login.html', context)
+            elif len(nueva_contrasenia_input) < 8: # <-- Validación longitud
+                messages.error(request, "La nueva contraseña debe tener al menos 8 caracteres.")
+                return render(request, 'home/login.html', context)
+            else:
+                # (Opcional: añadir validación de complejidad aquí con validate_password)
+                try:
+                    usuario.set_password(nueva_contrasenia_input)
+                    usuario.save()
+                    messages.success(request, "Contraseña actualizada exitosamente. Por favor, inicie sesión.")
+                    return redirect('login')
+                except Exception as e:
+                     messages.error(request, "Error al guardar la nueva contraseña.")
+                     print(f"Error guardando contraseña: {e}")
+                     return render(request, 'home/login.html', context)
+
+        # Paso 2: Procesar respuesta de seguridad
+        elif respuesta_input is not None:
+            context['cedula'] = cedula
+            context['security_question'] = usuario.preguntaSeguridad
+            context['show_recover_form'] = True # <-- Mantener flip
+
+            if usuario.respuestaSeguridad and usuario.respuestaSeguridad.lower() == respuesta_input.lower():
+                context['show_password_fields'] = True
+                messages.success(request, "Respuesta correcta. Ingrese su nueva contraseña.")
+            else:
+                context['show_password_fields'] = False
+                messages.error(request, "Respuesta de seguridad incorrecta. Intente nuevamente.")
+            return render(request, 'home/login.html', context)
+
+        # Paso 1: Mostrar pregunta de seguridad
+        else:
+            context['security_question'] = usuario.preguntaSeguridad
+            context['cedula'] = cedula
+            context['show_recover_form'] = True # <-- Mantener flip
+            messages.info(request, "Usuario encontrado. Por favor, ingrese la respuesta de seguridad.")
+            return render(request, 'home/login.html', context)
+
+    # Para peticiones GET
+    else:
+        # Si se accede a /recover-password/ directamente con GET,
+        # podríamos querer mostrar el formulario de recuperación directamente.
+        context['show_recover_form'] = True # <-- Mostrar lado recover por defecto en GET
+        return render(request, 'home/login.html', context)
+
+
+@login_required(login_url='login')
+@user_passes_test(es_superuser)
 def formacion_modal(request):
     if request.method == 'POST':
         form = FormacionForm(request.POST)
@@ -132,7 +274,9 @@ def formacion_modal(request):
         tipos_formacion = TipoFormacion.objects.all()  # Obtener los tipos de formación
     return render(request, 'home/formaciones.html', {'form': form, 'tipos_formacion': tipos_formacion})
 
-@csrf_exempt
+
+@login_required(login_url='login')
+@user_passes_test(es_superuser)
 def edit_formacion(request, pk):
     formacion = get_object_or_404(Formacion, pk=pk)
     if request.method == 'POST':
@@ -152,20 +296,25 @@ def edit_formacion(request, pk):
             'tipos_formacion': tipos_formacion
         })
 
-@csrf_exempt
+@login_required(login_url='login')
+@user_passes_test(es_superuser)
 def delete_formacion(request, pk):
     instance = get_object_or_404(Formacion, pk=pk)
     instance.estadoFormacion = 'INACTIVO'
     instance.save()
     return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
 
-@csrf_exempt
+
+@login_required(login_url='login')
+@user_passes_test(es_superuser)
 def reactivate_formacion(request, pk):
     instance = get_object_or_404(Formacion, pk=pk)
     instance.estadoFormacion = 'ACTIVO'
     instance.save()
     return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
 
+@login_required(login_url='login')
+@user_passes_test(es_superuser)
 def tabla_formaciones(request):
     if request.user.is_superuser:
         formaciones = Formacion.objects.select_related('idTF').all().distinct  # Usar select_related para optimizar la consulta
