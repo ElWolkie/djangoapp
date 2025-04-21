@@ -32,11 +32,11 @@ from rest_framework.permissions import AllowAny
 @login_required(login_url='login')
 def home(request):
     # Solicitudes
-    total_solicitudes = Solicitud.objects.filter(estadoSolicitud='Activo').count()
+    total_solicitudes = Solicitud.objects.filter(estadoSolicitud='ACTIVO').count()
     ultima_solicitud = Solicitud.objects.order_by('-fechaSolicitud').first()
     
     # Servicios
-    total_servicios = Servicio.objects.filter(estadoServicio='Activo').count()
+    total_servicios = Servicio.objects.filter(estadoServicio='ACTIVO').count()
     try:
         servicio_popular = Servicio.objects.annotate(
             total_solicitudes=Count('solicitud')
@@ -45,7 +45,7 @@ def home(request):
         servicio_popular = "N/A"
     
     # Honorarios
-    honorarios_data = Honorario.objects.filter(estadoHonorario='Activo').aggregate(
+    honorarios_data = Honorario.objects.filter(estadoHonorario='ACTIVO').aggregate(
         total=Count('idHonorario'),
         horas=Sum('horas')
     )
@@ -70,10 +70,13 @@ def home(request):
         'servicio_popular': servicio_popular,
         'total_honorarios': honorarios_data['total'],
         'total_horas': honorarios_data['horas'] or 0,
-        'total_cohortes': Cohorte.objects.filter(estadoCohorte='Activo').count(),
+        'total_cohortes': Cohorte.objects.filter(estadoCohorte='ACTIVO').count(),
         'cohorte_reciente': cohorte_reciente.nombreCohorte if cohorte_reciente else "N/A",
         'chart_data': meses,
     }
+
+    print("Contexto enviado:", context)
+
     return render(request, 'home/index.html', context)
 
 # Vista de logout
