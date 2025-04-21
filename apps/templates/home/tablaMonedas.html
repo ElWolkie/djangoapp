@@ -11,14 +11,6 @@
 <div class="container mt-5">
   <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Lista de Monedas Registradas</h2>
 
-  {% if messages %}
-    {% for message in messages %}
-      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-        {{ message }}
-      </div>
-    {% endfor %}
-  {% endif %}
-
   <div class="row">
     <div class="col-md-4">
       <div class="input-group">
@@ -33,7 +25,25 @@
     <div class="col-md-4">
       <button class="btn btn-warning btn-square btn-sm my-2" type="button" title="Registrar Moneda" data-toggle="modal" data-target="#monedaModal">+</button>
     </div>
+    
+    <form action="{% url 'actualizar_monedas_api' %}" method="POST" style="display: inline-block;">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-warning" title="Buscar y añadir nuevas monedas desde la web">
+          <i class="fas fa-coins"></i> Actualizar Monedas
+      </button>
+  </form>
   </div>
+
+  {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert" style="margin:10px;">
+                {{ message }}
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+        {% endfor %}
+    {% endif %}
 
   <br>
   <table class="table table-striped text-gray-dark" id="monedasTable">
@@ -44,6 +54,7 @@
             <th scope="col">Simbolo</th>
             <th scope="col">Estado</th>
             <th scope="col">Fecha</th>
+            <th scope="col">Acciones</th>
         </tr>
     </thead>
     <tbody>
@@ -54,7 +65,16 @@
             <td>{{ moneda.nombreMoneda }}</td>
             <td>{{ moneda.simboloMoneda }}</td>
             <td>{{ moneda.estadoMoneda }}</td>
-            <td>{{ moneda.fechaMoneda }}</td>
+            <td>{{ moneda.fechaMoneda|date:"d/m/Y" }}</td>
+            <td>
+            <button class="btn btn-sm btn-primary" type="button" data-toggle="modal" data-target="#editMonedaModal" data-id="{{ moneda.idMoneda }}" data-url="{% url 'edit_moneda' moneda.idMoneda %}">Editar</button>
+            {% if moneda.estadoMoneda == "ACTIVO" %}
+            <button class="btn btn-sm btn-danger" type="button" onclick="deleteMoneda('{{ moneda.idMoneda }}')">Eliminar</button>
+            {% endif %}
+            {% if moneda.estadoMoneda == "INACTIVO" %}
+            <button class="btn btn-sm btn-success" type="button" onclick="reactivateMoneda('{{ moneda.idMoneda }}')">Reactivar</button>
+            {% endif %}
+          </td>
         </tr>
         {% endfor %}
     </tbody>
@@ -73,6 +93,28 @@
       <div class="modal-body">
         <!-- Contenedor para los mensajes -->
         <div id="modalMessages"></div>
+        <!-- El contenido del formulario se cargará aquí -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Editar Modal -->
+<div class="modal fade" id="editMonedaModal" tabindex="-1" role="dialog" aria-labelledby="editMonedaModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="editMonedaModalLabel">Editar Moneda</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <!-- Contenedor para los mensajes -->
+        <div id="modalMessages"></div>
+        <form id="editMonedaForm">
+          <!-- El contenido del formulario de edición se cargará aquí -->
+        </form>
         <!-- El contenido del formulario se cargará aquí -->
       </div>
     </div>
@@ -120,6 +162,92 @@
       });
     });
   });
+  
+        // Manejar la apertura del modal para editar
+        $('#editMonedaModal').on('show.bs.modal', function (e) {
+      var modal = $(this);
+      var url = $(e.relatedTarget).data('url'); // Obtener la URL desde el botón que abrió el modal
+      $.ajax({
+      url: url, // URL para cargar el formulario de edición
+      method: 'GET',
+      success: function (data) {
+      modal.find('.modal-body').html(data); // Cargar el contenido del formulario en el modal
+      },
+      error: function () {
+      alert('Error al cargar el formulario de edición.');
+      }
+    });
+    });
+
+
+
+      // Manejar el envío del formulario de edición
+      $(document).on('submit', '#editMonedaForm', function(e) {
+      e.preventDefault();
+      var form = $(this);
+      
+      $.ajax({
+        url: form.attr('action'),
+        method: form.attr('method'),
+        data: form.serialize(),
+        success: function(response) {
+          if (response.success) {
+            // Cierra el modal y recarga la página
+            $('#editMonedaModal').modal('hide');
+            location.reload();
+          } else {
+            // Muestra errores de validación
+            var messagesContainer = $('#modalMessages');
+            messagesContainer.empty();
+            for (var field in response.errors) {
+              messagesContainer.append('<div class="alert alert-danger">' + response.errors[field] + '</div>');
+            }
+          }
+        },
+        error: function() {
+          alert('Error al procesar la solicitud');
+        }
+      });
+    });
+    function deleteMoneda(id) {
+    if (confirm('¿Estás seguro de que deseas eliminar esta moneda?')) {
+      $.ajax({
+        url: '{% url "delete_moneda" 0 %}'.replace('0', id),
+        method: 'POST',
+        data: {
+          csrfmiddlewaretoken: '{{ csrf_token }}'
+        },
+        success: function(response) {
+          if (response.success) {
+            alert(response.message);
+            location.reload();  // Recargar la página para ver los cambios
+          } else {
+            alert('Error al eliminar el Requisito.');
+          }
+        }
+      });
+    }
+  }
+
+  function reactivateMoneda(id) {
+    if (confirm('¿Estás seguro de que deseas reactivar esta moneda?')) {
+      $.ajax({
+        url: '{% url "reactivate_moneda" 0 %}'.replace('0', id),
+        method: 'POST',
+        data: {
+          csrfmiddlewaretoken: '{{ csrf_token }}'
+        },
+        success: function(response) {
+          if (response.success) {
+            alert(response.message);
+            location.reload();  // Recargar la página para ver los cambios
+          } else {
+            alert('Error al reactivar el Requisito.');
+          }
+        }
+      });
+    }
+  }
 </script>
 <script>
   function filterTable() {

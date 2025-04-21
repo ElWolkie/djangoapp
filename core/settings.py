@@ -2,6 +2,8 @@ import os
 import dj_database_url
 from decouple import config
 from unipath import Path
+# Configuración de JWT (opcional pero recomendado)
+from datetime import timedelta
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = Path(__file__).parent
@@ -46,6 +48,13 @@ INSTALLED_APPS = [
     "apps.authentication",
     "apps.home",  # Enable the inner home (home)
     'django_extensions',
+    "apps.persona",  # Habilita la aplicación para gestionar personas
+    "apps.honorario",  # Habilita la aplicación para gestionar honorario
+    "apps.inscripcion",  # Habilita la aplicación para gestionar honorario
+    "apps.solicitud",  # Habilita la aplicación para gestionar solicitud
+    # "apps.cargo",  # Habilita la aplicación para gestionar cargos
+    # "apps.cohorte",  # Habilita la aplicación para gestionar cohortes
+    # "apps.denominacion",  # Habilita la aplicación para gestionar denominaciones
 ]
 
 MIDDLEWARE = [
@@ -89,10 +98,12 @@ TEMPLATES = [
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 
+#Media
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+MEDIA_URL = '/media/'
+
 # Database
 import platform
-
-from datetime import timedelta
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
@@ -102,9 +113,6 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.AllowAny',  # Todos los usuarios autenticados pueden acceder
     ),
 }
-
-# Configuración de JWT (opcional pero recomendado)
-from datetime import timedelta
 
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
@@ -117,9 +125,9 @@ if platform.system() == "Windows":
 
 
 # Configuración de autenticación
-LOGIN_URL = '/login/'
-LOGIN_REDIRECT_URL = '/dashboard/'  # O '/home/' según prefieras
-LOGOUT_REDIRECT_URL = '/login/'
+LOGIN_URL = 'login'
+LOGIN_REDIRECT_URL = 'home'
+LOGOUT_REDIRECT_URL = 'login'
 
 AUTH_USER_MODEL = 'home.Usuarios'
 

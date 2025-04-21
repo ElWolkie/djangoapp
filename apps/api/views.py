@@ -1,6 +1,9 @@
 from rest_framework import generics
-from apps.home.models import Personas, TipoPersona, PersonaTP, Materia, Cohorte, Cargo, Honorario, Requisito, Servicio, Tramite, Solicitud, Denominacion, Banco, Moneda, Tasa, TipoIngreso
+from apps.home.models import Personas, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Denominacion, Banco, Moneda, Tasa, TipoIngreso
 from .serializers import PersonaSerializer, TipoPersonaSerializer, PersonaTPSerializer, MateriaSerializer, CohorteSerializer, CargoSerializer, HonorarioSerializer, RequisitoSerializer, ServicioSerializer, TramiteSerializer, SolicitudSerializer, DenominacionSerializer, BancoSerializer, MonedaSerializer, TasaSerializer, TipoIngresoSerializer  # Importa ambos serializadores
+from apps.persona.models import PersonaTP, TipoPersona
+from apps.honorario.models import Honorario
+from apps.solicitud.models import Solicitud
 
 # Vista para Personas
 class PersonaListCreate(generics.ListCreateAPIView):

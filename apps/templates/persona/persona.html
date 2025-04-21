@@ -113,9 +113,19 @@
 
 <script>
   document.addEventListener("DOMContentLoaded", function() {
-    // Manejar el envío del formulario de tipo de persona
-    $(document).on('submit', '#registroTipoPersonaForm', function(e) {
-      e.preventDefault();  // Evitar el envío tradicional del formulario
+    $('#tipoPersonaModal').on('show.bs.modal', function (e) {
+      var modal = $(this);
+      $.ajax({
+        url: '/persona/tipoPersona.html',
+        method: 'GET',
+        success: function(data) {
+          modal.find('.modal-body').html(data);
+        }
+      });
+    });
+
+    $(document).on('submit', '#registroForm', function(e) {
+      e.preventDefault();
       var form = $(this);
       var modal = $('#tipoPersonaModal');
       var messagesContainer = $('#modalMessages');
@@ -209,15 +219,19 @@
             // Construir las opciones según los checkboxes seleccionados
             const opciones = [];
             if (tipoPersonaSeleccionados.includes("tipoCliente")) {
-              opciones.push({ text: "Solicitud", value: `solicitud.html?cedula=${cedula}` });
-              opciones.push({ text: "Inscripción", value: `inscripcion.html?cedula=${cedula}` });
+              opciones.push({ text: "Solicitud", value: `/solicitud/solicitud.html?cedula=${cedula}` });
+              opciones.push({ text: "Inscripción", value: `/inscripcion/inscripcion.html?cedula=${cedula}` });
             }
             if (tipoPersonaSeleccionados.includes("tipoProveedor")) {
-              opciones.push({ text: "Honorario", value: `honorario2.html?cedula=${cedula}` });
+              opciones.push({ text: "Honorario", value: `/honorario/honorario2.html?cedula=${cedula}` });
             }
             if (tipoPersonaSeleccionados.includes("tipoUsuario")) {
-              opciones.push({ text: "Usuario", value: `usuario.html?cedula=${cedula}` });
-            }
+              opciones.push({ 
+                  text: "Usuario", 
+                  value: "{% url 'registrar_usuario' %}?cedula=" + cedula
+              });
+          }
+          
 
             // Si solo hay un tipo seleccionado, redirigir directamente
             if (opciones.length === 1) {

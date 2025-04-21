@@ -45,6 +45,7 @@
         <th scope="col">Precio</th>
         <th scope="col">Estado</th>
         <th scope="col">Fecha</th>
+        <th scope="col">Acciones</th>
       </tr>
     </thead>
       <tbody>
@@ -56,7 +57,16 @@
           <td>{{ tramite.diasTramite }}</td>
           <td>{{ tramite.precioTramite }}</td>
           <td>{{ tramite.estadoTramite }}</td>
-          <td>{{ tramite.fechaTramite }}</td>
+          <td>{{ tramite.fechaTramite|date:"d/m/Y" }}</td>
+          <td>
+            <button class="btn btn-sm btn-primary" type="button" data-toggle="modal" data-target="#editTramiteModal" data-id="{{ tramite.idTramite }}" data-url="{% url 'edit_tramite' tramite.idTramite %}">Editar</button>
+            {% if tramite.estadoTramite == "ACTIVO" %}
+            <button class="btn btn-sm btn-danger" type="button" onclick="deleteTramite('{{ tramite.idTramite }}')">Eliminar</button>
+            {% endif %}
+            {% if tramite.estadoTramite == "INACTIVO" %}
+            <button class="btn btn-sm btn-success" type="button" onclick="reactivateTramite('{{ tramite.idTramite }}')">Reactivar</button>
+            {% endif %}
+          </td>
         </tr>
         {% endfor %}
       </tbody>
@@ -80,6 +90,30 @@
     </div>
   </div>
 </div>
+
+
+<!-- Editar Modal -->
+<div class="modal fade" id="editTramiteModal" tabindex="-1" role="dialog" aria-labelledby="editTramiteModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="editTramiteModalLabel">Editar servicio</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <!-- Contenedor para los mensajes -->
+        <div id="modalMessages"></div>
+        <form id="editServicioForm">
+          <!-- El contenido del formulario de edición se cargará aquí -->
+        </form>
+        <!-- El contenido del formulario se cargará aquí -->
+      </div>
+    </div>
+  </div>
+</div>
+
 {% endblock content %}
 
 {% block javascripts %}
@@ -95,6 +129,22 @@
           modal.find('.modal-body').html(data);
         }
       });
+    });
+
+        // Manejar la apertura del modal para editar
+        $('#editTramiteModal').on('show.bs.modal', function (e) {
+      var modal = $(this);
+      var url = $(e.relatedTarget).data('url'); // Obtener la URL desde el botón que abrió el modal
+      $.ajax({
+      url: url, // URL para cargar el formulario de edición
+      method: 'GET',
+      success: function (data) {
+      modal.find('.modal-body').html(data); // Cargar el contenido del formulario en el modal
+      },
+      error: function () {
+      alert('Error al cargar el formulario de edición.');
+      }
+    });
     });
 
     $(document).on('submit', '#tramiteForm', function(e) {
@@ -122,6 +172,87 @@
       });
     });
   });
+
+    // Manejar el envío del formulario de edición
+    $(document).on('submit', '#editTramiteForm', function(e) {
+      e.preventDefault();
+      var form = $(this);
+      
+      $.ajax({
+        url: form.attr('action'),
+        method: form.attr('method'),
+        data: form.serialize(),
+        success: function(response) {
+          if (response.success) {
+            // Cierra el modal y recarga la página
+            $('#editTramiteModal').modal('hide');
+            location.reload();
+          } else {
+            // Muestra errores de validación
+            var messagesContainer = $('#modalMessages');
+            messagesContainer.empty();
+            for (var field in response.errors) {
+              messagesContainer.append('<div class="alert alert-danger">' + response.errors[field] + '</div>');
+            }
+          }
+        },
+        error: function() {
+          alert('Error al procesar la solicitud');
+        }
+      });
+    });
+  
+
+
+
+
+
+
+  function deleteTramite(id) {
+    if (confirm('¿Estás seguro de que deseas eliminar este Tramite?')) {
+      $.ajax({
+        url: '{% url "delete_tramite" 0 %}'.replace('0', id),
+        method: 'POST',
+        data: {
+          csrfmiddlewaretoken: '{{ csrf_token }}'
+        },
+        success: function(response) {
+          if (response.success) {
+            alert(response.message);
+            location.reload();  // Recargar la página para ver los cambios
+          } else {
+            alert('Error al eliminar el Tramite.');
+          }
+        }
+      });
+    }
+  }
+
+  function reactivateTramite(id) {
+    if (confirm('¿Estás seguro de que deseas reactivar este Tramite?')) {
+      $.ajax({
+        url: '{% url "reactivate_tramite" 0 %}'.replace('0', id),
+        method: 'POST',
+        data: {
+          csrfmiddlewaretoken: '{{ csrf_token }}'
+        },
+        success: function(response) {
+          if (response.success) {
+            alert(response.message);
+            location.reload();  // Recargar la página para ver los cambios
+          } else {
+            alert('Error al reactivar el Tramite.');
+          }
+        }
+      });
+    }
+  }
+
+
+
+
+
+
 </script>
 <script>
   function filterTable() {
@@ -144,5 +275,6 @@
       }
     }
   }
+  
 </script>
 {% endblock javascripts %}

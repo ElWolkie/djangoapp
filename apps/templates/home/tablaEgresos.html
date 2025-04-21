@@ -49,6 +49,7 @@
         <th scope="col">Referencia</th>  
         <th scope="col">Estado</th>  
         <th scope="col">Fecha</th>  
+        <th scope="col">Acciones</th>
       </tr>  
     </thead>  
     <tbody>  
@@ -63,7 +64,16 @@
         <td>{{ movimiento.idBanco.nombreBanco|default:"No Aplica" }}</td>  
         <td>{{ movimiento.referencia|default:"No Aplica" }}</td>  
         <td>{{ movimiento.estadoMovimiento }}</td>  
-        <td>{{ movimiento.fechaMovimiento|date:"d/m/Y" }}</td>  
+        <td>{{ movimiento.fechaMovimiento|date:"d/m/Y" }}</td> 
+        <td>
+        <button class="btn btn-sm btn-primary" data-toggle="modal" data-target="#editMovimientoModal" data-id="{{ movimiento.idMovimiento }}" data-url="{% url 'edit_movimiento' movimiento.idMovimiento %}">Editar</button>
+        {% if movimiento.estadoMovimiento == "ACTIVO" %}
+          <button class="btn btn-sm btn-danger" onclick="ManageMovimiento('{{ movimiento.idMovimiento }}','delete')">Eliminar</button>
+        {% else %}
+          <button class="btn btn-sm btn-success" onclick="ManageMovimiento('{{ movimiento.idMovimiento }}','reactivate')">Reactivar</button>           
+        {% endif %}
+      </td>
+
       </tr>  
       {% endfor %}  
     </tbody>  
@@ -88,6 +98,24 @@
     </div>  
   </div>  
 </div>  
+<!-- Modal para editar -->
+<div class="modal fade" id="editMovimientoModal" tabindex="-1" role="dialog" aria-labelledby="editMovimientoModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="editMovimientoModalLabel">Editar Egreso</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <!-- Contenedor para los mensajes -->
+        <div id="modalMessages"></div>
+        <!-- El contenido del formulario se cargará aquí -->
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock content %}  
 {% block javascripts %}  
 <script>  
@@ -114,6 +142,21 @@
       });  
     });  
 
+    $('#editMovimientoModal').on('show.bs.modal', function(e) {
+        const button = $(e.relatedTarget);
+        const url = button.data('url');
+        const modal = $(this);
+        
+        $.get(url, function(data) {
+            modal.find('.modal-body').html(data);
+            const naturaleza = modal.find('input[name="naturaleza"]').val();
+            $('#idTipoMovimiento option').hide()
+                .filter(`[data-naturaleza="${naturaleza}"]`)
+                .show();
+            toggleFields(); // Actualizar visibilidad de campos
+        });
+    });
+
     $(document).on('submit', '#movimientoForm', function(e) {  
       e.preventDefault();  
       var form = $(this);  
@@ -138,8 +181,33 @@
         }  
       });  
     });  
+          //Evita que el formulario se envíe por defecto y maneja la respuesta del servidor
+          $(document).on('submit', '#editMovimientoForm', function(e) {
+        e.preventDefault();
+        var form = $(this);
+        $.ajax({
+          url: form.attr('action'),
+          method: form.attr('method'),
+          data: form.serialize(),
+          success: function(response) {
+            var messagesContainer = $('#modalMessages');
+            messagesContainer.empty();
+            if (response.success) {
+              messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
+              $('#editMovimientoModal').modal('hide');
+              location.reload();  // Recargar la página para ver los cambios
+            } else {
+              // Mostrar errores en el modal
+              var errors = response.errors;
+              for (var field in errors) {
+                messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + errors[field] + '</div>');
+              }
+            }
+          }
+        });
+      });  
 
-    // Función para filtrar el select de tipo de movimiento  
+// Función para filtrar el select de tipo de movimiento  
     function filterTipoMovimiento(naturaleza) {  
       const tipoMovimientoSelect = $('#idTipoMovimiento');  
 
@@ -153,28 +221,39 @@
         }  
       });  
     }  
-
-    // Función para filtrar la tabla de resultados  
-    window.filterTable = function() {  
-      var input, filter, table, tr, td, i, j, txtValue;  
-      input = document.getElementById("searchInput");  
-      filter = input.value.toUpperCase();  
-      table = document.getElementById("egresosTable");  
-      tr = table.getElementsByTagName("tr");  
-      for (i = 1; i < tr.length; i++) {  
-        tr[i].style.display = "none";  
-        td = tr[i].getElementsByTagName("td");  
-        for (j = 0; j < td.length; j++) {  
-          if (td[j]) {  
-            txtValue = td[j].textContent || td[j].innerText;  
-            if (txtValue.toUpperCase().indexOf(filter) > -1) {  
-              tr[i].style.display = "";  
-              break;  
-            }  
-          }  
-        }  
-      }  
-    }  
   });  
-</script>  
+
+    // Funcion para eliminar y reactivar
+    function ManageMovimiento(id, action) {
+    const confirmMessage = action === 'delete' 
+        ? '¿Está seguro de eliminar este registro?' 
+        : '¿Está seguro de reactivar este registro?';
+    
+    if (confirm(confirmMessage)) {
+        const url = action === 'delete' 
+            ? `/deleteMovimiento/${id}/`  // Coincidir con url name en urls.py
+            : `/reactivateMovimiento/${id}/`;
+        
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrftoken,
+                'Content-Type': 'application/json'
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error: ' + (data.message || 'Acción fallida'));
+            }
+        })
+        .catch(error => console.error('Error:', error));
+    }
+} 
+</script> 
+ 
 {% endblock javascripts %}  

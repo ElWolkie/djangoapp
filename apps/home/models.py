@@ -1,38 +1,7 @@
-from django.db import models  
+from django.db import models
+from django.utils import timezone # Para la fecha
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
-
-class TipoPersona(models.Model):  
-    idTP = models.AutoField(primary_key=True)  # Clave primaria para TipoPersona  
-    nombreTP = models.CharField(max_length=100)  # Nombre del TipoPersona  
-    estadoTP = models.CharField(max_length=10)  # Estado del TipoPersona  
-    fechaTP = models.DateField(auto_now_add=True)  # Fecha de creación del TipoPersona  
-
-    class Meta:  
-        verbose_name = "Tipo de Persona"  
-        verbose_name_plural = "Tipos de Personas"
-
-    def __str__(self):
-        return self.nombreTP  # Representación legible en el admin de Django
-
-
-class Personas(models.Model):  
-    idPersona = models.AutoField(primary_key=True)  # Clave primaria para Personas  
-    cedula = models.CharField(max_length=10)  # Número de cedula  
-    nombres = models.CharField(max_length=100)  # Nombres  
-    apellidos = models.CharField(max_length=100)  # Apellidos
-    telefono = models.CharField(max_length=15)  # Número de teléfono  
-    correo = models.EmailField()  # Dirección de correo electrónico  
-    estadoPersona = models.CharField(max_length=10)  # Estado de la Persona  
-    fechaPersona = models.DateField(auto_now_add=True)  # Fecha de creación de la Persona  
-
-    class Meta:  
-        verbose_name = "Persona"  
-        verbose_name_plural = "Personas"  
-        ordering = ['idPersona']  # Orden predeterminado por idPersona
-        
-    def __str__(self):
-        return f"{self.nombres} {self.apellidos}"  # Representación legible en el admin de Django
-
+from apps.persona.models import Personas
 
 class UsuarioManager(BaseUserManager):
     def create_user(self, idPersona, password=None, **extra_fields):
@@ -77,7 +46,7 @@ class UsuarioManager(BaseUserManager):
 
 class Usuarios(AbstractBaseUser, PermissionsMixin):
     idUsuario = models.AutoField(primary_key=True)
-    idPersona = models.OneToOneField('Personas', on_delete=models.CASCADE)
+    idPersona = models.OneToOneField(Personas, on_delete=models.CASCADE)
     preguntaSeguridad = models.CharField(max_length=255)
     respuestaSeguridad = models.CharField(max_length=255)
     coloresUsuario = models.CharField(max_length=50, blank=True, null=True)
@@ -101,21 +70,6 @@ class Usuarios(AbstractBaseUser, PermissionsMixin):
     class Meta:
         verbose_name = 'Usuario'
         verbose_name_plural = 'Usuarios'
-    
-# Tabla intermedia para la relación muchos a muchos entre Personas y TipoPersona
-class PersonaTP(models.Model):
-    idPersona = models.ForeignKey(Personas, on_delete=models.CASCADE)  # Clave foránea a Personas
-    idTP = models.ForeignKey(TipoPersona, on_delete=models.CASCADE)  # Clave foránea a TipoPersona
-    fechaAsignacion = models.DateField(auto_now_add=True)  # Fecha de asignación del tipo a la persona
-
-    class Meta:
-        verbose_name = "Asignación de Tipo a Persona"
-        verbose_name_plural = "Asignaciones de Tipos a Personas"
-        unique_together = ('idPersona', 'idTP')  # Evita duplicados
-
-    def __str__(self):
-        return f"{self.idPersona} - {self.idTP}"  # Representación legible en el admin de Django
-
 
 class TipoFormacion(models.Model):  
     idTF = models.AutoField(primary_key=True)  # Clave primaria para TipoFormacion  
@@ -177,19 +131,6 @@ class Cargo(models.Model):
         verbose_name_plural = "Cargos"  
 
 
-class Honorario(models.Model):  
-    idHonorario = models.AutoField(primary_key=True)  # Clave primaria para Honorario  
-    idPersona = models.ForeignKey(Personas, on_delete=models.CASCADE)  # Clave foránea a Personas  
-    idCargo = models.ForeignKey(Cargo, on_delete=models.CASCADE)  # Clave foránea a Cargo  
-    idCohorte = models.ForeignKey(Cohorte, on_delete=models.CASCADE)  # Clave foránea a Cohorte  
-    idMateria = models.ForeignKey(Materia, on_delete=models.CASCADE)  # Clave foránea a Materia  
-    horas = models.FloatField()  # Número de horas trabajadas  
-    estadoHonorario = models.CharField(max_length=10)  # Estado del Honorario  
-    fechaHonorario = models.DateField(auto_now_add=True)  # Fecha de creación del Honorario  
-
-    class Meta:  
-        verbose_name = "Honorario"  
-        verbose_name_plural = "Honorarios"  
 
 
 class Requisito(models.Model):  
@@ -212,8 +153,12 @@ class Servicio(models.Model):
     fechaServicio = models.DateField(auto_now_add=True)  # Fecha de creación del Servicio  
         
     class Meta:  
-        verbose_name = "Servicio"  
-        verbose_name_plural = "Servicios"  
+        verbose_name = "Servicio"
+        verbose_name_plural = "Servicios"
+
+    @property
+    def solicitudes(self):
+        return self.solicitud_set.count()  # Relación inversa automática
 
 
 class Tramite(models.Model):  
@@ -228,19 +173,6 @@ class Tramite(models.Model):
         verbose_name = "Tramite"  
         verbose_name_plural = "Tramites"  
 
-class Solicitud(models.Model):
-    idSoli = models.AutoField(primary_key=True)  # Clave primaria para Solicitud
-    idPersona = models.ForeignKey(Personas, on_delete=models.CASCADE)  # Clave foránea a Personas  
-    idTramite = models.ForeignKey(Tramite, on_delete=models.CASCADE)  # Clave foránea a Tramite
-    idServicio = models.ForeignKey(Servicio, on_delete=models.CASCADE)  # Clave foránea a Servicio
-    montoTotal = models.DecimalField(max_digits=10, decimal_places=2)  # Monto total de la Solicitud
-    estadoSolicitud = models.CharField(max_length=10)  # Estado de la Solicitud
-    fechaEntrega = models.DateField()  # Fecha de entrega de la Solicitud
-    fechaSolicitud = models.DateField(auto_now_add=True)  # Fecha de creación de la Solicitud
-
-    class Meta:
-        verbose_name = "Solicitud"
-        verbose_name_plural = "Solicitudes"
 
 class Denominacion(models.Model):  
     idDenominacion = models.AutoField(primary_key=True)  # Clave primaria para Denominacion  
@@ -252,28 +184,39 @@ class Denominacion(models.Model):
         verbose_name = "Denominacion"  
         verbose_name_plural = "Denominaciones"  
 
-class Banco(models.Model):  
-    idBanco = models.AutoField(primary_key=True)  # Clave primaria para Banco  
-    nombreBanco = models.CharField(max_length=100)  # Nombre del Banco  
-    codBanco = models.CharField(max_length=100)  # Codigo del Banco  
-    codContable = models.CharField(max_length=100)  # Codigo contable del Banco  
-    estadoBanco = models.CharField(max_length=10)  # Estado del Banco  
-    fechaBanco = models.DateField(auto_now_add=True)  # Fecha de creación del Banco  
 
-    class Meta:  
-        verbose_name = "Banco"  
-        verbose_name_plural = "Bancos"  
+class Banco(models.Model):
+    idBanco = models.AutoField(primary_key=True) # ID autoincremental
+    nombreBanco = models.CharField(max_length=150, verbose_name="Nombre del Banco")
+    codBanco = models.CharField(max_length=4, unique=True, db_index=True, verbose_name="Código SUDEBAN")
+    # Código contable, por defecto '0000'
+    codContable = models.CharField(max_length=10, default='0000', verbose_name="Código Contable")
+    estadoBanco = models.CharField(max_length=10, default='ACTIVO', verbose_name="Estado")
+    fechaBanco = models.DateField(default=timezone.now, verbose_name="Fecha Registro")
 
-class Moneda(models.Model):  
-    idMoneda = models.AutoField(primary_key=True)  # Clave primaria para Moneda  
-    nombreMoneda = models.CharField(max_length=100)  # Nombre del Moneda  
-    simboloMoneda = models.CharField(max_length=5)  # Codigo del Moneda  
-    estadoMoneda = models.CharField(max_length=10)  # Estado del Moneda  
-    fechaMoneda = models.DateField(auto_now_add=True)  # Fecha de creación del Moneda  
+    class Meta:
+        verbose_name = "Banco"
+        verbose_name_plural = "Bancos"
+        ordering = ['nombreBanco'] # Ordenar por nombre
 
-    class Meta:  
-        verbose_name = "Moneda"  
-        verbose_name_plural = "Monedas"  
+    def __str__(self):
+        return f"{self.nombreBanco} ({self.codBanco})"
+
+
+class Moneda(models.Model):
+    idMoneda = models.AutoField(primary_key=True)
+    nombreMoneda = models.CharField(max_length=100)
+    simboloMoneda = models.CharField(max_length=5, unique=True, db_index=True)
+    estadoMoneda = models.CharField(max_length=10)
+    fechaMoneda = models.DateField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Moneda"
+        verbose_name_plural = "Monedas"
+        ordering = ['nombreMoneda']
+
+    def __str__(self):
+        return f"{self.nombreMoneda} ({self.simboloMoneda})"
 
 
 class Tasa(models.Model):  
@@ -328,3 +271,22 @@ class Movimiento(models.Model):
     class Meta:  
         verbose_name = "Ingreso"  
         verbose_name_plural = "Ingresos"
+
+
+class Configuracion(models.Model):
+    idConfig = models.AutoField(primary_key=True, verbose_name="ID Configuración")
+    nombreInstitucion = models.CharField(max_length=150, verbose_name="Nombre de la Institución")
+    rif = models.CharField(max_length=15, verbose_name="RIF")
+    correoInstitucion = models.EmailField(max_length=254, verbose_name="Correo Institucional")
+    logo = models.ImageField(upload_to='configuracion/logos/', verbose_name="Logo Institucional")
+    firma = models.ImageField(upload_to='configuracion/firmas/', verbose_name="Firma Autorizada")
+    moneda = models.ForeignKey(Moneda, on_delete=models.PROTECT, verbose_name="Moneda Principal")
+    fechaConfiguracion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Configuración")
+
+    class Meta:
+        verbose_name = "Configuración Institucional"
+        verbose_name_plural = "Configuraciones Institucionales"
+        ordering = ['-fechaConfiguracion']  # Ordenar por la más reciente primero
+
+    def __str__(self):
+        return f"{self.nombreInstitucion} (Últ. actualización: {self.fechaConfiguracion.strftime('%d/%m/%Y')})"

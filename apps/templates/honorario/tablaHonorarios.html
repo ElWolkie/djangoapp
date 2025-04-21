@@ -1,0 +1,227 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}Listado de Personas{% endblock title %}
+
+{% block stylesheets %}
+<link rel="stylesheet" href="/static/assets/css/styleForms.css" />
+<link rel="stylesheet" href="/static/assets/css/argon.css" />
+{% endblock stylesheets %}
+
+{% block content %}
+<div class="container mt-5">
+  <h2 class="text-center text-dark mb-4">Lista de Honorario Registrados</h2>
+
+  {% if messages %}
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        {{ message }}
+      </div>
+    {% endfor %}
+  {% endif %}
+  <div class="row">
+    <div class="col-md-4">
+      <div class="input-group">
+        <div class="input-group-prepend">
+          <span class="input-group-text" style="background-color: #bcbcbc; border: none;">
+            <i class="fas fa-search text-warning"></i>
+          </span>
+        </div>
+        <input class="form-control" id="searchInput" type="text" placeholder="Buscar..." onkeyup="filterTable()">
+      </div>
+    </div>
+    <div class="col-md-4">
+      <button class="btn btn-warning btn-square btn-sm my-2" type="button" title="Registrar Honorario" data-toggle="modal" data-target="#honorarioModal">+</button>
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-striped text-gray-dark" id="honorariosTable">
+      <thead class="text-darker">
+        <tr>
+          <th>ID</th>
+          <th>Cargo</th>
+          <th>Cédula</th>
+          <th>Nombres</th>
+          <th>Apellidos</th>
+          <th>Materia</th>
+          <th>Horas</th>
+          <th>Cohorte</th>
+          <th>Estado</th>
+          <th>Fecha</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for honorario in honorarios %}
+        <tr>
+          <td>{{ honorario.idHonorario }}</td>
+          <td>{{ honorario.idCargo.nombreCargo }}</td>
+          <td>{{ honorario.idPersona.cedula }}</td>
+          <td>{{ honorario.idPersona.nombres }}</td>
+          <td>{{ honorario.idPersona.apellidos }}</td>
+          <td>{{ honorario.idMateria.nombreMateria }}</td>
+          <td>{{ honorario.horas }}</td>
+          <td>{{ honorario.idCohorte.nombreCohorte }}</td>
+          <td>{{ honorario.estadoHonorario }}</td>
+          <td>{{ honorario.fechaHonorario|date:"d/m/Y" }}</td>
+          <td>
+            <button class="btn btn-sm btn-primary" type="button" data-toggle="modal" data-target="#editHonorarioModal" data-id="{{ honorario.idHonorario }}">Editar</button>
+            {% if honorario.estadoHonorario == "ACTIVO" %}
+            <button class="btn btn-sm btn-danger" type="button" onclick="manageHonorario('{{ honorario.idHonorario }}', 'delete')">Eliminar</button>
+            {% else %}
+            <button class="btn btn-sm btn-success" type="button" onclick="manageHonorario('{{ honorario.idHonorario }}', 'reactivate')">Reactivar</button>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="11" class="text-center">No hay registros disponibles.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal Registro -->
+<div class="modal fade" id="honorarioModal" tabindex="-1" role="dialog" aria-labelledby="honorarioModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="honorarioModalLabel">Registro de Honorario</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body" id="modalMessages"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Edición -->
+<div class="modal fade" id="editHonorarioModal" tabindex="-1" role="dialog" aria-labelledby="editHonorarioModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="editHonorarioModalLabel">Actualizar Honorario</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body" id="modalMessagesEdit"></div>
+    </div>
+  </div>
+</div>
+{% endblock content %}
+
+{% block javascripts %}
+<script src="/static/assets/js/validacionesPersona.js"></script>
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    // Cargar el formulario en el modal de registro
+    $('#honorarioModal').on('show.bs.modal', function () {
+      $.get('apps/honorario/honorario.html', function(data) {
+        $('#modalMessages').html(data);
+      });
+    });
+
+    // Adjuntar el evento submit al formulario de registro
+    $(document).off('submit', '#honorarioForm').on('submit', '#honorarioForm', function(e) {
+      e.preventDefault(); // Evitar el comportamiento predeterminado del formulario
+      const form = $(this);
+
+      $.ajax({
+        url: form.attr('action'), // URL definida en el atributo action del formulario
+        method: form.attr('method'), // Método definido en el atributo method del formulario
+        data: form.serialize(), // Serializar los datos del formulario
+        success: function(response) {
+          const messagesContainer = $('#modalMessages');
+          messagesContainer.empty();
+
+          if (response.success) {
+            // Mostrar mensaje de éxito
+            messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
+            $('#honorarioModal').modal('hide'); // Cerrar el modal
+            location.reload(); // Recargar la página para reflejar los cambios
+          } else {
+            // Mostrar errores en el modal
+            const errors = response.errors;
+            for (const field in errors) {
+              messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + errors[field] + '</div>');
+            }
+          }
+        },
+        error: function(xhr, status, error) {
+          alert('Error al procesar la solicitud: ' + error);
+        }
+      });
+    });
+
+    // Cargar el formulario en el modal de edición
+    $('#editHonorarioModal').on('show.bs.modal', function (e) {
+      const idHonorario = $(e.relatedTarget).data('id');
+      $.get(`/honorario/editHonorario/${idHonorario}/`, function(data) {
+        $('#modalMessagesEdit').html(data);
+
+        // Adjuntar el evento submit al formulario de edición
+        $(document).off('submit', '#editHonorarioForm').on('submit', '#editHonorarioForm', function(e) {
+          e.preventDefault();
+          const form = $(this);
+
+          $.ajax({
+            url: form.attr('action'),
+            method: 'POST',
+            data: form.serialize(),
+            success: function(response) {
+              const messagesContainer = $('#modalMessagesEdit');
+              messagesContainer.empty();
+
+              if (response.success) {
+                messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
+                $('#editHonorarioModal').modal('hide');
+                location.reload();
+              } else {
+                const errors = response.errors;
+                for (const field in errors) {
+                  messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + errors[field] + '</div>');
+                }
+              }
+            },
+            error: function(xhr, status, error) {
+              alert('Error al procesar la solicitud: ' + error);
+            }
+          });
+        });
+      });
+    });
+
+    // Función para manejar eliminar o reactivar honorarios
+    function manageHonorario(id, action) {
+      const confirmMessage = action === 'delete' ? '¿Está seguro de eliminar este registro?' : '¿Está seguro de reactivar este registro?';
+      if (confirm(confirmMessage)) {
+        const url = action === 'delete' ? "{% url 'delete_honorario' 0 %}".replace('0', id) : "{% url 'reactivate_honorario' 0 %}".replace('0', id);
+        $.post(url, {
+          csrfmiddlewaretoken: '{{ csrf_token }}'
+        }).done(function(response) {
+          if (response.success) location.reload();
+          else alert(`Error al ${action === 'delete' ? 'eliminar' : 'reactivar'}`);
+        });
+      }
+    }
+
+    // Función para filtrar la tabla
+    function filterTable() {
+      const filter = document.getElementById("searchInput").value.toUpperCase();
+      const rows = document.querySelectorAll("#honorariosTable tbody tr");
+      rows.forEach(row => {
+        const cells = row.querySelectorAll("td");
+        row.style.display = Array.from(cells).some(cell => cell.textContent.toUpperCase().includes(filter)) ? "" : "none";
+      });
+    }
+
+    // Exponer funciones globalmente
+    window.manageHonorario = manageHonorario;
+    window.filterTable = filterTable;
+  });
+</script>
+{% endblock javascripts %}

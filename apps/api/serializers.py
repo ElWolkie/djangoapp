@@ -1,5 +1,8 @@
 from rest_framework import serializers
-from apps.home.models import Personas, TipoPersona, PersonaTP, Materia, Cohorte, Cargo, Honorario, Requisito, Servicio, Tramite, Solicitud, Denominacion, Banco, Moneda, Tasa, TipoIngreso
+from apps.home.models import Personas, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Denominacion, Banco, Moneda, Tasa, TipoIngreso
+from apps.persona.models import PersonaTP, TipoPersona
+from apps.honorario.models import Honorario
+from apps.solicitud.models import Solicitud
 
 class PersonaSerializer(serializers.ModelSerializer):
     class Meta:

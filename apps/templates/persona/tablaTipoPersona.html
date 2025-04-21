@@ -43,6 +43,7 @@
         <th scope="col">Nombre</th>
         <th scope="col">Estado</th>
         <th scope="col">Fecha</th>
+        <th scope="col">Acciones</th>
       </tr>
     </thead>
     <tbody>
@@ -53,6 +54,18 @@
           <td>{{ tipopersona.nombreTP }}</td>
           <td>{{ tipopersona.estadoTP }}</td>
           <td>{{ tipopersona.fechaTP }}</td>
+          <td>
+            <button class="btn btn-sm btn-primary" data-toggle="modal" data-target="#editTipoPersonaModal" data-id="{{tipopersona.idTP }}">Editar</button>
+             
+            {% if tipopersona.estadoTP == "ACTIVO" %}
+            <button class="btn btn-sm btn-danger" onclick="manageTipoPersona('{{ tipopersona.idTP }}', 'delete')">Eliminar</button>       
+              
+            {% else %}
+              <button 
+                class="btn btn-sm btn-success" 
+                onclick="manageTipoPersona('{{ tipopersona.idTP }}', 'reactivate')">Reactivar</button>
+            {% endif %}
+          </td>
         </tr>
         {% endfor %}
     </tbody>
@@ -76,6 +89,20 @@
     </div>
   </div>
 </div>
+<!-- Modal para edición -->
+<div class="modal fade" id="editTipoPersonaModal" tabindex="-1" role="dialog">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Editar Tipo de Persona</h5>
+        <button type="button" class="close" data-dismiss="modal">&times;</button>
+      </div>
+      <div class="modal-body" id="editTipoPersonaContent"> <!-- Contenedor específico -->
+        <!-- El formulario se cargará aquí -->
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock content %}
 
 {% block javascripts %}
@@ -85,7 +112,7 @@
     $('#tipoPersonaModal').on('show.bs.modal', function (e) {
       var modal = $(this);
       $.ajax({
-        url: 'apps/home/tipoPersona.html',
+        url: 'apps/persona/tipoPersona.html',
         method: 'GET',
         success: function(data) {
           modal.find('.modal-body').html(data);
@@ -93,6 +120,25 @@
       });
     });
 
+  // Manejar apertura del modal de edición
+  $('#editTipoPersonaModal').on('show.bs.modal', function (e) {
+      const idTP = $(e.relatedTarget).data('id');
+      // Usar la URL de Django con el ID dinámico
+      const url = "{% url 'edit_tipo_persona' 0 %}".replace('0', idTP);
+      
+      $.ajax({
+        url: url,
+        method: 'GET',
+        success: function(data) {
+          $('#editTipoPersonaContent').html(data);
+        },
+        error: function(xhr, status, error) {
+          console.error("Error:", error);
+          alert("Error al cargar el formulario. Consulte la consola para más detalles.");
+        }
+      });
+    });
+  
     $(document).on('submit', '#registroForm', function(e) {
       e.preventDefault();
       var form = $(this);
@@ -118,6 +164,67 @@
       });
     });
   });
+  const form = document.getElementById("editTipoPersonaForm");
+    
+    form.addEventListener("submit", function(e) {
+      e.preventDefault(); // Evita el envío tradicional
+      
+      const formData = new FormData(form);
+      const url = form.getAttribute("action");
+      
+      fetch(url, {
+        method: "POST",
+        body: formData,
+        headers: {
+          "X-CSRFToken": "{{ csrf_token }}", // Asegura el CSRF
+          "X-Requested-With": "XMLHttpRequest" // Identifica como AJAX
+        }
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          // Recarga la página tras 1 segundo (opcional)
+          setTimeout(() => {
+            window.location.reload(); 
+          }, 1000);
+        } else {
+          alert("Error: " + JSON.stringify(data.errors));
+        }
+      })
+      .catch(error => {
+        console.error("Error:", error);
+        alert("Error al guardar. Consola para detalles.");
+      });
+
+    });
+
+
+  // Función para eliminar/reactivar
+  function manageTipoPersona(idTP, action) {
+    const confirmMsg = action === 'delete' 
+      ? "¿Eliminar este tipo de persona?" 
+      : "¿Reactivar este tipo de persona?";
+    
+    if (confirm(confirmMsg)) {
+      const url = action === 'delete' 
+        ? "{% url 'delete_tipo_persona' 0 %}".replace('0', idTP)
+        : "{% url 'reactivate_tipo_persona' 0 %}".replace('0', idTP);
+      
+      const csrftoken = $('[name=csrfmiddlewaretoken]').val();
+
+      $.ajax({
+        url: url,
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrftoken },
+        success: function() {
+          location.reload(); // Recarga la página
+        },
+        error: function() {
+          alert("Error en la operación");
+        }
+      });
+    }
+  }
 </script>
 <script>
   function filterTable() {

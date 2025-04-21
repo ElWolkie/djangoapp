@@ -1,26 +1,5 @@
 from django import forms  
-from .models import TipoPersona, Personas, PersonaTP, Formacion,TipoFormacion, Materia, Cohorte, Cargo, Honorario, Requisito, Servicio, Tramite, Solicitud, Denominacion, Banco, Moneda, Tasa, TipoMovimiento, Movimiento
-
-class TipoPersonaForm(forms.ModelForm):  
-    estadoTP = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
-
-    class Meta:  
-        model = TipoPersona  
-        fields = ['nombreTP', 'estadoTP']  
-
-
-class PersonaForm(forms.ModelForm):  
-    estadoPersona = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
-
-    class Meta:  
-        model = Personas  
-        fields = ['cedula', 'nombres', 'apellidos', 'telefono', 'correo', 'estadoPersona']  
-
-class PersonaTPForm(forms.ModelForm):
-    class Meta:
-        model = PersonaTP
-        fields = ['idPersona', 'idTP']
-
+from .models import  Formacion,TipoFormacion, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Denominacion, Banco, Moneda, Tasa, TipoMovimiento, Movimiento, Configuracion
 
 class TipoFormacionForm(forms.ModelForm):  
     estadoTipoFormacion = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
@@ -62,14 +41,6 @@ class CargoForm(forms.ModelForm):
         fields = ['idCargo', 'nombreCargo', 'estadoCargo']  
 
 
-class HonorarioForm(forms.ModelForm):  
-    estadoHonorario = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
-            
-    class Meta:  
-        model = Honorario  
-        fields = ['idHonorario', 'idPersona', 'idCargo', 'idCohorte', 'idMateria', 'horas', 'estadoHonorario']  
-
-
 
 class RequisitoForm(forms.ModelForm):  
     estadoRequisito = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
@@ -93,13 +64,6 @@ class TramiteForm(forms.ModelForm):
     class Meta:  
         model = Tramite  
         fields = ['idTramite', 'nombreTramite', 'diasTramite', 'precioTramite', 'estadoTramite']  
-
-class SolicitudForm(forms.ModelForm):  
-    estadoSolicitud = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
-  
-    class Meta:  
-        model = Solicitud  
-        fields = ['idSoli', 'idPersona', 'idTramite', 'idServicio', 'montoTotal', 'estadoSolicitud', 'fechaEntrega']  
 
 
 class DenominacionForm(forms.ModelForm):  
@@ -161,3 +125,30 @@ class MovimientoForm(forms.ModelForm):
             'descripcion', 
             'estadoMovimiento'
         ]
+
+class ConfiguracionForm(forms.ModelForm):
+    # Opcional: Personalizar widgets para añadir clases de Bootstrap, etc.
+    nombreInstitucion = forms.CharField(widget=forms.TextInput(attrs={'class': 'form-control text-dark', 'placeholder': 'Ingrese el nombre de la institución', 'maxlength': 150}))
+    rif = forms.CharField(widget=forms.TextInput(attrs={'class': 'form-control text-dark', 'placeholder': 'Ej: J-12345678-9', 'maxlength': 15}))
+    correoInstitucion = forms.EmailField(widget=forms.EmailInput(attrs={'class': 'form-control text-dark', 'placeholder': 'contacto@institucion.com', 'maxlength': 254}))
+    # El widget para Moneda se renderizará como un select por defecto
+    moneda = forms.ModelChoiceField(
+        queryset=Moneda.objects.filter(estadoMoneda='ACTIVO'), # Asegura que solo monedas activas aparezcan aquí también
+        widget=forms.Select(attrs={'class': 'form-control text-dark'}),
+        empty_label="Seleccione una moneda..."
+    )
+    logo = forms.ImageField(widget=forms.FileInput(attrs={'class': 'form-control-file text-dark', 'accept': 'image/*'}), required=False) # Hacemos 'required=False' por defecto
+    firma = forms.ImageField(widget=forms.FileInput(attrs={'class': 'form-control-file text-dark', 'accept': 'image/*'}), required=False) # Hacemos 'required=False' por defecto
+
+    class Meta:
+        model = Configuracion
+        # Excluimos fechaConfiguracion que es auto_now_add
+        fields = ['nombreInstitucion', 'rif', 'correoInstitucion', 'moneda', 'logo', 'firma']
+
+    def __init__(self, *args, **kwargs):
+        super(ConfiguracionForm, self).__init__(*args, **kwargs)
+
+        if not self.instance or not self.instance.pk:
+            self.fields['logo'].required = True
+            self.fields['firma'].required = True
+        self.fields['moneda'].queryset = Moneda.objects.filter(estadoMoneda='ACTIVO')
