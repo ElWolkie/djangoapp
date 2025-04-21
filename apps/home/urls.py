@@ -102,11 +102,17 @@ urlpatterns = [
     path('tablaTasas/', views.tabla_tasas, name='tabla_tasas'),
 
 
-    # Specific route for tipoIngreso modal
+    # Ruta espicifica para tipoIngreso modal
     path('tipoMovimientoModal/', views.tipoMovimiento_modal, name='tipoMovimiento_modal'),
-    # Specific route for tipoIngreso modal
-    path('movimientoModal/', views.movimiento_modal, name='movimiento_modal'),
+    path('editTipoMovimiento/<int:pk>/', views.edit_tipoMovimiento, name='edit_tipoMovimiento'),
+    path('editTipoMovimiento/delete/<int:pk>/', views.delete_tipoMovimiento, name='delete_tipoMovimiento'),
+    path('editTipoMovimiento/reactivate/<int:pk>/', views.reactivate_tipoMovimiento, name='reactivate_tipoMovimiento'),
 
+    # Ruta espicifica para Movimimientos
+    path('movimientoModal/', views.movimiento_modal, name='movimiento_modal'),
+    path('editMovimiento/<int:pk>/', views.edit_movimiento, name='edit_movimiento'),
+    path('deleteMovimiento/<int:pk>/', views.delete_movimiento, name='delete_movimiento'),
+    path('reactivateMovimiento/<int:pk>/', views.reactivate_movimiento, name='reactivate_movimiento'),
 
     # Matches any html file no mover de lugar 
     re_path(r'^.*\.*', views.pages, name='pages'),

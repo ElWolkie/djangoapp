@@ -43,6 +43,7 @@
             <th scope="col">Nombre</th>
             <th scope="col">Estado</th>
             <th scope="col">Fecha</th>
+            <th scope="col">Acciones</th>
         </tr>
     </thead>
     <tbody>
@@ -52,7 +53,16 @@
             <td>{{ tipoMovimiento.idTipoMovimiento }}</td>
             <td>{{ tipoMovimiento.nombreTipoMovimiento }}</td>
             <td>{{ tipoMovimiento.estadoTipoMovimiento }}</td>
-            <td>{{ tipoMovimiento.fechaTipoMovimiento }}</td>
+            <td>{{ tipoMovimiento.fechaTipoMovimiento|date:"d/m/Y" }}</td>
+            <td>
+            <button class="btn btn-sm btn-primary" type="button" data-toggle="modal" data-target="#editTipoMovimientoModal" data-id="{{ tipoMovimiento.idTipoMovimiento }}" data-url="{% url 'edit_tipoMovimiento' tipoMovimiento.idTipoMovimiento %}">Editar</button>
+            {% if tipoMovimiento.estadoTipoMovimiento == "ACTIVO" %}
+            <button class="btn btn-sm btn-danger" type="button" onclick="ManageTipoMovimiento('{{ tipoMovimiento.idTipoMovimiento }}','delete')">Eliminar</button>
+            {% endif %}
+            {% if tipoMovimiento.estadoTipoMovimiento == "INACTIVO" %}
+            <button class="btn btn-sm btn-success" type="button" onclick="ManageTipoMovimiento('{{ tipoMovimiento.idTipoMovimiento }}','reactivate')">Reactivar</button>
+            {% endif %}
+          </td>
         </tr>
         {% endfor %}
     </tbody>
@@ -64,6 +74,24 @@
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title" id="tipoMovimientoModalLabel">Registro de Tipo de Ingreso</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <!-- Contenedor para los mensajes -->
+        <div id="modalMessages"></div>
+        <!-- El contenido del formulario se cargará aquí -->
+      </div>
+    </div>
+  </div>
+</div>
+<!-- Modal para editar -->
+<div class="modal fade" id="editTipoMovimientoModal" tabindex="-1" role="dialog" aria-labelledby="editTipoMovimientoModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="editTipoMovimientoModalLabel">Modificar Tipo de Formación</h5>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
@@ -124,7 +152,73 @@
         }
       });
     });
+      //Evita que el formulario se envíe por defecto y maneja la respuesta del servidor
+      $(document).on('submit', '#editTipoMovimientoForm', function(e) {
+        e.preventDefault();
+        var form = $(this);
+        $.ajax({
+          url: form.attr('action'),
+          method: form.attr('method'),
+          data: form.serialize(),
+          success: function(response) {
+            var messagesContainer = $('#modalMessages');
+            messagesContainer.empty();
+            if (response.success) {
+              messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
+              $('#editTipoMovimientoModal').modal('hide');
+              location.reload();  // Recargar la página para ver los cambios
+            } else {
+              // Mostrar errores en el modal
+              var errors = response.errors;
+              for (var field in errors) {
+                messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + errors[field] + '</div>');
+              }
+            }
+          }
+        });
+      });
+      // Cargar Modal de Edición
+      $('#editTipoMovimientoModal').on('show.bs.modal', function(e) {
+        const button = $(e.relatedTarget);
+        const modal = $(this);
+        
+        $.get(button.data('url'), (data) => {
+          modal.find('.modal-body').html(data);
+        });
+      });
   });
+  // Funcion para eliminar y reactivar
+  function ManageTipoMovimiento(id, action) {
+  const confirmMessage = action === 'delete' 
+    ? '¿Está seguro de eliminar este registro?' 
+    : '¿Está seguro de reactivar este registro?';
+  
+  if (confirm(confirmMessage)) {
+    const url = action === 'delete' 
+      ? "/editTipoMovimiento/delete/" + id + "/"
+      : "/editTipoMovimiento/reactivate/" + id + "/";
+    
+    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    fetch(url, {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': csrftoken,
+        'Content-Type': 'application/json'
+      },
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        location.reload();
+      } else {
+        alert('Error: ' + (data.message || 'Acción fallida'));
+      }
+    })
+    .catch(error => console.error('Error:', error));
+  }
+}
+
 </script>
 <script>
   function filterTable() {

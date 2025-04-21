@@ -39,7 +39,7 @@
   <div class="col-md-4"></div>
   </div>
 
-<br>
+<div class="table-responsive">
 <table class="table table-striped text-gray-dark" id="personasTable">
   <thead class="text-darker">
     <tr>
@@ -49,6 +49,8 @@
       <th scope="col">Teléfono</th>
       <th scope="col">Correo Electrónico</th>
       <th scope="col">Tipo de Persona</th>
+      <th scope="col">Estado</th>
+      <th scope="col">Acciones</th>
     </tr>
   </thead>
   <tbody>
@@ -64,29 +66,175 @@
           {{ tipo.idTP.nombreTP }}{% if not forloop.last %}, {% endif %}
         {% endfor %}
       </td>
+      <td>{{ persona.estadoPersona }}</td>
+      <td>
+        <button class="btn btn-sm btn-primary" data-toggle="modal" data-target="#editPersonaModal" data-id="{{ persona.idPersona }}">Editar</button>
+        {% if persona.estadoPersona == "ACTIVO" %}
+          <button class="btn btn-sm btn-danger" onclick="managePersona('{{ persona.idPersona }}', 'delete')">Eliminar</button>
+        {% endif %}
+        {% if persona.estadoPersona == "INACTIVO" %}
+          <button class="btn btn-sm btn-success" onclick="managePersona('{{ persona.idPersona }}', 'reactivate')">Reactivar</button>
+        {% endif %}
+      </td>
     </tr>
+
     {% endfor %}
   </tbody>
 </table>
+</div>
+</div>
+<!-- Modal Edición -->
+<div class="modal fade" id="editPersonaModal" tabindex="-1" role="dialog" aria-labelledby="editPersonaModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="editPersonaModalLabel">Editar Persona</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body" id="modalMessagesEdit"></div>
+    </div>
+  </div>
 </div>
 {% endblock content %}
 
 {% block javascripts %}
 <script src="/static/assets/js/validacionesPersona.js"></script>
 <script>
-  document.getElementById('searchInput').addEventListener('keyup', function() {
-    var input = this.value.toLowerCase();
-    var rows = document.querySelectorAll('#personasTable tbody tr');
-    rows.forEach(function(row) {
-      var cells = row.querySelectorAll('td');
-      var match = false;
-      cells.forEach(function(cell) {
-        if (cell.textContent.toLowerCase().indexOf(input) > -1) {
-          match = true;
-        }
+  document.addEventListener("DOMContentLoaded", function() {
+
+    $('#editPersonaModal').on('show.bs.modal', function (e) {
+      const idPersona = $(e.relatedTarget).data('id');
+      $.get(`/persona/editPersona/${idPersona}/`, function(data) {
+        $('#modalMessagesEdit').html(data);
       });
-      row.style.display = match ? '' : 'none';
     });
   });
+
+  function managePersona(id, action) {
+  const confirmMessage = action === 'delete' 
+    ? '¿Está seguro de eliminar este registro?' 
+    : '¿Está seguro de reactivar este registro?';
+  
+  if (confirm(confirmMessage)) {
+    const url = action === 'delete' 
+      ? "{% url 'delete_persona' 0 %}".replace('0', id) 
+      : "{% url 'reactivate_persona' 0 %}".replace('0', id);
+    
+    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    fetch(url, {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': csrftoken,
+      },
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        location.reload();  // Recargar la página
+      } else {
+        alert('Error: ' + data.message);
+      }
+    })
+    .catch(error => console.error('Error:', error));
+  }
+}
+  function filterTable() {
+    const filter = document.getElementById("searchInput").value.toUpperCase();
+    const rows = document.querySelectorAll("#inscripcionesTable tbody tr");
+    rows.forEach(row => {
+      const cells = row.querySelectorAll("td");
+      row.style.display = Array.from(cells).some(cell => cell.textContent.toUpperCase().includes(filter)) ? "" : "none";
+    });
+  }
+  //Evita que el formulario se envíe por defecto y maneja la respuesta del servidor
+  document.addEventListener("DOMContentLoaded", function() {
+    const form = document.getElementById("editPersonaForm");
+    
+    // Convertir cédula a mayúsculas automáticamente
+    document.getElementById('cedula').addEventListener('input', function() {
+        this.value = this.value.toUpperCase();
+    });
+
+    // Manejar envío del formulario
+    form.addEventListener("submit", async function(e) {
+        e.preventDefault();
+        
+        try {
+            const response = await fetch(form.action, {
+                method: "POST",
+                body: new FormData(form),
+                headers: {
+                    "X-CSRFToken": "{{ csrf_token }}",
+                    "X-Requested-With": "XMLHttpRequest"
+                }
+            });
+            
+            const data = await response.json();
+            
+            if(data.success) {
+                await Swal.fire({
+                    title: "¡Éxito!",
+                    text: data.message,
+                    icon: "success",
+                    confirmButtonText: "OK",
+                    customClass: {
+                        confirmButton: "btn btn-warning"
+                    }
+                });
+                window.location.reload();
+            } else {
+                let errorMsg = Object.values(data.errors).join("<br>");
+                Swal.fire({
+                    title: "Error",
+                    html: errorMsg,
+                    icon: "error",
+                    confirmButtonText: "Entendido",
+                    customClass: {
+                        confirmButton: "btn btn-danger"
+                    }
+                });
+            }
+        } catch(error) {
+            console.error("Error:", error);
+            Swal.fire({
+                title: "Error crítico",
+                text: "Error de conexión con el servidor",
+                icon: "error"
+            });
+        }
+    });
+});
+
+
+
+
+$(document).on('submit', '#editPersonaForm', function(e) {
+      e.preventDefault();
+      var form = $(this);
+      $.ajax({
+        url: form.attr('action'),
+        method: form.attr('method'),
+        data: form.serialize(),
+        success: function(response) {
+          var messagesContainer = $('#modalMessages');
+          messagesContainer.empty();
+          if (response.success) {
+            messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
+            $('#editPersonaModal').modal('hide');
+            location.reload();  // Recargar la página para ver los cambios
+          } else {
+            // Mostrar errores en el modal
+            var errors = response.errors;
+            for (var field in errors) {
+              messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + errors[field] + '</div>');
+            }
+          }
+        }
+      });
+    });
+  
 </script>
 {% endblock javascripts %}

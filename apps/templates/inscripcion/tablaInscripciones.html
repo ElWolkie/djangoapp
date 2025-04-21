@@ -19,20 +19,21 @@
     {% endfor %}
   {% endif %}
 
-  <div class="row mb-3">
+  <div class="row">
     <div class="col-md-4">
       <div class="input-group">
         <div class="input-group-prepend">
-          <span class="input-group-text bg-secondary border-0"></span>
-            <i class="fas fa-search text-warning"></i>
+          <span class="input-group-text" style="background-color: #bcbcbc; border: none;">
+        <i class="fas fa-search text-warning"></i>
           </span>
         </div>
-        <input class="form-control" id="searchInput" type="text" placeholder="Buscar..." onkeyup="filterTable()">
+        <input class="form-control" id="searchInput" type="text" placeholder="Buscar...">
       </div>
     </div>
     <div class="col-md-4">
-      <a class="btn btn-warning btn-square btn-sm my-2" href="/inscripcion/inscripcion.html" title="Registrar inscripción">+</a>
+      <a class="btn btn-warning btn-square btn-sm my-2" href="/inscripcion/inscripcion.html" title="Registrar Inscripcion">+</a>
     </div>
+  <div class="col-md-4"></div>
   </div>
 
   <div class="table-responsive">
@@ -78,27 +79,12 @@
   </div>
 </div>
 
-<!-- Modal Registro -->
-<div class="modal fade" id="inscripcionModal" tabindex="-1" role="dialog" aria-labelledby="inscripcionModalLabel" aria-hidden="true">
-  <div class="modal-dialog" role="document">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="inscripcionModalLabel">Registro de Inscripcion</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
-      <div class="modal-body" id="modalMessages"></div>
-    </div>
-  </div>
-</div>
-
 <!-- Modal Edición -->
 <div class="modal fade" id="editInscripcionModal" tabindex="-1" role="dialog" aria-labelledby="editInscripcionModalLabel" aria-hidden="true">
-  <div class="modal-dialog" role="document">
+  <div class="modal-dialog modal-dialog-centered" role="document">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="editInscripcionModalLabel">Actualizar Inscripcion</h5>
+        <h5 class="modal-title" id="editInscripcionModalLabel">Editar Inscripcion</h5>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
@@ -128,18 +114,34 @@
   });
 
   function manageInscripcion(id, action) {
-    const confirmMessage = action === 'delete' ? '¿Está seguro de eliminar este registro?' : '¿Está seguro de reactivar este registro?';
-    if (confirm(confirmMessage)) {
-      const url = action === 'delete' ? "{% url 'delete_inscripcion' 0 %}".replace('0', id) : "{% url 'reactivate_inscripcion' 0 %}".replace('0', id);
-      $.post(url, {
-        csrfmiddlewaretoken: '{{ csrf_token }}'
-      }).done(function(response) {
-        if (response.success) location.reload();
-        else alert(`Error al ${action === 'delete' ? 'eliminar' : 'reactivar'}`);
-      });
-    }
-  }
+  const confirmMessage = action === 'delete' 
+    ? '¿Está seguro de eliminar este registro?' 
+    : '¿Está seguro de reactivar este registro?';
+  
+  if (confirm(confirmMessage)) {
+    const url = action === 'delete' 
+      ? "{% url 'delete_inscripcion' 0 %}".replace('0', id) 
+      : "{% url 'reactivate_inscripcion' 0 %}".replace('0', id);
+    
+    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
+    fetch(url, {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': csrftoken,
+      },
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        location.reload();  // Recargar la página
+      } else {
+        alert('Error: ' + data.message);
+      }
+    })
+    .catch(error => console.error('Error:', error));
+  }
+}
   function filterTable() {
     const filter = document.getElementById("searchInput").value.toUpperCase();
     const rows = document.querySelectorAll("#inscripcionesTable tbody tr");
@@ -148,5 +150,30 @@
       row.style.display = Array.from(cells).some(cell => cell.textContent.toUpperCase().includes(filter)) ? "" : "none";
     });
   }
+  //Evita que el formulario se envíe por defecto y maneja la respuesta del servidor
+  $(document).on('submit', '#editInscripcionForm', function(e) {
+      e.preventDefault();
+      var form = $(this);
+      $.ajax({
+        url: form.attr('action'),
+        method: form.attr('method'),
+        data: form.serialize(),
+        success: function(response) {
+          var messagesContainer = $('#modalMessages');
+          messagesContainer.empty();
+          if (response.success) {
+            messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
+            $('#editInscripcionModal').modal('hide');
+            location.reload();  // Recargar la página para ver los cambios
+          } else {
+            // Mostrar errores en el modal
+            var errors = response.errors;
+            for (var field in errors) {
+              messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + errors[field] + '</div>');
+            }
+          }
+        }
+      });
+    });
 </script>
 {% endblock javascripts %}

@@ -25,6 +25,82 @@ def tipo_persona_modal(request):
         form = TipoPersonaForm()
     return render(request, '/persona/tipoPersona.html', {'form': form})
 
+@csrf_exempt
+def edit_persona(request, pk):
+    instance = get_object_or_404(Personas, pk=pk)
+    if request.method == 'POST':
+        form = PersonaForm(request.POST, instance=instance)
+        if form.is_valid():
+            persona = form.save()
+            # Manejar relaciones de tipos de persona
+            selected_types = request.POST.getlist('tipoPersona')
+            current_types = instance.personatp_set.all()
+            
+            # Eliminar relaciones no seleccionadas
+            for pt in current_types:
+                if str(pt.idTP.idTP) not in selected_types:
+                    pt.delete()
+            
+            # Agregar nuevas relaciones
+            existing_types = set(str(pt.idTP.idTP) for pt in current_types)
+            for tipo_id in selected_types:
+                if tipo_id not in existing_types:
+                    PersonaTP.objects.create(
+                        idPersona=persona, 
+                        idTP=TipoPersona.objects.get(idTP=tipo_id)
+                    )
+            
+            return JsonResponse({'success': True, 'message': 'Persona actualizada'})
+        return JsonResponse({'success': False, 'errors': form.errors})
+    
+    # GET request
+    tipos_asignados = [str(tp.idTP.idTP) for tp in instance.personatp_set.all()]
+    return render(request, 'persona/editPersona.html', {
+        'persona': instance,
+        'tipopersonas': TipoPersona.objects.all(),
+        'tipos_asignados': tipos_asignados
+    })
+@csrf_exempt
+def delete_persona(request, pk):
+    instance = get_object_or_404(Personas, pk=pk)
+    instance.estadoPersona = "INACTIVO"
+    instance.save()
+    return JsonResponse({'success': True, 'message': 'Eliminación exitosa.'})
+
+@csrf_exempt
+def reactivate_persona(request, pk):
+    instance = get_object_or_404(Personas, pk=pk)
+    instance.estadoPersona = "ACTIVO"
+    instance.save()
+    return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
+
+@csrf_exempt
+def edit_tipo_persona(request, pk):
+    instance = get_object_or_404(TipoPersona, pk=pk)
+    if request.method == 'POST':
+        form = TipoPersonaForm(request.POST, instance=instance)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({'success': True, 'message': 'Edición exitosa.'})  # Respuesta JSON
+        else:
+            errors = {field: error for field, error in form.errors.items()}
+            return JsonResponse({'success': False, 'errors': errors})  # Respuesta JSON con errores
+    else:
+        form = TipoPersonaForm(instance=instance)
+    return render(request, 'persona/editTipoPersona.html', {'form': form, 'tipopersona': instance})
+@csrf_exempt
+def delete_tipo_persona(request, pk):
+    instance = get_object_or_404(TipoPersona, pk=pk)
+    instance.estadoTP = 'INACTIVO'
+    instance.save()
+    return JsonResponse({'success': True, 'message': 'Eliminación exitosa.'})
+
+@csrf_exempt
+def reactivate_tipo_persona(request, pk):
+    instance = get_object_or_404(TipoPersona, pk=pk)
+    instance.estadoTP = 'ACTIVO'
+    instance.save()
+    return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
 
 @login_required(login_url="/login/")
 def solicitud_view(request):

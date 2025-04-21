@@ -124,133 +124,90 @@
 {% endblock content %}
 
 {% block javascripts %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 <script src="/static/assets/js/validacionesPersona.js"></script>
 <script>
 document.addEventListener("DOMContentLoaded", function() {
     // Cargar formulario de registro
     $('#cargoModal').on('show.bs.modal', function (e) {
-      var modal = $(this);
-      $.ajax({
-        url: 'apps/home/cargo.html',
-        method: 'GET',
-        success: function(data) {
-          modal.find('.modal-body').html(data);
-        }
-      });
+        var modal = $(this);
+        $.ajax({
+            url: 'apps/home/cargo.html',
+            method: 'GET',
+            success: function(data) {
+                modal.find('.modal-body').html(data);
+            }
+        });
     });
 
     // Cargar formulario de edición
     $('#editCargoModal').on('show.bs.modal', function (e) {
-      var modal = $(this);
-      var url = $(e.relatedTarget).data('url');
-      
-      $.ajax({
-        url: url,
-        method: 'GET',
-        success: function(data) {
-          modal.find('.modal-body').html(data);
-        },
-        error: function() {
-          alert('Error al cargar el formulario');
-        }
-      });
+        var modal = $(this);
+        var url = $(e.relatedTarget).data('url');
+        
+        $.ajax({
+            url: url,
+            method: 'GET',
+            success: function(data) {
+                modal.find('.modal-body').html(data);
+            },
+            error: function() {
+                alert('Error al cargar el formulario');
+            }
+        });
+    });
+
+    // Manejar envío del formulario de registro
+    $(document).on('submit', '#cargoForm', function(e) {
+        e.preventDefault();
+        var form = $(this);
+
+        $.ajax({
+            url: form.attr('action'),
+            method: 'POST',
+            data: form.serialize(),
+            success: function(response) {
+                if (response.success) {
+                    $('#cargoModal').modal('hide');
+                    location.reload(); // Recargar la página después del registro exitoso
+                } else {
+                    $('#modalMessages').html('<div class="alert alert-danger">' + response.errors + '</div>');
+                }
+            }
+        });
     });
 
     // Manejar envío del formulario de edición
     $(document).on('submit', '#editCargoForm', function(e) {
-      e.preventDefault();
-      var form = $(this);
-      
-      $.ajax({
-        url: form.attr('action'),
-        method: 'POST',
-        data: form.serialize(),
-        success: function(response) {
-          if (response.success) {
-            $('#editCargoModal').modal('hide');
-            location.reload();
-          } else {
-            $('#modalMessages').html('<div class="alert alert-danger">' + response.errors + '</div>');
-          }
-        }
-      });
+        e.preventDefault();
+        var form = $(this);
+
+        $.ajax({
+            url: form.attr('action'),
+            method: 'POST',
+            data: form.serialize(),
+            success: function(response) {
+                if (response.success) {
+                    $('#editCargoModal').modal('hide');
+                    Swal.fire({
+                        title: "Modificación exitosa",
+                        text: "El cargo ha sido modificado correctamente.",
+                        icon: "success",
+                        confirmButtonText: "OK",
+                        customClass: {
+                            confirmButton: "btn btn-warning"
+                        },
+                        buttonsStyling: false,
+                    }).then(() => {
+                        location.reload(); // Recargar la página después de la modificación
+                    });
+                } else {
+                    $('#modalMessages').html('<div class="alert alert-danger">' + response.errors + '</div>');
+                }
+            }
+        });
     });
 });
-
-// Eliminar cargo
-function deleteCargo(id) {
-  if (confirm('¿Está seguro de eliminar este cargo?')) {
-    $.ajax({
-      url: '{% url "delete_cargo" 0 %}'.replace('0', id),
-      method: 'POST',
-      data: {
-        csrfmiddlewaretoken: '{{ csrf_token }}'
-      },
-      success: function(response) {
-        if (response.success) {
-          location.reload();
-        } else {
-          alert('Error al eliminar');
-        }
-      }
-    });
-  }
-}
-
-// Reactivar cargo
-function reactivateCargo(id) {
-  if (confirm('¿Está seguro de reactivar este cargo?')) {
-    $.ajax({
-      url: '{% url "reactivate_cargo" 0 %}'.replace('0', id),
-      method: 'POST',
-      data: {
-        csrfmiddlewaretoken: '{{ csrf_token }}'
-      },
-      success: function(response) {
-        if (response.success) {
-          location.reload();
-        } else {
-          alert('Error al reactivar');
-        }
-      }
-    });
-  }
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  function filterTable() {
-    var input, filter, table, tr, td, i, j, txtValue;
-    input = document.getElementById("searchInput");
-    filter = input.value.toUpperCase();
-    table = document.getElementById("cargosTable");
-    tr = table.getElementsByTagName("tr");
-    for (i = 1; i < tr.length; i++) {
-      tr[i].style.display = "none";
-      td = tr[i].getElementsByTagName("td");
-      for (j = 0; j < td.length; j++) {
-        if (td[j]) {
-          txtValue = td[j].textContent || td[j].innerText;
-          if (txtValue.toUpperCase().indexOf(filter) > -1) {
-            tr[i].style.display = "";
-            break;
-          }
-        }
-      }
-    }
-  }
 </script>
 {% endblock javascripts %}

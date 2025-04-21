@@ -878,7 +878,7 @@ def tabla_tasas(request):
     tasas = Tasa.objects.all()
 
     return render(request, 'home/tablaTasas.html', {'tasas': tasas})
-
+#Tipo Movimiento
 @csrf_exempt
 def tipoMovimiento_modal(request):
     if request.method == 'POST':
@@ -893,6 +893,42 @@ def tipoMovimiento_modal(request):
     else:
         form = TipoMovimientoForm()
     return render(request, 'home/tipoMovimiento_modal.html', {'form': form})
+
+@csrf_exempt
+def edit_tipoMovimiento(request, pk):
+    instance = get_object_or_404(TipoMovimiento, pk=pk)
+    if request.method == 'POST':
+        form = TipoMovimientoForm(request.POST, instance=instance)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({'success': True, 'message': 'Edición exitosa.'})  # Respuesta JSON
+        else:
+            errors = {field: error for field, error in form.errors.items()}
+            return JsonResponse({'success': False, 'errors': errors})  # Respuesta JSON con errores
+    else:
+        form = TipoMovimientoForm(instance=instance)
+    return render(request, 'home/modales/editTipoMovimiento.html', {'form': form, 'TipoMovimiento': instance})
+
+@csrf_exempt
+def delete_tipoMovimiento(request, pk):
+    instance = get_object_or_404(TipoMovimiento, pk=pk)
+    instance.estadoTipoMovimiento = 'INACTIVO'
+    instance.save()
+    return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
+
+@csrf_exempt
+def reactivate_tipoMovimiento(request, pk):
+    instance = get_object_or_404(TipoMovimiento, pk=pk)
+    instance.estadoTipoMovimiento = 'ACTIVO'
+    instance.save()
+    return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
+
+def tabla_tipoMovimientos(request):
+    TipoMovimiento = TipoMovimiento.objects.all()
+
+    return render(request, 'home/tablaTipoMovimiento.html', {'TipoMovimiento': TipoMovimiento})
+
+#Movimientos
 @csrf_exempt
 def movimiento_modal(request):
     if request.method == 'POST':
@@ -909,6 +945,64 @@ def movimiento_modal(request):
         form = MovimientoForm()
       
     return render(request, 'home/movimiento_modal.html')
+
+@csrf_exempt
+def edit_movimiento(request, pk):
+    movimiento = get_object_or_404(Movimiento, pk=pk)
+    if request.method == 'POST':
+        form = MovimientoForm(request.POST, instance=movimiento)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({'success': True})
+        return JsonResponse({'errors': form.errors}, status=400)
+    else:
+        form = MovimientoForm(instance=movimiento)
+        tipoMovimientos = TipoMovimiento.objects.all()
+        denominaciones = Denominacion.objects.all()
+        bancos = Banco.objects.all()
+        # Agregar 'ultima_tasa' a la subconsulta
+        monedas = Moneda.objects.annotate(
+            ultima_idTasa=Subquery(
+                Tasa.objects.filter(idMoneda=OuterRef('idMoneda'))
+                .order_by('-fechaTasa')
+                .values('idTasa')[:1]
+            ),
+            ultima_tasa=Subquery(
+                Tasa.objects.filter(idMoneda=OuterRef('idMoneda'))
+                .order_by('-fechaTasa')
+                .values('montoTasa')[:1]
+            )
+        )
+        return render(request, 'home/modales/editMovimiento.html', {
+            'form': form,
+            'movimiento': movimiento,
+            'tipoMovimientos': tipoMovimientos,
+            'denominaciones': denominaciones,
+            'bancos': bancos,
+            'monedas': monedas,
+            'naturaleza': movimiento.naturaleza
+        })
+@csrf_exempt
+def delete_movimiento(request, pk):
+    movimiento = get_object_or_404(Movimiento, pk=pk)
+    movimiento.estadoMovimiento = 'INACTIVO'
+    movimiento.save()
+    return JsonResponse({'success': True, 'message': 'Movimiento desactivado'})
+
+@csrf_exempt
+def reactivate_movimiento(request, pk):
+    movimiento = get_object_or_404(Movimiento, pk=pk)
+    movimiento.estadoMovimiento = 'ACTIVO'
+    movimiento.save()
+    return JsonResponse({'success': True, 'message': 'Movimiento reactivado'})
+
+
+#Fin 
+
+
+@login_required(login_url="/login/")
+def index(request):
+    context = {"segment": "index"}
 
 @csrf_exempt
 def configuracion(request):

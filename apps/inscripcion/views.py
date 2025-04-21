@@ -66,14 +66,14 @@ def edit_inscripcion(request, pk):
 @csrf_exempt
 def delete_inscripcion(request, pk):
     instance = get_object_or_404(Inscripcion, pk=pk)
-    instance.estadoInscripcion = 'INACTIVO'
+    instance.is_active = False
     instance.save()
     return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
 
 @csrf_exempt
 def reactivate_inscripcion(request, pk):
     instance = get_object_or_404(Inscripcion, pk=pk)
-    instance.estadoInscripcion = 'ACTIVO'
+    instance.is_active = True
     instance.save()
     return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
 
