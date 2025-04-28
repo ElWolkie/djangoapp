@@ -270,6 +270,7 @@ def formacion_modal(request):
             form.save()
             return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
         else:
+            print(form.errors)
             errors = {field: error for field, error in form.errors.items()}
             return JsonResponse({'success': False, 'errors': errors})
     else:

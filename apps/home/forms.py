@@ -6,7 +6,7 @@ class TipoFormacionForm(forms.ModelForm):
 
     class Meta:  
         model = TipoFormacion  
-        fields = ['nombreTipoFormacion','cuotas', 'estadoTipoFormacion']  
+        fields = ['nombreTipoFormacion','estadoTipoFormacion']  
 
 
 class FormacionForm(forms.ModelForm):  
@@ -14,7 +14,7 @@ class FormacionForm(forms.ModelForm):
 
     class Meta:  
         model = Formacion  
-        fields = ['idTF', 'nombreFormacion', 'duracion', 'estadoFormacion']
+        fields = ['idTF', 'nombreFormacion','valorFormacion', 'duracion', 'estadoFormacion']
 
 
 class MateriaForm(forms.ModelForm):  

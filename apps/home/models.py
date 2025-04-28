@@ -75,7 +75,6 @@ class TipoFormacion(models.Model):
     idTF = models.AutoField(primary_key=True)  # Clave primaria para TipoFormacion  
     nombreTipoFormacion = models.CharField(max_length=100)  # Nombre del TipoFormacion  
     estadoTipoFormacion = models.CharField(max_length=10)  # Estado del TipoFormacion  
-    cuotas= models.CharField(max_length=5) #Cantidad de Cuotas
     fechaTipoFormacion = models.DateField(auto_now_add=True)  # Fecha de creación del TipoFormacion  
     
 
@@ -88,6 +87,7 @@ class Formacion(models.Model):
     idFormacion = models.AutoField(primary_key=True)  # Clave primaria para Formacion  
     idTF = models.ForeignKey(TipoFormacion, on_delete=models.CASCADE, related_name='formaciones')  # Clave foránea a TipoFormacion  
     nombreFormacion = models.CharField(max_length=100)  # Nombre de la Formación  
+    valorFormacion = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Valor de la Formación")  # Valor de la Formación
     duracion = models.CharField(max_length=100)  # Duración de la Formación  
     estadoFormacion = models.CharField(max_length=10)  # Estado de la Formación  
     fechaFormacion = models.DateField(auto_now_add=True)  # Fecha de creación de la Formación  
