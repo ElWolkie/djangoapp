@@ -4,34 +4,47 @@
 {% endblock stylesheets %}
 
 {% block content %}
+{% if messages %}
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        {{ message }}
+      </div>
+    {% endfor %}
+{% endif %}
+<div id="dynamicAlertContainer"></div> <!-- Contenedor para alertas dinámicas -->
+
 <div class="mt-5">
   <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Registrar Formación</h2>
-  <form method="POST" id="formacionForm" action="{% url 'formacion_modal' %}" class="mt-3 text-dark" autocomplete="off" style="font-weight: bold; max-width: 600px; margin: 0 auto;">
+  <form method="POST" id="formacionForm" action="{% url 'formacion_modal' %}" class="mt-3 text-dark needs-validation" autocomplete="off" style="font-weight: bold; max-width: 600px; margin: 0 auto;" novalidate>
     {% csrf_token %}
     <div class="form-group">
       <label for="idTF">Tipo de Formación:</label>
-      <select id="idTF" name="idTF" class="form-control" required>
+      <select id="idTF" name="idTF" class="form-control text-dark" required>
         <option value="" disabled selected>Seleccione...</option>  
         {% for tipo in tipos_formacion %}
         <option value="{{ tipo.idTF }}">{{ tipo.nombreTipoFormacion }}</option>
         {% endfor %}
       </select>
+      <div class="invalid-feedback">Por favor, seleccione un tipo de formación.</div>
     </div>
     <div class="form-group">
       <label for="nombreFormacion">Nombre:</label>
-      <input type="text" id="nombreFormacion" name="nombreFormacion" class="form-control" placeholder="Ingrese el nombre de la formación" maxlength="100" required>
+      <input type="text" id="nombreFormacion" name="nombreFormacion" class="form-control text-dark" placeholder="Ingrese el nombre de la formación" maxlength="100" required>
+      <div class="invalid-feedback">Por favor, ingrese un nombre válido.</div>
     </div>
     <div class="form-group">
       <label for="valorFormacion">Valor:</label>
-      <input type="text" id="valorFormacion" name="valorFormacion" class="form-control" placeholder="Ingrese el valor de la formación" maxlength="100" required>
+      <input type="text" id="valorFormacion" name="valorFormacion" class="form-control text-dark" placeholder="Ingrese el valor de la formación" maxlength="100" required>
+      <div class="invalid-feedback">Por favor, ingrese un valor válido.</div>
     </div>
     <div class="form-group">
       <label for="duracion">Duración:</label>
-      <input type="text" id="duracion" name="duracion" class="form-control" placeholder="Ingrese la duración" maxlength="50" required>
+      <input type="text" id="duracion" name="duracion" class="form-control text-dark" placeholder="Ingrese la duración" maxlength="50" required>
+      <div class="invalid-feedback">Por favor, ingrese una duración válida.</div>
     </div>
     <input type="hidden" id="estadoFormacion" name="estadoFormacion" value="ACTIVO">
     <div class="text-center">
-      <button type="submit" class="btn btn-primary mt-4">Registrar</button>
+      <button type="submit" class="btn btn-warning mt-4">Registrar</button>
     </div>
   </form>
 </div>
@@ -48,7 +61,27 @@
       }
     });
 
+    document.getElementById("duracion").addEventListener("input", function() {
+      this.value = this.value.replace(/[^a-zA-Z0-9ñÑ ^]+$/, '');
+      if (this.value.length > 6) {
+        this.value = this.value.slice(0, 6);
+      }
+    });
 
+    // Validaciones de Bootstrap
+    (function() {
+      'use strict';
+      var forms = document.querySelectorAll('.needs-validation');
+      Array.prototype.slice.call(forms).forEach(function(form) {
+        form.addEventListener('submit', function(event) {
+          if (!form.checkValidity()) {
+            event.preventDefault();
+            event.stopPropagation();
+          }
+          form.classList.add('was-validated');
+        }, false);
+      });
+    })();
   });
 </script>
 {% endblock javascripts %}

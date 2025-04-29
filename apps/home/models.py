@@ -1,41 +1,32 @@
 from django.db import models
-from django.utils import timezone # Para la fecha
+from django.utils import timezone
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from django.core.exceptions import ValidationError
 from apps.persona.models import Personas
 
 class UsuarioManager(BaseUserManager):
     def create_user(self, idPersona, password=None, **extra_fields):
-        """
-        Crea y guarda un usuario con el idPersona y contraseña dados.
-        """
         if not idPersona:
             raise ValueError('El idPersona es obligatorio')
         
-        # Obtener la instancia de Personas
         try:
             persona = Personas.objects.get(pk=idPersona)
         except Personas.DoesNotExist:
             raise ValueError(f'No existe una Persona con idPersona={idPersona}')
         
-        # Campos obligatorios para usuarios normales
         extra_fields.setdefault('preguntaSeguridad', 'pregunta_default')
         extra_fields.setdefault('respuestaSeguridad', 'respuesta_default')
         
         user = self.model(idPersona=persona, **extra_fields)
-        
-        # Establecer la contraseña usando el sistema de Django
         user.set_password(password)
         user.save(using=self._db)
         return user
 
     def create_superuser(self, idPersona, password=None, **extra_fields):
-        """
-        Crea y guarda un superusuario con el idPersona y contraseña dados.
-        """
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
-        extra_fields.setdefault('preguntaSeguridad', 'admin_seguridad') # Modificable
-        extra_fields.setdefault('respuestaSeguridad', 'admin_respuesta') # Modificable
+        extra_fields.setdefault('preguntaSeguridad', 'admin_seguridad')
+        extra_fields.setdefault('respuestaSeguridad', 'admin_respuesta')
 
         if extra_fields.get('is_staff') is not True:
             raise ValueError('Superuser must have is_staff=True.')
@@ -52,12 +43,9 @@ class Usuarios(AbstractBaseUser, PermissionsMixin):
     coloresUsuario = models.CharField(max_length=50, blank=True, null=True)
     fechaUsuario = models.DateTimeField(auto_now_add=True)
 
-    is_active = models.BooleanField(default=True) #Necesario para activo o inactivo
-    is_staff = models.BooleanField(default=False)  # Necesario para admin
-    is_superuser = models.BooleanField(default=False)  # Necesario para permisos de superusuario
-
-    # class Meta:
-    #     db_table = 'usuarios'  # Esto forzará el nombre de tabla exacto
+    is_active = models.BooleanField(default=True)
+    is_staff = models.BooleanField(default=False)
+    is_superuser = models.BooleanField(default=False)
 
     objects = UsuarioManager()
 
@@ -72,143 +60,173 @@ class Usuarios(AbstractBaseUser, PermissionsMixin):
         verbose_name_plural = 'Usuarios'
 
 class TipoFormacion(models.Model):  
-    idTF = models.AutoField(primary_key=True)  # Clave primaria para TipoFormacion  
-    nombreTipoFormacion = models.CharField(max_length=100)  # Nombre del TipoFormacion  
-    estadoTipoFormacion = models.CharField(max_length=10)  # Estado del TipoFormacion  
-    fechaTipoFormacion = models.DateField(auto_now_add=True)  # Fecha de creación del TipoFormacion  
-    
+    idTF = models.AutoField(primary_key=True)
+    nombreTipoFormacion = models.CharField(max_length=100, unique=True)
+    estadoTipoFormacion = models.CharField(max_length=10)
+    fechaTipoFormacion = models.DateField(auto_now_add=True)
+
+    def clean(self):
+        if TipoFormacion.objects.filter(nombreTipoFormacion__iexact=self.nombreTipoFormacion).exists():
+            raise ValidationError("El nombre del TipoFormación ya existe.")
 
     class Meta:  
         verbose_name = "TipoFormación"  
         verbose_name_plural = "TiposFormacion"  
 
-
 class Formacion(models.Model):  
-    idFormacion = models.AutoField(primary_key=True)  # Clave primaria para Formacion  
-    idTF = models.ForeignKey(TipoFormacion, on_delete=models.CASCADE, related_name='formaciones')  # Clave foránea a TipoFormacion  
-    nombreFormacion = models.CharField(max_length=100)  # Nombre de la Formación  
-    valorFormacion = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Valor de la Formación")  # Valor de la Formación
-    duracion = models.CharField(max_length=100)  # Duración de la Formación  
-    estadoFormacion = models.CharField(max_length=10)  # Estado de la Formación  
-    fechaFormacion = models.DateField(auto_now_add=True)  # Fecha de creación de la Formación  
+    idFormacion = models.AutoField(primary_key=True)
+    idTF = models.ForeignKey(TipoFormacion, on_delete=models.CASCADE, related_name='formaciones')
+    nombreFormacion = models.CharField(max_length=100, unique=True)
+    valorFormacion = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Valor de la Formación")
+    duracion = models.CharField(max_length=100)
+    estadoFormacion = models.CharField(max_length=10)
+    fechaFormacion = models.DateField(auto_now_add=True)
+
+    def clean(self):
+        if Formacion.objects.filter(nombreFormacion__iexact=self.nombreFormacion).exists():
+            raise ValidationError("El nombre de la Formación ya existe.")
 
     class Meta:  
         verbose_name = "Formacion"  
         verbose_name_plural = "Formaciones"
 
-
 class Materia(models.Model):  
-    idMateria = models.AutoField(primary_key=True)  # Clave primaria para Materia  
-    idFormacion = models.ForeignKey(Formacion, on_delete=models.CASCADE)  # Clave foránea a Ofertas  
-    nombreMateria = models.CharField(max_length=100)  # Nombre de la Materia  
-    estadoMateria = models.CharField(max_length=10)  # Estado de la Materia  
-    fechaMateria = models.DateField(auto_now_add=True)  # Fecha de creación de la Materia  
+    idMateria = models.AutoField(primary_key=True)
+    idFormacion = models.ForeignKey(Formacion, on_delete=models.CASCADE)
+    nombreMateria = models.CharField(max_length=100, unique=True)
+    estadoMateria = models.CharField(max_length=10)
+    fechaMateria = models.DateField(auto_now_add=True)
+
+    def clean(self):
+        if Materia.objects.filter(nombreMateria__iexact=self.nombreMateria).exists():
+            raise ValidationError("El nombre de la Materia ya existe.")
 
     class Meta:  
         verbose_name = "Materia"  
         verbose_name_plural = "Materias"
 
-
 class Cohorte(models.Model):  
-    idCohorte = models.AutoField(primary_key=True)  # Clave primaria para Cohorte  
-    nombreCohorte = models.CharField(max_length=100)  # Nombre de la Cohorte  
-    estadoCohorte = models.CharField(max_length=10)  # Estado de la Cohorte  
-    fechaCohorte = models.DateField(auto_now_add=True)  # Fecha de creación de la Cohorte  
+    idCohorte = models.AutoField(primary_key=True)
+    nombreCohorte = models.CharField(max_length=100, unique=True)
+    estadoCohorte = models.CharField(max_length=10)
+    fechaCohorte = models.DateField(auto_now_add=True)
+
+    def clean(self):
+        if Cohorte.objects.filter(nombreCohorte__iexact=self.nombreCohorte).exists():
+            raise ValidationError("El nombre de la Cohorte ya existe.")
 
     class Meta:  
         verbose_name = "Cohorte"  
         verbose_name_plural = "Cohortes"
 
-
 class Cargo(models.Model):  
-    idCargo = models.AutoField(primary_key=True)  # Clave primaria para Cargo  
-    nombreCargo = models.CharField(max_length=100)  # Nombre del Cargo  
-    estadoCargo = models.CharField(max_length=10)  # Estado del Cargo  
-    fechaCargo = models.DateField(auto_now_add=True)  # Fecha de creación del Cargo  
+    idCargo = models.AutoField(primary_key=True)
+    nombreCargo = models.CharField(max_length=100, unique=True)
+    estadoCargo = models.CharField(max_length=10)
+    fechaCargo = models.DateField(auto_now_add=True)
+
+    def clean(self):
+        if Cargo.objects.filter(nombreCargo__iexact=self.nombreCargo).exists():
+            raise ValidationError("El nombre del Cargo ya existe.")
 
     class Meta:  
         verbose_name = "Cargo"  
-        verbose_name_plural = "Cargos"  
-
-
-
+        verbose_name_plural = "Cargos"
 
 class Requisito(models.Model):  
-    idRequisito = models.AutoField(primary_key=True)  # Clave primaria para Requisito  
-    nombreRequisito = models.CharField(max_length=100)  # Nombre del Requisito  
-    estadoRequisito = models.CharField(max_length=10)  # Estado del Requisito  
-    fechaRequisito = models.DateField(auto_now_add=True)  # Fecha de creación del Requisito  
+    idRequisito = models.AutoField(primary_key=True)
+    nombreRequisito = models.CharField(max_length=100, unique=True)
+    estadoRequisito = models.CharField(max_length=10)
+    fechaRequisito = models.DateField(auto_now_add=True)
+
+    def clean(self):
+        if Requisito.objects.filter(nombreRequisito__iexact=self.nombreRequisito).exists():
+            raise ValidationError("El nombre del Requisito ya existe.")
 
     class Meta:  
         verbose_name = "Requisito"  
-        verbose_name_plural = "Requisitos"  
-
+        verbose_name_plural = "Requisitos"
 
 class Servicio(models.Model):  
-    idServicio = models.AutoField(primary_key=True)  # Clave primaria para Servicios  
-    nombreServicio = models.CharField(max_length=100)  # Nombre del Servicio  
-    tiempoServicio = models.CharField(max_length=100)  # Duración del Servicio  
-    precioServicio = models.CharField(max_length=100)  # Precio del Servicio  
-    estadoServicio = models.CharField(max_length=10)  # Estado del Servicio  
-    fechaServicio = models.DateField(auto_now_add=True)  # Fecha de creación del Servicio  
-        
+    idServicio = models.AutoField(primary_key=True)
+    nombreServicio = models.CharField(max_length=100, unique=True)
+    tiempoServicio = models.CharField(max_length=100)
+    precioServicio = models.CharField(max_length=100)
+    estadoServicio = models.CharField(max_length=10)
+    fechaServicio = models.DateField(auto_now_add=True)
+
+    def clean(self):
+        if Servicio.objects.filter(nombreServicio__iexact=self.nombreServicio).exists():
+            raise ValidationError("El nombre del Servicio ya existe.")
+
     class Meta:  
         verbose_name = "Servicio"
         verbose_name_plural = "Servicios"
 
     @property
     def solicitudes(self):
-        return self.solicitud_set.count()  # Relación inversa automática
-
+        return self.solicitud_set.count()
 
 class Tramite(models.Model):  
-    idTramite = models.AutoField(primary_key=True)  # Clave primaria para Tramites  
-    nombreTramite = models.CharField(max_length=100)  # Nombre del Tramite  
-    diasTramite = models.CharField(max_length=100)  # Duración del Tramite  
-    precioTramite = models.CharField(max_length=100)  # Precio del Tramite  
-    estadoTramite = models.CharField(max_length=10)  # Estado del Tramite  
-    fechaTramite = models.DateField(auto_now_add=True)  # Fecha de creación del Tramite  
-        
+    idTramite = models.AutoField(primary_key=True)
+    nombreTramite = models.CharField(max_length=100, unique=True)
+    diasTramite = models.CharField(max_length=100)
+    precioTramite = models.CharField(max_length=100)
+    estadoTramite = models.CharField(max_length=10)
+    fechaTramite = models.DateField(auto_now_add=True)
+
+    def clean(self):
+        if Tramite.objects.filter(nombreTramite__iexact=self.nombreTramite).exists():
+            raise ValidationError("El nombre del Tramite ya existe.")
+
     class Meta:  
         verbose_name = "Tramite"  
-        verbose_name_plural = "Tramites"  
-
+        verbose_name_plural = "Tramites"
 
 class Denominacion(models.Model):  
-    idDenominacion = models.AutoField(primary_key=True)  # Clave primaria para Denominacion  
-    nombreDenominacion = models.CharField(max_length=100)  # Nombre del Denominacion  
-    estadoDenominacion = models.CharField(max_length=10)  # Estado del Denominacion  
-    fechaDenominacion = models.DateField(auto_now_add=True)  # Fecha de creación del Denominacion  
+    idDenominacion = models.AutoField(primary_key=True)
+    nombreDenominacion = models.CharField(max_length=100, unique=True)
+    estadoDenominacion = models.CharField(max_length=10)
+    fechaDenominacion = models.DateField(auto_now_add=True)
+
+    def clean(self):
+        if Denominacion.objects.filter(nombreDenominacion__iexact=self.nombreDenominacion).exists():
+            raise ValidationError("El nombre de la Denominación ya existe.")
 
     class Meta:  
         verbose_name = "Denominacion"  
-        verbose_name_plural = "Denominaciones"  
-
+        verbose_name_plural = "Denominaciones"
 
 class Banco(models.Model):
-    idBanco = models.AutoField(primary_key=True) # ID autoincremental
-    nombreBanco = models.CharField(max_length=150, verbose_name="Nombre del Banco")
+    idBanco = models.AutoField(primary_key=True)
+    nombreBanco = models.CharField(max_length=150, unique=True, verbose_name="Nombre del Banco")
     codBanco = models.CharField(max_length=4, unique=True, db_index=True, verbose_name="Código SUDEBAN")
-    # Código contable, por defecto '0000'
     codContable = models.CharField(max_length=10, default='0000', verbose_name="Código Contable")
     estadoBanco = models.CharField(max_length=10, default='ACTIVO', verbose_name="Estado")
     fechaBanco = models.DateField(default=timezone.now, verbose_name="Fecha Registro")
 
+    def clean(self):
+        if Banco.objects.filter(nombreBanco__iexact=self.nombreBanco).exists():
+            raise ValidationError("El nombre del Banco ya existe.")
+
     class Meta:
         verbose_name = "Banco"
         verbose_name_plural = "Bancos"
-        ordering = ['nombreBanco'] # Ordenar por nombre
+        ordering = ['nombreBanco']
 
     def __str__(self):
         return f"{self.nombreBanco} ({self.codBanco})"
 
-
 class Moneda(models.Model):
     idMoneda = models.AutoField(primary_key=True)
-    nombreMoneda = models.CharField(max_length=100)
+    nombreMoneda = models.CharField(max_length=100, unique=True)
     simboloMoneda = models.CharField(max_length=5, unique=True, db_index=True)
     estadoMoneda = models.CharField(max_length=10)
     fechaMoneda = models.DateField(auto_now_add=True)
+
+    def clean(self):
+        if Moneda.objects.filter(nombreMoneda__iexact=self.nombreMoneda).exists():
+            raise ValidationError("El nombre de la Moneda ya existe.")
 
     class Meta:
         verbose_name = "Moneda"
@@ -218,64 +236,67 @@ class Moneda(models.Model):
     def __str__(self):
         return f"{self.nombreMoneda} ({self.simboloMoneda})"
 
-
 class Tasa(models.Model):  
-    idTasa = models.AutoField(primary_key=True)  # Clave primaria para Banco  
-    idMoneda = models.ForeignKey(Moneda, on_delete=models.CASCADE)  # Clave foránea a Moneda  
-    montoTasa = models.CharField(max_length=100)  # Codigo del Banco  
-    estadoTasa = models.CharField(max_length=10)  # Estado del Banco  
-    fechaTasa = models.DateTimeField(auto_now_add=True)  # Fecha y hora de creación del Banco  
+    idTasa = models.AutoField(primary_key=True)
+    idMoneda = models.ForeignKey(Moneda, on_delete=models.CASCADE)
+    montoTasa = models.CharField(max_length=100)
+    estadoTasa = models.CharField(max_length=10)
+    fechaTasa = models.DateTimeField(auto_now_add=True)
 
     class Meta:  
         verbose_name = "Tasa"  
-        verbose_name_plural = "Tasas"  
-
+        verbose_name_plural = "Tasas"
 
 class TipoIngreso(models.Model):  
-    idTipoIngreso = models.AutoField(primary_key=True)  # Clave primaria para TipoIngreso  
-    nombreTipoIngreso = models.CharField(max_length=100)  # Nombre de la TipoIngreso  
-    estadoTipoIngreso = models.CharField(max_length=10)  # Estado de la TipoIngreso  
-    fechaTipoIngreso = models.DateField(auto_now_add=True)  # Fecha de creación de la TipoIngreso  
+    idTipoIngreso = models.AutoField(primary_key=True)
+    nombreTipoIngreso = models.CharField(max_length=100, unique=True)
+    estadoTipoIngreso = models.CharField(max_length=10)
+    fechaTipoIngreso = models.DateField(auto_now_add=True)
+
+    def clean(self):
+        if TipoIngreso.objects.filter(nombreTipoIngreso__iexact=self.nombreTipoIngreso).exists():
+            raise ValidationError("El nombre del TipoIngreso ya existe.")
 
     class Meta:  
         verbose_name = "TipoIngreso"  
-        verbose_name_plural = "TipoIngresos"  
-
+        verbose_name_plural = "TipoIngresos"
 
 class TipoMovimiento(models.Model):  
-    idTipoMovimiento = models.AutoField(primary_key=True)  # Clave primaria para TipoIngreso  
-    naturaleza = models.CharField(max_length=10)  # Nombre de la TipoIngreso  
-    nombreTipoMovimiento = models.CharField(max_length=100)  # Nombre de la TipoIngreso  
-    estadoTipoMovimiento = models.CharField(max_length=10)  # Estado de la TipoIngreso  
-    fechaTipoMovimiento = models.DateField(auto_now_add=True)  # Fecha de creación de la TipoIngreso  
+    idTipoMovimiento = models.AutoField(primary_key=True)
+    naturaleza = models.CharField(max_length=10)
+    nombreTipoMovimiento = models.CharField(max_length=100, unique=True)
+    estadoTipoMovimiento = models.CharField(max_length=10)
+    fechaTipoMovimiento = models.DateField(auto_now_add=True)
+
+    def clean(self):
+        if TipoMovimiento.objects.filter(nombreTipoMovimiento__iexact=self.nombreTipoMovimiento).exists():
+            raise ValidationError("El nombre del TipoMovimiento ya existe.")
 
     class Meta:  
         verbose_name = "TipoMovimiento"  
-        verbose_name_plural = "TipoMovimientos"  
-
+        verbose_name_plural = "TipoMovimientos"
 
 class Movimiento(models.Model):  
-    idMovimiento = models.AutoField(primary_key=True)  # Clave primaria para Ingreso  
-    idTipoMovimiento = models.ForeignKey(TipoMovimiento, on_delete=models.CASCADE)  # Relación con TipoIngreso  
-    idDenominacion = models.ForeignKey(Denominacion, on_delete=models.CASCADE)  # Relación con Denominacion  
-    idBanco = models.ForeignKey(Banco, on_delete=models.CASCADE, null=True, blank=True)  # Banco opcional
-    idTasa = models.ForeignKey(Tasa, on_delete=models.CASCADE)  # Relación con Tasa  
-    naturaleza = models.CharField(max_length=10)  # NATURALEZA detallada del Ingreso  
-    tipoPago = models.CharField(max_length=100)  # Tipo de pago del Ingreso  
-    referencia = models.CharField(max_length=100, null=True, blank=True)  # Referencia opcional    idTasa = models.ForeignKey(Tasa, on_delete=models.CASCADE)  # Relación con Tasa  
-    monto = models.DecimalField(max_digits=10, decimal_places=2)  # Monto del Ingreso  
-    descripcion = models.TextField()  # Descripción detallada del Ingreso  
-    estadoMovimiento = models.CharField(max_length=10)  # Estado del Ingreso (activo/inactivo)  
-    fechaMovimiento = models.DateTimeField(auto_now_add=True)  # Fecha de registro del Ingreso  
+    idMovimiento = models.AutoField(primary_key=True)
+    idTipoMovimiento = models.ForeignKey(TipoMovimiento, on_delete=models.CASCADE)
+    idDenominacion = models.ForeignKey(Denominacion, on_delete=models.CASCADE)
+    idBanco = models.ForeignKey(Banco, on_delete=models.CASCADE, null=True, blank=True)
+    idTasa = models.ForeignKey(Tasa, on_delete=models.CASCADE)
+    naturaleza = models.CharField(max_length=10)
+    tipoPago = models.CharField(max_length=100)
+    referencia = models.CharField(max_length=100, null=True, blank=True)
+    monto = models.DecimalField(max_digits=10, decimal_places=2)
+    descripcion = models.TextField()
+    estadoMovimiento = models.CharField(max_length=10)
+    fechaMovimiento = models.DateTimeField(auto_now_add=True)
 
     class Meta:  
         verbose_name = "Ingreso"  
         verbose_name_plural = "Ingresos"
 
-
 class Configuracion(models.Model):
     idConfig = models.AutoField(primary_key=True, verbose_name="ID Configuración")
-    nombreInstitucion = models.CharField(max_length=150, verbose_name="Nombre de la Institución")
+    nombreInstitucion = models.CharField(max_length=150, unique=True, verbose_name="Nombre de la Institución")
     rif = models.CharField(max_length=15, verbose_name="RIF")
     correoInstitucion = models.EmailField(max_length=254, verbose_name="Correo Institucional")
     logo = models.ImageField(upload_to='configuracion/logos/', verbose_name="Logo Institucional")
@@ -283,10 +304,14 @@ class Configuracion(models.Model):
     moneda = models.ForeignKey(Moneda, on_delete=models.PROTECT, verbose_name="Moneda Principal")
     fechaConfiguracion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Configuración")
 
+    def clean(self):
+        if Configuracion.objects.filter(nombreInstitucion__iexact=self.nombreInstitucion).exists():
+            raise ValidationError("El nombre de la Institución ya existe.")
+
     class Meta:
         verbose_name = "Configuración Institucional"
         verbose_name_plural = "Configuraciones Institucionales"
-        ordering = ['-fechaConfiguracion']  # Ordenar por la más reciente primero
+        ordering = ['-fechaConfiguracion']
 
     def __str__(self):
         return f"{self.nombreInstitucion} (Últ. actualización: {self.fechaConfiguracion.strftime('%d/%m/%Y')})"

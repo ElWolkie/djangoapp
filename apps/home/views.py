@@ -278,8 +278,12 @@ def formacion_modal(request):
     if request.method == 'POST':
         form = FormacionForm(request.POST)
         if form.is_valid():
-            form.save()
-            return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
+            try:
+                form.save()
+                return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
+            except ValidationError as e:
+                # Capturar errores del método clean y devolverlos como JSON
+                return JsonResponse({'success': False, 'errors': {'non_field_errors': e.messages}})
         else:
             print(form.errors)
             errors = {field: error for field, error in form.errors.items()}
@@ -288,7 +292,6 @@ def formacion_modal(request):
         form = FormacionForm()
         tipos_formacion = TipoFormacion.objects.all()  # Obtener los tipos de formación
     return render(request, 'home/formaciones.html', {'form': form, 'tipos_formacion': tipos_formacion})
-
 
 @login_required(login_url='login')
 @user_passes_test(es_superuser)
