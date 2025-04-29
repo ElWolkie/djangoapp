@@ -2,9 +2,17 @@ from django.db import models
 
 class TipoPersona(models.Model):  
     idTP = models.AutoField(primary_key=True)  # Clave primaria para TipoPersona  
-    nombreTP = models.CharField(max_length=100)  # Nombre del TipoPersona  
+    nombreTP = models.CharField(max_length=100, unique=True)  # Nombre del TipoPersona (único y sensible a mayúsculas)  
     estadoTP = models.CharField(max_length=10)  # Estado del TipoPersona  
     fechaTP = models.DateField(auto_now_add=True)  # Fecha de creación del TipoPersona  
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['nombreTP'],
+                name='unique_nombreTP_case_sensitive'
+            )
+        ]
 
     class Meta:  
         verbose_name = "Tipo de Persona"  
@@ -16,7 +24,7 @@ class TipoPersona(models.Model):
 
 class Personas(models.Model):  
     idPersona = models.AutoField(primary_key=True)  # Clave primaria para Personas  
-    cedula = models.CharField(max_length=10)  # Número de cedula  
+    cedula = models.CharField(max_length=10, unique=True)  # Número de cedula (único)  
     nombres = models.CharField(max_length=100)  # Nombres  
     apellidos = models.CharField(max_length=100)  # Apellidos  
     telefono = models.CharField(max_length=15)  # Número de teléfono  
