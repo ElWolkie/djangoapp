@@ -161,7 +161,7 @@ def pages(request):
 
                         # Obtener los tipos de persona seleccionados
                         tipos_persona_ids = request.POST.getlist('tipoPersona')
-
+ 
                         # Asignar los tipos a la persona
                         for tipo_id in tipos_persona_ids:
                             tipo = TipoPersona.objects.get(idTP=tipo_id)

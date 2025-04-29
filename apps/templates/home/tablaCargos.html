@@ -33,10 +33,15 @@
     <div class="col-md-4">
       <button class="btn btn-warning btn-square btn-sm my-2" type="button" title="Registrar Cargo" data-toggle="modal" data-target="#cargoModal">+</button>
     </div>
+    <div class="col-md-4">
+    <a href="{% url 'reporte_cargos_pdf' %}" class="btn btn-outline-danger btn-sm" target="_blank">
+      <i class="fas fa-file-pdf"></i> Descargar PDF
+    </a>
+    </div>
   </div>
 
   <br>
-  <table class="table table-striped text-gray-dark" id="cargosTable">
+  <table class="table table-striped-bordered text-gray-dark" id="cargosTable">
     <thead class="text-darker">
         <tr>
             <th scope="col">ID</th>
@@ -60,13 +65,13 @@
               Editar
               </button>
               {% if cargo.estadoCargo == "ACTIVO" %}
-              <button class="btn btn-sm btn-danger" type="button" onclick="deleteCargo('{{ cargo.idCargo }}')">
+              <button class="btn btn-sm btn-danger" type="button" onclick="manageCargo('{{ cargo.idCargo }}','delete')">
                 Eliminar
               </button>
               {% endif %}
 
               {% if cargo.estadoCargo == "INACTIVO" %}
-              <button class="btn btn-sm btn-success" type="button" onclick="reactivateCargo('{{ cargo.idCargo }}')">
+              <button class="btn btn-sm btn-success" type="button" onclick="manageCargo('{{ cargo.idCargo }}','reactivate')">
                 Reactivar
               </button>
               {% endif %}
@@ -163,6 +168,10 @@ document.addEventListener("DOMContentLoaded", function() {
         e.preventDefault();
         var form = $(this);
 
+        if (!highlightInvalidInputs('#cargoForm')) {
+            e.preventDefault();
+            return false;
+        } // Validar campos del formulario
         $.ajax({
             url: form.attr('action'),
             method: 'POST',
@@ -183,6 +192,11 @@ document.addEventListener("DOMContentLoaded", function() {
         e.preventDefault();
         var form = $(this);
 
+$(document).on('submit', '#editCargoForm', function(e) {
+  if (!highlightInvalidInputs('#editCargoForm')) {
+    e.preventDefault();
+    return false;
+  }      
         $.ajax({
             url: form.attr('action'),
             method: 'POST',
@@ -209,5 +223,112 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     });
 });
+});
+
+function manageCargo(id, action) {
+  const confirmMessage = action === 'delete'
+    ? '¿Está seguro de eliminar este registro?'
+    : (action === 'reactivate'
+        ? '¿Está seguro de reactivar este registro?'
+        : '¿Está seguro de realizar esta acción?');
+
+  Swal.fire({
+    title: confirmMessage,
+    icon: action === 'delete' ? 'warning' : 'question',
+    showCancelButton: true,
+    confirmButtonText: action === 'delete' ? 'Eliminar' : 'Reactivar',
+    cancelButtonText: 'Cancelar',
+    customClass: {
+      confirmButton: action === 'delete' ? 'btn btn-danger' : 'btn btn-success',
+      cancelButton: 'btn btn-secondary'
+    },
+    buttonsStyling: false,
+  }).then((result) => {
+    if (result.isConfirmed) {
+      const url = action === 'delete'
+        ? "{% url 'delete_cargo' 0 %}".replace('0', id)
+        : "{% url 'reactivate_cargo' 0 %}".replace('0', id);
+
+      const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+      fetch(url, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': csrftoken,
+        },
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          Swal.fire({
+            title: action === 'delete' ? 'Eliminado' : 'Reactivado',
+            text: data.message,
+            icon: 'success',
+            confirmButtonText: 'OK',
+            customClass: { confirmButton: 'btn btn-warning' },
+            buttonsStyling: false,
+          }).then(() => location.reload());
+        } else {
+          Swal.fire('Error', data.message, 'error');
+        }
+      })
+      .catch(error => Swal.fire('Error', 'Ocurrió un error en el servidor.', 'error'));
+    }
+  });
+}
+
+function highlightInvalidInputs(formSelector) {
+  const form = document.querySelector(formSelector);
+  if (!form) return;
+  let valid = true;
+  let firstInvalid = null;
+  form.querySelectorAll('input[name="nombreCargo"], select[required], textarea[required]').forEach(input => {
+    if (!input.value.trim()) {
+      input.classList.add('is-invalid');
+      if (!firstInvalid) firstInvalid = input;
+      valid = false;
+    } else {
+      input.classList.remove('is-invalid');
+    }
+  });
+  if (!valid) {
+    Swal.fire({
+      title: 'Campos requeridos',
+      text: 'Por favor, complete todos los campos obligatorios resaltados en rojo.',
+      icon: 'warning',
+      confirmButtonText: 'OK',
+      customClass: { confirmButton: 'btn btn-warning' },
+      buttonsStyling: false,
+    }).then(() => {
+      if (firstInvalid) firstInvalid.focus();
+    });
+  }
+  return valid;
+}
+
+// Registro
+$(document).on('submit', '#cargoForm', function(e) {
+  if (!highlightInvalidInputs('#cargoForm')) {
+    e.preventDefault();
+    return false;
+  }
+  // ...tu código AJAX...
+});
+
+// Edición
+$(document).on('submit', '#editCargoForm', function(e) {
+  if (!highlightInvalidInputs('#editCargoForm')) {
+    e.preventDefault();
+    return false;
+  }
+  // ...tu código AJAX...
+});
 </script>
+
+<style>
+.is-invalid {
+  border-color: #dc3545 !important;
+  box-shadow: 0 0 0 0.2rem rgba(220,53,69,.25);
+}
+</style>
 {% endblock javascripts %}

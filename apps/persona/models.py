@@ -1,4 +1,5 @@
-from django.db import models  
+from django.db import models
+from django.db.models.functions import Lower
 
 class TipoPersona(models.Model):  
     idTP = models.AutoField(primary_key=True)  # Clave primaria para TipoPersona  
@@ -6,17 +7,22 @@ class TipoPersona(models.Model):
     estadoTP = models.CharField(max_length=10)  # Estado del TipoPersona  
     fechaTP = models.DateField(auto_now_add=True)  # Fecha de creación del TipoPersona  
 
-    class Meta:  
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                Lower('nombreTP'),  # Convierte a minúsculas antes de verificar unicidad
+                name='unique_nombreTP_insensitive'
+            )
+        ]
         verbose_name = "Tipo de Persona"  
         verbose_name_plural = "Tipos de Personas"  
 
     def __str__(self):
         return self.nombreTP  # Representación legible en el admin de Django
 
-
 class Personas(models.Model):  
     idPersona = models.AutoField(primary_key=True)  # Clave primaria para Personas  
-    cedula = models.CharField(max_length=10)  # Número de cedula  
+    cedula = models.CharField(max_length=10, unique=True)  # Número de cedula (único)  
     nombres = models.CharField(max_length=100)  # Nombres  
     apellidos = models.CharField(max_length=100)  # Apellidos  
     telefono = models.CharField(max_length=15)  # Número de teléfono  

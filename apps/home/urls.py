@@ -52,11 +52,12 @@ urlpatterns = [
     path('deleteCohorte/<int:pk>/', views.delete_cohorte, name='delete_cohorte'),
     path('reactivateCohorte/<int:pk>/', views.reactivate_cohorte, name='reactivate_cohorte'),
 
-    # Specific route for cohorte modal
+    # Ruta especificica para cargo modal
     path('cargoModal/', views.cargo_modal, name='cargo_modal'),
     path('editCargo/<int:pk>/', views.edit_cargo, name='edit_cargo'),
     path('deleteCargo/<int:pk>/', views.delete_cargo, name='delete_cargo'),
     path('reactivateCargo/<int:pk>/', views.reactivate_cargo, name='reactivate_cargo'),
+    path('reporteCargo/', views.reporte_cargos_pdf, name='reporte_cargos_pdf'),
 
      # Specific route for cohorte modal
     path('requisitoModal/', views.requisito_modal, name='requisito_modal'),
