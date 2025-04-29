@@ -1,0 +1,167 @@
+{% block content %}
+<div class="container mt-4">
+    <h3 class="mb-4">Editando a {{ usuario.idPersona.nombres }} {{ usuario.idPersona.apellidos }}</h3>
+
+    <!-- Placeholder for messages -->
+    <div id="modalMessages" class="mb-3"></div> {# Give the placeholder an ID for jQuery #}
+
+    <form method="POST" action="{% url 'editar_usuario' usuario.pk %}" id="editUsuarioForm">
+        {% csrf_token %}
+
+        <!-- **** ADD HIDDEN FIELDS **** -->
+        {# Send back the *current* values to satisfy form validation if they are required #}
+        {# Check if the form field exists before trying to render its value #}
+        {% if form.preguntaSeguridad %}
+        <input type="hidden" name="preguntaSeguridad" value="{{ form.preguntaSeguridad.value|default:'' }}">
+        {% endif %}
+         {% if form.respuestaSeguridad %}
+        <input type="hidden" name="respuestaSeguridad" value="{{ form.respuestaSeguridad.value|default:'' }}">
+         {% endif %}
+        <!-- ************************** -->
+
+
+        <div class="row g-3">
+            <!-- Campos de seguridad -->
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0">Seguridad</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Pregunta actual</label>
+                            {# Display the current value from the user object for clarity #}
+                            <input type="text" class="form-control"
+                                   value="{{ usuario.preguntaSeguridad|default:'(Ninguna)' }}"
+                                   disabled readonly>
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.nueva_pregunta.label_tag }}
+                            {# Use form rendering for potential widgets/attrs #}
+                            {{ form.nueva_pregunta }}
+                             {% if form.nueva_pregunta.errors %}
+                                <div class="invalid-feedback d-block">{{ form.nueva_pregunta.errors|first }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.nueva_respuesta.label_tag }}
+                             {{ form.nueva_respuesta }}
+                             {% if form.nueva_respuesta.errors %}
+                                <div class="invalid-feedback d-block">{{ form.nueva_respuesta.errors|first }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Permisos y estado -->
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0">Permisos</h5>
+                    </div>
+                    <div class="card-body">
+                        {# Render checkboxes/switches using form fields #}
+                        <div class="form-check form-switch mb-3">
+                            {{ form.is_active }}
+                             <label class="form-check-label" for="{{ form.is_active.id_for_label }}">
+                                {{ form.is_active.label }}
+                            </label>
+                            {% if form.is_active.errors %}<div class="invalid-feedback d-block">{{ form.is_active.errors|first }}</div>{% endif %}
+                        </div>
+
+                        <div class="form-check form-switch mb-3">
+                            {{ form.is_staff }}
+                            <label class="form-check-label" for="{{ form.is_staff.id_for_label }}">
+                                {{ form.is_staff.label }}
+                            </label>
+                            {% if form.is_staff.errors %}<div class="invalid-feedback d-block">{{ form.is_staff.errors|first }}</div>{% endif %}
+                        </div>
+
+                        <div class="form-check form-switch mb-3">
+                            {{ form.is_superuser }}
+                             <label class="form-check-label" for="{{ form.is_superuser.id_for_label }}">
+                                {{ form.is_superuser.label }}
+                            </label>
+                            {% if form.is_superuser.errors %}<div class="invalid-feedback d-block">{{ form.is_superuser.errors|first }}</div>{% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-center mt-4">
+             <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Cancelar</button> {# Added Cancel button #}
+            <button type="submit" class="btn btn-warning px-4"> {# Changed primary back to warning as in original #}
+                <i class="fas fa-save me-2"></i> Guardar
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{# Keep the user's original JavaScript block here #}
+{% block javascripts %}
+<script>
+    $(document).ready(function() {
+        $('#editUsuarioForm').on('submit', function(e) {
+            e.preventDefault();
+            const form = $(this);
+            const messagesContainer = form.closest('.modal-body').find('#modalMessages');
+            const modal = form.closest('.modal');
+    
+            // Validación cliente
+            if ($('#id_nueva_pregunta').val() && !$('#id_nueva_respuesta').val()) {
+                messagesContainer.html('<div class="alert alert-danger">Debe ingresar una respuesta si cambia la pregunta</div>');
+                return;
+            }
+    
+            // Estado de carga del botón
+            const submitBtn = form.find('button[type="submit"]');
+            const originalBtnHtml = submitBtn.html();
+            submitBtn.prop('disabled', true).html(`
+                <span class="spinner-border spinner-border-sm" role="status"></span>
+                Guardando...
+            `);
+    
+            $.ajax({
+                url: form.attr('action'),
+                method: 'POST',
+                data: form.serialize(),
+                dataType: 'json',
+                success: function(response) {
+                    if (response.success) {
+                        // Cerrar modal y recargar
+                        $(modal).modal('hide');
+                        setTimeout(() => {
+                            window.location.href = "{% url 'lista_usuarios' %}";
+                        }, 1000);
+                    } else {
+                        let errorHtml = '<div class="alert alert-danger"><ul>';
+                        $.each(response.errors, function(field, errors) {
+                            errors.forEach(error => {
+                                errorHtml += `<li>${error.message}</li>`;
+                            });
+                        });
+                        errorHtml += '</ul></div>';
+                        messagesContainer.html(errorHtml);
+                    }
+                },
+                error: function(xhr) {
+                    let errorMessage = 'Error en la solicitud';
+                    try {
+                        const data = JSON.parse(xhr.responseText);
+                        errorMessage = data.message || errorMessage;
+                    } catch(e) {}
+                    messagesContainer.html(`<div class="alert alert-danger">${errorMessage}</div>`);
+                },
+                complete: function() {
+                    submitBtn.prop('disabled', false).html(originalBtnHtml);
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

@@ -42,7 +42,6 @@
         <th scope="col">ID</th>
         <th scope="col">Nombre</th>
         <th scope="col">Estado</th>
-        <th scope="col">Cuotas</th>
         <th scope="col">Fecha</th>
         <th scope="col">Acciones</th>
         
@@ -54,7 +53,6 @@
         <td>{{ tipoFormacion.idTF }}</td>
         <td>{{ tipoFormacion.nombreTipoFormacion }}</td>
         <td>{{ tipoFormacion.estadoTipoFormacion }}</td>
-        <td>{{ tipoFormacion.cuotas}}</td>
         <td>{{ tipoFormacion.fechaTipoFormacion }}</td>
         <td>
           <button class="btn btn-sm btn-primary" type="button" data-toggle="modal" data-target="#editModal" data-url="{% url 'edit_tf' tipoFormacion.idTF %}">

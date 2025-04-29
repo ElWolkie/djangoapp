@@ -75,6 +75,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('idFormacion', models.AutoField(primary_key=True, serialize=False)),
                 ('nombreFormacion', models.CharField(max_length=100)),
+                ('valorFormacion', models.DecimalField(decimal_places=2, max_digits=10, verbose_name='Valor de la Formación')),
                 ('duracion', models.CharField(max_length=100)),
                 ('estadoFormacion', models.CharField(max_length=10)),
                 ('fechaFormacion', models.DateField(auto_now_add=True)),
@@ -133,7 +134,6 @@ class Migration(migrations.Migration):
                 ('idTF', models.AutoField(primary_key=True, serialize=False)),
                 ('nombreTipoFormacion', models.CharField(max_length=100)),
                 ('estadoTipoFormacion', models.CharField(max_length=10)),
-                ('cuotas', models.CharField(max_length=5)),
                 ('fechaTipoFormacion', models.DateField(auto_now_add=True)),
             ],
             options={

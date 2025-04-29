@@ -11,9 +11,9 @@
   
   <div class="scrollbar-inner">
     <div class="sidenav-header align-items-center">
-        <a class="navbar-brand" href="/">
-            <img src="{% static 'assets/img/brand/blue.png' %}" class="navbar-brand-img" alt="Logo">
-        </a>
+      <a class="navbar-brand" href="/"></a>
+        <img src="{% static 'assets/img/brand/SACFU.png' %}" class="navbar-brand-img" alt="Logo" style="width: 120px; height: auto;">
+      </a>
     </div>
 
     <div class="navbar-inner">
@@ -29,242 +29,360 @@
         
       {# --- GESTIONAR CLIENTE (Visible para todos los autenticados) --- #}
       {% if user.is_authenticated %}
-        <li class="nav-item">
-          <a class="nav-link menu1" href="#" id="persona1Dropdown" data-toggle="collapse" data-target="#menu1" aria-expanded="false" aria-controls="menu1">
-            <i class="ni ni-single-02 text-orange"></i>
-              <span class="nav-link-text">Gestionar Cliente</span>
-          </a>
-          <div id="menu1" class="collapse">
-            <ul class="nav flex-column ml-3">
+        {% if user.is_superuser or perms.persona.view_personas %}
               <li class="nav-item">
-                <a class="nav-link" href="/persona/persona.html?idTP=2" style="padding-left: 15px;"><i class="ni ni-badge text-orange"></i>Registrar</a>
+                <a class="nav-link menu1" href="#" id="persona1Dropdown" data-toggle="collapse" data-target="#menu1" aria-expanded="false" aria-controls="menu1">
+                  <i class="ni ni-single-02 text-orange"></i>
+                    <span class="nav-link-text">Gestionar Cliente</span>
+                </a>
+                <div id="menu1" class="collapse ml-3">
+                  <ul class="nav flex-column">
+                    {% if perms.persona.add_personas %}
+                    <li class="nav-item">
+                      <a class="nav-link" 
+                        href="/persona/persona.html?idTP=2" 
+                        style="padding-left: 30px;">
+                        <i class="ni ni-fat-add text-orange"></i>Registrar
+                      </a>
+                    </li>
+                    {% endif %}
+                    
+                    {% if perms.persona.view_personas %}
+                    <li class="nav-item">
+                      <a class="nav-link" href="/persona/tablaPersona.html" style="padding-left: 30px;">
+                        <i class="ni ni-archive-2 text-orange"></i>Consultar
+                      </a>
+                    </li>
+                    {% endif %}
+                  </ul>
+                </div>
               </li>
-              <li class="nav-item">
-                <a class="nav-link" href="/persona/tablaPersona.html" style="padding-left: 15px;"><i class="ni ni-collection text-orange"></i>Consultar</a>
-              </li>
-            </ul>
-          </div>
-        </li>
+          {% endif %}
       {% endif %}
 
       {# --- GESTIONAR PROVEEDOR (Visible para todos los autenticados) --- #}
       {% if user.is_authenticated %}
-        <li class="nav-item">
-            <a class="nav-link menu1-2" href="#" id="persona2Dropdown" data-toggle="collapse" data-target="#menu1-2" aria-expanded="false" aria-controls="menu1-2">
-              <i class="ni ni-single-02 text-orange"></i>
-              <span class="nav-link-text">Gestionar Proveedor</span>
-            </a>
-            <div id="menu1-2" class="collapse">
-              <ul class="nav flex-column ml-3">
-                <li class="nav-item">
-                  <a class="nav-link" href="/persona/persona.html?idTP=3" style="padding-left: 15px;"><i class="ni ni-badge text-orange"></i>Registrar</a>
-                </li>
-                <li class="nav-item">
-                  <a class="nav-link" href="/persona/tablaPersona.html" style="padding-left: 15px;"><i class="ni ni-collection text-orange"></i>Consultar</a>
-                </li>
-              </ul>
-            </div>
-        </li>
+        {% if user.is_superuser or perms.persona.view_personas %}
+              <li class="nav-item">
+                  <a class="nav-link menu1-2" href="#" id="persona2Dropdown" data-toggle="collapse" data-target="#menu1-2" aria-expanded="false" aria-controls="menu1-2">
+                    <i class="ni ni-single-02 text-orange"></i>
+                    <span class="nav-link-text">Gestionar Proveedor</span>
+                  </a>
+                <div id="menu1-2" class="collapse ml-3">
+                  <ul class="nav flex-column">
+                    {% if perms.persona.add_personas %}
+                    <li class="nav-item">
+                      <a class="nav-link" href="/persona/persona.html?idTP=3" style="padding-left: 15px;"><i class="ni ni-badge text-orange"></i>Registrar</a>
+                    </li>
+                    {% endif %}
+                    
+                    {% if perms.persona.view_personas %}
+                    <li class="nav-item">
+                      <a class="nav-link" href="/persona/tablaPersona.html" style="padding-left: 15px;"><i class="ni ni-collection text-orange"></i>Consultar</a>
+                    </li>
+                    {% endif %}
+                  </ul>
+                </div>
+              </li>
+          {% endif %}
       {% endif %}
       
-      {# --- GESTIONAR ACADEMIA (Visible para Staff y Superusers) --- #}
-      {% if user.is_authenticated and user.is_staff %}
-        <li class="nav-item">
-          <a class="nav-link menu1" href="#" id="personaDropdown" data-toggle="collapse" data-target="#menu2" aria-expanded="false" aria-controls="menu2">  
-            <i class="ni ni-hat-3 text-orange"></i>  
-            <span class="nav-link-text">Gestionar Academia</span>  
-          </a>  
-          <div id="menu2" class="collapse">  
-            <ul class="nav flex-column ml-3">  
-              <li class="nav-item">  
-                <a class="nav-link" href="#" id="ofertasDropdown" data-toggle="collapse" data-target="#ofertasMenu" aria-expanded="false" aria-controls="ofertasMenu" style="padding-left: 15px;">  
-                  <i class="ni ni-ruler-pencil text-orange"></i>Formacion</a>  
-                <div id="ofertasMenu" class="collapse ml-3">  
-                  <ul class="nav flex-column">  
-                    <li class="nav-item">  
-                      <a class="nav-link" href="/tablaFormaciones.html" style="padding-left: 30px;"><i class="ni ni-bullet-list-67 text-orange"></i>Formaciones</a>  
-                    </li>  
-                    <li class="nav-item">  
-                      <a class="nav-link" href="/tablaTipoFormaciones.html" style="padding-left: 30px;"><i class="ni ni-bullet-list-67 text-orange"></i>Tipo</a>  
-                    </li>  
-                  </ul>  
-                </div>  
-              </li>  
-              <li class="nav-item">  
-                <a class="nav-link" href="/tablaMaterias.html" style="padding-left: 15px;"><i class="ni ni-books text-orange"></i>Materia</a>  
-              </li>  
-              <li class="nav-item">  
-                <a class="nav-link" href="/tablaCohortes.html" style="padding-left: 15px;"> <i class="ni ni-book-bookmark text-orange"></i>Cohorte</a>  
-              </li>   
-              <li class="nav-item">  
-                <a class="nav-link" href="/tablaCargos.html" style="padding-left: 15px;"> <i class="ni ni-circle-08 text-orange"></i>Cargos</a>  
-              </li>  
-             
-              <li class="nav-item">  
-                <a class="nav-link" href="{% url 'tabla_honorarios' %}" style="padding-left: 15px;">
-                  <i class="ni ni-money-coins text-orange"></i>Honorario
-                </a>           
-              </li>   
-              <li class="nav-item">  
-                <a class="nav-link" href="{% url 'tabla_inscripciones' %}" style="padding-left: 15px;">
-                  <i class="ni ni-money-coins text-orange"></i>Inscripción
-                </a>              
-              </li>  
-            </ul>  
-          </div>  
-        </li>
+      {% if user.is_authenticated %}
+        {% if user.is_superuser or perms.home.view_formacion or perms.home.add_formacion or perms.home.view_materias or perms.home.add_materias or perms.home.view_cohortes or perms.home.add_cohortes or perms.home.view_cargos or perms.home.add_cargos or perms.home.view_honorarios or perms.home.add_honorarios or perms.inscripcion.view_inscripciones or perms.inscripcion.add_inscripciones %}
+              <li class="nav-item">
+                  <a class="nav-link menu1" href="#" id="ofertasDropdown" data-toggle="collapse" data-target="#menu2" aria-expanded="false" aria-controls="menu2">  
+                    <i class="ni ni-hat-3 text-orange"></i>  
+                    <span class="nav-link-text">Gestionar Academia</span>  
+                  </a> 
+                <div id="menu2" class="collapse ml-3">
+                  <ul class="nav flex-column">
+                    {% if perms.home.view_formacion or perms.home.add_formacion or perms.home.view_tipoformacion or perms.home.add_tipoformacion %}
+                      <li class="nav-item">  
+                        <a class="nav-link" href="#" id="ofertasDropdown" data-toggle="collapse" data-target="#ofertasMenu" aria-expanded="false" aria-controls="ofertasMenu" style="padding-left: 15px;">  
+                          <i class="ni ni-ruler-pencil text-orange"></i>Formación</a>  
+                        <div id="ofertasMenu" class="collapse ml-3">  
+                          <ul class="nav flex-column">
+                          {% if perms.home.view_formacion or perms.home.add_formacion %}
+                            <li class="nav-item">  
+                              <a class="nav-link" href="/tablaFormaciones.html" style="padding-left: 30px;"><i class="ni ni-bullet-list-67 text-orange"></i>Formaciones</a>  
+                            </li>
+                          {% endif %}
+
+                          {% if perms.home.view_tipoformacion or perms.home.add_tipoformacion %}
+                            <li class="nav-item">  
+                              <a class="nav-link" href="/tablaTipoFormaciones.html" style="padding-left: 30px;"><i class="ni ni-bullet-list-67 text-orange"></i>Tipo</a>  
+                            </li>
+                          {% endif %}
+                          </ul>  
+                        </div>  
+                      </li> 
+                    {% endif %}
+                    
+                    {% if perms.home.view_materia or perms.home.add_materia %}
+                      <li class="nav-item">  
+                        <a class="nav-link" href="/tablaMaterias.html" style="padding-left: 15px;"><i class="ni ni-books text-orange"></i>Materia</a>  
+                      </li>
+                    {% endif %}
+
+                    {% if perms.home.view_cohorte or perms.home.add_cohorte %}
+                      <li class="nav-item">  
+                        <a class="nav-link" href="/tablaCohortes.html" style="padding-left: 15px;"> <i class="ni ni-book-bookmark text-orange"></i>Cohorte</a>  
+                      </li>   
+                    {% endif %}
+
+                    {% if perms.home.view_cargo or perms.home.view_cargo %}
+                      <li class="nav-item">  
+                        <a class="nav-link" href="/tablaCargos.html" style="padding-left: 15px;"> <i class="ni ni-circle-08 text-orange"></i>Cargos</a>  
+                      </li>  
+                    {% endif %}
+
+                    {% if perms.honorario.view_honorario or perms.honorario.add_honorario %}
+                      <li class="nav-item">  
+                        <a class="nav-link" href="{% url 'tabla_honorarios' %}" style="padding-left: 15px;">
+                          <i class="ni ni-money-coins text-orange"></i>Honorario
+                        </a>           
+                      </li>   
+                    {% endif %}
+
+                    {% if perms.inscripcion.view_inscripcion or perms.inscripcion.view_inscripcion %}                     
+                      <li class="nav-item">  
+                        <a class="nav-link" href="{% url 'tabla_inscripciones' %}" style="padding-left: 15px;">
+                          <i class="ni ni-money-coins text-orange"></i>Inscripción
+                        </a>              
+                      </li>  
+                    {% endif %}
+                  </ul>
+                </div>
+              </li>
+        {% endif %}
       {% endif %}
 
       {# --- GESTIONAR TRÁMITE (Ejemplo: Visible para todos los autenticados) --- #}
       {% if user.is_authenticated %}
-        <li class="nav-item">
-          <a class="nav-link menu3" href="#" id="personaDropdown" data-toggle="collapse" data-target="#menu3" aria-expanded="false" aria-controls="menu3">
-            <i class="ni ni-folder-17 text-orange"></i>
-            <span class="nav-link-text">Gestionar Trámite</span> 
-          </a>
-          <div id="menu3" class="collapse">
-            <ul class="nav flex-column ml-3">
-              <li class="nav-item">  
-                <a class="nav-link" href="#" id="tramiteDropdown" data-toggle="collapse" data-target="#tramiteMenu" aria-expanded="false" aria-controls="tramiteMenu" style="padding-left: 15px;">  
-                  <i class="ni  ni-caps-small text-orange"></i>Trámite</a>  
-                <div id="tramiteMenu" class="collapse ml-3">  
-                  <ul class="nav flex-column">  
-                    <li class="nav-item">  
-                      <a class="nav-link" href="solicitud/solicitud.html" style="padding-left: 30px;"><i class="ni ni-fat-add  text-orange"></i>Solicitud</a>  
-                    </li>  
-                    <li class="nav-item">  
-                      <a class="nav-link" href="{% url 'tabla_solicitud' %}" style="padding-left: 30px;"><i class="ni ni-bullet-list-67 text-orange"></i>Consultar</a>  
-                    </li>  
-                    <li class="nav-item">  
-                      <a class="nav-link" href="/tablaTramites.html" style="padding-left: 30px;"><i class="ni ni-single-copy-04 text-orange"></i>Tipo de Trámite</a>  
-                    </li>  
-                  </ul>  
-                </div>  
-              </li>  
+        {% if user.is_superuser or perms.home.view_tramite or perms.home.add_tramite or perms.solicitud.view_solicitud or perms.solicitud.add_solicitud or perms.home.view_servicio or perms.home.add_servicio or perms.home.view_requisito or perms.home.add_requisito %}
               <li class="nav-item">
-                <a class="nav-link" href="/tablaServicios.html" style="padding-left: 15px;"> <i class="ni ni-delivery-fast text-orange"></i>Servicio Expedito</a>
+                  <a class="nav-link menu3" href="#" id="tramiteDropdown" data-toggle="collapse" data-target="#menu3" aria-expanded="false" aria-controls="menu3">
+                    <i class="ni ni-folder-17 text-orange"></i>
+                    <span class="nav-link-text">Gestionar Trámite</span> 
+                  </a>
+                <div id="menu3" class="collapse ml-3">
+                  <ul class="nav flex-column">
+                    {% if perms.home.view_tramite or perms.home.add_tramite or perms.solicitud.view_solicitud or perms.solicitud.add_solicitud %}
+                      <li class="nav-item">
+                        <a class="nav-link" href="#" id="tramiteDropdown" data-toggle="collapse" data-target="#tramiteMenu" aria-expanded="false" aria-controls="tramiteMenu" style="padding-left: 15px;">  
+                          <i class="ni  ni-caps-small text-orange"></i>Trámite</a>  
+                        <div id="tramiteMenu" class="collapse ml-3">  
+                          <ul class="nav flex-column">
+                          {% if perms.solicitud.add_solicitud %}
+                            <li class="nav-item">  
+                              <a class="nav-link" href="{% url 'registrar_solicitud' %}" style="padding-left: 30px;"><i class="ni ni-fat-add  text-orange"></i>Solicitud</a>  
+                            </li>
+                          {% endif %}
+
+                          {% if perms.solicitud.view_solicitud %}
+                            <li class="nav-item">  
+                              <a class="nav-link" href="{% url 'tabla_solicitud' %}" style="padding-left: 30px;"><i class="ni ni-bullet-list-67 text-orange"></i>Consultar</a>  
+                            </li>
+                          {% endif %}
+
+                          {% if perms.home.view_tramite or perms.home.add_tramite %}
+                            <li class="nav-item">  
+                              <a class="nav-link" href="/tablaTramites.html" style="padding-left: 30px;"><i class="ni ni-single-copy-04 text-orange"></i>Tipo de Trámite</a>  
+                            </li>
+                          {% endif %}
+                          </ul>  
+                        </div>  
+                      </li> 
+                    {% endif %}
+                    
+                    {% if perms.home.view_servicio or perms.home.add_servicio %}
+                      <li class="nav-item">
+                        <a class="nav-link" href="/tablaServicios.html" style="padding-left: 15px;"> <i class="ni ni-delivery-fast text-orange"></i>Servicio Expedito</a>
+                      </li>
+                    {% endif %}
+
+                    {% if perms.home.view_requisito or perms.home.add_requisito %}
+                      <li class="nav-item">
+                        <a class="nav-link" href="/tablaRequisitos.html" style="padding-left: 15px;"> <i class="ni ni-check-bold text-orange"></i>Requisito</a>
+                      </li>
+                    {% endif %}
+                  </ul>
+                </div>
               </li>
-              <li class="nav-item">
-                <a class="nav-link" href="/tablaRequisitos.html" style="padding-left: 15px;"> <i class="ni ni-check-bold text-orange"></i>Requisito</a>
-              </li>
-            </ul>
-          </div>
-        </li>
+          {% endif %}
       {% endif %}
 
       {# --- GESTIONAR FINANZA (Ejemplo: Visible para Staff y Superusers) --- #}
-      {% if user.is_authenticated and user.is_staff %}
-        <li class="nav-item">
-          <a class="nav-link menu1" href="#" id="personaDropdown" data-toggle="collapse" data-target="#menu4" aria-expanded="false" aria-controls="menu4">
-            <i class="ni ni-credit-card text-orange"></i>
-            <span class="nav-link-text">Gestionar Finanza</span> 
-          </a>
-          <div id="menu4" class="collapse">
-            <ul class="nav flex-column ml-3">
-              <li class="nav-item">  
-                <a class="nav-link" href="#" id="ingresoDropdown" data-toggle="collapse" data-target="#ingresoMenu" aria-expanded="false" aria-controls="ingresoMenu" style="padding-left: 15px;">  
-                  <i class="ni  ni-caps-small text-orange"></i>Ingreso</a>  
-                <div id="ingresoMenu" class="collapse ml-3">  
-                  <ul class="nav flex-column">  
+      {% if user.is_authenticated %}
+        {% if user.is_superuser or perms.home.view_ingreso or perms.home.add_ingreso or perms.home.view_tipoingreso or perms.home.add_tipoingreso or perms.home.view_tipomovimiento or perms.home.add_tipomovimiento or perms.home.view_banco or perms.home.add_banco or perms.home.view_denominacion or perms.home.add_denominacion or perms.home.view_moneda or perms.home.add_moneda or perms.home.view_tasa or perms.home.add_tasa %}
+              <li class="nav-item">
+                  <a class="nav-link menu1" href="#" id="tramiteDropdown" data-toggle="collapse" data-target="#menu4" aria-expanded="false" aria-controls="menu4">
+                    <i class="ni ni-credit-card text-orange"></i>
+                    <span class="nav-link-text">Gestionar Finanza</span> 
+                  </a>
+                <div id="menu4" class="collapse ml-3">
+                  <ul class="nav flex-column">
+                    {% if perms.home.view_ingreso or perms.home.add_ingreso or perms.tipoingreso.view_tipoingreso or perms.home.add_tipoingreso or perms.home.view_tipomovimiento or perms.home.add_tipomovimiento %}
                     <li class="nav-item">  
-                      <a class="nav-link" href="/tablaIngresos.html" style="padding-left: 30px;"><i class="ni ni-fat-add  text-orange"></i>Consultar</a>  
-                    </li>  
-                    <li class="nav-item">  
-                      <a class="nav-link" href="/tablaTipoIngresos.html" style="padding-left: 30px;"><i class="ni ni-bullet-list-67 text-orange"></i>Tipo de Ingreso</a>  
-                    </li>  
-                    <li class="nav-item">  
-                    </li>  
-                  </ul>  
-                </div>  
-              </li>  
+                      <a class="nav-link" href="#" id="ingresoDropdown" data-toggle="collapse" data-target="#ingresoMenu" aria-expanded="false" aria-controls="ingresoMenu" style="padding-left: 15px;">  
+                        <i class="ni  ni-caps-small text-orange"></i>Ingreso</a>  
+                      <div id="ingresoMenu" class="collapse ml-3">  
+                        <ul class="nav flex-column">
+                          {% if perms.home.view_ingreso or perms.home.add_ingreso or perms.home.view_tipomovimiento or perms.home.add_tipomovimiento %}
+                            <li class="nav-item">  
+                              <a class="nav-link" href="/tablaIngresos.html" style="padding-left: 30px;"><i class="ni ni-fat-add  text-orange"></i>Consultar</a>  
+                            </li>
+                          {% endif %}
 
-              <li class="nav-item">  
-                <a class="nav-link" href="#" id="egresoDropdown" data-toggle="collapse" data-target="#egresoMenu" aria-expanded="false" aria-controls="egresoMenu" style="padding-left: 15px;">  
-                  <i class="fas fa-hand-holding-usd text-orange"></i>Egresos</a>  
-                <div id="egresoMenu" class="collapse ml-3">  
-                  <ul class="nav flex-column">  
+                          {% if perms.home.add_tipoingreso or perms.home.add_tipoingreso or perms.home.view_tipomovimiento or perms.home.add_tipomovimiento %}
+                            <li class="nav-item">  
+                              <a class="nav-link" href="/tablaTipoIngresos.html" style="padding-left: 30px;"><i class="ni ni-bullet-list-67 text-orange"></i>Tipo de Ingreso</a>  
+                            </li>
+                          {% endif %}  
+                        </ul>  
+                      </div>  
+                    </li> 
+                    {% endif %}
+
+                    {% if perms.home.view_ingreso or perms.home.add_ingreso or perms.tipoingreso.view_tipoingreso or perms.home.add_tipoingreso or perms.home.view_tipomovimiento or perms.home.add_tipomovimiento %}
                     <li class="nav-item">  
-                      <a class="nav-link" href="/tablaEgresos.html" style="padding-left: 30px;"><i class="ni ni-fat-add  text-orange"></i>Consultar</a>  
-                    </li>  
-                    <li class="nav-item">  
-                      <a class="nav-link" href="/tablaTipoEgresos.html" style="padding-left: 30px;"><i class="ni ni-bullet-list-67 text-orange"></i>Tipo de Egreso</a>  
-                    </li>  
-                      <li class="nav-item">  
-                    </li>  
-                  </ul>  
-                </div>  
-              </li>  
-            
-              <li class="nav-item">
-                <a class="nav-link" href="/tablaBancos.html" style="padding-left: 15px;"> <i class="ni ni-building text-orange"></i>Bancos</a>
+                      <a class="nav-link" href="#" id="egresoDropdown" data-toggle="collapse" data-target="#egresoMenu" aria-expanded="false" aria-controls="egresoMenu" style="padding-left: 15px;">  
+                        <i class="fas fa-hand-holding-usd text-orange"></i>Egresos</a>  
+                      <div id="egresoMenu" class="collapse ml-3">  
+                        <ul class="nav flex-column">
+                          {% if perms.home.view_ingreso or perms.home.add_ingreso or perms.home.view_tipomovimiento or perms.home.add_tipomovimiento %}
+                            <li class="nav-item">  
+                              <a class="nav-link" href="/tablaEgresos.html" style="padding-left: 30px;"><i class="ni ni-fat-add  text-orange"></i>Consultar</a>  
+                            </li>
+                          {% endif %}
+                          
+                          {% if perms.home.add_tipoingreso or perms.home.add_tipoingreso or perms.home.view_tipomovimiento or perms.home.add_tipomovimiento %}
+                            <a class="nav-link" href="/tablaTipoEgresos.html" style="padding-left: 30px;"><i class="ni ni-bullet-list-67 text-orange"></i>Tipo de Egreso</a>  
+                          </li>
+                          {% endif %}  
+                        </ul>  
+                      </div>  
+                    </li> 
+                    {% endif %}
+                    
+                    {% if perms.home.view_banco or perms.home.add_banco %}
+                    <li class="nav-item">
+                      <a class="nav-link" href="/tablaBancos.html" style="padding-left: 15px;"> <i class="ni ni-building text-orange"></i>Bancos</a>
+                    </li>
+                    {% endif %}
+                    
+                    {% if perms.home.view_denominacion or perms.home.add_denominacion %}
+                    <li class="nav-item">
+                      <a class="nav-link" href="/tablaDenominaciones.html" style="padding-left: 15px;"> <i class="ni ni-archive-2 text-orange"></i>Denominaciones</a>
+                    </li>
+                    {% endif %}
+
+                    {% if perms.home.view_moneda or perms.home.add_moneda %}
+                    <li class="nav-item">
+                      <a class="nav-link" href="/tablaMonedas.html" style="padding-left: 15px;"> <i class="fas fa-money-bill-wave text-orange"></i>Monedas</a>
+                    </li>
+                    {% endif %}
+
+                    {% if perms.home.view_tasa or perms.home.add_tasa %}
+                    <li class="nav-item">
+                      <a class="nav-link" href="/tablaTasas.html" style="padding-left: 15px;"> <i class="ni ni-chart-bar-32 text-orange"></i>Tasas</a>
+                    </li>
+                    {% endif %}
+                  </ul>
+                </div>
               </li>
-              <li class="nav-item">
-                <a class="nav-link" href="/tablaDenominaciones.html" style="padding-left: 15px;"> <i class="ni ni-archive-2 text-orange"></i>Denominaciones</a>
-              </li>
-              <li class="nav-item">
-                <a class="nav-link" href="/tablaMonedas.html" style="padding-left: 15px;"> <i class="fas fa-money-bill-wave text-orange"></i>Monedas</a>
-              </li>
-              <li class="nav-item">
-                <a class="nav-link" href="/tablaTasas.html" style="padding-left: 15px;"> <i class="ni ni-chart-bar-32 text-orange"></i>Tasas</a>
-              </li>
-            </ul>
-          </div>
-        </li>
+          {% endif %}
       {% endif %}
 
-      {# --- GESTIONAR USUARIO (Visible SOLO para Superusers) --- #}
-      {% if user.is_authenticated and user.is_superuser %}
-      <li class="nav-item">
-          <a class="nav-link usuarioMenu {% if 'usuario' in segment %} active {% endif %}" href="#" id="usuarioDropdown" data-toggle="collapse" data-target="#usuarioMenu" aria-expanded="false" aria-controls="usuarioMenu">
-              <i class="ni ni-circle-08 text-orange"></i>
-              <span class="nav-link-text">Gestionar Usuario</span>
-          </a>
-          <div id="usuarioMenu" class="collapse">
-              <ul class="nav flex-column ml-3">
-                  <li class="nav-item">
-                      <a class="nav-link" href="{% url 'registrar_usuario' %}" style="padding-left: 15px;"><i class="ni ni-badge text-orange"></i>Registrar</a>
-                  </li>
-                  <li class="nav-item">
-                      <a class="nav-link" href="{% url 'lista_usuarios' %}" style="padding-left: 15px;">
-                          <i class="ni ni-collection text-orange"></i>
-                          <span class="nav-link-text">{% trans "Consultar Usuarios" %}</span>
-                      </a>
-                  </li>
-              </ul>
-          </div>
-      </li>
-      {% endif %}
-
-          {% comment %} <li class="nav-item">
-            <a class="nav-link {% if 'icons' in segment %} active {% endif %}" href="/icons.html">
-              <i class="ni ni-planet text-orange"></i>
-              <span class="nav-link-text">Icons</span>
-            </a>
-          </li> {% endcomment %}
-
-        {# --- CONFIGURAR (Visible para Staff y Superusers) --- #}
-        {% if user.is_authenticated and user.is_staff %}
+      {# --- GESTIONAR USUARIO (Visible según permisos) --- #}
+        {% if user.is_authenticated %}
+        {# Verificar si tiene alguno de estos permisos: is_superuser o permisos de usuarios #}
+        {% if user.is_superuser or perms.home.view_usuarios or perms.home.add_usuarios %}
         <li class="nav-item">
-            <a class="nav-link menu1" href="#" id="configuracionDropdown" data-toggle="collapse" data-target="#configuracionMenu" aria-expanded="false" aria-controls="configuracionMenu">
-                <i class="ni ni-settings-gear-65 text-default"></i>
-                <span class="nav-link-text">Configurar</span>
+            <a class="nav-link usuarioMenu {% if 'usuario' in segment %} active {% endif %}" 
+              href="#" 
+              id="usuarioDropdown" 
+              data-toggle="collapse" 
+              data-target="#usuarioMenu" 
+              aria-expanded="false" 
+              aria-controls="usuarioMenu">
+                <i class="ni ni-circle-08 text-orange"></i>
+                <span class="nav-link-text">Gestionar Usuario</span>
             </a>
-            <div id="configuracionMenu" class="collapse">
-                 <ul class="nav flex-column ml-3">
-                     <li class="nav-item">
-                         {# Reemplaza con URL Django si es posible #}
-                         <a class="nav-link" href="/persona/tablaTipoPersona.html" style="padding-left: 15px;">
-                             <i class="ni ni-bullet-list-67 text-orange"></i>Tipo Persona
-                         </a>
-                     </li>
-                     <li class="nav-item">
-                         <a class="nav-link" href="{% url 'configuracion' %}" style="padding-left: 15px;">
-                             <i class="ni ni-laptop text-orange"></i>Sistema
-                         </a>
-                     </li>
-                 </ul>
+            <div id="usuarioMenu" class="collapse">
+                <ul class="nav flex-column ml-3">
+                    {# Mostrar "Registrar" solo si tiene permiso add_usuarios o es superuser #}
+                    {% if user.is_superuser or perms.home.add_usuarios %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'registrar_usuario' %}" style="padding-left: 15px;">
+                            <i class="ni ni-badge text-orange"></i>
+                            Registrar
+                        </a>
+                    </li>
+                    {% endif %}
+                    
+                    {# Mostrar "Consultar" si tiene permiso view_usuarios o es superuser #}
+                    {% if user.is_superuser or perms.home.view_usuarios %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'lista_usuarios' %}" style="padding-left: 15px;">
+                            <i class="ni ni-collection text-orange"></i>
+                            <span class="nav-link-text">{% trans "Consultar Usuarios" %}</span>
+                        </a>
+                    </li>
+                    {% endif %}
+                    
+                    {# Opcional: Mostrar gestión de grupos solo para superusuarios #}
+                    {% if user.is_superuser %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'admin:auth_group_changelist' %}" style="padding-left: 15px;">
+                            <i class="ni ni-settings text-orange"></i>
+                            <span class="nav-link-text">Administrar Grupos</span>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
             </div>
         </li>
+        {% endif %}
+        {% endif %}
+
+        {# --- CONFIGURAR (Visible para superusuarios y administradores con permiso de vista) ---#}
+        {% if user.is_authenticated %}
+          {% if user.is_superuser or perms.persona.view_tipopersona or perms.home.view_configuracion %}
+            <li class="nav-item">
+              <a class="nav-link menu1" href="#" id="configuracionDropdown" data-toggle="collapse" data-target="#configuracionMenu" aria-expanded="false" aria-controls="configuracionMenu">
+                <i class="ni ni-settings-gear-65 text-default"></i>
+                <span class="nav-link-text">Configurar</span>
+              </a>
+              <div id="configuracionMenu" class="collapse">
+                <ul class="nav flex-column ml-3">
+                  {# “Tipo Persona” sólo para superuser o quien tenga permiso view_tipopersona #}
+                  {% if user.is_superuser or perms.persona.view_tipopersona %}
+                    <li class="nav-item">
+                      <a class="nav-link" 
+                        href="{% url 'listado_tipos_persona' %}" 
+                        style="padding-left: 15px;">
+                        <i class="ni ni-bullet-list-67 text-orange"></i>
+                        Tipo Persona
+                      </a>
+                    </li>
+                  {% endif %}
+
+                  {# “Sistema” sólo para superuser o quien tenga permiso view_configuracion #}
+                  {% if user.is_superuser or perms.home.view_configuracion %}
+                    <li class="nav-item">
+                      <a class="nav-link" 
+                        href="{% url 'configuracion' %}" 
+                        style="padding-left: 15px;">
+                        <i class="ni ni-laptop text-orange"></i>
+                        Sistema
+                      </a>
+                    </li>
+                  {% endif %}
+                </ul>
+              </div>
+            </li>
+          {% endif %}
         {% endif %}
         
         {# --- CERRAR SESIÓN (Visible para todos los autenticados) --- #}

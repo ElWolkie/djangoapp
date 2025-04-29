@@ -1,7 +1,7 @@
 from django.http import JsonResponse, HttpResponse, HttpResponseRedirect
 from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.decorators import login_required, user_passes_test, permission_required
 from django.template import loader
 from django.db.models import OuterRef, Subquery, Max
 from django.urls import reverse
@@ -13,11 +13,9 @@ from .models import Inscripcion
 from apps.persona.models import Personas
 from apps.home.models import Cargo, Cohorte, Materia, TipoFormacion, Formacion
 
-
-def tabla_inscripciones(request):
-    return render(request, 'inscripcion/tablaInscripcions.html')
-#Honarario
-@csrf_exempt
+#INSCRIPCION
+@login_required(login_url='login')
+@permission_required("inscripcion.add_inscripcion", raise_exception=True)
 def inscripcion_modal(request):
     if request.method == 'POST':
         form = InscripcionForm(request.POST)
@@ -32,7 +30,8 @@ def inscripcion_modal(request):
         form = InscripcionForm()
     return render(request, 'inscripcion/inscripcion_modal.html', {'form': form})
 
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("inscripcion.change_inscripcion", raise_exception=True)
 def edit_inscripcion(request, pk):
     instance = get_object_or_404(Inscripcion, pk=pk)
     if request.method == 'POST':
@@ -63,21 +62,24 @@ def edit_inscripcion(request, pk):
         'tipos_formacion': tipos_formacion
     })
 
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("inscripcion.change_inscripcion", raise_exception=True)
 def delete_inscripcion(request, pk):
     instance = get_object_or_404(Inscripcion, pk=pk)
     instance.is_active = False
     instance.save()
     return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
 
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("inscripcion.change_inscripcion", raise_exception=True)
 def reactivate_inscripcion(request, pk):
     instance = get_object_or_404(Inscripcion, pk=pk)
     instance.is_active = True
     instance.save()
     return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
 
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("inscripcion.view_inscripcion", raise_exception=True)
 def tabla_inscripciones(request):
     inscripciones = Inscripcion.objects.all()
     return render(request, 'inscripcion/tablaInscripciones.html', {'inscripciones': inscripciones})
@@ -108,13 +110,9 @@ def pages(request):
             context['tipos_formacion'] = tipos_formacion
         context["segment"] = load_template
 
-
-
         context["segment"] = load_template
         html_template = loader.get_template("inscripcion/" + load_template)
         return HttpResponse(html_template.render(context, request))
-
-
 
     except loader.TemplateDoesNotExist:
         html_template = loader.get_template("home/page-404.html")

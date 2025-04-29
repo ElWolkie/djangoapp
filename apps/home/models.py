@@ -1,6 +1,6 @@
 from django.db import models
 from django.utils import timezone # Para la fecha
-from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin, Group
 from apps.persona.models import Personas
 
 class UsuarioManager(BaseUserManager):
@@ -56,8 +56,24 @@ class Usuarios(AbstractBaseUser, PermissionsMixin):
     is_staff = models.BooleanField(default=False)  # Necesario para admin
     is_superuser = models.BooleanField(default=False)  # Necesario para permisos de superusuario
 
-    # class Meta:
-    #     db_table = 'usuarios'  # Esto forzará el nombre de tabla exacto
+    groups = models.ManyToManyField(
+        Group,
+        verbose_name="Grupos",
+        blank=True,
+        related_name="usuarios_grupos",
+        help_text="Grupos a los que pertenece el usuario.",
+    )
+    user_permissions = models.ManyToManyField(
+        "auth.Permission",
+        verbose_name="Permisos de usuario",
+        blank=True,
+        related_name="usuarios_set",
+        related_query_name="usuario",
+    )
+
+    @property
+    def eliminado(self):
+        return not self.is_active
 
     objects = UsuarioManager()
 
@@ -75,7 +91,6 @@ class TipoFormacion(models.Model):
     idTF = models.AutoField(primary_key=True)  # Clave primaria para TipoFormacion  
     nombreTipoFormacion = models.CharField(max_length=100)  # Nombre del TipoFormacion  
     estadoTipoFormacion = models.CharField(max_length=10)  # Estado del TipoFormacion  
-    cuotas= models.CharField(max_length=5) #Cantidad de Cuotas
     fechaTipoFormacion = models.DateField(auto_now_add=True)  # Fecha de creación del TipoFormacion  
     
 
@@ -88,6 +103,7 @@ class Formacion(models.Model):
     idFormacion = models.AutoField(primary_key=True)  # Clave primaria para Formacion  
     idTF = models.ForeignKey(TipoFormacion, on_delete=models.CASCADE, related_name='formaciones')  # Clave foránea a TipoFormacion  
     nombreFormacion = models.CharField(max_length=100)  # Nombre de la Formación  
+    valorFormacion = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Valor de la Formación")  # Valor de la Formación
     duracion = models.CharField(max_length=100)  # Duración de la Formación  
     estadoFormacion = models.CharField(max_length=10)  # Estado de la Formación  
     fechaFormacion = models.DateField(auto_now_add=True)  # Fecha de creación de la Formación  
