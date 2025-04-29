@@ -1,7 +1,7 @@
 from django.http import JsonResponse, HttpResponse, HttpResponseRedirect
 from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, permission_required
 from django.template import loader
 from django.urls import reverse
 from django.contrib import messages
@@ -10,14 +10,41 @@ from .models import Solicitud
 from apps.persona.models import Personas
 from apps.home.models import Tramite, Servicio
 
+#SOLICITUD
+@login_required(login_url='login')
+@permission_required("home.add_solicitud", raise_exception=True)
+def registrar_solicitud(request):
+    if request.method == 'POST':
+        form = SolicitudForm(request.POST)
+        if form.is_valid():
+            form.save()
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
+            messages.success(request, 'Registro exitoso.')
+            return redirect('tabla_solicitud')
+        else:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                errors = {field: error[0] for field, error in form.errors.items()}
+                return JsonResponse({'success': False, 'errors': errors})
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f"Error en el campo {field}: {error}")
+    
+    # Cargar datos para los dropdowns
+    tramites = Tramite.objects.all()
+    servicios = Servicio.objects.all()
+    personas = Personas.objects.all()
+    
+    return render(request, 'solicitud/solicitud.html', {
+        'form': SolicitudForm(),
+        'tramites': tramites,
+        'servicios': servicios,
+        'personas': personas,
+        'segment': 'solicitud'
+    })
 
-@csrf_exempt
-def tabla_solicitud(request):
-    solicitudes = Solicitud.objects.all()
-    return render(request, 'solicitud/tablaSolicitud.html', {'solicitudes': solicitudes})
-
-
-#Solicitud
+@login_required(login_url='login')
+@permission_required("home.change_solicitud", raise_exception=True)
 def edit_solicitud(request, pk):
     instance = get_object_or_404(Solicitud, pk=pk)
     if request.method == 'POST':
@@ -43,20 +70,27 @@ def edit_solicitud(request, pk):
         'personas': personas
     })
 
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("home.change_solicitud", raise_exception=True)
 def delete_solicitud(request, pk):
     instance = get_object_or_404(Solicitud, pk=pk)
     instance.estadoSolicitud = 'INACTIVO'
     instance.save()
     return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
 
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("home.change_solicitud", raise_exception=True)
 def reactivate_solicitud(request, pk):
     instance = get_object_or_404(Solicitud, pk=pk)
     instance.estadoSolicitud = 'ACTIVO'
     instance.save()
     return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
 
+@login_required(login_url='login')
+@permission_required("home.view_solicitud", raise_exception=True)
+def tabla_solicitud(request):
+    solicitudes = Solicitud.objects.all()
+    return render(request, 'solicitud/tablaSolicitud.html', {'solicitudes': solicitudes})
 
 
 @login_required(login_url="/login/")
@@ -67,27 +101,6 @@ def pages(request):
 
         if load_template == "admin":
             return HttpResponseRedirect(reverse("admin:index"))
-
-        # Handle POST requests for "solicitud.html"
-        if load_template == "solicitud.html" and request.method == 'POST':
-            form = SolicitudForm(request.POST)
-            if form.is_valid():
-                form.save()
-                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':  # AJAX request
-                    return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
-                messages.success(request, 'Registro exitoso.')
-                return redirect('solicitud.html')
-            else:
-                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':  # AJAX request
-                    errors = {field: error[0] for field, error in form.errors.items()}
-                    return JsonResponse({'success': False, 'errors': errors})
-                for field, errors in form.errors.items():
-                    for error in errors:
-                        messages.error(request, f"Error en el campo {field}: {error}")
-
-        # Load form for "solicitud.html"
-        if load_template == "solicitud.html":
-            context['form'] = SolicitudForm()
 
         # Load data for specific templates
         if load_template in ["solicitud.html", "solicitud2.html", "tablaSolicitud.html"]:

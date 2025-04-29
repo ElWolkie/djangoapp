@@ -40,9 +40,7 @@ INSTALLED_APPS = [
     "apps.honorario",  # Habilita la aplicación para gestionar honorario
     "apps.inscripcion",  # Habilita la aplicación para gestionar honorario
     "apps.solicitud",  # Habilita la aplicación para gestionar solicitud
-    # "apps.cargo",  # Habilita la aplicación para gestionar cargos
-    # "apps.cohorte",  # Habilita la aplicación para gestionar cohortes
-    # "apps.denominacion",  # Habilita la aplicación para gestionar denominaciones
+
 ]
 
 MIDDLEWARE = [
@@ -80,7 +78,7 @@ TEMPLATES = [
 WSGI_APPLICATION = "core.wsgi.application"
 
 STATIC_URL = '/static/'
-STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
+STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]  # Ruta a tu carpeta static
 
 #Media
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')

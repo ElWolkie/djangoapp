@@ -1,6 +1,6 @@
 from django.db import models
 from django.utils import timezone # Para la fecha
-from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin, Group
 from apps.persona.models import Personas
 
 class UsuarioManager(BaseUserManager):
@@ -56,8 +56,24 @@ class Usuarios(AbstractBaseUser, PermissionsMixin):
     is_staff = models.BooleanField(default=False)  # Necesario para admin
     is_superuser = models.BooleanField(default=False)  # Necesario para permisos de superusuario
 
-    # class Meta:
-    #     db_table = 'usuarios'  # Esto forzará el nombre de tabla exacto
+    groups = models.ManyToManyField(
+        Group,
+        verbose_name="Grupos",
+        blank=True,
+        related_name="usuarios_grupos",
+        help_text="Grupos a los que pertenece el usuario.",
+    )
+    user_permissions = models.ManyToManyField(
+        "auth.Permission",
+        verbose_name="Permisos de usuario",
+        blank=True,
+        related_name="usuarios_set",
+        related_query_name="usuario",
+    )
+
+    @property
+    def eliminado(self):
+        return not self.is_active
 
     objects = UsuarioManager()
 

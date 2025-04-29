@@ -3,21 +3,26 @@ from django.http import JsonResponse, HttpResponse, HttpResponseRedirect
 from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import render, redirect, get_object_or_404
 from django.template import loader
-from django.db.models import OuterRef, Subquery, Max, Count, Sum, F
+from django.db.models import OuterRef, Subquery, Max, Count, Sum, F, Q
 from django.urls import reverse
 from django.contrib import messages
-from django.utils import timezone # Importar timezone
+from django.utils import timezone
+from django.core.exceptions import PermissionDenied
 
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.hashers import make_password
 from django.db import IntegrityError
 
+from django.contrib.auth.decorators import permission_required
+from django.contrib.auth.models import Group
+from collections import defaultdict # Para agrupar
+
 from django.template.loader import render_to_string
 
 from django.db.models.functions import ExtractMonth
 
-from .forms import TipoFormacionForm, FormacionForm, MateriaForm, CohorteForm, CargoForm, RequisitoForm, ServicioForm, TramiteForm, DenominacionForm, BancoForm, MonedaForm, TasaForm, TipoMovimientoForm, MovimientoForm, ConfiguracionForm
+from .forms import AsignarGrupoForm, UsuarioForm, TipoFormacionForm, FormacionForm, MateriaForm, CohorteForm, CargoForm, RequisitoForm, ServicioForm, TramiteForm, DenominacionForm, BancoForm, MonedaForm, TasaForm, TipoMovimientoForm, MovimientoForm, ConfiguracionForm
 from .models import Personas, Usuarios, TipoFormacion, Formacion, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Denominacion, Banco, Moneda, Tasa, Movimiento, TipoMovimiento, Configuracion
 
 from apps.persona.models import PersonaTP, TipoPersona
@@ -27,6 +32,8 @@ from apps.solicitud.models import Solicitud
 
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
+
+from django.shortcuts import get_object_or_404
 
 # Vista única para el dashboard
 @login_required(login_url='login')
@@ -117,7 +124,7 @@ def es_superuser(user):
     return user.is_superuser
 
 @login_required(login_url='login')
-@user_passes_test(es_superuser)
+@permission_required("home.add_usuarios", login_url='page-403', raise_exception=True)
 def registrar_usuario(request):
     if request.method == 'POST':
         cedula = request.POST.get('cedula')
@@ -160,13 +167,213 @@ def registrar_usuario(request):
     
     return render(request, 'home/usuario.html')
 
+
+@permission_required("home.change_usuarios", raise_exception=True)
+def editar_usuario(request, pk):
+    usuario = get_object_or_404(Usuarios, pk=pk)
+    
+    if request.method == 'POST':
+        form = UsuarioForm(request.POST, instance=usuario)
+        
+        if form.is_valid():
+            usuario = form.save(commit=False)
+            
+            # Manejar campos booleanos
+            usuario.is_active = form.cleaned_data.get('is_active', False)
+            usuario.is_staff = form.cleaned_data.get('is_staff', False)
+            usuario.is_superuser = form.cleaned_data.get('is_superuser', False)
+
+            # Guardar cambios
+            usuario.save()  # Esto disparará la señal post_save
+            
+            # Manejar seguridad
+            nueva_pregunta = form.cleaned_data.get('nueva_pregunta')
+            nueva_respuesta = form.cleaned_data.get('nueva_respuesta')
+            if nueva_pregunta and nueva_respuesta:
+                usuario.preguntaSeguridad = nueva_pregunta
+                usuario.respuestaSeguridad = nueva_respuesta
+            
+            usuario.save()
+            
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Usuario actualizado exitosamente!'
+                })
+            return redirect('lista_usuarios')
+        else:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Error en el formulario',
+                    'errors': form.errors.get_json_data()
+                }, status=400)
+            return render(request, 'home/modales/editar_usuario.html', {
+                'form': form,
+                'usuario': usuario,
+            })
+    
+    else:
+        form = UsuarioForm(instance=usuario)
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            html = render_to_string('home/modales/editar_usuario.html', {
+                'form': form,
+                'usuario': usuario,
+            }, request=request)
+            return HttpResponse(html)
+        return render(request, 'home/modales/editar_usuario.html', {
+            'form': form,
+            'usuario': usuario,
+        })
+
+@login_required
+@permission_required('home.change_usuarios', raise_exception=True)
+def desactivar_usuario(request, pk):
+    usuario = get_object_or_404(Usuarios, pk=pk)
+    
+    if usuario.is_superuser and not request.user.is_superuser:
+        messages.error(request, "No tienes permiso para desactivar superusuarios")
+        return redirect('lista_usuarios')
+    
+    if request.method == 'POST':
+        usuario.is_active = False
+        usuario.save()
+        messages.success(request, f'✅ Usuario {usuario.idPersona.nombres} desactivado')
+        return redirect(request.POST.get('next', 'lista_usuarios'))
+
+@login_required
+@permission_required('home.delete_usuarios', raise_exception=True)
+def eliminar_usuario(request, pk):
+    usuario = get_object_or_404(Usuarios, pk=pk)
+    
+    if not request.user.is_superuser:
+        messages.error(request, "❌ Solo superusuarios pueden eliminar permanentemente")
+        return redirect('lista_usuarios')
+    
+    if request.method == 'POST':
+        nombre_completo = f"{usuario.idPersona.nombres} {usuario.idPersona.apellidos}"
+        usuario.delete()
+        messages.success(request, f'🗑️ Usuario {nombre_completo} eliminado permanentemente')
+        return redirect(request.POST.get('next', 'lista_usuarios'))
+
+
 @login_required(login_url='login')
+@permission_required("home.view_usuarios", login_url='page-403', raise_exception=True)
 def lista_usuarios(request):
-    # Trae todos los usuarios con su persona asociada en una sola consulta
-    usuarios = Usuarios.objects.select_related('idPersona').all()
+    mostrar_inactivos = request.GET.get('mostrar_inactivos', 'false') == 'true'
+    
     return render(request, 'home/tablaUsuario.html', {
-        'usuarios': usuarios
+        'usuarios': Usuarios.objects.select_related('idPersona')
+                                   .filter(is_active=True if not mostrar_inactivos else Q())
+                                   .order_by('-fechaUsuario'),
+        'mostrar_inactivos': mostrar_inactivos
     })
+
+# Vista para el Error 403
+def page_403(request):
+    return render(request, 'home/page-403.html')
+
+def verificar_cedula(request):
+    cedula = request.GET.get('cedula', '')
+    
+    # Asegurar respuesta consistente
+    try:
+        existe_persona = Personas.objects.filter(cedula=cedula).exists()
+        existe_usuario = Usuarios.objects.filter(idPersona__cedula=cedula).exists()
+        
+        return JsonResponse({
+            'existe_en_personas': existe_persona,
+            'existe_en_usuarios': existe_usuario
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'error': str(e)
+        }, status=500)
+
+@login_required(login_url='login')
+@permission_required("home.change_usuarios", raise_exception=True)
+def asignar_grupos(request, idUsuario):
+    usuario = get_object_or_404(Usuarios, pk=idUsuario) # Usa pk si es tu primary key
+    todos_los_grupos = Group.objects.all().order_by('name') # Ordenar ayuda
+
+    if request.method == "POST":
+        form = AsignarGrupoForm(request.POST, initial={"grupos": usuario.groups.all()}) # Pasa initial aquí también por si falla validación
+        if form.is_valid():
+            grupos_seleccionados = form.cleaned_data["grupos"]
+            usuario.groups.set(grupos_seleccionados)
+            messages.success(request, f"Permisos actualizados para {usuario.idPersona}.")
+            # ¿Redirigir a dónde? Quizás a la misma página o a la lista
+            # return redirect("lista_usuarios")
+            # Para AJAX, podrías devolver JSON:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                 return JsonResponse({'success': True, 'message': 'Permisos actualizados correctamente.'})
+            else:
+                 return redirect('lista_usuarios') # O la URL que prefieras
+        else:
+            messages.error(request, "Error al procesar el formulario.")
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                 # Devolver errores como JSON para AJAX
+                 errors = {field: err[0] for field, err in form.errors.items()}
+                 return JsonResponse({'success': False, 'errors': errors}, status=400)
+            # Si no es AJAX, se re-renderizará el template con el form que tiene errores
+    else: # GET
+        # Inicializa el form con los grupos que el usuario YA tiene seleccionados
+        form = AsignarGrupoForm(initial={"grupos": usuario.groups.all()})
+
+    # --- Lógica para Agrupar los Grupos para el Template ---
+    grupos_categorizados = defaultdict(lambda: {'total': None, 'acciones': []})
+    grupo_admin = None
+
+    # Define tus categorías y palabras clave (ajusta según tus nombres de grupo)
+    # El orden aquí determinará el orden en el template
+    categorias = {
+        'Bancos': 'Bancos - ',
+        'Usuarios': 'Usuarios - ',
+        'Reportes': 'Reportes - ',
+        # Añade más categorías y sus prefijos
+    }
+    admin_keyword = 'Administrador - Sistema' # Nombre exacto de tu grupo admin
+
+    for grupo in todos_los_grupos:
+        if grupo.name == admin_keyword:
+            grupo_admin = grupo
+            continue # Saltar el admin de la categorización normal
+
+        categorizado = False
+        for cat_nombre, cat_prefijo in categorias.items():
+            if grupo.name.startswith(cat_prefijo):
+                nombre_sin_prefijo = grupo.name.replace(cat_prefijo, '', 1)
+                if nombre_sin_prefijo == 'Gestión Total':
+                    grupos_categorizados[cat_nombre]['total'] = grupo
+                else:
+                    # Intentar extraer la acción (Visualizar, Registrar, etc.)
+                    accion = nombre_sin_prefijo
+                    grupos_categorizados[cat_nombre]['acciones'].append({'grupo': grupo, 'accion': accion})
+                categorizado = True
+                break # Pasar al siguiente grupo
+
+        if not categorizado:
+             # Grupos que no coinciden con ninguna categoría (opcionalmente mostrarlos aparte)
+             grupos_categorizados['Otros']['acciones'].append({'grupo': grupo, 'accion': grupo.name})
+
+    # Ordenar acciones dentro de cada categoría (opcional)
+    for cat in grupos_categorizados:
+        grupos_categorizados[cat]['acciones'].sort(key=lambda x: x['accion'])
+
+
+    context = {
+        "form": form, # El formulario sigue siendo necesario para la validación y renderizado de tags
+        "usuario": usuario,
+        "grupo_admin": grupo_admin, # Grupo admin separado
+        "grupos_categorizados": dict(grupos_categorizados), # Grupos organizados
+        "todos_los_grupos": todos_los_grupos, # Lista completa por si acaso
+    }
+    # Decide si renderizas una página completa o solo el contenido del modal
+    template_name = 'home/asignar_grupos.html' # Ajusta la ruta
+
+    return render(request, template_name, context)
+
 
 # PARA LA RECUPERACION DE CONTRASEÑA
 def recover_password(request):
@@ -260,9 +467,9 @@ def recover_password(request):
         context['show_recover_form'] = True # <-- Mostrar lado recover por defecto en GET
         return render(request, 'home/login.html', context)
 
-
+# FORMACION
 @login_required(login_url='login')
-@user_passes_test(es_superuser)
+@permission_required("home.add_formacion", raise_exception=True)
 def formacion_modal(request):
     if request.method == 'POST':
         form = FormacionForm(request.POST)
@@ -278,9 +485,8 @@ def formacion_modal(request):
         tipos_formacion = TipoFormacion.objects.all()  # Obtener los tipos de formación
     return render(request, 'home/formaciones.html', {'form': form, 'tipos_formacion': tipos_formacion})
 
-
 @login_required(login_url='login')
-@user_passes_test(es_superuser)
+@permission_required("home.change_formacion", raise_exception=True)
 def edit_formacion(request, pk):
     formacion = get_object_or_404(Formacion, pk=pk)
     if request.method == 'POST':
@@ -301,16 +507,15 @@ def edit_formacion(request, pk):
         })
 
 @login_required(login_url='login')
-@user_passes_test(es_superuser)
+@permission_required("home.change_formacion", raise_exception=True)
 def delete_formacion(request, pk):
     instance = get_object_or_404(Formacion, pk=pk)
     instance.estadoFormacion = 'INACTIVO'
     instance.save()
     return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
 
-
 @login_required(login_url='login')
-@user_passes_test(es_superuser)
+@permission_required("home.change_formacion", raise_exception=True)
 def reactivate_formacion(request, pk):
     instance = get_object_or_404(Formacion, pk=pk)
     instance.estadoFormacion = 'ACTIVO'
@@ -318,7 +523,7 @@ def reactivate_formacion(request, pk):
     return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
 
 @login_required(login_url='login')
-@user_passes_test(es_superuser)
+@permission_required("home.view_formacion", raise_exception=True)
 def tabla_formaciones(request):
     if request.user.is_superuser:
         formaciones = Formacion.objects.select_related('idTF').all().distinct  # Usar select_related para optimizar la consulta
@@ -326,8 +531,10 @@ def tabla_formaciones(request):
         formaciones = Formacion.objects.select_related('idTF').filter(estadoFormacion='ACTIVO').distinct  # Filtrar solo las activas
     return render(request, 'home/tablaFormaciones.html', {'formaciones': formaciones})
 
+
 # Tipo de formación
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("home.add_tipoformacion", raise_exception=True)
 def tipo_formacion_modal(request):
     if request.method == 'POST':
         form = TipoFormacionForm(request.POST)
@@ -341,7 +548,8 @@ def tipo_formacion_modal(request):
         form = TipoFormacionForm()
     return render(request, 'home/tipoFormacion.html', {'form': form})
 
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("home.change_tipoformacion", raise_exception=True)
 def edit_tipo_formacion(request, pk):
     instance = get_object_or_404(TipoFormacion, pk=pk)
     if request.method == 'POST':
@@ -356,29 +564,33 @@ def edit_tipo_formacion(request, pk):
         form = TipoFormacionForm(instance=instance)
     return render(request, 'home/modales/editTipoFormacion.html', {'form': form, 'tipoFormacion': instance})
 
-
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("home.change_tipoformacion", raise_exception=True)
 def delete_tipo_formacion(request, pk):
     instance = get_object_or_404(TipoFormacion, pk=pk)
     instance.estadoTipoFormacion = 'INACTIVO'
     instance.save()
     return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
 
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("home.change_tipoformacion", raise_exception=True)
 def reactivate_tipo_formacion(request, pk):
     instance = get_object_or_404(TipoFormacion, pk=pk)
     instance.estadoTipoFormacion = 'ACTIVO'
     instance.save()
     return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
 
+@login_required(login_url='login')
+@permission_required("home.view_tipoformacion", raise_exception=True)
 def tabla_tipo_formaciones(request):
     tipo_formaciones = TipoFormacion.objects.all()
 
     return render(request, 'home/tablaTipoFormaciones.html', {'tipo_formaciones': tipo_formaciones})
 
 
-#Materia
-@csrf_exempt
+#MATERIA
+@login_required(login_url='login')
+@permission_required("home.add_materia", raise_exception=True)
 def materia_modal(request):
     if request.method == 'POST':
         form = MateriaForm(request.POST)
@@ -392,7 +604,8 @@ def materia_modal(request):
         form = MateriaForm()
     return render(request, 'home/materia_modal.html', {'form': form})
 
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("home.change_materia", raise_exception=True)
 def edit_materias(request, pk):
     instance = get_object_or_404(Materia, pk=pk)
     if request.method == 'POST':
@@ -413,27 +626,33 @@ def edit_materias(request, pk):
         'materia': instance  
     })
 
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("home.change_materia", raise_exception=True)
 def delete_materias(request, pk):
     instance = get_object_or_404(Materia, pk=pk)
     instance.estadoMateria = 'INACTIVO'
     instance.save()
     return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
 
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("home.change_materia", raise_exception=True)
 def reactivate_materias(request, pk):
     instance = get_object_or_404(Materia, pk=pk)
     instance.estadoMateria = 'ACTIVO'
     instance.save()
     return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
 
+@login_required(login_url='login')
+@permission_required("home.view_materia", raise_exception=True)
 def tabla_materias(request):
     materias = Materia.objects.all()
 
     return render(request, 'home/tablaMaterias.html', {'materias': materias})
 
-#Cohorte
-@csrf_exempt
+
+#COHORTE
+@login_required(login_url='login')
+@permission_required("home.add_cohorte", raise_exception=True)
 def cohorte_modal(request):
     if request.method == 'POST':
         form = CohorteForm(request.POST)
@@ -447,8 +666,8 @@ def cohorte_modal(request):
         form = CohorteForm()
     return render(request, 'home/cohorte_modal.html', {'form': form})
 
-
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("home.change_cohorte", raise_exception=True)
 def edit_cohorte(request, pk):
     cohorte = get_object_or_404(Cohorte, pk=pk)
     if request.method == 'POST':
@@ -462,27 +681,31 @@ def edit_cohorte(request, pk):
         form = CohorteForm(instance=cohorte)
     return render(request, 'home/modales/editCohorte.html', {'form': form, 'cohorte':cohorte})
 
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("home.change_cohorte", raise_exception=True)
 def delete_cohorte(request, pk):
     instance = get_object_or_404(Cohorte, pk=pk)
     instance.estadoCohorte = 'INACTIVO'
     instance.save()
     return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
 
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("home.change_cohorte", raise_exception=True)
 def reactivate_cohorte(request, pk):
     instance = get_object_or_404(Cohorte, pk=pk)
     instance.estadoCohorte = 'ACTIVO'
     instance.save()
     return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
 
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("home.view_cohorte", raise_exception=True)
 def tabla_cohortes(request):
     cohortes = Cohorte.objects.all()
     return render(request, 'home/tablaCohortes.html', {'cohortes': cohortes})
 
-#Cargo
-@csrf_exempt
+#CARGO
+@login_required(login_url='login')
+@permission_required("home.add_cargo", raise_exception=True)
 def cargo_modal(request):
     if request.method == 'POST':
         form = CargoForm(request.POST)
@@ -496,7 +719,8 @@ def cargo_modal(request):
         form = CargoForm()
     return render(request, 'home/cargo_modal.html', {'form': form})
 
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("home.change_cargo", raise_exception=True)
 def edit_cargo(request, pk):
     cargo = get_object_or_404(Cargo, pk=pk)
     if request.method == 'POST':
@@ -510,28 +734,32 @@ def edit_cargo(request, pk):
         form = CargoForm(instance=cargo)
     return render(request, 'home/modales/editCargo.html', {'form': form, 'cargo':cargo})
 
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("home.change_cargo", raise_exception=True)
 def delete_cargo(request, pk):
     instance = get_object_or_404(Cargo, pk=pk)
     instance.estadoCargo = 'INACTIVO'
     instance.save()
     return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
 
-
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("home.change_cargo", raise_exception=True)
 def reactivate_cargo(request, pk):
     instance = get_object_or_404(Cargo, pk=pk)
     instance.estadoCargo = 'ACTIVO'
     instance.save()
     return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
 
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("home.view_cargo", raise_exception=True)
 def tabla_cargos(request):
     cargos = Cargo.objects.all()
     return render(request, 'home/tablaCargos.html', {'cargos': cargos})
 
-#Requisito
-@csrf_exempt
+
+#REQUISITO
+@login_required(login_url='login')
+@permission_required("home.add_requisito", raise_exception=True)
 def requisito_modal(request):
     if request.method == 'POST':
         form = RequisitoForm(request.POST)
@@ -546,7 +774,8 @@ def requisito_modal(request):
         form = RequisitoForm()
     return render(request, 'home/requisito_modal.html', {'form': form})
 
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("home.change_requisito", raise_exception=True)
 def edit_requisito(request, pk):
     requisito = get_object_or_404(Requisito, pk=pk)
     if request.method == 'POST':
@@ -560,29 +789,32 @@ def edit_requisito(request, pk):
         form = RequisitoForm(instance=requisito)
     return render(request, 'home/modales/editRequisito.html', {'form': form, 'requisito':requisito})
 
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("home.change_requisito", raise_exception=True)
 def delete_requisito(request, pk):
     instance = get_object_or_404(Requisito, pk=pk)
     instance.estadoRequisito = 'INACTIVO'
     instance.save()
     return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
 
-
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("home.change_requisito", raise_exception=True)
 def reactivate_requisito(request, pk):
     instance = get_object_or_404(Requisito, pk=pk)
     instance.estadoRequisito = 'ACTIVO'
     instance.save()
     return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
 
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("home.view_requisito", raise_exception=True)
 def tabla_requisitos(request):
     requisitos = Requisito.objects.all()
     return render(request, 'home/tablaRequisitos.html', {'requisitos': requisitos})
 
 
-#Servicio
-@csrf_exempt
+#SERVICIO
+@login_required(login_url='login')
+@permission_required("home.add_servicio", raise_exception=True)
 def servicio_modal(request):
     if request.method == 'POST':
         form = ServicioForm(request.POST)
@@ -597,7 +829,8 @@ def servicio_modal(request):
         form = ServicioForm()
     return render(request, 'home/servicio_modal.html', {'form': form})
 
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("home.change_servicio", raise_exception=True)
 def edit_servicio(request, pk):
     servicio = get_object_or_404(Servicio, pk=pk)
     if request.method == 'POST':
@@ -611,28 +844,32 @@ def edit_servicio(request, pk):
         form = ServicioForm(instance=servicio)
     return render(request, 'home/modales/editServicio.html', {'form': form, 'servicio':servicio})
 
-
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("home.change_servicio", raise_exception=True)
 def delete_servicio(request, pk):
     instance = get_object_or_404(Servicio, pk=pk)
     instance.estadoServicio = 'INACTIVO'
     instance.save()
     return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
 
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("home.change_servicio", raise_exception=True)
 def reactivate_servicio(request, pk):
     instance = get_object_or_404(Servicio, pk=pk)
     instance.estadoServicio = 'ACTIVO'
     instance.save()
     return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
 
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("home.view_servicio", raise_exception=True)
 def tabla_servicios(request):
     servicios = Servicio.objects.all()
     return render(request, 'home/tablaServicios.html', {'servicios': servicios})
 
-#Tramite
-@csrf_exempt
+
+#TRAMITE
+@login_required(login_url='login')
+@permission_required("home.add_tramite", raise_exception=True)
 def tramite_modal(request):
     if request.method == 'POST':
         form = TramiteForm(request.POST)
@@ -647,6 +884,8 @@ def tramite_modal(request):
         form = TramiteForm()
     return render(request, 'home/tramite_modal.html', {'form': form})
 
+@login_required(login_url='login')
+@permission_required("home.change_tramite", raise_exception=True)
 def edit_tramite(request, pk):
     tramite = get_object_or_404(Tramite, pk=pk)
     if request.method == 'POST':
@@ -660,27 +899,32 @@ def edit_tramite(request, pk):
         form = TramiteForm(instance=tramite)
     return render(request, 'home/modales/editTramite.html', {'form': form, 'tramite':tramite})
 
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("home.change_tramite", raise_exception=True)
 def delete_tramite(request, pk):
     instance = get_object_or_404(Tramite, pk=pk)
     instance.estadoTramite = 'INACTIVO'
     instance.save()
     return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
 
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("home.change_tramite", raise_exception=True)
 def reactivate_tramite(request, pk):
     instance = get_object_or_404(Tramite, pk=pk)
     instance.estadoTramite = 'ACTIVO'
     instance.save()
     return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
 
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("home.view_tramite", raise_exception=True)
 def tabla_tramites(request):
     servicios = Servicio.objects.all()
     return render(request, 'home/tablaTramites.html', {'servicios': servicios})
 
-#Denominacion
-@csrf_exempt
+
+#DENOMINACION
+@login_required(login_url='login')
+@permission_required("home.add_denominacion", raise_exception=True)
 def denominacion_modal(request):
     if request.method == 'POST':
         form = DenominacionForm(request.POST)
@@ -695,7 +939,8 @@ def denominacion_modal(request):
         form = DenominacionForm()
     return render(request, 'home/denominacion_modal.html', {'form': form})
 
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("home.change_denominacion", raise_exception=True)
 def edit_denominacion(request, pk):
     instance = get_object_or_404(Denominacion, pk=pk)
     if request.method == 'POST':
@@ -710,27 +955,33 @@ def edit_denominacion(request, pk):
         form = DenominacionForm(instance=instance)
     return render(request, 'home/modales/editDenominacion.html', {'form': form, 'denominacion': instance})
 
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("home.change_denominacion", raise_exception=True)
 def delete_denominacion(request, pk):
     instance = get_object_or_404(Denominacion, pk=pk)
     instance.estadoDenominacion = 'INACTIVO'
     instance.save()
     return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
 
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("home.change_denominacion", raise_exception=True)
 def reactivate_denominacion(request, pk):
     instance = get_object_or_404(Denominacion, pk=pk)
     instance.estadoDenominacion = 'ACTIVO'
     instance.save()
     return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
 
+@login_required(login_url='login')
+@permission_required("home.view_denominacion", raise_exception=True)
 def tabla_denominaciones(request):
     denominaciones = Banco.objects.all()
 
     return render(request, 'home/tablaDenominaciones.html', {'denominaciones': denominaciones})
 
-#Banco
-@csrf_exempt
+
+#BANCO
+@login_required(login_url='login')
+@permission_required("home.add_banco", raise_exception=True)
 def banco_modal(request):
     if request.method == 'POST':
         form = BancoForm(request.POST)
@@ -745,7 +996,8 @@ def banco_modal(request):
         form = BancoForm()
     return render(request, 'home/banco_modal.html', {'form': form})
 
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("home.change_banco", raise_exception=True)
 def edit_banco(request, pk):
     instance = get_object_or_404(Banco, pk=pk)
     if request.method == 'POST':
@@ -760,27 +1012,32 @@ def edit_banco(request, pk):
         form = BancoForm(instance=instance)
     return render(request, 'home/modales/editBanco.html', {'form': form, 'banco': instance})
 
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("home.change_banco", raise_exception=True)
 def delete_banco(request, pk):
     instance = get_object_or_404(Banco, pk=pk)
     instance.estadoBanco = 'INACTIVO'
     instance.save()
     return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
 
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("home.change_banco", raise_exception=True)
 def reactivate_banco(request, pk):
     instance = get_object_or_404(Banco, pk=pk)
     instance.estadoBanco = 'ACTIVO'
     instance.save()
     return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
 
+@login_required(login_url='login')
+@permission_required("home.view_banco", raise_exception=True)
 def tabla_bancos(request):
     bancos = Banco.objects.all()
-
     return render(request, 'home/tablaBancos.html', {'bancos': bancos})
 
-#Moneda
-@csrf_exempt
+
+#MONEDA
+@login_required(login_url='login')
+@permission_required("home.add_moneda", raise_exception=True)
 def moneda_modal(request):
     if request.method == 'POST':
         form = MonedaForm(request.POST)
@@ -798,7 +1055,8 @@ def moneda_modal(request):
         form = MonedaForm()
     return render(request, 'home/moneda.html', {'form': form})
 
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("home.change_moneda", raise_exception=True)
 def edit_moneda(request, pk):
     instance = get_object_or_404(Moneda, pk=pk)
     if request.method == 'POST':
@@ -813,27 +1071,32 @@ def edit_moneda(request, pk):
         form = MonedaForm(instance=instance)
     return render(request, 'home/modales/editMoneda.html', {'form': form, 'moneda': instance})
 
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("home.change_moneda", raise_exception=True)
 def delete_moneda(request, pk):
     instance = get_object_or_404(Moneda, pk=pk)
     instance.estadoMoneda = 'INACTIVO'
     instance.save()
     return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
 
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("home.change_moneda", raise_exception=True)
 def reactivate_moneda(request, pk):
     instance = get_object_or_404(Moneda, pk=pk)
     instance.estadoMoneda = 'ACTIVO'
     instance.save()
     return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
 
+@login_required(login_url='login')
+@permission_required("home.view_moneda", raise_exception=True)
 def tabla_monedas(request):
     monedas = Moneda.objects.all()
-
     return render(request, 'home/tablaMonedas.html', {'monedas': monedas})
 
-#Tasa
-@csrf_exempt
+
+#TASA
+@login_required(login_url='login')
+@permission_required("home.add_tasa", raise_exception=True)
 def tasa_modal(request):
     if request.method == 'POST':
         form = TasaForm(request.POST)
@@ -848,7 +1111,8 @@ def tasa_modal(request):
         form = TasaForm()
     return render(request, 'home/tasa_modal.html', {'form': form})
 
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("home.change_tasa", raise_exception=True)
 def edit_tasa(request, pk):
     instance = get_object_or_404(Tasa, pk=pk)
     if request.method == 'POST':
@@ -864,26 +1128,32 @@ def edit_tasa(request, pk):
         monedas = Moneda.objects.all()
     return render(request, 'home/modales/editTasa.html', {'form': form, 'tasa': instance,'monedas':monedas})
 
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("home.change_tasa", raise_exception=True)
 def delete_tasa(request, pk):
     instance = get_object_or_404(Tasa, pk=pk)
     instance.estadoTasa = 'INACTIVO'
     instance.save()
     return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
 
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("home.change_tasa", raise_exception=True)
 def reactivate_tasa(request, pk):
     instance = get_object_or_404(Tasa, pk=pk)
     instance.estadoTasa = 'ACTIVO'
     instance.save()
     return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
 
+@login_required(login_url='login')
+@permission_required("home.view_tasa", raise_exception=True)
 def tabla_tasas(request):
     tasas = Tasa.objects.all()
-
     return render(request, 'home/tablaTasas.html', {'tasas': tasas})
-#Tipo Movimiento
-@csrf_exempt
+
+
+#TIPO MOVIMIENTO
+@login_required(login_url='login')
+@permission_required("home.add_tipomovimiento", raise_exception=True)
 def tipoMovimiento_modal(request):
     if request.method == 'POST':
         form = TipoMovimientoForm(request.POST)
@@ -898,7 +1168,8 @@ def tipoMovimiento_modal(request):
         form = TipoMovimientoForm()
     return render(request, 'home/tipoMovimiento_modal.html', {'form': form})
 
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("home.change_tipomovimiento", raise_exception=True)
 def edit_tipoMovimiento(request, pk):
     instance = get_object_or_404(TipoMovimiento, pk=pk)
     if request.method == 'POST':
@@ -913,27 +1184,32 @@ def edit_tipoMovimiento(request, pk):
         form = TipoMovimientoForm(instance=instance)
     return render(request, 'home/modales/editTipoMovimiento.html', {'form': form, 'TipoMovimiento': instance})
 
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("home.change_tipomovimiento", raise_exception=True)
 def delete_tipoMovimiento(request, pk):
     instance = get_object_or_404(TipoMovimiento, pk=pk)
     instance.estadoTipoMovimiento = 'INACTIVO'
     instance.save()
     return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
 
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("home.change_tipomovimiento", raise_exception=True)
 def reactivate_tipoMovimiento(request, pk):
     instance = get_object_or_404(TipoMovimiento, pk=pk)
     instance.estadoTipoMovimiento = 'ACTIVO'
     instance.save()
     return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
 
+@login_required(login_url='login')
+@permission_required("home.view_tipomovimiento", raise_exception=True)
 def tabla_tipoMovimientos(request):
     TipoMovimiento = TipoMovimiento.objects.all()
-
     return render(request, 'home/tablaTipoMovimiento.html', {'TipoMovimiento': TipoMovimiento})
 
-#Movimientos
-@csrf_exempt
+
+#MOVIMIENTOS MIENTRAS TANTO TIPO MOVIMIENTOS
+@login_required(login_url='login')
+@permission_required("home.add_tipomovimiento", raise_exception=True)
 def movimiento_modal(request):
     if request.method == 'POST':
         form = MovimientoForm(request.POST)
@@ -950,7 +1226,8 @@ def movimiento_modal(request):
       
     return render(request, 'home/movimiento_modal.html')
 
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("home.change_tipomovimiento", raise_exception=True)
 def edit_movimiento(request, pk):
     movimiento = get_object_or_404(Movimiento, pk=pk)
     if request.method == 'POST':
@@ -986,14 +1263,17 @@ def edit_movimiento(request, pk):
             'monedas': monedas,
             'naturaleza': movimiento.naturaleza
         })
-@csrf_exempt
+
+@login_required(login_url='login')
+@permission_required("home.change_tipomovimiento", raise_exception=True)
 def delete_movimiento(request, pk):
     movimiento = get_object_or_404(Movimiento, pk=pk)
     movimiento.estadoMovimiento = 'INACTIVO'
     movimiento.save()
     return JsonResponse({'success': True, 'message': 'Movimiento desactivado'})
 
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("home.change_tipomovimiento", raise_exception=True)
 def reactivate_movimiento(request, pk):
     movimiento = get_object_or_404(Movimiento, pk=pk)
     movimiento.estadoMovimiento = 'ACTIVO'
@@ -1001,14 +1281,16 @@ def reactivate_movimiento(request, pk):
     return JsonResponse({'success': True, 'message': 'Movimiento reactivado'})
 
 
-#Fin 
-
+#FIN 
 
 @login_required(login_url="/login/")
 def index(request):
     context = {"segment": "index"}
 
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("home.add_configuracion", raise_exception=True)
+@permission_required("home.change_configuracion", raise_exception=True)
+@permission_required("home.view_configuracion", raise_exception=True)
 def configuracion(request):
     config_existente = Configuracion.objects.order_by('-fechaConfiguracion').first()
     monedas = Moneda.objects.filter(estadoMoneda='ACTIVO')
@@ -1038,11 +1320,10 @@ def configuracion(request):
     }
     return render(request, 'home/configuracion.html', context)
 
-def tabla_monedas(request):
-    monedas = Moneda.objects.all()
-    return render(request, 'home/tablaMonedas.html', {'monedas': monedas})
 
 # Vista para actualizar monedas desde la API
+@login_required(login_url='login')
+@permission_required("home.add_moneda", raise_exception=True)
 def actualizar_monedas_api(request):
     # Solo permitir método POST para esta acción que modifica datos
     if request.method != 'POST':
@@ -1115,11 +1396,9 @@ def actualizar_monedas_api(request):
     return redirect('tabla_monedas') # Redirige a la página de moneda
 
 
-def tabla_bancos(request):
-    bancos = Banco.objects.all()
-    return render(request, 'home/tablaBancos.html', {'bancos': bancos})
-
 # Vista para actualizar Bancos de Venezuela desde fuente externa
+@login_required(login_url='login')
+@permission_required("home.add_banco", raise_exception=True)
 def actualizar_bancos_api(request):
     # Solo permitir método POST
     if request.method != 'POST':
@@ -1196,7 +1475,7 @@ def actualizar_bancos_api(request):
     return redirect('tabla_bancos') # Redirige al banco
 
 
-
+#PAGES OTRAS
 def pages(request):
     context = {}
     try:

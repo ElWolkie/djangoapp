@@ -17,13 +17,16 @@ def tipo_persona_modal(request):
         form = TipoPersonaForm(request.POST)
         if form.is_valid():
             form.save()
-            return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
+            messages.success(request, "Tipo de persona registrado correctamente.")
+            return redirect('listado_tipos_persona')
         else:
-            errors = {field: error for field, error in form.errors.items()}
-            return JsonResponse({'success': False, 'errors': errors})
-    else:
-        form = TipoPersonaForm()
-    return render(request, '/persona/tipoPersona.html', {'form': form})
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'success': False, 'errors': form.errors})
+        # sólo renderizamos el formulario en GET o si hay errores no-AJAX
+    form = TipoPersonaForm()
+    return render(request, 'persona/tablaTipoPersona.html', {'form': form})
 
 @csrf_exempt
 def edit_persona(request, pk):
@@ -74,33 +77,67 @@ def reactivate_persona(request, pk):
     instance.save()
     return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
 
-@csrf_exempt
+@login_required(login_url='/login/')
+def registro_tipo_persona(request):
+    
+    form = TipoPersonaForm() # Crea una instancia vacía del formulario
+    return render(request, 'persona/tipoPersona.html', {'form': form})
+
+@login_required(login_url='/login/')
+def listado_tipos_persona(request):
+    # Leemos el parámetro ?mostrar_inactivos=true/false
+    mostrar = request.GET.get('mostrar_inactivos', 'false').lower() == 'true'
+
+    if mostrar:
+        tipopersonas = TipoPersona.objects.all().order_by('-fechaTP', 'nombreTP')
+    else:
+        tipopersonas = TipoPersona.objects.filter(
+            estadoTP__iexact='ACTIVO'
+        ).order_by('-fechaTP', 'nombreTP')
+
+    context = {
+        'tipopersonas': tipopersonas,
+        'mostrar_inactivos': mostrar
+    }
+    return render(request, 'persona/tablaTipoPersona.html', context)
+
+@login_required(login_url="/login/")
 def edit_tipo_persona(request, pk):
-    instance = get_object_or_404(TipoPersona, pk=pk)
+    tp = get_object_or_404(TipoPersona, pk=pk)
     if request.method == 'POST':
-        form = TipoPersonaForm(request.POST, instance=instance)
+        form = TipoPersonaForm(request.POST, instance=tp)
         if form.is_valid():
             form.save()
-            return JsonResponse({'success': True, 'message': 'Edición exitosa.'})  # Respuesta JSON
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'success': True, 'message': 'Edición exitosa.'})
+            messages.success(request, "Tipo de persona actualizado correctamente.")
+            return redirect('listado_tipos_persona')
         else:
-            errors = {field: error for field, error in form.errors.items()}
-            return JsonResponse({'success': False, 'errors': errors})  # Respuesta JSON con errores
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'success': False, 'errors': form.errors})
     else:
-        form = TipoPersonaForm(instance=instance)
-    return render(request, 'persona/editTipoPersona.html', {'form': form, 'tipopersona': instance})
-@csrf_exempt
-def delete_tipo_persona(request, pk):
-    instance = get_object_or_404(TipoPersona, pk=pk)
-    instance.estadoTP = 'INACTIVO'
-    instance.save()
-    return JsonResponse({'success': True, 'message': 'Eliminación exitosa.'})
+        form = TipoPersonaForm(instance=tp)
+    return render(request, 'persona/editTipoPersona.html', {'form': form, 'tipopersona': tp})
 
-@csrf_exempt
+@login_required(login_url="/login/")
+def delete_tipo_persona(request, pk):
+    tp = get_object_or_404(TipoPersona, pk=pk)
+    tp.estadoTP = 'INACTIVO'
+    tp.save()
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return JsonResponse({'success': True})
+    messages.warning(request)
+    return redirect('listado_tipos_persona')
+
+@login_required(login_url="/login/")
 def reactivate_tipo_persona(request, pk):
-    instance = get_object_or_404(TipoPersona, pk=pk)
-    instance.estadoTP = 'ACTIVO'
-    instance.save()
-    return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
+    tp = get_object_or_404(TipoPersona, pk=pk)
+    tp.estadoTP = 'ACTIVO'
+    tp.save()
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return JsonResponse({'success': True})
+    messages.success(request)
+    return redirect('listado_tipos_persona')
 
 @login_required(login_url="/login/")
 def solicitud_view(request):

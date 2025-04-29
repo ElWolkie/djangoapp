@@ -10,7 +10,7 @@
   <!-- Favicon - loaded as static -->
   <link rel="icon" href="/static/assets/img/brand/logoUptyab.jpg" type="image/png" />
   <!-- Fonts -->
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans:300,400,600,700">
+  <link rel="stylesheet" href="/static/assets/css/google-apis-fonts.css" type="text/css">
   <!-- Icons -->
   <link rel="stylesheet" href="/static/assets/vendor/nucleo/css/nucleo.css" type="text/css">
   <link rel="stylesheet" href="/static/assets/vendor/@fortawesome/fontawesome-free/css/all.min.css" type="text/css">
@@ -40,10 +40,11 @@
   {% include "includes/scripts.html" %}
 
   <!-- Specific JS goes HERE --> 
-  {% block javascripts %}{% endblock javascripts %}
-
+  {% block javascripts %}
+  <script src="/static/assets/js/jquery-3.6.0.min.js"></script>
+  <script src="/static/assets/js/bootstrap.bundle.min.js"></script>
   <script src="/static/assets/js/argon.js?v=1.2.0"></script>
-
+{% endblock javascripts %}
 </body>
 
 </html>

@@ -37,6 +37,11 @@ $ # python manage.py runserver 0.0.0.0:<your_port>
 $
 $ # Access the web app in browser: http://127.0.0.1:8000/
 # python manage.py show_urls  | grep "/api/"  LISTAR LOS ENDPOINTS DE LA API
+
+# CREA LOS GRUPOS EN RAIZ PROYECTO
+# python manage.py dumpdata auth.Group --indent 2 > grupos.json
+# CARGAR GRUPOS EN BD
+# python manage.py loaddata grupos.json
 ```
 
 > Note: Para usar esta aplicación es necesario tener un usuario autenticado para acceder a las pantallas.

@@ -1,104 +1,229 @@
 {% extends 'layouts/base.html' %}
+{% load static %}
 
-{% block title %}Listado de Personas{% endblock title %}
+{% block title %}Listado de Tipos de Personas{% endblock title %}
 
 {% block stylesheets %}
 <link rel="stylesheet" href="/static/assets/css/styleForms.css" />
 <link rel="stylesheet" href="/static/assets/css/argon.css" />
+<style>
+  /* Botones personalizados */
+  .btn-purple {
+    background-color: #6f42c1 !important;
+    color: white !important;
+    border-color: #6f42c1 !important;
+  }
+  .btn-purple:hover {
+    background-color: #5a32a3 !important;
+    border-color: #5a32a3 !important;
+  }
+  .actions-column .btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+    transition: all 0.3s ease;
+  }
+  .badge {
+    font-size: 0.85em;
+    padding: 0.5em 0.75em;
+  }
+  .modal.fade.show {
+    display: block !important;
+    background-color: rgba(0,0,0,0.5);
+  }
+</style>
 {% endblock stylesheets %}
 
 {% block content %}
-<div class="container mt-5">
-  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Lista de Tipos Personas Registradas</h2>
+<div class="container mt-4">
+  <h2 class="text-center mb-4">Lista de Tipos de Personas Registradas</h2>
 
-  {% if messages %}
-    {% for message in messages %}
-      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-        {{ message }}
-      </div>
-    {% endfor %}
-  {% endif %}
-
-  <div class="row">
+  <div class="row mb-3">
     <div class="col-md-4">
       <div class="input-group">
-        <div class="input-group-prepend">
-          <span class="input-group-text" style="background-color: #bcbcbc; border: none;">
-            <i class="fas fa-search text-warning"></i>
-          </span>
-        </div>
-        <input class="form-control" id="searchInput" type="text" placeholder="Buscar..." onkeyup="filterTable()">
+        <span class="input-group-text"><i class="fas fa-search"></i></span>
+        <input class="form-control" id="searchInput" type="text" placeholder="Buscar por ID o Nombre..." onkeyup="filterTable()">
       </div>
     </div>
-    <div class="col-md-4">
-      <button class="btn btn-warning btn-square btn-sm my-2" type="button" title="Registrar Tipo de Persona" data-toggle="modal" data-target="#tipoPersonaModal">+</button>
+    <div class="col-md-8 text-end">
+      <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#tipoPersonaModal">
+        <i class="fas fa-plus me-1"></i> Registrar Tipo
+      </button>
     </div>
   </div>
 
-  <br>
-  <table class="table table-striped text-gray-dark" id="personasTable">
-    <thead class="text-darker">
-      <tr>
-        <th scope="col">ID</th>
-        <th scope="col">Nombre</th>
-        <th scope="col">Estado</th>
-        <th scope="col">Fecha</th>
-        <th scope="col">Acciones</th>
-      </tr>
-    </thead>
-    <tbody>
-      <!-- Contenido de la tabla -->
-        {% for tipopersona in tipopersonas %}
-        <tr>
-          <td>{{ tipopersona.idTP }}</td>
-          <td>{{ tipopersona.nombreTP }}</td>
-          <td>{{ tipopersona.estadoTP }}</td>
-          <td>{{ tipopersona.fechaTP }}</td>
-          <td>
-            <button class="btn btn-sm btn-primary" data-toggle="modal" data-target="#editTipoPersonaModal" data-id="{{tipopersona.idTP }}">Editar</button>
-             
-            {% if tipopersona.estadoTP == "ACTIVO" %}
-            <button class="btn btn-sm btn-danger" onclick="manageTipoPersona('{{ tipopersona.idTP }}', 'delete')">Eliminar</button>       
-              
-            {% else %}
-              <button 
-                class="btn btn-sm btn-success" 
-                onclick="manageTipoPersona('{{ tipopersona.idTP }}', 'reactivate')">Reactivar</button>
-            {% endif %}
-          </td>
-        </tr>
+  <!-- FILTRO PARA MOSTRAR/OCULTAR INACTIVOS -->
+  <div class="mb-3">
+    <a href="?mostrar_inactivos={% if mostrar_inactivos %}false{% else %}true{% endif %}"
+       class="btn btn-outline-secondary btn-sm">
+      {% if mostrar_inactivos %}
+        <i class="fas fa-eye-slash me-1"></i> Ocultar inactivos
+      {% else %}
+        <i class="fas fa-eye me-1"></i> Mostrar inactivos
+      {% endif %}
+    </a>
+  </div>
+  <div id="globalMessages" data-dismiss="alert" aria-label="Close">
+    {% if messages %}
+        {% for message in messages %}
+          <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
         {% endfor %}
-    </tbody>
-  </table>
+    {% endif %}
+  </div>
+  <div class="card shadow-sm">
+    <div class="table-responsive">
+      <table class="table table-striped table-hover align-middle text-gray-dark" id="personasTable">
+        <thead class="table-light">
+          <tr>
+            <th>ID</th>
+            <th>Nombre</th>
+            <th>Fecha</th>
+            <th>Estado</th>
+            <th class="actions-column">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for tipopersona in tipopersonas %}
+          <tr>
+            <td>{{ tipopersona.idTP }}</td>
+            <td>{{ tipopersona.nombreTP }}</td>
+            <td>{{ tipopersona.fechaTP|date:"d/m/Y" }}</td>
+            <td>
+              {% if tipopersona.estadoTP|upper == "ACTIVO" %}
+                <span class="badge bg-success text-white">
+                  <i class="fas fa-check-circle me-1"></i> Activo
+                </span>
+              {% else %}
+                <span class="badge bg-danger text-white">
+                  <i class="fas fa-times-circle me-1"></i> Inactivo
+                </span>
+              {% endif %}
+            </td>
+            <td class="actions-column">
+              <div class="d-flex gap-2">
+                {% if perms.persona.change_tipopersona %}
+                  {% if tipopersona.estadoTP|upper == "ACTIVO" %}
+                    <!-- EDITAR -->
+                    <button class="btn btn-primary btn-sm"
+                            data-bs-toggle="modal"
+                            data-bs-target="#editTipoPersonaModal"
+                            data-id="{{ tipopersona.idTP }}"
+                            title="Editar tipo">
+                      <i class="fas fa-edit"></i>
+                    </button>
+                    <!-- INHABILITAR (ELIMINAR LÓGICO) -->
+                    <button class="btn btn-warning btn-sm"
+                            data-bs-toggle="modal"
+                            data-bs-target="#deleteTipoPersonaModal"
+                            data-url="{% url 'delete_tipo_persona' tipopersona.idTP %}"
+                            title="Inhabilitar tipo">
+                      <i class="fas fa-user-slash"></i>
+                    </button>
+                  {% else %}
+                    <!-- REACTIVAR -->
+                    <button class="btn btn-success btn-sm"
+                            data-bs-toggle="modal"
+                            data-bs-target="#reactivateTipoPersonaModal"
+                            data-url="{% url 'reactivate_tipo_persona' tipopersona.idTP %}"
+                            title="Reactivar tipo">
+                      <i class="fas fa-redo"></i>
+                    </button>
+                  {% endif %}
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="5" class="text-center py-4">No hay tipos de personas registradas.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
 </div>
-<!-- Modal -->
-<div class="modal fade" id="tipoPersonaModal" tabindex="-1" role="dialog" aria-labelledby="tipoPersonaModalLabel" aria-hidden="true">
-  <div class="modal-dialog" role="document">
+
+<!-- Modal: Registrar Tipo -->
+<div class="modal fade" id="tipoPersonaModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
     <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="tipoPersonaModalLabel">Registro de Persona</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title text-white"><i class="fas fa-plus-circle me-2"></i> Tipo de Persona</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position: absolute; top: .75rem; right: .75rem;">
+          <i class="fas fa-times"></i>
         </button>
       </div>
-      <div class="modal-body">
-        <!-- Contenedor para los mensajes -->
-        <div id="modalMessages"></div>
-        <!-- El contenido del formulario se cargará aquí -->
+      <div class="modal-body" id="registrarTipoPersonaContent">
+          <div class="text-center py-4">
+              <p class="text-muted">Cargando formulario...</p>
+          </div>
       </div>
     </div>
   </div>
 </div>
-<!-- Modal para edición -->
-<div class="modal fade" id="editTipoPersonaModal" tabindex="-1" role="dialog">
+
+<div class="modal fade" id="editTipoPersonaModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title text-white"><i class="fas fa-edit me-2"></i> Tipo de Persona</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position: absolute; top: .75rem; right: .75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body" id="editTipoPersonaContent">
+        <div class="text-center py-4">
+              <p class="text-muted">Cargando formulario...</p>
+          </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Inhabilitar Tipo -->
+<div class="modal fade" id="deleteTipoPersonaModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Editar Tipo de Persona</h5>
-        <button type="button" class="close" data-dismiss="modal">&times;</button>
+      <div class="modal-header bg-warning text-dark">
+        <h5 class="modal-title"><i class="fas fa-user-slash me-2"></i> Confirmar Inhabilitación</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
-      <div class="modal-body" id="editTipoPersonaContent"> <!-- Contenedor específico -->
-        <!-- El formulario se cargará aquí -->
+      <div class="modal-body">
+        <p>¿Estás seguro de inhabilitar este tipo de persona? Esta acción no eliminará los datos.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <form id="deleteTipoPersonaForm" method="post" action="">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-warning">Inhabilitar</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Reactivar Tipo -->
+<div class="modal fade" id="reactivateTipoPersonaModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title"><i class="fas fa-redo me-2"></i> Confirmar Reactivación</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p>¿Deseas reactivar este tipo de persona?</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <form id="reactivateTipoPersonaForm" method="post" action="">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-success">Reactivar</button>
+        </form>
       </div>
     </div>
   </div>
@@ -106,146 +231,194 @@
 {% endblock content %}
 
 {% block javascripts %}
-<script src="/static/assets/js/validacionesPersona.js"></script>
+<script src="/static/assets/js/jquery-3.6.0.min.js"></script>
+<script src="/static/assets/js/bootstrap.bundle.min.js"></script>
+
 <script>
   document.addEventListener("DOMContentLoaded", function() {
-    $('#tipoPersonaModal').on('show.bs.modal', function (e) {
-      var modal = $(this);
-      $.ajax({
-        url: 'apps/persona/tipoPersona.html',
-        method: 'GET',
-        success: function(data) {
-          modal.find('.modal-body').html(data);
-        }
-      });
-    });
 
-  // Manejar apertura del modal de edición
-  $('#editTipoPersonaModal').on('show.bs.modal', function (e) {
-      const idTP = $(e.relatedTarget).data('id');
-      // Usar la URL de Django con el ID dinámico
-      const url = "{% url 'edit_tipo_persona' 0 %}".replace('0', idTP);
-      
-      $.ajax({
-        url: url,
-        method: 'GET',
-        success: function(data) {
-          $('#editTipoPersonaContent').html(data);
-        },
-        error: function(xhr, status, error) {
-          console.error("Error:", error);
-          alert("Error al cargar el formulario. Consulte la consola para más detalles.");
-        }
-      });
-    });
-  
-    $(document).on('submit', '#registroForm', function(e) {
-      e.preventDefault();
-      var form = $(this);
-      $.ajax({
-        url: form.attr('action'),
-        method: form.attr('method'),
-        data: form.serialize(),
-        success: function(response) {
-          var messagesContainer = $('#modalMessages');
-          messagesContainer.empty();
-          if (response.success) {
-            messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
-            $('#tipoPersonaModal').modal('hide');
-            location.reload();  // Recargar la página para ver los cambios
-          } else {
-            // Mostrar errores en el modal
-            var errors = response.errors;
-            for (var field in errors) {
-              messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + errors[field] + '</div>');
-            }
-          }
-        }
-      });
-    });
-  });
-  const form = document.getElementById("editTipoPersonaForm");
-    
-    form.addEventListener("submit", function(e) {
-      e.preventDefault(); // Evita el envío tradicional
-      
-      const formData = new FormData(form);
-      const url = form.getAttribute("action");
-      
-      fetch(url, {
-        method: "POST",
-        body: formData,
-        headers: {
-          "X-CSRFToken": "{{ csrf_token }}", // Asegura el CSRF
-          "X-Requested-With": "XMLHttpRequest" // Identifica como AJAX
-        }
-      })
-      .then(response => response.json())
-      .then(data => {
-        if (data.success) {
-          // Recarga la página tras 1 segundo (opcional)
-          setTimeout(() => {
-            window.location.reload(); 
-          }, 1000);
-        } else {
-          alert("Error: " + JSON.stringify(data.errors));
-        }
-      })
-      .catch(error => {
-        console.error("Error:", error);
-        alert("Error al guardar. Consola para detalles.");
+    // --- Selectores de Modales y Contenido ---
+    const registrarModalEl = document.getElementById('tipoPersonaModal');
+    const editarModalEl = document.getElementById('editTipoPersonaModal');
+    const registrarContentEl = document.getElementById('registrarTipoPersonaContent');
+    const editarContentEl = document.getElementById('editTipoPersonaContent');
+
+    const loadingSpinnerHtml = `
+        <div class="d-flex justify-content-center align-items-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+        </div>`;
+
+    // --- Carga de Contenido para Modal REGISTRAR ---
+    if (registrarModalEl) {
+      registrarModalEl.addEventListener('show.bs.modal', function () {
+          const $contentArea = $(registrarContentEl);
+          $contentArea.html(loadingSpinnerHtml);
+
+          console.log("Cargando contenido para registrar...");
+          // **** CORRECCIÓN AQUÍ ****
+          // Usa la URL de la vista que renderiza el formulario
+          $.get("{% url 'registro_tipo_persona' %}")
+              .done(function(data) {
+                  console.log("Contenido registrar cargado.");
+                  $contentArea.html(data);
+              })
+              .fail(function(jqXHR, textStatus, errorThrown) {
+                  console.error("Error cargando modal registrar:", textStatus, errorThrown);
+                  $contentArea.html(`<div class="alert alert-danger">Error al cargar el formulario: ${errorThrown || textStatus}</div>`);
+              });
       });
 
-    });
-
-
-  // Función para eliminar/reactivar
-  function manageTipoPersona(idTP, action) {
-    const confirmMsg = action === 'delete' 
-      ? "¿Eliminar este tipo de persona?" 
-      : "¿Reactivar este tipo de persona?";
-    
-    if (confirm(confirmMsg)) {
-      const url = action === 'delete' 
-        ? "{% url 'delete_tipo_persona' 0 %}".replace('0', idTP)
-        : "{% url 'reactivate_tipo_persona' 0 %}".replace('0', idTP);
-      
-      const csrftoken = $('[name=csrfmiddlewaretoken]').val();
-
-      $.ajax({
-        url: url,
-        method: 'POST',
-        headers: { 'X-CSRFToken': csrftoken },
-        success: function() {
-          location.reload(); // Recarga la página
-        },
-        error: function() {
-          alert("Error en la operación");
-        }
-      });
-    }
-  }
-</script>
-<script>
-  function filterTable() {
-    var input, filter, table, tr, td, i, j, txtValue;
-    input = document.getElementById("searchInput");
-    filter = input.value.toUpperCase();
-    table = document.getElementById("personasTable");
-    tr = table.getElementsByTagName("tr");
-    for (i = 1; i < tr.length; i++) {
-      tr[i].style.display = "none";
-      td = tr[i].getElementsByTagName("td");
-      for (j = 0; j < td.length; j++) {
-        if (td[j]) {
-          txtValue = td[j].textContent || td[j].innerText;
-          if (txtValue.toUpperCase().indexOf(filter) > -1) {
-            tr[i].style.display = "";
-            break;
-          }
-        }
+          registrarModalEl.addEventListener('hidden.bs.modal', function () {
+              console.log("Limpiando contenido modal registrar.");
+              if (registrarContentEl) {
+                  registrarContentEl.innerHTML = '';
+              }
+          });
       }
+
+    // --- Carga de Contenido para Modal EDITAR ---
+     if (editarModalEl) {
+        editarModalEl.addEventListener('show.bs.modal', function (e) {
+            const triggerButton = e.relatedTarget; // Botón que abrió el modal
+            const idTP = triggerButton ? $(triggerButton).data('id') : null; // Obtener ID desde data-id
+
+            if (!idTP) {
+                console.error("No se pudo obtener el ID para editar.");
+                 $(editarContentEl).html('<div class="alert alert-danger">Error: No se especificó el ID del tipo de persona a editar.</div>');
+                return; // Detener si no hay ID
+            }
+
+            const url = "{% url 'edit_tipo_persona' 0 %}".replace('0', idTP);
+            const $contentArea = $(editarContentEl);
+
+             // Mostrar spinner inmediatamente
+            $contentArea.html(loadingSpinnerHtml);
+            console.log(`Cargando contenido para editar ID: ${idTP}, URL: ${url}`);
+
+            $.get(url)
+                 .done(function(data) {
+                    console.log("Contenido editar cargado.");
+                    $contentArea.html(data);
+                     // Aquí podrías inicializar listeners específicos del form de edición si es necesario
+                })
+                .fail(function(jqXHR, textStatus, errorThrown) {
+                    console.error("Error cargando modal editar:", textStatus, errorThrown);
+                    $contentArea.html(`<div class="alert alert-danger">Error al cargar el formulario (${jqXHR.status}): ${errorThrown || textStatus}</div>`);
+                });
+        });
+
+         // **** LIMPIAR CONTENIDO AL CERRAR ****
+        editarModalEl.addEventListener('hidden.bs.modal', function () {
+             console.log("Limpiando contenido modal editar.");
+            if (editarContentEl) {
+                editarContentEl.innerHTML = ''; // Vaciar el contenido
+            }
+        });
     }
-  }
+
+    // --- Lógica de Modales Inhabilitar/Reactivar (sin cambios necesarios aquí) ---
+    var delModalEl = document.getElementById('deleteTipoPersonaModal');
+    if (delModalEl) {
+        delModalEl.addEventListener('show.bs.modal', function(e) {
+            const triggerButton = e.relatedTarget;
+            const url = triggerButton ? triggerButton.getAttribute('data-url') : null;
+            const form = document.getElementById('deleteTipoPersonaForm');
+            if (form && url) {
+                form.action = url;
+            } else {
+                 console.error("No se pudo configurar la acción del formulario de eliminación.");
+            }
+        });
+    }
+
+    var actModalEl = document.getElementById('reactivateTipoPersonaModal');
+     if (actModalEl) {
+        actModalEl.addEventListener('show.bs.modal', function(e) {
+            const triggerButton = e.relatedTarget;
+            const url = triggerButton ? triggerButton.getAttribute('data-url') : null;
+             const form = document.getElementById('reactivateTipoPersonaForm');
+            if (form && url) {
+                 form.action = url;
+            } else {
+                 console.error("No se pudo configurar la acción del formulario de reactivación.");
+            }
+        });
+    }
+
+    // --- Intercepción de Forms Inhabilitar/Reactivar (sin cambios necesarios aquí) ---
+    $('#deleteTipoPersonaForm').on('submit', function(e) {
+        e.preventDefault();
+        const form = $(this);
+        const url = form.attr('action');
+        const csrfToken = form.find('[name=csrfmiddlewaretoken]').val() || $('[name=csrfmiddlewaretoken]').first().val(); // Buscar token
+
+        // Simple validación
+        if (!url) { console.error("URL de eliminación no definida."); return; }
+
+        $.post(url, { 'csrfmiddlewaretoken': csrfToken })
+         .done(function(data) {
+            if (data.success) {
+                const modalInstance = bootstrap.Modal.getInstance(delModalEl);
+                if(modalInstance) modalInstance.hide();
+                // Considerar mostrar mensaje en un área persistente si existe
+                setTimeout(() => location.reload(), 800);
+            } else {
+                 alert(data.message || "Error al inhabilitar.");
+            }
+         })
+         .fail(function(jqXHR, status, error) {
+             console.error("Error AJAX al inhabilitar:", status, error);
+             alert(`Error al inhabilitar (${status}): ${error}`);
+         });
+    });
+
+    $('#reactivateTipoPersonaForm').on('submit', function(e) {
+         e.preventDefault();
+        const form = $(this);
+        const url = form.attr('action');
+        const csrfToken = form.find('[name=csrfmiddlewaretoken]').val() || $('[name=csrfmiddlewaretoken]').first().val();
+
+         if (!url) { console.error("URL de reactivación no definida."); return; }
+
+        $.post(url, { 'csrfmiddlewaretoken': csrfToken })
+          .done(function(data) {
+            if (data.success) {
+                const modalInstance = bootstrap.Modal.getInstance(actModalEl);
+                if(modalInstance) modalInstance.hide();
+                setTimeout(() => location.reload(), 800);
+            } else {
+                 alert(data.message || "Error al reactivar.");
+            }
+         })
+         .fail(function(jqXHR, status, error) {
+             console.error("Error AJAX al reactivar:", status, error);
+             alert(`Error al reactivar (${status}): ${error}`);
+         });
+    });
+
+    // --- Filtrado de Tabla (sin cambios necesarios aquí) ---
+    const searchInput = document.getElementById('searchInput');
+    const tableBody = document.querySelector('#personasTable tbody'); // Asumiendo ID de tabla
+
+    if (searchInput && tableBody) {
+         searchInput.addEventListener('keyup', function() {
+             const filter = searchInput.value.toUpperCase();
+             const rows = tableBody.querySelectorAll('tr');
+             rows.forEach(function(row) {
+                 const cells = row.querySelectorAll('td');
+                 let match = false;
+                 cells.forEach(function(cell) {
+                     if (cell.textContent.toUpperCase().indexOf(filter) > -1) {
+                         match = true;
+                     }
+                 });
+                 row.style.display = match ? '' : 'none';
+             });
+         });
+     }
+
+});
 </script>
 {% endblock javascripts %}
