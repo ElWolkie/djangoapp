@@ -14,13 +14,24 @@ from django.contrib.auth.hashers import make_password
 from django.db import IntegrityError
 
 from django.template.loader import render_to_string
-
+#Libreria para PDF
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter, landscape
+from reportlab.lib import colors
+from reportlab.platypus import Table, TableStyle
+from reportlab.lib.units import inch
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+import os
+#
 from django.db.models.functions import ExtractMonth
 
 from .forms import TipoFormacionForm, FormacionForm, MateriaForm, CohorteForm, CargoForm, RequisitoForm, ServicioForm, TramiteForm, DenominacionForm, BancoForm, MonedaForm, TasaForm, TipoMovimientoForm, MovimientoForm, ConfiguracionForm
 from .models import Personas, Usuarios, TipoFormacion, Formacion, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Denominacion, Banco, Moneda, Tasa, Movimiento, TipoMovimiento, Configuracion
 
 from apps.persona.models import PersonaTP, TipoPersona
+from .forms import TipoFormacionForm, FormacionForm, MateriaForm, CohorteForm, CargoForm, RequisitoForm, ServicioForm, TramiteForm, DenominacionForm, BancoForm, MonedaForm, TasaForm, TipoMovimientoForm, MovimientoForm
+from .models import  TipoFormacion, Formacion, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Denominacion, Banco, Moneda, Tasa,Movimiento, TipoMovimiento
+from apps.persona.models import Personas, PersonaTP, TipoPersona
 from apps.persona.forms import TipoPersonaForm, PersonaForm
 from apps.honorario.models import Honorario
 from apps.solicitud.models import Solicitud
@@ -529,6 +540,90 @@ def reactivate_cargo(request, pk):
 def tabla_cargos(request):
     cargos = Cargo.objects.all()
     return render(request, 'home/tablaCargos.html', {'cargos': cargos})
+
+@csrf_exempt
+def reporte_cargos_pdf(request):
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="reporte_cargos.pdf"'
+
+    p = canvas.Canvas(response, pagesize=letter)
+    width, height = letter
+    logo_width = 100
+    logo_height = 170
+    logo_margin = 15
+    
+
+    # Obtener configuración institucional
+    config = Configuracion.objects.order_by('-fechaConfiguracion').first()
+    logo_path = config.logo.path if config and config.logo else None
+    firma_path = config.firma.path if config and config.firma else None
+    nombre_institucion = config.nombreInstitucion if config else "Institución"
+    rif_institucion = config.rif if config else ""
+
+    # --- Encabezado: Logo y nombre ---
+    if logo_path and os.path.exists(logo_path):
+        # Ajusta ancho/alto según tu logo
+     p.drawImage(logo_path, width - logo_width - logo_margin,  # X: margen derecho
+        height - logo_height - logo_margin,  # Y: margen superior
+        width=logo_width,
+        height=logo_height, 
+        preserveAspectRatio=True, mask='auto')
+     
+     safe_right = width - logo_width - logo_margin - 10  # 10px extra de separación
+     safe_left = logo_margin + logo_margin
+     safe_width = safe_right - safe_left
+     safe_center = safe_left + safe_width / 2
+       
+    text_top = height - logo_margin - 60
+
+    p.setFont("Helvetica-Bold", 12)
+    p.drawCentredString( safe_center, text_top , nombre_institucion)
+    p.drawCentredString( safe_center, text_top - 20, f"RIF: {rif_institucion}")
+    p.drawCentredString( safe_center, text_top - 40, "AV. ALBERTO RAVELL CON AV. INTERCOMUNAL JOSE ANTONIO PAEZ,")
+    p.drawCentredString( safe_center, text_top - 60, "LOCAL UPTYAB, INDEPENDENCIA – EDO YARACUY")
+    p.setFont("Helvetica", 12) 
+    p.drawCentredString( safe_center, text_top - 100, "Reporte de Cargos")
+
+    # --- Pie de página: Firma ---
+    if firma_path and os.path.exists(firma_path):
+        # Ajusta ancho/alto según tu firma
+        p.drawImage(firma_path, width/2 - 60, 60, width=120, height=100, preserveAspectRatio=True, mask='auto')
+        p.setFont("Helvetica-Oblique", 10)
+        p.drawCentredString(width/2, 25, "Firma autorizada")
+
+    # --- Tabla de cargos ---
+    cargos = Cargo.objects.all()
+    data = [["ID", "Nombre", "Estado", "Fecha"]]
+    for cargo in cargos:
+        data.append([
+            str(cargo.idCargo),
+            cargo.nombreCargo,
+            cargo.estadoCargo,
+            cargo.fechaCargo.strftime("%d/%m/%Y")
+        ])
+
+    col_widths = [60, 180, 80, 80]
+    table_width = sum(col_widths)
+    x = (width - table_width) / 2
+    y = height - 160  # Debajo del encabezado
+
+    table = Table(data, colWidths=col_widths)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0,0), (-1,0), 12),
+        ('BOTTOMPADDING', (0,0), (-1,0), 10),
+        ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
+        ('GRID', (0,0), (-1,-1), 1, colors.black),
+    ]))
+    table.wrapOn(p, width, height)
+    table.drawOn(p, x, y - 25 * len(data))
+
+    p.showPage()
+    p.save()
+    return response
 
 #Requisito
 @csrf_exempt
@@ -1205,9 +1300,8 @@ def pages(request):
         if load_template == "admin":
             return HttpResponseRedirect(reverse("admin:index"))
 ##################################################################################################
-      
- 
-
+        
+        tipoFormaciones = None  # Inicializar tipoFormaciones
         if load_template == "tablaTipoFormaciones.html":
             tipoFormaciones = TipoFormacion.objects.all()
             context['tipoFormaciones'] = tipoFormaciones
