@@ -1,5 +1,80 @@
 from django import forms  
-from .models import  Formacion,TipoFormacion, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Denominacion, Banco, Moneda, Tasa, TipoMovimiento, Movimiento, Configuracion
+from .models import  Usuarios, Formacion, TipoFormacion, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Denominacion, Banco, Moneda, Tasa, TipoMovimiento, Movimiento, Configuracion
+from django.contrib.auth.models import Group
+
+class AsignarGrupoForm(forms.Form):
+    grupos = forms.ModelMultipleChoiceField(
+        queryset=Group.objects.all(),
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+    )
+
+class UsuarioForm(forms.ModelForm):
+    NUEVAS_PREGUNTAS = (
+        ('', 'Seleccione una nueva pregunta (opcional)'),
+        ('¿Cuál es el nombre de tu primera mascota?', '¿Cuál es el nombre de tu primera mascota?'),
+        ('¿En qué ciudad naciste?', '¿En qué ciudad naciste?'),
+        ('¿Cuál es el nombre de tu madre soltera?', '¿Cuál es el nombre de tu madre soltera?'),
+        ('¿Cuál era el nombre de tu escuela primaria?', '¿Cuál era el nombre de tu escuela primaria?'),
+        ('¿Cuál es tu película favorita?', '¿Cuál es tu película favorita?'),
+        ('¿Cuál es tu color favorito?', '¿Cuál es tu color favorito?'),
+    )
+
+    nueva_pregunta = forms.ChoiceField(
+        choices=NUEVAS_PREGUNTAS,
+        required=False,
+        label="Cambiar pregunta de seguridad",
+        widget=forms.Select(attrs={'class': 'form-control'}))
+    
+    nueva_respuesta = forms.CharField(
+        required=False,
+        label="Nueva respuesta",
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Ingrese nueva respuesta',
+            'maxlength': '255'
+        }))
+
+    class Meta:
+        model = Usuarios
+        fields = ['is_active', 'is_staff', 'is_superuser', 'preguntaSeguridad', 'respuestaSeguridad']
+        widgets = {
+            'preguntaSeguridad': forms.TextInput(attrs={'readonly': True, 'class': 'form-control'}),
+            'respuestaSeguridad': forms.TextInput(attrs={'readonly': True, 'class': 'form-control'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['preguntaSeguridad'].label = "Pregunta actual"
+        self.fields['respuestaSeguridad'].label = "Respuesta actual"
+        self.fields['is_active'].label = "¿Usuario Activo?"
+        self.fields['is_staff'].label = "¿Es Administrador?"
+        self.fields['is_superuser'].label = "¿Es Superusuario?"
+        
+        # Personalizar opciones de los selects (opcional)
+        self.fields['is_active'].choices = [
+            (True, 'Sí - Usuario habilitado'),
+            (False, 'No - Usuario desactivado')
+        ]
+        self.fields['is_staff'].choices = [
+            (True, 'Sí - Acceso al panel administrativo'),
+            (False, 'No - Usuario estándar')
+        ]
+        self.fields['is_superuser'].choices = [
+            (True, 'Sí - Permisos totales'),
+            (False, 'No - Permisos limitados')
+        ]
+    
+    # Opcional: Validación extra si se da pregunta pero no respuesta
+    def clean(self):
+        cleaned_data = super().clean()
+        nueva_pregunta = cleaned_data.get("nueva_pregunta")
+        nueva_respuesta = cleaned_data.get("nueva_respuesta")
+
+        if nueva_pregunta and not nueva_respuesta:
+            self.add_error('nueva_respuesta', "Debe proporcionar una respuesta si ingresa una nueva pregunta.")
+
+        return cleaned_data
 
 class TipoFormacionForm(forms.ModelForm):  
     estadoTipoFormacion = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  

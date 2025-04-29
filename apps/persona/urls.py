@@ -10,6 +10,8 @@ urlpatterns = [
 
     #Ruta especifica para TipoPersona
     path('tipoPersonaModal/', views.tipo_persona_modal, name='tipo_persona_modal'),
+    path('registroTipoPersona/', views.registro_tipo_persona, name='registro_tipo_persona'),
+    path('tipopersona/', views.listado_tipos_persona, name='listado_tipos_persona'),
     path('editTipoPersona/<int:pk>/', views.edit_tipo_persona, name='edit_tipo_persona'),
     path('deleteTipoPersona/<int:pk>/', views.delete_tipo_persona, name='delete_tipo_persona'),
     path('reactivateTipoPersona/<int:pk>/', views.reactivate_tipo_persona, name='reactivate_tipo_persona'),

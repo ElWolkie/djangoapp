@@ -1,6 +1,6 @@
 from django.db import models
 from django.utils import timezone
-from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin, Group
 from django.core.exceptions import ValidationError
 from apps.persona.models import Personas
 
@@ -43,9 +43,28 @@ class Usuarios(AbstractBaseUser, PermissionsMixin):
     coloresUsuario = models.CharField(max_length=50, blank=True, null=True)
     fechaUsuario = models.DateTimeField(auto_now_add=True)
 
-    is_active = models.BooleanField(default=True)
-    is_staff = models.BooleanField(default=False)
-    is_superuser = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)  # Necesario para activo o inactivo
+    is_staff = models.BooleanField(default=False)  # Necesario para admin
+    is_superuser = models.BooleanField(default=False)  # Necesario para permisos de superusuario
+
+    groups = models.ManyToManyField(
+        Group,
+        verbose_name="Grupos",
+        blank=True,
+        related_name="usuarios_grupos",
+        help_text="Grupos a los que pertenece el usuario.",
+    )
+    user_permissions = models.ManyToManyField(
+        "auth.Permission",
+        verbose_name="Permisos de usuario",
+        blank=True,
+        related_name="usuarios_set",
+        related_query_name="usuario",
+    )
+
+    @property
+    def eliminado(self):
+        return not self.is_active
 
     objects = UsuarioManager()
 

@@ -1,0 +1,291 @@
+[
+{
+  "model": "auth.group",
+  "pk": 3,
+  "fields": {
+    "name": "Usuarios",
+    "permissions": [
+      69,
+      70,
+      71,
+      72
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 4,
+  "fields": {
+    "name": "Cliente-Proveedor",
+    "permissions": [
+      89,
+      90,
+      91,
+      92
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 6,
+  "fields": {
+    "name": "Bancos",
+    "permissions": [
+      21,
+      22,
+      23,
+      24
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 7,
+  "fields": {
+    "name": "Cargo",
+    "permissions": [
+      25,
+      26,
+      27,
+      28
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 8,
+  "fields": {
+    "name": "Cohorte",
+    "permissions": []
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 9,
+  "fields": {
+    "name": "Configuración Institucional",
+    "permissions": [
+      77,
+      78,
+      79,
+      80
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 10,
+  "fields": {
+    "name": "Denominacion",
+    "permissions": [
+      33,
+      34,
+      35,
+      36
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 11,
+  "fields": {
+    "name": "Formacion",
+    "permissions": [
+      37,
+      38,
+      39,
+      40
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 12,
+  "fields": {
+    "name": "Materia",
+    "permissions": [
+      73,
+      74,
+      75,
+      76
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 13,
+  "fields": {
+    "name": "Moneda",
+    "permissions": [
+      41,
+      42,
+      43,
+      44
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 14,
+  "fields": {
+    "name": "Ingreso",
+    "permissions": []
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 15,
+  "fields": {
+    "name": "Requisito",
+    "permissions": [
+      45,
+      46,
+      47,
+      48
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 16,
+  "fields": {
+    "name": "Servicio",
+    "permissions": [
+      49,
+      50,
+      51,
+      52
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 17,
+  "fields": {
+    "name": "Tasa",
+    "permissions": [
+      81,
+      82,
+      83,
+      84
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 18,
+  "fields": {
+    "name": "Tipo Formación",
+    "permissions": [
+      53,
+      54,
+      55,
+      56
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 19,
+  "fields": {
+    "name": "Tipo Ingreso",
+    "permissions": [
+      57,
+      58,
+      59,
+      60
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 20,
+  "fields": {
+    "name": "Tipo Movimiento",
+    "permissions": [
+      61,
+      62,
+      63,
+      64
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 21,
+  "fields": {
+    "name": "Trámite",
+    "permissions": [
+      65,
+      66,
+      67,
+      68
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 22,
+  "fields": {
+    "name": "Honorario",
+    "permissions": [
+      101,
+      102,
+      103,
+      104
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 23,
+  "fields": {
+    "name": "Inscripción",
+    "permissions": [
+      105,
+      106,
+      107,
+      108
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 24,
+  "fields": {
+    "name": "Asignación Tipo Persona",
+    "permissions": [
+      97,
+      98,
+      99,
+      100
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 25,
+  "fields": {
+    "name": "Tipo Persona",
+    "permissions": [
+      93,
+      94,
+      95,
+      96
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 26,
+  "fields": {
+    "name": "Solicitud",
+    "permissions": [
+      109,
+      110,
+      111,
+      112
+    ]
+  }
+}
+]

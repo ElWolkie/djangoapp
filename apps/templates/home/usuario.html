@@ -4,107 +4,359 @@
 
 {% block stylesheets %}
 <link rel="stylesheet" href="/static/assets/css/styleForms.css" />
-<link rel="stylesheet" href="/static/assets/css/argon.css" />
+<style>
+    .security-section {
+        border-left: 3px solid #ffc107;
+        padding-left: 1.5rem;
+        margin-top: 1rem;
+    }
+    .password-hints {
+        background: #f8f9fa;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin-top: 0.5rem;
+    }
+    .form-icon {
+        color: #495057;  /* Color más oscuro para íconos */
+        margin-right: 0.5rem;
+    }
+    .custom-select {
+        border: 1px solid #ced4da;
+        border-radius: 0.5rem;
+        padding: 0.75rem 1.5rem;
+        background: white url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e") no-repeat right 1rem center/16px 12px;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+        color: #212529;  /* Texto más oscuro */
+    }
+    .custom-select:focus {
+        border-color: #ffc107;
+        box-shadow: 0 0 0 0.25rem rgba(255, 193, 7, 0.25);
+    }
+    .form-label {
+        color: #212529;  /* Texto más oscuro */
+        font-weight: 600;
+    }
+    .text-muted {
+        color: #6c757d !important;
+    }
+
+    .cedula-input-group { 
+      position: relative; 
+  }
+  
+  .cedula-status {
+      position: absolute;
+      right: 35px;  /* Ajustar para no solapar con el borde */
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 2;  /* Asegurar que esté sobre el input */
+  }
+  .valid-cedula { color: #28a745; }
+  .invalid-cedula { color: #dc3545; }
+  .cedula-input-group { position: relative; }
+
+  .is-valid {
+    border-color: #28a745;
+    padding-right: calc(1.5em + 0.75rem);
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='%2328a745' d='M2.3 6.73L.6 4.53c-.4-1.04.46-1.4 1.1-.8l1.1 1.4 3.4-3.8c.6-.63 1.6-.27 1.2.7l-4 4.6c-.43.5-.8.4-1.1.1z'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right calc(0.375em + 0.1875rem) center;
+    background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+}
+
+.is-invalid {
+    border-color: #dc3545;
+    padding-right: calc(1.5em + 0.75rem);
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23dc3545'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath stroke-linejoin='round' d='M5.8 3.6h.4L6 6.5z'/%3e%3ccircle cx='6' cy='8.2' r='.6' fill='%23dc3545' stroke='none'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right calc(0.375em + 0.1875rem) center;
+    background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+
+}
+   
+.alert {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.cedula-status {
+  right: 45px;  /* Aumentar espacio a la derecha */
+  margin-right: 8px;  /* Separación del borde */
+}
+</style>
 {% endblock stylesheets %}
 
 {% block content %}
 <div class="container mt-5">
-  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Registro de Nuevo Usuario</h2>
-  
-  {% if messages %}
-      {% for message in messages %}
-        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-          {{ message }}
-          <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-            <span aria-hidden="true">&times;</span>
-          </button>
+    <h2 class="text-center mb-4 text-dark" style="padding-top: 1rem;">
+        <i class="fas fa-user-plus text-warning"></i> Registro de Nuevo Usuario
+    </h2>
+
+    {% if perms.home.add_usuarios %}
+    <div class="card border-0 shadow-lg">
+        <div class="card-body p-4">
+          <div class="alert-container mb-4">
+            <!-- Mensajes del servidor y errores JS aparecerán aquí -->
         </div>
-      {% endfor %}
-  {% endif %}
-  
-  <form method="POST" action="{% url 'registrar_usuario' %}" class="mt-4 text-dark" autocomplete="off" style="font-weight: bold;" id="registroUsuario">
-    {% csrf_token %}
-    <div class="row">
-      <div class="col-md-6">
-        <div class="form-group">
-          <label for="cedula">Cédula de la Persona:</label>
-          <input type="text" id="cedula" name="cedula" class="form-control text-dark" 
-                 placeholder="Ingrese la cédula registrada" tabindex="1" maxlength="8" required />
-          <small class="form-text text-muted">Debe estar previamente registrada en Personas</small>
+
+            <form method="POST" action="{% url 'registrar_usuario' %}" class="needs-validation" novalidate id="registroUsuario">
+                {% csrf_token %}
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="cedula" class="form-label">
+                                <i class="fas fa-id-card form-icon"></i>Cédula de la Persona
+                            </label>
+                            <div class="cedula-input-group">
+                              <input type="text" id="cedula" name="cedula" 
+                                     class="form-control form-control-lg" 
+                                     placeholder="Ej: 12345678"
+                                     maxlength="8"
+                                     required>
+                              <div id="cedulaStatus" class="cedula-status"></div>
+                          </div>
+                          <!-- Este div debe estar justo debajo del input -->
+                          <div id="cedulaFeedback" class="invalid-feedback"></div>
+                          
+                            <small class="form-text text-muted mt-2">
+                                <i class="fas fa-info-circle"></i> Debe estar registrada previamente en Personas
+                            </small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="password" class="form-label">
+                                <i class="fas fa-lock form-icon"></i>Contraseña
+                            </label>
+                            <div class="input-group">
+                                <input type="password" id="password" name="password" 
+                                       class="form-control form-control-lg" 
+                                       placeholder="••••••••" 
+                                       required>
+                                <button class="btn btn-outline-secondary toggle-password" type="button">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                            <div class="password-hints mt-3">
+                                <small class="text-muted">
+                                    <i class="fas fa-shield-alt"></i> La contraseña debe contener:
+                                    <ul class="mt-2 mb-0">
+                                        <li>Mínimo 8 caracteres</li>
+                                        <li>Al menos 1 mayúscula</li>
+                                        <li>Al menos 1 minúscula</li>
+                                        <li>Al menos 1 número</li>
+                                    </ul>
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="security-section">
+                            <h5 class="mb-4 text-dark">
+                                <i class="fas fa-shield-alt text-warning"></i> Configuración de Seguridad
+                            </h5>
+
+                            <div class="form-group mb-4">
+                                <label for="preguntaSeguridad" class="form-label">Pregunta de Seguridad</label>
+                                <select id="preguntaSeguridad" name="preguntaSeguridad" 
+                                        class="form-select custom-select" required>
+                                    <option value="" disabled selected>Seleccione una pregunta...</option>
+                                    <option value="¿Cuál es el nombre de tu primera mascota?">¿Cuál es el nombre de tu primera mascota?</option>
+                                    <option value="¿En qué ciudad naciste?">¿En qué ciudad naciste?</option>
+                                    <option value="¿Cuál es el nombre de tu madre soltera?">¿Cuál es el nombre de tu madre soltera?</option>
+                                    <option value="¿Cuál era el nombre de tu escuela primaria?">¿Cuál era el nombre de tu escuela primaria?</option>
+                                    <option value="¿Cuál es tu película favorita?">¿Cuál es tu película favorita?</option>
+                                    <option value="¿Cuál es tu color favorito?">¿Cuál es tu color favorito?</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="respuestaSeguridad" class="form-label">Respuesta de Seguridad</label>
+                                <input type="text" id="respuestaSeguridad" name="respuestaSeguridad" 
+                                       class="form-control form-control-lg" 
+                                       placeholder="Tu respuesta..." 
+                                       maxlength="255" 
+                                       required>
+                                <small class="form-text text-muted mt-2">
+                                    <i class="fas fa-exclamation-triangle"></i> Esta respuesta es crucial para recuperar tu cuenta
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="text-center mt-5">
+                    <button type="submit" class="btn btn-warning btn-lg px-5">
+                        <i class="fas fa-user-check me-2"></i> Registrar Usuario
+                    </button>
+                </div>
+            </form>
         </div>
-        
-        <div class="form-group">
-          <label for="preguntaSeguridad">Pregunta de Seguridad:</label>
-          <select id="preguntaSeguridad" name="preguntaSeguridad" class="form-control text-dark" tabindex="3" required>
-            <option value="" disabled selected>Seleccione una pregunta...</option>
-            <option value="¿Cuál es el nombre de tu primera mascota?">¿Cuál es el nombre de tu primera mascota?</option>
-            <option value="¿En qué ciudad naciste?">¿En qué ciudad naciste?</option>
-            <option value="¿Cuál es el nombre de tu madre soltera?">¿Cuál es el nombre de tu madre soltera?</option>
-            <option value="¿Cuál era el nombre de tu escuela primaria?">¿Cuál era el nombre de tu escuela primaria?</option>
-            <option value="¿Cuál es tu película favorita?">¿Cuál es tu película favorita?</option>
-            <option value="¿Cuál es tu color favorito?">¿Cuál es tu color favorito?</option>
-          </select>
-        </div>
-      </div>
-      
-      <div class="col-md-6">
-        <div class="form-group">
-          <label for="password">Contraseña:</label>
-          <input type="password" id="password" name="password" class="form-control text-dark" 
-                 placeholder="Cree una contraseña segura" tabindex="2" required />
-          <small class="form-text text-muted">Mínimo 8 caracteres, con mayúsculas, minúsculas y números</small>
-        </div>
-        
-        <div class="form-group">
-          <label for="respuestaSeguridad">Respuesta de Seguridad:</label>
-          <input type="text" id="respuestaSeguridad" name="respuestaSeguridad" class="form-control text-dark" 
-                 placeholder="Ingrese su respuesta" tabindex="4" maxlength="255" required />
-          <small class="form-text text-muted">Debe coincidir con la pregunta seleccionada</small>
-        </div>
-      </div>
     </div>
-    
-    <div class="text-center">
-      <input type="submit" class="btn btn-warning mt-4" value="Registrar Usuario" />
+    {% else %}
+    <div class="alert alert-danger shadow-lg">
+        <div class="d-flex align-items-center">
+            <div class="flex-shrink-0">
+                <i class="fas fa-ban fa-2x me-3"></i>
+            </div>
+            <div class="flex-grow-1">
+                <h4 class="alert-heading mb-3"><i class="fas fa-exclamation-triangle"></i> Acceso restringido</h4>
+                <p class="mb-0">No tienes los permisos necesarios para acceder a esta funcionalidad.</p>
+                <hr>
+                <p class="mb-0 small">Contacta al administrador del sistema si necesitas acceso.</p>
+            </div>
+        </div>
     </div>
-  </form>
+    {% endif %}
 </div>
 {% endblock content %}
 
 {% block javascripts %}
 <script>
-// Validación de contraseña (eliminar la verificación de confirmación)
-document.getElementById('registroUsuario').addEventListener('submit', function(e) {
-  const password = document.getElementById('password').value;
+  // Función para mostrar errores
+  function showError(message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-danger alert-dismissible fade show mt-2';
+    alertDiv.innerHTML = `
+        <div class="d-flex align-items-center">
+            <i class="fas fa-exclamation-circle me-2"></i>
+            <div>${message}</div>
+            <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+    
+    const container = document.querySelector('.alert-container');
+    if (container) {
+        // Mantener alertas anteriores y añadir nuevas
+        container.appendChild(alertDiv);
+        
+        // Auto-eliminar después de 5 segundos
+        setTimeout(() => {
+            alertDiv.remove();
+        }, 5000);
+    }
+}
   
-  // Validación básica de longitud
-  if (password.length < 8) {
-    e.preventDefault();
-    alert('La contraseña debe tener al menos 8 caracteres');
-    document.getElementById('password').focus();
+  // Función para actualizar mensajes
+  function actualizarFeedback(elemento, mensaje, esValido) {
+    elemento.textContent = mensaje;
+    elemento.style.display = mensaje ? 'block' : 'none';
+    elemento.classList.remove('valid-feedback', 'invalid-feedback');
+    elemento.classList.add(esValido ? 'valid-feedback' : 'invalid-feedback');
   }
-});
 
-// Verificación de cédula via AJAX (mantener igual)
-document.getElementById('cedula').addEventListener('blur', function() {
-  const cedula = this.value;
-  if (cedula.length >= 6) {
-    fetch(`/api/verificar-cedula/?cedula=${cedula}`)
-      .then(response => {
-        if (!response.ok) throw new Error('Error en la verificación');
-        return response.json();
-      })
-      .then(data => {
-        if (!data.existe) {
-          alert('Esta cédula no está registrada. Registre la persona primero.');
-        } else if (data.usuario_existe) {
-          alert('Ya existe un usuario registrado con esta cédula');
-        }
-      })
-      .catch(error => {
-        console.error('Error:', error);
-      });
+  function verificarCedula(cedula) {
+    const inputField = document.getElementById('cedula');
+    const statusIcon = document.getElementById('cedulaStatus');
+    const feedback = document.getElementById('cedulaFeedback');
+  
+    // Reset completo del estado
+    inputField.classList.remove('is-valid', 'is-invalid');
+    statusIcon.innerHTML = '';
+    feedback.textContent = '';
+  
+    if (/^\d{7,8}$/.test(cedula)) {
+      fetch(`/verificar-cedula/?cedula=${cedula}`)
+        .then(response => {
+          if (!response.ok) throw new Error('Error en el servidor');
+          return response.json();
+        })
+        .then(data => {
+          // Verificar estructura de la respuesta
+          if (!data.hasOwnProperty('existe_en_personas') || !data.hasOwnProperty('existe_en_usuarios')) {
+            throw new Error('Respuesta del servidor inválida');
+          }
+  
+          if (data.existe_en_personas) {
+            if (data.existe_en_usuarios) {
+              inputField.classList.add('is-invalid');
+              statusIcon.innerHTML = '<i class="fas fa-times-circle"></i>';
+              actualizarFeedback(feedback, '❌ Usuario ya registrado', false);
+            } else {
+              inputField.classList.add('is-valid'); // Añade clase de éxito
+              statusIcon.innerHTML = '<i class="fas fa-check-circle"></i>';
+              actualizarFeedback(feedback, '✅ Cédula válida', true);
+            }
+          } else {
+            inputField.classList.add('is-invalid');
+            statusIcon.innerHTML = '<i class="fas fa-times-circle"></i>';
+            actualizarFeedback(feedback, '❌ Cédula no existe en Personas', false);
+          }
+        })
+        .catch(error => {
+          console.error('Error:', error);
+          inputField.classList.add('is-invalid');
+          actualizarFeedback(feedback, '⚠️ Error al verificar: ' + error.message, false);
+        });
+    } else if (cedula.length < 7) { // Mostrar error solo si hay input
+      inputField.classList.add('is-invalid');
+      actualizarFeedback(feedback, '❌ Debe tener 7-8 dígitos', false);
+    }
   }
-});
+  
+  // Eventos
+  document.addEventListener('DOMContentLoaded', () => {
+      // Toggle password
+      document.querySelectorAll('.toggle-password').forEach(button => {
+          button.addEventListener('click', function() {
+              const passwordField = this.parentElement.querySelector('input');
+              const type = passwordField.type === 'password' ? 'text' : 'password';
+              passwordField.type = type;
+              this.querySelector('i').classList.toggle('fa-eye-slash');
+          });
+      });
+  
+      // Validación cédula en tiempo real
+      document.getElementById('cedula').addEventListener('input', function(e) {
+        const cedula = e.target.value.replace(/\D/g, '');
+        e.target.value = cedula;
+        
+        // Limpiar timeout anterior y agregar debounce de 500ms
+        clearTimeout(this.debounce);
+        this.debounce = setTimeout(() => {
+            verificarCedula(cedula);
+        }, 500);
+      });
+  
+      // Validación formulario
+      document.getElementById('registroUsuario').addEventListener('submit', function(e) {
+          const cedula = document.getElementById('cedula').value;
+          const password = document.getElementById('password').value;
+          let errores = [];
+  
+          // Validar cédula
+          if (!/^\d{7,8}$/.test(cedula)) {
+              errores.push('La cédula debe tener entre 7 y 8 dígitos');
+          }
+          
+          if (document.getElementById('cedula').classList.contains('is-invalid')) {
+              errores.push('Verifique el estado de la cédula');
+          }
+  
+          // Validar contraseña
+          if (!/(?=.*[A-Z])(?=.*[a-z])(?=.*\d).{8,}/.test(password)) {
+            errores.push('La contraseña debe tener más de 8 caracteres, incluyendo mayúscula, minúscula y número');
+          }
+
+          // Validar pregunta de seguridad
+            const pregunta = document.getElementById('preguntaSeguridad').value;
+            if (!pregunta) {
+                errores.push('Seleccione una pregunta de seguridad');
+            }
+
+            // Validar respuesta de seguridad
+            const respuesta = document.getElementById('respuestaSeguridad').value.trim();
+            if (!respuesta) {
+                errores.push('Ingrese una respuesta de seguridad');
+            }
+  
+          // Mostrar errores
+          if (errores.length > 0) {
+              e.preventDefault();
+              errores.forEach(error => showError(error));
+          }
+      });
+  });
 </script>
 {% endblock javascripts %}

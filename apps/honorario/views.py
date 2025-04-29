@@ -1,7 +1,7 @@
 from django.http import JsonResponse, HttpResponse, HttpResponseRedirect
 from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.decorators import login_required, user_passes_test, permission_required
 from django.template import loader
 from django.db.models import OuterRef, Subquery, Max
 from django.urls import reverse
@@ -13,11 +13,9 @@ from .models import Honorario
 from apps.persona.models import Personas
 from apps.home.models import Cargo, Cohorte, Materia
 
-
-def tabla_honorarios(request):
-    return render(request, 'honorario/tablaHonorarios.html')
-#Honarario
-@csrf_exempt
+#HONORARIO
+@login_required(login_url='login')
+@permission_required("honorario.add_honorario", raise_exception=True)
 def honorario_modal(request):
     if request.method == 'POST':
         form = HonorarioForm(request.POST)
@@ -32,7 +30,8 @@ def honorario_modal(request):
         form = HonorarioForm()
     return render(request, 'honorario/honorario_modal.html', {'form': form})
 
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("honorario.change_honorario", raise_exception=True)
 def edit_honorario(request, pk):
     instance = get_object_or_404(Honorario, pk=pk)
     if request.method == 'POST':
@@ -60,21 +59,24 @@ def edit_honorario(request, pk):
         'cohortes': cohortes
     })
 
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("honorario.change_honorario", raise_exception=True)
 def delete_honorario(request, pk):
     instance = get_object_or_404(Honorario, pk=pk)
     instance.estadoHonorario = 'INACTIVO'
     instance.save()
     return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
 
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("honorario.change_honorario", raise_exception=True)
 def reactivate_honorario(request, pk):
     instance = get_object_or_404(Honorario, pk=pk)
     instance.estadoHonorario = 'ACTIVO'
     instance.save()
     return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
 
-@csrf_exempt
+@login_required(login_url='login')
+@permission_required("honorario.view_honorario", raise_exception=True)
 def tabla_honorarios(request):
     honorarios = Honorario.objects.all()
     return render(request, 'honorario/tablaHonorarios.html', {'honorarios': honorarios})

@@ -8,11 +8,17 @@ urlpatterns = [
     path('login/', views.login_view, name='login'),
     path('logout/', views.logout_view, name='logout'),
 
-    path('registrar-usuario/', registrar_usuario, name='registrar_usuario'),
+    # Rutas específicas para usuarios
     path('usuarios/', views.lista_usuarios, name='lista_usuarios'),
+    path('verificar-cedula/', views.verificar_cedula, name='verificar_cedula'),
     path('recover-password/', views.recover_password, name='recover_password'),
+    path('registrar-usuario/', registrar_usuario, name='registrar_usuario'),
+    path('asignar_grupos/<int:idUsuario>/', views.asignar_grupos, name='asignar_grupos'),
+    path('editar_usuario/<int:pk>/', views.editar_usuario, name='editar_usuario'),
+    path('desactivar_usuario/<int:pk>/', views.desactivar_usuario, name='desactivar_usuario'),
+    path('eliminar_usuario/<int:pk>/', views.eliminar_usuario, name='eliminar_usuario'),
 
-    # Rutas específicas para modales
+    # Rutas específicas para configuracion
     path('configuracion/', views.configuracion, name='configuracion'),
     path('actualizar-monedas/', views.actualizar_monedas_api, name='actualizar_monedas_api'),
     path('monedas/', views.tabla_monedas, name='tabla_monedas'),
@@ -114,6 +120,9 @@ urlpatterns = [
     path('editMovimiento/<int:pk>/', views.edit_movimiento, name='edit_movimiento'),
     path('deleteMovimiento/<int:pk>/', views.delete_movimiento, name='delete_movimiento'),
     path('reactivateMovimiento/<int:pk>/', views.reactivate_movimiento, name='reactivate_movimiento'),
+
+    # Ruta espicifica para Errores
+    path('403/', views.page_403, name='page-403'),
 
     # Matches any html file no mover de lugar 
     re_path(r'^.*\.*', views.pages, name='pages'),

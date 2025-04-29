@@ -7,9 +7,11 @@ urlpatterns = [
 
 
     # Specific route for solicitud modal
+    path('registrarSolicitud/', views.registrar_solicitud, name='registrar_solicitud'),
     path('editSolicitud/<int:pk>/', views.edit_solicitud, name='edit_solicitud'),
     path('deleteSolicitud/<int:pk>/', views.delete_solicitud, name='delete_solicitud'),
     path('reactivateSolicitud/<int:pk>/', views.reactivate_solicitud, name='reactivate_solicitud'),
+    path('solicitudes/', views.pages, {'load_template': 'tablaSolicitud.html'}, name='lista_solicitudes'),
 
     # Coincide con cualquier archivo HTML (no mover de lugar)
     re_path(r'^.*\.*', views.pages, name='pages'),
