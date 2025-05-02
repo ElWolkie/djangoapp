@@ -12,6 +12,10 @@ urlpatterns = [
     path('honorario/', include('apps.honorario.urls')),      # UI Kits Html files honorario
     path('inscripcion/', include('apps.inscripcion.urls')),      # UI Kits Html files honorario
     path('solicitud/', include('apps.solicitud.urls')),      # UI Kits Html files solicitud
+
+    ################CONTABILIDAD######################
+    path('planCuenta/', include('apps.planCuenta.urls')),      # UI Kits Html files solicitud
+
     path('home/', include("apps.home.urls")),
 ]
 

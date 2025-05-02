@@ -1,5 +1,6 @@
 from django.db import models
-from django.utils import timezone
+<<<<<<<<< Temporary merge branch 1
+from django.utils import timezone # Para la fecha
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin, Group
 from django.core.exceptions import ValidationError
 from apps.persona.models import Personas
@@ -43,7 +44,8 @@ class Usuarios(AbstractBaseUser, PermissionsMixin):
     coloresUsuario = models.CharField(max_length=50, blank=True, null=True)
     fechaUsuario = models.DateTimeField(auto_now_add=True)
 
-    is_active = models.BooleanField(default=True)  # Necesario para activo o inactivo
+<<<<<<<<< Temporary merge branch 1
+    is_active = models.BooleanField(default=True) #Necesario para activo o inactivo
     is_staff = models.BooleanField(default=False)  # Necesario para admin
     is_superuser = models.BooleanField(default=False)  # Necesario para permisos de superusuario
 

@@ -40,7 +40,8 @@ INSTALLED_APPS = [
     "apps.honorario",  # Habilita la aplicación para gestionar honorario
     "apps.inscripcion",  # Habilita la aplicación para gestionar honorario
     "apps.solicitud",  # Habilita la aplicación para gestionar solicitud
-
+########CONTABILIDAD##########
+    "apps.planCuenta",  # Habilita la aplicación para gestionar plan de cuenta  
 ]
 
 MIDDLEWARE = [
@@ -94,8 +95,9 @@ DATABASES = {
         "PASSWORD": config("DB_PASSWORD", default="Prueba2022"),
         "HOST": config("DB_HOST", default="localhost"),
         "PORT": config("DB_PORT", default="5432"),
-        "OPTIONS": {
-            "options": "-c client_encoding=UTF8"
+        'OPTIONS': {
+            'client_encoding': 'UTF8',
+            'options': '-c search_path=public'
         }
     }
 }

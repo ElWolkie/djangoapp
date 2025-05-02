@@ -7,7 +7,7 @@ from django.db.models import OuterRef, Subquery, Max, Count, Sum, F, Q
 from django.urls import reverse
 from django.contrib import messages
 from django.utils import timezone
-from django.core.exceptions import PermissionDenied, ValidationError
+from django.core.exceptions import PermissionDenied, ValidationError, ValidationError
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required, user_passes_test, permission_required
 from django.contrib.auth.hashers import make_password
@@ -764,6 +764,12 @@ def tabla_cargos(request):
     cargos = Cargo.objects.all()
     return render(request, 'home/tablaCargos.html', {'cargos': cargos})
 
+<<<<<<<<< Temporary merge branch 1
+
+#REQUISITO
+@login_required(login_url='login')
+@permission_required("home.add_requisito", raise_exception=True)
+=========
 @csrf_exempt
 def reporte_cargos_pdf(request):
     response = HttpResponse(content_type='application/pdf')
@@ -848,10 +854,9 @@ def reporte_cargos_pdf(request):
     p.save()
     return response
 
-
-#REQUISITO
-@login_required(login_url='login')
-@permission_required("home.add_requisito", raise_exception=True)
+#Requisito
+@csrf_exempt
+>>>>>>>>> Temporary merge branch 2
 def requisito_modal(request):
     if request.method == 'POST':
         form = RequisitoForm(request.POST)
