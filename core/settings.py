@@ -40,7 +40,8 @@ INSTALLED_APPS = [
     "apps.honorario",  # Habilita la aplicación para gestionar honorario
     "apps.inscripcion",  # Habilita la aplicación para gestionar honorario
     "apps.solicitud",  # Habilita la aplicación para gestionar solicitud
-
+########CONTABILIDAD##########
+    "apps.planCuenta",  # Habilita la aplicación para gestionar plan de cuenta  
 ]
 
 MIDDLEWARE = [

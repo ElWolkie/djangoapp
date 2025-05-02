@@ -1,0 +1,343 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}Registrar Plan de Cuenta{% endblock title %}
+
+{% block stylesheets %}
+<link rel="stylesheet" href="/static/assets/css/styleForms.css" />
+<link rel="stylesheet" href="/static/assets/css/argon.css" />
+{% endblock stylesheets %}
+
+{% block content %}
+<div class="container mt-5">
+  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Registrar Plan de Cuenta</h2>
+
+  {% if messages %}
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        {{ message }}
+      </div>
+    {% endfor %}
+  {% endif %}
+
+  <form method="POST" class="mt-3 text-dark needs-validation" autocomplete="off" style="font-weight: bold; max-width: 600px; margin: 0 auto;" id="planCuentaForm" action="{% url 'plan_cuenta_create' %}" novalidate>
+    {% csrf_token %}
+
+    <div class="form-row">
+      <div class="form-group col-md-6">
+        <label for="codigoPlanCuenta">Código:</label>
+        <input type="text" id="codigoPlanCuenta" name="codigoPlanCuenta" class="form-control text-dark" placeholder="Ingrese el código" maxlength="50" required />
+      </div>
+
+      <div class="form-group col-md-6">
+        <label for="nombrePlanCuenta">Nombre:</label>
+        <input type="text" id="nombrePlanCuenta" name="nombrePlanCuenta" class="form-control text-dark" placeholder="Ingrese el nombre" maxlength="255" required />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group col-md-6">
+        <label for="tipoPlanCuenta">Tipo:</label>
+        <select id="tipoPlanCuenta" name="tipoPlanCuenta" class="form-control text-dark" required>
+          <option value="" disabled selected>Seleccione...</option>
+          <option value="activo">Activo</option>
+          <option value="pasivo">Pasivo</option>
+          <option value="patrimonio">Patrimonio</option>
+          <option value="ingreso">Ingreso</option>
+          <option value="gasto">Gasto</option>
+        </select>
+      </div>
+
+      <div class="form-group col-md-6">
+        <label for="nivelPlanCuenta">Nivel:</label>
+        <input type="number" id="nivelPlanCuenta" name="nivelPlanCuenta" class="form-control text-dark" placeholder="Ingrese el nivel" min="1" required />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group col-md-6">
+        <label for="cuentaPadre">Cuenta Padre:</label>
+        <div class="input-group">
+          <input type="text" id="cuentaPadre"  class="form-control text-dark" placeholder="Seleccione una cuenta padre" readonly />
+          <button type="button" id="buscarCuentaPadre" class="btn btn-warning" data-toggle="modal" data-target="#cuentaPadreModal">
+            <i class="fas fa-search"></i>
+          </button>
+        </div>
+      </div>
+      <input type="hidden" id="cuentaPadreId" name="cuentaPadre" />
+      <input type="hidden" id="estadoPlanCuenta" name="estadoPlanCuenta" value="True" />
+    </div>
+
+    <div class="text-center">
+      <input type="submit" class="btn btn-warning mt-4" value="Guardar" />
+    </div>
+  </form>
+</div>
+
+<!-- Modal -->
+<div class="modal fade" id="cuentaPadreModal" tabindex="-1" role="dialog" aria-labelledby="cuentaPadreModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="cuentaPadreModalLabel">Seleccionar Cuenta Padre</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="row mb-3">
+          <div class="col-md-4">
+            <div class="input-group">
+              <div class="input-group-prepend">
+                <span class="input-group-text" style="background-color: #bcbcbc; border: none;">
+                  <i class="fas fa-search text-warning"></i>
+                </span>
+              </div>
+              <input class="form-control" id="searchModalInput" type="text" placeholder="Buscar..." onkeyup="filterModalTable()">
+            </div>
+          </div>
+        </div>
+        <table class="table table-striped table-hover" id="tablaCuentas">
+          <thead>
+            <tr>
+              <th>Código</th>
+              <th>Nombre</th>
+              <th>Nivel</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for cuenta in cuentas %}
+              <tr data-id="{{ cuenta.idPlanCuenta }}" data-nombre="{{ cuenta.codigoPlanCuenta }} - {{ cuenta.nombrePlanCuenta }}" data-nivel="{{ cuenta.nivelPlanCuenta }}">
+                <td>{{ cuenta.codigoPlanCuenta }}</td>
+                <td>{{ cuenta.nombrePlanCuenta }}</td>
+                <td>{{ cuenta.nivelPlanCuenta }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <p id="mensajeSinRegistros" class="text-center text-muted" style="display: none;">No hay registros en niveles superiores</p>
+        <nav>
+          <ul class="pagination justify-content-center" id="pagination">
+            <!-- Paginación generada dinámicamente -->
+          </ul>
+        </nav>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}
+{% block javascripts %}
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('planCuentaForm');
+    const inputs = form.querySelectorAll('input, select');
+    const tablaCuentas = document.getElementById('tablaCuentas');
+    const cuentaPadreInput = document.getElementById('cuentaPadre');
+    const cuentaPadreIdInput = document.getElementById('cuentaPadreId');
+    const nivelPlanCuentaInput = document.getElementById('nivelPlanCuenta');
+    const buscarCuentaPadreButton = document.getElementById('buscarCuentaPadre');
+    const mensajeSinRegistros = document.getElementById('mensajeSinRegistros');
+    const pagination = document.getElementById('pagination');
+    const rowsPerPage = 5; // Número de filas por página
+
+    let currentPage = 1;
+
+    // Validar campos al enviar el formulario
+    form.addEventListener('submit', function (event) {
+      let isValid = true;
+
+      inputs.forEach(function (input) {
+        if (!input.checkValidity()) {
+          input.classList.add('is-invalid');
+          input.classList.remove('is-valid');
+          isValid = false;
+        } else {
+          input.classList.add('is-valid');
+          input.classList.remove('is-invalid');
+        }
+      });
+
+      if (!isValid) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+
+      form.classList.add('was-validated');
+    });
+
+    // Validar campos en tiempo real
+    inputs.forEach(function (input) {
+      input.addEventListener('input', function () {
+        if (input.checkValidity()) {
+          input.classList.add('is-valid');
+          input.classList.remove('is-invalid');
+        } else {
+          input.classList.add('is-invalid');
+          input.classList.remove('is-valid');
+        }
+      });
+    });
+
+    // Función para mostrar las filas de la página actual
+    function displayRows() {
+      const rows = tablaCuentas.getElementsByTagName('tr');
+      const start = (currentPage - 1) * rowsPerPage;
+      const end = start + rowsPerPage;
+
+      for (let i = 1; i < rows.length; i++) {
+        if (i > start && i <= end) {
+          rows[i].style.display = '';
+        } else {
+          rows[i].style.display = 'none';
+        }
+      }
+    }
+
+    // Función para configurar la paginación
+    function setupPagination() {
+      const rows = tablaCuentas.getElementsByTagName('tr');
+      const totalPages = Math.ceil((rows.length - 1) / rowsPerPage);
+
+      pagination.innerHTML = '';
+
+      // Botón "Anterior"
+      const prevLi = document.createElement('li');
+      prevLi.className = 'page-item' + (currentPage === 1 ? ' disabled' : '');
+      prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Anterior"><span aria-hidden="true">&laquo;</span></a>`;
+      prevLi.addEventListener('click', function (e) {
+        e.preventDefault();
+        if (currentPage > 1) {
+          currentPage--;
+          displayRows();
+          setupPagination();
+        }
+      });
+      pagination.appendChild(prevLi);
+
+      // Botones de páginas
+      for (let i = 1; i <= totalPages; i++) {
+        const li = document.createElement('li');
+        li.className = 'page-item' + (i === currentPage ? ' active' : '');
+        li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+        li.addEventListener('click', function (e) {
+          e.preventDefault();
+          currentPage = i;
+          displayRows();
+          setupPagination();
+        });
+        pagination.appendChild(li);
+      }
+
+      // Botón "Siguiente"
+      const nextLi = document.createElement('li');
+      nextLi.className = 'page-item' + (currentPage === totalPages ? ' disabled' : '');
+      nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Siguiente"><span aria-hidden="true">&raquo;</span></a>`;
+      nextLi.addEventListener('click', function (e) {
+        e.preventDefault();
+        if (currentPage < totalPages) {
+          currentPage++;
+          displayRows();
+          setupPagination();
+        }
+      });
+      pagination.appendChild(nextLi);
+    }
+
+    // Inicializar la tabla y la paginación
+    displayRows();
+    setupPagination();
+
+    // Filtrar cuentas según el nivel seleccionado
+    nivelPlanCuentaInput.addEventListener('input', function () {
+      const nivelSeleccionado = parseInt(nivelPlanCuentaInput.value, 10);
+
+      // Limpiar el input "Cuenta Padre" y su ID asociado
+      cuentaPadreInput.value = '';
+      cuentaPadreIdInput.value = '';
+
+      if (nivelSeleccionado === 1) {
+        // Si el nivel es 1, autodefinir "Sin cuenta padre" y deshabilitar el botón
+        cuentaPadreInput.value = 'Sin cuenta padre';
+        cuentaPadreIdInput.value = '';
+        buscarCuentaPadreButton.disabled = true;
+        mensajeSinRegistros.style.display = 'none';
+        document.querySelectorAll('#tablaCuentas tbody tr').forEach(function (row) {
+          row.style.display = 'none';
+        });
+        return;
+      }
+
+      if (nivelSeleccionado < 1 || isNaN(nivelSeleccionado)) {
+        // Si el nivel es inválido, limpiar el campo y deshabilitar el botón
+        buscarCuentaPadreButton.disabled = true;
+        mensajeSinRegistros.style.display = 'none';
+        return;
+      }
+
+      // Habilitar el botón y filtrar las cuentas por nivel superior
+      buscarCuentaPadreButton.disabled = false;
+      const nivelSuperior = nivelSeleccionado - 1;
+      let hayRegistros = false;
+
+      document.querySelectorAll('#tablaCuentas tbody tr').forEach(function (row) {
+        const nivelCuenta = parseInt(row.getAttribute('data-nivel'), 10);
+        if (nivelCuenta === nivelSuperior) {
+          row.style.display = '';
+          hayRegistros = true;
+        } else {
+          row.style.display = 'none';
+        }
+      });
+
+      mensajeSinRegistros.style.display = hayRegistros ? 'none' : 'block';
+    });
+
+    // Seleccionar cuenta padre
+    tablaCuentas.addEventListener('click', function (event) {
+      const row = event.target.closest('tr');
+      if (row) {
+        const cuentaId = row.getAttribute('data-id');
+        const cuentaNombre = row.getAttribute('data-nombre');
+
+        // Asignar valores al input
+        cuentaPadreInput.value = cuentaNombre;
+        cuentaPadreIdInput.value = cuentaId;
+
+        // Cerrar el modal
+        $('#cuentaPadreModal').modal('hide');
+      }
+    });
+
+    // Filtrar tabla del modal
+    window.filterModalTable = function () {
+      const input = document.getElementById('searchModalInput');
+      const filter = input.value.toUpperCase();
+      const rows = tablaCuentas.getElementsByTagName('tr');
+
+      for (let i = 1; i < rows.length; i++) {
+        const cells = rows[i].getElementsByTagName('td');
+        let match = false;
+
+        for (let j = 0; j < cells.length; j++) {
+          if (cells[j]) {
+            const txtValue = cells[j].textContent || cells[j].innerText;
+            if (txtValue.toUpperCase().indexOf(filter) > -1) {
+              match = true;
+              break;
+            }
+          }
+        }
+
+        rows[i].style.display = match ? '' : 'none';
+      }
+
+      // Reiniciar la paginación después de filtrar
+      currentPage = 1;
+      displayRows();
+      setupPagination();
+    };
+  });
+</script>
+{% endblock javascripts %}
