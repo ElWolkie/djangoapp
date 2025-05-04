@@ -16,6 +16,9 @@ urlpatterns = [
     ################CONTABILIDAD######################
     path('planCuenta/', include('apps.planCuenta.urls')),      # UI Kits Html files solicitud
     path('periodoContable/', include('apps.periodoContable.urls')),      # UI Kits Html files solicitud
+    path('empresa/', include('apps.empresa.urls')),      # UI Kits Html files empresa
+    # path('asientoContable/', include('apps.asientoContable.urls')),      # UI Kits Html files empresa
+
 
     path('home/', include("apps.home.urls")),
 ]

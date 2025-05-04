@@ -145,16 +145,16 @@
         </a>
         <div id="empresaMenu" class="collapse ml-3">
           <ul class="nav flex-column">
-        <li class="nav-item">
-          <a class="nav-link" href="/empresa/registrar" style="padding-left: 15px;">
-            <i class="ni ni-fat-add text-orange"></i>Registrar
-          </a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="/empresa/consultar" style="padding-left: 15px;">
-            <i class="ni ni-bullet-list-67 text-orange"></i>Consultar
-          </a>
-        </li>
+            <li class="nav-item">
+              <a class="nav-link" href="{% url 'empresa_create' %}" style="padding-left: 15px;">
+                <i class="ni ni-fat-add text-orange"></i>Registrar
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="{% url 'empresa_list' %}" style="padding-left: 15px;">
+                <i class="ni ni-bullet-list-67 text-orange"></i>Consultar
+              </a>
+            </li>
           </ul>
         </div>
       </li>
