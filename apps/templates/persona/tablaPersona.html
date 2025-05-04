@@ -143,12 +143,86 @@
 }
   function filterTable() {
     const filter = document.getElementById("searchInput").value.toUpperCase();
-    const rows = document.querySelectorAll("#inscripcionesTable tbody tr");
+    const rows = document.querySelectorAll("#personasTable tbody tr");
     rows.forEach(row => {
       const cells = row.querySelectorAll("td");
       row.style.display = Array.from(cells).some(cell => cell.textContent.toUpperCase().includes(filter)) ? "" : "none";
     });
   }
+  document.addEventListener('DOMContentLoaded', function () {
+    const table = document.getElementById('personasTable');
+    const pagination = document.createElement('ul');
+    pagination.className = 'pagination justify-content-center';
+    table.parentNode.appendChild(pagination);
+
+    const rowsPerPage = 5; // Número de filas por página
+    let currentPage = 1;
+
+    // Función para mostrar las filas de la página actual
+    function displayRows() {
+      const rows = table.getElementsByTagName('tr');
+      const start = (currentPage - 1) * rowsPerPage + 1; // Ignorar encabezado
+      const end = start + rowsPerPage;
+
+      for (let i = 1; i < rows.length; i++) {
+        rows[i].style.display = i >= start && i < end ? '' : 'none';
+      }
+    }
+
+    // Función para configurar la paginación
+    function setupPagination() {
+      const rows = table.getElementsByTagName('tr');
+      const totalPages = Math.ceil((rows.length - 1) / rowsPerPage);
+
+      pagination.innerHTML = '';
+
+      // Botón "Anterior"
+      const prevLi = document.createElement('li');
+      prevLi.className = 'page-item' + (currentPage === 1 ? ' disabled' : '');
+      prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Anterior"><span aria-hidden="true">&laquo;</span></a>`;
+      prevLi.addEventListener('click', function (e) {
+        e.preventDefault();
+        if (currentPage > 1) {
+          currentPage--;
+          displayRows();
+          setupPagination();
+        }
+      });
+      pagination.appendChild(prevLi);
+
+      // Botones de páginas
+      for (let i = 1; i <= totalPages; i++) {
+        const li = document.createElement('li');
+        li.className = 'page-item' + (i === currentPage ? ' active' : '');
+        li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+        li.addEventListener('click', function (e) {
+          e.preventDefault();
+          currentPage = i;
+          displayRows();
+          setupPagination();
+        });
+        pagination.appendChild(li);
+      }
+
+      // Botón "Siguiente"
+      const nextLi = document.createElement('li');
+      nextLi.className = 'page-item' + (currentPage === totalPages ? ' disabled' : '');
+      nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Siguiente"><span aria-hidden="true">&raquo;</span></a>`;
+      nextLi.addEventListener('click', function (e) {
+        e.preventDefault();
+        if (currentPage < totalPages) {
+          currentPage++;
+          displayRows();
+          setupPagination();
+        }
+      });
+      pagination.appendChild(nextLi);
+    }
+
+    // Inicializar la tabla y la paginación
+    displayRows();
+    setupPagination();
+  });
   //Evita que el formulario se envíe por defecto y maneja la respuesta del servidor
   document.addEventListener("DOMContentLoaded", function() {
     const form = document.getElementById("editPersonaForm");
