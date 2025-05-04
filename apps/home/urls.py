@@ -30,7 +30,9 @@ urlpatterns = [
     path('deleteTF/<int:pk>/', views.delete_tipo_formacion, name='delete_tf'),
     path('reactivateTF/<int:pk>/', views.reactivate_tipo_formacion, name='reactivate_tf'),
     path('editTF/<int:pk>/', views.edit_tipo_formacion, name='edit_tf'),    
-    path('tablaTipoFormaciones/', views.tabla_tipo_formaciones, name='tabla_tipo_formaciones'),   
+    path('tablaTipoFormaciones/', views.tabla_tipo_formaciones, name='tabla_tipo_formaciones'),
+    path('reporte-tipo-formacion/', views.reporte_tipo_formacion_pdf, name='reporte_tipo_formacion_pdf'),
+   
 
     # Specific route for formacion modal
     path('formacionModal/', views.formacion_modal, name='formacion_modal'),
@@ -38,6 +40,8 @@ urlpatterns = [
     path('deleteFormacion/<int:pk>/', views.delete_formacion, name='delete_formacion'),
     path('reactivateFormacion/<int:pk>/', views.reactivate_formacion, name='reactivate_formacion'),
     path('tablaFormaciones/', views.tabla_formaciones, name='tabla_formaciones'),
+    path('reporte-formaciones/', views.reporte_formaciones_pdf, name='reporte_formaciones_pdf'),
+
 
        # Specific route for materia modal
     path('materiaModal/', views.materia_modal, name='materia_modal'),
@@ -45,12 +49,16 @@ urlpatterns = [
     path('deleteMateria/<int:pk>/', views.delete_materias, name='delete_materias'),
     path('reactivateMateria/<int:pk>/', views.reactivate_materias, name='reactivate_materias'),
     path('tablaMaterias/', views.tabla_materias, name='tabla_materias'),
+    path('reporte-materias/', views.reporte_materias_pdf, name='reporte_materias_pdf'),
+
 
     # Specific route for cohorte modal
     path('cohorteModal/', views.cohorte_modal, name='cohorte_modal'),
     path('editCohorte/<int:pk>/', views.edit_cohorte, name='edit_cohorte'),
     path('deleteCohorte/<int:pk>/', views.delete_cohorte, name='delete_cohorte'),
     path('reactivateCohorte/<int:pk>/', views.reactivate_cohorte, name='reactivate_cohorte'),
+    path('reporte-cohortes/', views.reporte_cohortes_pdf, name='reporte_cohortes_pdf'),
+
 
     # Ruta especificica para cargo modal
     path('cargoModal/', views.cargo_modal, name='cargo_modal'),
@@ -65,6 +73,7 @@ urlpatterns = [
     path('deleteRequisito/<int:pk>/', views.delete_requisito, name='delete_requisito'),
     path('reactivateRequisito/<int:pk>/', views.reactivate_requisito, name='reactivate_requisito'),
     path('tablaRequisitos/', views.tabla_requisitos, name='tabla_requisitos'),
+    path('reporte-requisitos/', views.reporte_requisitos_pdf, name='reporte_requisitos_pdf'),
 
     # Specific route for servicio modal
     path('servicioModal/', views.servicio_modal, name='servicio_modal'),

@@ -32,7 +32,10 @@
     </div>
     <div class="col-md-4">
       <button class="btn btn-warning btn-square btn-sm my-2" type="button" title="Registrar Cohorte" data-toggle="modal" data-target="#cohorteModal">+</button>
-    </div>
+    <a href="{% url 'reporte_cohortes_pdf' %}" class="btn btn-outline-danger btn-sm" target="_blank">
+      <i class="fas fa-file-pdf"></i> Descargar PDF
+    </a>
+  </div>
   </div>
 
   <br>
@@ -59,13 +62,13 @@
               </button>
 
               {% if cohorte.estadoCohorte == "ACTIVO" %}
-              <button class="btn btn-sm btn-danger" type="button" onclick="deleteCohorte('{{ cohorte.idCohorte }}')">
+              <button class="btn btn-sm btn-danger" type="button" onclick="manageCohorte('{{ cohorte.idCohorte }}','delete')">
                 Eliminar
               </button>
               {% endif %}
 
               {% if cohorte.estadoCohorte == "INACTIVO" %}
-              <button class="btn btn-sm btn-success" type="button" onclick="reactivateCohorte('{{ cohorte.idCohorte }}')">
+              <button class="btn btn-sm btn-success" type="button" onclick="manageCohorte('{{ cohorte.idCohorte }}','reactivate')">
                 Reactivar
               </button>
               {% endif %}
@@ -98,11 +101,11 @@
 </div>
 
 <!-- Modal para editar -->
-<div class="modal fade" id="editCargoModal" tabindex="-1" role="dialog" aria-labelledby="editCargoModalLabel" aria-hidden="true">
+<div class="modal fade" id="editModal" tabindex="-1" role="dialog" aria-labelledby="editModalLabel" aria-hidden="true">
   <div class="modal-dialog" role="document">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="editCargoModalLabel">Modificar Cohorte</h5>
+        <h5 class="modal-title" id="editModalLabel">Modificar Cohorte</h5>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
@@ -123,7 +126,37 @@
 {% endblock content %}
 
 {% block javascripts %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
+  function highlightInvalidInputs(formSelector) {
+  const form = document.querySelector(formSelector);
+  if (!form) return;
+  let valid = true;
+  let firstInvalid = null;
+  form.querySelectorAll('input[data-required], select[data-required], textarea[data-required]').forEach(input => {
+    if (!input.value.trim()) {
+      input.classList.add('is-invalid');
+      if (!firstInvalid) firstInvalid = input;
+      valid = false;
+    } else {
+      input.classList.remove('is-invalid');
+    }
+  });
+  if (!valid) {
+    Swal.fire({
+      title: 'Campos requeridos',
+      text: 'Por favor, complete todos los campos obligatorios resaltados en rojo.',
+      icon: 'warning',
+      confirmButtonText: 'OK',
+      customClass: { confirmButton: 'btn btn-warning' },
+      buttonsStyling: false,
+    }).then(() => {
+      if (firstInvalid) firstInvalid.focus();
+    });
+  }
+  return valid;
+}
+
   document.addEventListener("DOMContentLoaded", function() {
     $('#cohorteModal').on('show.bs.modal', function (e) {
       var modal = $(this);
@@ -155,11 +188,16 @@
     $(document).on('submit', '#cohorteForm', function(e) {
       e.preventDefault();
       var form = $(this);
+      if (!highlightInvalidInputs('#cohorteForm')) {
+    e.preventDefault();
+    return false;
+  }
       $.ajax({
         url: form.attr('action'),
         method: form.attr('method'),
         data: form.serialize(),
         success: function(response) {
+          
           handleFormResponse(response, '#cohorteModal');
         }
       });
@@ -168,6 +206,10 @@
     $(document).on('submit', '#editCohorteForm', function(e) {
       e.preventDefault();
       var form = $(this);
+      if (!highlightInvalidInputs('#editCohorteForm')) {
+    e.preventDefault();
+    return false;
+  }
       $.ajax({
         url: form.attr('action'),
         method: form.attr('method'),
@@ -180,46 +222,94 @@
   });
 
   function handleFormResponse(response, modalId) {
-    var messagesContainer = $('#modalMessages');
-    messagesContainer.empty();
-    if (response.success) {
-      messagesContainer.append('<div class="alert alert-success">' + response.message + '</div>');
-      $(modalId).modal('hide');
-      setTimeout(() => location.reload(), 1500);
-    } else {
-      $.each(response.errors, function(field, error) {
-        messagesContainer.append('<div class="alert alert-danger">' + error + '</div>');
+  var messagesContainer = $('#modalMessages');
+  messagesContainer.empty();
+  if (response.success) {
+    messagesContainer.append('<div class="alert alert-success">' + response.message + '</div>');
+    $(modalId).modal('hide');
+    setTimeout(() => location.reload(), 1500);
+  } else {
+    // Mostrar alerta si hay error general (__all__)
+    if (response.errors && response.errors.__all__) {
+      Swal.fire({
+        title: 'Registro duplicado',
+        text: response.errors.__all__.join('\n'),
+        icon: 'warning',
+        confirmButtonText: 'OK',
+        customClass: { confirmButton: 'btn btn-warning' },
+        buttonsStyling: false,
       });
     }
-  }
-
-  function deleteCohorte(id) {
-    if (confirm('¿Estás seguro de eliminar esta cohorte?')) {
-      $.ajax({
-        url: '{% url "delete_cohorte" 0 %}'.replace('0', id),
-        method: 'POST',
-        data: { csrfmiddlewaretoken: '{{ csrf_token }}' },
-        success: function(response) {
-          alert(response.message);
-          location.reload();
+    // Mostrar otros errores de campos
+    $.each(response.errors, function(field, error) {
+      if (field !== "__all__") {
+        // Si error es array, muestra todos los mensajes
+        if (Array.isArray(error)) {
+          error.forEach(function(msg) {
+            messagesContainer.append('<div class="alert alert-danger">' + msg + '</div>');
+          });
+        } else {
+          messagesContainer.append('<div class="alert alert-danger">' + error + '</div>');
         }
-      });
-    }
+      }
+    });
   }
+}
 
-  function reactivateCohorte(id) {
-    if (confirm('¿Estás seguro de reactivar esta cohorte?')) {
-      $.ajax({
-        url: '{% url "reactivate_cohorte" 0 %}'.replace('0', id),
+
+  function manageCohorte(id, action) {
+  const confirmMessage = action === 'delete'
+    ? '¿Está seguro de eliminar este registro?'
+    : (action === 'reactivate'
+        ? '¿Está seguro de reactivar este registro?'
+        : '¿Está seguro de realizar esta acción?');
+
+  Swal.fire({
+    title: confirmMessage,
+    icon: action === 'delete' ? 'warning' : 'question',
+    showCancelButton: true,
+    confirmButtonText: action === 'delete' ? 'Eliminar' : 'Reactivar',
+    cancelButtonText: 'Cancelar',
+    customClass: {
+      confirmButton: action === 'delete' ? 'btn btn-danger' : 'btn btn-success',
+      cancelButton: 'btn btn-secondary'
+    },
+    buttonsStyling: false,
+  }).then((result) => {
+    if (result.isConfirmed) {
+      const url = action === 'delete'
+        ? "{% url 'delete_cohorte' 0 %}".replace('0', id)
+        : "{% url 'reactivate_cohorte' 0 %}".replace('0', id);
+
+      const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+      fetch(url, {
         method: 'POST',
-        data: { csrfmiddlewaretoken: '{{ csrf_token }}' },
-        success: function(response) {
-          alert(response.message);
-          location.reload();
+        headers: {
+          'X-CSRFToken': csrftoken,
+        },
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          Swal.fire({
+            title: action === 'delete' ? 'Eliminado' : 'Reactivado',
+            text: data.message,
+            icon: 'success',
+            confirmButtonText: 'OK',
+            customClass: { confirmButton: 'btn btn-warning' },
+            buttonsStyling: false,
+          }).then(() => location.reload());
+        } else {
+          Swal.fire('Error', data.message, 'error');
         }
-      });
+      })
+      .catch(error => Swal.fire('Error', 'Ocurrió un error en el servidor.', 'error'));
     }
-  }
+  });
+}
+
+
 
   function filterTable() {
     var input = document.getElementById("searchInput");
@@ -242,4 +332,10 @@
     }
   }
 </script>
+<style>
+  .is-invalid {
+    border-color: #dc3545 !important;
+    box-shadow: 0 0 0 0.2rem rgba(220,53,69,.25);
+  }
+  </style>
 {% endblock javascripts %}

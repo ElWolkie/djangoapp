@@ -19,20 +19,21 @@
       <div class="form-group col-md-6">  
         <label for="idFormacion">Formación Académica:</label>  
         <div class="input-group"> <!-- Usar input-group para alinear botón y select -->  
-            <select id="idFormacion" name="idFormacion" class="form-control text-dark" tabindex="1" required>  
+            <select id="idFormacion" name="idFormacion" class="form-control text-dark" tabindex="1" data-required="true">  
                 <option value="" disabled selected>Seleccione...</option>  
                 {% for formacion  in formaciones %}  
-                    <option value="{{ formacion.idFormacion }}" class="text-orange">{{ formacion.nombreFormacion }}</option>  
+                    <option value="{{ formacion.idFormacion }}" class="text-orange" {% if formacion.idFormacion == formacion.idTF.idTF %}selected{% endif %}>{{ formacion.nombreFormacion }}</option>  
                 {% endfor %}  
-            </select>  
+            </select>
+            <div class="invalid-feedback">Por favor, seleccione una formación.</div>    
         </div>  
     </div>
       
       <div class="form-group col-md-6">  
         <label for="nombreMateria">Nombre:</label>  
-        <input type="text" id="nombreMateria" name="nombreMateria" class="form-control text-dark" placeholder="Ingrese un nombre" tabindex="3" maxlength="100" required />  
-        <input type="hidden" id="estadoMateria" name="estadoMateria" class="form-control text-dark" value="ACTIVO" />  
-        
+        <input type="text" id="nombreMateria" name="nombreMateria" class="form-control text-dark" value="{{materia.nombreMateria}}" placeholder="Ingrese un nombre" tabindex="3" maxlength="100" data-required="true" />  
+        <div class="invalid-feedback">Por favor, ingrese un nombre válido.</div>
+        <input type="hidden" id="estadoMateria" name="estadoMateria" class="form-control text-dark" value="ACTIVO" />          
       </div>  
     
     </div>  
@@ -44,4 +45,14 @@
 {% endblock content %}
 
 {% block javascripts %}
+<script>
+function activarMayusculasInputs() {
+  document.addEventListener('input', function(e) {
+    if (e.target.tagName === 'INPUT' && !e.target.type.match(/password|hidden|email/)) {
+      e.target.value = e.target.value.toUpperCase();
+    }
+  });
+}
+activarMayusculasInputs();
+</script>
 {% endblock javascripts %}

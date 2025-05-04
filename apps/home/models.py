@@ -1,5 +1,4 @@
 from django.db import models
-<<<<<<<<< Temporary merge branch 1
 from django.utils import timezone # Para la fecha
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin, Group
 from django.core.exceptions import ValidationError
@@ -44,7 +43,6 @@ class Usuarios(AbstractBaseUser, PermissionsMixin):
     coloresUsuario = models.CharField(max_length=50, blank=True, null=True)
     fechaUsuario = models.DateTimeField(auto_now_add=True)
 
-<<<<<<<<< Temporary merge branch 1
     is_active = models.BooleanField(default=True) #Necesario para activo o inactivo
     is_staff = models.BooleanField(default=False)  # Necesario para admin
     is_superuser = models.BooleanField(default=False)  # Necesario para permisos de superusuario
@@ -104,7 +102,10 @@ class Formacion(models.Model):
     fechaFormacion = models.DateField(auto_now_add=True)
 
     def clean(self):
-        if Formacion.objects.filter(nombreFormacion__iexact=self.nombreFormacion).exists():
+        qs = Formacion.objects.filter(nombreFormacion__iexact=self.nombreFormacion)
+        if self.pk:
+            qs = qs.exclude(pk=self.pk)
+        if qs.exists():
             raise ValidationError("El nombre de la Formación ya existe.")
 
     class Meta:  

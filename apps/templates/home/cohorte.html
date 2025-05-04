@@ -16,8 +16,9 @@
     {% csrf_token %}
     <div class="form-group text-center">
       <label for="nombreCohorte" class="d-block">Nombre:</label>
-      <input type="text" id="nombreCohorte" name="nombreCohorte" class="form-control text-dark mx-auto" placeholder="Ingrese un nombre" tabindex="3" maxlength="100" required style="width: 50%;" />
+      <input type="text" id="nombreCohorte" name="nombreCohorte" class="form-control text-dark mx-auto" placeholder="Ingrese un nombre" tabindex="3" maxlength="100" data-required="true" style="width: 50%;" />
       <input type="hidden" id="estadoCohorte" name="estadoCohorte" class="form-control text-dark" value="ACTIVO" />
+      <div class="invalid-feedback">Por favor, ingrese un nombre válido.</div>
     </div>
     <div class="text-center">
       <input type="submit" class="btn btn-warning mt-4" value="Guardar" />
@@ -87,6 +88,20 @@ $(document).on('submit', '#CohorteForm', function(e) {
         }
       });
     });
+          // Validaciones de Bootstrap
+          (function() {
+        'use strict';
+        var forms = document.querySelectorAll('.needs-validation');
+        Array.prototype.slice.call(forms).forEach(function(form) {
+          form.addEventListener('submit', function(event) {
+            if (!form.checkValidity()) {
+              event.preventDefault();
+              event.stopPropagation();
+            }
+            form.classList.add('was-validated');
+          }, false);
+        });
+      })();
 </script>
 
 {% endblock javascripts %}

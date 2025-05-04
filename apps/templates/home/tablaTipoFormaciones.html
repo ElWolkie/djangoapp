@@ -32,6 +32,9 @@
     </div>
     <div class="col-md-4">
       <button class="btn btn-warning btn-square btn-sm my-2" type="button" title="Registrar Tipo de Formación" data-toggle="modal" data-target="#tipoFormacionModal">+</button>
+      <a href="{% url 'reporte_tipo_formacion_pdf' %}" class="btn btn-outline-danger btn-sm" target="_blank">
+        <i class="fas fa-file-pdf"></i> Descargar PDF
+      </a>
     </div>
   </div>
 
@@ -53,7 +56,7 @@
         <td>{{ tipoFormacion.idTF }}</td>
         <td>{{ tipoFormacion.nombreTipoFormacion }}</td>
         <td>{{ tipoFormacion.estadoTipoFormacion }}</td>
-        <td>{{ tipoFormacion.fechaTipoFormacion }}</td>
+        <td>{{ tipoFormacion.fechaTipoFormacion|date:"d/m/Y" }}</td>
         <td>
           <button class="btn btn-sm btn-primary" type="button" data-toggle="modal" data-target="#editModal" data-url="{% url 'edit_tf' tipoFormacion.idTF %}">
             Editar
@@ -61,14 +64,14 @@
 
           <!-- Botón para eliminar lógico -->
           {% if tipoFormacion.estadoTipoFormacion == "ACTIVO" %}
-          <button class="btn btn-sm btn-danger" type="button" onclick="deleteTipoFormacion('{{ tipoFormacion.idTF }}')">
+          <button class="btn btn-sm btn-danger" type="button" onclick="manageTipoFormacion('{{ tipoFormacion.idTF }}','delete')">
             Eliminar
           </button>
           {% endif %}
 
           <!-- Botón para reactivar -->
           {% if tipoFormacion.estadoTipoFormacion == "INACTIVO" %}
-          <button class="btn btn-sm btn-success" type="button" onclick="reactivateTipoFormacion('{{ tipoFormacion.idTF }}')">
+          <button class="btn btn-sm btn-success" type="button" onclick="manageTipoFormacion('{{ tipoFormacion.idTF }}','reactivate')">
             Reactivar
           </button>
           {% endif %}
@@ -123,8 +126,38 @@
 {% endblock content %}
 
 {% block javascripts %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-  
+    // Función para resaltar los campos inválidos y mostrar un mensaje de advertencia
+    function highlightInvalidInputs(formSelector) {
+  const form = document.querySelector(formSelector);
+  if (!form) return;
+  let valid = true;
+  let firstInvalid = null;
+  form.querySelectorAll('input[data-required], select[data-required], textarea[data-required]').forEach(input => {
+    if (!input.value.trim()) {
+      input.classList.add('is-invalid');
+      if (!firstInvalid) firstInvalid = input;
+      valid = false;
+    } else {
+      input.classList.remove('is-invalid');
+    }
+  });
+  if (!valid) {
+    Swal.fire({
+      title: 'Campos requeridos',
+      text: 'Por favor, complete todos los campos obligatorios resaltados en rojo.',
+      icon: 'warning',
+      confirmButtonText: 'OK',
+      customClass: { confirmButton: 'btn btn-warning' },
+      buttonsStyling: false,
+    }).then(() => {
+      if (firstInvalid) firstInvalid.focus();
+    });
+  }
+  return valid;
+}
+// Manejar la apertura del modal para registrar
   document.addEventListener("DOMContentLoaded", function() {
     $('#tipoFormacionModal').on('show.bs.modal', function (e) {
       var modal = $(this);
@@ -156,94 +189,131 @@
     $(document).on('submit', '#tipoFormacionForm', function(e) {
       e.preventDefault();
       var form = $(this);
-      $.ajax({
-        url: form.attr('action'),
-        method: form.attr('method'),
-        data: form.serialize(),
-        success: function(response) {
-          var messagesContainer = $('#modalMessages');
-          messagesContainer.empty();
-          if (response.success) {
-            messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
-            $('#tipoFormacionModal ').modal('hide');
-            location.reload();  // Recargar la página para ver los cambios
-          } else {
-            // Mostrar errores en el modal
-            var errors = response.errors;
-            for (var field in errors) {
-              messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + errors[field] + '</div>');
-            }
-          }
-        }
+      if (!highlightInvalidInputs('#tipoFormacionForm')) {
+    e.preventDefault();
+    return false;
+  }
+  $.ajax({
+    url: form.attr('action'),
+    method: form.attr('method'),
+    data: form.serialize(),
+    success: function(response) {
+      handleFormResponse(response, '#tipoFormacionModal');
+    },
+    error: function() {
+      alert('Error al procesar la solicitud');
+    }
+  });
       });
     });
-  });
 
   $(document).on('submit', '#editTipoFormacionForm', function(e) {
       e.preventDefault();
       var form = $(this);
-      $.ajax({
-        url: form.attr('action'),
-        method: form.attr('method'),
-        data: form.serialize(),
-        success: function(response) {
-          var messagesContainer = $('#modalMessages');
-          messagesContainer.empty();
-          if (response.success) {
-            messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
-            $('#editModal ').modal('hide');
-            location.reload();  // Recargar la página para ver los cambios
-          } else {
-            // Mostrar errores en el modal
-            var errors = response.errors;
-            for (var field in errors) {
-              messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + errors[field] + '</div>');
-            }
-          }
-        }
-      });
-    });
-  
-  
-  function deleteTipoFormacion(id) {
-    if (confirm('¿Estás seguro de que deseas eliminar este tipo de formación?')) {
-      $.ajax({
-        url: '{% url "delete_tf" 0 %}'.replace('0', id),
-        method: 'POST',
-        data: {
-          csrfmiddlewaretoken: '{{ csrf_token }}'
-        },
-        success: function(response) {
-          if (response.success) {
-            alert(response.message);
-            location.reload();  // Recargar la página para ver los cambios
-          } else {
-            alert('Error al eliminar el tipo de formación.');
-          }
-        }
-      });
-    }
+      if (!highlightInvalidInputs('#editTipoFormacionForm')) {
+    e.preventDefault();
+    return false;
   }
+  $.ajax({
+    url: form.attr('action'),
+    method: form.attr('method'),
+    data: form.serialize(),
+    success: function(response) {
+      handleFormResponse(response, '#editTipoFormacionModal');
+    },
+    error: function() {
+      alert('Error al procesar la solicitud');
+    }
+  });
+      });
 
-  function reactivateTipoFormacion(id) {
-    if (confirm('¿Estás seguro de que deseas reactivar este tipo de formación?')) {
-      $.ajax({
-        url: '{% url "reactivate_tf" 0 %}'.replace('0', id),
-        method: 'POST',
-        data: {
-          csrfmiddlewaretoken: '{{ csrf_token }}'
-        },
-        success: function(response) {
-          if (response.success) {
-            alert(response.message);
-            location.reload();  // Recargar la página para ver los cambios
-          } else {
-            alert('Error al reactivar el tipo de formación.');
-          }
-        }
+    function handleFormResponse(response, modalId) {
+  var modal = $(modalId);
+  var messagesContainer = modal.find('.modalMessages');
+  messagesContainer.empty();
+  if (response.success) {
+    messagesContainer.append('<div class="alert alert-success">' + response.message + '</div>');
+    $(modalId).modal('hide');
+    setTimeout(() => location.reload(), 1500);
+  } else {
+    // Mostrar alerta si hay error general (__all__)
+    if (response.errors && response.errors.__all__) {
+      Swal.fire({
+        title: 'Registro duplicado',
+        text: response.errors.__all__.join('\n'),
+        icon: 'warning',
+        confirmButtonText: 'OK',
+        customClass: { confirmButton: 'btn btn-warning' },
+        buttonsStyling: false,
       });
     }
+    // Mostrar otros errores de campos
+    $.each(response.errors, function(field, error) {
+      if (field !== "__all__") {
+        // Si error es array, muestra todos los mensajes
+        if (Array.isArray(error)) {
+          error.forEach(function(msg) {
+            messagesContainer.append('<div class="alert alert-danger">' + msg + '</div>');
+          });
+        } else {
+          messagesContainer.append('<div class="alert alert-danger">' + error + '</div>');
+        }
+      }
+    });
   }
+}    
+  // Función para manejar la eliminación y reactivación de registros
+    function manageTipoFormacion(id, action) {
+  const confirmMessage = action === 'delete'
+    ? '¿Está seguro de eliminar este registro?'
+    : (action === 'reactivate'
+        ? '¿Está seguro de reactivar este registro?'
+        : '¿Está seguro de realizar esta acción?');
+
+  Swal.fire({
+    title: confirmMessage,
+    icon: action === 'delete' ? 'warning' : 'question',
+    showCancelButton: true,
+    confirmButtonText: action === 'delete' ? 'Eliminar' : 'Reactivar',
+    cancelButtonText: 'Cancelar',
+    customClass: {
+      confirmButton: action === 'delete' ? 'btn btn-danger' : 'btn btn-success',
+      cancelButton: 'btn btn-secondary'
+    },
+    buttonsStyling: false,
+  }).then((result) => {
+    if (result.isConfirmed) {
+      const url = action === 'delete'
+        ? "{% url 'delete_tf' 0 %}".replace('0', id)
+        : "{% url 'reactivate_tf' 0 %}".replace('0', id);
+
+      const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+      fetch(url, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': csrftoken,
+        },
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          Swal.fire({
+            title: action === 'delete' ? 'Eliminado' : 'Reactivado',
+            text: data.message,
+            icon: 'success',
+            confirmButtonText: 'OK',
+            customClass: { confirmButton: 'btn btn-warning' },
+            buttonsStyling: false,
+          }).then(() => location.reload());
+        } else {
+          Swal.fire('Error', data.message, 'error');
+        }
+      })
+      .catch(error => Swal.fire('Error', 'Ocurrió un error en el servidor.', 'error'));
+    }
+  });
+}
 
   function filterTable() {
     var input, filter, table, tr, td, i, txtValue;
@@ -266,4 +336,10 @@
     }
   }
 </script>
+<style>
+  .is-invalid {
+    border-color: #dc3545 !important;
+    box-shadow: 0 0 0 0.2rem rgba(220,53,69,.25);
+  }
+  </style>
 {% endblock javascripts %}

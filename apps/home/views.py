@@ -539,6 +539,74 @@ def tabla_formaciones(request):
         formaciones = Formacion.objects.select_related('idTF').filter(estadoFormacion='ACTIVO').distinct  # Filtrar solo las activas
     return render(request, 'home/tablaFormaciones.html', {'formaciones': formaciones})
 
+@login_required(login_url='login')
+@csrf_exempt
+def reporte_formaciones_pdf(request):
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="reporte_formaciones.pdf"'
+    p = canvas.Canvas(response, pagesize=letter)
+    width, height = letter
+    logo_width, logo_height, logo_margin = 100, 100, 15
+
+    config = Configuracion.objects.order_by('-fechaConfiguracion').first()
+    logo_path = config.logo.path if config and config.logo else None
+    firma_path = config.firma.path if config and config.firma else None
+    nombre_institucion = config.nombreInstitucion if config else "Institución"
+    rif_institucion = config.rif if config else ""
+
+    safe_left = logo_margin + logo_width
+    safe_right = width - logo_margin - logo_width
+    safe_width = safe_right - safe_left
+    safe_center = safe_left + safe_width / 2
+
+    if logo_path and os.path.exists(logo_path):
+        p.drawImage(logo_path, width - logo_width - logo_margin, height - logo_height - logo_margin, width=logo_width, height=logo_height, preserveAspectRatio=True, mask='auto')
+
+    text_top = height - logo_margin - 22
+    p.setFont("Helvetica-Bold", 12)
+    p.drawCentredString(safe_center, text_top, nombre_institucion)
+    p.drawCentredString(safe_center, text_top - 20, f"RIF: {rif_institucion}")
+    p.drawCentredString(safe_center, text_top - 40, "REPORTE DE FORMACIONES")
+
+    if firma_path and os.path.exists(firma_path):
+        p.drawImage(firma_path, width/2 - 60, 60, width=120, height=60, preserveAspectRatio=True, mask='auto')
+        p.setFont("Helvetica-Oblique", 10)
+        p.drawCentredString(width/2, 25, "Firma autorizada")
+
+    formaciones = Formacion.objects.select_related('idTF').all()
+    data = [["ID", "Tipo", "Nombre", "Duración", "Valor", "Estado", "Fecha"]]
+    for f in formaciones:
+        data.append([
+            str(f.idFormacion),
+            f.idTF.nombreTipoFormacion if f.idTF else "",
+            f.nombreFormacion,
+            f.duracion,
+            f.valorFormacion, 
+            f.estadoFormacion,
+            f.fechaFormacion.strftime("%d/%m/%Y")
+        ])
+    col_widths = [40, 100, 120, 60, 60, 60, 60]
+    table_width = sum(col_widths)
+    x = safe_left + (safe_width - table_width) / 2
+    y = height - logo_margin - 100
+
+    table = Table(data, colWidths=col_widths)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0,0), (-1,0), 12),
+        ('BOTTOMPADDING', (0,0), (-1,0), 10),
+        ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
+        ('GRID', (0,0), (-1,-1), 1, colors.black),
+    ]))
+    table.wrapOn(p, width, height)
+    table.drawOn(p, x, y - 25 * len(data))
+    p.showPage()
+    p.save()
+    return response
+
 
 # Tipo de formación
 @login_required(login_url='login')
@@ -594,6 +662,71 @@ def tabla_tipo_formaciones(request):
     tipo_formaciones = TipoFormacion.objects.all()
 
     return render(request, 'home/tablaTipoFormaciones.html', {'tipo_formaciones': tipo_formaciones})
+
+@login_required(login_url='login')
+@csrf_exempt
+def reporte_tipo_formacion_pdf(request):
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="reporte_tipo_formacion.pdf"'
+    p = canvas.Canvas(response, pagesize=letter)
+    width, height = letter
+    logo_width, logo_height, logo_margin = 100, 100, 15
+
+    config = Configuracion.objects.order_by('-fechaConfiguracion').first()
+    logo_path = config.logo.path if config and config.logo else None
+    firma_path = config.firma.path if config and config.firma else None
+    nombre_institucion = config.nombreInstitucion if config else "Institución"
+    rif_institucion = config.rif if config else ""
+
+    safe_left = logo_margin + logo_width
+    safe_right = width - logo_margin - logo_width
+    safe_width = safe_right - safe_left
+    safe_center = safe_left + safe_width / 2
+
+    if logo_path and os.path.exists(logo_path):
+        p.drawImage(logo_path, width - logo_width - logo_margin, height - logo_height - logo_margin, width=logo_width, height=logo_height, preserveAspectRatio=True, mask='auto')
+
+    text_top = height - logo_margin - 22
+    p.setFont("Helvetica-Bold", 12)
+    p.drawCentredString(safe_center, text_top, nombre_institucion)
+    p.drawCentredString(safe_center, text_top - 20, f"RIF: {rif_institucion}")
+    p.drawCentredString(safe_center, text_top - 40, "REPORTE DE TIPOS DE FORMACIÓN")
+
+    if firma_path and os.path.exists(firma_path):
+        p.drawImage(firma_path, width/2 - 60, 60, width=120, height=60, preserveAspectRatio=True, mask='auto')
+        p.setFont("Helvetica-Oblique", 10)
+        p.drawCentredString(width/2, 25, "Firma autorizada")
+
+    tipos = TipoFormacion.objects.all()
+    data = [["ID", "Nombre", "Estado", "Fecha"]]
+    for t in tipos:
+        data.append([
+            str(t.idTF),
+            t.nombreTipoFormacion,
+            t.estadoTipoFormacion,
+            t.fechaTipoFormacion.strftime("%d/%m/%Y")
+        ])
+    col_widths = [40, 120, 60, 60]
+    table_width = sum(col_widths)
+    x = safe_left + (safe_width - table_width) / 2
+    y = height - logo_margin - 100
+
+    table = Table(data, colWidths=col_widths)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0,0), (-1,0), 12),
+        ('BOTTOMPADDING', (0,0), (-1,0), 10),
+        ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
+        ('GRID', (0,0), (-1,-1), 1, colors.black),
+    ]))
+    table.wrapOn(p, width, height)
+    table.drawOn(p, x, y - 25 * len(data))
+    p.showPage()
+    p.save()
+    return response    
 
 
 #MATERIA
@@ -657,6 +790,72 @@ def tabla_materias(request):
 
     return render(request, 'home/tablaMaterias.html', {'materias': materias})
 
+@login_required(login_url='login')
+@csrf_exempt
+def reporte_materias_pdf(request):
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="reporte_materias.pdf"'
+    p = canvas.Canvas(response, pagesize=letter)
+    width, height = letter
+    logo_width, logo_height, logo_margin = 100, 100, 15
+
+    config = Configuracion.objects.order_by('-fechaConfiguracion').first()
+    logo_path = config.logo.path if config and config.logo else None
+    firma_path = config.firma.path if config and config.firma else None
+    nombre_institucion = config.nombreInstitucion if config else "Institución"
+    rif_institucion = config.rif if config else ""
+
+    # Área útil para centrar
+    safe_left = logo_margin + logo_width
+    safe_right = width - logo_margin - logo_width
+    safe_width = safe_right - safe_left
+    safe_center = safe_left + safe_width / 2
+
+    if logo_path and os.path.exists(logo_path):
+        p.drawImage(logo_path, width - logo_width - logo_margin, height - logo_height - logo_margin, width=logo_width, height=logo_height, preserveAspectRatio=True, mask='auto')
+
+    text_top = height - logo_margin - 22
+    p.setFont("Helvetica-Bold", 12)
+    p.drawCentredString(safe_center, text_top, nombre_institucion)
+    p.drawCentredString(safe_center, text_top - 20, f"RIF: {rif_institucion}")
+    p.drawCentredString(safe_center, text_top - 40, "REPORTE DE MATERIAS")
+
+    if firma_path and os.path.exists(firma_path):
+        p.drawImage(firma_path, width/2 - 60, 60, width=120, height=60, preserveAspectRatio=True, mask='auto')
+        p.setFont("Helvetica-Oblique", 10)
+        p.drawCentredString(width/2, 25, "Firma autorizada")
+
+    materias = Materia.objects.select_related('idFormacion').all()
+    data = [["ID", "Formación", "Nombre", "Estado", "Fecha"]]
+    for m in materias:
+        data.append([
+            str(m.idMateria),
+            m.idFormacion.nombreFormacion if m.idFormacion else "",
+            m.nombreMateria,
+            m.estadoMateria,
+            m.fechaMateria.strftime("%d/%m/%Y")
+        ])
+    col_widths = [40, 120, 120, 60, 60]
+    table_width = sum(col_widths)
+    x = safe_left + (safe_width - table_width) / 2
+    y = height - logo_margin - 100
+
+    table = Table(data, colWidths=col_widths)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0,0), (-1,0), 12),
+        ('BOTTOMPADDING', (0,0), (-1,0), 10),
+        ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
+        ('GRID', (0,0), (-1,-1), 1, colors.black),
+    ]))
+    table.wrapOn(p, width, height)
+    table.drawOn(p, x, y - 25 * len(data))
+    p.showPage()
+    p.save()
+    return response
 
 #COHORTE
 @login_required(login_url='login')
@@ -711,6 +910,72 @@ def tabla_cohortes(request):
     cohortes = Cohorte.objects.all()
     return render(request, 'home/tablaCohortes.html', {'cohortes': cohortes})
 
+@login_required(login_url='login')
+@csrf_exempt
+def reporte_cohortes_pdf(request):
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="reporte_cohortes.pdf"'
+    p = canvas.Canvas(response, pagesize=letter)
+    width, height = letter
+    logo_width, logo_height, logo_margin = 100, 100, 15
+
+    config = Configuracion.objects.order_by('-fechaConfiguracion').first()
+    logo_path = config.logo.path if config and config.logo else None
+    firma_path = config.firma.path if config and config.firma else None
+    nombre_institucion = config.nombreInstitucion if config else "Institución"
+    rif_institucion = config.rif if config else ""
+
+    safe_left = logo_margin + logo_width
+    safe_right = width - logo_margin - logo_width
+    safe_width = safe_right - safe_left
+    safe_center = safe_left + safe_width / 2
+
+    if logo_path and os.path.exists(logo_path):
+        p.drawImage(logo_path, width - logo_width - logo_margin, height - logo_height - logo_margin, width=logo_width, height=logo_height, preserveAspectRatio=True, mask='auto')
+
+    text_top = height - logo_margin - 22
+    p.setFont("Helvetica-Bold", 12)
+    p.drawCentredString(safe_center, text_top, nombre_institucion)
+    p.drawCentredString(safe_center, text_top - 20, f"RIF: {rif_institucion}")
+    p.drawCentredString(safe_center, text_top - 40, "REPORTE DE COHORTES")
+
+    if firma_path and os.path.exists(firma_path):
+        p.drawImage(firma_path, width/2 - 60, 60, width=120, height=60, preserveAspectRatio=True, mask='auto')
+        p.setFont("Helvetica-Oblique", 10)
+        p.drawCentredString(width/2, 25, "Firma autorizada")
+
+    cohortes = Cohorte.objects.all()
+    data = [["ID", "Nombre", "Estado", "Fecha"]]
+    for c in cohortes:
+        data.append([
+            str(c.idCohorte),
+            c.nombreCohorte,
+            c.estadoCohorte,
+            c.fechaCohorte.strftime("%d/%m/%Y")
+        ])
+    col_widths = [40, 120, 60, 60]
+    table_width = sum(col_widths)
+    x = safe_left + (safe_width - table_width) / 2
+    y = height - logo_margin - 100
+
+    table = Table(data, colWidths=col_widths)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0,0), (-1,0), 12),
+        ('BOTTOMPADDING', (0,0), (-1,0), 10),
+        ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
+        ('GRID', (0,0), (-1,-1), 1, colors.black),
+    ]))
+    table.wrapOn(p, width, height)
+    table.drawOn(p, x, y - 25 * len(data))
+    p.showPage()
+    p.save()
+    return response
+
+
 #CARGO
 @login_required(login_url='login')
 @permission_required("home.add_cargo", raise_exception=True)
@@ -764,12 +1029,7 @@ def tabla_cargos(request):
     cargos = Cargo.objects.all()
     return render(request, 'home/tablaCargos.html', {'cargos': cargos})
 
-<<<<<<<<< Temporary merge branch 1
-
-#REQUISITO
 @login_required(login_url='login')
-@permission_required("home.add_requisito", raise_exception=True)
-=========
 @csrf_exempt
 def reporte_cargos_pdf(request):
     response = HttpResponse(content_type='application/pdf')
@@ -811,7 +1071,7 @@ def reporte_cargos_pdf(request):
     p.drawCentredString( safe_center, text_top - 40, "AV. ALBERTO RAVELL CON AV. INTERCOMUNAL JOSE ANTONIO PAEZ,")
     p.drawCentredString( safe_center, text_top - 60, "LOCAL UPTYAB, INDEPENDENCIA – EDO YARACUY")
     p.setFont("Helvetica", 12) 
-    p.drawCentredString( safe_center, text_top - 100, "Reporte de Cargos")
+    p.drawCentredString( safe_center, text_top - 80, "Reporte de Cargos")
 
     # --- Pie de página: Firma ---
     if firma_path and os.path.exists(firma_path):
@@ -854,9 +1114,12 @@ def reporte_cargos_pdf(request):
     p.save()
     return response
 
+
+#REQUISITO
+@login_required(login_url='login')
+@permission_required("home.add_requisito", raise_exception=True)
 #Requisito
 @csrf_exempt
->>>>>>>>> Temporary merge branch 2
 def requisito_modal(request):
     if request.method == 'POST':
         form = RequisitoForm(request.POST)
@@ -907,6 +1170,71 @@ def reactivate_requisito(request, pk):
 def tabla_requisitos(request):
     requisitos = Requisito.objects.all()
     return render(request, 'home/tablaRequisitos.html', {'requisitos': requisitos})
+
+@login_required(login_url='login')
+def reporte_requisitos_pdf(request):
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="reporte_requisitos.pdf"'
+    p = canvas.Canvas(response, pagesize=letter)
+    width, height = letter
+    logo_width, logo_height, logo_margin = 100, 100, 15
+
+    config = Configuracion.objects.order_by('-fechaConfiguracion').first()
+    logo_path = config.logo.path if config and config.logo else None
+    firma_path = config.firma.path if config and config.firma else None
+    nombre_institucion = config.nombreInstitucion if config else "Institución"
+    rif_institucion = config.rif if config else ""
+
+    safe_left = logo_margin + logo_width
+    safe_right = width - logo_margin - logo_width
+    safe_width = safe_right - safe_left
+    safe_center = safe_left + safe_width / 2
+
+    if logo_path and os.path.exists(logo_path):
+        p.drawImage(logo_path, width - logo_width - logo_margin, height - logo_height - logo_margin, width=logo_width, height=logo_height, preserveAspectRatio=True, mask='auto')
+
+    text_top = height - logo_margin - 22
+    p.setFont("Helvetica-Bold", 12)
+    p.drawCentredString(safe_center, text_top, nombre_institucion)
+    p.drawCentredString(safe_center, text_top - 20, f"RIF: {rif_institucion}")
+    p.drawCentredString(safe_center, text_top - 40, "REPORTE DE REQUISITOS")
+
+    if firma_path and os.path.exists(firma_path):
+        p.drawImage(firma_path, width/2 - 60, 60, width=120, height=60, preserveAspectRatio=True, mask='auto')
+        p.setFont("Helvetica-Oblique", 10)
+        p.drawCentredString(width/2, 25, "Firma autorizada")
+
+    requisitos = Requisito.objects.all()
+    data = [["ID", "Nombre", "Estado", "Fecha"]]
+    for r in requisitos:
+        data.append([
+            str(r.idRequisito),
+            r.nombreRequisito,
+            r.estadoRequisito,
+            r.fechaRequisito.strftime("%d/%m/%Y")
+        ])
+
+    col_widths = [40, 120, 60, 60]
+    table_width = sum(col_widths)
+    x = safe_left + (safe_width - table_width) / 2
+    y = height - logo_margin - 100
+
+    table = Table(data, colWidths=col_widths)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0,0), (-1,0), 12),
+        ('BOTTOMPADDING', (0,0), (-1,0), 10),
+        ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
+        ('GRID', (0,0), (-1,-1), 1, colors.black),
+    ]))
+    table.wrapOn(p, width, height)
+    table.drawOn(p, x, y - 25 * len(data))
+    p.showPage()
+    p.save()
+    return response
 
 
 #SERVICIO

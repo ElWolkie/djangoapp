@@ -16,7 +16,7 @@
     {% csrf_token %}
     <div class="form-group text-center">
       <label for="nombreTipoFormacion" class="d-block">Nombre:</label>
-      <input type="text" id="nombreTipoFormacion" name="nombreTipoFormacion" class="form-control text-dark mx-auto" placeholder="Ingrese el nombre del tipo de formación" maxlength="100" required style="width: 50%;" />
+      <input type="text" id="nombreTipoFormacion" name="nombreTipoFormacion" class="form-control text-dark mx-auto" placeholder="Ingrese el nombre del tipo de formación" maxlength="100" data-required="true" style="width: 50%;" />
       <input type="hidden" id="estadoTipoFormacion" name="estadoTipoFormacion" class="form-control text-dark" value="ACTIVO" />
       <div class="invalid-feedback">Por favor, ingrese un nombre válido.</div>
     </div>
@@ -29,6 +29,14 @@
 
 {% block javascripts %}
 <script>
+function activarMayusculasInputs() {
+  document.addEventListener('input', function(e) {
+    if (e.target.tagName === 'INPUT' && !e.target.type.match(/password|hidden|email/)) {
+      e.target.value = e.target.value.toUpperCase();
+    }
+  });
+}
+activarMayusculasInputs();
   document.addEventListener("DOMContentLoaded", function() {
     // Validar solo letras
     document.getElementById("nombreTipoFormacion").addEventListener("input", function() {
@@ -37,7 +45,7 @@
         this.value = this.value.slice(0, 100);
       }
     });
-
+  });
     // Validaciones de Bootstrap
     (function() {
       'use strict';
@@ -52,6 +60,5 @@
         }, false);
       });
     })();
-  });
 </script>
 {% endblock javascripts %}

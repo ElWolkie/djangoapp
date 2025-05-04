@@ -32,13 +32,12 @@
     </div>
     <div class="col-md-4">
       <button class="btn btn-warning btn-square btn-sm my-2" type="button" title="Registrar Cargo" data-toggle="modal" data-target="#cargoModal">+</button>
-    </div>
-    <div class="col-md-4">
+   
     <a href="{% url 'reporte_cargos_pdf' %}" class="btn btn-outline-danger btn-sm" target="_blank">
-      <i class="fas fa-file-pdf"></i> Descargar PDF
-    </a>
+
+      <i class="fas fa-file-pdf"></i> Descargar PDF</a>
     </div>
-  </div>
+    </div>
 
   <br>
   <table class="table table-striped-bordered text-gray-dark" id="cargosTable">
@@ -197,33 +196,56 @@ $(document).on('submit', '#editCargoForm', function(e) {
     e.preventDefault();
     return false;
   }      
-        $.ajax({
-            url: form.attr('action'),
-            method: 'POST',
-            data: form.serialize(),
-            success: function(response) {
-                if (response.success) {
-                    $('#editCargoModal').modal('hide');
-                    Swal.fire({
-                        title: "Modificación exitosa",
-                        text: "El cargo ha sido modificado correctamente.",
-                        icon: "success",
-                        confirmButtonText: "OK",
-                        customClass: {
-                            confirmButton: "btn btn-warning"
-                        },
-                        buttonsStyling: false,
-                    }).then(() => {
-                        location.reload(); // Recargar la página después de la modificación
-                    });
-                } else {
-                    $('#modalMessages').html('<div class="alert alert-danger">' + response.errors + '</div>');
-                }
-            }
+$.ajax({
+      url: form.attr('action'),
+      method: form.attr('method'),
+      data: form.serialize(),
+      success: function(response) {
+        handleFormResponse(response, '#editCargoModal');
+      },
+      error: function() {
+        alert('Error al procesar la solicitud');
+      }
+    });
         });
     });
 });
-});
+
+function handleFormResponse(response, modalId) {
+  var modal = $(modalId);
+  var messagesContainer = modal.find('.modalMessages');
+  messagesContainer.empty();
+  if (response.success) {
+    messagesContainer.append('<div class="alert alert-success">' + response.message + '</div>');
+    $(modalId).modal('hide');
+    setTimeout(() => location.reload(), 1500);
+  } else {
+    // Mostrar alerta si hay error general (__all__)
+    if (response.errors && response.errors.__all__) {
+      Swal.fire({
+        title: 'Registro duplicado',
+        text: response.errors.__all__.join('\n'),
+        icon: 'warning',
+        confirmButtonText: 'OK',
+        customClass: { confirmButton: 'btn btn-warning' },
+        buttonsStyling: false,
+      });
+    }
+    // Mostrar otros errores de campos
+    $.each(response.errors, function(field, error) {
+      if (field !== "__all__") {
+        // Si error es array, muestra todos los mensajes
+        if (Array.isArray(error)) {
+          error.forEach(function(msg) {
+            messagesContainer.append('<div class="alert alert-danger">' + msg + '</div>');
+          });
+        } else {
+          messagesContainer.append('<div class="alert alert-danger">' + error + '</div>');
+        }
+      }
+    });
+  }
+}
 
 function manageCargo(id, action) {
   const confirmMessage = action === 'delete'
