@@ -85,8 +85,11 @@ class TipoFormacion(models.Model):
     fechaTipoFormacion = models.DateField(auto_now_add=True)
 
     def clean(self):
-        if TipoFormacion.objects.filter(nombreTipoFormacion__iexact=self.nombreTipoFormacion).exists():
-            raise ValidationError("El nombre del TipoFormación ya existe.")
+        qs = TipoFormacion.objects.filter(nombreTipoFormacion__iexact=self.nombreTipoFormacion)
+        if self.pk:
+            qs = qs.exclude(pk=self.pk)
+        if qs.exists():
+            raise ValidationError("El nombre del Tipo Formación ya existe.")
 
     class Meta:  
         verbose_name = "TipoFormación"  
@@ -106,11 +109,15 @@ class Formacion(models.Model):
         if self.pk:
             qs = qs.exclude(pk=self.pk)
         if qs.exists():
-            raise ValidationError("El nombre de la Formación ya existe.")
+            raise ValidationError({'nombreFormacion': "El nombre de la Formación ya existe."})
 
+    def __str__(self):
+        return f"Formación {self.idFormacion} - {self.nombreFormacion}"
+    
     class Meta:  
         verbose_name = "Formacion"  
         verbose_name_plural = "Formaciones"
+
 
 class Materia(models.Model):  
     idMateria = models.AutoField(primary_key=True)
@@ -120,8 +127,14 @@ class Materia(models.Model):
     fechaMateria = models.DateField(auto_now_add=True)
 
     def clean(self):
-        if Materia.objects.filter(nombreMateria__iexact=self.nombreMateria).exists():
-            raise ValidationError("El nombre de la Materia ya existe.")
+        # Validación general para evitar duplicados (case-insensitive), tanto en creación como edición
+        qs = Materia.objects.filter(nombreMateria__iexact=self.nombreMateria)
+        if self.pk:
+            qs = qs.exclude(pk=self.pk)
+        if qs.exists():
+            # Si la materia ya existe y NO es la que estamos editando
+            raise ValidationError("Esa materia ya está registrada.")
+
 
     class Meta:  
         verbose_name = "Materia"  
@@ -132,9 +145,12 @@ class Cohorte(models.Model):
     nombreCohorte = models.CharField(max_length=100, unique=True)
     estadoCohorte = models.CharField(max_length=10)
     fechaCohorte = models.DateField(auto_now_add=True)
-
+        
     def clean(self):
-        if Cohorte.objects.filter(nombreCohorte__iexact=self.nombreCohorte).exists():
+        qs = Cohorte.objects.filter(nombreCohorte__iexact=self.nombreCohorte)
+        if self.pk:
+            qs = qs.exclude(pk=self.pk)
+        if qs.exists():
             raise ValidationError("El nombre de la Cohorte ya existe.")
 
     class Meta:  
@@ -147,9 +163,14 @@ class Cargo(models.Model):
     estadoCargo = models.CharField(max_length=10)
     fechaCargo = models.DateField(auto_now_add=True)
 
+    # Validación general para evitar duplicados (case-insensitive), tanto en creación como edición
     def clean(self):
-        if Cargo.objects.filter(nombreCargo__iexact=self.nombreCargo).exists():
+        qs = Cargo.objects.filter(nombreCargo__iexact=self.nombreCargo)
+        if self.pk:
+            qs = qs.exclude(pk=self.pk)
+        if qs.exists():
             raise ValidationError("El nombre del Cargo ya existe.")
+
 
     class Meta:  
         verbose_name = "Cargo"  
@@ -162,7 +183,10 @@ class Requisito(models.Model):
     fechaRequisito = models.DateField(auto_now_add=True)
 
     def clean(self):
-        if Requisito.objects.filter(nombreRequisito__iexact=self.nombreRequisito).exists():
+        qs = Requisito.objects.filter(nombreRequisito__iexact=self.nombreRequisito)
+        if self.pk:
+            qs = qs.exclude(pk=self.pk)
+        if qs.exists():
             raise ValidationError("El nombre del Requisito ya existe.")
 
     class Meta:  
@@ -178,8 +202,14 @@ class Servicio(models.Model):
     fechaServicio = models.DateField(auto_now_add=True)
 
     def clean(self):
-        if Servicio.objects.filter(nombreServicio__iexact=self.nombreServicio).exists():
+        qs = Servicio.objects.filter(nombreServicio__iexact=self.nombreServicio)
+        if self.pk:
+            qs = qs.exclude(pk=self.pk)
+        if qs.exists():
             raise ValidationError("El nombre del Servicio ya existe.")
+        
+    def __str__(self):
+                return f"Servicio {self.idServicio} - {self.nombreServicio}"
 
     class Meta:  
         verbose_name = "Servicio"
@@ -198,9 +228,15 @@ class Tramite(models.Model):
     fechaTramite = models.DateField(auto_now_add=True)
 
     def clean(self):
-        if Tramite.objects.filter(nombreTramite__iexact=self.nombreTramite).exists():
+        qs = Tramite.objects.filter(nombreTramite__iexact=self.nombreTramite)
+        if self.pk:
+            qs = qs.exclude(pk=self.pk)
+        if qs.exists():
             raise ValidationError("El nombre del Tramite ya existe.")
-
+        
+    def __str__(self):
+                return f"Tramite {self.idTramite} - {self.nombreTramite}"
+        
     class Meta:  
         verbose_name = "Tramite"  
         verbose_name_plural = "Tramites"
@@ -212,7 +248,10 @@ class Denominacion(models.Model):
     fechaDenominacion = models.DateField(auto_now_add=True)
 
     def clean(self):
-        if Denominacion.objects.filter(nombreDenominacion__iexact=self.nombreDenominacion).exists():
+        qs = Denominacion.objects.filter(nombreDenominacion__iexact=self.nombreDenominacion)
+        if self.pk:
+            qs = qs.exclude(pk=self.pk)
+        if qs.exists():
             raise ValidationError("El nombre de la Denominación ya existe.")
 
     class Meta:  
@@ -228,7 +267,10 @@ class Banco(models.Model):
     fechaBanco = models.DateField(default=timezone.now, verbose_name="Fecha Registro")
 
     def clean(self):
-        if Banco.objects.filter(nombreBanco__iexact=self.nombreBanco).exists():
+        qs = Banco.objects.filter(nombreBanco__iexact=self.nombreBanco)
+        if self.pk:
+            qs = qs.exclude(pk=self.pk)
+        if qs.exists():
             raise ValidationError("El nombre del Banco ya existe.")
 
     class Meta:
@@ -246,9 +288,12 @@ class Moneda(models.Model):
     estadoMoneda = models.CharField(max_length=10)
     fechaMoneda = models.DateField(auto_now_add=True)
 
-    def clean(self):
-        if Moneda.objects.filter(nombreMoneda__iexact=self.nombreMoneda).exists():
-            raise ValidationError("El nombre de la Moneda ya existe.")
+def clean(self):
+    qs = Moneda.objects.filter(nombreMoneda__iexact=self.nombreMoneda)
+    if self.pk:
+        qs = qs.exclude(pk=self.pk)
+    if qs.exists():
+        raise ValidationError("El nombre de la Moneda ya existe.")
 
     class Meta:
         verbose_name = "Moneda"

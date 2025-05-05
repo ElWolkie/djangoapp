@@ -201,32 +201,19 @@
       $(document).on('submit', '#editRequisitoForm', function(e) {
       e.preventDefault();
       var form = $(this);
-      if (!highlightInvalidInputs('#editRequisitoForm')) {
-      e.preventDefault();
-      return false;
-    }
+      if (!highlightInvalidInputs('#editRequisitoForm')) {e.preventDefault();return false; } 
+    
       $.ajax({
         url: form.attr('action'),
         method: form.attr('method'),
         data: form.serialize(),
         success: function(response) {
-          if (response.success) {
-            // Cierra el modal y recarga la página
-            $('#editRequisitoModal').modal('hide');
-            location.reload();
-          } else {
-            // Muestra errores de validación
-            var messagesContainer = $('#modalMessages');
-            messagesContainer.empty();
-            for (var field in response.errors) {
-              messagesContainer.append('<div class="alert alert-danger">' + response.errors[field] + '</div>');
-            }
-          }
-        },
-        error: function() {
-          alert('Error al procesar la solicitud');
-        }
-      });
+          handleFormResponse(response, '#editTramiteModal');
+      },
+      error: function() {
+        alert('Error al procesar la solicitud');
+      }
+    });
     });
   
     function handleFormResponse(response, modalId) {

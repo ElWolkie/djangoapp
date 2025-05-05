@@ -33,7 +33,6 @@ urlpatterns = [
     path('tablaTipoFormaciones/', views.tabla_tipo_formaciones, name='tabla_tipo_formaciones'),
     path('reporte-tipo-formacion/', views.reporte_tipo_formacion_pdf, name='reporte_tipo_formacion_pdf'),
    
-
     # Specific route for formacion modal
     path('formacionModal/', views.formacion_modal, name='formacion_modal'),
     path('editFormacion/<int:pk>/', views.edit_formacion, name='edit_formacion'),
@@ -41,7 +40,6 @@ urlpatterns = [
     path('reactivateFormacion/<int:pk>/', views.reactivate_formacion, name='reactivate_formacion'),
     path('tablaFormaciones/', views.tabla_formaciones, name='tabla_formaciones'),
     path('reporte-formaciones/', views.reporte_formaciones_pdf, name='reporte_formaciones_pdf'),
-
 
        # Specific route for materia modal
     path('materiaModal/', views.materia_modal, name='materia_modal'),
@@ -58,7 +56,6 @@ urlpatterns = [
     path('deleteCohorte/<int:pk>/', views.delete_cohorte, name='delete_cohorte'),
     path('reactivateCohorte/<int:pk>/', views.reactivate_cohorte, name='reactivate_cohorte'),
     path('reporte-cohortes/', views.reporte_cohortes_pdf, name='reporte_cohortes_pdf'),
-
 
     # Ruta especificica para cargo modal
     path('cargoModal/', views.cargo_modal, name='cargo_modal'),
@@ -81,6 +78,7 @@ urlpatterns = [
     path('deleteServicio/<int:pk>/', views.delete_servicio, name='delete_servicio'),
     path('reactivateServicio/<int:pk>/', views.reactivate_servicio, name='reactivate_servicio'),
     path('tablaServicios/', views.tabla_servicios, name='tabla_servicios'),
+    path('reporte-servicios/', views.reporte_servicios_pdf, name='reporte_servicios_pdf'),
 
     # Specific route for tramite modal
     path('tramiteModal/', views.tramite_modal, name='tramite_modal'),
@@ -88,6 +86,7 @@ urlpatterns = [
     path('deleteTramite/<int:pk>/', views.delete_tramite, name='delete_tramite'),
     path('reactivateTramite/<int:pk>/', views.reactivate_tramite, name='reactivate_tramite'),
     path('tablaTramites/', views.tabla_tramites, name='tabla_tramites'),
+    path('reporte-tramites/', views.reporte_tramites_pdf, name='reporte_tramites_pdf'),
 
     # Specific route for denominacion modal
     path('denominacionModal/', views.denominacion_modal, name='denominacion_modal'),
