@@ -1991,8 +1991,7 @@ def pages(request):
             context['denominaciones'] = denominaciones
 
         context["segment"] = load_template
-
-        if load_template == "tablaBancos.html":
+        if load_template in [ "tablaBancos.html", "cuentaBanco.html", "tablaCuentaBanco.html"]:
             bancos = Banco.objects.all()
             context['bancos'] = bancos
 

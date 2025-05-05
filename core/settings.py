@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     "apps.planCuenta",  # Habilita la aplicación para gestionar plan de cuenta  
     "apps.periodoContable",  # Habilita la aplicación para gestionar periodo contable  
     "apps.empresa",  # Habilita la aplicación para gestionar empresa
+    "apps.cuentaBanco",  # Habilita la aplicación para gestionar cuenta bancaria
     # "apps.asientoContable",  # Habilita la aplicación para gestionar asiento contable
 ]
 
