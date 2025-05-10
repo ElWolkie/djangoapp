@@ -1,10 +1,20 @@
 {% extends 'layouts/base.html' %}
 
 {% block title %}Registrar Plan de Cuenta{% endblock title %}
-
 {% block stylesheets %}
 <link rel="stylesheet" href="/static/assets/css/styleForms.css" />
 <link rel="stylesheet" href="/static/assets/css/argon.css" />
+
+<style>
+  #tablaCuentas th, #tablaCuentas td {
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  #tablaCuentas th {
+    font-weight: bold;
+  }
+</style>
 {% endblock stylesheets %}
 
 {% block content %}
@@ -75,7 +85,7 @@
 
 <!-- Modal -->
 <div class="modal fade" id="cuentaPadreModal" tabindex="-1" role="dialog" aria-labelledby="cuentaPadreModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-lg" role="document">
+  <div class="modal-dialog modal-dialog-centered" role="document">
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title" id="cuentaPadreModalLabel">Seleccionar Cuenta Padre</h5>
@@ -85,7 +95,7 @@
       </div>
       <div class="modal-body">
         <div class="row mb-3">
-          <div class="col-md-4">
+          <div class="col-md-8">
             <div class="input-group">
               <div class="input-group-prepend">
                 <span class="input-group-text" style="background-color: #bcbcbc; border: none;">
@@ -96,12 +106,12 @@
             </div>
           </div>
         </div>
-        <table class="table table-striped table-hover" id="tablaCuentas">
+        <table class="table table-sm table-responsive table-striped table-hover" id="tablaCuentas">
           <thead>
             <tr>
-              <th>Código</th>
-              <th>Nombre</th>
-              <th>Nivel</th>
+              <th style="width: 10%;">Código</th>
+              <th style="width: 20%;">Nombre</th>
+              <th style="width: 10%;">Nivel</th>
             </tr>
           </thead>
           <tbody>
@@ -114,12 +124,12 @@
             {% endfor %}
           </tbody>
         </table>
-        <p id="mensajeSinRegistros" class="text-center text-muted" style="display: none;">No hay registros en niveles superiores</p>
         <nav>
           <ul class="pagination justify-content-center" id="pagination">
             <!-- Paginación generada dinámicamente -->
           </ul>
         </nav>
+        <p id="mensajeSinRegistros" class="text-center text-muted" style="display: none;">No hay registros disponibles</p>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
@@ -182,23 +192,23 @@
 
     // Función para mostrar las filas de la página actual
     function displayRows() {
-      const rows = tablaCuentas.getElementsByTagName('tr');
+      const rows = Array.from(tablaCuentas.getElementsByTagName('tr')).filter(row => row.style.display !== 'none');
       const start = (currentPage - 1) * rowsPerPage;
       const end = start + rowsPerPage;
 
-      for (let i = 1; i < rows.length; i++) {
-        if (i > start && i <= end) {
-          rows[i].style.display = '';
+      rows.forEach((row, index) => {
+        if (index >= start && index < end) {
+          row.style.display = '';
         } else {
-          rows[i].style.display = 'none';
+          row.style.display = 'none';
         }
-      }
+      });
     }
 
     // Función para configurar la paginación
     function setupPagination() {
-      const rows = tablaCuentas.getElementsByTagName('tr');
-      const totalPages = Math.ceil((rows.length - 1) / rowsPerPage);
+      const rows = Array.from(tablaCuentas.getElementsByTagName('tr')).filter(row => row.style.display !== 'none');
+      const totalPages = Math.ceil(rows.length / rowsPerPage);
 
       pagination.innerHTML = '';
 
@@ -292,6 +302,11 @@
       });
 
       mensajeSinRegistros.style.display = hayRegistros ? 'none' : 'block';
+
+      // Reiniciar la paginación después de filtrar
+      currentPage = 1;
+      displayRows();
+      setupPagination();
     });
 
     // Seleccionar cuenta padre
@@ -315,6 +330,7 @@
       const input = document.getElementById('searchModalInput');
       const filter = input.value.toUpperCase();
       const rows = tablaCuentas.getElementsByTagName('tr');
+      let filteredRows = 0;
 
       for (let i = 1; i < rows.length; i++) {
         const cells = rows[i].getElementsByTagName('td');
@@ -330,8 +346,16 @@
           }
         }
 
-        rows[i].style.display = match ? '' : 'none';
+        if (match) {
+          rows[i].style.display = '';
+          filteredRows++;
+        } else {
+          rows[i].style.display = 'none';
+        }
       }
+
+      // Si no hay filas visibles, muestra el mensaje de "No hay registros disponibles"
+      mensajeSinRegistros.style.display = filteredRows > 0 ? 'none' : 'block';
 
       // Reiniciar la paginación después de filtrar
       currentPage = 1;

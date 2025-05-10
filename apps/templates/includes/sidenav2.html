@@ -55,24 +55,10 @@
       </li>
 
       <li class="nav-item">
-        <a class="nav-link" href="#" id="periodoContableDropdown" data-toggle="collapse" data-target="#periodoContableMenu" aria-expanded="false" aria-controls="periodoContableMenu">
+        <a class="nav-link" href="{% url 'periodo_contable_list' %}">
           <i class="ni ni-calendar-grid-58 text-orange"></i>
           <span class="nav-link-text">Periodo Contable</span>
         </a>
-        <div id="periodoContableMenu" class="collapse ml-3">
-          <ul class="nav flex-column">
-            <li class="nav-item">
-              <a class="nav-link" href="{% url 'periodo_contable_create' %}" style="padding-left: 15px;">
-                <i class="ni ni-fat-add text-orange"></i>Registrar
-              </a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="{% url 'periodo_contable_list' %}" style="padding-left: 15px;">
-                <i class="ni ni-bullet-list-67 text-orange"></i>Consultar
-              </a>
-            </li>
-          </ul>
-        </div>
       </li>
 
       <li class="nav-item">

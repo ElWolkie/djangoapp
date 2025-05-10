@@ -82,28 +82,6 @@
   
     <div class="form-row">
       <div class="form-group col-md-6">
-        <label for="numeroCuentaBanco">Número de Cuenta:</label>
-        <input type="text" id="numeroCuentaBanco" name="numeroCuentaBanco" class="form-control text-dark" placeholder="Ingrese el número de cuenta" maxlength="20" required />
-        <div class="invalid-feedback">
-          Por favor ingrese un número de cuenta válido.
-        </div>
-      </div>
-  
-      <div class="form-group col-md-6">
-        <label for="tipoCuentaBanco">Tipo de Cuenta:</label>
-        <select id="tipoCuentaBanco" name="tipoCuentaBanco" class="form-control text-dark" required>
-          <option value="" disabled selected>Seleccione el tipo de cuenta...</option>
-          <option value="ahorro">Ahorro</option>
-          <option value="corriente">Corriente</option>
-        </select>
-        <div class="invalid-feedback">
-          Por favor seleccione un tipo de cuenta.
-        </div>
-      </div>
-    </div>
-  
-    <div class="form-row">
-      <div class="form-group col-md-6">
         <label for="idBanco">Banco:</label>
         <div class="input-group">
           <input type="text" id="bancoInput" class="form-control text-dark is-invalid" placeholder="Seleccione un banco" readonly required />
@@ -116,9 +94,30 @@
           Por favor seleccione un banco.
         </div>
       </div>
+      <div class="form-group col-md-6">
+        <label for="numeroCuentaBanco">Número de Cuenta:</label>
+        <input type="text" id="numeroCuentaBanco" name="numeroCuentaBanco" class="form-control text-dark" placeholder="Ingrese el número de cuenta" maxlength="20" required />
+        <div class="invalid-feedback">
+          Por favor ingrese un número de cuenta válido.
+        </div>
+      </div>
+    </div>
+  
+    <div class="form-row">
+      <div class="form-group col-md-6">
+        <label for="tipoCuentaBanco">Tipo de Cuenta:</label>
+        <select id="tipoCuentaBanco" name="tipoCuentaBanco" class="form-control text-dark" required>
+          <option value="" disabled selected>Seleccione el tipo de cuenta...</option>
+          <option value="ahorro">Ahorro</option>
+          <option value="corriente">Corriente</option>
+        </select>
+        <div class="invalid-feedback">
+          Por favor seleccione un tipo de cuenta.
+        </div>
+      </div>
   
       <div class="form-group col-md-6">
-        <label for="idMoneda">Moneda:</label>
+        <label for="idMoneda">Moneda de la Cuenta:</label>
         <select id="idMoneda" name="idMoneda" class="form-control text-dark" required>
           <option value="" disabled selected>Seleccione una moneda...</option>
           {% for moneda in monedas %}
@@ -132,6 +131,13 @@
     </div>
     <div class="form-row">
       <div class="form-group col-md-6">
+        <label for="saldoDisponible">Saldo Disponible:</label>
+        <input type="number" id="saldoDisponible" name="saldoDisponible" class="form-control text-dark" placeholder="Ingrese el saldo disponible" step="0.01" min="0" required />
+        <div class="invalid-feedback">
+          Por favor ingrese un saldo válido (mayor o igual a 0).
+        </div>
+      </div>
+      <div class="form-group col-md-6">
         <label for="fechaApertura">Fecha de Apertura:</label>
         <input type="date" id="fechaApertura" name="fechaApertura" class="form-control text-dark is-invalid" max="{{ today_date }}" required />
         <div class="invalid-feedback">
@@ -139,13 +145,7 @@
         </div>
       </div>
   
-      <div class="form-group col-md-6">
-        <label for="saldoDisponible">Saldo Disponible:</label>
-        <input type="number" id="saldoDisponible" name="saldoDisponible" class="form-control text-dark" placeholder="Ingrese el saldo disponible" step="0.01" min="0" required />
-        <div class="invalid-feedback">
-          Por favor ingrese un saldo válido (mayor o igual a 0).
-        </div>
-      </div>
+    
     </div>
     <div class="form-row">
       <div class="form-group col-md-6">
