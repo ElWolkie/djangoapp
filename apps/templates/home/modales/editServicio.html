@@ -11,7 +11,7 @@
     {% endfor %}
   {% endif %}
 <div class=" mt-5">
-  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Registrar Servicio Expedito</h2>
+  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Editar Servicio Expedito</h2>
   <form method="POST" class="mt-3 text-dark" autocomplete="off" style="font-weight: bold; max-width: 600px; margin: 0 auto;" id="editServicioForm" action="{% url 'edit_servicio' servicio.idServicio %}">  
     {% csrf_token %}  
     
@@ -19,15 +19,19 @@
       
       <div class="form-group col-md-6">  
         <label for="nombreServicio">Nombre:</label>  
-        <input type="text" id="nombreServicio" name="nombreServicio" class="form-control text-dark" value="{{ servicio.nombreServicio}}" placeholder="Ingrese un nombre" tabindex="3" maxlength="100" required />          
-     </div>  
-      <div class="form-group col-md-6">  
-        <label for="tiempoServicio">Tiempo de Respuesta:</label>  
-        <input type="text" id="tiempoServicio" name="tiempoServicio" class="form-control text-dark" value="{{servicio.tiempoServicio}}" placeholder="4 años" tabindex="3" maxlength="100" required />  
+        <input type="text" id="nombreServicio" name="nombreServicio" class="form-control text-dark" value="{{servicio.nombreServicio}}" placeholder="Ingrese un nombre" tabindex="3" maxlength="100" data-required="true" />          
+        <div class="invalid-feedback">Por favor, ingrese un nombre válido.</div>  
+
       </div>  
       <div class="form-group col-md-6">  
-        <label for="precioServicio">Precio:</label>
-        <input type="text" id="precioServicio" name="precioServicio" class="form-control text-dark" value="{{servicio.precioServicio}}" placeholder="4 años" tabindex="3" maxlength="100" required /> 
+        <label for="tiempoServicio">Tiempo de Respuesta:</label>  
+        <input type="text" id="tiempoServicio" name="tiempoServicio" class="form-control text-dark" value="{{servicio.tiempoServicio}}" placeholder="4 dias" tabindex="3" maxlength="100" data-required="true" />          
+        <div class="invalid-feedback">Por favor, ingrese un tiempo válido.</div>  
+      </div>  
+      <div class="form-group col-md-6">  
+        <label for="precioServicio">Precio:</label>  
+        <input type="text" id="precioServicio" name="precioServicio" class="form-control text-dark" value="{{servicio.precioServicio}}" placeholder="10" tabindex="3" maxlength="100" data-required="true" />    
+        <div class="invalid-feedback">Por favor, ingrese un precio válido.</div>  
         <input type="hidden" id="estadoServicio" name="estadoServicio" class="form-control text-dark" value="ACTIVO" />        
       </div>  
     </div>  
@@ -45,15 +49,23 @@
     $('c').on('show.bs.modal', function (e) {
       var modal = $(this);
       $.ajax({
-        url: 'apps/home/modales/editServicio.html',
+        url: 'apps/home/editServicio.html',
         method: 'GET',
         success: function(data) {
           modal.find('.modal-body').html(data);
         }
       });
     });
-    //Validar solo letras 
   });
+  // Validar mayusculas en inputs
+  function activarMayusculasInputs() {
+    document.addEventListener('input', function(e) {
+      if (e.target.tagName === 'INPUT' && !e.target.type.match(/password|hidden|email/)) {
+        e.target.value = e.target.value.toUpperCase();
+      }
+    });
+  }
+  activarMayusculasInputs();
   document.getElementById("nombreServicio").addEventListener("input", function() {
     this.value = this.value.replace(/[^a-zA-Z\s]/g, '');
 
@@ -73,7 +85,7 @@
   
 //Recarga dinamica
 
-$(document).on('submit', '#registroForm', function(e) {
+$(document).on('submit', '#editServicioForm', function(e) {
       e.preventDefault();
       var form = $(this);
       $.ajax({
@@ -85,7 +97,7 @@ $(document).on('submit', '#registroForm', function(e) {
           messagesContainer.empty();
           if (response.success) {
             messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
-            $('#servicioModal').modal('hide');
+            $('#editServicioModal').modal('hide');
             location.reload();  // Recargar la página para ver los cambios
           } else {
             // Mostrar errores en el modal
@@ -97,5 +109,22 @@ $(document).on('submit', '#registroForm', function(e) {
         }
       });
     });
+
+// Validaciones de Bootstrap
+          (function() {
+        'use strict';
+        var forms = document.querySelectorAll('.needs-validation');
+        Array.prototype.slice.call(forms).forEach(function(form) {
+          form.addEventListener('submit', function(event) {
+            if (!form.checkValidity()) {
+              event.preventDefault();
+              event.stopPropagation();
+            }
+            form.classList.add('was-validated');
+          }, false);
+        });
+      })();
+
+
 </script>
 {% endblock javascripts %}

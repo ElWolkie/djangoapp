@@ -10,6 +10,7 @@ urlpatterns = [
     path('editInscripcion/<int:pk>/', views.edit_inscripcion, name='edit_inscripcion'),
     path('deleteInscripcion/<int:pk>/', views.delete_inscripcion, name='delete_inscripcion'),
     path('reactivateInscripcion/<int:pk>/', views.reactivate_inscripcion, name='reactivate_inscripcion'),
+    path('reporteInscripcion/', views.reporte_inscripcion_pdf, name='reporte_inscripcion_pdf'),
 
     # Coincide con cualquier archivo HTML (no mover de lugar)
     re_path(r'^.*\.*', views.pages, name='pages'),

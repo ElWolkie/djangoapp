@@ -31,6 +31,9 @@
     </div>
     <div class="col-md-4">
       <button class="btn btn-warning btn-square btn-sm my-2" type="button" title="Registrar Honorario" data-toggle="modal" data-target="#honorarioModal">+</button>
+      <a href="{% url 'reporte_honorarios_pdf' %}" class="btn btn-outline-danger btn-sm" target="_blank">
+        <i class="fas fa-file-pdf"></i> Descargar PDF
+      </a>
     </div>
   </div>
 
@@ -116,6 +119,7 @@
 
 {% block javascripts %}
 <script src="/static/assets/js/validacionesPersona.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
   document.addEventListener("DOMContentLoaded", function() {
     // Cargar el formulario en el modal de registro
@@ -129,6 +133,9 @@
     $(document).off('submit', '#honorarioForm').on('submit', '#honorarioForm', function(e) {
       e.preventDefault(); // Evitar el comportamiento predeterminado del formulario
       const form = $(this);
+
+      if (!highlightInvalidInputs('#honorarioForm')) {return false;}
+
 
       $.ajax({
         url: form.attr('action'), // URL definida en el atributo action del formulario
@@ -168,6 +175,8 @@
           e.preventDefault();
           const form = $(this);
 
+          if (!highlightInvalidInputs('#editHonorarioForm')) {return false;}
+                    
           $.ajax({
             url: form.attr('action'),
             method: 'POST',
@@ -195,19 +204,88 @@
       });
     });
 
-    // Función para manejar eliminar o reactivar honorarios
-    function manageHonorario(id, action) {
-      const confirmMessage = action === 'delete' ? '¿Está seguro de eliminar este registro?' : '¿Está seguro de reactivar este registro?';
-      if (confirm(confirmMessage)) {
-        const url = action === 'delete' ? "{% url 'delete_honorario' 0 %}".replace('0', id) : "{% url 'reactivate_honorario' 0 %}".replace('0', id);
-        $.post(url, {
-          csrfmiddlewaretoken: '{{ csrf_token }}'
-        }).done(function(response) {
-          if (response.success) location.reload();
-          else alert(`Error al ${action === 'delete' ? 'eliminar' : 'reactivar'}`);
-        });
-      }
+//Funcion para validar los campos requeridos
+function highlightInvalidInputs(formSelector) {
+  const form = document.querySelector(formSelector);
+  if (!form) return;
+  let valid = true;
+  let firstInvalid = null;
+  form.querySelectorAll('input[data-required], select[data-required], textarea[data-required]').forEach(input => {
+    if (!input.value.trim()) {
+      input.classList.add('is-invalid');
+      if (!firstInvalid) firstInvalid = input;
+      valid = false;
+    } else {
+      input.classList.remove('is-invalid');
     }
+  });
+  if (!valid) {
+    Swal.fire({
+      title: 'Campos requeridos',
+      text: 'Por favor, complete todos los campos obligatorios resaltados en rojo.',
+      icon: 'warning',
+      confirmButtonText: 'OK',
+      customClass: { confirmButton: 'btn btn-warning' },
+      buttonsStyling: false,
+    }).then(() => {
+      if (firstInvalid) firstInvalid.focus();
+    });
+  }
+  return valid;
+}  
+
+// Función para manejar la eliminación y reactivación de registros
+function manageHonorario(id, action) {
+  const confirmMessage = action === 'delete'
+    ? '¿Está seguro de eliminar este registro?'
+    : (action === 'reactivate'
+        ? '¿Está seguro de reactivar este registro?'
+        : '¿Está seguro de realizar esta acción?');
+
+  Swal.fire({
+    title: confirmMessage,
+    icon: action === 'delete' ? 'warning' : 'question',
+    showCancelButton: true,
+    confirmButtonText: action === 'delete' ? 'Eliminar' : 'Reactivar',
+    cancelButtonText: 'Cancelar',
+    customClass: {
+      confirmButton: action === 'delete' ? 'btn btn-danger' : 'btn btn-success',
+      cancelButton: 'btn btn-secondary'
+    },
+    buttonsStyling: false,
+  }).then((result) => {
+    if (result.isConfirmed) {
+      const url = action === 'delete'
+        ? "{% url 'delete_honorario' 0 %}".replace('0', id)
+        : "{% url 'reactivate_honorario' 0 %}".replace('0', id);
+
+      const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+      fetch(url, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': csrftoken,
+        },
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          Swal.fire({
+            title: action === 'delete' ? 'Eliminado' : 'Reactivado',
+            text: data.message,
+            icon: 'success',
+            confirmButtonText: 'OK',
+            customClass: { confirmButton: 'btn btn-warning' },
+            buttonsStyling: false,
+          }).then(() => location.reload());
+        } else {
+          Swal.fire('Error', data.message, 'error');
+        }
+      })
+      .catch(error => Swal.fire('Error', 'Ocurrió un error en el servidor.', 'error'));
+    }
+  });
+}
 
     // Función para filtrar la tabla
     function filterTable() {
@@ -224,7 +302,12 @@
     window.filterTable = filterTable;
   });
 </script>
-
+<style>
+  .is-invalid {
+    border-color: #dc3545 !important;
+    box-shadow: 0 0 0 0.2rem rgba(220,53,69,.25);
+  }
+</style>
 <script>
   document.addEventListener('DOMContentLoaded', function () {
     const table = document.getElementById('honorariosTable');

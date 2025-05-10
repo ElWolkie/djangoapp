@@ -32,8 +32,10 @@
     </div>
     <div class="col-md-4">
       <a class="btn btn-warning btn-square btn-sm my-2" href="/inscripcion/inscripcion.html" title="Registrar Inscripcion">+</a>
+      <a href="{% url 'reporte_inscripcion_pdf' %}" class="btn btn-outline-danger btn-sm" target="_blank">
+        <i class="fas fa-file-pdf"></i> Descargar PDF
+      </a>
     </div>
-  <div class="col-md-4"></div>
   </div>
 
   <div class="table-responsive">
@@ -97,6 +99,7 @@
 
 {% block javascripts %}
 <script src="/static/assets/js/validacionesPersona.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
   document.addEventListener("DOMContentLoaded", function() {
     $('#inscripcionModal').on('show.bs.modal', function () {
@@ -112,35 +115,128 @@
       });
     });
   });
-
-  function manageInscripcion(id, action) {
-  const confirmMessage = action === 'delete' 
-    ? '¿Está seguro de eliminar este registro?' 
-    : '¿Está seguro de reactivar este registro?';
-  
-  if (confirm(confirmMessage)) {
-    const url = action === 'delete' 
-      ? "{% url 'delete_inscripcion' 0 %}".replace('0', id) 
-      : "{% url 'reactivate_inscripcion' 0 %}".replace('0', id);
-    
-    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-
-    fetch(url, {
-      method: 'POST',
-      headers: {
-        'X-CSRFToken': csrftoken,
-      },
-    })
-    .then(response => response.json())
-    .then(data => {
-      if (data.success) {
-        location.reload();  // Recargar la página
-      } else {
-        alert('Error: ' + data.message);
-      }
-    })
-    .catch(error => console.error('Error:', error));
+//Funcion para validar los campos requeridos
+  function highlightInvalidInputs(formSelector) {
+  const form = document.querySelector(formSelector);
+  if (!form) return;
+  let valid = true;
+  let firstInvalid = null;
+  form.querySelectorAll('input[data-required], select[data-required], textarea[data-required]').forEach(input => {
+    if (!input.value.trim()) {
+      input.classList.add('is-invalid');
+      if (!firstInvalid) firstInvalid = input;
+      valid = false;
+    } else {
+      input.classList.remove('is-invalid');
+    }
+  });
+  if (!valid) {
+    Swal.fire({
+      title: 'Campos requeridos',
+      text: 'Por favor, complete todos los campos obligatorios resaltados en rojo.',
+      icon: 'warning',
+      confirmButtonText: 'OK',
+      customClass: { confirmButton: 'btn btn-warning' },
+      buttonsStyling: false,
+    }).then(() => {
+      if (firstInvalid) firstInvalid.focus();
+    });
   }
+  return valid;
+}  
+
+  
+//Funcion para registros duplicados  
+  function handleFormResponse(response, modalId) {
+  var modal = $(modalId);
+  var messagesContainer = modal.find('.modalMessages');
+  messagesContainer.empty();
+  if (response.success) {
+    messagesContainer.append('<div class="alert alert-success">' + response.message + '</div>');
+    $(modalId).modal('hide');
+    setTimeout(() => location.reload(), 1500);
+  } else {
+    // Mostrar alerta si hay error general (__all__)
+    if (response.errors && response.errors.__all__) {
+      Swal.fire({
+        title: 'Registro duplicado',
+        text: response.errors.__all__.join('\n'),
+        icon: 'warning',
+        confirmButtonText: 'OK',
+        customClass: { confirmButton: 'btn btn-warning' },
+        buttonsStyling: false,
+      });
+    }
+    // Mostrar otros errores de campos
+    $.each(response.errors, function(field, error) {
+      if (field !== "__all__") {
+        // Si error es array, muestra todos los mensajes
+        if (Array.isArray(error)) {
+          error.forEach(function(msg) {
+            messagesContainer.append('<div class="alert alert-danger">' + msg + '</div>');
+          });
+        } else {
+          messagesContainer.append('<div class="alert alert-danger">' + error + '</div>');
+        }
+      }
+    });
+  }
+}    
+
+
+
+  
+// Función para manejar la eliminación y reactivación de registros
+function manageInscripcion(id, action) {
+  const confirmMessage = action === 'delete'
+    ? '¿Está seguro de eliminar este registro?'
+    : (action === 'reactivate'
+        ? '¿Está seguro de reactivar este registro?'
+        : '¿Está seguro de realizar esta acción?');
+
+  Swal.fire({
+    title: confirmMessage,
+    icon: action === 'delete' ? 'warning' : 'question',
+    showCancelButton: true,
+    confirmButtonText: action === 'delete' ? 'Eliminar' : 'Reactivar',
+    cancelButtonText: 'Cancelar',
+    customClass: {
+      confirmButton: action === 'delete' ? 'btn btn-danger' : 'btn btn-success',
+      cancelButton: 'btn btn-secondary'
+    },
+    buttonsStyling: false,
+  }).then((result) => {
+    if (result.isConfirmed) {
+      const url = action === 'delete'
+        ? "{% url 'delete_inscripcion' 0 %}".replace('0', id)
+        : "{% url 'reactivate_inscripcion' 0 %}".replace('0', id);
+
+      const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+      fetch(url, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': csrftoken,
+        },
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          Swal.fire({
+            title: action === 'delete' ? 'Eliminado' : 'Reactivado',
+            text: data.message,
+            icon: 'success',
+            confirmButtonText: 'OK',
+            customClass: { confirmButton: 'btn btn-warning' },
+            buttonsStyling: false,
+          }).then(() => location.reload());
+        } else {
+          Swal.fire('Error', data.message, 'error');
+        }
+      })
+      .catch(error => Swal.fire('Error', 'Ocurrió un error en el servidor.', 'error'));
+    }
+  });
 }
   function filterTable() {
     const filter = document.getElementById("searchInput").value.toUpperCase();
@@ -154,6 +250,9 @@
   $(document).on('submit', '#editInscripcionForm', function(e) {
       e.preventDefault();
       var form = $(this);
+      if (!highlightInvalidInputs('#editInscripcionForm')) {
+    return false;
+  }
       $.ajax({
         url: form.attr('action'),
         method: form.attr('method'),
@@ -268,4 +367,86 @@
     setupPagination();
   });
 </script>
+<style>
+  .is-invalid {
+    border-color: #dc3545 !important;
+    box-shadow: 0 0 0 0.2rem rgba(220,53,69,.25);
+  }
+</style>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const table = document.getElementById('honorariosTable');
+      const pagination = document.createElement('ul');
+      pagination.className = 'pagination justify-content-center';
+      table.parentNode.appendChild(pagination);
+  
+      const rowsPerPage = 5; // Número de filas por página
+      let currentPage = 1;
+  
+      // Función para mostrar las filas de la página actual
+      function displayRows() {
+        const rows = table.getElementsByTagName('tr');
+        const start = (currentPage - 1) * rowsPerPage + 1; // Ignorar encabezado
+        const end = start + rowsPerPage;
+  
+        for (let i = 1; i < rows.length; i++) {
+          rows[i].style.display = i >= start && i < end ? '' : 'none';
+        }
+      }
+  
+      // Función para configurar la paginación
+      function setupPagination() {
+        const rows = table.getElementsByTagName('tr');
+        const totalPages = Math.ceil((rows.length - 1) / rowsPerPage);
+  
+        pagination.innerHTML = '';
+  
+        // Botón "Anterior"
+        const prevLi = document.createElement('li');
+        prevLi.className = 'page-item' + (currentPage === 1 ? ' disabled' : '');
+        prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Anterior"><span aria-hidden="true">&laquo;</span></a>`;
+        prevLi.addEventListener('click', function (e) {
+          e.preventDefault();
+          if (currentPage > 1) {
+            currentPage--;
+            displayRows();
+            setupPagination();
+          }
+        });
+        pagination.appendChild(prevLi);
+  
+        // Botones de páginas
+        for (let i = 1; i <= totalPages; i++) {
+          const li = document.createElement('li');
+          li.className = 'page-item' + (i === currentPage ? ' active' : '');
+          li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+          li.addEventListener('click', function (e) {
+            e.preventDefault();
+            currentPage = i;
+            displayRows();
+            setupPagination();
+          });
+          pagination.appendChild(li);
+        }
+  
+        // Botón "Siguiente"
+        const nextLi = document.createElement('li');
+        nextLi.className = 'page-item' + (currentPage === totalPages ? ' disabled' : '');
+        nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Siguiente"><span aria-hidden="true">&raquo;</span></a>`;
+        nextLi.addEventListener('click', function (e) {
+          e.preventDefault();
+          if (currentPage < totalPages) {
+            currentPage++;
+            displayRows();
+            setupPagination();
+          }
+        });
+        pagination.appendChild(nextLi);
+      }
+  
+      // Inicializar la tabla y la paginación
+      displayRows();
+      setupPagination();
+    });
+  </script>
 {% endblock javascripts %}

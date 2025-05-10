@@ -22,10 +22,11 @@
       <div class="form-group col-md-6">
         <label for="cedulaPersona">Cédula del Cliente:</label>
         <div class="input-group">
-          <input type="text" id="cedulaPersona" name="cedulaPersona" class="form-control text-dark" tabindex="1" required oninput="checkPersona()" placeholder="Ingrese cédula..." value="{{ inscripcion.idPersona.cedula }}">
+          <input type="text" id="cedulaPersona" name="cedulaPersona" class="form-control text-dark" tabindex="1" data-required="true" oninput="checkPersona()" placeholder="Ingrese cédula..." value="{{ inscripcion.idPersona.cedula }}">
           <div class="input-group-append">
             <span id="check-icon" class="input-group-text"></span>
           </div>
+          <div class="invalid-feedback">Por favor, ingrese una cedula válida.</div>
           <input type="hidden" id="idPersona" name="idPersona" value="{{ inscripcion.idPersona.idPersona }}"  />
         </div>
       </div>
@@ -33,47 +34,51 @@
       <div class="form-group col-md-6">
         <label for="idMateria">Materia:</label>
         <div class="input-group">
-          <select id="idMateria" name="idMateria"  class="form-control text-dark" tabindex="1" required>
+          <select id="idMateria" name="idMateria"  class="form-control text-dark" tabindex="1" data-required="true">
             <option value="" disabled >Seleccione..</option>
             {% for materia in materias %}
             <option value="{{ materia.idMateria }}" 
             {% if materia.idMateria == inscripcion.idMateria.idMateria %}selected{% endif %}>{{ materia.nombreMateria }}        
             {% endfor %}
           </select>
+          <div class="invalid-feedback">Por favor, seleccione una materia válida.</div>
         </div>
       </div>
 
       <div class="form-group col-md-6">
         <label for="nombreCohorte">Cohorte:</label>
         <div class="input-group">
-          <input type="text" id="nombreCohorte" name="nombreCohorte" class="form-control text-dark" value="{{ inscripcion.idCohorte.nombreCohorte }}" pattern="[A-ZIVXLCDM]+" required oninput="checkCohorte()" placeholder="Ingrese nombre de cohorte...">
+          <input type="text" id="nombreCohorte" name="nombreCohorte" class="form-control text-dark" value="{{ inscripcion.idCohorte.nombreCohorte }}" pattern="[A-ZIVXLCDM]+" data-required="true" oninput="checkCohorte()" placeholder="Ingrese nombre de cohorte...">
           <div class="input-group-append">
             <span id="check-cohorte-icon" class="input-group-text"></span>
           </div>
+          <div class="invalid-feedback">Por favor, seleccione una materia válida.</div>
           <input type="hidden" id="idCohorte" name="idCohorte" />
           <input type="hidden" id="estadoContrato" name="estadoContrato" class="form-control text-dark" value="ACTIVO" />
         </div>
       </div>
       <div class="form-group col-md-6">
         <label for="idTF">Tipo de Formación:</label>
-        <select id="idTF" name="idTF"  class="form-control text-dark" required>
+        <select id="idTF" name="idTF"  class="form-control text-dark" data-required="true">
           <option value="" disabled >Seleccione..</option>
           {% for tipo in tipos_formacion %}
           <option value="{{ tipo.idTF }}"  class="text-orange">{{ tipo.nombreTipoFormacion }}</option>
           {% endfor %}
         </select>
+        <div class="invalid-feedback">Por favor, seleccione una opción tipo de formación válida.</div>
       </div>
       <div class="form-group col-md-6">  
         <label for="idFormacion">Formación Académica:</label>  
         <div class="input-group"> <!-- Usar input-group para alinear botón y select -->  
-            <select id="idFormacion" name="idFormacion" class="form-control text-dark" tabindex="1" required>  
+            <select id="idFormacion" name="idFormacion" class="form-control text-dark" tabindex="1" data-required="true">  
                 <option value="" disabled selected>Seleccione...</option>  
                 {% for formacion  in formaciones %}  
                 <option value="{{ formacion.idFormacion }}"{% if formacion.idFormacion == inscripcion.idFormacion.idFormacion %}selected{% endif %}>{{ formacion.nombreFormacion }}
                 </option>           
                 {% endfor %}  
-            </select>  
-        </div>  
+            </select>
+            <div class="invalid-feedback">Por favor, seleccione una opción de formación válida.</div>
+          </div>  
     </div>
     </div>
     <div id="alert-container"></div> <!-- Contenedor para las alertas -->
@@ -257,7 +262,42 @@ document.addEventListener("DOMContentLoaded", function() {
         errorElement.textContent = "";
     }
 });
+</script>
+<script>
+  document.getElementById("nombreCohorte").addEventListener("input", function() {
+    const input = this;
+    const errorElement = document.getElementById("roman-error");
+    
+    // 1. Forzar mayúsculas y filtrar caracteres
+    input.value = input.value.toUpperCase().replace(/[^MDCLXVI]/g, '');
+    
+    // 2. Validación estricta de número romano
+    const isValid = /^M{0,3}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})$/.test(input.value);
+    
+    // 3. Mostrar feedback
+    if (input.value && !isValid) {
+        input.classList.add("is-invalid");
+        errorElement.textContent = "Formato inválido. Ejemplos válidos: VIII, XIX, MMXXIII";
+    } else {
+        input.classList.remove("is-invalid");
+        errorElement.textContent = "";
+    }
+});
 
+// Validaciones de Bootstrap
+          (function() {
+        'use strict';
+        var forms = document.querySelectorAll('.needs-validation');
+        Array.prototype.slice.call(forms).forEach(function(form) {
+          form.addEventListener('submit', function(event) {
+            if (!form.checkValidity()) {
+              event.preventDefault();
+              event.stopPropagation();
+            }
+            form.classList.add('was-validated');
+          }, false);
+        });
+      })();
 
 </script>
 {% endblock javascripts %}

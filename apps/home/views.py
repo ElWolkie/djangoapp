@@ -1291,6 +1291,72 @@ def tabla_servicios(request):
     servicios = Servicio.objects.all()
     return render(request, 'home/tablaServicios.html', {'servicios': servicios})
 
+@login_required(login_url='login')
+@csrf_exempt
+def reporte_servicios_pdf(request):
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="reporte_servicios.pdf"'
+    p = canvas.Canvas(response, pagesize=letter)
+    width, height = letter
+    logo_width, logo_height, logo_margin = 100, 100, 15
+
+    config = Configuracion.objects.order_by('-fechaConfiguracion').first()
+    logo_path = config.logo.path if config and config.logo else None
+    firma_path = config.firma.path if config and config.firma else None
+    nombre_institucion = config.nombreInstitucion if config else "Institución"
+    rif_institucion = config.rif if config else ""
+
+    safe_left = logo_margin + logo_width
+    safe_right = width - logo_margin - logo_width
+    safe_width = safe_right - safe_left
+    safe_center = safe_left + safe_width / 2
+
+    if logo_path and os.path.exists(logo_path):
+        p.drawImage(logo_path, width - logo_width - logo_margin, height - logo_height - logo_margin, width=logo_width, height=logo_height, preserveAspectRatio=True, mask='auto')
+
+    text_top = height - logo_margin - 22
+    p.setFont("Helvetica-Bold", 12)
+    p.drawCentredString(safe_center, text_top, nombre_institucion)
+    p.drawCentredString(safe_center, text_top - 20, f"RIF: {rif_institucion}")
+    p.drawCentredString(safe_center, text_top - 40, "REPORTE DE SERVICIOS")
+
+    if firma_path and os.path.exists(firma_path):
+        p.drawImage(firma_path, width/2 - 60, 60, width=120, height=60, preserveAspectRatio=True, mask='auto')
+        p.setFont("Helvetica-Oblique", 10)
+        p.drawCentredString(width/2, 25, "Firma autorizada")
+
+    servicios = Servicio.objects.all()
+    data = [["ID", "Nombre", "Tiempo", "Precio", "Estado", "Fecha"]]
+    for s in servicios:
+        data.append([
+            str(s.idServicio),
+            s.nombreServicio,
+            s.tiempoServicio,
+            s.precioServicio,
+            s.estadoServicio,
+            s.fechaServicio.strftime("%d/%m/%Y")
+        ])
+    col_widths = [40, 120, 80, 80, 60, 60]
+    table_width = sum(col_widths)
+    x = safe_left + (safe_width - table_width) / 2
+    y = height - logo_margin - 100
+
+    table = Table(data, colWidths=col_widths)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0,0), (-1,0), 12),
+        ('BOTTOMPADDING', (0,0), (-1,0), 10),
+        ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
+        ('GRID', (0,0), (-1,-1), 1, colors.black),
+    ]))
+    table.wrapOn(p, width, height)
+    table.drawOn(p, x, y - 25 * len(data))
+    p.showPage()
+    p.save()
+    return response
 
 #TRAMITE
 @login_required(login_url='login')
@@ -1345,6 +1411,74 @@ def reactivate_tramite(request, pk):
 def tabla_tramites(request):
     servicios = Servicio.objects.all()
     return render(request, 'home/tablaTramites.html', {'servicios': servicios})
+
+
+@login_required(login_url='login')
+@csrf_exempt
+def reporte_tramites_pdf(request):
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="reporte_tramites.pdf"'
+    p = canvas.Canvas(response, pagesize=letter)
+    width, height = letter
+    logo_width, logo_height, logo_margin = 100, 100, 15
+
+    config = Configuracion.objects.order_by('-fechaConfiguracion').first()
+    logo_path = config.logo.path if config and config.logo else None
+    firma_path = config.firma.path if config and config.firma else None
+    nombre_institucion = config.nombreInstitucion if config else "Institución"
+    rif_institucion = config.rif if config else ""
+
+    safe_left = logo_margin + logo_width
+    safe_right = width - logo_margin - logo_width
+    safe_width = safe_right - safe_left
+    safe_center = safe_left + safe_width / 2
+
+    if logo_path and os.path.exists(logo_path):
+        p.drawImage(logo_path, width - logo_width - logo_margin, height - logo_height - logo_margin, width=logo_width, height=logo_height, preserveAspectRatio=True, mask='auto')
+
+    text_top = height - logo_margin - 22
+    p.setFont("Helvetica-Bold", 12)
+    p.drawCentredString(safe_center, text_top, nombre_institucion)
+    p.drawCentredString(safe_center, text_top - 20, f"RIF: {rif_institucion}")
+    p.drawCentredString(safe_center, text_top - 40, "REPORTE DE TRÁMITES")
+
+    if firma_path and os.path.exists(firma_path):
+        p.drawImage(firma_path, width/2 - 60, 60, width=120, height=60, preserveAspectRatio=True, mask='auto')
+        p.setFont("Helvetica-Oblique", 10)
+        p.drawCentredString(width/2, 25, "Firma autorizada")
+
+    tramites = Tramite.objects.all()
+    data = [["ID", "Nombre", "Tiempo", "Precio", "Estado", "Fecha"]]
+    for t in tramites:
+        data.append([
+            str(t.idTramite),
+            t.nombreTramite,
+            t.diasTramite,
+            t.precioTramite,
+            t.estadoTramite,
+            t.fechaTramite.strftime("%d/%m/%Y")
+        ])
+    col_widths = [40, 120, 80, 80, 60, 60]
+    table_width = sum(col_widths)
+    x = safe_left + (safe_width - table_width) / 2
+    y = height - logo_margin - 100
+
+    table = Table(data, colWidths=col_widths)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0,0), (-1,0), 12),
+        ('BOTTOMPADDING', (0,0), (-1,0), 10),
+        ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
+        ('GRID', (0,0), (-1,-1), 1, colors.black),
+    ]))
+    table.wrapOn(p, width, height)
+    table.drawOn(p, x, y - 25 * len(data))
+    p.showPage()
+    p.save()
+    return response
 
 
 #DENOMINACION
