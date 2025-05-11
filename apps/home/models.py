@@ -314,6 +314,13 @@ class Tasa(models.Model):
         verbose_name = "Tasa"  
         verbose_name_plural = "Tasas"
 
+    def clean(self):
+        qs = Tasa.objects.filter(idMoneda=self.idMoneda)
+        if self.pk:
+            qs = qs.exclude(pk=self.pk)
+        if qs.exists():
+            raise ValidationError("Ya existe una tasa para esta moneda.")
+
 class TipoIngreso(models.Model):  
     idTipoIngreso = models.AutoField(primary_key=True)
     nombreTipoIngreso = models.CharField(max_length=100, unique=True)

@@ -1537,6 +1537,67 @@ def tabla_denominaciones(request):
 
     return render(request, 'home/tablaDenominaciones.html', {'denominaciones': denominaciones})
 
+@login_required(login_url='login')
+@permission_required("home.view_denominacion", raise_exception=True)
+def reporte_denominaciones_pdf(request):
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="reporte_denominaciones.pdf"'
+    p = canvas.Canvas(response, pagesize=letter)
+    width, height = letter
+    logo_width, logo_height, logo_margin = 100, 100, 15
+
+    config = Configuracion.objects.order_by('-fechaConfiguracion').first()
+    logo_path = config.logo.path if config and config.logo else None
+    nombre_institucion = config.nombreInstitucion if config else "Institución"
+    rif_institucion = config.rif if config else ""
+
+    # Área útil para centrar
+    safe_left = logo_margin + logo_width
+    safe_right = width - logo_margin - logo_width
+    safe_width = safe_right - safe_left
+    safe_center = safe_left + safe_width / 2
+
+    # Mostrar el logo si existe
+    if logo_path and os.path.exists(logo_path):
+        p.drawImage(logo_path, width - logo_width - logo_margin, height - logo_height - logo_margin, width=logo_width, height=logo_height, preserveAspectRatio=True, mask='auto')
+
+    text_top = height - logo_margin - 22
+    p.setFont("Helvetica-Bold", 11)
+    p.drawCentredString(safe_center, text_top, nombre_institucion)
+    p.drawCentredString(safe_center, text_top - 20, f"RIF: {rif_institucion}")
+    p.drawCentredString(safe_center, text_top - 40, "REPORTE DE DENOMINACIONES")
+
+    denominaciones = Denominacion.objects.all()
+    data = [["ID", "Nombre", "Estado", "Fecha"]]
+    for d in denominaciones:
+        data.append([
+            str(d.idDenominacion),
+            d.nombreDenominacion,
+            d.estadoDenominacion,
+            d.fechaDenominacion.strftime("%d/%m/%Y")
+        ])
+    col_widths = [40, 120, 60, 60]
+    table_width = sum(col_widths)
+    x = safe_left + (safe_width - table_width) / 2
+    y = height - logo_margin - 100
+
+    table = Table(data, colWidths=col_widths)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0,0), (-1,0), 12),
+        ('BOTTOMPADDING', (0,0), (-1,0), 10),
+        ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
+        ('GRID', (0,0), (-1,-1), 1, colors.black),
+    ]))
+    table.wrapOn(p, width, height)
+    table.drawOn(p, x, y - 25 * len(data))
+    p.showPage()
+    p.save()
+    return response
+
 
 #BANCO
 @login_required(login_url='login')
@@ -1592,6 +1653,114 @@ def reactivate_banco(request, pk):
 def tabla_bancos(request):
     bancos = Banco.objects.all()
     return render(request, 'home/tablaBancos.html', {'bancos': bancos})
+
+@login_required(login_url='login')
+@permission_required("home.view_banco", raise_exception=True)
+def reporte_bancos_pdf(request):
+    #Seleccion de cantidad de registros
+    start = int(request.GET.get('start', 1))
+    end = int(request.GET.get('end', 0))
+    bancos = list(Banco.objects.all())
+    if end == 0 or end > len(bancos):
+        end = len(bancos)
+    bancos = bancos[start-1:end]
+
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="reporte_bancos.pdf"'
+    p = canvas.Canvas(response, pagesize=letter)
+    width, height = letter
+    logo_width, logo_height, logo_margin = 100, 100, 15
+
+    config = Configuracion.objects.order_by('-fechaConfiguracion').first()
+    logo_path = config.logo.path if config and config.logo else None
+    firma_path = config.firma.path if config and config.firma else None
+    nombre_institucion = config.nombreInstitucion if config else "Institución"
+    rif_institucion = config.rif if config else ""
+
+    safe_left = logo_margin + logo_width
+    safe_right = width - logo_margin - logo_width
+    safe_width = safe_right - safe_left
+    safe_center = safe_left + safe_width / 2
+
+    # --- Define encabezado y pie ---
+    def draw_header():
+        if logo_path and os.path.exists(logo_path):
+            p.drawImage(
+                logo_path,
+                width - logo_width - logo_margin,
+                height - logo_height - logo_margin,
+                width=logo_width,
+                height=logo_height,
+                preserveAspectRatio=True,
+                mask='auto'
+            )
+        text_top = height - logo_margin - 15
+        p.setFont("Helvetica-Bold", 10)
+        p.drawString(logo_margin, text_top, nombre_institucion)
+        p.drawString(logo_margin, text_top - 20, f"RIF: {rif_institucion}")
+        p.drawString(logo_margin, text_top - 40, "AV. ALBERTO RAVELL CON AV. INTERCOMUNAL JOSE ANTONIO PAEZ,")
+        p.drawString(logo_margin, text_top - 60, "LOCAL UPTYAB, INDEPENDENCIA – EDO YARACUY")
+        p.drawString(logo_margin, text_top - 100, "REPORTE DE BANCOS")
+
+    def draw_footer():
+        if firma_path and os.path.exists(firma_path):
+            p.drawImage(firma_path, width/2 - 60, 60, width=120, height=60, preserveAspectRatio=True, mask='auto')
+            p.setFont("Helvetica-Oblique", 10)
+            p.drawCentredString(width/2, 40, "Firma autorizada")
+
+    # --- Datos de la tabla ---
+    data = [["ID", "Nombre", "Código", "Contable", "Estado", "Fecha"]]
+    for b in bancos:
+        data.append([
+            str(b.idBanco),
+            b.nombreBanco,
+            b.codBanco,
+            b.codContable,
+            b.estadoBanco,
+            b.fechaBanco.strftime("%d/%m/%Y")
+        ])
+    col_widths = [40, 120, 60, 60, 60, 60]
+    table_width = sum(col_widths)
+
+    # --- Cálculo de espacio ---
+    header_height = 100  # Altura total del encabezado (ajusta según tu diseño)
+    footer_height = 160  # Altura total del pie de página
+    row_height = 22      # Altura de cada fila de la tabla (ajusta si usas más o menos padding)
+    available_height = height - header_height - footer_height
+
+    max_rows_per_page = int(available_height // row_height)
+    if max_rows_per_page < 1:
+        max_rows_per_page = 1
+
+    total_rows = len(data) - 1  # Excluye encabezado
+    page = 0
+
+    for start in range(0, total_rows, max_rows_per_page):
+        end = start + max_rows_per_page
+        page_data = [data[0]] + data[start + 1:end + 1]
+        if page > 0:
+            p.showPage()
+        draw_header()
+        # Y de inicio: justo debajo del encabezado
+        y = height - header_height
+        table = Table(page_data, colWidths=col_widths)
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0,0), (-1,0), 12),
+            ('BOTTOMPADDING', (0,0), (-1,0), 10),
+            ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
+            ('GRID', (0,0), (-1,-1), 1, colors.black),
+        ]))
+        table.wrapOn(p, width, height)
+        table.drawOn(p, safe_left + (safe_width - table_width) / 2, y - row_height * len(page_data))
+        draw_footer()
+        page += 1
+
+    p.save()
+    return response
 
 
 #MONEDA
@@ -1652,6 +1821,53 @@ def tabla_monedas(request):
     monedas = Moneda.objects.all()
     return render(request, 'home/tablaMonedas.html', {'monedas': monedas})
 
+@login_required(login_url='login')
+def reporte_monedas_pdf(request):
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="reporte_monedas.pdf"'
+    p = canvas.Canvas(response, pagesize=letter)
+    width, height = letter
+    logo_width, logo_height, logo_margin = 100, 100, 15
+
+    config = Configuracion.objects.order_by('-fechaConfiguracion').first()
+    logo_path = config.logo.path if config and config.logo else None
+    nombre_institucion = config.nombreInstitucion if config else "Institución"
+    rif_institucion = config.rif if config else ""
+
+    # Encabezado alineado a la izquierda (más de 4 campos)
+    x_title = 40
+    p.setFont("Helvetica-Bold", 12)
+    p.drawString(x_title, height - 40, nombre_institucion)
+    p.drawString(x_title, height - 60, f"RIF: {rif_institucion}")
+    p.drawString(x_title, height - 80, "REPORTE DE MONEDAS")
+
+    monedas = Moneda.objects.all()
+    data = [["ID", "Nombre", "Símbolo", "Estado", "Fecha"]]
+    for m in monedas:
+        data.append([
+            str(m.idMoneda),
+            m.nombreMoneda,
+            m.simboloMoneda,
+            m.estadoMoneda,
+            m.fechaMoneda.strftime("%d/%m/%Y")
+        ])
+    col_widths = [40, 120, 60, 60, 60]
+    table = Table(data, colWidths=col_widths)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0,0), (-1,0), 12),
+        ('BOTTOMPADDING', (0,0), (-1,0), 10),
+        ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
+        ('GRID', (0,0), (-1,-1), 1, colors.black),
+    ]))
+    table.wrapOn(p, width, height)
+    table.drawOn(p, x_title, height - 120 - 25 * len(data))
+    p.showPage()
+    p.save()
+    return response
 
 #TASA
 @login_required(login_url='login')
@@ -1708,6 +1924,54 @@ def reactivate_tasa(request, pk):
 def tabla_tasas(request):
     tasas = Tasa.objects.all()
     return render(request, 'home/tablaTasas.html', {'tasas': tasas})
+
+@login_required(login_url='login')
+def reporte_tasas_pdf(request):
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="reporte_tasas.pdf"'
+    p = canvas.Canvas(response, pagesize=letter)
+    width, height = letter
+    logo_width, logo_height, logo_margin = 100, 100, 15
+
+    config = Configuracion.objects.order_by('-fechaConfiguracion').first()
+    logo_path = config.logo.path if config and config.logo else None
+    nombre_institucion = config.nombreInstitucion if config else "Institución"
+    rif_institucion = config.rif if config else ""
+
+    # Encabezado alineado a la izquierda (menos de 5 campos)
+    x_title = 40
+    p.setFont("Helvetica-Bold", 12)
+    p.drawString(x_title, height - 40, nombre_institucion)
+    p.drawString(x_title, height - 60, f"RIF: {rif_institucion}")
+    p.drawString(x_title, height - 80, "REPORTE DE TASAS CAMBIARIAS")
+
+    tasas = Tasa.objects.select_related('idMoneda').all()
+    data = [["ID", "Moneda", "Monto", "Estado", "Fecha"]]
+    for t in tasas:
+        data.append([
+            str(t.idTasa),
+            t.idMoneda.nombreMoneda if t.idMoneda else "",
+            t.montoTasa,
+            t.estadoTasa,
+            t.fechaTasa.strftime("%d/%m/%Y")
+        ])
+    col_widths = [40, 120, 80, 60, 60]
+    table = Table(data, colWidths=col_widths)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0,0), (-1,0), 12),
+        ('BOTTOMPADDING', (0,0), (-1,0), 10),
+        ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
+        ('GRID', (0,0), (-1,-1), 1, colors.black),
+    ]))
+    table.wrapOn(p, width, height)
+    table.drawOn(p, x_title, height - 120 - 25 * len(data))
+    p.showPage()
+    p.save()
+    return response
 
 
 #TIPO MOVIMIENTO

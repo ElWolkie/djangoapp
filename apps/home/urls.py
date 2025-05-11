@@ -94,6 +94,8 @@ urlpatterns = [
     path('deleteDenominacion/<int:pk>/', views.delete_denominacion, name='delete_denominacion'),
     path('reactivateDenominacion/<int:pk>/', views.reactivate_denominacion, name='reactivate_denominacion'),
     path('tablaDenominaciones/', views.tabla_denominaciones, name='tabla_denominaciones'),
+    path('reporte-denominaciones/', views.reporte_denominaciones_pdf, name='reporte_denominaciones_pdf'),
+
 
     # Specific route for banco modal
     path('bancoModal/', views.banco_modal, name='banco_modal'),
@@ -101,6 +103,8 @@ urlpatterns = [
     path('deleteBanco/<int:pk>/', views.delete_banco, name='delete_banco'),
     path('reactivateBanco/<int:pk>/', views.reactivate_banco, name='reactivate_banco'),
     path('tablaBancos/', views.tabla_bancos, name='tabla_bancos'),
+    path('reporte-bancos/', views.reporte_bancos_pdf, name='reporte_bancos_pdf'),
+
 
     # Specific route for moneda modal
     path('monedaModal/', views.moneda_modal, name='moneda_modal'),
@@ -108,6 +112,7 @@ urlpatterns = [
     path('deleteMoneda/<int:pk>/', views.delete_moneda, name='delete_moneda'),
     path('reactivateMoneda/<int:pk>/', views.reactivate_moneda, name='reactivate_moneda'),
     path('tablaMonedas/', views.tabla_monedas, name='tabla_monedas'),
+    path('reporte-monedas/', views.reporte_monedas_pdf, name='reporte_monedas_pdf'),
 
     # Specific route for tasa modal
     path('tasaModal/', views.tasa_modal, name='tasa_modal'),
@@ -115,6 +120,8 @@ urlpatterns = [
     path('deleteTasa/<int:pk>/', views.delete_tasa, name='delete_tasa'),
     path('reactivateTasa/<int:pk>/', views.reactivate_tasa, name='reactivate_tasa'),
     path('tablaTasas/', views.tabla_tasas, name='tabla_tasas'),
+    path('reporte-tasas/', views.reporte_tasas_pdf, name='reporte_tasas_pdf'),
+
 
 
     # Ruta espicifica para tipoIngreso modal

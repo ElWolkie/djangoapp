@@ -35,6 +35,23 @@
     </div>
     <div class="col-md-4">
       <button class="btn btn-warning btn-square btn-sm my-2" type="button" title="Registrar Banco" data-toggle="modal" data-target="#bancoModal">+</button>
+      <div class="btn-group">
+        <a href="{% url 'reporte_bancos_pdf' %}" class="btn btn-outline-danger btn-sm" id="pdfDefaultBtn" target="_blank">
+          <i class="fas fa-file-pdf"></i> PDF
+        </a>
+        <button type="button" class="btn btn-outline-secondary btn-sm dropdown-toggle dropdown-toggle-split" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" title="Opciones PDF">
+          <span>⋮</span>
+        </button>
+        <div class="dropdown-menu p-3" style="min-width: 220px;">
+          <label>Desde:</label>
+          <input type="number" id="pdfStart" min="1" value="1" style="width: 60px;">
+          <label>Hasta:</label>
+          <input type="number" id="pdfEnd" min="1" value="{{ bancos|length }}" style="width: 60px;">
+          <button class="btn btn-outline-danger btn-sm mt-2 w-100" id="downloadPdfRange">
+            <i class="fas fa-file-pdf"></i> Descargar PDF (Registros segun la cantidad)
+          </button>
+        </div>
+      </div>
     </div>
 
     <form action="{% url 'actualizar_bancos_api' %}" method="POST" style="display: inline-block;">
@@ -46,6 +63,7 @@
   </div>
 
   <br>
+    <div class="table-responsive">
   <table class="table table-striped text-gray-dark" id="bancosTable">
     <thead class="text-darker">
       <tr>
@@ -71,10 +89,10 @@
           <td>
             <button class="btn btn-sm btn-primary" type="button" data-toggle="modal" data-target="#editBancoModal" data-id="{{ banco.idBanco }}" data-url="{% url 'edit_banco' banco.idBanco %}">Editar</button>
             {% if banco.estadoBanco == "ACTIVO" %}
-            <button class="btn btn-sm btn-danger" type="button" onclick="deleteBanco('{{ banco.idBanco }}')">Eliminar</button>
+            <button class="btn btn-sm btn-danger" type="button" onclick="manageBanco('{{ banco.idBanco }}','delete')">Eliminar</button>
             {% endif %}
             {% if banco.estadoBanco == "INACTIVO" %}
-            <button class="btn btn-sm btn-success" type="button" onclick="reactivateBanco('{{ banco.idBanco }}')">Reactivar</button>
+            <button class="btn btn-sm btn-success" type="button" onclick="manageBanco('{{ banco.idBanco }}','reactivate')">Reactivar</button>
             {% endif %}
 
           </td>
@@ -102,8 +120,6 @@
   </div>
 </div>
 
-
-
 <!-- Editar Modal -->
 <div class="modal fade" id="editBancoModal" tabindex="-1" role="dialog" aria-labelledby="editBancoModalLabel" aria-hidden="true">
   <div class="modal-dialog" role="document">
@@ -124,11 +140,12 @@
       </div>
     </div>
   </div>
+  </div>
 </div>
 {% endblock content %}
 
 {% block javascripts %}
-<script src="/static/assets/js/validacionesPersona.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
   document.addEventListener("DOMContentLoaded", function() {
     $('#bancoModal').on('show.bs.modal', function (e) {
@@ -145,6 +162,9 @@
     $(document).on('submit', '#bancoForm', function(e) {
       e.preventDefault();
       var form = $(this);
+      if (!highlightInvalidInputs('#bancoForm')) {
+    return false;
+  }
       $.ajax({
         url: form.attr('action'),
         method: form.attr('method'),
@@ -189,7 +209,9 @@
       $(document).on('submit', '#editBancoForm', function(e) {
       e.preventDefault();
       var form = $(this);
-      
+      if (!highlightInvalidInputs('#editBancoForm')) {
+    return false;
+  }
       $.ajax({
         url: form.attr('action'),
         method: form.attr('method'),
@@ -215,47 +237,96 @@
     });
   
 
-    function deleteBanco(id) {
-    if (confirm('¿Estás seguro de que deseas eliminar esta banco?')) {
-      $.ajax({
-        url: '{% url "delete_banco" 0 %}'.replace('0', id),
-        method: 'POST',
-        data: {
-          csrfmiddlewaretoken: '{{ csrf_token }}'
-        },
-        success: function(response) {
-          if (response.success) {
-            alert(response.message);
-            location.reload();  // Recargar la página para ver los cambios
-          } else {
-            alert('Error al eliminar el Requisito.');
-          }
-        }
-      });
-    }
-  }
+    function manageBanco(id, action) {
+  const confirmMessage = action === 'delete'
+    ? '¿Está seguro de eliminar este registro?'
+    : (action === 'reactivate'
+        ? '¿Está seguro de reactivar este registro?'
+        : '¿Está seguro de realizar esta acción?');
 
-  function reactivateBanco(id) {
-    if (confirm('¿Estás seguro de que deseas reactivar esta banco?')) {
-      $.ajax({
-        url: '{% url "reactivate_banco" 0 %}'.replace('0', id),
+  Swal.fire({
+    title: confirmMessage,
+    icon: action === 'delete' ? 'warning' : 'question',
+    showCancelButton: true,
+    confirmButtonText: action === 'delete' ? 'Eliminar' : 'Reactivar',
+    cancelButtonText: 'Cancelar',
+    customClass: {
+      confirmButton: action === 'delete' ? 'btn btn-danger' : 'btn btn-success',
+      cancelButton: 'btn btn-secondary'
+    },
+    buttonsStyling: false,
+  }).then((result) => {
+    if (result.isConfirmed) {
+      const url = action === 'delete'
+        ? "{% url 'delete_banco' 0 %}".replace('0', id)
+        : "{% url 'reactivate_banco' 0 %}".replace('0', id);
+
+      const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+      fetch(url, {
         method: 'POST',
-        data: {
-          csrfmiddlewaretoken: '{{ csrf_token }}'
+        headers: {
+          'X-CSRFToken': csrftoken,
         },
-        success: function(response) {
-          if (response.success) {
-            alert(response.message);
-            location.reload();  // Recargar la página para ver los cambios
-          } else {
-            alert('Error al reactivar el Requisito.');
-          }
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          Swal.fire({
+            title: action === 'delete' ? 'Eliminado' : 'Reactivado',
+            text: data.message,
+            icon: 'success',
+            confirmButtonText: 'OK',
+            customClass: { confirmButton: 'btn btn-warning' },
+            buttonsStyling: false,
+          }).then(() => location.reload());
+        } else {
+          Swal.fire('Error', data.message, 'error');
         }
+      })
+      .catch(error => Swal.fire('Error', 'Ocurrió un error en el servidor.', 'error'));
+    }
+  });
+}
+//
+  function handleFormResponse(response, modalId) {
+  var messagesContainer = $('#modalMessages');
+  messagesContainer.empty();
+  if (response.success) {
+    messagesContainer.append('<div class="alert alert-success">' + response.message + '</div>');
+    $(modalId).modal('hide');
+    setTimeout(() => location.reload(), 1500);
+  } else {
+    // Mostrar alerta si hay error general (__all__)
+    if (response.errors && response.errors.__all__) {
+      Swal.fire({
+        title: 'Registro duplicado',
+        text: response.errors.__all__.join('\n'),
+        icon: 'warning',
+        confirmButtonText: 'OK',
+        customClass: { confirmButton: 'btn btn-warning' },
+        buttonsStyling: false,
+      }).then(() => {
+        // Opcional: puedes enfocar el primer campo si quieres
+        const firstInput = document.querySelector('#denominacionForm input, #editDenominacionForm input');
+        if (firstInput) firstInput.focus();
       });
     }
+    // Mostrar otros errores de campos
+    $.each(response.errors, function(field, error) {
+      if (field !== "__all__") {
+        if (Array.isArray(error)) {
+          error.forEach(function(msg) {
+            messagesContainer.append('<div class="alert alert-danger">' + msg + '</div>');
+          });
+        } else {
+          messagesContainer.append('<div class="alert alert-danger">' + error + '</div>');
+        }
+      }
+    });
   }
-</script>
-<script>
+}
+
   function filterTable() {
     var input, filter, table, tr, td, i, j, txtValue;
     input = document.getElementById("searchInput");
@@ -276,5 +347,129 @@
       }
     }
   }
+
+  document.getElementById('downloadPdfRange').addEventListener('click', function() {
+  var start = parseInt(document.getElementById('pdfStart').value) || 1;
+  var end = parseInt(document.getElementById('pdfEnd').value) || 1;
+  if (start > end) {
+    Swal.fire({
+      title: 'Rango inválido',
+      text: 'El valor "Desde" debe ser menor o igual que "Hasta".',
+      icon: 'warning',
+      confirmButtonText: 'OK',
+      customClass: { confirmButton: 'btn btn-warning' },
+      buttonsStyling: false,
+    });
+    return;
+  }
+  // Redirige a la vista PDF con los parámetros de rango
+window.open("{% url 'reporte_bancos_pdf' %}?start=" + start + "&end=" + end, '_blank');});
+
+// Cuando cambie de página, actualiza los inputs de rango al rango visible
+function updatePdfRangeInputs() {
+  const table = document.getElementById('bancosTable');
+  const rows = table.getElementsByTagName('tr');
+  let first = null, last = null, count = 0;
+  for (let i = 1; i < rows.length; i++) {
+    if (rows[i].style.display !== "none") {
+      count++;
+      if (first === null) first = i;
+      last = i;
+    }
+  }
+  if (first !== null && last !== null) {
+    // Ajusta para que coincida con el número de registro (no el índice)
+    document.getElementById('pdfStart').value = first;
+    document.getElementById('pdfEnd').value = last;
+  }
+}
+
+// Llama a updatePdfRangeInputs() después de cada cambio de página
+// Si usas la paginación JS del ejemplo anterior:
+function setupPaginationWithPdfSync() {
+  // ...tu código de paginación...
+  // Después de displayRows() y setupPagination():
+  updatePdfRangeInputs();
+}
+
+// Llama a updatePdfRangeInputs() también al cargar la página
+document.addEventListener('DOMContentLoaded', function () {
+  updatePdfRangeInputs();
+});
+
+  document.addEventListener('DOMContentLoaded', function () {
+    const table = document.getElementById('bancosTable');
+    const pagination = document.createElement('ul');
+    pagination.className = 'pagination justify-content-center';
+    table.parentNode.appendChild(pagination);
+
+    const rowsPerPage = 5; // Número de filas por página
+    let currentPage = 1;
+
+    // Función para mostrar las filas de la página actual
+    function displayRows() {
+      const rows = table.getElementsByTagName('tr');
+      const start = (currentPage - 1) * rowsPerPage + 1; // Ignorar encabezado
+      const end = start + rowsPerPage;
+
+      for (let i = 1; i < rows.length; i++) {
+        rows[i].style.display = i >= start && i < end ? '' : 'none';
+      }
+    }
+
+    // Función para configurar la paginación
+    function setupPagination() {
+      const rows = table.getElementsByTagName('tr');
+      const totalPages = Math.ceil((rows.length - 1) / rowsPerPage);
+
+      pagination.innerHTML = '';
+
+      // Botón "Anterior"
+      const prevLi = document.createElement('li');
+      prevLi.className = 'page-item' + (currentPage === 1 ? ' disabled' : '');
+      prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Anterior"><span aria-hidden="true">&laquo;</span></a>`;
+      prevLi.addEventListener('click', function (e) {
+        e.preventDefault();
+        if (currentPage > 1) {
+          currentPage--;
+          displayRows();
+          setupPagination();
+        }
+      });
+      pagination.appendChild(prevLi);
+
+      // Botones de páginas
+      for (let i = 1; i <= totalPages; i++) {
+        const li = document.createElement('li');
+        li.className = 'page-item' + (i === currentPage ? ' active' : '');
+        li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+        li.addEventListener('click', function (e) {
+          e.preventDefault();
+          currentPage = i;
+          displayRows();
+          setupPagination();
+        });
+        pagination.appendChild(li);
+      }
+
+      // Botón "Siguiente"
+      const nextLi = document.createElement('li');
+      nextLi.className = 'page-item' + (currentPage === totalPages ? ' disabled' : '');
+      nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Siguiente"><span aria-hidden="true">&raquo;</span></a>`;
+      nextLi.addEventListener('click', function (e) {
+        e.preventDefault();
+        if (currentPage < totalPages) {
+          currentPage++;
+          displayRows();
+          setupPagination();
+        }
+      });
+      pagination.appendChild(nextLi);
+    }
+
+    // Inicializar la tabla y la paginación
+    displayRows();
+    setupPagination();
+  });
 </script>
 {% endblock javascripts %}

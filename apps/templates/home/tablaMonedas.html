@@ -24,6 +24,9 @@
     </div>
     <div class="col-md-4">
       <button class="btn btn-warning btn-square btn-sm my-2" type="button" title="Registrar Moneda" data-toggle="modal" data-target="#monedaModal">+</button>
+            <a href="{% url 'reporte_monedas_pdf' %}" class="btn btn-outline-danger btn-sm" target="_blank">
+        <i class="fas fa-file-pdf"></i> Descargar PDF
+      </a>
     </div>
     
     <form action="{% url 'actualizar_monedas_api' %}" method="POST" style="display: inline-block;">
@@ -46,6 +49,7 @@
     {% endif %}
 
   <br>
+  <div class="table-responsive">
   <table class="table table-striped text-gray-dark" id="monedasTable">
     <thead class="text-darker">
         <tr>
@@ -69,16 +73,17 @@
             <td>
             <button class="btn btn-sm btn-primary" type="button" data-toggle="modal" data-target="#editMonedaModal" data-id="{{ moneda.idMoneda }}" data-url="{% url 'edit_moneda' moneda.idMoneda %}">Editar</button>
             {% if moneda.estadoMoneda == "ACTIVO" %}
-            <button class="btn btn-sm btn-danger" type="button" onclick="deleteMoneda('{{ moneda.idMoneda }}')">Eliminar</button>
+            <button class="btn btn-sm btn-danger" type="button" onclick="manageMoneda('{{ moneda.idMoneda }}','delete')">Eliminar</button>
             {% endif %}
             {% if moneda.estadoMoneda == "INACTIVO" %}
-            <button class="btn btn-sm btn-success" type="button" onclick="reactivateMoneda('{{ moneda.idMoneda }}')">Reactivar</button>
+            <button class="btn btn-sm btn-success" type="button" onclick="manageMoneda('{{ moneda.idMoneda }}','reactivate')">Reactivar</button>
             {% endif %}
           </td>
         </tr>
         {% endfor %}
     </tbody>
 </table>
+</div>
 </div>
 <!-- Modal -->
 <div class="modal fade" id="monedaModal" tabindex="-1" role="dialog" aria-labelledby="monedaModalLabel" aria-hidden="true">
@@ -123,7 +128,7 @@
 {% endblock content %}
 
 {% block javascripts %}
-<script src="/static/assets/js/validacionesPersona.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
   document.addEventListener("DOMContentLoaded", function() {
     $('#monedaModal').on('show.bs.modal', function (e) {
@@ -140,6 +145,9 @@
     $(document).on('submit', '#monedaForm', function(e) {
       e.preventDefault();
       var form = $(this);
+            if (!highlightInvalidInputs('#monedaForm')) {
+    return false;
+  }
       $.ajax({
         url: form.attr('action'),
         method: form.attr('method'),
@@ -185,7 +193,9 @@
       $(document).on('submit', '#editMonedaForm', function(e) {
       e.preventDefault();
       var form = $(this);
-      
+           if (!highlightInvalidInputs('#editMonedaForm')) {
+    return false;
+  }
       $.ajax({
         url: form.attr('action'),
         method: form.attr('method'),
@@ -209,47 +219,95 @@
         }
       });
     });
-    function deleteMoneda(id) {
-    if (confirm('¿Estás seguro de que deseas eliminar esta moneda?')) {
-      $.ajax({
-        url: '{% url "delete_moneda" 0 %}'.replace('0', id),
-        method: 'POST',
-        data: {
-          csrfmiddlewaretoken: '{{ csrf_token }}'
-        },
-        success: function(response) {
-          if (response.success) {
-            alert(response.message);
-            location.reload();  // Recargar la página para ver los cambios
-          } else {
-            alert('Error al eliminar el Requisito.');
-          }
-        }
-      });
-    }
-  }
+function manageMoneda(id, action) {
+  const confirmMessage = action === 'delete'
+    ? '¿Está seguro de eliminar este registro?'
+    : (action === 'reactivate'
+        ? '¿Está seguro de reactivar este registro?'
+        : '¿Está seguro de realizar esta acción?');
 
-  function reactivateMoneda(id) {
-    if (confirm('¿Estás seguro de que deseas reactivar esta moneda?')) {
-      $.ajax({
-        url: '{% url "reactivate_moneda" 0 %}'.replace('0', id),
+  Swal.fire({
+    title: confirmMessage,
+    icon: action === 'delete' ? 'warning' : 'question',
+    showCancelButton: true,
+    confirmButtonText: action === 'delete' ? 'Eliminar' : 'Reactivar',
+    cancelButtonText: 'Cancelar',
+    customClass: {
+      confirmButton: action === 'delete' ? 'btn btn-danger' : 'btn btn-success',
+      cancelButton: 'btn btn-secondary'
+    },
+    buttonsStyling: false,
+  }).then((result) => {
+    if (result.isConfirmed) {
+      const url = action === 'delete'
+        ? "{% url 'delete_moneda' 0 %}".replace('0', id)
+        : "{% url 'reactivate_moneda' 0 %}".replace('0', id);
+
+      const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+      fetch(url, {
         method: 'POST',
-        data: {
-          csrfmiddlewaretoken: '{{ csrf_token }}'
+        headers: {
+          'X-CSRFToken': csrftoken,
         },
-        success: function(response) {
-          if (response.success) {
-            alert(response.message);
-            location.reload();  // Recargar la página para ver los cambios
-          } else {
-            alert('Error al reactivar el Requisito.');
-          }
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          Swal.fire({
+            title: action === 'delete' ? 'Eliminado' : 'Reactivado',
+            text: data.message,
+            icon: 'success',
+            confirmButtonText: 'OK',
+            customClass: { confirmButton: 'btn btn-warning' },
+            buttonsStyling: false,
+          }).then(() => location.reload());
+        } else {
+          Swal.fire('Error', data.message, 'error');
         }
+      })
+      .catch(error => Swal.fire('Error', 'Ocurrió un error en el servidor.', 'error'));
+    }
+  });
+}
+  function handleFormResponse(response, modalId) {
+  var messagesContainer = $('#modalMessages');
+  messagesContainer.empty();
+  if (response.success) {
+    messagesContainer.append('<div class="alert alert-success">' + response.message + '</div>');
+    $(modalId).modal('hide');
+    setTimeout(() => location.reload(), 1500);
+  } else {
+    // Mostrar alerta si hay error general (__all__)
+    if (response.errors && response.errors.__all__) {
+      Swal.fire({
+        title: 'Registro duplicado',
+        text: response.errors.__all__.join('\n'),
+        icon: 'warning',
+        confirmButtonText: 'OK',
+        customClass: { confirmButton: 'btn btn-warning' },
+        buttonsStyling: false,
+      }).then(() => {
+        // Opcional: puedes enfocar el primer campo si quieres
+        const firstInput = document.querySelector('#denominacionForm input, #editDenominacionForm input');
+        if (firstInput) firstInput.focus();
       });
     }
+    // Mostrar otros errores de campos
+    $.each(response.errors, function(field, error) {
+      if (field !== "__all__") {
+        if (Array.isArray(error)) {
+          error.forEach(function(msg) {
+            messagesContainer.append('<div class="alert alert-danger">' + msg + '</div>');
+          });
+        } else {
+          messagesContainer.append('<div class="alert alert-danger">' + error + '</div>');
+        }
+      }
+    });
   }
-</script>
-<script>
+}
+
   function filterTable() {
     var input, filter, table, tr, td, i, j, txtValue;
     input = document.getElementById("searchInput");
@@ -270,5 +328,81 @@
       }
     }
   }
+</script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const table = document.getElementById('monedasTable');
+    const pagination = document.createElement('ul');
+    pagination.className = 'pagination justify-content-center';
+    table.parentNode.appendChild(pagination);
+
+    const rowsPerPage = 10; // Número de filas por página
+    let currentPage = 1;
+
+    // Función para mostrar las filas de la página actual
+    function displayRows() {
+      const rows = table.getElementsByTagName('tr');
+      const start = (currentPage - 1) * rowsPerPage + 1; // Ignorar encabezado
+      const end = start + rowsPerPage;
+
+      for (let i = 1; i < rows.length; i++) {
+        rows[i].style.display = i >= start && i < end ? '' : 'none';
+      }
+    }
+
+    // Función para configurar la paginación
+    function setupPagination() {
+      const rows = table.getElementsByTagName('tr');
+      const totalPages = Math.ceil((rows.length - 1) / rowsPerPage);
+
+      pagination.innerHTML = '';
+
+      // Botón "Anterior"
+      const prevLi = document.createElement('li');
+      prevLi.className = 'page-item' + (currentPage === 1 ? ' disabled' : '');
+      prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Anterior"><span aria-hidden="true">&laquo;</span></a>`;
+      prevLi.addEventListener('click', function (e) {
+        e.preventDefault();
+        if (currentPage > 1) {
+          currentPage--;
+          displayRows();
+          setupPagination();
+        }
+      });
+      pagination.appendChild(prevLi);
+
+      // Botones de páginas
+      for (let i = 1; i <= totalPages; i++) {
+        const li = document.createElement('li');
+        li.className = 'page-item' + (i === currentPage ? ' active' : '');
+        li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+        li.addEventListener('click', function (e) {
+          e.preventDefault();
+          currentPage = i;
+          displayRows();
+          setupPagination();
+        });
+        pagination.appendChild(li);
+      }
+
+      // Botón "Siguiente"
+      const nextLi = document.createElement('li');
+      nextLi.className = 'page-item' + (currentPage === totalPages ? ' disabled' : '');
+      nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Siguiente"><span aria-hidden="true">&raquo;</span></a>`;
+      nextLi.addEventListener('click', function (e) {
+        e.preventDefault();
+        if (currentPage < totalPages) {
+          currentPage++;
+          displayRows();
+          setupPagination();
+        }
+      });
+      pagination.appendChild(nextLi);
+    }
+
+    // Inicializar la tabla y la paginación
+    displayRows();
+    setupPagination();
+  });
 </script>
 {% endblock javascripts %}

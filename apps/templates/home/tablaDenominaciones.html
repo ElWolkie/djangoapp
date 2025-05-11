@@ -32,6 +32,9 @@
     </div>
     <div class="col-md-4">
       <button class="btn btn-warning btn-square btn-sm my-2" type="button" title="Registrar Denominacion" data-toggle="modal" data-target="#denominacionModal">+</button>
+      <a href="{% url 'reporte_denominaciones_pdf' %}" class="btn btn-outline-danger btn-sm" target="_blank">
+        <i class="fas fa-file-pdf"></i> Descargar PDF
+      </a>
     </div>
   </div>
 
@@ -57,10 +60,10 @@
             <td>
               <button class="btn btn-sm btn-primary" type="button" data-toggle="modal" data-target="#editDenominacionModal" data-id="{{ denominacion.idDenominacion }}" data-url="{% url 'edit_denominacion' denominacion.idDenominacion %}">Editar</button>
               {% if denominacion.estadoDenominacion == "ACTIVO" %}
-              <button class="btn btn-sm btn-danger" type="button" onclick="deleteDenominacion('{{ denominacion.idDenominacion }}')">Eliminar</button>
+              <button class="btn btn-sm btn-danger" type="button" onclick="manageDenominacion('{{ denominacion.idDenominacion }}','delete')">Eliminar</button>
               {% endif %}
               {% if denominacion.estadoDenominacion == "INACTIVO" %}
-              <button class="btn btn-sm btn-success" type="button" onclick="reactivateDenominacion('{{ denominacion.idDenominacion }}')">Reactivar</button>
+              <button class="btn btn-sm btn-success" type="button" onclick="manageDenominacion('{{ denominacion.idDenominacion }}','reactivate')">Reactivar</button>
               {% endif %}
 
             </td>
@@ -74,7 +77,7 @@
   <div class="modal-dialog" role="document">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="denominacionModalLabel">Registro de Tipo de Oferta</h5>
+        <h5 class="modal-title" id="denominacionModalLabel">Registro de Denominacion</h5>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
@@ -112,7 +115,7 @@
 {% endblock content %}
 
 {% block javascripts %}
-<script src="/static/assets/js/validacionesPersona.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
   document.addEventListener("DOMContentLoaded", function() {
     $('#denominacionModal').on('show.bs.modal', function (e) {
@@ -129,6 +132,9 @@
     $(document).on('submit', '#denominacionForm', function(e) {
       e.preventDefault();
       var form = $(this);
+      if (!highlightInvalidInputs('#denominacionForm')) {
+    return false;
+  }
       $.ajax({
         url: form.attr('action'),
         method: form.attr('method'),
@@ -198,47 +204,92 @@
     });
   
 
-    function deleteDenominacion(id) {
-    if (confirm('¿Estás seguro de que deseas eliminar esta denominacion?')) {
-      $.ajax({
-        url: '{% url "delete_denominacion" 0 %}'.replace('0', id),
-        method: 'POST',
-        data: {
-          csrfmiddlewaretoken: '{{ csrf_token }}'
-        },
-        success: function(response) {
-          if (response.success) {
-            alert(response.message);
-            location.reload();  // Recargar la página para ver los cambios
-          } else {
-            alert('Error al eliminar el Requisito.');
-          }
-        }
-      });
-    }
-  }
+    function manageDenominacion(id, action) {
+  const confirmMessage = action === 'delete'
+    ? '¿Está seguro de eliminar este registro?'
+    : (action === 'reactivate'
+        ? '¿Está seguro de reactivar este registro?'
+        : '¿Está seguro de realizar esta acción?');
 
-  function reactivateDenominacion(id) {
-    if (confirm('¿Estás seguro de que deseas reactivar esta denominacion?')) {
-      $.ajax({
-        url: '{% url "reactivate_denominacion" 0 %}'.replace('0', id),
+  Swal.fire({
+    title: confirmMessage,
+    icon: action === 'delete' ? 'warning' : 'question',
+    showCancelButton: true,
+    confirmButtonText: action === 'delete' ? 'Eliminar' : 'Reactivar',
+    cancelButtonText: 'Cancelar',
+    customClass: {
+      confirmButton: action === 'delete' ? 'btn btn-danger' : 'btn btn-success',
+      cancelButton: 'btn btn-secondary'
+    },
+    buttonsStyling: false,
+  }).then((result) => {
+    if (result.isConfirmed) {
+      const url = action === 'delete'
+        ? "{% url 'delete_denominacion' 0 %}".replace('0', id)
+        : "{% url 'reactivate_denominacion' 0 %}".replace('0', id);
+
+      const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+      fetch(url, {
         method: 'POST',
-        data: {
-          csrfmiddlewaretoken: '{{ csrf_token }}'
+        headers: {
+          'X-CSRFToken': csrftoken,
         },
-        success: function(response) {
-          if (response.success) {
-            alert(response.message);
-            location.reload();  // Recargar la página para ver los cambios
-          } else {
-            alert('Error al reactivar el Requisito.');
-          }
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          Swal.fire({
+            title: action === 'delete' ? 'Eliminado' : 'Reactivado',
+            text: data.message,
+            icon: 'success',
+            confirmButtonText: 'OK',
+            customClass: { confirmButton: 'btn btn-warning' },
+            buttonsStyling: false,
+          }).then(() => location.reload());
+        } else {
+          Swal.fire('Error', data.message, 'error');
         }
+      })
+      .catch(error => Swal.fire('Error', 'Ocurrió un error en el servidor.', 'error'));
+    }
+  });
+}
+
+  function handleFormResponse(response, modalId) {
+  var messagesContainer = $('#modalMessages');
+  messagesContainer.empty();
+  if (response.success) {
+    messagesContainer.append('<div class="alert alert-success">' + response.message + '</div>');
+    $(modalId).modal('hide');
+    setTimeout(() => location.reload(), 1500);
+  } else {
+    // Mostrar alerta si hay error general (__all__)
+    if (response.errors && response.errors.__all__) {
+      Swal.fire({
+        title: 'Registro duplicado',
+        text: response.errors.__all__.join('\n'),
+        icon: 'warning',
+        confirmButtonText: 'OK',
+        customClass: { confirmButton: 'btn btn-warning' },
+        buttonsStyling: false,
       });
     }
+    // Mostrar otros errores de campos
+    $.each(response.errors, function(field, error) {
+      if (field !== "__all__") {
+        if (Array.isArray(error)) {
+          error.forEach(function(msg) {
+            messagesContainer.append('<div class="alert alert-danger">' + msg + '</div>');
+          });
+        } else {
+          messagesContainer.append('<div class="alert alert-danger">' + error + '</div>');
+        }
+      }
+    });
   }
-</script>
-<script>
+}
+
   function filterTable() {
     var input, filter, table, tr, td, i, j, txtValue;
     input = document.getElementById("searchInput");

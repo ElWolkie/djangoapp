@@ -16,7 +16,8 @@
     {% csrf_token %}
     <div class="form-group text-center">
       <label for="nombreDenominacion" class="d-block">Nombre:</label>
-      <input type="text" id="nombreDenominacion" name="nombreDenominacion" class="form-control text-dark mx-auto" value="{{ denominacion.nombreDenominacion }}" tabindex="3" maxlength="100" required style="width: 50%;"  />
+      <input type="text" id="nombreDenominacion" name="nombreDenominacion" class="form-control text-dark mx-auto" value="{{ denominacion.nombreDenominacion }}" tabindex="3" maxlength="20" data-required="true" style="width: 50%;"  />
+      <div class="invalid-feedback">Por favor, ingrese un nombre válido.</div>
       <input type="hidden" id="estadoDenominacion" name="estadoDenominacion" class="form-control text-dark" value="ACTIVO" />
     </div>
     <div class="text-center">
@@ -26,7 +27,19 @@
 {% endblock content %}
 
 {% block javascripts %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
+// Activar mayúsculas en inputs
+function activarMayusculasInputs() {
+    document.addEventListener('input', function(e) {
+      if (e.target.tagName === 'INPUT' && !e.target.type.match(/password|hidden|email/)) {
+        e.target.value = e.target.value.toUpperCase();
+      }
+    });
+  }
+  activarMayusculasInputs();
+
+
   document.addEventListener("DOMContentLoaded", function() {
     $('c').on('show.bs.modal', function (e) {
       var modal = $(this);
@@ -47,29 +60,90 @@
 //Recarga dinamica
 
 $(document).on('submit', '#editDenominacionForm', function(e) {
-      e.preventDefault();
-      var form = $(this);
-      $.ajax({
-        url: form.attr('action'),
-        method: form.attr('method'),
-        data: form.serialize(),
-        success: function(response) {
-          var messagesContainer = $('#modalMessages');
-          messagesContainer.empty();
-          if (response.success) {
-            messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
-            $('#editDenominacionModal').modal('hide');
-            location.reload();  // Recargar la página para ver los cambios
-          } else {
-            // Mostrar errores en el modal
-            var errors = response.errors;
-            for (var field in errors) {
-              messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + errors[field] + '</div>');
-            }
+  e.preventDefault();
+  var form = $(this);
+  if (!highlightInvalidInputs('#' + form.attr('id'))) return false;
+  $.ajax({
+    url: form.attr('action'),
+    method: form.attr('method'),
+    data: form.serialize(),
+    success: function(response) {
+      var messagesContainer = $('#modalMessages');
+      messagesContainer.empty();
+      if (response.success) {
+        messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
+        $('#editDenominacionModal').modal('hide');
+        location.reload();
+      } else {
+        // Alerta para duplicados
+        if (response.errors && response.errors.__all__) {
+          Swal.fire({
+            title: 'Registro duplicado',
+            text: response.errors.__all__.join('\n'),
+            icon: 'warning',
+            confirmButtonText: 'OK',
+            customClass: { confirmButton: 'btn btn-warning' },
+            buttonsStyling: false,
+          });
+        }
+        // Otros errores de campos
+        for (var field in response.errors) {
+          if (field !== "__all__") {
+            var errorMsgs = Array.isArray(response.errors[field]) ? response.errors[field] : [response.errors[field]];
+            errorMsgs.forEach(function(msg) {
+              messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + msg + '</div>');
+            });
           }
         }
-      });
+      }
+    },
+    error: function() {
+      Swal.fire('Error inesperado', 'Ocurrió un error al procesar la solicitud', 'error');
+    }
+  });
+});
+function highlightInvalidInputs(formSelector) {
+  const form = document.querySelector(formSelector);
+  if (!form) return true;
+  let valid = true;
+  let firstInvalid = null;
+  form.querySelectorAll('input[data-required], select[required], textarea[required]').forEach(input => {
+    if (!input.value.trim()) {
+      input.classList.add('is-invalid');
+      if (!firstInvalid) firstInvalid = input;
+      valid = false;
+    } else {
+      input.classList.remove('is-invalid');
+    }
+  });
+  if (!valid) {
+    Swal.fire({
+      title: 'Campos requeridos',
+      text: 'Por favor, complete todos los campos obligatorios resaltados en rojo.',
+      icon: 'warning',
+      confirmButtonText: 'OK',
+      customClass: { confirmButton: 'btn btn-warning' },
+      buttonsStyling: false,
+    }).then(() => {
+      if (firstInvalid) firstInvalid.focus();
     });
-</script>
+  }
+  return valid;
+}
+// Validaciones de Bootstrap
+          (function() {
+        'use strict';
+        var forms = document.querySelectorAll('.needs-validation');
+        Array.prototype.slice.call(forms).forEach(function(form) {
+          form.addEventListener('submit', function(event) {
+            if (!form.checkValidity()) {
+              event.preventDefault();
+              event.stopPropagation();
+            }
+            form.classList.add('was-validated');
+          }, false);
+        });
+      })();
 
+</script>
 {% endblock javascripts %}
