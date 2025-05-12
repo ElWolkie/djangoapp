@@ -8,8 +8,8 @@
 {% endblock stylesheets %}
 
 <nav class="sidenav navbar navbar-vertical  fixed-left  navbar-expand-xs navbar-light bg-white" id="sidenav-main">
-  
-
+  <div class="scrollbar-inner">
+    <div class="sidenav-header align-items-center">
   <div class="scrollbar-inner">
     <div class="sidenav-header align-items-center">
       <a class="navbar-brand" href="/">
@@ -125,24 +125,10 @@
       </li>
 
       <li class="nav-item">
-        <a class="nav-link" href="#" id="empresaDropdown" data-toggle="collapse" data-target="#empresaMenu" aria-expanded="false" aria-controls="empresaMenu">
+        <a class="nav-link" href="{% url 'empresa_list' %}">
           <i class="ni ni-building text-orange"></i>
           <span class="nav-link-text">Empresa</span>
         </a>
-        <div id="empresaMenu" class="collapse ml-3">
-          <ul class="nav flex-column">
-            <li class="nav-item">
-              <a class="nav-link" href="{% url 'empresa_create' %}" style="padding-left: 15px;">
-                <i class="ni ni-fat-add text-orange"></i>Registrar
-              </a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="{% url 'empresa_list' %}" style="padding-left: 15px;">
-                <i class="ni ni-bullet-list-67 text-orange"></i>Consultar
-              </a>
-            </li>
-          </ul>
-        </div>
       </li>
       <!-- {% if perms.home.view_banco or perms.home.add_banco %}
       <li class="nav-item">
@@ -157,12 +143,12 @@
         <div id="bancoMenu" class="collapse ml-3">
           <ul class="nav flex-column">
         <li class="nav-item">
-          <a class="nav-link" href="/banco/registrar" style="padding-left: 15px;">
+          <a class="nav-link" href="{% url 'banco_create' %}" style="padding-left: 15px;">
             <i class="ni ni-fat-add text-orange"></i>Registrar
           </a>
         </li>
         <li class="nav-item">
-          <a class="nav-link" href="/banco/consultar" style="padding-left: 15px;">
+          <a class="nav-link" href="{% url 'banco_list' %}" style="padding-left: 15px;">
             <i class="ni ni-bullet-list-67 text-orange"></i>Consultar
           </a>
         </li>
@@ -178,12 +164,12 @@
         <div id="cuentaBancoMenu" class="collapse ml-3">
           <ul class="nav flex-column">
             <li class="nav-item">
-              <a class="nav-link" href="{% url 'cuentaBanco_create' %}" style="padding-left: 15px;">
+              <a class="nav-link" href="{% url 'cuenta_banco_create' %}" style="padding-left: 15px;">
                 <i class="ni ni-fat-add text-orange"></i>Registrar
               </a>
             </li>
             <li class="nav-item">
-              <a class="nav-link" href="{% url 'cuentaBanco_list' %}" style="padding-left: 15px;">
+              <a class="nav-link" href="{% url 'cuenta_banco_list' %}" style="padding-left: 15px;">
                 <i class="ni ni-bullet-list-67 text-orange"></i>Consultar
               </a>
             </li>

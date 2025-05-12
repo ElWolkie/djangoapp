@@ -1,0 +1,143 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}Listado de Cuentas Bancarias{% endblock title %}
+
+{% block stylesheets %}
+<link rel="stylesheet" href="/static/assets/css/styleForms.css" />
+<link rel="stylesheet" href="/static/assets/css/argon.css" />
+{% endblock stylesheets %}
+
+{% block content %}
+<div class="container mt-5">
+  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Listado de Cuentas Bancarias</h2>
+
+  <!-- Mensajes de éxito o error -->
+  {% if messages %}
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+    {% endfor %}
+  {% endif %}
+
+  <!-- Barra de búsqueda y botón para agregar -->
+  <div class="row mb-3">
+    <div class="col-md-4">
+      <div class="input-group">
+        <div class="input-group-prepend">
+          <span class="input-group-text" style="background-color: #bcbcbc; border: none;">
+            <i class="fas fa-search text-warning"></i>
+          </span>
+        </div>
+        <input class="form-control" id="searchInput" type="text" placeholder="Buscar..." onkeyup="filterTable()">
+      </div>
+    </div>
+    <div class="col-md-4">
+      <a class="btn btn-warning btn-square btn-sm my-2" href="{% url 'cuenta_banco_create' %}" title="Registrar Cuenta Bancaria">+</a>
+    </div>
+    <div class="col-md-4"></div>
+  </div>
+
+  <!-- Tabla de cuentas bancarias -->
+  <div class="table-responsive">
+    <table class="table table-striped text-gray-dark" id="cuentasBancoTable">
+      <thead class="text-darker">
+        <tr>
+          <th scope="col">Banco</th>
+          <th scope="col">Número de Cuenta</th>
+          <th scope="col">Tipo de Cuenta</th>
+          <th scope="col">Saldo Disponible</th>
+          <th scope="col">Estado</th>
+          <th scope="col">Fecha Registro</th>
+          <th scope="col">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for cuenta in cuentas %}
+        <tr>
+          <td>{{ cuenta.banco.nombreBanco }}</td>
+          <td>{{ cuenta.numeroCuentaBanco }}</td>
+          <td>{{ cuenta.tipoProducto|title }}</td>
+          <td>{{ cuenta.saldoDisponible|floatformat:2 }}</td>
+          <td>{{ cuenta.estado|yesno:"Activo,Inactivo" }}</td>
+          <td>{{ cuenta.fechaRegistro|date:"d/m/Y" }}</td>
+          <td>
+            <button class="btn btn-sm btn-primary" data-toggle="modal" data-target="#editCuentaModal" data-id="{{ cuenta.id }}">Editar</button>
+            <button class="btn btn-sm btn-danger" onclick="confirmDelete('{{ cuenta.id }}')">Eliminar</button>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="7" class="text-center text-muted">No hay cuentas bancarias registradas.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal de confirmación para eliminar -->
+<div class="modal fade" id="deleteModal" tabindex="-1" role="dialog" aria-labelledby="deleteModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="deleteModalLabel">Confirmar Eliminación</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        ¿Estás seguro de que deseas eliminar esta cuenta bancaria? Esta acción no se puede deshacer.
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-danger" id="confirmDeleteButton">Eliminar</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}
+
+{% block javascripts %}
+<script>
+  // Función para filtrar la tabla
+  function filterTable() {
+    const filter = document.getElementById("searchInput").value.toUpperCase();
+    const rows = document.querySelectorAll("#cuentasBancoTable tbody tr");
+    rows.forEach(row => {
+      const cells = row.querySelectorAll("td");
+      row.style.display = Array.from(cells).some(cell => cell.textContent.toUpperCase().includes(filter)) ? "" : "none";
+    });
+  }
+
+  // Función para confirmar la eliminación
+  function confirmDelete(id) {
+    const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    const confirmButton = document.getElementById('confirmDeleteButton');
+
+    confirmButton.onclick = function () {
+      fetch(`{% url 'cuenta_banco_delete' 0 %}`.replace('0', id), {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': '{{ csrf_token }}',
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          location.reload(); // Recargar la página si se elimina correctamente
+        } else {
+          alert('Error al eliminar la cuenta bancaria.');
+        }
+      })
+      .catch(error => console.error('Error:', error));
+    };
+
+    deleteModal.show();
+  }
+</script>
+{% endblock javascripts %}

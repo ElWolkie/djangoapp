@@ -1,32 +1,111 @@
 from django.db import models
+from django.db.models import Max
 
-# Create your models here.
-from django.db import models  # Importa el módulo models de Django para definir modelos de base de datos.
-
-class PlanCuenta(models.Model):  # Define un modelo llamado PlanCuenta que representa una tabla en la base de datos.
-    idPlanCuenta = models.AutoField(primary_key=True)  # Campo autoincremental que actúa como clave primaria.
-    codigoPlanCuenta = models.CharField(max_length=50, unique=True)  # Campo de texto único con un máximo de 50 caracteres.
-    nombrePlanCuenta = models.CharField(max_length=255)  # Campo de texto con un máximo de 255 caracteres.
-    tipoPlanCuenta = models.CharField(  # Campo de texto con opciones predefinidas para el tipo de cuenta.
+class PlanCuenta(models.Model):
+    """
+    Modelo que representa el plan de cuentas contables de la organización.
+    Incluye jerarquía automática de códigos contables y clasificación por tipos.
+    """
+    
+    TIPO_CUENTA_CHOICES = [
+        ('activo', 'Activo'),
+        ('pasivo', 'Pasivo'),
+        ('patrimonio', 'Patrimonio'),
+        ('ingreso', 'Ingreso'),
+        ('gasto', 'Gasto'),
+    ]
+    
+    idPlanCuenta = models.AutoField(primary_key=True, verbose_name="ID Plan de Cuenta")
+    codigoPlanCuenta = models.CharField(
         max_length=50, 
-        choices=[
-            ('activo', 'Activo'),  # Opción para cuentas de tipo activo.
-            ('pasivo', 'Pasivo'),  # Opción para cuentas de tipo pasivo.
-            ('patrimonio', 'Patrimonio'),  # Opción para cuentas de tipo patrimonio.
-            ('ingreso', 'Ingreso'),  # Opción para cuentas de tipo ingreso.
-            ('gasto', 'Gasto'),  # Opción para cuentas de tipo gasto.
-        ]
+        unique=True,
+        verbose_name="Código de Cuenta",
+        help_text="Código jerárquico generado automáticamente"
     )
-    nivelPlanCuenta = models.PositiveIntegerField()  # Campo numérico positivo para indicar el nivel jerárquico de la cuenta.
-    cuentaPadre = models.ForeignKey(  # Relación de clave foránea hacia sí mismo para definir jerarquías.
-        'self',  # Se refiere al mismo modelo.
-        null=True,  # Permite valores nulos.
-        blank=True,  # Permite que el campo sea opcional en formularios.
-        on_delete=models.SET_NULL,  # Si la cuenta padre se elimina, este campo se establece en NULL.
-        related_name='subcuentas'  # Nombre para acceder a las subcuentas relacionadas.
+    nombrePlanCuenta = models.CharField(
+        max_length=255,
+        verbose_name="Nombre de Cuenta"
     )
-    estadoPlanCuenta = models.BooleanField(default=True)  # Campo booleano para indicar si la cuenta está activa o no.
-    fechaPlanCuenta = models.DateTimeField(auto_now_add=True)  # Campo de fecha y hora que se establece automáticamente al crear el registro.
+    tipoPlanCuenta = models.CharField(
+        max_length=50,
+        choices=TIPO_CUENTA_CHOICES,
+        verbose_name="Tipo de Cuenta"
+    )
+    nivelPlanCuenta = models.PositiveIntegerField(
+        verbose_name="Nivel Jerárquico",
+        help_text="1 para cuentas principales, aumenta según profundidad"
+    )
+    cuentaPadre = models.ForeignKey(
+        'self',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='subcuentas',
+        verbose_name="Cuenta Padre"
+    )
+    estadoPlanCuenta = models.BooleanField(
+        default=True,
+        verbose_name="Estado Activo"
+    )
+    fechaPlanCuenta = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Fecha de Creación"
+    )
 
-    def __str__(self):  # Método que define cómo se representa el objeto como cadena.
-        return f"{self.codigoPlanCuenta} - {self.nombrePlanCuenta}"  # Devuelve el código y el nombre de la cuenta como representación.
+    class Meta:
+        verbose_name = "Plan de Cuenta"
+        verbose_name_plural = "Planes de Cuenta"
+        ordering = ['codigoPlanCuenta']
+
+    def __str__(self):
+        return f"{self.codigoPlanCuenta} - {self.nombrePlanCuenta}"
+
+    def save(self, *args, **kwargs):
+        """
+        Sobrescribe el método save para generar automáticamente códigos contables
+        basados en la jerarquía y tipo de cuenta.
+        """
+        if not self.codigoPlanCuenta:
+            if self.cuentaPadre:
+                # Generar código para subcuenta
+                last_child = PlanCuenta.objects.filter(
+                    cuentaPadre=self.cuentaPadre
+                ).aggregate(Max('codigoPlanCuenta'))
+                
+                if last_child['codigoPlanCuenta__max']:
+                    last_code = last_child['codigoPlanCuenta__max']
+                    prefix = last_code[:-2]
+                    last_num = int(last_code[-2:])
+                    self.codigoPlanCuenta = f"{prefix}{last_num + 1:02d}"
+                else:
+                    self.codigoPlanCuenta = f"{self.cuentaPadre.codigoPlanCuenta}01"
+                
+                self.nivelPlanCuenta = self.cuentaPadre.nivelPlanCuenta + 1
+            else:
+                # Generar código para cuenta principal
+                prefix = self._get_prefix_for_type()
+                last_main = PlanCuenta.objects.filter(
+                    cuentaPadre__isnull=True,
+                    tipoPlanCuenta=self.tipoPlanCuenta
+                ).aggregate(Max('codigoPlanCuenta'))
+                
+                if last_main['codigoPlanCuenta__max']:
+                    last_num = int(last_main['codigoPlanCuenta__max'][1:])
+                    self.codigoPlanCuenta = f"{prefix}{last_num + 1:02d}"
+                else:
+                    self.codigoPlanCuenta = f"{prefix}101"
+                
+                self.nivelPlanCuenta = 1
+        
+        super().save(*args, **kwargs)
+
+    def _get_prefix_for_type(self):
+        """Devuelve el prefijo numérico según el tipo de cuenta"""
+        type_prefix_map = {
+            'activo': '1',
+            'pasivo': '2',
+            'patrimonio': '3',
+            'ingreso': '4',
+            'gasto': '5'
+        }
+        return type_prefix_map.get(self.tipoPlanCuenta, '0')

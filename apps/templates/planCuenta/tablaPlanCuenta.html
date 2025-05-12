@@ -52,10 +52,14 @@
       <tr>
         <td>{{ plan.codigoPlanCuenta }}</td>
         <td>{{ plan.nombrePlanCuenta }}</td>
-        <td>{{ plan.tipoPlanCuenta }}</td>
+        <td>{{ plan.get_tipoPlanCuenta_display }}</td>
         <td>{{ plan.nivelPlanCuenta }}</td>
         <td>{{ plan.estadoPlanCuenta|yesno:"Activo,Inactivo" }}</td>
         <td>{{ plan.fechaPlanCuenta|date:"d/m/Y" }}</td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="6" class="text-center">No hay planes de cuenta disponibles</td>
       </tr>
       {% endfor %}
     </tbody>
