@@ -1,4 +1,5 @@
 {% extends 'layouts/base.html' %}
+{% load static %}
 
 {% block title %}Registro de Inscripcion{% endblock title %}
 
@@ -38,7 +39,7 @@
           <select id="idMateria" name="idMateria"  class="form-control text-dark" tabindex="1" required>
             <option value="" disabled selected>Seleccione..</option>
             {% for materia in materias %}
-              <option value="{{ materia.idMateria }}" class="text-orange">{{ materia.nombreMateria }}</option>
+              <option value="{{ materia.idMateria }}" class="text-dark">{{ materia.nombreMateria }}</option>
             {% endfor %}
           </select>
         </div>
@@ -60,7 +61,7 @@
         <select id="idTF" name="idTF"  class="form-control text-dark" required>
           <option value="" disabled selected>Seleccione..</option>
           {% for tipo in tipos_formacion %}
-          <option value="{{ tipo.idTF }}"  class="text-orange">{{ tipo.nombreTipoFormacion }}</option>
+          <option value="{{ tipo.idTF }}"  class="text-dark">{{ tipo.nombreTipoFormacion }}</option>
           {% endfor %}
         </select>
       </div>
@@ -70,7 +71,7 @@
             <select id="idFormacion" name="idFormacion" class="form-control text-dark" tabindex="1" required>  
                 <option value="" disabled selected>Seleccione...</option>  
                 {% for formacion  in formaciones %}  
-                    <option value="{{ formacion.idFormacion }}" class="text-orange">{{ formacion.nombreFormacion }}</option>  
+                    <option value="{{ formacion.idFormacion }}" class="text-dark">{{ formacion.nombreFormacion }}</option>  
                 {% endfor %}  
             </select>  
         </div>  
@@ -86,144 +87,14 @@
 {% endblock content %}
 
 {% block javascripts %}
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
 <script>
-  document.addEventListener("DOMContentLoaded", function () {
-    const form = document.getElementById("inscripcionForm");
-
-    form.addEventListener("submit", function (e) {
-      e.preventDefault(); // Evitar el envío tradicional del formulario
-
-      const formData = new FormData(form); // Obtener los datos del formulario
-
-      fetch(form.action, {
-        method: "POST",
-        body: formData,
-        headers: {
-          "X-Requested-With": "XMLHttpRequest", // Indicar que es una solicitud AJAX
-        },
-      })
-        .then((response) => response.json())
-        .then((data) => {
-          if (data.success) {
-            // Mostrar alerta de éxito
-            Swal.fire({
-              title: "Registro exitoso",
-              text: "La inscripcion ha sido registrada correctamente.",
-                icon: "success",
-                confirmButtonText: "OK",
-                customClass: {
-                confirmButton: "btn btn-warning"
-                },
-                buttonsStyling: false,
-            }).then(() => {
-              // Opcional: Limpiar el formulario después del éxito
-              form.reset();
-              document.getElementById("alert-container").innerHTML = ""; // Limpiar alertas
-              document.getElementById("check-icon").innerHTML = ""; // Limpiar icono
-              document.getElementById("check-cohorte-icon").innerHTML = ""; // Limpiar icono
-            });
-          } else {
-            // Mostrar errores en caso de fallo
-            Swal.fire({
-              icon: "error",
-              title: "Error en el registro",
-              html: Object.values(data.errors)
-                .map((error) => `<p>${error}</p>`)
-                .join(""),
-            });
-          }
-        })
-        .catch((error) => {
-          console.error("Error:", error);
-          Swal.fire({
-            icon: "error",
-            title: "Error inesperado",
-            text: "Ocurrió un error al procesar la solicitud.",
-          });
-        });
-    });
-  });
-
-
-  function checkPersona(cedula = null) {
- const inputElement = document.getElementById('cedulaPersona');
- const input = cedula || inputElement.value;
- const icon = document.getElementById('check-icon');
- const idPersonaInput = document.getElementById('idPersona');
- const foundPersona = personas.find(persona => persona.cedula === input);
-
- if (cedula) {
-   inputElement.value = cedula; // Asignar automáticamente el valor al input
- }
-
- if (foundPersona) {
-  icon.innerHTML = '✔️'; // Pajarito verde
-  icon.style.color = 'blue';
-  idPersonaInput.value = foundPersona.idPersona;
-
-  // Mostrar alerta con los datos de la persona
-  const alertHTML = `
-      <div class="alert alert-success alert-dismissible fade show" role="alert">
-       <strong style="color: orange; font-size: 1.2em;">Persona encontrada:</strong><br>
-       <span style="font-style: italic;">Cédula: ${foundPersona.cedula}</span><br>
-       <span style="font-style: italic;">Nombres: ${foundPersona.nombres}</span><br>
-       <span style="font-style: italic;">Apellidos: ${foundPersona.apellidos}</span>
-       <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-        <span aria-hidden="true">&times;</span>
-       </button>
-      </div>
-  `;
-
-  // Insertar la alerta en el DOM
-  document.getElementById('alert-container').innerHTML = alertHTML;
- } else {
-  icon.innerHTML = '❌'; // X roja
-  icon.style.color = 'red';
-  idPersonaInput.value = '';
-
-  // Mostrar alerta de que no se encontró la persona
-  const alertHTML = `
-      <div class="alert alert-danger alert-dismissible fade show" role="alert">
-       <strong>Persona no encontrada</strong>
-       <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-        <span aria-hidden="true">&times;</span>
-       </button>
-      </div>
-  `;
-
-  // Insertar la alerta en el DOM
-  document.getElementById('alert-container').innerHTML = alertHTML;
- }
-}
-
-// Llamar automáticamente a checkPersona si se pasa un valor de cédula
 document.addEventListener("DOMContentLoaded", function() {
-  const cedula = document.getElementById('cedulaPersona').value;
-  if (cedula) {
-    checkPersona(cedula);
-  }
-});
-  function checkCohorte() {
-    const input = document.getElementById("nombreCohorte").value;
-    const icon = document.getElementById("check-cohorte-icon");
-    const idCohorteInput = document.getElementById("idCohorte");
-    const foundCohorte = cohortes.find((cohorte) => cohorte.nombreCohorte === input);
-
-    if (foundCohorte) {
-      icon.innerHTML = "✔️"; // Pajarito verde
-      icon.style.color = "blue";
-      idCohorteInput.value = foundCohorte.idCohorte;
-    } else {
-      icon.innerHTML = "❌"; // X roja
-      icon.style.color = "red";
-      idCohorteInput.value = "";
-    }
-  }
-
+  // 1) Definición de datos de contexto: cohortes y personas
   const cohortes = [
     {% for cohorte in cohortes %}
-      { idCohorte: "{{ cohorte.idCohorte|escapejs }}", nombreCohorte: "{{ cohorte.nombreCohorte|escapejs }}" },
+      { idCohorte: "{{ cohorte.idCohorte|escapejs }}",
+        nombreCohorte: "{{ cohorte.nombreCohorte|escapejs }}" },
     {% endfor %}
   ];
 
@@ -231,11 +102,117 @@ document.addEventListener("DOMContentLoaded", function() {
     {% for persona in personas %}
       {
         idPersona: "{{ persona.idPersona|escapejs }}",
-        cedula: "{{ persona.cedula|escapejs }}",
-        nombres: "{{ persona.nombres|escapejs }}",
-        apellidos: "{{ persona.apellidos|escapejs }}"
+        cedula:   "{{ persona.cedula|escapejs }}",
+        nombres:  "{{ persona.nombres|escapejs }}",
+        apellidos:"{{ persona.apellidos|escapejs }}"
       },
     {% endfor %}
   ];
+
+  // 2) Función para mostrar alertas dentro del modal
+  function showAlert(msg, type) {
+    document.getElementById("alert-container").innerHTML = `
+      <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+        ${msg}
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>`;
+  }
+
+  // 3) checkPersona: buscar por cédula en el array
+  function checkPersona(cedula = null) {
+    const inputEl = document.getElementById("cedulaPersona");
+    const icon    = document.getElementById("check-icon");
+    const hid     = document.getElementById("idPersona");
+
+    const val = cedula || inputEl.value.trim();
+    if (cedula) inputEl.value = cedula;
+
+    const p = personas.find(x => x.cedula === val);
+    if (p) {
+      icon.textContent = "✔️";
+      icon.style.color = "green";
+      hid.value        = p.idPersona;
+      showAlert(`Persona encontrada: ${p.nombres} ${p.apellidos}`, "success");
+    } else {
+      icon.textContent = "❌";
+      icon.style.color = "red";
+      hid.value        = "";
+      showAlert("Persona no encontrada", "danger");
+    }
+  }
+
+  // 4) checkCohorte (igual que antes)
+  function checkCohorte() {
+    const val  = document.getElementById("nombreCohorte").value.trim();
+    const icon = document.getElementById("check-cohorte-icon");
+    const hid  = document.getElementById("idCohorte");
+    const c    = cohortes.find(x => x.nombreCohorte === val);
+    if (c) {
+      icon.textContent = "✔️";
+      icon.style.color = "green";
+      hid.value        = c.idCohorte;
+    } else {
+      icon.textContent = "❌";
+      icon.style.color = "red";
+      hid.value        = "";
+    }
+  }
+
+  // 5) Enlazar eventos
+  document.getElementById("cedulaPersona")
+          .addEventListener("input", () => checkPersona());
+  document.getElementById("nombreCohorte")
+          .addEventListener("input", () => checkCohorte());
+
+  // 6) Si vienes con cedula por GET, bótalo al iniciar
+  const initialCed = document.getElementById("cedulaPersona").value.trim();
+  if (initialCed) checkPersona(initialCed);
+
+  // 7) Envío AJAX del formulario
+  document.getElementById("inscripcionForm")
+    .addEventListener("submit", function(e) {
+      e.preventDefault();
+      const frm = e.target, data = new FormData(frm);
+      fetch(frm.action, {
+        method: "POST",
+        body: data,
+        headers: { "X-Requested-With": "XMLHttpRequest" }
+      })
+      .then(r => r.json())
+      .then(json => {
+        if (json.success) {
+          Swal.fire({
+            icon: "success",
+            title: "¡Listo!",
+            text: json.message,
+            confirmButtonText: "OK",
+            customClass: { confirmButton: "btn btn-warning" },
+            buttonsStyling: false
+          }).then(() => {
+            // redirijo a la URL que devolvió el servidor
+            window.location.href = json.redirect_url;
+          });
+        } else if (json.error) {
+          Swal.fire({
+            icon: "error",
+            title: "Error",
+            text: json.message,
+            confirmButtonText: "OK",
+            customClass: { confirmButton: "btn btn-warning" },
+            buttonsStyling: false
+          }); 
+        } else {
+          Swal.fire({
+            icon: "error",
+            title: "Errores",
+            html: Object.values(json.errors).map(m => `<p>${m}</p>`).join("")
+          });
+        }
+      })
+      .catch(() => Swal.fire("Error","Error al comunicarse con el servidor","error"));
+    });
+});
 </script>
-{% endblock javascripts %}d
+{% endblock javascripts %}

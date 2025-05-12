@@ -1,269 +1,348 @@
 {% extends 'layouts/base.html' %}
+{% load static %}
 
-{% block title %}Listado de Personas{% endblock title %}
+{% block title %}Listado de Materias{% endblock title %}
 
 {% block stylesheets %}
-<link rel="stylesheet" href="/static/assets/css/styleForms.css" />
-<link rel="stylesheet" href="/static/assets/css/argon.css" />
+<link rel="stylesheet" href="{% static 'assets/css/styleForms.css' %}" />
+<link rel="stylesheet" href="{% static 'assets/css/argon.css' %}" />
+<style>
+  .btn-purple {
+    background-color: #6f42c1 !important;
+    color: white !important;
+    border-color: #6f42c1 !important;
+  }
+  .btn-purple:hover {
+    background-color: #5a32a3 !important;
+    border-color: #5a32a3 !important;
+  }
+  .actions-column .btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+    transition: all 0.3s ease;
+  }
+  .badge {
+    font-size: 0.85em;
+    padding: 0.5em 0.75em;
+  }
+  .modal-dialog { max-width: 600px; }
+  .modal.fade.show {
+    display: block !important;
+    background-color: rgba(0,0,0,0.5);
+  }
+</style>
 {% endblock stylesheets %}
 
 {% block content %}
-<div class="container mt-5">
-  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Lista de Materias Registradas</h2>
+<div class="container mt-4">
+  <h2 class="text-center mb-4">Lista de Materias Registradas</h2>
 
-  {% if messages %}
-    {% for message in messages %}
-      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-        {{ message }}
-      </div>
-    {% endfor %}
-  {% endif %}
-
-  <div class="row">
+  <div class="row mb-3">
     <div class="col-md-4">
       <div class="input-group">
-        <div class="input-group-prepend">
-          <span class="input-group-text" style="background-color: #bcbcbc; border: none;">
-            <i class="fas fa-search text-warning"></i>
-          </span>
+        <span class="input-group-text"><i class="fas fa-search"></i></span>
+        <input class="form-control" id="searchInput" type="text" placeholder="Buscar por Nombre o Formación">
+      </div>
+    </div>
+    <div class="col-md-8 text-end">
+      {% if perms.home.add_materia %}
+        <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#materiaModal">
+          <i class="fas fa-plus-circle me-1"></i> Registrar Materia
+        </button>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="mb-3">
+    <a href="?mostrar_inactivos={% if mostrar_inactivos %}false{% else %}true{% endif %}"
+       class="btn btn-outline-secondary btn-sm">
+      {% if mostrar_inactivos %}
+        <i class="fas fa-eye-slash me-1"></i> Ocultar inactivos
+      {% else %}
+        <i class="fas fa-eye me-1"></i> Mostrar inactivos
+      {% endif %}
+    </a>
+  </div>
+
+  <div id="globalMessages">
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+            <i class="fas fa-times"></i>
+          </button>
         </div>
-        <input class="form-control" id="searchInput" type="text" placeholder="Buscar..." onkeyup="filterTable()">
-      </div>
-    </div>
-    <div class="col-md-4">
-      <button class="btn btn-warning btn-square btn-sm my-2" type="button" title="Registrar Materia" data-toggle="modal" data-target="#materiaModal">+</button>
-    </div>
+      {% endfor %}
+    {% endif %}
   </div>
 
-  <br>
-  <table class="table table-striped text-gray-dark" id="materiasTable">
-    <thead class="text-darker">
-      <tr>
-        <th scope="col">ID</th>
-        <th scope="col">Formación</th>
-        <th scope="col">Nombre</th>
-        <th scope="col">Estado</th>
-        <th scope="col">Fecha</th>
-        <th scope="col">Acciones</th>
-
-      </tr>
-    </thead>
-    <tbody>
-      <!-- Contenido de la tabla -->
-      {% for materia in materias %}  
-      <tr>  
-          <td>{{ materia.idMateria }}</td>  
-          <td>{{ materia.idFormacion.nombreFormacion }}</td>  
-          <td>{{ materia.nombreMateria }}</td>  
-          <td>{{ materia.estadoMateria }}</td>  
-          <td>{{ materia.fechaMateria|date:"d/m/Y" }}</td>  
-          <td>
-            <button class="btn btn-sm btn-primary" type="button" data-toggle="modal" data-target="#editMateriaModal" data-id="{{ materia.idMateria }}">Editar</button>
-            <button class="btn btn-sm btn-danger" type="button" onclick="deleteMaterias('{{ materia.idMateria }}')">Eliminar</button>
-            <button class="btn btn-sm btn-success" type="button" onclick="reactivateMaterias('{{ materia.idMateria }}')">Reactivar</button>
-          </td>
-      </tr>  
-  {% endfor %}
-    </tbody>
-  </table>
+  <div class="card shadow-sm">
+    <div class="table-responsive">
+      <table class="table table-striped table-hover align-middle text-gray-dark" id="materiasTable">
+        <thead class="table-light">
+          <tr>
+            <th>ID</th>
+            <th>Formación</th>
+            <th>Nombre</th>
+            <th>Fecha</th>
+            <th>Estado</th>
+            <th class="actions-column">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for materia in materias %}
+          <tr>
+            <td>{{ materia.idMateria }}</td>
+            <td>{{ materia.idFormacion.nombreFormacion }}</td>
+            <td>{{ materia.nombreMateria }}</td>
+            <td>{{ materia.fechaMateria|date:"d/m/Y" }}</td>
+            <td>
+              {% if materia.estadoMateria|upper == "ACTIVO" %}
+                <span class="badge bg-success text-white">
+                  <i class="fas fa-check-circle me-1"></i> Activo
+                </span>
+              {% else %}
+                <span class="badge bg-danger text-white">
+                  <i class="fas fa-times-circle me-1"></i> Inactivo
+                </span>
+              {% endif %}
+            </td>
+            <td class="actions-column">
+              <div class="d-flex gap-2">
+                {% if perms.home.change_materia %}
+                  <button class="btn btn-primary btn-sm"
+                          data-bs-toggle="modal"
+                          data-bs-target="#editMateriaModal"
+                          data-url="{% url 'edit_materias' materia.idMateria %}"
+                          title="Editar materia">
+                    <i class="fas fa-edit"></i>
+                  </button>
+                {% endif %}
+                {% if materia.estadoMateria|upper == "ACTIVO" and perms.home.change_materia %}
+                  <button class="btn btn-outline-warning btn-sm"
+                          data-bs-toggle="modal"
+                          data-bs-target="#deleteMateriaModal"
+                          data-url="{% url 'desactivar_materias' materia.idMateria %}"
+                          title="Inhabilitar materia">
+                    <i class="fas fa-user-slash"></i>
+                  </button>
+                {% endif %}
+                {% if materia.estadoMateria|upper == "INACTIVO" and perms.home.change_materia %}
+                  <button class="btn btn-success btn-sm"
+                          data-bs-toggle="modal"
+                          data-bs-target="#reactivateMateriaModal"
+                          data-url="{% url 'reactivate_materias' materia.idMateria %}"
+                          title="Reactivar materia">
+                    <i class="fas fa-redo"></i>
+                  </button>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="6" class="text-center py-4">No hay materias registradas.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
 </div>
-<!-- Modal -->
-<div class="modal fade" id="materiaModal" tabindex="-1" role="dialog" aria-labelledby="materiaModalLabel" aria-hidden="true">
-  <div class="modal-dialog" role="document">
+
+{# ─── Modales ─── #}
+
+<!-- Modal: Registrar Materia -->
+<div class="modal fade" id="materiaModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-md">
     <div class="modal-content">
-      <div class="modal-header">
-      <h5 class="modal-title" id="materiaModalLabel">Registro de materia Académica</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title text-white"><i class="fas fa-plus-circle me-2"></i> Registro de Materia</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body" id="registrarMateriaContent">
+        <div class="text-center py-4">
+          <div class="spinner-border text-primary" role="status"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Editar Materia -->
+<div class="modal fade" id="editMateriaModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-md">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title text-white"><i class="fas fa-edit me-2"></i> Editar Materia</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body" id="editMateriaContent">
+        <div class="text-center py-4">
+          <div class="spinner-border text-primary" role="status"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Inhabilitar Materia -->
+<div class="modal fade" id="deleteMateriaModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-warning text-dark">
+        <h5 class="modal-title text-white"><i class="fas fa-user-slash me-2"></i> Confirmar Inhabilitación</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
         </button>
       </div>
       <div class="modal-body">
-        <!-- Contenedor para los mensajes -->
-        <div id="modalMessages"></div>
-        <!-- El contenido del formulario se cargará aquí -->
+        <p>¿Estás seguro de inhabilitar esta materia?</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <form id="deleteMateriaForm" method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-warning">Inhabilitar</button>
+        </form>
       </div>
     </div>
   </div>
 </div>
 
-<div class="modal fade" id="editMateriaModal" tabindex="-1" role="dialog" aria-labelledby="editMateriaModalLabel" aria-hidden="true">
-  <div class="modal-dialog" role="document">
+<!-- Modal: Reactivar Materia -->
+<div class="modal fade" id="reactivateMateriaModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
     <div class="modal-content">
-      <div class="modal-header">
-      <h5 class="modal-title" id="editMateriaModalLabel">Modificar Materia</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title text-white"><i class="fas fa-redo me-2"></i> Confirmar Reactivación</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
         </button>
       </div>
       <div class="modal-body">
-        <!-- Contenedor para los mensajes -->
-        <div id="modalMessages"></div>
-        <form id="editMateriaForm" >
-          <!-- Aquí se cargará el formulario de edición -->
-          <div id="editMateriaContent">
-            <!-- El contenido del formulario se cargará aquí -->
-          </div>
-         
-      </form>
+        <p>¿Deseas reactivar esta materia?</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <form id="reactivateMateriaForm" method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-success">Reactivar</button>
+        </form>
       </div>
     </div>
   </div>
 </div>
-
 {% endblock content %}
+
 {% block javascripts %}
+<script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
+<script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
+
 <script>
-  document.addEventListener("DOMContentLoaded", function() {
-    // Cargar el formulario en el modal de registro
-    $('#materiaModal').on('show.bs.modal', function (e) {
-      var modal = $(this);
-      $.ajax({
-        url: 'apps/home/materia.html',
-        method: 'GET',
-        success: function(data) {
-          modal.find('.modal-body').html(data);
-        }
-      });
-    });
+document.addEventListener('DOMContentLoaded', () => {
+  // helper to load forms
+  const loadInModal = (modalId, urlGetter, contentId) => {
+    $(modalId)
+      .on('show.bs.modal', e => {
+        const url = urlGetter(e);
+        $(modalId).find(contentId).html(
+          '<div class="text-center py-4"><div class="spinner-border text-primary"/></div>'
+        );
+        $.get(url).done(html => $(modalId).find(contentId).html(html));
+      })
+      .on('hidden.bs.modal', () => $(contentId).empty());
+  };
 
-    // Cargar el formulario en el modal de edición
-    $('#editMateriaModal').on('show.bs.modal', function (e) {
-      var button = $(e.relatedTarget); // Botón que activó el modal
-      var idMateria = button.data('id'); // Extraer la información de los atributos data-*
-      var modal = $(this);
-      $.ajax({
-        url: '/editMateria/' + idMateria + '/',
-        type: 'get',
-        dataType: 'html',
-        success: function(data) {
-          modal.find('.modal-body').html(data);
+  loadInModal('#materiaModal',
+    () => "{% url 'materia_modal' %}",
+    '#registrarMateriaContent'
+  );
 
-          // Adjuntar el evento submit al formulario de edición después de cargarlo
-          $(document).off('submit', '#editMateriaForm').on('submit', '#editMateriaForm', function(e) {
-            e.preventDefault();
-            var form = $(this);
-            $.ajax({
-              url: form.attr('action'),
-              method: 'POST',
-              data: form.serialize(),
-              success: function(response) {
-                var messagesContainer = $('#modalMessagesEdit');
-                messagesContainer.empty();
-                if (response.success) {
-                  messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
-                  $('#editMateriaModal').modal('hide');
-                  location.reload();
-                } else {
-                  var errors = response.errors;
-                  for (var field in errors) {
-                    messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + errors[field] + '</div>');
-                  }
-                }
-              },
-              error: function() {
-                alert('Error al procesar la solicitud.');
-              },
-            });
-          });
-        },
-        error: function(error) {
-          console.log(error);
-        }
-      });
-    });
+  loadInModal('#editMateriaModal',
+    e => $(e.relatedTarget).data('url'),
+    '#editMateriaContent'
+  );
 
-    // Adjuntar el evento submit al formulario de registro
-    $(document).on('submit', '#materiaForm', function(e) {
-      e.preventDefault();
-      var form = $(this);
-      $.ajax({
-        url: form.attr('action'),
-        method: form.attr('method'),
-        data: form.serialize(),
-        success: function(response) {
-          var messagesContainer = $('#modalMessages');
-          messagesContainer.empty();
-          if (response.success) {
-            messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
-            $('#materiaModal').modal('hide');
-            location.reload(); // Recargar la página para ver los cambios
-          } else {
-            // Mostrar errores en el modal
-            var errors = response.errors;
-            for (var field in errors) {
-              messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + errors[field] + '</div>');
-            }
-          }
-        },
-        error: function(xhr, status, error) {
-          alert('Error al procesar la solicitud: ' + error);
-        }
-      });
+  // assign action for delete/reactivate but do not intercept submit
+  ['delete','reactivate'].forEach(action => {
+    const modal = `#${action}MateriaModal`;
+    const form  = `#${action}MateriaForm`;
+    $(modal).on('show.bs.modal', e => {
+      $(form).attr('action', $(e.relatedTarget).data('url'));
     });
   });
 
-  // Función para eliminar una materia
-  function deleteMaterias(id) {
-    if (confirm('¿Estás seguro de que deseas eliminar esta materia?')) {
-      $.ajax({
-        url: '{% url "delete_materias" 0 %}'.replace('0', id),
-        method: 'POST',
-        data: {
-          csrfmiddlewaretoken: '{{ csrf_token }}'
-        },
-        success: function(response) {
-          if (response.success) {
-            alert(response.message);
-            location.reload(); // Recargar la página para ver los cambios
-          } else {
-            alert('Error al eliminar la materia.');
-          }
+  // AJAX create
+  $(document).on('submit', '#materiaForm', function(e){
+    e.preventDefault();
+    const f = $(this);
+    $.post(f.attr('action'), f.serialize())
+      .done(resp => {
+        if(resp.success){
+          $('#materiaModal').modal('hide');
+          $('#globalMessages').prepend(`
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+              ${resp.message}
+              <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>`);
+          setTimeout(()=>location.reload(),500);
+        } else {
+          let html = '';
+          Object.values(resp.errors).forEach(m => {
+            html += `<div class="alert alert-danger">${m}<button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+            <i class="fas fa-times"></i>
+          </button></div>`;
+          });
+          $('#registrarMateriaContent').prepend(html);
         }
-      });
-    }
-  }
+      })
+      .fail(()=>alert('Error al crear materia.'));
+  });
 
-  // Función para reactivar una materia
-  function reactivateMaterias(id) {
-    if (confirm('¿Estás seguro de que deseas reactivar esta materia?')) {
-      $.ajax({
-        url: '{% url "reactivate_materias" 0 %}'.replace('0', id),
-        method: 'POST',
-        data: {
-          csrfmiddlewaretoken: '{{ csrf_token }}'
-        },
-        success: function(response) {
-          if (response.success) {
-            alert(response.message);
-            location.reload(); // Recargar la página para ver los cambios
-          } else {
-            alert('Error al reactivar la materia.');
-          }
+  // AJAX edit
+  $(document).on('submit', '#editMateriaForm', function(e){
+    e.preventDefault();
+    const f = $(this);
+    $.post(f.attr('action'), f.serialize())
+      .done(resp => {
+        if(resp.success){
+          $('#editMateriaModal').modal('hide');
+          $('#globalMessages').prepend(`
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+              ${resp.message}
+              <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>`);
+          setTimeout(()=>location.reload(),500);
+        } else {
+          let html = '';
+          Object.values(resp.errors).forEach(m => {
+            html += `<div class="alert alert-danger">${m}<button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+            <i class="fas fa-times"></i>
+          </button></div>`;
+          });
+          $('#editMateriaContent').prepend(html);
         }
-      });
-    }
-  }
+      })
+      .fail(()=>alert('Error al editar materia.'));
+  });
 
-  // Función para filtrar la tabla
-  function filterTable() {
-    var input, filter, table, tr, td, i, j, txtValue;
-    input = document.getElementById("searchInput");
-    filter = input.value.toUpperCase();
-    table = document.getElementById("materiasTable");
-    tr = table.getElementsByTagName("tr");
-    for (i = 1; i < tr.length; i++) {
-      tr[i].style.display = "none";
-      td = tr[i].getElementsByTagName("td");
-      for (j = 0; j < td.length; j++) {
-        if (td[j]) {
-          txtValue = td[j].textContent || td[j].innerText;
-          if (txtValue.toUpperCase().indexOf(filter) > -1) {
-            tr[i].style.display = "";
-            break;
-          }
-        }
-      }
-    }
-  }
+  // filter table
+  $('#searchInput').on('keyup', function(){
+    const f = this.value.toUpperCase();
+    $('#materiasTable tbody tr').each(function(){
+      $(this).toggle($(this).text().toUpperCase().includes(f));
+    });
+  });
+});
 </script>
 {% endblock javascripts %}

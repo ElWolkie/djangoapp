@@ -1,121 +1,233 @@
 {% extends 'layouts/base.html' %}
+{% load static %}
 
 {% block title %}Listado de Tipos de Formación{% endblock title %}
 
 {% block stylesheets %}
-<link rel="stylesheet" href="/static/assets/css/styleForms.css" />
-<link rel="stylesheet" href="/static/assets/css/argon.css" />
+<link rel="stylesheet" href="{% static 'assets/css/styleForms.css' %}" />
+<link rel="stylesheet" href="{% static 'assets/css/argon.css' %}" />
+<style>
+  .btn-purple {
+    background-color: #6f42c1 !important;
+    color: white !important;
+    border-color: #6f42c1 !important;
+  }
+  .btn-purple:hover {
+    background-color: #5a32a3 !important;
+    border-color: #5a32a3 !important;
+  }
+  .actions-column .btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+    transition: all 0.3s ease;
+  }
+  .badge {
+    font-size: 0.85em;
+    padding: 0.5em 0.75em;
+  }
+  .modal-dialog { max-width: 600px; }
+  .modal.fade.show {
+    display: block !important;
+    background-color: rgba(0,0,0,0.5);
+  }
+</style>
 {% endblock stylesheets %}
 
 {% block content %}
-<div class="container mt-5">
-  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Lista de Tipos de Formación Registrados</h2>
+<div class="container mt-4">
+  <h2 class="text-center mb-4">Lista de Tipos de Formación</h2>
 
-  {% if messages %}
-    {% for message in messages %}
-      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-        {{ message }}
-      </div>
-    {% endfor %}
-  {% endif %}
-
-  <div class="row">
+  <div class="row mb-3">
     <div class="col-md-4">
       <div class="input-group">
-        <div class="input-group-prepend">
-          <span class="input-group-text" style="background-color: #bcbcbc; border: none;">
-            <i class="fas fa-search text-warning"></i>
-          </span>
+        <span class="input-group-text"><i class="fas fa-search"></i></span>
+        <input class="form-control" id="searchInput" type="text" placeholder="Buscar por Nombre...">
+      </div>
+    </div>
+    <div class="col-md-8 text-end">
+      {% if perms.home.add_tipoformacion %}
+        <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#tipoFormacionModal">
+          <i class="fas fa-plus-circle me-1"></i> Registrar Tipo de Formación
+        </button>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="mb-3">
+    <a href="?mostrar_inactivos={% if mostrar_inactivos %}false{% else %}true{% endif %}"
+       class="btn btn-outline-secondary btn-sm">
+      {% if mostrar_inactivos %}
+        <i class="fas fa-eye-slash me-1"></i> Ocultar inactivos
+      {% else %}
+        <i class="fas fa-eye me-1"></i> Mostrar inactivos
+      {% endif %}
+    </a>
+  </div>
+
+  <div id="globalMessages">
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+            <i class="fas fa-times"></i>
+          </button>
         </div>
-        <input class="form-control" id="searchInput" type="text" placeholder="Buscar..." onkeyup="filterTable()">
-      </div>
-    </div>
-    <div class="col-md-4">
-      <button class="btn btn-warning btn-square btn-sm my-2" type="button" title="Registrar Tipo de Formación" data-toggle="modal" data-target="#tipoFormacionModal">+</button>
-    </div>
-  </div>
-
-  <br>
-  <table class="table table-striped text-gray-dark" id="tipoFormacionesTable">
-    <thead class="text-darker">
-      <tr>
-        <th scope="col">ID</th>
-        <th scope="col">Nombre</th>
-        <th scope="col">Estado</th>
-        <th scope="col">Fecha</th>
-        <th scope="col">Acciones</th>
-        
-      </tr>
-    </thead>
-    <tbody>
-      {% for tipoFormacion in tipoFormaciones %}
-      <tr>
-        <td>{{ tipoFormacion.idTF }}</td>
-        <td>{{ tipoFormacion.nombreTipoFormacion }}</td>
-        <td>{{ tipoFormacion.estadoTipoFormacion }}</td>
-        <td>{{ tipoFormacion.fechaTipoFormacion }}</td>
-        <td>
-          <button class="btn btn-sm btn-primary" type="button" data-toggle="modal" data-target="#editModal" data-url="{% url 'edit_tf' tipoFormacion.idTF %}">
-            Editar
-          </button>
-
-          <!-- Botón para eliminar lógico -->
-          {% if tipoFormacion.estadoTipoFormacion == "ACTIVO" %}
-          <button class="btn btn-sm btn-danger" type="button" onclick="deleteTipoFormacion('{{ tipoFormacion.idTF }}')">
-            Eliminar
-          </button>
-          {% endif %}
-
-          <!-- Botón para reactivar -->
-          {% if tipoFormacion.estadoTipoFormacion == "INACTIVO" %}
-          <button class="btn btn-sm btn-success" type="button" onclick="reactivateTipoFormacion('{{ tipoFormacion.idTF }}')">
-            Reactivar
-          </button>
-          {% endif %}
-        </td>
-      </tr>
-      {% empty %}
-      <tr>
-        <td colspan="5" class="text-center">No hay registros disponibles.</td>
-      </tr>
       {% endfor %}
-    </tbody>
-  </table>
+    {% endif %}
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="table-responsive">
+      <table class="table table-striped table-hover align-middle text-gray-dark" id="tipoFormacionesTable">
+        <thead class="table-light">
+          <tr>
+            <th>ID</th>
+            <th>Nombre</th>
+            <th>Fecha</th>
+            <th>Estado</th>
+            <th class="actions-column">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for tipoFormacion in tipoFormaciones %}
+          <tr>
+            <td>{{ tipoFormacion.idTF }}</td>
+            <td>{{ tipoFormacion.nombreTipoFormacion }}</td>
+            <td>{{ tipoFormacion.fechaTipoFormacion|date:"d/m/Y" }}</td>
+            <td>
+              {% if tipoFormacion.estadoTipoFormacion|upper == "ACTIVO" %}
+                <span class="badge bg-success text-white">
+                  <i class="fas fa-check-circle me-1"></i> Activo
+                </span>
+              {% else %}
+                <span class="badge bg-danger text-white">
+                  <i class="fas fa-times-circle me-1"></i> Inactivo
+                </span>
+              {% endif %}
+            </td>
+            <td class="actions-column">
+              <div class="d-flex gap-2">
+                {% if perms.home.change_tipoformacion %}
+                  <button class="btn btn-primary btn-sm"
+                          data-bs-toggle="modal"
+                          data-bs-target="#editTipoFormacionModal"
+                          data-url="{% url 'edit_tipoFormacion' tipoFormacion.idTF %}"
+                          title="Editar tipo">
+                    <i class="fas fa-edit"></i>
+                  </button>
+                {% endif %}
+                {% if tipoFormacion.estadoTipoFormacion|upper == "ACTIVO" and perms.home.change_tipoformacion %}
+                  <button class="btn btn-outline-warning btn-sm"
+                          data-bs-toggle="modal"
+                          data-bs-target="#deleteTipoFormacionModal"
+                          data-url="{% url 'desactivar_tipoFormacion' tipoFormacion.idTF %}"
+                          title="Inhabilitar tipo">
+                    <i class="fas fa-user-slash"></i>
+                  </button>
+                {% endif %}
+                {% if tipoFormacion.estadoTipoFormacion|upper == "INACTIVO" and perms.home.change_tipoformacion %}
+                  <button class="btn btn-success btn-sm"
+                          data-bs-toggle="modal"
+                          data-bs-target="#reactivateTipoFormacionModal"
+                          data-url="{% url 'reactivate_tipoFormacion' tipoFormacion.idTF %}"
+                          title="Reactivar tipo">
+                    <i class="fas fa-redo"></i>
+                  </button>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="5" class="text-center py-4">No hay tipos de formación registrados.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
 </div>
 
-<!-- Modal para registrar -->
-<div class="modal fade" id="tipoFormacionModal" tabindex="-1" role="dialog" aria-labelledby="tipoFormacionModalLabel" aria-hidden="true">
-  <div class="modal-dialog" role="document">
+{# ─── Modales ─── #}
+
+<!-- Modal: Registrar Tipo de Formación -->
+<div class="modal fade" id="tipoFormacionModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-md">
     <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="tipoFormacionModalLabel">Registro de Tipo de Formación</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title text-white"><i class="fas fa-plus-circle me-2"></i> Registro de Tipo de Formación</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
         </button>
       </div>
-      <div class="modal-body">
-        <!-- Contenedor para los mensajes -->
-        <div id="modalMessages"></div>
-        <!-- El contenido del formulario se cargará aquí -->
+      <div class="modal-body" id="registrarTipoFormacionContent">
+        <div class="text-center py-4 text-muted">Cargando formulario…</div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Modal para editar -->
-<div class="modal fade" id="editModal" tabindex="-1" role="dialog" aria-labelledby="editModalLabel" aria-hidden="true">
-  <div class="modal-dialog" role="document">
+<!-- Modal: Editar Tipo de Formación -->
+<div class="modal fade" id="editTipoFormacionModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-md">
     <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="editModalLabel">Modificar Tipo de Formación</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title text-white"><i class="fas fa-edit me-2"></i> Editar Tipo de Formación</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body" id="editTipoFormacionContent">
+        <div class="text-center py-4 text-muted">Cargando formulario…</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Inhabilitar Tipo de Formación -->
+<div class="modal fade" id="deleteTipoFormacionModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-warning text-dark">
+        <h5 class="modal-title text-white"><i class="fas fa-user-slash me-2"></i> Confirmar Inhabilitación</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
         </button>
       </div>
       <div class="modal-body">
-        <!-- Contenedor para los mensajes -->
-        <div id="modalMessages"></div>
-        <!-- El contenido del formulario se cargará aquí -->
+        ¿Seguro que deseas inhabilitar este tipo de formación?
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <form id="deleteTipoFormacionForm" method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-warning">Inhabilitar</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Reactivar Tipo de Formación -->
+<div class="modal fade" id="reactivateTipoFormacionModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title text-white"><i class="fas fa-redo me-2"></i> Confirmar Reactivación</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        ¿Deseas reactivar este tipo de formación?
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <form id="reactivateTipoFormacionForm" method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-success">Reactivar</button>
+        </form>
       </div>
     </div>
   </div>
@@ -123,147 +235,83 @@
 {% endblock content %}
 
 {% block javascripts %}
+<script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
+<script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
 <script>
-  
-  document.addEventListener("DOMContentLoaded", function() {
-    $('#tipoFormacionModal').on('show.bs.modal', function (e) {
-      var modal = $(this);
-      $.ajax({
-        url: 'apps/home/tipoFormacion.html',
-        method: 'GET',
-        success: function(data) {
-          modal.find('.modal-body').html(data);
-        }
-      });
+$(function(){
+  // Helper para cargar AJAX en modales
+  function loadInModal(modalId, urlFn, contentSel){
+    $(modalId).on('show.bs.modal', function(e){
+      const $c = $(this).find(contentSel);
+      $c.html('<div class="text-center py-4"><div class="spinner-border text-primary"></div></div>');
+      $.get(urlFn(e)).done(html => $c.html(html));
+    }).on('hidden.bs.modal', function(){
+      $(contentSel).empty();
     });
+  }
 
-    // Manejar la apertura del modal para editar
-    $('#editModal').on('show.bs.modal', function (e) {
-      var modal = $(this);
-      var url = $(e.relatedTarget).data('url'); // Obtener la URL desde el botón que abrió el modal
-      $.ajax({
-      url: url, // URL para cargar el formulario de edición
-      method: 'GET',
-      success: function (data) {
-      modal.find('.modal-body').html(data); // Cargar el contenido del formulario en el modal
-      },
-      error: function () {
-      alert('Error al cargar el formulario de edición.');
-      }
-    });
-    });
+  // Crear
+  loadInModal(
+    '#tipoFormacionModal',
+    () => "{% url 'tipoFormacion_modal' %}",
+    '#registrarTipoFormacionContent'
+  );
 
-    $(document).on('submit', '#tipoFormacionForm', function(e) {
-      e.preventDefault();
-      var form = $(this);
-      $.ajax({
-        url: form.attr('action'),
-        method: form.attr('method'),
-        data: form.serialize(),
-        success: function(response) {
-          var messagesContainer = $('#modalMessages');
-          messagesContainer.empty();
-          if (response.success) {
-            messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
-            $('#tipoFormacionModal ').modal('hide');
-            location.reload();  // Recargar la página para ver los cambios
-          } else {
-            // Mostrar errores en el modal
-            var errors = response.errors;
-            for (var field in errors) {
-              messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + errors[field] + '</div>');
-            }
-          }
+  // Editar
+  loadInModal(
+    '#editTipoFormacionModal',
+    e => $(e.relatedTarget).data('url'),
+    '#editTipoFormacionContent'
+  );
+
+  // Asignar action a delete/reactivate
+  $('#deleteTipoFormacionModal').on('show.bs.modal', e=>{
+    $('#deleteTipoFormacionForm').attr('action', $(e.relatedTarget).data('url'));
+  });
+  $('#reactivateTipoFormacionModal').on('show.bs.modal', e=>{
+    $('#reactivateTipoFormacionForm').attr('action', $(e.relatedTarget).data('url'));
+  });
+  // No interceptamos submits de delete/reactivate para que Django redirija y muestre messages
+
+  // AJAX para crear y editar
+  $(document).on('submit', '#tipoFormacionForm, #editTipoFormacionForm', function(e){
+    e.preventDefault();
+    const $f = $(this);
+    $.post($f.attr('action'), $f.serialize())
+      .done(resp => {
+        const isEdit = $f.is('#editTipoFormacionForm');
+        if (resp.success) {
+          const modal = isEdit ? '#editTipoFormacionModal' : '#tipoFormacionModal';
+          $(modal).modal('hide');
+          $('#globalMessages').prepend(`
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+              ${resp.message}
+               <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+            <i class="fas fa-times"></i>
+          </button>
+            </div>`);
+          setTimeout(()=>location.reload(),500);
+        } else {
+          const $cont = isEdit
+                        ? $('#editTipoFormacionContent')
+                        : $('#registrarTipoFormacionContent');
+          Object.values(resp.errors).forEach(msg=>{
+            $cont.prepend(`<div class="alert alert-danger alert-dismissible fade show" role="alert">${msg} <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+            <i class="fas fa-times"></i>
+          </button></div>`);
+          });
         }
-      });
-    });
+      })
+      .fail(()=>alert('Error al procesar la solicitud.'));
   });
 
-  $(document).on('submit', '#editTipoFormacionForm', function(e) {
-      e.preventDefault();
-      var form = $(this);
-      $.ajax({
-        url: form.attr('action'),
-        method: form.attr('method'),
-        data: form.serialize(),
-        success: function(response) {
-          var messagesContainer = $('#modalMessages');
-          messagesContainer.empty();
-          if (response.success) {
-            messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
-            $('#editModal ').modal('hide');
-            location.reload();  // Recargar la página para ver los cambios
-          } else {
-            // Mostrar errores en el modal
-            var errors = response.errors;
-            for (var field in errors) {
-              messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + errors[field] + '</div>');
-            }
-          }
-        }
-      });
+  // Filtrar tabla
+  $('#searchInput').on('keyup', function(){
+    const val = this.value.toUpperCase();
+    $('#tipoFormacionesTable tbody tr').each(function(){
+      $(this).toggle($(this).text().toUpperCase().includes(val));
     });
-  
-  
-  function deleteTipoFormacion(id) {
-    if (confirm('¿Estás seguro de que deseas eliminar este tipo de formación?')) {
-      $.ajax({
-        url: '{% url "delete_tf" 0 %}'.replace('0', id),
-        method: 'POST',
-        data: {
-          csrfmiddlewaretoken: '{{ csrf_token }}'
-        },
-        success: function(response) {
-          if (response.success) {
-            alert(response.message);
-            location.reload();  // Recargar la página para ver los cambios
-          } else {
-            alert('Error al eliminar el tipo de formación.');
-          }
-        }
-      });
-    }
-  }
-
-  function reactivateTipoFormacion(id) {
-    if (confirm('¿Estás seguro de que deseas reactivar este tipo de formación?')) {
-      $.ajax({
-        url: '{% url "reactivate_tf" 0 %}'.replace('0', id),
-        method: 'POST',
-        data: {
-          csrfmiddlewaretoken: '{{ csrf_token }}'
-        },
-        success: function(response) {
-          if (response.success) {
-            alert(response.message);
-            location.reload();  // Recargar la página para ver los cambios
-          } else {
-            alert('Error al reactivar el tipo de formación.');
-          }
-        }
-      });
-    }
-  }
-
-  function filterTable() {
-    var input, filter, table, tr, td, i, txtValue;
-    input = document.getElementById("searchInput");
-    filter = input.value.toUpperCase();
-    table = document.getElementById("tipoFormacionesTable");
-    tr = table.getElementsByTagName("tr");
-    for (i = 1; i < tr.length; i++) {
-      tr[i].style.display = "none";
-      td = tr[i].getElementsByTagName("td");
-      for (var j = 0; j < td.length; j++) {
-        if (td[j]) {
-          txtValue = td[j].textContent || td[j].innerText;
-          if (txtValue.toUpperCase().indexOf(filter) > -1) {
-            tr[i].style.display = "";
-            break;
-          }
-        }
-      }
-    }
-  }
+  });
+});
 </script>
 {% endblock javascripts %}

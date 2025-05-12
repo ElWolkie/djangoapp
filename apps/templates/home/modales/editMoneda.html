@@ -11,7 +11,7 @@
     {% endfor %}
   {% endif %}
 <div class=" mt-5">
-  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Registrar Moneda</h2>
+  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Editar Moneda</h2>
   <form method="POST" class="mt-3 text-dark" autocomplete="off" style="font-weight: bold; max-width: 600px; margin: 0 auto;" id="editMonedaForm" action="{% url 'edit_moneda' moneda.idMoneda %}">
     {% csrf_token %}
     <div class="form-group text-center">

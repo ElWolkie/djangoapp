@@ -15,20 +15,34 @@ from apps.home.models import Cargo, Cohorte, Materia
 
 #HONORARIO
 @login_required(login_url='login')
-@permission_required("honorario.add_honorario", raise_exception=True)
+@permission_required("home.add_honorario", raise_exception=True)
 def honorario_modal(request):
+    # POST: procesar AJAX de registro…
     if request.method == 'POST':
         form = HonorarioForm(request.POST)
         if form.is_valid():
             form.save()
-            return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
+            return JsonResponse({'success': True, 'message': 'Honorario registrado.'})
         else:
-            print(form.errors)  # esto para depurar errores
-            errors = {field: error for field, error in form.errors.items()}
-            return JsonResponse({'success': False, 'errors': errors})
-    else:
-        form = HonorarioForm()
-    return render(request, 'honorario/honorario_modal.html', {'form': form})
+            return JsonResponse({
+                    'success': False,
+                    'errors': {'__all__': ['Ya existe un registro idéntico.']}
+                })
+            
+    # GET: mostrar el formulario
+    form = HonorarioForm()
+    # Aquí cargas TODOS los dropdowns que necesitas
+    cargos     = Cargo.objects.filter(estadoCargo='ACTIVO')
+    materias   = Materia.objects.filter(estadoMateria='ACTIVO')
+    cohortes   = Cohorte.objects.filter(estadoCohorte='ACTIVO')
+    personas   = Personas.objects.all()
+    return render(request, 'honorario/honorario.html', {
+        'form'      : form,
+        'cargos'    : cargos,
+        'materias'  : materias,
+        'cohortes'  : cohortes,
+        'personas'  : personas,
+    })
 
 @login_required(login_url='login')
 @permission_required("honorario.change_honorario", raise_exception=True)
@@ -67,19 +81,40 @@ def delete_honorario(request, pk):
     instance.save()
     return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
 
+@login_required
+@permission_required('home.change_honorario', raise_exception=True)
+def desactivar_honorario(request, pk):
+    honorarios = get_object_or_404(Honorario, pk=pk)
+    if request.method == 'POST':
+        honorarios.estadoHonorario = "INACTIVO"
+        honorarios.save()
+        messages.success(request, f'⛔ Honorario {honorarios.idHonorario} desactivado')
+        return redirect(request.POST.get('next', 'tabla_honorarios'))
+    return redirect('tabla_honorarios')
+
 @login_required(login_url='login')
 @permission_required("honorario.change_honorario", raise_exception=True)
 def reactivate_honorario(request, pk):
-    instance = get_object_or_404(Honorario, pk=pk)
-    instance.estadoHonorario = 'ACTIVO'
-    instance.save()
-    return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
+    honorarios = get_object_or_404(Honorario, pk=pk)
+    if request.method == 'POST':
+        honorarios.estadoHonorario = "ACTIVO"
+        honorarios.save()
+        messages.success(request, f'✅ Honorario {honorarios.idHonorario} activado')
+        return redirect(request.POST.get('next', 'tabla_honorarios'))
+    return redirect('tabla_honorarios')
 
 @login_required(login_url='login')
 @permission_required("honorario.view_honorario", raise_exception=True)
 def tabla_honorarios(request):
-    honorarios = Honorario.objects.all()
-    return render(request, 'honorario/tablaHonorarios.html', {'honorarios': honorarios})
+    mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+    if mostrar:
+        honorarios = Honorario.objects.all()
+    else:
+        honorarios = Honorario.objects.filter(estadoHonorario='ACTIVO')
+    return render(request, 'honorario/tablaHonorarios.html', {
+        'honorarios': honorarios,
+        'mostrar_inactivos': mostrar,
+    })
 
 @login_required(login_url="/login/")
 def pages(request):
