@@ -14,25 +14,55 @@ SECRET_KEY = config('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config("DEBUG", default=False, cast=bool)
 
+# SECURE_SSL_REDIRECT = True  # Redirige HTTP → HTTPS
+# SESSION_COOKIE_SECURE = True  # Cookies solo por HTTPS
+
+SESSION_COOKIE_HTTPONLY = True  # Protege cookies de JavaScript
 CSRF_COOKIE_SECURE = False  # Si no estás usando HTTPS
+
+SESSION_ENGINE = "django.contrib.sessions.backends.cached_db"  # Combina caché + DB
 
 # Application definition
 ALLOWED_HOSTS = ['djangoapp-6wxv.onrender.com']
 WSGI_APPLICATION = "core.wsgi.application"
 
-DATABASES = {
-    'default': dj_database_url.config(
-        default=config('DATABASE_URL'),
-        conn_max_age=600,
-        ssl_require=True  #SSL habilitado para Render
-    )
-}
+# Primero intenta con dj_database_url, si falla usa configuración directa
+try:
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=config('DATABASE_URL'),
+            conn_max_age=600,
+            ssl_require=True
+        )
+    }
+    # Verifica que se configuró correctamente
+    if not DATABASES['default']['ENGINE']:
+        raise ValueError("Database config failed")
+except:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': 'fundacion_wd60',
+            'USER': 'fundacion_wd60_user',
+            'PASSWORD': '1EMHMTgUIBUyrSjAEyFh8YhRBLkNYnqN',
+            'HOST': 'dpg-cvuo37re5dus73cedrc0-a.oregon-postgres.render.com',
+            'PORT': '5432',
+            'OPTIONS': {'sslmode': 'require'},
+        }
+    }
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:8000",
     "http://127.0.0.1:8000",
     "https://djangoapp-6wxv.onrender.com",  # Dominio de Render
 ]
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake',
+    }
+}
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -46,12 +76,12 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt", #JWT para autenticacion
     "corsheaders",  # Para permitir conexiones desde el frontend
     "apps.authentication",
-    "apps.home",  # Enable the inner home (home)
     'django_extensions',
     "apps.persona",  # Habilita la aplicación para gestionar personas
     "apps.honorario",  # Habilita la aplicación para gestionar honorario
     "apps.inscripcion",  # Habilita la aplicación para gestionar honorario
     "apps.solicitud",  # Habilita la aplicación para gestionar solicitud
+    "apps.home",  # Enable the inner home (home)
 
 ]
 
@@ -139,7 +169,7 @@ AUTH_PASSWORD_VALIDATORS = [
         "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
     },
     {
-        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator', 'OPTIONS': {'min_length': 12}
     },
     {
         "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
@@ -148,7 +178,6 @@ AUTH_PASSWORD_VALIDATORS = [
         "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
     },
 ]
-
 # Internationalization
 # https://docs.djangoproject.com/en/3.0/topics/i18n/
 
