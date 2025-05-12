@@ -8,8 +8,8 @@ class Solicitud(models.Model):
     idTramite = models.ForeignKey(Tramite, on_delete=models.CASCADE)  # Clave foránea a Tramite
     idServicio = models.ForeignKey(Servicio, on_delete=models.CASCADE)  # Clave foránea a Servicio
     montoTotal = models.DecimalField(max_digits=10, decimal_places=2)  # Monto total de la Solicitud
-    estadoSolicitud = models.CharField(max_length=10)  # Estado de la Solicitud
-    fechaEntrega = models.DateField()  # Fecha de entrega de la Solicitud
+    estadoSolicitud = models.CharField(max_length=10, db_index=True)  # Estado de la Solicitud
+    fechaEntrega = models.DateField(db_index=True)  # Fecha de entrega de la Solicitud
     fechaSolicitud = models.DateField(auto_now_add=True)  # Fecha de creación de la Solicitud
 
     class Meta:

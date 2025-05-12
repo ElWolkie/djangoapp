@@ -1,179 +1,400 @@
 {% extends 'layouts/base.html' %}
+{% load static %}
 
-{% block title %}Listado de Personas{% endblock title %}
+{% block title %}Listado de Inscripciones{% endblock title %}
 
 {% block stylesheets %}
-<link rel="stylesheet" href="/static/assets/css/styleForms.css" />
-<link rel="stylesheet" href="/static/assets/css/argon.css" />
+<link rel="stylesheet" href="{% static 'assets/css/styleForms.css' %}">
+<link rel="stylesheet" href="{% static 'assets/css/argon.css' %}">
+<style>
+  .btn-purple {
+    background-color: #6f42c1 !important;
+    color: white !important;
+    border-color: #6f42c1 !important;
+  }
+  .btn-purple:hover {
+    background-color: #5a32a3 !important;
+    border-color: #5a32a3 !important;
+  }
+  .actions-column .btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+    transition: all 0.3s ease;
+  }
+  .badge {
+    font-size: 0.85em;
+    padding: 0.5em 0.75em;
+  }
+  .modal-dialog { max-width: 700px; }
+  .modal.fade.show {
+    display: block !important;
+    background-color: rgba(0,0,0,0.5);
+  }
+  .table-hover tbody tr:hover {
+    background-color: #f8f9fa;
+  }
+  .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  table { white-space: nowrap; }
+  .table-responsive {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(107,143,250) #f1f1f1;
+  }
+  .table-responsive::-webkit-scrollbar { height: 8px; }
+  .table-responsive::-webkit-scrollbar-track { background: #f1f1f1; }
+  .table-responsive::-webkit-scrollbar-thumb {
+    background-color: rgb(81,141,245);
+    border-radius: 4px;
+    border: 2px solid #f1f1f1;
+  }
+</style>
 {% endblock stylesheets %}
 
 {% block content %}
-<div class="container mt-5">
-  <h2 class="text-center text-dark mb-4">Lista de Inscripcion Registrados</h2>
+<div class="container mt-4">
+  <h2 class="text-center mb-4">Lista de Inscripciones Registradas</h2>
 
-  {% if messages %}
+  <div class="row mb-3">
+    <div class="col-md-4">
+      <div class="input-group">
+        <span class="input-group-text"><i class="fas fa-search"></i></span>
+        <input id="searchInput" class="form-control" type="text" placeholder="Buscar inscripciones...">
+      </div>
+    </div>
+    
+    <div class="col-md-4 text-end">
+      {% if perms.home.add_inscripcion %}
+      <a href="{% url 'inscripcion_modal' %}" class="btn btn-warning">
+        <i class="fas fa-plus-circle me-1"></i> Nueva Inscripción
+      </a>
+      {% endif %}
+    </div>
+  </div>
+  
+    <div class="mb-3">
+      <a href="?mostrar_inactivos={% if mostrar_inactivos %}false{% else %}true{% endif %}"
+        class="btn btn-outline-secondary btn-sm">
+        {% if mostrar_inactivos %}
+          <i class="fas fa-eye-slash me-1"></i> Ocultar inactivos
+        {% else %}
+          <i class="fas fa-eye me-1"></i> Mostrar inactivos
+        {% endif %}
+      </a>
+    </div>
+
+  <div id="globalMessages">
     {% for message in messages %}
       <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
         {{ message }}
-      </div>
-    {% endfor %}
-  {% endif %}
-
-  <div class="row">
-    <div class="col-md-4">
-      <div class="input-group">
-        <div class="input-group-prepend">
-          <span class="input-group-text" style="background-color: #bcbcbc; border: none;">
-        <i class="fas fa-search text-warning"></i>
-          </span>
-        </div>
-        <input class="form-control" id="searchInput" type="text" placeholder="Buscar...">
-      </div>
-    </div>
-    <div class="col-md-4">
-      <a class="btn btn-warning btn-square btn-sm my-2" href="/inscripcion/inscripcion.html" title="Registrar Inscripcion">+</a>
-    </div>
-  <div class="col-md-4"></div>
-  </div>
-
-  <div class="table-responsive">
-    <table class="table table-striped text-gray-dark" id="inscripcionesTable">
-      <thead class="text-darker">
-      <tr>
-        <th>ID</th>
-        <th>Cédula</th>
-        <th>Cohorte</th>
-        <th>Tipo Formación</th>
-        <th>Formación</th>
-        <th>Estado</th>
-        <th>Fecha</th>
-        <th>Acciones</th>
-      </tr>
-      </thead>
-      <tbody>
-      {% for inscripcion in inscripciones %}
-      <tr>
-        <td>{{ inscripcion.idInscripcion }}</td>
-        <td>{{ inscripcion.idPersona.cedula }}</td>
-        <td>{{ inscripcion.idCohorte.nombreCohorte }}</td>
-        <td>{{ inscripcion.idTF.nombreTipoFormacion }}</td>
-        <td>{{ inscripcion.idFormacion.nombreFormacion }}</td>
-        <td>{{ inscripcion.is_active|yesno:"ACTIVO,INACTIVO" }}</td>
-        <td>{{ inscripcion.fechaInscripcion|date:"d/m/Y" }}</td>
-        <td>
-        <button class="btn btn-sm btn-primary" type="button" data-toggle="modal" data-target="#editInscripcionModal" data-id="{{ inscripcion.idInscripcion }}">Editar</button>
-        {% if inscripcion.is_active %}
-        <button class="btn btn-sm btn-danger" type="button" onclick="manageInscripcion('{{ inscripcion.idInscripcion }}', 'delete')">Eliminar</button>
-        {% else %}
-        <button class="btn btn-sm btn-success" type="button" onclick="manageInscripcion('{{ inscripcion.idInscripcion }}', 'reactivate')">Reactivar</button>
-        {% endif %}
-        </td>
-      </tr>
-      {% empty %}
-      <tr>
-        <td colspan="8" class="text-center">No hay registros disponibles.</td>
-      </tr>
-      {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
-
-<!-- Modal Edición -->
-<div class="modal fade" id="editInscripcionModal" tabindex="-1" role="dialog" aria-labelledby="editInscripcionModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered" role="document">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="editInscripcionModalLabel">Editar Inscripcion</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
         </button>
       </div>
-      <div class="modal-body" id="modalMessagesEdit"></div>
+    {% endfor %}
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="table-responsive">
+      <table id="inscripcionesTable" class="table table-striped table-hover align-middle text-gray-dark">
+        <thead class="table-light">
+          <tr>
+            <th>ID</th>
+            <th>Cédula</th>
+            <th>Cohorte</th>
+            <th>Tipo Formación</th>
+            <th>Formación</th>
+            <th>Estado</th>
+            <th>Fecha</th>
+            <th class="actions-column">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for inscripcion in inscripciones %}
+          <tr>
+            <td>{{ inscripcion.idInscripcion }}</td>
+            <td>{{ inscripcion.idPersona.cedula }}</td>
+            <td>{{ inscripcion.idCohorte.nombreCohorte }}</td>
+            <td>{{ inscripcion.idTF.nombreTipoFormacion }}</td>
+            <td>{{ inscripcion.idFormacion.nombreFormacion }}</td>
+            <td>
+              {% if inscripcion.is_active %}
+                <span class="badge bg-success text-white"><i class="fas fa-check-circle me-1"></i> Activo</span>
+              {% else %}
+                <span class="badge bg-danger text-white"><i class="fas fa-times-circle me-1"></i> Inactivo</span>
+              {% endif %}
+            </td>
+            <td>{{ inscripcion.fechaInscripcion|date:"d/m/Y" }}</td>
+            <td class="actions-column">
+              <div class="d-flex gap-2">
+                {% if perms.home.change_inscripcion %}
+                <button class="btn btn-primary btn-sm"
+                        data-bs-toggle="modal"
+                        data-bs-target="#editInscripcionModal"
+                        data-url="{% url 'edit_inscripcion' inscripcion.idInscripcion %}">
+                  <i class="fas fa-edit"></i>
+                </button>
+                {% endif %}
+                {% if inscripcion.is_active and perms.home.change_inscripcion %}
+                <button class="btn btn-outline-warning btn-sm"
+                        data-bs-toggle="modal"
+                        data-bs-target="#deleteInscripcionModal"
+                        data-url="{% url 'desactivar_inscripcion' inscripcion.idInscripcion %}">
+                  <i class="fas fa-user-slash"></i>
+                </button>
+                {% endif %}
+                {% if not inscripcion.is_active and perms.home.change_inscripcion %}
+                <button class="btn btn-success btn-sm"
+                        data-bs-toggle="modal"
+                        data-bs-target="#reactivateInscripcionModal"
+                        data-url="{% url 'reactivate_inscripcion' inscripcion.idInscripcion %}">
+                  <i class="fas fa-redo"></i>
+                </button>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="8" class="text-center py-4">No hay inscripciones registradas.</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
     </div>
   </div>
 </div>
+
+{# ─── Modales ─── #}
+{% if perms.inscripcion.change_inscripcion %}
+<div class="modal fade" id="editInscripcionModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title text-white"><i class="fas fa-edit me-2"></i> Editar Inscripción</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body" id="editInscripcionContent">
+        <div class="text-center py-4 text-muted">Cargando formulario…</div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% comment %} ------ Modal de Desactivación ------ {% endcomment %}
+{% if perms.inscripcion.change_inscripcion %}
+<div class="modal fade" id="deleteInscripcionModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-warning text-dark">
+        <h5 class="modal-title text-white"><i class="fas fa-user-slash me-2"></i> Confirmar Desactivación</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">¿Seguro que deseas desactivar esta inscripción?</div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        {% comment %} NO es un form, es un botón que disparará AJAX {% endcomment %}
+        <button type="button" id="confirmDeleteButton" class="btn btn-warning">Desactivar</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% comment %} ------ Modal de Reactivación ------ {% endcomment %}
+{% if perms.inscripcion.change_inscripcion %}
+<div class="modal fade" id="reactivateInscripcionModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title text-white"><i class="fas fa-redo me-2"></i> Confirmar Reactivación</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">¿Deseas reactivar esta inscripción?</div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        {% comment %} NO es un form, es un botón que disparará AJAX {% endcomment %}
+        <button type="button" id="confirmReactivateButton" class="btn btn-success">Reactivar</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 {% endblock content %}
 
 {% block javascripts %}
-<script src="/static/assets/js/validacionesPersona.js"></script>
-<script>
-  document.addEventListener("DOMContentLoaded", function() {
-    $('#inscripcionModal').on('show.bs.modal', function () {
-      $.get('apps/inscripcion/inscripcion.html', function(data) {
-        $('#modalMessages').html(data);
-      });
-    });
+<script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
+<script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
+<script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
 
-    $('#editInscripcionModal').on('show.bs.modal', function (e) {
-      const idInscripcion = $(e.relatedTarget).data('id');
-      $.get(`/inscripcion/editInscripcion/${idInscripcion}/`, function(data) {
-        $('#modalMessagesEdit').html(data);
+<script>
+$(function(){
+  
+  // --- FUNCIÓN PARA MOSTRAR MENSAJES GLOBALES ---
+  function showGlobalMessage(message, type) {
+    const globalMessagesContainer = $('#globalMessages');
+    
+    // Determinar la clase de Bootstrap y el ícono según el tipo de mensaje
+    let alertClass = '';
+    let iconClass = ''; // Para FontAwesome
+
+    switch (type) {
+      case 'success':
+        alertClass = 'alert-success';
+        iconClass = 'fas fa-check-circle';
+        break;
+      case 'error':
+        alertClass = 'alert-danger';
+        iconClass = 'fas fa-times-circle';
+        break;
+      case 'warning': // Puedes añadir más tipos si los necesitas
+        alertClass = 'alert-warning';
+        iconClass = 'fas fa-exclamation-triangle';
+        break;
+      default:
+        alertClass = 'alert-info'; // Un default por si acaso
+        iconClass = 'fas fa-info-circle';
+    }
+
+    // Construir el HTML del mensaje, similar al que generas con el loop de Django
+    const messageHtml = `
+      <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
+        <i class="${iconClass} me-1"></i>
+        ${message}
+        <button type="button" class="btn btn-sm btn-icon-only text-dark" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:50%; right:1rem; transform: translateY(-50%);">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+    `;
+    
+    // Reemplazar el contenido de globalMessages con el nuevo mensaje.
+    // Esto asegura que solo se muestre el último mensaje de la acción AJAX.
+    globalMessagesContainer.html(messageHtml);
+
+    // Opcional: hacer scroll hacia el mensaje si está fuera de la vista
+    // $('html, body').animate({
+    //scrollTop: globalMessagesContainer.offset().top - 20 // -20 para un pequeño margen superior
+    // }, 500);
+  }
+
+  // Modal de edición (sin cambios)
+  {% if perms.home.change_inscripcion %}
+  $('#editInscripcionModal')
+    .on('show.bs.modal', e => {
+      const url = $(e.relatedTarget).data('url'),
+            $c  = $('#editInscripcionContent');
+      $c.html('<div class="text-center py-4"><div class="spinner-border text-primary"></div></div>');
+      $.get(url).done(html => $c.html(html));
+    })
+    .on('hidden.bs.modal', () => {
+      $('#editInscripcionContent').empty();
+    });
+  {% endif %}
+
+  let currentActionUrl = null;
+
+  // Cuando el modal de DESACTIVACIÓN se muestra
+  $('#deleteInscripcionModal').on('show.bs.modal', function (event) {
+    const button = $(event.relatedTarget);
+    currentActionUrl = button.data('url');
+    $('#globalMessages').empty(); // Limpiar mensajes previos al abrir un modal de acción
+  });
+
+  // Clic en el botón de confirmación de DESACTIVACIÓN
+  $('#confirmDeleteButton').on('click', function() {
+    if (currentActionUrl) {
+      $.ajax({
+        url: currentActionUrl,
+        method: 'POST',
+        data: { csrfmiddlewaretoken: '{{ csrf_token }}' },
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      })
+      .done(resp => {
+        $('#deleteInscripcionModal').modal('hide');
+        if (resp.success) {
+          showGlobalMessage(resp.message, 'success');
+          setTimeout(() => { // Retraso antes de recargar
+            location.reload();
+          }, 2000); // 2 segundos
+        } else {
+          showGlobalMessage(resp.message || 'Algo falló al desactivar.', 'error');
+          // No recargamos si hay error para que el usuario vea el mensaje y el estado actual
+        }
+      })
+      .fail((jqXHR, textStatus, errorThrown) => {
+        console.error("Error AJAX (desactivar):", textStatus, errorThrown, jqXHR.responseText);
+        showGlobalMessage('Error de conexión o el servidor falló al intentar desactivar.', 'error');
+      })
+      .always(() => {
+        currentActionUrl = null;
       });
+    }
+  });
+
+  // Cuando el modal de REACTIVACIÓN se muestra
+  $('#reactivateInscripcionModal').on('show.bs.modal', function (event) {
+    const button = $(event.relatedTarget);
+    currentActionUrl = button.data('url');
+    $('#globalMessages').empty(); // Limpiar mensajes previos al abrir un modal de acción
+  });
+
+  // Clic en el botón de confirmación de REACTIVACIÓN
+  $('#confirmReactivateButton').on('click', function() {
+    if (currentActionUrl) {
+      $.ajax({
+        url: currentActionUrl,
+        method: 'POST',
+        data: { csrfmiddlewaretoken: '{{ csrf_token }}' },
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      })
+      .done(resp => {
+        $('#reactivateInscripcionModal').modal('hide');
+        if (resp.success) {
+          showGlobalMessage(resp.message, 'success');
+          setTimeout(() => { // Retraso antes de recargar
+            location.reload();
+          }, 2000); // 2 segundos
+        } else {
+          showGlobalMessage(resp.message || 'Algo falló al reactivar.', 'error');
+        }
+      })
+      .fail((jqXHR, textStatus, errorThrown) => {
+        console.error("Error AJAX (reactivar):", textStatus, errorThrown, jqXHR.responseText);
+        showGlobalMessage('Error de conexión o el servidor falló al intentar reactivar.', 'error');
+      })
+      .always(() => {
+        currentActionUrl = null;
+      });
+    }
+  });
+
+  // Filtrar tabla (sin cambios)
+  $('#searchInput').on('keyup', function(){
+    const v = this.value.toUpperCase();
+    $('#inscripcionesTable tbody tr').each(function(){
+      $(this).toggle($(this).text().toUpperCase().includes(v));
     });
   });
 
-  function manageInscripcion(id, action) {
-  const confirmMessage = action === 'delete' 
-    ? '¿Está seguro de eliminar este registro?' 
-    : '¿Está seguro de reactivar este registro?';
-  
-  if (confirm(confirmMessage)) {
-    const url = action === 'delete' 
-      ? "{% url 'delete_inscripcion' 0 %}".replace('0', id) 
-      : "{% url 'reactivate_inscripcion' 0 %}".replace('0', id);
-    
-    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-
-    fetch(url, {
-      method: 'POST',
-      headers: {
-        'X-CSRFToken': csrftoken,
-      },
-    })
-    .then(response => response.json())
-    .then(data => {
-      if (data.success) {
-        location.reload();  // Recargar la página
-      } else {
-        alert('Error: ' + data.message);
+  // Scroll horizontal (sin cambios)
+  const wrapper = document.querySelector('.table-responsive');
+  if(wrapper){
+    wrapper.addEventListener('wheel', e => {
+      if(e.deltaY !== 0){
+        e.preventDefault();
+        wrapper.scrollLeft += e.deltaY;
       }
-    })
-    .catch(error => console.error('Error:', error));
-  }
-}
-  function filterTable() {
-    const filter = document.getElementById("searchInput").value.toUpperCase();
-    const rows = document.querySelectorAll("#inscripcionesTable tbody tr");
-    rows.forEach(row => {
-      const cells = row.querySelectorAll("td");
-      row.style.display = Array.from(cells).some(cell => cell.textContent.toUpperCase().includes(filter)) ? "" : "none";
     });
   }
-  //Evita que el formulario se envíe por defecto y maneja la respuesta del servidor
-  $(document).on('submit', '#editInscripcionForm', function(e) {
-      e.preventDefault();
-      var form = $(this);
-      $.ajax({
-        url: form.attr('action'),
-        method: form.attr('method'),
-        data: form.serialize(),
-        success: function(response) {
-          var messagesContainer = $('#modalMessages');
-          messagesContainer.empty();
-          if (response.success) {
-            messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
-            $('#editInscripcionModal').modal('hide');
-            location.reload();  // Recargar la página para ver los cambios
-          } else {
-            // Mostrar errores en el modal
-            var errors = response.errors;
-            for (var field in errors) {
-              messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + errors[field] + '</div>');
-            }
-          }
-        }
-      });
-    });
+});
 </script>
 {% endblock javascripts %}

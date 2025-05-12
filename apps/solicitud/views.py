@@ -12,8 +12,8 @@ from apps.home.models import Tramite, Servicio
 
 #SOLICITUD
 @login_required(login_url='login')
-@permission_required("home.add_solicitud", raise_exception=True)
-def registrar_solicitud(request):
+@permission_required("solicitud.add_solicitud", raise_exception=True)
+def solicitud_modal(request):
     if request.method == 'POST':
         form = SolicitudForm(request.POST)
         if form.is_valid():
@@ -44,7 +44,7 @@ def registrar_solicitud(request):
     })
 
 @login_required(login_url='login')
-@permission_required("home.change_solicitud", raise_exception=True)
+@permission_required("solicitud.change_solicitud", raise_exception=True)
 def edit_solicitud(request, pk):
     instance = get_object_or_404(Solicitud, pk=pk)
     if request.method == 'POST':
@@ -71,26 +71,47 @@ def edit_solicitud(request, pk):
     })
 
 @login_required(login_url='login')
-@permission_required("home.change_solicitud", raise_exception=True)
+@permission_required("solicitud.change_solicitud", raise_exception=True)
 def delete_solicitud(request, pk):
     instance = get_object_or_404(Solicitud, pk=pk)
     instance.estadoSolicitud = 'INACTIVO'
     instance.save()
     return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
 
-@login_required(login_url='login')
-@permission_required("home.change_solicitud", raise_exception=True)
-def reactivate_solicitud(request, pk):
-    instance = get_object_or_404(Solicitud, pk=pk)
-    instance.estadoSolicitud = 'ACTIVO'
-    instance.save()
-    return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
+@login_required
+@permission_required('home.change_servicio', raise_exception=True)
+def desactivar_solicitud(request, pk):
+    solicitud = get_object_or_404(Solicitud, pk=pk)
+    if request.method == 'POST':
+        solicitud.estadoSolicitud = "INACTIVO"
+        solicitud.save()
+        messages.success(request, f'⛔ Solicitud {solicitud.idSoli} desactivada')
+        return redirect(request.POST.get('next', 'tabla_solicitud'))
+    return redirect('tabla_solicitud')
 
 @login_required(login_url='login')
-@permission_required("home.view_solicitud", raise_exception=True)
+@permission_required("solicitud.change_solicitud", raise_exception=True)
+def reactivate_solicitud(request, pk):
+    solicitud = get_object_or_404(Solicitud, pk=pk)
+    if request.method == 'POST':
+        solicitud.estadoSolicitud = "ACTIVO"
+        solicitud.save()
+        messages.success(request, f'✅ Solicitud {solicitud.idSoli} activada')
+        return redirect(request.POST.get('next', 'tabla_solicitud'))
+    return redirect('tabla_solicitud')
+
+@login_required(login_url='login')
+@permission_required("solicitud.view_solicitud", raise_exception=True)
 def tabla_solicitud(request):
-    solicitudes = Solicitud.objects.all()
-    return render(request, 'solicitud/tablaSolicitud.html', {'solicitudes': solicitudes})
+    mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+    if mostrar:
+        solicitudes = Solicitud.objects.all()
+    else:
+        solicitudes = Solicitud.objects.filter(estadoSolicitud='ACTIVO')
+    return render(request, 'solicitud/tablaSolicitud.html', {
+        'solicitudes': solicitudes,
+        'mostrar_inactivos': mostrar,
+    })
 
 
 @login_required(login_url="/login/")

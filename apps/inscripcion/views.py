@@ -13,7 +13,6 @@ from .models import Inscripcion
 from apps.persona.models import Personas
 from apps.home.models import Cargo, Cohorte, Materia, TipoFormacion, Formacion
 
-#INSCRIPCION
 @login_required(login_url='login')
 @permission_required("inscripcion.add_inscripcion", raise_exception=True)
 def inscripcion_modal(request):
@@ -21,14 +20,29 @@ def inscripcion_modal(request):
         form = InscripcionForm(request.POST)
         if form.is_valid():
             form.save()
-            return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
+            return JsonResponse({
+                'success': True,
+                'message': 'Registro exitoso.',
+                'redirect_url': reverse('tabla_inscripciones')
+            })
         else:
-            print(form.errors)  # esto para depurar errores
             errors = {field: error for field, error in form.errors.items()}
             return JsonResponse({'success': False, 'errors': errors})
-    else:
-        form = InscripcionForm()
-    return render(request, 'inscripcion/inscripcion_modal.html', {'form': form})
+
+    # GET: cargar datos para el modal...
+    formaciones      = Formacion.objects.filter(estadoFormacion='ACTIVO')
+    tipos_formacion  = TipoFormacion.objects.filter(estadoTipoFormacion='ACTIVO')
+    cohortes         = Cohorte.objects.filter(estadoCohorte='ACTIVO')
+    materias         = Materia.objects.filter(estadoMateria='ACTIVO')
+    personas         = Personas.objects.all()
+
+    return render(request, 'inscripcion/inscripcion.html', {
+        'formaciones'     : formaciones,
+        'tipos_formacion' : tipos_formacion,
+        'cohortes'        : cohortes,
+        'materias'        : materias,
+        'personas'        : personas,
+    })
 
 @login_required(login_url='login')
 @permission_required("inscripcion.change_inscripcion", raise_exception=True)
@@ -38,7 +52,7 @@ def edit_inscripcion(request, pk):
         form = InscripcionForm(request.POST, instance=instance)
         if form.is_valid():
             form.save()
-            return JsonResponse({'success': True, 'message': 'Inscripcion actualizado.'})
+            return JsonResponse({'success': True, 'message': 'Inscripción actualizado.'})
         else:
             errors = {field: error for field, error in form.errors.items()}
             return JsonResponse({'success': False, 'errors': errors})
@@ -70,19 +84,41 @@ def delete_inscripcion(request, pk):
     instance.save()
     return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
 
-@login_required(login_url='login')
-@permission_required("inscripcion.change_inscripcion", raise_exception=True)
+@login_required
+@permission_required('inscripcion.change_inscripcion', raise_exception=True)
+def desactivar_inscripcion(request, pk):
+    inscripcion = get_object_or_404(Inscripcion, pk=pk)
+    if request.method == 'POST':
+        inscripcion.is_active = False
+        inscripcion.save()
+        return JsonResponse({'success': True, 'message': 'Inscripción desactivada.'})
+    # Si no es POST, la lógica AJAX no debería llegar aquí, pero por si acaso:
+    return JsonResponse({'success': False, 'message': 'Método no permitido.'}, status=405)
+
+@login_required
+@permission_required('inscripcion.change_inscripcion', raise_exception=True)
 def reactivate_inscripcion(request, pk):
-    instance = get_object_or_404(Inscripcion, pk=pk)
-    instance.is_active = True
-    instance.save()
-    return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
+    inscripcion = get_object_or_404(Inscripcion, pk=pk)
+    if request.method == 'POST':
+        inscripcion.is_active = True
+        inscripcion.save()
+        return JsonResponse({'success': True, 'message': 'Inscripción reactivada.'})
+    return JsonResponse({'success': False, 'message': 'Método no permitido.'}, status=405)
+
 
 @login_required(login_url='login')
 @permission_required("inscripcion.view_inscripcion", raise_exception=True)
 def tabla_inscripciones(request):
-    inscripciones = Inscripcion.objects.all()
-    return render(request, 'inscripcion/tablaInscripciones.html', {'inscripciones': inscripciones})
+    mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+    if mostrar:
+        inscripciones = Inscripcion.objects.all()
+    else:
+        inscripciones = Inscripcion.objects.filter(is_active=True)
+
+    return render(request, 'inscripcion/tablaInscripciones.html', {
+        'inscripciones': inscripciones,
+        'mostrar_inactivos': mostrar,
+    })
 
 @login_required(login_url="/login/")
 def pages(request):

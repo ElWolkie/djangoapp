@@ -11,10 +11,18 @@
     {% endfor %}
   {% endif %}
 <div class=" mt-5">
-  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Editar Tipo de Egreso</h2>
-  <form method="POST" class="mt-3 text-dark" autocomplete="off" style="font-weight: bold; max-width: 600px; margin: 0 auto;" 
-  id="editTipoMovimientoForm" action="{% url 'edit_tipoMovimiento' TipoMovimiento.idTipoMovimiento %}">
+  <!-- Cambiar título dinámico -->
+<h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">
+  Editar Tipo de {{ TipoMovimiento.naturaleza|title }}
+</h2>
+  <!-- Linea modificada en el form -->
+<form method="POST" 
+class="mt-3 text-dark" 
+autocomplete="off" 
+id="editTipoMovimientoForm" 
+action="{% if TipoMovimiento.naturaleza == 'ingreso' %}{% url 'edit_tipoIngresos' TipoMovimiento.idTipoMovimiento %}{% else %}{% url 'edit_tipoEgresos' TipoMovimiento.idTipoMovimiento %}{% endif %}">
 {% csrf_token %}
+{{ form.naturaleza }}
 <div class="form-group text-center">
   <input type="hidden" name="naturaleza" value="{{ TipoMovimiento.naturaleza }}" />
   <label for="nombreTipoMovimiento" class="d-block">Nombre:</label>

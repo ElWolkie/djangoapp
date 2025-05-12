@@ -1,77 +1,153 @@
+{% load static %}
+
 {% block stylesheets %}
-<link rel="stylesheet" href="/static/assets/css/styleForms.css" />
-<link rel="stylesheet" href="/static/assets/css/argon.css" />
+<link rel="stylesheet" href="{% static 'assets/css/styleForms.css' %}">
+<link rel="stylesheet" href="{% static 'assets/css/argon.css' %}">
+<style>
+  .custom-form-container {
+    max-width: 500px;
+    margin: 20px auto;
+    padding: 25px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    box-shadow: 0 0 15px rgba(0,0,0,0.05);
+  }
+  .form-title {
+    color: #2d2d2d;
+    font-weight: 600;
+    margin-bottom: 25px;
+    text-align: center;
+    text-transform: uppercase;
+  }
+</style>
 {% endblock stylesheets %}
+
 {% block content %}
-{% if messages %}
-    {% for message in messages %}
-      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-        {{ message }}
-      </div>
-    {% endfor %}
-  {% endif %}
-<div class=" mt-5">
-<form method="POST" class="mt-3 text-dark" autocomplete="off" style="font-weight: bold; max-width: 600px; margin: 0 auto;" id="tipoMovimientoForm" action="{% url 'tipoMovimiento_modal' %}">
+<div class="custom-form-container">
+  <h3 class="form-title">
+    {% if 'naturaleza' in form.initial %}
+      Registrar Tipo de {{ form.initial.naturaleza|title }}
+    {% else %}
+      Registrar Tipo de Movimiento
+    {% endif %}
+  </h3>
+  
+  <div id="modalMessages">
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+      {% endfor %}
+    {% endif %}
+  </div>
+
+  <form method="POST" class="needs-validation" novalidate autocomplete="off" id="tipoMovimientoForm" 
+        action="{% if 'naturaleza' in form.initial %}{% url 'tipoEgreso_modal' %}{% else %}{% url 'tipoIngreso_modal' %}{% endif %}">
     {% csrf_token %}
-    <div class="form-group text-center">
-      <input type="hidden" name="naturaleza" value="" /> <!-- Este valor será llenado dinámicamente -->
-      <label for="nombreTipoMovimiento" class="d-block">Nombre:</label>
-      <input type="text" id="nombreTipoMovimiento" name="nombreTipoMovimiento" class="form-control text-dark mx-auto" placeholder="Ingrese un nombre" tabindex="3" maxlength="100" required style="width: 50%;" />
-      <input type="hidden" id="estadoTipoMovimiento" name="estadoTipoMovimiento" class="form-control text-dark" value="ACTIVO" />
+    
+    <div class="mb-3">
+      <label for="nombreTipoMovimiento" class="form-label">Nombre del Tipo</label>
+      <input type="text" 
+             class="form-control" 
+             id="nombreTipoMovimiento" 
+             name="nombreTipoMovimiento" 
+             required
+             placeholder="Ej. Pago de servicios"
+             maxlength="100">
+      <div class="invalid-feedback">
+        Por favor ingrese un nombre válido.
+      </div>
     </div>
+
+    {% if form.naturaleza %}
+      {{ form.naturaleza }}
+    {% else %}
+      <input type="hidden" name="naturaleza" value="{{ form.initial.naturaleza }}">
+    {% endif %}
+
+    <input type="hidden" name="estadoTipoMovimiento" value="ACTIVO">
+
     <div class="text-center">
       <input type="submit" class="btn btn-warning mt-4" value="Guardar" />
     </div>
   </form>
+</div>
 {% endblock content %}
 
 {% block javascripts %}
+<script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
+<script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
 <script>
-  document.addEventListener("DOMContentLoaded", function() {
-    $('c').on('show.bs.modal', function (e) {
-      var modal = $(this);
-      $.ajax({
-        url: 'apps/home/tipoMovimiento.html',
-        method: 'GET',
-        success: function(data) {
-          modal.find('.modal-body').html(data);
+document.addEventListener('DOMContentLoaded', function() {
+  // Validación de formulario
+  const forms = document.querySelectorAll('.needs-validation')
+  
+  Array.from(forms).forEach(form => {
+    form.addEventListener('submit', event => {
+      if (!form.checkValidity()) {
+        event.preventDefault()
+        event.stopPropagation()
+      }
+
+      form.classList.add('was-validated')
+    }, false)
+  })
+
+  // Manejo AJAX del formulario
+  $('#tipoMovimientoForm').on('submit', function(e) {
+    e.preventDefault();
+    const form = $(this);
+    const actionUrl = form.attr('action');
+    const formData = form.serialize();
+
+    $.ajax({
+      url: actionUrl,
+      type: 'POST',
+      data: formData,
+      success: function(response) {
+        $('#modalMessages').html(`
+          <div class="alert alert-success alert-dismissible fade show" role="alert">
+            ${response.message}
+            <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+               <i class="fas fa-times"></i>
+            </button>
+          </div>
+        `);
+        
+        if(response.success) {
+          setTimeout(() => {
+            window.location.reload();
+          }, 1500);
         }
-      });
+      },
+      error: function(xhr) {
+        let errors = xhr.responseJSON.errors;
+        let errorHtml = '';
+        
+        for (const [field, message] of Object.entries(errors)) {
+          errorHtml += `
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+              ${message}
+              <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+          `;
+        }
+        
+        $('#modalMessages').html(errorHtml);
+      }
     });
-    //Validar solo letras 
   });
-  document.getElementById("horas").addEventListener("input", function() {  
-    this.value = this.value.replace(/[^0-9,]/g, '');  
 
-    if (this.value.length > 20) {  
-        this.value = this.value.slice(0, 20);  
-    }  
-});  
-//Recarga dinamica
-
-$(document).on('submit', '#registroForm', function(e) {
-      e.preventDefault();
-      var form = $(this);
-      $.ajax({
-        url: form.attr('action'),
-        method: form.attr('method'),
-        data: form.serialize(),
-        success: function(response) {
-          var messagesContainer = $('#modalMessages');
-          messagesContainer.empty();
-          if (response.success) {
-            messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
-            $('#tipoMovimientoModal').modal('hide');
-            location.reload();  // Recargar la página para ver los cambios
-          } else {
-            // Mostrar errores en el modal
-            var errors = response.errors;
-            for (var field in errors) {
-              messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + errors[field] + '</div>');
-            }
-          }
-        }
-      });
-    });
+  // Validar caracteres especiales
+  $('#nombreTipoMovimiento').on('input', function() {
+    this.value = this.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '');
+  });
+});
 </script>
 {% endblock javascripts %}

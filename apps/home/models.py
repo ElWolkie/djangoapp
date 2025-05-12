@@ -37,7 +37,7 @@ class UsuarioManager(BaseUserManager):
 
 class Usuarios(AbstractBaseUser, PermissionsMixin):
     idUsuario = models.AutoField(primary_key=True)
-    idPersona = models.OneToOneField(Personas, on_delete=models.CASCADE)
+    idPersona = models.OneToOneField(Personas, on_delete=models.CASCADE, related_name='usuario')
     preguntaSeguridad = models.CharField(max_length=255)
     respuestaSeguridad = models.CharField(max_length=255)
     coloresUsuario = models.CharField(max_length=50, blank=True, null=True)
@@ -101,10 +101,6 @@ class Formacion(models.Model):
     estadoFormacion = models.CharField(max_length=10)
     fechaFormacion = models.DateField(auto_now_add=True)
 
-    def clean(self):
-        if Formacion.objects.filter(nombreFormacion__iexact=self.nombreFormacion).exists():
-            raise ValidationError("El nombre de la Formación ya existe.")
-
     class Meta:  
         verbose_name = "Formacion"  
         verbose_name_plural = "Formaciones"
@@ -116,10 +112,6 @@ class Materia(models.Model):
     estadoMateria = models.CharField(max_length=10)
     fechaMateria = models.DateField(auto_now_add=True)
 
-    def clean(self):
-        if Materia.objects.filter(nombreMateria__iexact=self.nombreMateria).exists():
-            raise ValidationError("El nombre de la Materia ya existe.")
-
     class Meta:  
         verbose_name = "Materia"  
         verbose_name_plural = "Materias"
@@ -127,8 +119,8 @@ class Materia(models.Model):
 class Cohorte(models.Model):  
     idCohorte = models.AutoField(primary_key=True)
     nombreCohorte = models.CharField(max_length=100, unique=True)
-    estadoCohorte = models.CharField(max_length=10)
-    fechaCohorte = models.DateField(auto_now_add=True)
+    estadoCohorte = models.CharField(max_length=10, db_index=True)
+    fechaCohorte = models.DateField(auto_now_add=True, db_index=True)
 
     def clean(self):
         if Cohorte.objects.filter(nombreCohorte__iexact=self.nombreCohorte).exists():
@@ -143,10 +135,6 @@ class Cargo(models.Model):
     nombreCargo = models.CharField(max_length=100, unique=True)
     estadoCargo = models.CharField(max_length=10)
     fechaCargo = models.DateField(auto_now_add=True)
-
-    def clean(self):
-        if Cargo.objects.filter(nombreCargo__iexact=self.nombreCargo).exists():
-            raise ValidationError("El nombre del Cargo ya existe.")
 
     class Meta:  
         verbose_name = "Cargo"  
@@ -171,16 +159,17 @@ class Servicio(models.Model):
     nombreServicio = models.CharField(max_length=100, unique=True)
     tiempoServicio = models.CharField(max_length=100)
     precioServicio = models.CharField(max_length=100)
-    estadoServicio = models.CharField(max_length=10)
-    fechaServicio = models.DateField(auto_now_add=True)
-
-    def clean(self):
-        if Servicio.objects.filter(nombreServicio__iexact=self.nombreServicio).exists():
-            raise ValidationError("El nombre del Servicio ya existe.")
+    estadoServicio = models.CharField(max_length=10, db_index=True)
+    fechaServicio = models.DateField(auto_now_add=True, db_index=True)
 
     class Meta:  
         verbose_name = "Servicio"
         verbose_name_plural = "Servicios"
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['estadoServicio', 'nombreServicio']),
+        ]
 
     @property
     def solicitudes(self):
@@ -193,10 +182,6 @@ class Tramite(models.Model):
     precioTramite = models.CharField(max_length=100)
     estadoTramite = models.CharField(max_length=10)
     fechaTramite = models.DateField(auto_now_add=True)
-
-    def clean(self):
-        if Tramite.objects.filter(nombreTramite__iexact=self.nombreTramite).exists():
-            raise ValidationError("El nombre del Tramite ya existe.")
 
     class Meta:  
         verbose_name = "Tramite"  
@@ -224,10 +209,13 @@ class Banco(models.Model):
     estadoBanco = models.CharField(max_length=10, default='ACTIVO', verbose_name="Estado")
     fechaBanco = models.DateField(default=timezone.now, verbose_name="Fecha Registro")
 
-    def clean(self):
-        if Banco.objects.filter(nombreBanco__iexact=self.nombreBanco).exists():
+    def save(self, *args, **kwargs):
+        # Antes de guardar, verificamos si el nombre ya existe
+        if Banco.objects.exclude(pk=self.pk).filter(nombreBanco__iexact=self.nombreBanco).exists():
             raise ValidationError("El nombre del Banco ya existe.")
-
+        
+        super().save(*args, **kwargs)
+        
     class Meta:
         verbose_name = "Banco"
         verbose_name_plural = "Bancos"
@@ -257,7 +245,7 @@ class Moneda(models.Model):
 
 class Tasa(models.Model):  
     idTasa = models.AutoField(primary_key=True)
-    idMoneda = models.ForeignKey(Moneda, on_delete=models.CASCADE)
+    idMoneda = models.ForeignKey(Moneda, on_delete=models.CASCADE, related_name='tasas')  # ← Nombre personalizado)
     montoTasa = models.CharField(max_length=100)
     estadoTasa = models.CharField(max_length=10)
     fechaTasa = models.DateTimeField(auto_now_add=True)

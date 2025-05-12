@@ -1,22 +1,24 @@
 import requests
+from django import forms
 from django.http import JsonResponse, HttpResponse, HttpResponseRedirect
-from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import render, redirect, get_object_or_404
 from django.template import loader
-from django.db.models import OuterRef, Subquery, Max, Count, Sum, F, Q
+from django.db.models import OuterRef, Subquery, Max, Count, Sum, F, Q, Prefetch
 from django.urls import reverse
 from django.contrib import messages
 from django.utils import timezone
 from django.core.exceptions import PermissionDenied, ValidationError
 
 from django.contrib.auth import authenticate, login, logout
-from django.contrib.auth.decorators import login_required, user_passes_test
-from django.contrib.auth.hashers import make_password
+from django.contrib.auth.decorators import login_required, permission_required
 from django.db import IntegrityError
 
 from django.contrib.auth.decorators import permission_required
 from django.contrib.auth.models import Group
 from collections import defaultdict # Para agrupar
+
+from django.core.cache import cache
+from django.db import models  # Para el output_field en Sum
 
 from django.template.loader import render_to_string
 #Libreria para PDF
@@ -33,10 +35,6 @@ from django.db.models.functions import ExtractMonth
 from .forms import AsignarGrupoForm, UsuarioForm, TipoFormacionForm, FormacionForm, MateriaForm, CohorteForm, CargoForm, RequisitoForm, ServicioForm, TramiteForm, DenominacionForm, BancoForm, MonedaForm, TasaForm, TipoMovimientoForm, MovimientoForm, ConfiguracionForm
 from .models import Personas, Usuarios, TipoFormacion, Formacion, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Denominacion, Banco, Moneda, Tasa, Movimiento, TipoMovimiento, Configuracion
 
-from apps.persona.models import PersonaTP, TipoPersona
-from .forms import TipoFormacionForm, FormacionForm, MateriaForm, CohorteForm, CargoForm, RequisitoForm, ServicioForm, TramiteForm, DenominacionForm, BancoForm, MonedaForm, TasaForm, TipoMovimientoForm, MovimientoForm
-from .models import  TipoFormacion, Formacion, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Denominacion, Banco, Moneda, Tasa,Movimiento, TipoMovimiento
-from apps.persona.models import Personas, PersonaTP, TipoPersona
 from apps.persona.forms import TipoPersonaForm, PersonaForm
 from apps.honorario.models import Honorario
 from apps.solicitud.models import Solicitud
@@ -46,54 +44,68 @@ from rest_framework.permissions import AllowAny
 
 from django.shortcuts import get_object_or_404
 
-# Vista única para el dashboard
+
+# Vista optimizada para el dashboard
 @login_required(login_url='login')
 def home(request):
-    # Solicitudes
-    total_solicitudes = Solicitud.objects.filter(estadoSolicitud='ACTIVO').count()
-    ultima_solicitud = Solicitud.objects.order_by('-fechaSolicitud').first()
-    
-    # Servicios
-    total_servicios = Servicio.objects.filter(estadoServicio='ACTIVO').count()
+    solicitudes = Solicitud.objects.filter(estadoSolicitud='ACTIVO')
+    servicios = Servicio.objects.filter(estadoServicio='ACTIVO')
+    cohortes = Cohorte.objects.filter(estadoCohorte='ACTIVO')
+
+    counts = {
+        'total_solicitudes': solicitudes.count(),
+        'total_servicios': servicios.count(),
+        'total_cohortes': cohortes.count(),
+    }
+
     try:
-        servicio_popular = Servicio.objects.annotate(
-            total_solicitudes=Count('solicitud')
-        ).order_by('-total_solicitudes').first().nombreServicio
-    except AttributeError:
-        servicio_popular = "N/A"
-    
-    # Honorarios
+        ultima_solicitud = solicitudes.select_related('idServicio').latest('fechaSolicitud')
+    except Solicitud.DoesNotExist:
+        ultima_solicitud = None
+
+    try:
+        cohorte_reciente = cohortes.latest('fechaCohorte')
+    except Cohorte.DoesNotExist:
+        cohorte_reciente = None
+
+    servicio_popular = cache.get('servicio_popular')
+    if not servicio_popular:
+        try:
+            servicio_popular = servicios.prefetch_related(
+                Prefetch('solicitud_set', queryset=Solicitud.objects.only('idServicio'))
+            ).annotate(
+                total_solicitudes=Count('solicitud')
+            ).order_by('-total_solicitudes').first().nombreServicio
+        except AttributeError:
+            servicio_popular = "N/A"
+        cache.set('servicio_popular', servicio_popular, 3600)
+
     honorarios_data = Honorario.objects.filter(estadoHonorario='ACTIVO').aggregate(
         total=Count('idHonorario'),
-        horas=Sum('horas')
+        horas=Sum('horas', output_field=models.IntegerField())
     )
-    
-    # Cohortes
-    cohorte_reciente = Cohorte.objects.order_by('-fechaCohorte').first()
-    
-    # Gráfico de solicitudes por mes
-    meses = [0]*12
-    solicitudes_por_mes = Solicitud.objects.annotate(
-        month=ExtractMonth('fechaSolicitud')
-    ).values('month').annotate(total=Count('idSoli'))
 
-    for mes in solicitudes_por_mes:
-        # Restamos 1 porque los meses en la lista van de 0 (Enero) a 11 (Diciembre)
-        meses[mes['month'] - 1] = mes['total']
-    
+    chart_data = cache.get('solicitudes_por_mes')
+    if not chart_data:
+        meses = [0]*12
+        solicitudes_por_mes = solicitudes.annotate(
+            month=ExtractMonth('fechaSolicitud')
+        ).values('month').annotate(total=Count('idSoli'))
+        
+        for mes in solicitudes_por_mes:
+            meses[mes['month'] - 1] = mes['total']
+        chart_data = meses
+        cache.set('solicitudes_por_mes', chart_data, 86400)
+
     context = {
-        'total_solicitudes': total_solicitudes,
+        **counts,
         'ultima_solicitud': ultima_solicitud.fechaSolicitud if ultima_solicitud else None,
-        'total_servicios': total_servicios,
         'servicio_popular': servicio_popular,
         'total_honorarios': honorarios_data['total'],
         'total_horas': honorarios_data['horas'] or 0,
-        'total_cohortes': Cohorte.objects.filter(estadoCohorte='ACTIVO').count(),
         'cohorte_reciente': cohorte_reciente.nombreCohorte if cohorte_reciente else "N/A",
-        'chart_data': meses,
+        'chart_data': chart_data,
     }
-
-    print("Contexto enviado:", context)
 
     return render(request, 'home/index.html', context)
 
@@ -103,6 +115,7 @@ def logout_view(request):
     return redirect('login')
 
 # Vista de login
+# @ratelimit(key='post:cedula', rate='5/15m')  # 5 intentos por 15 minutos
 def login_view(request):
     if request.user.is_authenticated:
         return redirect('home')
@@ -179,6 +192,7 @@ def registrar_usuario(request):
     return render(request, 'home/usuario.html')
 
 
+@login_required(login_url='login')
 @permission_required("home.change_usuarios", raise_exception=True)
 def editar_usuario(request, pk):
     usuario = get_object_or_404(Usuarios, pk=pk)
@@ -252,7 +266,7 @@ def desactivar_usuario(request, pk):
         messages.success(request, f'✅ Usuario {usuario.idPersona.nombres} desactivado')
         return redirect(request.POST.get('next', 'lista_usuarios'))
 
-@login_required
+@login_required(login_url='login')
 @permission_required('home.delete_usuarios', raise_exception=True)
 def eliminar_usuario(request, pk):
     usuario = get_object_or_404(Usuarios, pk=pk)
@@ -305,85 +319,126 @@ def verificar_cedula(request):
 @login_required(login_url='login')
 @permission_required("home.change_usuarios", raise_exception=True)
 def asignar_grupos(request, idUsuario):
-    usuario = get_object_or_404(Usuarios, pk=idUsuario) # Usa pk si es tu primary key
-    todos_los_grupos = Group.objects.all().order_by('name') # Ordenar ayuda
+    usuario = get_object_or_404(Usuarios, pk=idUsuario)
+    todos_los_grupos = Group.objects.all().order_by('name')
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
     if request.method == "POST":
-        form = AsignarGrupoForm(request.POST, initial={"grupos": usuario.groups.all()}) # Pasa initial aquí también por si falla validación
+        form = AsignarGrupoForm(
+            request.POST or None,
+            initial={"grupos": usuario.groups.all()},
+            grupos_qs=todos_los_grupos
+        )
         if form.is_valid():
-            grupos_seleccionados = form.cleaned_data["grupos"]
-            usuario.groups.set(grupos_seleccionados)
+            usuario.groups.set(form.cleaned_data["grupos"])
             messages.success(request, f"Permisos actualizados para {usuario.idPersona}.")
-            # ¿Redirigir a dónde? Quizás a la misma página o a la lista
-            # return redirect("lista_usuarios")
-            # Para AJAX, podrías devolver JSON:
-            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                 return JsonResponse({'success': True, 'message': 'Permisos actualizados correctamente.'})
-            else:
-                 return redirect('lista_usuarios') # O la URL que prefieras
+            return JsonResponse({'success': True,  'message': 'Grupos asignados correctamente.'}) if is_ajax else redirect('lista_usuarios')
         else:
+            if is_ajax:
+                return JsonResponse({'success': False, 'errors': form.errors}, status=400)
             messages.error(request, "Error al procesar el formulario.")
-            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                 # Devolver errores como JSON para AJAX
-                 errors = {field: err[0] for field, err in form.errors.items()}
-                 return JsonResponse({'success': False, 'errors': errors}, status=400)
-            # Si no es AJAX, se re-renderizará el template con el form que tiene errores
-    else: # GET
-        # Inicializa el form con los grupos que el usuario YA tiene seleccionados
-        form = AsignarGrupoForm(initial={"grupos": usuario.groups.all()})
+    else:
+        form = AsignarGrupoForm(
+            initial={"grupos": usuario.groups.all()},
+            grupos_qs=todos_los_grupos
+        )
 
-    # --- Lógica para Agrupar los Grupos para el Template ---
-    grupos_categorizados = defaultdict(lambda: {'total': None, 'acciones': []})
+    # --- Agrupación de permisos ---
     grupo_admin = None
-
-    # Define tus categorías y palabras clave (ajusta según tus nombres de grupo)
-    # El orden aquí determinará el orden en el template
-    categorias = {
-        'Bancos': 'Bancos - ',
-        'Usuarios': 'Usuarios - ',
-        'Reportes': 'Reportes - ',
-        # Añade más categorías y sus prefijos
+    admin_group_name = 'Administrador'
+    categorias_stems = {
+        'Bancos': 'Banco',
+        'Cargos': 'Cargo',
+        'Clientes-Proveedores': 'Cliente-Proveedor',
+        'Cohortes': 'Cohorte',
+        'Configuracion': 'Configuracion',
+        'Denominaciones': 'Denominacion',
+        'Formaciones': 'Formacion',
+        'Honorarios': 'Honorario',
+        'Ingresos': 'Ingreso',
+        'Inscripciones': 'Inscripcion',
+        'Materias': 'Materia',
+        'Monedas': 'Moneda',
+        'Requisitos': 'Requisito',
+        'Servicios': 'Servicio',
+        'Solicitudes': 'Solicitud',
+        'Tasas': 'Tasa',
+        'Tramites': 'Tramite',
+        'Tipo Formaciones': 'Tipo Formacion',
+        'Tipo Ingresos': 'Tipo Ingreso',
+        'Tipo Movimientos': 'Tipo Movimiento',
+        'Tipo Personas': 'Tipo Persona',
+        'Asignacion Tipo Personas': 'Asignacion Tipo Persona',
+        'Usuarios': 'Usuario',
     }
-    admin_keyword = 'Administrador - Sistema' # Nombre exacto de tu grupo admin
+    action_order_map = {
+        'GestionTotal': {'order': 0, 'label': 'Control Total', 'icon': 'fas fa-star text-warning'},
+        'Registrar':    {'order': 1, 'label': 'Registrar', 'icon': 'fas fa-plus-circle text-success'},
+        'Visualizar':   {'order': 2, 'label': 'Consultar', 'icon': 'fas fa-eye text-info'},
+        'Editar':       {'order': 3, 'label': 'Editar', 'icon': 'fas fa-edit text-primary'},
+        'Eliminar':     {'order': 4, 'label': 'Eliminar', 'icon': 'fas fa-trash-alt text-danger'},
+    }
+
+    grupos_categorizados = defaultdict(lambda: {'total': None, 'acciones': []})
 
     for grupo in todos_los_grupos:
-        if grupo.name == admin_keyword:
+        if grupo.name == admin_group_name:
             grupo_admin = grupo
-            continue # Saltar el admin de la categorización normal
+            continue
 
         categorizado = False
-        for cat_nombre, cat_prefijo in categorias.items():
-            if grupo.name.startswith(cat_prefijo):
-                nombre_sin_prefijo = grupo.name.replace(cat_prefijo, '', 1)
-                if nombre_sin_prefijo == 'Gestión Total':
-                    grupos_categorizados[cat_nombre]['total'] = grupo
-                else:
-                    # Intentar extraer la acción (Visualizar, Registrar, etc.)
-                    accion = nombre_sin_prefijo
-                    grupos_categorizados[cat_nombre]['acciones'].append({'grupo': grupo, 'accion': accion})
+        for cat_nombre, cat_prefijo in categorias_stems.items():
+            if grupo.name == cat_nombre:
+                grupos_categorizados[cat_nombre]['total'] = {
+                    'grupo': grupo, 'accion': 'GestionTotal',
+                    'label': 'Control Total', 'icon': 'fas fa-star text-warning',
+                    'order': 0
+                }
                 categorizado = True
-                break # Pasar al siguiente grupo
+                break
 
         if not categorizado:
-             # Grupos que no coinciden con ninguna categoría (opcionalmente mostrarlos aparte)
-             grupos_categorizados['Otros']['acciones'].append({'grupo': grupo, 'accion': grupo.name})
+            for cat_nombre, cat_prefijo in categorias_stems.items():
+                if grupo.name.startswith(cat_prefijo):
+                    action_part = grupo.name[len(cat_prefijo):].strip()
+                    action_info = action_order_map.get(action_part)
+                    if action_info:
+                        grupos_categorizados[cat_nombre]['acciones'].append({
+                            'grupo': grupo,
+                            'accion': action_part,
+                            'label': action_info['label'],
+                            'icon': action_info['icon'],
+                            'order': action_info['order']
+                        })
+                        categorizado = True
+                        break
 
-    # Ordenar acciones dentro de cada categoría (opcional)
-    for cat in grupos_categorizados:
-        grupos_categorizados[cat]['acciones'].sort(key=lambda x: x['accion'])
+        if not categorizado:
+            grupos_categorizados['Otros']['acciones'].append({
+                'grupo': grupo,
+                'accion': grupo.name,
+                'label': grupo.name,
+                'icon': 'fas fa-cogs text-secondary',
+                'order': 99
+            })
 
+    for data in grupos_categorizados.values():
+        data['acciones'].sort(key=lambda x: x['order'])
+
+    # Acomodar 'Otros' al final
+    grupos_categorizados = dict(sorted(
+        grupos_categorizados.items(),
+        key=lambda i: (i[0] == 'Otros', i[0])
+    ))
 
     context = {
-        "form": form, # El formulario sigue siendo necesario para la validación y renderizado de tags
+        "form": form,
         "usuario": usuario,
-        "grupo_admin": grupo_admin, # Grupo admin separado
-        "grupos_categorizados": dict(grupos_categorizados), # Grupos organizados
-        "todos_los_grupos": todos_los_grupos, # Lista completa por si acaso
+        "grupo_admin": grupo_admin,
+        "grupo_admin_id": grupo_admin.pk if grupo_admin else None,
+        "grupos_categorizados": grupos_categorizados,
     }
-    # Decide si renderizas una página completa o solo el contenido del modal
-    template_name = 'home/asignar_grupos.html' # Ajusta la ruta
-
-    return render(request, template_name, context)
+    return render(request, 'home/asignar_grupos.html', context)
 
 
 # PARA LA RECUPERACION DE CONTRASEÑA
@@ -530,27 +585,48 @@ def delete_formacion(request, pk):
     return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
 
 @login_required(login_url='login')
-@permission_required("home.change_formacion", raise_exception=True)
+@permission_required('home.change_formacion', raise_exception=True)
+def desactivar_formacion(request, pk):
+    Formaciones = get_object_or_404(Formacion, pk=pk)
+    if request.method == 'POST':
+        Formaciones.estadoFormacion = "INACTIVO"
+        Formaciones.save()
+        messages.success(request, f'⛔ Formación {Formaciones.nombreFormacion} desactivada')
+        return redirect(request.POST.get('next', 'tabla_formaciones'))
+    return redirect('tabla_formaciones')
+
+@login_required(login_url='login')
+@permission_required('home.change_formacion', raise_exception=True)
 def reactivate_formacion(request, pk):
-    instance = get_object_or_404(Formacion, pk=pk)
-    instance.estadoFormacion = 'ACTIVO'
-    instance.save()
-    return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
+    Formaciones = get_object_or_404(Formacion, pk=pk)
+    if request.method == 'POST':
+        Formaciones.estadoFormacion = "ACTIVO"
+        Formaciones.save()
+        messages.success(request, f'✅ Formación {Formaciones.nombreFormacion} activada')
+        return redirect(request.POST.get('next', 'tabla_formaciones'))
+    return redirect('tabla_formaciones')
 
 @login_required(login_url='login')
 @permission_required("home.view_formacion", raise_exception=True)
 def tabla_formaciones(request):
-    if request.user.is_superuser:
-        formaciones = Formacion.objects.select_related('idTF').all().distinct  # Usar select_related para optimizar la consulta
+    mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+    if mostrar:
+        formaciones = Formacion.objects.all()
     else:
-        formaciones = Formacion.objects.select_related('idTF').filter(estadoFormacion='ACTIVO').distinct  # Filtrar solo las activas
-    return render(request, 'home/tablaFormaciones.html', {'formaciones': formaciones})
+        formaciones = Formacion.objects.filter(estadoFormacion='ACTIVO')
+    tipo_formaciones = TipoFormacion.objects.filter(estadoTipoFormacion='ACTIVO')
+
+    return render(request, 'home/tablaFormaciones.html', {
+        'formaciones': formaciones,
+        'tipoFormaciones': tipo_formaciones,
+        'mostrar_inactivos': mostrar,
+    })
 
 
 # Tipo de formación
 @login_required(login_url='login')
 @permission_required("home.add_tipoformacion", raise_exception=True)
-def tipo_formacion_modal(request):
+def tipoFormacion_modal(request):
     if request.method == 'POST':
         form = TipoFormacionForm(request.POST)
         if form.is_valid():
@@ -565,7 +641,7 @@ def tipo_formacion_modal(request):
 
 @login_required(login_url='login')
 @permission_required("home.change_tipoformacion", raise_exception=True)
-def edit_tipo_formacion(request, pk):
+def edit_tipoFormacion(request, pk):
     instance = get_object_or_404(TipoFormacion, pk=pk)
     if request.method == 'POST':
         form = TipoFormacionForm(request.POST, instance=instance)
@@ -581,43 +657,70 @@ def edit_tipo_formacion(request, pk):
 
 @login_required(login_url='login')
 @permission_required("home.change_tipoformacion", raise_exception=True)
-def delete_tipo_formacion(request, pk):
+def delete_tipoFormacion(request, pk):
     instance = get_object_or_404(TipoFormacion, pk=pk)
     instance.estadoTipoFormacion = 'INACTIVO'
     instance.save()
     return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
 
+@login_required
+@permission_required('home.change_tipoformacion', raise_exception=True)
+def desactivar_tipoFormacion(request, pk):
+    tipoFormaciones = get_object_or_404(TipoFormacion, pk=pk)
+    if request.method == 'POST':
+        tipoFormaciones.estadoTipoFormacion = "INACTIVO"
+        tipoFormaciones.save()
+        messages.success(request, f'⛔ Tipo Formación {tipoFormaciones.nombreTipoFormacion} desactivada')
+        return redirect(request.POST.get('next', 'tabla_tipoFormacion'))
+    return redirect('tabla_tipoFormacion')
+
 @login_required(login_url='login')
 @permission_required("home.change_tipoformacion", raise_exception=True)
-def reactivate_tipo_formacion(request, pk):
-    instance = get_object_or_404(TipoFormacion, pk=pk)
-    instance.estadoTipoFormacion = 'ACTIVO'
-    instance.save()
-    return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
+def reactivate_tipoFormacion(request, pk):
+    tipoFormaciones = get_object_or_404(TipoFormacion, pk=pk)
+    if request.method == 'POST':
+        tipoFormaciones.estadoTipoFormacion = "ACTIVO"
+        tipoFormaciones.save()
+        messages.success(request, f'✅ Tipo Formación {tipoFormaciones.nombreTipoFormacion} activada')
+        return redirect(request.POST.get('next', 'tabla_tipoFormacion'))
+    return redirect('tabla_tipoFormacion')
 
 @login_required(login_url='login')
 @permission_required("home.view_tipoformacion", raise_exception=True)
-def tabla_tipo_formaciones(request):
-    tipo_formaciones = TipoFormacion.objects.all()
+def tabla_tipoFormacion(request):
+    mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+    if mostrar:
+        tipoFormaciones = TipoFormacion.objects.all()
+    else:
+        tipoFormaciones = TipoFormacion.objects.filter(estadoTipoFormacion='ACTIVO')
 
-    return render(request, 'home/tablaTipoFormaciones.html', {'tipo_formaciones': tipo_formaciones})
+    return render(request, 'home/tablaTipoFormaciones.html', {
+        'tipoFormaciones': tipoFormaciones,
+        'mostrar_inactivos': mostrar,
+    })
 
 
 #MATERIA
-@login_required(login_url='login')
+login_required(login_url='login')
 @permission_required("home.add_materia", raise_exception=True)
 def materia_modal(request):
+    formaciones = Formacion.objects.filter(estadoFormacion='ACTIVO')
+    
     if request.method == 'POST':
         form = MateriaForm(request.POST)
         if form.is_valid():
             form.save()
-            return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
+            return JsonResponse({'success': True, 'message': 'Registro de materia exitoso.'})
         else:
             errors = {field: error for field, error in form.errors.items()}
             return JsonResponse({'success': False, 'errors': errors})
     else:
         form = MateriaForm()
-    return render(request, 'home/materia_modal.html', {'form': form})
+
+    return render(request, 'home/materia.html', {
+        'form': form,
+        'formaciones': formaciones,
+    })
 
 @login_required(login_url='login')
 @permission_required("home.change_materia", raise_exception=True)
@@ -649,20 +752,41 @@ def delete_materias(request, pk):
     instance.save()
     return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
 
-@login_required(login_url='login')
-@permission_required("home.change_materia", raise_exception=True)
+@login_required
+@permission_required('home.change_materia', raise_exception=True)
+def desactivar_materias(request, pk):
+    materias = get_object_or_404(Materia, pk=pk)
+    if request.method == 'POST':
+        materias.estadoMateria = "INACTIVO"
+        materias.save()
+        messages.success(request, f'⛔ Materia {materias.nombreMateria} desactivada')
+        return redirect(request.POST.get('next', 'tabla_materias'))
+    return redirect('tabla_materias')
+
+@login_required
+@permission_required('home.change_materia', raise_exception=True)
 def reactivate_materias(request, pk):
-    instance = get_object_or_404(Materia, pk=pk)
-    instance.estadoMateria = 'ACTIVO'
-    instance.save()
-    return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
+    materias = get_object_or_404(Materia, pk=pk)
+    if request.method == 'POST':
+        materias.estadoMateria = "ACTIVO"
+        materias.save()
+        messages.success(request, f'✅ Materia {materias.nombreMateria} activada')
+        return redirect(request.POST.get('next', 'tabla_materias'))
+    return redirect('tabla_materias')
 
 @login_required(login_url='login')
 @permission_required("home.view_materia", raise_exception=True)
 def tabla_materias(request):
-    materias = Materia.objects.all()
+    mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+    if mostrar:
+        materias = Materia.objects.all()
+    else:
+        materias = Materia.objects.filter(estadoMateria='ACTIVO')
 
-    return render(request, 'home/tablaMaterias.html', {'materias': materias})
+    return render(request, 'home/tablaMaterias.html', {
+        'materias': materias,
+        'mostrar_inactivos': mostrar,
+    })
 
 
 #COHORTE
@@ -679,22 +803,25 @@ def cohorte_modal(request):
             return JsonResponse({'success': False, 'errors': errors})
     else:
         form = CohorteForm()
-    return render(request, 'home/cohorte_modal.html', {'form': form})
+    return render(request, 'home/cohorte.html', {'form': form})
 
-@login_required(login_url='login')
-@permission_required("home.change_cohorte", raise_exception=True)
+@login_required
+@permission_required('home.change_cohorte', raise_exception=True)
 def edit_cohorte(request, pk):
     cohorte = get_object_or_404(Cohorte, pk=pk)
     if request.method == 'POST':
         form = CohorteForm(request.POST, instance=cohorte)
         if form.is_valid():
             form.save()
-            return JsonResponse({'success': True, 'message': 'Cohorte actualizada.'})
+            return JsonResponse({'success': True, 'message': 'Cohorte actualizado.'})
         else:
             return JsonResponse({'success': False, 'errors': form.errors})
     else:
         form = CohorteForm(instance=cohorte)
-    return render(request, 'home/modales/editCohorte.html', {'form': form, 'cohorte':cohorte})
+    return render(request, 'home/modales/editCohorte.html', {
+        'form': form,
+        'cohorte': cohorte
+    })
 
 @login_required(login_url='login')
 @permission_required("home.change_cohorte", raise_exception=True)
@@ -704,19 +831,41 @@ def delete_cohorte(request, pk):
     instance.save()
     return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
 
-@login_required(login_url='login')
-@permission_required("home.change_cohorte", raise_exception=True)
+@login_required
+@permission_required('home.change_cohorte', raise_exception=True)
+def desactivar_cohorte(request, pk):
+    cohortes = get_object_or_404(Cohorte, pk=pk)
+    if request.method == 'POST':
+        cohortes.estadoCohorte = "INACTIVO"
+        cohortes.save()
+        messages.success(request, f'⛔ Cohorte {cohortes.nombreCohorte} desactivada')
+        return redirect(request.POST.get('next', 'tabla_cohortes'))
+    return redirect('tabla_cohortes')
+
+@login_required
+@permission_required('home.change_cohorte', raise_exception=True)
 def reactivate_cohorte(request, pk):
-    instance = get_object_or_404(Cohorte, pk=pk)
-    instance.estadoCohorte = 'ACTIVO'
-    instance.save()
-    return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
+    cohortes = get_object_or_404(Cohorte, pk=pk)
+    if request.method == 'POST':
+        cohortes.estadoCohorte = "ACTIVO"
+        cohortes.save()
+        messages.success(request, f'✅ Cohorte {cohortes.nombreCohorte} activada')
+        return redirect(request.POST.get('next', 'tabla_cohortes'))
+    return redirect('tabla_cohortes')
 
 @login_required(login_url='login')
 @permission_required("home.view_cohorte", raise_exception=True)
 def tabla_cohortes(request):
-    cohortes = Cohorte.objects.all()
-    return render(request, 'home/tablaCohortes.html', {'cohortes': cohortes})
+    mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+    if mostrar:
+        cohortes = Cohorte.objects.all()
+    else:
+        cohortes = Cohorte.objects.filter(estadoCohorte='ACTIVO')
+
+    return render(request, 'home/tablaCohortes.html', {
+        'cohortes': cohortes,
+        'mostrar_inactivos': mostrar,
+    })
 
 #CARGO
 @login_required(login_url='login')
@@ -732,7 +881,7 @@ def cargo_modal(request):
             return JsonResponse({'success': False, 'errors': errors})
     else:
         form = CargoForm()
-    return render(request, 'home/cargo_modal.html', {'form': form})
+    return render(request, 'home/cargo.html', {'form': form})
 
 @login_required(login_url='login')
 @permission_required("home.change_cargo", raise_exception=True)
@@ -757,20 +906,40 @@ def delete_cargo(request, pk):
     instance.save()
     return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
 
+@login_required
+@permission_required('home.change_cargo', raise_exception=True)
+def desactivar_cargo(request, pk):
+    cargos = get_object_or_404(Cargo, pk=pk)
+    if request.method == 'POST':
+        cargos.estadoCargo = "INACTIVO"
+        cargos.save()
+        messages.success(request, f'⛔ Cargo {cargos.nombreCargo} desactivado')
+        return redirect(request.POST.get('next', 'tabla_cargos'))
+    return redirect('tabla_cargos')
+
 @login_required(login_url='login')
 @permission_required("home.change_cargo", raise_exception=True)
 def reactivate_cargo(request, pk):
-    instance = get_object_or_404(Cargo, pk=pk)
-    instance.estadoCargo = 'ACTIVO'
-    instance.save()
-    return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
+    cargos = get_object_or_404(Cargo, pk=pk)
+    if request.method == 'POST':
+        cargos.estadoCargo = "ACTIVO"
+        cargos.save()
+        messages.success(request, f'✅ Cargo {cargos.nombreCargo} activado')
+        return redirect(request.POST.get('next', 'tabla_cargos'))
+    return redirect('tabla_cargos')
 
 @login_required(login_url='login')
 @permission_required("home.view_cargo", raise_exception=True)
 def tabla_cargos(request):
-    cargos = Cargo.objects.all()
-    return render(request, 'home/tablaCargos.html', {'cargos': cargos})
-
+    mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+    if mostrar:
+        cargos = Cargo.objects.all()
+    else:
+        cargos = Cargo.objects.filter(estadoCargo='ACTIVO')
+    return render(request, 'home/tablaCargos.html', {
+        'cargos': cargos,
+        'mostrar_inactivos': mostrar,
+    })
 
 @login_required(login_url='login')
 def reporte_cargos_pdf(request):
@@ -871,7 +1040,7 @@ def requisito_modal(request):
             return JsonResponse({'success': False, 'errors': errors})
     else:
         form = RequisitoForm()
-    return render(request, 'home/requisito_modal.html', {'form': form})
+    return render(request, 'home/requisito.html', {'form': form})
 
 @login_required(login_url='login')
 @permission_required("home.change_requisito", raise_exception=True)
@@ -881,7 +1050,7 @@ def edit_requisito(request, pk):
         form = RequisitoForm(request.POST, instance=requisito)
         if form.is_valid():
             form.save()
-            return JsonResponse({'success': True, 'message': 'requisito actualizado.'})
+            return JsonResponse({'success': True, 'message': 'Requisito actualizado.'})
         else:
             return JsonResponse({'success': False, 'errors': form.errors})
     else:
@@ -896,19 +1065,40 @@ def delete_requisito(request, pk):
     instance.save()
     return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
 
+@login_required
+@permission_required('home.change_requisito', raise_exception=True)
+def desactivar_requisito(request, pk):
+    requisitos = get_object_or_404(Requisito, pk=pk)
+    if request.method == 'POST':
+        requisitos.estadoRequisito = "INACTIVO"
+        requisitos.save()
+        messages.success(request, f'⛔ Requisito {requisitos.nombreRequisito} desactivado')
+        return redirect(request.POST.get('next', 'tabla_requisitos'))
+    return redirect('tabla_requisitos')
+
 @login_required(login_url='login')
 @permission_required("home.change_requisito", raise_exception=True)
 def reactivate_requisito(request, pk):
-    instance = get_object_or_404(Requisito, pk=pk)
-    instance.estadoRequisito = 'ACTIVO'
-    instance.save()
-    return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
+    requisitos = get_object_or_404(Requisito, pk=pk)
+    if request.method == 'POST':
+        requisitos.estadoRequisito = "ACTIVO"
+        requisitos.save()
+        messages.success(request, f'✅ Requisito {requisitos.nombreRequisito} activado')
+        return redirect(request.POST.get('next', 'tabla_requisitos'))
+    return redirect('tabla_requisitos')
 
 @login_required(login_url='login')
 @permission_required("home.view_requisito", raise_exception=True)
 def tabla_requisitos(request):
-    requisitos = Requisito.objects.all()
-    return render(request, 'home/tablaRequisitos.html', {'requisitos': requisitos})
+    mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+    if mostrar:
+        requisitos = Requisito.objects.all()
+    else:
+        requisitos = Requisito.objects.filter(estadoRequisito='ACTIVO')
+    return render(request, 'home/tablaRequisitos.html', {
+        'requisitos': requisitos,
+        'mostrar_inactivos': mostrar,
+    })
 
 
 #SERVICIO
@@ -926,7 +1116,7 @@ def servicio_modal(request):
             return JsonResponse({'success': False, 'errors': errors})
     else:
         form = ServicioForm()
-    return render(request, 'home/servicio_modal.html', {'form': form})
+    return render(request, 'home/servicio.html', {'form': form})
 
 @login_required(login_url='login')
 @permission_required("home.change_servicio", raise_exception=True)
@@ -936,7 +1126,7 @@ def edit_servicio(request, pk):
         form = ServicioForm(request.POST, instance=servicio)
         if form.is_valid():
             form.save()
-            return JsonResponse({'success': True, 'message': 'servicio actualizado.'})
+            return JsonResponse({'success': True, 'message': 'Servicio actualizado.'})
         else:
             return JsonResponse({'success': False, 'errors': form.errors})
     else:
@@ -951,19 +1141,40 @@ def delete_servicio(request, pk):
     instance.save()
     return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
 
+@login_required
+@permission_required('home.change_servicio', raise_exception=True)
+def desactivar_servicio(request, pk):
+    servicios = get_object_or_404(Servicio, pk=pk)
+    if request.method == 'POST':
+        servicios.estadoServicio = "INACTIVO"
+        servicios.save()
+        messages.success(request, f'⛔ Servicio {servicios.nombreServicio} desactivado')
+        return redirect(request.POST.get('next', 'tabla_servicios'))
+    return redirect('tabla_servicios')
+
 @login_required(login_url='login')
 @permission_required("home.change_servicio", raise_exception=True)
 def reactivate_servicio(request, pk):
-    instance = get_object_or_404(Servicio, pk=pk)
-    instance.estadoServicio = 'ACTIVO'
-    instance.save()
-    return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
+    servicios = get_object_or_404(Servicio, pk=pk)
+    if request.method == 'POST':
+        servicios.estadoServicio = "ACTIVO"
+        servicios.save()
+        messages.success(request, f'✅ Servicio {servicios.nombreServicio} activado')
+        return redirect(request.POST.get('next', 'tabla_servicios'))
+    return redirect('tabla_servicios')
 
 @login_required(login_url='login')
 @permission_required("home.view_servicio", raise_exception=True)
 def tabla_servicios(request):
-    servicios = Servicio.objects.all()
-    return render(request, 'home/tablaServicios.html', {'servicios': servicios})
+    mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+    if mostrar:
+        servicios = Servicio.objects.all()
+    else:
+        servicios = Servicio.objects.filter(estadoServicio='ACTIVO')
+    return render(request, 'home/tablaServicios.html', {
+        'servicios': servicios,
+        'mostrar_inactivos': mostrar,
+    })
 
 
 #TRAMITE
@@ -981,7 +1192,7 @@ def tramite_modal(request):
             return JsonResponse({'success': False, 'errors': errors})
     else:
         form = TramiteForm()
-    return render(request, 'home/tramite_modal.html', {'form': form})
+    return render(request, 'home/tramite.html', {'form': form})
 
 @login_required(login_url='login')
 @permission_required("home.change_tramite", raise_exception=True)
@@ -991,7 +1202,7 @@ def edit_tramite(request, pk):
         form = TramiteForm(request.POST, instance=tramite)
         if form.is_valid():
             form.save()
-            return JsonResponse({'success': True, 'message': 'tramite actualizado.'})
+            return JsonResponse({'success': True, 'message': 'Trámite actualizado.'})
         else:
             return JsonResponse({'success': False, 'errors': form.errors})
     else:
@@ -1006,37 +1217,62 @@ def delete_tramite(request, pk):
     instance.save()
     return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
 
+@login_required
+@permission_required('home.change_tramite', raise_exception=True)
+def desactivar_tramite(request, pk):
+    tramites = get_object_or_404(Tramite, pk=pk)
+    if request.method == 'POST':
+        tramites.estadoTramite = "INACTIVO"
+        tramites.save()
+        messages.success(request, f'⛔ Trámite {tramites.nombreTramite} desactivado')
+        return redirect(request.POST.get('next', 'tabla_tramites'))
+    return redirect('tabla_tramites')
+
 @login_required(login_url='login')
 @permission_required("home.change_tramite", raise_exception=True)
 def reactivate_tramite(request, pk):
-    instance = get_object_or_404(Tramite, pk=pk)
-    instance.estadoTramite = 'ACTIVO'
-    instance.save()
-    return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
+    tramites = get_object_or_404(Tramite, pk=pk)
+    if request.method == 'POST':
+        tramites.estadoTramite = "ACTIVO"
+        tramites.save()
+        messages.success(request, f'✅ Trámite {tramites.nombreTramite} activado')
+        return redirect(request.POST.get('next', 'tabla_tramites'))
+    return redirect('tabla_tramites')
 
 @login_required(login_url='login')
 @permission_required("home.view_tramite", raise_exception=True)
 def tabla_tramites(request):
-    servicios = Servicio.objects.all()
-    return render(request, 'home/tablaTramites.html', {'servicios': servicios})
+    mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+    if mostrar:
+        tramites = Tramite.objects.all()
+    else:
+        tramites = Tramite.objects.filter(estadoTramite='ACTIVO')
+    return render(request, 'home/tablaTramites.html', {
+        'tramites': tramites,
+        'mostrar_inactivos': mostrar,
+    })
 
 
 #DENOMINACION
 @login_required(login_url='login')
 @permission_required("home.add_denominacion", raise_exception=True)
 def denominacion_modal(request):
+    denominaciones = Denominacion.objects.filter(estadoDenominacion='ACTIVO')  # Filtrar denominaciones activas
     if request.method == 'POST':
         form = DenominacionForm(request.POST)
         if form.is_valid():
             form.save()
             return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
         else:
-            print(form.errors)  # esto para depurar errores
+           # print(form.errors)  # esto para depurar errores
             errors = {field: error for field, error in form.errors.items()}
             return JsonResponse({'success': False, 'errors': errors})
     else:
         form = DenominacionForm()
-    return render(request, 'home/denominacion_modal.html', {'form': form})
+    return render(request, 'home/denominacion.html', {
+        'form': form,
+        'denominaciones': denominaciones,
+    })
 
 @login_required(login_url='login')
 @permission_required("home.change_denominacion", raise_exception=True)
@@ -1054,6 +1290,17 @@ def edit_denominacion(request, pk):
         form = DenominacionForm(instance=instance)
     return render(request, 'home/modales/editDenominacion.html', {'form': form, 'denominacion': instance})
 
+@login_required
+@permission_required('home.change_denominacion', raise_exception=True)
+def desactivar_denominacion(request, pk):
+    denominaciones = get_object_or_404(Denominacion, pk=pk)
+    if request.method == 'POST':
+        denominaciones.estadoDenominacion = "INACTIVO"
+        denominaciones.save()
+        messages.success(request, f'✅ Denominación {denominaciones.nombreDenominacion} desactivada')
+        return redirect(request.POST.get('next', 'tabla_denominaciones'))
+    return redirect('tabla_denominaciones')
+
 @login_required(login_url='login')
 @permission_required("home.change_denominacion", raise_exception=True)
 def delete_denominacion(request, pk):
@@ -1065,17 +1312,26 @@ def delete_denominacion(request, pk):
 @login_required(login_url='login')
 @permission_required("home.change_denominacion", raise_exception=True)
 def reactivate_denominacion(request, pk):
-    instance = get_object_or_404(Denominacion, pk=pk)
-    instance.estadoDenominacion = 'ACTIVO'
-    instance.save()
-    return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
+    denominaciones = get_object_or_404(Denominacion, pk=pk)
+    if request.method == 'POST':
+        denominaciones.estadoDenominacion = "ACTIVO"
+        denominaciones.save()
+        messages.success(request, f'✅ Denominación {denominaciones.nombreDenominacion} activada')
+        return redirect(request.POST.get('next', 'tabla_denominaciones'))
+    return redirect('tabla_denominaciones')
 
 @login_required(login_url='login')
 @permission_required("home.view_denominacion", raise_exception=True)
 def tabla_denominaciones(request):
-    denominaciones = Banco.objects.all()
-
-    return render(request, 'home/tablaDenominaciones.html', {'denominaciones': denominaciones})
+    mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+    if mostrar:
+        denominaciones = Denominacion.objects.all()
+    else:
+        denominaciones = Denominacion.objects.filter(estadoDenominacion='ACTIVO')
+    return render(request, 'home/tablaDenominaciones.html', {
+        'denominaciones': denominaciones,
+        'mostrar_inactivos': mostrar,
+    })
 
 
 #BANCO
@@ -1093,7 +1349,7 @@ def banco_modal(request):
             return JsonResponse({'success': False, 'errors': errors})
     else:
         form = BancoForm()
-    return render(request, 'home/banco_modal.html', {'form': form})
+    return render(request, 'home/banco.html', {'form': form})
 
 @login_required(login_url='login')
 @permission_required("home.change_banco", raise_exception=True)
@@ -1111,6 +1367,19 @@ def edit_banco(request, pk):
         form = BancoForm(instance=instance)
     return render(request, 'home/modales/editBanco.html', {'form': form, 'banco': instance})
 
+@login_required
+@permission_required('home.change_moneda', raise_exception=True)
+def desactivar_banco(request, pk):
+    banco = get_object_or_404(Banco, pk=pk)
+    # Actualizamos el estado sin modificar el nombre u otros campos únicos
+    banco.estadoBanco = 'INACTIVO'
+    try:
+        banco.save()  # Aquí se ejecuta la validación en save()
+        return JsonResponse({'success': True, 'message': 'Banco desactivado correctamente. ✅'})
+    except ValidationError as e:
+        # Regresamos el mensaje de error; esto ocurriría si se dispara la validación única
+        return JsonResponse({'success': False, 'message': e.messages})
+
 @login_required(login_url='login')
 @permission_required("home.change_banco", raise_exception=True)
 def delete_banco(request, pk):
@@ -1122,37 +1391,50 @@ def delete_banco(request, pk):
 @login_required(login_url='login')
 @permission_required("home.change_banco", raise_exception=True)
 def reactivate_banco(request, pk):
-    instance = get_object_or_404(Banco, pk=pk)
-    instance.estadoBanco = 'ACTIVO'
-    instance.save()
-    return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
+    banco = get_object_or_404(Banco, pk=pk)
+    # Actualizamos el estado sin modificar el nombre u otros campos únicos
+    banco.estadoBanco = 'ACTIVO'
+    try:
+        banco.save()  # Aquí se ejecuta la validación en save()
+        return JsonResponse({'success': True, 'message': 'Banco reactivado correctamente. ✅'})
+    except ValidationError as e:
+        # Regresamos el mensaje de error; esto ocurriría si se dispara la validación única
+        return JsonResponse({'success': False, 'message': e.messages})
 
-@login_required(login_url='login')
-@permission_required("home.view_banco", raise_exception=True)
+@login_required
+@permission_required('home.view_banco', raise_exception=True)
 def tabla_bancos(request):
-    bancos = Banco.objects.all()
-    return render(request, 'home/tablaBancos.html', {'bancos': bancos})
+    mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+    if mostrar:
+        bancos = Banco.objects.all()
+    else:
+        bancos = Banco.objects.filter(estadoBanco='ACTIVO')
+    return render(request, 'home/tablaBancos.html', {
+        'bancos': bancos,
+        'mostrar_inactivos': mostrar,
+    })
 
 
 #MONEDA
 @login_required(login_url='login')
 @permission_required("home.add_moneda", raise_exception=True)
 def moneda_modal(request):
+    monedas = Moneda.objects.filter(estadoMoneda='ACTIVO')  # Filtrar monedas activas
     if request.method == 'POST':
         form = MonedaForm(request.POST)
         if form.is_valid():
-            m = form.save()
-            return JsonResponse({
-                'success': True,
-                'message': 'Moneda registrada.',
-                'idMoneda': m.idMoneda,
-                'nombreMoneda': m.nombreMoneda,
-                'simboloMoneda': getattr(m, 'simboloMoneda', '')
-            })
-        return JsonResponse({'success': False, 'errors': form.errors})
+            form.save()
+            return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
+        else:
+           # print(form.errors)  # esto para depurar errores
+            errors = {field: error for field, error in form.errors.items()}
+            return JsonResponse({'success': False, 'errors': errors})
     else:
         form = MonedaForm()
-    return render(request, 'home/moneda.html', {'form': form})
+    return render(request, 'home/moneda.html', {
+        'form': form,
+        'monedas': monedas,
+    })
 
 @login_required(login_url='login')
 @permission_required("home.change_moneda", raise_exception=True)
@@ -1170,6 +1452,17 @@ def edit_moneda(request, pk):
         form = MonedaForm(instance=instance)
     return render(request, 'home/modales/editMoneda.html', {'form': form, 'moneda': instance})
 
+@login_required
+@permission_required('home.change_moneda', raise_exception=True)
+def desactivar_moneda(request, pk):
+    moneda = get_object_or_404(Moneda, pk=pk)
+    if request.method == 'POST':
+        moneda.estadoMoneda = "INACTIVO"
+        moneda.save()
+        messages.success(request, f'✅ Moneda {moneda.nombreMoneda} desactivada')
+        return redirect(request.POST.get('next', 'tabla_monedas'))
+    return redirect('tabla_monedas')
+
 @login_required(login_url='login')
 @permission_required("home.change_moneda", raise_exception=True)
 def delete_moneda(request, pk):
@@ -1181,22 +1474,33 @@ def delete_moneda(request, pk):
 @login_required(login_url='login')
 @permission_required("home.change_moneda", raise_exception=True)
 def reactivate_moneda(request, pk):
-    instance = get_object_or_404(Moneda, pk=pk)
-    instance.estadoMoneda = 'ACTIVO'
-    instance.save()
-    return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
+    moneda = get_object_or_404(Moneda, pk=pk)
+    if request.method == 'POST':
+        moneda.estadoMoneda = "ACTIVO"
+        moneda.save()
+        messages.success(request, f'✅ Moneda {moneda.nombreMoneda} activada')
+        return redirect(request.POST.get('next', 'tabla_monedas'))
+    return redirect('tabla_monedas')
 
 @login_required(login_url='login')
 @permission_required("home.view_moneda", raise_exception=True)
 def tabla_monedas(request):
-    monedas = Moneda.objects.all()
-    return render(request, 'home/tablaMonedas.html', {'monedas': monedas})
+    mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+    if mostrar:
+        monedas = Moneda.objects.all()
+    else:
+        monedas = Moneda.objects.filter(estadoMoneda='ACTIVO')
+    return render(request, 'home/tablaMonedas.html', {
+        'monedas': monedas,
+        'mostrar_inactivos': mostrar,
+    })
 
 
 #TASA
 @login_required(login_url='login')
 @permission_required("home.add_tasa", raise_exception=True)
 def tasa_modal(request):
+    monedas = Moneda.objects.filter(estadoMoneda='ACTIVO')  # Filtrar monedas activas
     if request.method == 'POST':
         form = TasaForm(request.POST)
         if form.is_valid():
@@ -1208,7 +1512,10 @@ def tasa_modal(request):
             return JsonResponse({'success': False, 'errors': errors})
     else:
         form = TasaForm()
-    return render(request, 'home/tasa_modal.html', {'form': form})
+    return render(request, 'home/tasa.html', {
+        'form': form,
+        'monedas': monedas,
+    })
 
 @login_required(login_url='login')
 @permission_required("home.change_tasa", raise_exception=True)
@@ -1227,6 +1534,17 @@ def edit_tasa(request, pk):
         monedas = Moneda.objects.all()
     return render(request, 'home/modales/editTasa.html', {'form': form, 'tasa': instance,'monedas':monedas})
 
+@login_required
+@permission_required('home.change_tasa', raise_exception=True)
+def desactivar_tasa(request, pk):
+    tasa = get_object_or_404(Tasa, pk=pk)
+    if request.method == 'POST':
+        tasa.estadoTasa = "INACTIVO"
+        tasa.save()
+        messages.success(request, f'✅ Moneda {tasa.idMoneda.nombreMoneda} desactivada')
+        return redirect(request.POST.get('next', 'tabla_tasas'))
+    return redirect('tabla_tasas')
+
 @login_required(login_url='login')
 @permission_required("home.change_tasa", raise_exception=True)
 def delete_tasa(request, pk):
@@ -1238,17 +1556,26 @@ def delete_tasa(request, pk):
 @login_required(login_url='login')
 @permission_required("home.change_tasa", raise_exception=True)
 def reactivate_tasa(request, pk):
-    instance = get_object_or_404(Tasa, pk=pk)
-    instance.estadoTasa = 'ACTIVO'
-    instance.save()
-    return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
+    tasa = get_object_or_404(Tasa, pk=pk)
+    if request.method == 'POST':
+        tasa.estadoTasa = "ACTIVO"
+        tasa.save()
+        messages.success(request, f'✅ Moneda {tasa.idMoneda.nombreMoneda} activada')
+        return redirect(request.POST.get('next', 'tabla_tasas'))
+    return redirect('tabla_tasas')
 
 @login_required(login_url='login')
 @permission_required("home.view_tasa", raise_exception=True)
 def tabla_tasas(request):
-    tasas = Tasa.objects.all()
-    return render(request, 'home/tablaTasas.html', {'tasas': tasas})
-
+    mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+    if mostrar:
+        tasas = Tasa.objects.all()
+    else:
+        tasas = Tasa.objects.filter(estadoTasa='ACTIVO')
+    return render(request, 'home/tablaTasas.html', {
+        'tasas': tasas,
+        'mostrar_inactivos': mostrar,
+    })
 
 #TIPO MOVIMIENTO
 @login_required(login_url='login')
@@ -1265,7 +1592,7 @@ def tipoMovimiento_modal(request):
             return JsonResponse({'success': False, 'errors': errors})
     else:
         form = TipoMovimientoForm()
-    return render(request, 'home/tipoMovimiento_modal.html', {'form': form})
+    return render(request, 'home/tipoMovimiento.html', {'form': form})
 
 @login_required(login_url='login')
 @permission_required("home.change_tipomovimiento", raise_exception=True)
@@ -1282,6 +1609,17 @@ def edit_tipoMovimiento(request, pk):
     else:
         form = TipoMovimientoForm(instance=instance)
     return render(request, 'home/modales/editTipoMovimiento.html', {'form': form, 'TipoMovimiento': instance})
+
+@login_required
+@permission_required('home.change_tipomovimiento', raise_exception=True)
+def desactivar_tipoMovimiento(request, pk):
+    tipoMovimientos = get_object_or_404(TipoMovimiento, pk=pk)
+    if request.method == 'POST':
+        tipoMovimientos.estadoTipoMovimiento = "INACTIVO"
+        tipoMovimientos.save()
+        messages.success(request, f'✅ Movimiento {tipoMovimientos.nombreTipoMovimiento} desactivado')
+        return redirect(request.POST.get('next', 'tabla_tipoMovimiento'))
+    return redirect('tabla_tipoMovimiento')
 
 @login_required(login_url='login')
 @permission_required("home.change_tipomovimiento", raise_exception=True)
@@ -1301,14 +1639,563 @@ def reactivate_tipoMovimiento(request, pk):
 
 @login_required(login_url='login')
 @permission_required("home.view_tipomovimiento", raise_exception=True)
-def tabla_tipoMovimientos(request):
+def tabla_tipoMovimiento(request):
     TipoMovimiento = TipoMovimiento.objects.all()
     return render(request, 'home/tablaTipoMovimiento.html', {'TipoMovimiento': TipoMovimiento})
 
+#TIPO EGRESO
+@login_required(login_url='login')
+@permission_required("home.view_tipomovimiento", raise_exception=True)
+def tabla_tipoEgresos(request):
+    mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+    naturaleza = 'egreso'  # Filtro fijo para solo mostrar egresos
+    
+    base_query = TipoMovimiento.objects.filter(naturaleza=naturaleza)
+    
+    if mostrar:
+        tipoMovimientos = base_query.all()
+    else:
+        tipoMovimientos = base_query.filter(estadoTipoMovimiento='ACTIVO')
+    
+    return render(request, 'home/tablaTipoEgresos.html', {
+        'tipoMovimientos': tipoMovimientos,
+        'mostrar_inactivos': mostrar,
+        'naturaleza_actual': naturaleza  # Enviamos la naturaleza al template
+    })
 
-#MOVIMIENTOS MIENTRAS TANTO TIPO MOVIMIENTOS
 @login_required(login_url='login')
 @permission_required("home.add_tipomovimiento", raise_exception=True)
+def tipoEgreso_modal(request):
+    if request.method == 'POST':
+        form = TipoMovimientoForm(request.POST)
+        if form.is_valid():
+            # Crear instancia pero no guardar aún
+            instance = form.save(commit=False)
+            # Forzar naturaleza egreso
+            instance.naturaleza = 'egreso'
+            # Guardar en base de datos
+            instance.save()
+            return JsonResponse({'success': True, 'message': '✅ Tipo de egreso registrado exitosamente'})
+        else:
+            errors = {field: error.get_json_data()[0]['message'] for field, error in form.errors.items()}
+            return JsonResponse({'success': False, 'errors': errors})
+    
+    # Si es GET, crear form con naturaleza oculta
+    form = TipoMovimientoForm(initial={'naturaleza': 'egreso'})
+    # Ocultar campo naturaleza en el template
+    form.fields['naturaleza'].widget = forms.HiddenInput()
+    
+    return render(request, 'home/tipoMovimiento.html', {'form': form})
+
+@login_required(login_url='login')
+@permission_required("home.change_tipomovimiento", raise_exception=True)
+def edit_tipoEgresos(request, pk):
+    instance = get_object_or_404(TipoMovimiento, pk=pk, naturaleza='egreso')  # Filtro adicional
+    if request.method == 'POST':
+        form = TipoMovimientoForm(request.POST, instance=instance, naturaleza='egreso')  # Fijamos naturaleza
+        if form.is_valid():
+            edited = form.save(commit=False)
+            edited.naturaleza = 'egreso'  # Forzamos naturaleza
+            edited.save()
+            return JsonResponse({'success': True, 'message': 'Tipo de egreso editado correctamente.'})
+        else:
+            errors = {field: error for field, error in form.errors.items()}
+            return JsonResponse({'success': False, 'errors': errors})
+    else:
+        form = TipoMovimientoForm(instance=instance)
+        form.fields['naturaleza'].disabled = True  # Deshabilitar campo en el template
+    return render(request, 'home/modales/editTipoMovimiento.html', {
+        'form': form,
+        'TipoMovimiento': instance,
+        'naturaleza': 'egreso'  # Enviar contexto al template
+    })
+
+@login_required(login_url='login')
+@permission_required('home.change_tipomovimiento', raise_exception=True)
+def desactivar_tipoEgreso(request, pk):
+    egreso = get_object_or_404(TipoMovimiento, pk=pk, naturaleza='egreso')
+    
+    if request.method == 'POST':
+        egreso.estadoTipoMovimiento = "INACTIVO"
+        egreso.save()
+        
+        # Cambia esto para devolver JSON
+        return JsonResponse({
+            'success': True,
+            'message': f'⛔ Egreso "{egreso.nombreTipoMovimiento}" desactivado'
+        })
+    
+    return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+
+# Reactivar Egreso
+@login_required(login_url='login')
+@permission_required("home.change_tipomovimiento", raise_exception=True)
+def reactivate_tipoEgreso(request, pk):
+    egreso = get_object_or_404(TipoMovimiento, pk=pk, naturaleza='egreso')
+    
+    if request.method == 'POST':
+        egreso.estadoTipoMovimiento = 'ACTIVO'
+        egreso.save()
+        return JsonResponse({
+            'success': True,
+            'message': f'✅ Egreso "{egreso.nombreTipoMovimiento}" reactivado exitosamente'
+        })
+    
+    return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+
+# Eliminación Física (Opcional - Si necesitas borrado real)
+@login_required(login_url='login')
+@permission_required("home.delete_tipomovimiento", raise_exception=True)
+def delete_tipoEgreso(request, pk):
+    egreso = get_object_or_404(TipoMovimiento, pk=pk, naturaleza='egreso')
+    
+    if request.method == 'POST':
+        try:
+            nombre = egreso.nombreTipoMovimiento
+            egreso.delete()
+            return JsonResponse({
+                'success': True,
+                'message': f'🗑️ Egreso "{nombre}" eliminado permanentemente'
+            })
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': f'Error al eliminar: {str(e)}'
+            }, status=500)
+    
+    return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+
+#EGRESO
+@login_required(login_url='login')
+@permission_required("home.add_movimiento", raise_exception=True)
+def tabla_egreso(request):
+    mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+    naturaleza = 'egreso'  # Filtro fijo para solo mostrar egresos
+    
+    base_query = Movimiento.objects.filter(naturaleza=naturaleza)
+    
+    if mostrar:
+        movimientos = base_query.all()
+    else:
+        movimientos = base_query.filter(estadoMovimiento='ACTIVO')
+    
+    return render(request, 'home/tablaEgresos.html', {
+        'movimientos': movimientos,
+        'mostrar_inactivos': mostrar,
+        'naturaleza_actual': naturaleza  # Enviamos la naturaleza al template
+    })
+
+@login_required(login_url='login')
+@permission_required("home.add_movimiento", raise_exception=True)
+def egreso_modal(request):
+    naturaleza = 'egreso'
+    action_url = reverse('egreso_modal')  # Obtiene la URL de la vista actual
+
+    if request.method == 'POST':
+        form = MovimientoForm(request.POST, initial={'naturaleza': naturaleza})
+        if form.is_valid():
+            instance = form.save()
+            return JsonResponse({'success': True, 'message': '✅ Egreso registrado exitosamente'})
+        else:
+            errors = {field: error[0] for field, error in form.errors.items()}
+            print(form.errors)
+            return JsonResponse({'success': False, 'errors': errors})
+
+    else:
+        form = MovimientoForm(initial={'naturaleza': naturaleza})
+
+    tasas = Tasa.objects.select_related('idMoneda') \
+        .values('idMoneda__idMoneda', 'idMoneda__nombreMoneda') \
+        .annotate(ultima_idTasa=Max('idTasa'), ultima_tasa=Max('montoTasa'))
+
+    context = {
+        'form': form,
+        'bancos': Banco.objects.filter(estadoBanco='ACTIVO'),
+        'tipoMovimientos': TipoMovimiento.objects.filter(naturaleza=naturaleza, estadoTipoMovimiento='ACTIVO'),
+        'denominaciones': Denominacion.objects.filter(estadoDenominacion='ACTIVO'),
+        'monedas': tasas,
+        'naturaleza': naturaleza,
+        'action_url': action_url  # Agrega la URL al contexto
+    }
+
+    return render(request, 'home/movimiento.html', context)
+
+@login_required(login_url='login')
+@permission_required("home.change_movimiento", raise_exception=True)
+def edit_egreso(request, naturaleza, idMovimiento):
+    instance = get_object_or_404(Movimiento, idMovimiento=idMovimiento, naturaleza=naturaleza)
+
+    monedas = Moneda.objects.annotate(
+        ultima_tasa_id=Subquery(
+            Tasa.objects.filter(idMoneda=OuterRef('idMoneda'))
+            .order_by('-fechaTasa')
+            .values('idTasa')[:1]
+        ),
+        ultima_tasa_valor=Subquery(
+            Tasa.objects.filter(idMoneda=OuterRef('idMoneda'))
+            .order_by('-fechaTasa')
+            .values('montoTasa')[:1]
+        )
+    )
+
+    if request.method == 'POST':
+        form = MovimientoForm(request.POST, instance=instance, naturaleza=naturaleza)
+        if form.is_valid():
+            edited = form.save(commit=False)
+            edited.naturaleza = naturaleza
+            edited.save()
+            return JsonResponse({'success': True, 'message': f'{naturaleza.title()} actualizado correctamente'})
+        return JsonResponse({'success': False, 'errors': form.errors.get_json_data()})
+
+    form = MovimientoForm(instance=instance)
+    form.fields['naturaleza'].disabled = True
+
+    return render(request, 'home/modales/editMovimiento.html', {
+        'form': form,
+        'movimiento': instance,
+        'naturaleza': naturaleza,
+        'bancos': Banco.objects.filter(estadoBanco='ACTIVO'),
+        'tipoMovimientos': TipoMovimiento.objects.filter(naturaleza=naturaleza, estadoTipoMovimiento='ACTIVO'),
+        'denominaciones': Denominacion.objects.filter(estadoDenominacion='ACTIVO'),
+        'monedas': monedas,
+    })
+
+@login_required(login_url='login')
+@permission_required('home.change_tipomovimiento', raise_exception=True)
+def desactivar_egreso(request, pk):
+    egreso = get_object_or_404(Movimiento, pk=pk, naturaleza='egreso')
+    
+    if request.method == 'POST':
+        egreso.estadoMovimiento = "INACTIVO"
+        egreso.save()
+        
+        # Cambia esto para devolver JSON
+        return JsonResponse({
+            'success': True,
+            'message': f'⛔ Egreso "{egreso.idMovimiento}" desactivado'
+        })
+    
+    return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+
+# Reactivar Egreso
+@login_required(login_url='login')
+@permission_required("home.change_movimiento", raise_exception=True)
+def reactivate_egreso(request, pk):
+    egreso = get_object_or_404(Movimiento, pk=pk, naturaleza='egreso')
+    
+    if request.method == 'POST':
+        egreso.estadoMovimiento = 'ACTIVO'
+        egreso.save()
+        return JsonResponse({
+            'success': True,
+            'message': f'✅ Egreso "{egreso.idMovimiento}" reactivado exitosamente'
+        })
+    
+    return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+
+# Eliminación Física (Opcional - Si necesitas borrado real)
+@login_required(login_url='login')
+@permission_required("home.delete_tipomovimiento", raise_exception=True)
+def delete_egreso(request, pk):
+    egreso = get_object_or_404(Movimiento, pk=pk, naturaleza='egreso')
+    
+    if request.method == 'POST':
+        try:
+            nombre = egreso.idMovimiento
+            egreso.delete()
+            return JsonResponse({
+                'success': True,
+                'message': f'🗑️ Egreso "{nombre}" eliminado permanentemente'
+            })
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': f'Error al eliminar: {str(e)}'
+            }, status=500)
+    
+    return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+
+
+
+#TIPO INGRESO
+@login_required(login_url='login')
+@permission_required("home.view_tipomovimiento", raise_exception=True)
+def tabla_tipoIngresos(request):
+    mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+    naturaleza = 'ingreso'  # Filtro fijo para solo mostrar egresos
+    
+    base_query = TipoMovimiento.objects.filter(naturaleza=naturaleza)
+    
+    if mostrar:
+        tipoMovimientos = base_query.all()
+    else:
+        tipoMovimientos = base_query.filter(estadoTipoMovimiento='ACTIVO')
+    
+    return render(request, 'home/tablaTipoIngresos.html', {
+        'tipoMovimientos': tipoMovimientos,
+        'mostrar_inactivos': mostrar,
+        'naturaleza_actual': naturaleza  # Enviamos la naturaleza al template
+    })
+
+@login_required(login_url='login')
+@permission_required("home.add_tipomovimiento", raise_exception=True)
+def tipoIngreso_modal(request):
+    if request.method == 'POST':
+        form = TipoMovimientoForm(request.POST, naturaleza='ingreso')
+        if form.is_valid():
+            try:
+                instance = form.save(commit=False)
+                instance.naturaleza = 'ingreso'
+                instance.save()
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Tipo de ingreso registrado exitosamente'
+                })
+            except Exception as e:
+                return JsonResponse({
+                    'success': False,
+                    'error': str(e)
+                }, status=500)
+        else:
+            return JsonResponse({
+                'success': False,
+                'errors': form.errors.get_json_data()
+            }, status=400)
+    
+    form = TipoMovimientoForm(naturaleza='ingreso')
+    return render(request, 'home/tipoMovimiento.html', {'form': form})
+
+@login_required(login_url='login')
+@permission_required('home.change_tipomovimiento', raise_exception=True)
+def edit_tipoIngresos(request, pk):
+    instance = get_object_or_404(TipoMovimiento, pk=pk, naturaleza='ingreso')
+    
+    if request.method == 'POST':
+        # Pasar naturaleza al formulario
+        form = TipoMovimientoForm(request.POST, instance=instance, naturaleza='ingreso')
+        if form.is_valid():
+            edited = form.save()
+            return JsonResponse({'success': True, 'message': 'Tipo de ingreso editado correctamente.'})
+        else:
+            return JsonResponse({'success': False, 'errors': form.errors.get_json_data()})
+    else:
+        # Inicializar formulario con naturaleza
+        form = TipoMovimientoForm(instance=instance, naturaleza='ingreso')
+        
+    return render(request, 'home/modales/editTipoMovimiento.html', {
+        'form': form,
+        'TipoMovimiento': instance
+    })
+
+@login_required(login_url='login')
+@permission_required('home.change_tipomovimiento', raise_exception=True)
+def desactivar_tipoIngreso(request, pk):
+    ingreso = get_object_or_404(TipoMovimiento, pk=pk, naturaleza='ingreso')
+    
+    if request.method == 'POST':
+        ingreso.estadoTipoMovimiento = "INACTIVO"
+        ingreso.save()
+        
+        # Cambia esto para devolver JSON
+        return JsonResponse({
+            'success': True,
+            'message': f'⛔ Ingreso "{ingreso.nombreTipoMovimiento}" desactivado'
+        })
+    
+    return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+
+# Reactivar Ingreso
+@login_required(login_url='login')
+@permission_required("home.change_tipomovimiento", raise_exception=True)
+def reactivate_tipoIngreso(request, pk):
+    ingreso = get_object_or_404(TipoMovimiento, pk=pk, naturaleza='ingreso')
+    
+    if request.method == 'POST':
+        ingreso.estadoTipoMovimiento = 'ACTIVO'
+        ingreso.save()
+        return JsonResponse({
+            'success': True,
+            'message': f'✅ Ingreso "{ingreso.nombreTipoMovimiento}" reactivado exitosamente'
+        })
+    
+    return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+
+# Eliminación Física (Opcional - Si necesitas borrado real)
+@login_required(login_url='login')
+@permission_required("home.delete_tipomovimiento", raise_exception=True)
+def delete_tipoIngreso(request, pk):
+    ingreso = get_object_or_404(TipoMovimiento, pk=pk, naturaleza='ingreso')
+    
+    if request.method == 'POST':
+        try:
+            nombre = ingreso.nombreTipoMovimiento
+            ingreso.delete()
+            return JsonResponse({
+                'success': True,
+                'message': f'🗑️ Ingreso "{nombre}" eliminado permanentemente'
+            })
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': f'Error al eliminar: {str(e)}'
+            }, status=500)
+    
+    return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+
+
+#INGRESO
+@login_required(login_url='login')
+@permission_required("home.add_movimiento", raise_exception=True)
+def tabla_ingreso(request):
+    mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+    naturaleza = 'ingreso'  # Filtro fijo para solo mostrar ingresos
+    
+    base_query = Movimiento.objects.filter(naturaleza=naturaleza)
+    
+    if mostrar:
+        movimientos = base_query.all()
+    else:
+        movimientos = base_query.filter(estadoMovimiento='ACTIVO')
+    
+    return render(request, 'home/tablaIngresos.html', {
+        'movimientos': movimientos,
+        'mostrar_inactivos': mostrar,
+        'naturaleza_actual': naturaleza  # Enviamos la naturaleza al template
+    })
+
+@login_required(login_url='login')
+@permission_required("home.add_movimiento", raise_exception=True)
+def ingreso_modal(request):
+    naturaleza = 'ingreso'
+    action_url = reverse('ingreso_modal')  # Obtiene la URL de la vista actual
+
+    if request.method == 'POST':
+        form = MovimientoForm(request.POST, initial={'naturaleza': naturaleza})
+        if form.is_valid():
+            instance = form.save()
+            return JsonResponse({'success': True, 'message': '✅ Ingreso registrado exitosamente'})
+        else:
+            errors = {field: error[0] for field, error in form.errors.items()}
+            print(form.errors)
+            return JsonResponse({'success': False, 'errors': errors})
+
+    else:
+        form = MovimientoForm(initial={'naturaleza': naturaleza})
+
+    tasas = Tasa.objects.select_related('idMoneda') \
+        .values('idMoneda__idMoneda', 'idMoneda__nombreMoneda') \
+        .annotate(ultima_idTasa=Max('idTasa'), ultima_tasa=Max('montoTasa'))
+
+    context = {
+        'form': form,
+        'bancos': Banco.objects.filter(estadoBanco='ACTIVO'),
+        'tipoMovimientos': TipoMovimiento.objects.filter(naturaleza=naturaleza, estadoTipoMovimiento='ACTIVO'),
+        'denominaciones': Denominacion.objects.filter(estadoDenominacion='ACTIVO'),
+        'monedas': tasas,
+        'naturaleza': naturaleza,
+        'action_url': action_url  # Agrega la URL al contexto
+    }
+
+    return render(request, 'home/movimiento.html', context)
+
+@login_required(login_url='login')
+@permission_required("home.change_movimiento", raise_exception=True)
+def edit_ingreso(request, naturaleza, idMovimiento):
+    instance = get_object_or_404(Movimiento, idMovimiento=idMovimiento, naturaleza=naturaleza)
+
+    monedas = Moneda.objects.annotate(
+        ultima_tasa_id=Subquery(
+            Tasa.objects.filter(idMoneda=OuterRef('idMoneda'))
+            .order_by('-fechaTasa')
+            .values('idTasa')[:1]
+        ),
+        ultima_tasa_valor=Subquery(
+            Tasa.objects.filter(idMoneda=OuterRef('idMoneda'))
+            .order_by('-fechaTasa')
+            .values('montoTasa')[:1]
+        )
+    )
+
+    if request.method == 'POST':
+        form = MovimientoForm(request.POST, instance=instance, naturaleza=naturaleza)
+        if form.is_valid():
+            edited = form.save(commit=False)
+            edited.naturaleza = naturaleza
+            edited.save()
+            return JsonResponse({'success': True, 'message': f'{naturaleza.title()} actualizado correctamente'})
+        return JsonResponse({'success': False, 'errors': form.errors.get_json_data()})
+
+    form = MovimientoForm(instance=instance)
+    form.fields['naturaleza'].disabled = True
+
+    return render(request, 'home/modales/editMovimiento.html', {
+        'form': form,
+        'movimiento': instance,
+        'naturaleza': naturaleza,
+        'bancos': Banco.objects.filter(estadoBanco='ACTIVO'),
+        'tipoMovimientos': TipoMovimiento.objects.filter(naturaleza=naturaleza, estadoTipoMovimiento='ACTIVO'),
+        'denominaciones': Denominacion.objects.filter(estadoDenominacion='ACTIVO'),
+        'monedas': monedas,
+    })
+
+@login_required(login_url='login')
+@permission_required('home.change_tipomovimiento', raise_exception=True)
+def desactivar_ingreso(request, pk):
+    ingreso = get_object_or_404(Movimiento, pk=pk, naturaleza='ingreso')
+    
+    if request.method == 'POST':
+        ingreso.estadoMovimiento = "INACTIVO"
+        ingreso.save()
+        
+        # Cambia esto para devolver JSON
+        return JsonResponse({
+            'success': True,
+            'message': f'⛔ Ingreso "{ingreso.idMovimiento}" desactivado'
+        })
+    
+    return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+
+# Reactivar Egreso
+@login_required(login_url='login')
+@permission_required("home.change_movimiento", raise_exception=True)
+def reactivate_ingreso(request, pk):
+    ingreso = get_object_or_404(Movimiento, pk=pk, naturaleza='ingreso')
+    
+    if request.method == 'POST':
+        ingreso.estadoMovimiento = 'ACTIVO'
+        ingreso.save()
+        return JsonResponse({
+            'success': True,
+            'message': f'✅ Ingreso "{ingreso.idMovimiento}" reactivado exitosamente'
+        })
+    
+    return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+
+# Eliminación Física (Opcional - Si necesitas borrado real)
+@login_required(login_url='login')
+@permission_required("home.delete_tipomovimiento", raise_exception=True)
+def delete_ingreso(request, pk):
+    ingreso = get_object_or_404(Movimiento, pk=pk, naturaleza='ingreso')
+    
+    if request.method == 'POST':
+        try:
+            nombre = ingreso.idMovimiento
+            ingreso.delete()
+            return JsonResponse({
+                'success': True,
+                'message': f'🗑️ Ingreso "{nombre}" eliminado permanentemente'
+            })
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': f'Error al eliminar: {str(e)}'
+            }, status=500)
+    
+    return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+
+#MOVIMIENTOS
+@login_required(login_url='login')
+@permission_required("home.add_movimiento", raise_exception=True)
 def movimiento_modal(request):
     if request.method == 'POST':
         form = MovimientoForm(request.POST)
@@ -1323,10 +2210,10 @@ def movimiento_modal(request):
     else:
         form = MovimientoForm()
       
-    return render(request, 'home/movimiento_modal.html')
+    return render(request, 'home/movimiento.html')
 
 @login_required(login_url='login')
-@permission_required("home.change_tipomovimiento", raise_exception=True)
+@permission_required("home.change_movimiento", raise_exception=True)
 def edit_movimiento(request, pk):
     movimiento = get_object_or_404(Movimiento, pk=pk)
     if request.method == 'POST':
@@ -1364,7 +2251,7 @@ def edit_movimiento(request, pk):
         })
 
 @login_required(login_url='login')
-@permission_required("home.change_tipomovimiento", raise_exception=True)
+@permission_required("home.change_movimiento", raise_exception=True)
 def delete_movimiento(request, pk):
     movimiento = get_object_or_404(Movimiento, pk=pk)
     movimiento.estadoMovimiento = 'INACTIVO'
@@ -1372,7 +2259,7 @@ def delete_movimiento(request, pk):
     return JsonResponse({'success': True, 'message': 'Movimiento desactivado'})
 
 @login_required(login_url='login')
-@permission_required("home.change_tipomovimiento", raise_exception=True)
+@permission_required("home.change_movimiento", raise_exception=True)
 def reactivate_movimiento(request, pk):
     movimiento = get_object_or_404(Movimiento, pk=pk)
     movimiento.estadoMovimiento = 'ACTIVO'
@@ -1463,7 +2350,7 @@ def actualizar_monedas_api(request):
                     Moneda(
                         nombreMoneda=nombre_limpio,
                         simboloMoneda=codigo_limpio,
-                        estadoMoneda='ACTIVO' # Estado por defecto al crear
+                        estadoMoneda='INACTIVO' # Estado por defecto al crear
                         # fechaMoneda se añade automáticamente
                     )
                 )
@@ -1540,7 +2427,7 @@ def actualizar_bancos_api(request):
                             nombreBanco=nombre_limpio,
                             codBanco=codigo_limpio,
                             codContable='0000', # Valor por defecto
-                            estadoBanco='ACTIVO', # Valor por defecto
+                            estadoBanco='INACTIVO', # Valor por defecto
                             # fechaBanco usa default=timezone.now
                         )
                     )

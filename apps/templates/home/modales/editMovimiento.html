@@ -4,71 +4,58 @@
 {% endblock stylesheets %}  
 
 {% block content %}  
-{% if messages %}  
-  {% for message in messages %}  
-    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">  
-      {{ message }}  
-    </div>  
-  {% endfor %}  
-{% endif %}  
 <div class="mt-5">  
-  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Editar Movimiento</h2>  
-  <form method="POST" class="mt-3 text-dark" autocomplete="off" style="font-weight: bold; max-width: 600px; margin: 0 auto;" id="editMovimientoForm" action="{% url 'edit_movimiento' movimiento.idMovimiento %}">  
-    {% csrf_token %}  
-    
-    <div class="form-row">  
-      <input type="hidden" name="naturaleza" value="{{ naturaleza }}" /> <!-- Este valor será llenado dinámicamente -->
+  <h2 class="text-center text-dark">Editar Movimiento</h2>  
+  <form method="POST" autocomplete="off" id="editMovimientoForm" action="{% url 'edit_egreso' naturaleza movimiento.idMovimiento %}">  
+    {% csrf_token %}
 
+    <input type="hidden" name="naturaleza" value="{{ naturaleza }}" />
+
+    <div class="form-row">
       <div class="form-group col-md-6">  
         <label for="tipoPago">Tipo de Pago:</label>  
         <div class="form-check">  
-          <input class="form-check-input" type="radio" name="tipoPago" id="pagoEfectivo" value="efectivo" required onclick="toggleFields()" {% if movimiento.tipoPago == 'efectivo' %}checked{% endif %}>             
+          <input class="form-check-input" type="radio" name="tipoPago" id="pagoEfectivo" value="efectivo" onclick="toggleFields()" {% if movimiento.tipoPago == 'efectivo' %}checked{% endif %}>             
           <label class="form-check-label" for="pagoEfectivo">Efectivo</label>  
         </div>   
         <div class="form-check">  
-          <input class="form-check-input" type="radio" name="tipoPago" id="pagoDigital" value="digital" required onclick="toggleFields()" {% if movimiento.tipoPago == 'digital' %}checked{% endif %}>        
+          <input class="form-check-input" type="radio" name="tipoPago" id="pagoDigital" value="digital" onclick="toggleFields()" {% if movimiento.tipoPago == 'digital' %}checked{% endif %}>        
           <label class="form-check-label" for="pagoDigital">Digital</label>  
         </div>  
       </div>  
-      
+
       <div class="form-group col-md-6">  
         <label for="idTipoMovimiento">Tipo de Movimiento:</label>  
-        <div class="input-group">  
-          <select id="idTipoMovimiento" name="idTipoMovimiento" class="form-control" required>  
-            <option value="" disabled>Seleccione...</option>  
-            {% for tipoMovimiento in tipoMovimientos %}  
-              <option value="{{ tipoMovimiento.idTipoMovimiento }}" 
-                  data-naturaleza="{{ tipoMovimiento.naturaleza }}"
-                  {% if tipoMovimiento.idTipoMovimiento == movimiento.idTipoMovimiento.idTipoMovimiento %}selected{% endif %}>
-                  {{ tipoMovimiento.nombreTipoMovimiento }}
-              </option>  
-            {% endfor %}  
-          </select> 
-        </div>  
-      </div>  
-      
-      <div class="form-group col-md-6">  
-        <label for="idDenominacion">Denominación:</label>  
-        <select id="idDenominacion" name="idDenominacion" class="form-control text-dark" tabindex="2" required>  
+        <select id="idTipoMovimiento" name="idTipoMovimiento" class="form-control text-dark" required>  
           <option value="" disabled>Seleccione...</option>  
-          {% for denominacion in denominaciones %}  
-            <option value="{{ denominacion.idDenominacion }}" 
-              {% if denominacion.idDenominacion == movimiento.idDenominacion.idDenominacion %}selected{% endif %}>
-              {{ denominacion.nombreDenominacion }}
+          {% for tipoMovimiento in tipoMovimientos %}  
+            <option value="{{ tipoMovimiento.idTipoMovimiento }}" {% if tipoMovimiento.idTipoMovimiento == movimiento.idTipoMovimiento.idTipoMovimiento %}selected{% endif %}>
+              {{ tipoMovimiento.nombreTipoMovimiento }}
             </option>  
           {% endfor %}  
         </select> 
-        <input type="hidden" id="estadoMovimiento" name="estadoMovimiento" class="form-control text-dark" value="ACTIVO" />  
+      </div>
+
+      <div class="form-group col-md-6">  
+        <label for="idDenominacion">Denominación:</label>  
+        <select id="idDenominacion" name="idDenominacion" class="form-control text-dark" required>  
+          <option value="" disabled>Seleccione...</option>  
+          {% for denominacion in denominaciones %}  
+            <option value="{{ denominacion.idDenominacion }}" {% if denominacion.idDenominacion == movimiento.idDenominacion.idDenominacion %}selected{% endif %}>
+              {{ denominacion.nombreDenominacion }}
+            </option>  
+          {% endfor %}  
+        </select>
+        <input type="hidden" name="estadoMovimiento" value="ACTIVO" />  
       </div>  
 
       <div class="form-group col-md-6">  
         <label for="moneda">Moneda:</label>  
-        <select id="moneda" name="idTasa" class="form-control" required>  
+        <select id="moneda" name="idTasa" class="form-control text-dark" required>  
           <option value="" disabled>Seleccione...</option>  
           {% for moneda in monedas %}  
-            <option value="{{ moneda.ultima_idTasa }}" 
-              {% if moneda.ultima_idTasa == movimiento.idTasa.idTasa %}selected{% endif %}>
-              {{ moneda.nombreMoneda }} | Tasa: {{ moneda.ultima_tasa }}
+            <option value="{{ moneda.ultima_tasa_id }}" {% if moneda.ultima_tasa_id == movimiento.idTasa.idTasa %}selected{% endif %}>
+              {{ moneda.nombreMoneda }} | Tasa: {{ moneda.ultima_tasa_valor }}
             </option>  
           {% endfor %}  
         </select>  
@@ -76,12 +63,11 @@
 
       <div class="form-group col-md-6" id="bancoField" style="display: none;">  
         <label for="idBanco">Banco:</label>  
-        <select id="idBanco" name="idBanco" class="form-control text-dark" tabindex="4">  
+        <select id="idBanco" name="idBanco" class="form-control text-dark">  
           <option value="" disabled>Seleccione...</option>  
           {% for banco in bancos %}  
-            <option value="{{ banco.idBanco }}" 
-                    {% if movimiento.idBanco and banco.idBanco == movimiento.idBanco.idBanco %}selected{% endif %}>
-                    {{ banco.nombreBanco }}
+            <option value="{{ banco.idBanco }}" {% if movimiento.idBanco and banco.idBanco == movimiento.idBanco.idBanco %}selected{% endif %}>
+              {{ banco.nombreBanco }}
             </option>  
           {% endfor %}  
         </select> 
@@ -89,22 +75,21 @@
 
       <div class="form-group col-md-6" id="referenciaField" style="display: none;">  
         <label for="referencia">Referencia:</label>  
-        <input type="text" id="referencia" name="referencia" class="form-control text-dark" value="{{ movimiento.referencia|default:'' }}" placeholder="Ingrese la referencia" tabindex="7" maxlength="100" />  
-      </div>  
-    
-    </div>  
+        <input type="text" id="referencia" name="referencia" class="form-control text-dark" value="{{ movimiento.referencia|default:'' }}" maxlength="100" />  
+      </div>
+    </div>
 
-    <div class="form-row">  
+    <div class="form-row">
       <div class="form-group col-md-6">  
         <label for="monto">Monto:</label>  
-        <input type="number" id="monto" name="monto" class="form-control text-dark" value="{{ movimiento.monto|floatformat:2 }}" placeholder="Ingrese el monto" tabindex="6" step="0.01" max="99999999.99" required />  
+        <input type="number" id="monto" name="monto" class="form-control text-dark" value="{{ movimiento.monto|floatformat:2 }}" step="0.01" max="99999999.99" required />  
       </div>  
 
       <div class="form-group col-md-6">  
         <label for="descripcion">Descripción:</label>  
-        <textarea id="descripcion" name="descripcion" class="form-control text-dark" placeholder="Ingrese la descripción" tabindex="8" rows="3" required>{{ movimiento.descripcion }}</textarea>  
-      </div>  
-    </div>  
+        <textarea id="descripcion" name="descripcion" class="form-control text-dark" rows="3" required>{{ movimiento.descripcion }}</textarea>  
+      </div>
+    </div>
 
     <div class="text-center">  
       <input type="submit" class="btn btn-warning mt-4" value="Guardar" />  
@@ -112,21 +97,29 @@
   </form>  
 </div>  
 
-{% block javascripts %}  
-<script>  
-  function toggleFields() {  
-    const pagoEfectivo = document.getElementById('pagoEfectivo').checked;  
-    const bancoField = document.getElementById('bancoField');  
-    const referenciaField = document.getElementById('referenciaField');  
-    
-    if (pagoEfectivo) {  
-      bancoField.style.display = 'none';  
-      referenciaField.style.display = 'none';  
-    } else {  
-      bancoField.style.display = 'block';  
-      referenciaField.style.display = 'block';  
-    }  
-  }  
-</script>  
-{% endblock javascripts %}  
+{% block javascripts %}
+<script>
+  function toggleFields() {
+    const pagoEfectivo = document.getElementById('pagoEfectivo').checked;
+    const bancoField = document.getElementById('bancoField');
+    const referenciaField = document.getElementById('referenciaField');
+
+    if (pagoEfectivo) {
+      bancoField.style.display = 'none';
+      referenciaField.style.display = 'none';
+    } else {
+      bancoField.style.display = 'block';
+      referenciaField.style.display = 'block';
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    // Espera un ciclo de renderizado para que los radios estén bien seteados
+    setTimeout(() => {
+      toggleFields();
+    }, 10);
+  });
+</script>
+{% endblock javascripts %}
+
 {% endblock content %}

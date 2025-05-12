@@ -1,121 +1,156 @@
-{% block stylesheets %}  
-<link rel="stylesheet" href="/static/assets/css/styleForms.css" />  
-<link rel="stylesheet" href="/static/assets/css/argon.css" />  
-{% endblock stylesheets %}  
+{% block stylesheets %}
+<link rel="stylesheet" href="/static/assets/css/styleForms.css" />
+<link rel="stylesheet" href="/static/assets/css/argon.css" />
+{% endblock stylesheets %}
 
-{% block content %}  
-{% if messages %}  
-  {% for message in messages %}  
-    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">  
-      {{ message }}  
-    </div>  
-  {% endfor %}  
-{% endif %}  
-<div class="mt-5">  
-  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Registrar Movimiento</h2>  
-  <form method="POST" class="mt-3 text-dark" autocomplete="off" style="font-weight: bold; max-width: 600px; margin: 0 auto;" id="movimientoForm" action="{% url 'movimiento_modal' %}">  
-    {% csrf_token %}  
-    
-    <div class="form-row">  
-      <input type="hidden" name="naturaleza" value="" /> <!-- Este valor será llenado dinámicamente -->
+{% block content %}
+{% if messages %}
+  {% for message in messages %}
+    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+      {{ message }}
+    </div>
+  {% endfor %}
+{% endif %}
 
-      <div class="form-group col-md-6">  
-        <label for="tipoPago">Tipo de Pago:</label>  
-        <div class="form-check">  
-          <input class="form-check-input" type="radio" name="tipoPago" id="pagoEfectivo" value="efectivo" required onclick="toggleFields()" checked>  
-          <label class="form-check-label" for="pagoEfectivo">Efectivo</label>  
-        </div>  
-        <div class="form-check">  
-          <input class="form-check-input" type="radio" name="tipoPago" id="pagoDigital" value="digital" required onclick="toggleFields()">  
-          <label class="form-check-label" for="pagoDigital">Digital</label>  
-        </div>  
-      </div>  
-      
-      <div class="form-group col-md-6">  
-        <label for="idTipoMovimiento">Tipo de Movimiento:</label>  
-        <div class="input-group">  
-          <select id="idTipoMovimiento" name="idTipoMovimiento" class="form-control text-dark" tabindex="1" required>  
-            <option value="" disabled selected>Seleccione...</option>  
-            {% for tipoMovimiento in tipoMovimientos %}  
-              <option value="{{ tipoMovimiento.idTipoMovimiento }}" class="text-orange" data-naturaleza="{{ tipoMovimiento.naturaleza }}">{{ tipoMovimiento.nombreTipoMovimiento }}</option>  
-            {% endfor %}  
-          </select>  
-        </div>  
-      </div>  
-      
-      <div class="form-group col-md-6">  
-        <label for="idDenominacion">Denominación:</label>  
-        <select id="idDenominacion" name="idDenominacion" class="form-control text-dark" tabindex="2" required>  
-          <option value="" disabled selected>Seleccione...</option>  
-          {% for denominacion in denominaciones %}  
-            <option value="{{ denominacion.idDenominacion }}" class="text-orange">{{ denominacion.nombreDenominacion }}</option>  
-          {% endfor %}  
-        </select>  
-        <input type="hidden" id="estadoMovimiento" name="estadoMovimiento" class="form-control text-dark" value="ACTIVO" />  
-      </div>  
+<div class="mt-5">
+  <h2 class="text-center text-dark">Registrar Movimiento</h2>
 
-      <div class="form-group col-md-6">  
-        <label for="moneda">Moneda:</label>  
-        <select id="moneda" name="idTasa" class="form-control text-dark" tabindex="2" required>  
-          <option value="" disabled selected>Seleccione...</option>  
-          {% for moneda in monedas %}  
-            <option value="{{ moneda.ultima_idTasa }}" class="text-orange">  
-              {{ moneda.nombreMoneda }}{% if moneda.ultima_tasa %} | Tasa: {{ moneda.ultima_tasa }}{% else %} - Sin tasa{% endif %}  
-            </option>  
-          {% endfor %}  
-        </select>  
-      </div>  
+  <form method="POST" id="movimientoForm" autocomplete="off" style="max-width: 600px; margin: 0 auto;" action="{{ action_url }}">  <!-- ✅ Usar action_url -->
+    {% csrf_token %}
 
-      <div class="form-group col-md-6" id="bancoField" style="display: none;">  
-        <label for="idBanco">Banco:</label>  
-        <select id="idBanco" name="idBanco" value="" class="form-control text-dark" tabindex="4">  
-          <option value="" disabled selected>Seleccione...</option>  
-          {% for banco in bancos %}  
-            <option value="{{ banco.idBanco }}" class="text-orange">{{ banco.nombreBanco }}</option>  
-          {% endfor %}  
-        </select>  
-      </div>  
+    <!-- ✅ Usar variable del contexto -->
+    <input type="hidden" name="naturaleza" id="inputNaturaleza" value="{{ naturaleza }}">
 
-      <div class="form-group col-md-6" id="referenciaField" style="display: none;">  
-        <label for="referencia">Referencia:</label>  
-        <input type="text" id="referencia" name="referencia" class="form-control text-dark" value="" placeholder="Ingrese la referencia" tabindex="7" maxlength="100" />  
-      </div>  
-    
-    </div>  
+    <div class="form-row">
+      <div class="form-group col-md-6">
+        <label for="tipoPago">Tipo de Pago:</label>
+        <div class="form-check">
+          <input class="form-check-input" type="radio" name="tipoPago" id="pagoEfectivo" value="efectivo" required onclick="toggleFields()" checked>
+          <label class="form-check-label" for="pagoEfectivo">Efectivo</label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input" type="radio" name="tipoPago" id="pagoDigital" value="digital" required onclick="toggleFields()">
+          <label class="form-check-label" for="pagoDigital">Digital</label>
+        </div>
+      </div>
 
-    <div class="form-row">  
-      <div class="form-group col-md-6">  
-        <label for="monto">Monto:</label>  
-        <input type="number" id="monto" name="monto" class="form-control text-dark" placeholder="Ingrese el monto" tabindex="6" step="0.01" max="99999999.99" required />  
-      </div>  
+        <div class="form-group col-md-6">
+          <label for="idTipoMovimiento">Tipo de Movimiento:</label>
+          <select id="idTipoMovimiento" name="idTipoMovimiento" class="form-control text-dark" required>
+            <option value="" disabled selected>Seleccione...</option>
+            {% for tipoMovimiento in tipoMovimientos %}
+              <option value="{{ tipoMovimiento.idTipoMovimiento }}">
+                {{ tipoMovimiento.nombreTipoMovimiento }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
 
-      <div class="form-group col-md-6">  
-        <label for="descripcion">Descripción:</label>  
-        <textarea id="descripcion" name="descripcion" class="form-control text-dark" placeholder="Ingrese la descripción" tabindex="8" rows="3" required></textarea>  
-      </div>  
-    </div>  
+      <div class="form-group col-md-6">
+        <label for="idDenominacion">Denominación:</label>
+        <select id="idDenominacion" name="idDenominacion" class="form-control text-dark" required>
+          <option value="" disabled selected>Seleccione...</option>
+          {% for denominacion in denominaciones %}
+            <option value="{{ denominacion.idDenominacion }}">{{ denominacion.nombreDenominacion }}</option>
+          {% endfor %}
+        </select>
+        <input type="hidden" name="estadoMovimiento" value="ACTIVO" />
+      </div>
 
-    <div class="text-center">  
-      <input type="submit" class="btn btn-warning mt-4" value="Guardar" />  
-    </div>  
-  </form>  
-</div>  
+      <div class="form-group col-md-6">
+        <label for="moneda">Moneda:</label>
+        <select id="moneda" name="idTasa" class="form-control text-dark" required>
+          <option value="" disabled selected>Seleccione...</option>
+          {% for moneda in monedas %}
+            <option value="{{ moneda.ultima_idTasa }}">{{ moneda.idMoneda__nombreMoneda }}{% if moneda.ultima_tasa %} | Tasa: {{ moneda.ultima_tasa }}{% else %} - Sin tasa{% endif %}</option>
+          {% endfor %}
+        </select>
+      </div>
 
-{% block javascripts %}  
-<script>  
-  function toggleFields() {  
-    const pagoEfectivo = document.getElementById('pagoEfectivo').checked;  
-    const bancoField = document.getElementById('bancoField');  
-    const referenciaField = document.getElementById('referenciaField');  
-    
-    if (pagoEfectivo) {  
-      bancoField.style.display = 'none';  
-      referenciaField.style.display = 'none';  
-    } else {  
-      bancoField.style.display = 'block';  
-      referenciaField.style.display = 'block';  
-    }  
-  }  
-</script>  
-{% endblock javascripts %}  
+      <div class="form-group col-md-6" id="bancoField" style="display: none;">
+        <label for="idBanco">Banco:</label>
+        <select id="idBanco" name="idBanco" class="form-control text-dark">
+          <option value="" disabled selected>Seleccione...</option>
+          {% for banco in bancos %}
+            <option value="{{ banco.idBanco }}">{{ banco.nombreBanco }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-group col-md-6" id="referenciaField" style="display: none;">
+        <label for="referencia">Referencia:</label>
+        <input type="text" id="referencia" name="referencia" class="form-control text-dark" placeholder="Ingrese la referencia" maxlength="100" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group col-md-6">
+        <label for="monto">Monto:</label>
+        <input type="number" id="monto" name="monto" class="form-control text-dark" placeholder="Ingrese el monto" step="0.01" max="99999999.99" required />
+      </div>
+
+      <div class="form-group col-md-6">
+        <label for="descripcion">Descripción:</label>
+        <textarea id="descripcion" name="descripcion" class="form-control text-dark" placeholder="Ingrese la descripción" rows="3" required></textarea>
+      </div>
+    </div>
+
+    <div class="text-center">
+      <input type="submit" class="btn btn-warning mt-4" value="Guardar" />
+    </div>
+  </form>
+</div>
+
+{% block javascripts %}
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const isDigital = document.getElementById('pagoDigital').checked;
+        toggleFields();
+
+        document.querySelectorAll('input[name="tipoPago"]').forEach((input) => {
+            input.addEventListener("change", toggleFields);
+        });
+
+        const form = document.getElementById("movimientoForm");
+
+        form.addEventListener("submit", function (e) {
+            e.preventDefault(); // Evita el envío normal del formulario
+
+            const formData = new FormData(form);
+
+            fetch(form.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message); // Muestra el mensaje de éxito
+                    // Redirige o actualiza la página si es necesario
+                } else {
+                    // Muestra los errores al usuario
+                    let errorMessages = '';
+                    for (const field in data.errors) {
+                        errorMessages += `${field}: ${data.errors[field]}\n`;
+                    }
+                    alert('Error al guardar:\n' + errorMessages);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Ocurrió un error al enviar el formulario.');
+            });
+        });
+    });
+
+    function toggleFields() {
+        const isDigital = document.getElementById('pagoDigital').checked;
+        document.getElementById('bancoField').style.display = isDigital ? 'block' : 'none';
+        document.getElementById('referenciaField').style.display = isDigital ? 'block' : 'none';
+    }
+</script>
+{% endblock javascripts %}
 {% endblock content %}

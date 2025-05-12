@@ -9,6 +9,7 @@ urlpatterns = [
     path('inscripcionModal/', views.inscripcion_modal, name='inscripcion_modal'),
     path('editInscripcion/<int:pk>/', views.edit_inscripcion, name='edit_inscripcion'),
     path('deleteInscripcion/<int:pk>/', views.delete_inscripcion, name='delete_inscripcion'),
+    path('desactivarInscripcion/<int:pk>/', views.desactivar_inscripcion, name='desactivar_inscripcion'),
     path('reactivateInscripcion/<int:pk>/', views.reactivate_inscripcion, name='reactivate_inscripcion'),
 
     # Coincide con cualquier archivo HTML (no mover de lugar)

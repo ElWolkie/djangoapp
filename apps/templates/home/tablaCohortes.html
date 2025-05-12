@@ -1,121 +1,233 @@
 {% extends 'layouts/base.html' %}
+{% load static %}
 
-{% block title %}Listado de Cohortes{% endblock title %}
+{% block title %}Listado de Cohortes Registradas{% endblock title %}
 
 {% block stylesheets %}
-<link rel="stylesheet" href="/static/assets/css/styleForms.css" />
-<link rel="stylesheet" href="/static/assets/css/argon.css" />
+<link rel="stylesheet" href="{% static 'assets/css/styleForms.css' %}" />
+<link rel="stylesheet" href="{% static 'assets/css/argon.css' %}" />
+<style>
+  .btn-purple {
+    background-color: #6f42c1 !important;
+    color: white !important;
+    border-color: #6f42c1 !important;
+  }
+  .btn-purple:hover {
+    background-color: #5a32a3 !important;
+    border-color: #5a32a3 !important;
+  }
+  .actions-column .btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+    transition: all 0.3s ease;
+  }
+  .badge {
+    font-size: 0.85em;
+    padding: 0.5em 0.75em;
+  }
+  .modal-dialog { max-width: 600px; }
+  .modal.fade.show {
+    display: block !important;
+    background-color: rgba(0,0,0,0.5);
+  }
+</style>
 {% endblock stylesheets %}
 
 {% block content %}
-<div class="container mt-5">
-  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Lista de Cohortes Registradas</h2>
+<div class="container mt-4">
+  <h2 class="text-center mb-4">Lista de Cohortes Registradas</h2>
 
-  {% if messages %}
-    {% for message in messages %}
-      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-        {{ message }}
-      </div>
-    {% endfor %}
-  {% endif %}
-
-  <div class="row">
+  <div class="row mb-3">
     <div class="col-md-4">
       <div class="input-group">
-        <div class="input-group-prepend">
-          <span class="input-group-text" style="background-color: #bcbcbc; border: none;">
-            <i class="fas fa-search text-warning"></i>
-          </span>
-        </div>
-        <input class="form-control" id="searchInput" type="text" placeholder="Buscar..." onkeyup="filterTable()">
+        <span class="input-group-text"><i class="fas fa-search"></i></span>
+        <input class="form-control" id="searchInput" type="text" placeholder="Buscar por Nombre…">
       </div>
     </div>
-    <div class="col-md-4">
-      <button class="btn btn-warning btn-square btn-sm my-2" type="button" title="Registrar Cohorte" data-toggle="modal" data-target="#cohorteModal">+</button>
+    <div class="col-md-8 text-end">
+      {% if perms.home.add_cohorte %}
+        <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#cohorteModal">
+          <i class="fas fa-plus-circle me-1"></i> Registrar Cohorte
+        </button>
+      {% endif %}
     </div>
   </div>
 
-  <br>
-  <table class="table table-striped text-gray-dark" id="cohorteTable">
-    <thead class="text-darker">
-        <tr>
-            <th scope="col">ID</th>
-            <th scope="col">Nombre</th>
-            <th scope="col">Estado</th>
-            <th scope="col">Fecha</th>
-            <th scope="col">Acciones</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for cohorte in cohortes %}
-        <tr>
+  <div class="mb-3">
+    <a href="?mostrar_inactivos={% if mostrar_inactivos %}false{% else %}true{% endif %}"
+       class="btn btn-outline-secondary btn-sm">
+      {% if mostrar_inactivos %}
+        <i class="fas fa-eye-slash me-1"></i> Ocultar inactivos
+      {% else %}
+        <i class="fas fa-eye me-1"></i> Mostrar inactivos
+      {% endif %}
+    </a>
+  </div>
+
+  <div id="globalMessages">
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+      {% endfor %}
+    {% endif %}
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="table-responsive">
+      <table class="table table-striped table-hover align-middle text-gray-dark" id="cohortesTable">
+        <thead class="table-light">
+          <tr>
+            <th>ID</th>
+            <th>Nombre</th>
+            <th>Fecha</th>
+            <th>Estado</th>
+            <th class="actions-column">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for cohorte in cohortes %}
+          <tr>
             <td>{{ cohorte.idCohorte }}</td>
             <td>{{ cohorte.nombreCohorte }}</td>
-            <td>{{ cohorte.estadoCohorte }}</td>
             <td>{{ cohorte.fechaCohorte|date:"d/m/Y" }}</td>
             <td>
-              <button class="btn btn-sm btn-primary" type="button" data-toggle="modal" data-target="#editModal" data-url="{% url 'edit_cohorte' cohorte.idCohorte %}">
-                Editar
-              </button>
-
-              {% if cohorte.estadoCohorte == "ACTIVO" %}
-              <button class="btn btn-sm btn-danger" type="button" onclick="deleteCohorte('{{ cohorte.idCohorte }}')">
-                Eliminar
-              </button>
-              {% endif %}
-
-              {% if cohorte.estadoCohorte == "INACTIVO" %}
-              <button class="btn btn-sm btn-success" type="button" onclick="reactivateCohorte('{{ cohorte.idCohorte }}')">
-                Reactivar
-              </button>
+              {% if cohorte.estadoCohorte|upper == "ACTIVO" %}
+                <span class="badge bg-success text-white">
+                  <i class="fas fa-check-circle me-1"></i> Activo
+                </span>
+              {% else %}
+                <span class="badge bg-danger text-white">
+                  <i class="fas fa-times-circle me-1"></i> Inactivo
+                </span>
               {% endif %}
             </td>
-        </tr>
-        {% empty %}
-        <tr>
-            <td colspan="5" class="text-center">No hay registros disponibles.</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+            <td class="actions-column">
+              <div class="d-flex gap-2">
+                {% if perms.home.change_cohorte %}
+                  <button class="btn btn-primary btn-sm"
+                          data-bs-toggle="modal"
+                          data-bs-target="#editCohorteModal"
+                          data-url="{% url 'edit_cohorte' cohorte.idCohorte %}"
+                          title="Editar cohorte">
+                    <i class="fas fa-edit"></i>
+                  </button>
+                {% endif %}
+                {% if cohorte.estadoCohorte|upper == "ACTIVO" and perms.home.change_cohorte %}
+                  <button class="btn btn-outline-warning btn-sm"
+                          data-bs-toggle="modal"
+                          data-bs-target="#deleteCohorteModal"
+                          data-url="{% url 'desactivar_cohorte' cohorte.idCohorte %}"
+                          title="Inhabilitar cohorte">
+                    <i class="fas fa-user-slash"></i>
+                  </button>
+                {% endif %}
+                {% if cohorte.estadoCohorte|upper == "INACTIVO" and perms.home.change_cohorte %}
+                  <button class="btn btn-success btn-sm"
+                          data-bs-toggle="modal"
+                          data-bs-target="#reactivateCohorteModal"
+                          data-url="{% url 'reactivate_cohorte' cohorte.idCohorte %}"
+                          title="Reactivar cohorte">
+                    <i class="fas fa-redo"></i>
+                  </button>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="5" class="text-center py-4">No hay cohortes registradas.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
 </div>
 
-<!-- Modal para registrar -->
-<div class="modal fade" id="cohorteModal" tabindex="-1" role="dialog" aria-labelledby="cohorteModalLabel" aria-hidden="true">
-  <div class="modal-dialog" role="document">
+{# ─── Modales ─── #}
+
+<!-- Modal: Registrar Cohorte -->
+<div class="modal fade" id="cohorteModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-md">
     <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="cohorteModalLabel">Registro de Cohorte</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title text-white"><i class="fas fa-plus-circle me-2"></i> Registro de Cohorte</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
         </button>
       </div>
-      <div class="modal-body">
-        <div id="modalMessages"></div>
+      <div class="modal-body" id="registrarCohorteContent">
+        <div class="text-center py-4 text-muted">Cargando formulario…</div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Modal para editar -->
-<div class="modal fade" id="editCargoModal" tabindex="-1" role="dialog" aria-labelledby="editCargoModalLabel" aria-hidden="true">
-  <div class="modal-dialog" role="document">
+<!-- Modal: Editar Cohorte -->
+<div class="modal fade" id="editCohorteModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-md">
     <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="editCargoModalLabel">Modificar Cohorte</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title text-white"><i class="fas fa-edit me-2"></i> Editar Cohorte</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body" id="editCohorteContent">
+        <div class="text-center py-4 text-muted">Cargando formulario…</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Inhabilitar Cohorte -->
+<div class="modal fade" id="deleteCohorteModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-warning text-dark">
+        <h5 class="modal-title text-white"><i class="fas fa-user-slash me-2"></i> Confirmar Inhabilitación</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
         </button>
       </div>
       <div class="modal-body">
-        <div id="modalMessages">
+        ¿Seguro que deseas inhabilitar esta cohorte?
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <form id="deleteCohorteForm" method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-warning">Inhabilitar</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
 
-          <form id="editCohorteForm">
-            <!-- El contenido del formulario de edición se cargará aquí -->
-          </form>
-
-
-        </div>
+<!-- Modal: Reactivar Cohorte -->
+<div class="modal fade" id="reactivateCohorteModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title text-white"><i class="fas fa-redo me-2"></i> Confirmar Reactivación</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        ¿Deseas reactivar esta cohorte?
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <form id="reactivateCohorteForm" method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-success">Reactivar</button>
+        </form>
       </div>
     </div>
   </div>
@@ -123,123 +235,117 @@
 {% endblock content %}
 
 {% block javascripts %}
+<script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
+<script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
 <script>
-  document.addEventListener("DOMContentLoaded", function() {
-    $('#cohorteModal').on('show.bs.modal', function (e) {
-      var modal = $(this);
-      $.ajax({
-        url: 'apps/home/cohorte.html',
-        method: 'GET',
-        success: function(data) {
-          modal.find('.modal-body').html(data);
-        }
-      });
-    });
+document.addEventListener('DOMContentLoaded', () => {
+  // helper para cargar formularios
+  const loadInModal = (modalId, urlGetter, contentId) => {
+    $(modalId).on('show.bs.modal', e => {
+      const $c = $(modalId).find(contentId)
+      $c.html('<div class="text-center py-4"><div class="spinner-border text-primary" role="status"></div></div>');
+      $.get(urlGetter(e)).done(html => $c.html(html));
+    }).on('hidden.bs.modal', () => $(contentId).empty());
+  };
 
-    // Manejar modal de edición
-    $('#editModal').on('show.bs.modal', function (e) {
-      var modal = $(this);
-      var url = $(e.relatedTarget).data('url');
-      $.ajax({
-        url: url,
-        method: 'GET',
-        success: function(data) {
-          modal.find('.modal-body').html(data);
-        },
-        error: function() {
-          alert('Error al cargar el formulario de edición.');
-        }
-      });
-    });
+  // crear / editar
+  loadInModal('#cohorteModal',      () => "{% url 'cohorte_modal' %}",         '#registrarCohorteContent');
+  loadInModal('#editCohorteModal',  e => $(e.relatedTarget).data('url'),      '#editCohorteContent');
 
-    $(document).on('submit', '#cohorteForm', function(e) {
-      e.preventDefault();
-      var form = $(this);
-      $.ajax({
-        url: form.attr('action'),
-        method: form.attr('method'),
-        data: form.serialize(),
-        success: function(response) {
-          handleFormResponse(response, '#cohorteModal');
-        }
-      });
+  // asignar URL a forms delete/reactivate
+  ['delete','reactivate'].forEach(act => {
+    const mid  = `#${act}CohorteModal`;
+    const fid  = `#${act}CohorteForm`;
+    $(mid).on('show.bs.modal', e => {
+      $(fid).attr('action', $(e.relatedTarget).data('url'));
     });
-
-    $(document).on('submit', '#editCohorteForm', function(e) {
-      e.preventDefault();
-      var form = $(this);
-      $.ajax({
-        url: form.attr('action'),
-        method: form.attr('method'),
-        data: form.serialize(),
-        success: function(response) {
-          handleFormResponse(response, '#editModal');
-        }
+  });
+  
+  $(function(){
+    // editar
+    $('#editCohorteModal').on('show.bs.modal', e=>{
+      const url = $(e.relatedTarget).data('url');
+      const $body = $('#editCohorteContent').html('<div class="spinner-border text-primary"></div>');
+      $.get(url).done(html => $body.html(html));
+    });
+  
+    // desactivar
+    $('#deleteCohorteModal').on('show.bs.modal', e=>{
+      const url = $(e.relatedTarget).data('url');
+      $('#deleteCohorteForm').attr('action', url);
+    });
+    // NO interceptamos submit de delete: que haga redirect y muestre mensaje
+  
+    // filtrar tabla
+    $('#searchInput').on('keyup', function(){
+      const f = this.value.toUpperCase();
+      $('#cohortesTable tbody tr').toggle(function(){
+        return $(this).text().toUpperCase().includes(f);
       });
     });
   });
 
-  function handleFormResponse(response, modalId) {
-    var messagesContainer = $('#modalMessages');
-    messagesContainer.empty();
-    if (response.success) {
-      messagesContainer.append('<div class="alert alert-success">' + response.message + '</div>');
-      $(modalId).modal('hide');
-      setTimeout(() => location.reload(), 1500);
-    } else {
-      $.each(response.errors, function(field, error) {
-        messagesContainer.append('<div class="alert alert-danger">' + error + '</div>');
-      });
-    }
-  }
-
-  function deleteCohorte(id) {
-    if (confirm('¿Estás seguro de eliminar esta cohorte?')) {
-      $.ajax({
-        url: '{% url "delete_cohorte" 0 %}'.replace('0', id),
-        method: 'POST',
-        data: { csrfmiddlewaretoken: '{{ csrf_token }}' },
-        success: function(response) {
-          alert(response.message);
-          location.reload();
+  // AJAX crear
+  $(document).on('submit','#cohorteForm',function(e){
+    e.preventDefault();
+    const f = $(this);
+    $.post(f.attr('action'),f.serialize())
+      .done(r => {
+        if(r.success){
+          $('#cohorteModal').modal('hide');
+          $('#globalMessages').prepend(`
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+              ${r.message}
+              <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+            </div>`);
+          setTimeout(()=>location.reload(),500);
+        } else {
+          let html='';
+          Object.values(r.errors).forEach(m => html+=`<div class="alert alert-danger">${m}<button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>/div>`);
+          $('#registrarCohorteContent').prepend(html);
         }
-      });
-    }
-  }
+      })
+      .fail(()=>alert('Error al crear cohorte.'));
+  });
 
-  function reactivateCohorte(id) {
-    if (confirm('¿Estás seguro de reactivar esta cohorte?')) {
-      $.ajax({
-        url: '{% url "reactivate_cohorte" 0 %}'.replace('0', id),
-        method: 'POST',
-        data: { csrfmiddlewaretoken: '{{ csrf_token }}' },
-        success: function(response) {
-          alert(response.message);
-          location.reload();
+  // AJAX editar
+  $(document).on('submit','#editCohorteForm',function(e){
+    e.preventDefault();
+    const f = $(this);
+    $.post(f.attr('action'),f.serialize())
+      .done(r => {
+        if(r.success){
+          $('#editCohorteModal').modal('hide');
+          $('#globalMessages').prepend(`
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+              ${r.message}
+              <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+            </div>`);
+          setTimeout(()=>location.reload(),500);
+        } else {
+          let html='';
+          Object.values(r.errors).forEach(m => html+=`<div class="alert alert-danger">${m}<button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button></div>`);
+          $('#editCohorteContent').prepend(html);
         }
-      });
-    }
-  }
+      })
+      .fail(()=>alert('Error al editar cohorte.'));
+  });
 
-  function filterTable() {
-    var input = document.getElementById("searchInput");
-    var filter = input.value.toUpperCase();
-    var table = document.getElementById("cohorteTable");
-    var tr = table.getElementsByTagName("tr");
-    
-    for (let i = 1; i < tr.length; i++) {
-      tr[i].style.display = "none";
-      let tds = tr[i].getElementsByTagName("td");
-      for (let j = 0; j < tds.length; j++) {
-        if (tds[j]) {
-          let txtValue = tds[j].textContent || tds[j].innerText;
-          if (txtValue.toUpperCase().indexOf(filter) > -1) {
-            tr[i].style.display = "";
-            break;
-          }
-        }
-      }
-    }
-  }
+  // filtrar tabla
+  $('#searchInput').on('keyup',function(){
+    const filter = this.value.toUpperCase();
+    $('#cohortesTable tbody tr').each(function(){
+      $(this).toggle($(this).text().toUpperCase().includes(filter));
+    });
+  });
+});
 </script>
 {% endblock javascripts %}
