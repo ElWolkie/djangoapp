@@ -71,18 +71,17 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    "apps.api",  # La app donde estan las rutas y vistas
-    "rest_framework",  # Django Rest Framework
-    "rest_framework_simplejwt", #JWT para autenticacion
-    "corsheaders",  # Para permitir conexiones desde el frontend
-    "apps.authentication",
     'django_extensions',
+    "apps.home",  # Enable the inner home (home)
     "apps.persona",  # Habilita la aplicación para gestionar personas
     "apps.honorario",  # Habilita la aplicación para gestionar honorario
     "apps.inscripcion",  # Habilita la aplicación para gestionar honorario
     "apps.solicitud",  # Habilita la aplicación para gestionar solicitud
-    "apps.home",  # Enable the inner home (home)
-
+    "apps.authentication",
+    "apps.api",  # La app donde estan las rutas y vistas
+    "rest_framework",  # Django Rest Framework
+    "rest_framework_simplejwt", #JWT para autenticacion
+    "corsheaders",  # Para permitir conexiones desde el frontend
 ]
 
 MIDDLEWARE = [
