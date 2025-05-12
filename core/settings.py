@@ -14,13 +14,7 @@ SECRET_KEY = config('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config("DEBUG", default=False, cast=bool)
 
-# SECURE_SSL_REDIRECT = True  # Redirige HTTP → HTTPS
-# SESSION_COOKIE_SECURE = True  # Cookies solo por HTTPS
-
-SESSION_COOKIE_HTTPONLY = True  # Protege cookies de JavaScript
 CSRF_COOKIE_SECURE = False  # Si no estás usando HTTPS
-
-SESSION_ENGINE = "django.contrib.sessions.backends.cached_db"  # Combina caché + DB
 
 # Application definition
 ALLOWED_HOSTS = ['djangoapp-6wxv.onrender.com']
@@ -40,13 +34,6 @@ CORS_ALLOWED_ORIGINS = [
     "https://djangoapp-6wxv.onrender.com",  # Dominio de Render
 ]
 
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'unique-snowflake',
-    }
-}
-
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -54,7 +41,6 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    # 'debug_toolbar', # para ver los tiempos de respuesta de las pantallas
     "apps.api",  # La app donde estan las rutas y vistas
     "rest_framework",  # Django Rest Framework
     "rest_framework_simplejwt", #JWT para autenticacion
@@ -79,12 +65,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "corsheaders.middleware.CorsMiddleware",
-    # 'debug_toolbar.middleware.DebugToolbarMiddleware',
-]
-
-# Direcciones IP donde se mostrará la toolbar (normalmente localhost)
-INTERNAL_IPS = [
-    '127.0.0.1',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
 ]
 
 STATIC_URL = '/static/'
@@ -158,7 +139,7 @@ AUTH_PASSWORD_VALIDATORS = [
         "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator', 'OPTIONS': {'min_length': 12}
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
     },
     {
         "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
@@ -167,6 +148,7 @@ AUTH_PASSWORD_VALIDATORS = [
         "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
     },
 ]
+
 # Internationalization
 # https://docs.djangoproject.com/en/3.0/topics/i18n/
 
