@@ -3,6 +3,7 @@ from django.contrib.auth.models import User
 from django.db import models
 from apps.persona.models import Personas
 from apps.home.models import Cargo, Cohorte, Materia
+from django.core.exceptions import ValidationError
 
 class Honorario(models.Model):  
     idHonorario = models.AutoField(primary_key=True)  # Clave primaria para Honorario  
@@ -26,3 +27,19 @@ class Honorario(models.Model):
             )
         ]
 
+    def clean(self):
+        # Evita duplicados: una persona no puede tener más de un honorario para la misma cohorte, cargo y materia
+        qs = Honorario.objects.filter(
+            idPersona=self.idPersona,
+            idCohorte=self.idCohorte,
+            idCargo=self.idCargo,
+            idMateria=self.idMateria,
+        )
+        # Excluye el propio registro si es edición
+        if self.pk:
+            qs = qs.exclude(pk=self.pk)
+        if qs.exists():
+            raise ValidationError({'__all__': 'Este honorario ya está registrado para esta persona, cohorte, cargo y materia.'})
+
+    def __str__(self):
+        return f"Honorario {self.idHonorario} - {self.idPersona}"

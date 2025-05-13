@@ -6,6 +6,7 @@ from .views import registrar_usuario
 urlpatterns = [
     # Ruta principal (Home)
     path('', views.home, name='home'),
+    path('contabilidad/', views.contabilidad_view, name='contabilidad'),
     path('login/', views.login_view, name='login'),
     path('logout/', views.logout_view, name='logout'),
 
@@ -32,8 +33,10 @@ urlpatterns = [
     path('desactivar_tipoFormacion/<int:pk>/', views.desactivar_tipoFormacion, name='desactivar_tipoFormacion'),
     path('reactivate_tipoFormacion/<int:pk>/', views.reactivate_tipoFormacion, name='reactivate_tipoFormacion'),
     path('edit_tipoFormacion/<int:pk>/', views.edit_tipoFormacion, name='edit_tipoFormacion'),    
-    path('tablaTipoFormacion/', views.tabla_tipoFormacion, name='tabla_tipoFormacion'),   
+    path('tablaTipoFormacion/', views.tabla_tipoFormacion, name='tabla_tipoFormacion'),
+    path('reporte-tipo-formacion/', views.reporte_tipo_formacion_pdf, name='reporte_tipo_formacion_pdf'),
 
+  
     # Specific route for formacion modal
     path('formacionModal/', views.formacion_modal, name='formacion_modal'),
     path('editFormacion/<int:pk>/', views.edit_formacion, name='edit_formacion'),
@@ -41,6 +44,7 @@ urlpatterns = [
     path('reactivateFormacion/<int:pk>/', views.reactivate_formacion, name='reactivate_formacion'),
     path('desactivar_formacion/<int:pk>/', views.desactivar_formacion, name='desactivar_formacion'),
     path('tablaFormaciones/', views.tabla_formaciones, name='tabla_formaciones'),
+    path('reporte-formaciones/', views.reporte_formaciones_pdf, name='reporte_formaciones_pdf'),
 
        # Specific route for materia modal
     path('materiaModal/', views.materia_modal, name='materia_modal'),
@@ -49,6 +53,7 @@ urlpatterns = [
     path('desactivarMateria/<int:pk>/', views.desactivar_materias, name='desactivar_materias'),
     path('reactivateMateria/<int:pk>/', views.reactivate_materias, name='reactivate_materias'),
     path('tablaMaterias/', views.tabla_materias, name='tabla_materias'),
+    path('reporte-materias/', views.reporte_materias_pdf, name='reporte_materias_pdf'),
 
     # Specific route for cohorte modal
     path('cohorteModal/', views.cohorte_modal, name='cohorte_modal'),
@@ -57,6 +62,7 @@ urlpatterns = [
     path('desactivarCohorte/<int:pk>/', views.desactivar_cohorte, name='desactivar_cohorte'),
     path('reactivateCohorte/<int:pk>/', views.reactivate_cohorte, name='reactivate_cohorte'),
     path('tablaCohorte/', views.tabla_cohortes, name='tabla_cohortes'),
+    path('reporte-cohortes/', views.reporte_cohortes_pdf, name='reporte_cohortes_pdf'),
 
     # Ruta especificica para cargo modal
     path('cargoModal/', views.cargo_modal, name='cargo_modal'),
@@ -75,6 +81,7 @@ urlpatterns = [
     path('desactivar_requisito/<int:pk>/', views.desactivar_requisito, name='desactivar_requisito'),
     path('reactivateRequisito/<int:pk>/', views.reactivate_requisito, name='reactivate_requisito'),
     path('tablaRequisitos/', views.tabla_requisitos, name='tabla_requisitos'),
+    path('reporte-requisitos/', views.reporte_requisitos_pdf, name='reporte_requisitos_pdf'),
 
     # Specific route for servicio modal
     path('servicioModal/', views.servicio_modal, name='servicio_modal'),
@@ -83,6 +90,7 @@ urlpatterns = [
     path('desactivar_servicio/<int:pk>/', views.desactivar_servicio, name='desactivar_servicio'),
     path('reactivateServicio/<int:pk>/', views.reactivate_servicio, name='reactivate_servicio'),
     path('tablaServicios/', views.tabla_servicios, name='tabla_servicios'),
+    path('reporte-servicios/', views.reporte_servicios_pdf, name='reporte_servicios_pdf'),
 
     # Specific route for tramite modal
     path('tramiteModal/', views.tramite_modal, name='tramite_modal'),
@@ -91,6 +99,7 @@ urlpatterns = [
     path('desactivar_tramite/<int:pk>/', views.desactivar_tramite, name='desactivar_tramite'),
     path('reactivateTramite/<int:pk>/', views.reactivate_tramite, name='reactivate_tramite'),
     path('tablaTramites/', views.tabla_tramites, name='tabla_tramites'),
+    path('reporte-tramites/', views.reporte_tramites_pdf, name='reporte_tramites_pdf'),
 
     # Specific route for denominacion modal
     path('denominacionModal/', views.denominacion_modal, name='denominacion_modal'),
@@ -99,6 +108,8 @@ urlpatterns = [
     path('desactivar_denominacion/<int:pk>/', views.desactivar_denominacion, name='desactivar_denominacion'),
     path('reactivateDenominacion/<int:pk>/', views.reactivate_denominacion, name='reactivate_denominacion'),
     path('tablaDenominaciones/', views.tabla_denominaciones, name='tabla_denominaciones'),
+    path('reporte-denominaciones/', views.reporte_denominaciones_pdf, name='reporte_denominaciones_pdf'),
+
 
     # Specific route for banco modal
     path('bancoModal/', views.banco_modal, name='banco_modal'),
@@ -107,6 +118,8 @@ urlpatterns = [
     path('desactivar_banco/<int:pk>/', views.desactivar_banco, name='desactivar_banco'),
     path('reactivateBanco/<int:pk>/', views.reactivate_banco, name='reactivate_banco'),
     path('tablaBancos/', views.tabla_bancos, name='tabla_bancos'),
+    path('reporte-bancos/', views.reporte_bancos_pdf, name='reporte_bancos_pdf'),
+
 
     # Specific route for moneda modal
     path('monedaModal/', views.moneda_modal, name='moneda_modal'),
@@ -115,6 +128,7 @@ urlpatterns = [
     path('desactivar_moneda/<int:pk>/', views.desactivar_moneda, name='desactivar_moneda'),
     path('reactivateMoneda/<int:pk>/', views.reactivate_moneda, name='reactivate_moneda'),
     path('tablaMonedas/', views.tabla_monedas, name='tabla_monedas'),
+    path('reporte-monedas/', views.reporte_monedas_pdf, name='reporte_monedas_pdf'),
 
     # Specific route for tasa modal
     path('tasaModal/', views.tasa_modal, name='tasa_modal'),
@@ -123,6 +137,8 @@ urlpatterns = [
     path('desactivar_tasa/<int:pk>/', views.desactivar_tasa, name='desactivar_tasa'),
     path('reactivateTasa/<int:pk>/', views.reactivate_tasa, name='reactivate_tasa'),
     path('tablaTasas/', views.tabla_tasas, name='tabla_tasas'),
+    path('reporte-tasas/', views.reporte_tasas_pdf, name='reporte_tasas_pdf'),
+
 
 
     # Ruta espicifica para tipoIngreso modal

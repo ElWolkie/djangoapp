@@ -44,12 +44,18 @@
         <input class="form-control" id="searchInput" type="text" placeholder="Buscar por Nombre, Precio...">
       </div>
     </div>
-    <div class="col-md-8 text-end">
+    <div class="col-md-4 text-center">
       {% if perms.home.add_tramite %}
       <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#tramiteModal">
         <i class="fas fa-plus-circle me-1"></i> Registrar Trámite
       </button>
       {% endif %}
+    </div>
+
+    <div class="col-md-4 text-end">
+      <a href="{% url 'reporte_tramites_pdf' %}" class="btn btn-outline-danger btn-sm" target="_blank">
+        <i class="fas fa-file-pdf"></i> Descargar PDF
+      </a>
     </div>
   </div>
 
@@ -244,6 +250,8 @@
 {% block javascripts %}
 <script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
 <script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
+<script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
+
 <script>
 document.addEventListener('DOMContentLoaded', () => {
   const loadInModal = (modalId, urlGetter, contentId) => {
@@ -268,14 +276,17 @@ document.addEventListener('DOMContentLoaded', () => {
     $(m).on('show.bs.modal', e => {
       $(f).attr('action', $(e.relatedTarget).data('url'));
     });
-  });
+        });
+      });
 
   // Helper global
   function showGlobal(type, txt){
     $('#globalMessages').prepend(`
       <div class="alert alert-${type} alert-dismissible fade show" role="alert">
         ${txt}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
       </div>`);    
   }
 
@@ -320,6 +331,184 @@ document.addEventListener('DOMContentLoaded', () => {
       $(this).toggle($(this).text().toUpperCase().includes(f));
     });
   });
-});
+
+
+    // Manejar el envío del formulario de edición
+    $(document).on('submit', '#editTramiteForm', function(e) {
+      e.preventDefault();
+      var form = $(this);
+      
+      if (!highlightInvalidInputs('#editTramiteForm')) {e.preventDefault(); return false; }
+
+      $.ajax({
+        url: form.attr('action'),
+        method: form.attr('method'),
+        data: form.serialize(),
+        success: function(response) {
+          modal.find('.modal-body').html(data); // Cargar el contenido del formulario en el modal
+      },
+      error: function () {
+      alert('Error al cargar el formulario de edición.');
+      }
+    });
+    });
+
+    $(document).on('submit', '#editTramiteForm', function(e) {
+      e.preventDefault();
+      var form = $(this);
+      if (!highlightInvalidInputs('#editTramiteForm')) {e.preventDefault();return false; } 
+    
+      $.ajax({
+        url: form.attr('action'),
+        method: form.attr('method'),
+        data: form.serialize(),
+        success: function(response) {
+          handleFormResponse(response, '#tramiteModal');
+      },
+      error: function() {
+        alert('Error al procesar la solicitud');
+      }
+    });
+  });
+
+  
+//Funcion para eliminar y reactivar logico
+function manageTramite(id, action) {
+  const confirmMessage = action === 'delete'
+    ? '¿Está seguro de eliminar este registro?'
+    : (action === 'reactivate'
+        ? '¿Está seguro de reactivar este registro?'
+        : '¿Está seguro de realizar esta acción?');
+
+  Swal.fire({
+    title: confirmMessage,
+    icon: action === 'delete' ? 'warning' : 'question',
+    showCancelButton: true,
+    confirmButtonText: action === 'delete' ? 'Eliminar' : 'Reactivar',
+    cancelButtonText: 'Cancelar',
+    customClass: {
+      confirmButton: action === 'delete' ? 'btn btn-danger' : 'btn btn-success',
+      cancelButton: 'btn btn-secondary'
+    },
+    buttonsStyling: false,
+  }).then((result) => {
+    if (result.isConfirmed) {
+      const url = action === 'delete'
+        ? "{% url 'desactivar_tramite' 0 %}".replace('0', id)
+        : "{% url 'reactivate_tramite' 0 %}".replace('0', id);
+
+      const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+      fetch(url, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': csrftoken,
+        },
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          Swal.fire({
+            title: action === 'delete' ? 'Eliminado' : 'Reactivado',
+            text: data.message,
+            icon: 'success',
+            confirmButtonText: 'OK',
+            customClass: { confirmButton: 'btn btn-warning' },
+            buttonsStyling: false,
+          }).then(() => location.reload());
+        } else {
+          Swal.fire('Error', data.message, 'error');
+        }
+      })
+      .catch(error => Swal.fire('Error', 'Ocurrió un error en el servidor.', 'error'));
+    }
+  });
+}
+// Validación visual de campos requeridos
+function highlightInvalidInputs(formSelector) {
+  const form = document.querySelector(formSelector);
+  if (!form) return true;
+  let valid = true;
+  let firstInvalid = null;
+  form.querySelectorAll('input[data-required], select[data-required], textarea[data-required]').forEach(input => {
+    if (!input.value.trim()) {
+      input.classList.add('is-invalid');
+      if (!firstInvalid) firstInvalid = input;
+      valid = false;
+    } else {
+      input.classList.remove('is-invalid');
+    }
+  });
+  if (!valid) {
+    Swal.fire({
+      title: 'Campos requeridos',
+      text: 'Por favor, complete todos los campos obligatorios resaltados en rojo.',
+      icon: 'warning',
+      confirmButtonText: 'OK',
+      customClass: { confirmButton: 'btn btn-warning' },
+      buttonsStyling: false,
+    }).then(() => {
+      if (firstInvalid) firstInvalid.focus();
+    });
+  }
+  return valid;
+}
+
+// Manejo de respuesta AJAX para formularios (registro y edición)
+function handleFormResponse(response, modalId) {
+  var modal = $(modalId);
+  var messagesContainer = modal.find('#modalMessages');
+  messagesContainer.empty();
+  if (response.success) {
+    messagesContainer.append('<div class="alert alert-success">' + response.message + '</div>');
+    setTimeout(() => {
+      modal.modal('hide');
+      location.reload();
+    }, 1200);
+  } else {
+    // Alerta para errores generales (duplicados)
+    if (response.errors && response.errors.__all__) {
+      Swal.fire({
+        title: 'Registro duplicado',
+        text: response.errors.__all__.join('\n'),
+        icon: 'warning',
+        confirmButtonText: 'OK',
+        customClass: { confirmButton: 'btn btn-warning' },
+        buttonsStyling: false,
+      });
+    }
+    // Otros errores de campos
+    for (var field in response.errors) {
+      if (field !== "__all__") {
+        var errorMsgs = Array.isArray(response.errors[field]) ? response.errors[field] : [response.errors[field]];
+        errorMsgs.forEach(function(msg) {
+          messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + msg + '</div>');
+        });
+      }
+    }
+  }
+}
+//Funcion para filtrar la tabla
+  function filterTable() {
+    var input, filter, table, tr, td, i, j, txtValue;
+    input = document.getElementById("searchInput");
+    filter = input.value.toUpperCase();
+    table = document.getElementById("tramitesTable");
+    tr = table.getElementsByTagName("tr");
+    for (i = 1; i < tr.length; i++) {
+      tr[i].style.display = "none";
+      td = tr[i].getElementsByTagName("td");
+      for (j = 0; j < td.length; j++) {
+        if (td[j]) {
+          txtValue = td[j].textContent || td[j].innerText;
+          if (txtValue.toUpperCase().indexOf(filter) > -1) {
+            tr[i].style.display = "";
+            break;
+          }
+        }
+      }
+    }
+  }
+  
 </script>
-{% endblock %}
+{% endblock javascripts %}

@@ -19,16 +19,25 @@
       
       <div class="form-group col-md-6">  
         <label for="nombreTramite">Nombre:</label>  
-        <input type="text" id="nombreTramite" name="nombreTramite" class="form-control text-dark" value="{{tramite.nombreTramite}}" placeholder="Ingrese un nombre" tabindex="3" maxlength="100" readonly />          
+        <input type="text" id="nombreTramite" name="nombreTramite" class="form-control text-dark" value="{{tramite.nombreTramite}}" placeholder="Ingrese un nombre" tabindex="3" maxlength="100" data-required="true" />          
+        <div class="invalid-feedback">
+          Por favor ingrese el precio.
+        </div>
       </div>  
       <div class="form-group col-md-6">  
         <label for="diasTramite">Tiempo de Respuesta:</label>  
-        <input type="text" id="diaTramite" name="diasTramite" class="form-control text-dark" value="{{tramite.diasTramite}}" placeholder="4 días" tabindex="3" maxlength="100" required />          
+        <input type="text" id="diaTramite" name="diasTramite" class="form-control text-dark" value="{{tramite.diasTramite}}" placeholder="4 días" tabindex="3" maxlength="100" data-required="true" />          
+        <div class="invalid-feedback">
+          Por favor ingrese el tiempo de respuesta.
+        </div>
       </div>  
       <div class="form-group col-md-6">  
         <label for="precioTramite">Precio:</label>  
-        <input type="text" id="precioTramite" name="precioTramite" class="form-control text-dark" value="{{tramite.precioTramite}}" placeholder="4 años" tabindex="3" maxlength="100" required />    
+        <input type="text" id="precioTramite" name="precioTramite" class="form-control text-dark" value="{{tramite.precioTramite}}" placeholder="4 años" tabindex="3" maxlength="100" data-required="true" />    
         <input type="hidden" id="estadoTramite" name="estadoTramite" class="form-control text-dark" value="ACTIVO" />        
+        <div class="invalid-feedback">
+          Por favor ingrese el precio.
+        </div>
       </div>  
     </div>  
     
@@ -52,8 +61,18 @@
         }
       });
     });
-    //Validar solo letras 
+    
   });
+  // Validar mayusculas en inputs
+    function activarMayusculasInputs() {
+    document.addEventListener('input', function(e) {
+      if (e.target.tagName === 'INPUT' && !e.target.type.match(/password|hidden|email/)) {
+        e.target.value = e.target.value.toUpperCase();
+      }
+    });
+  }
+  activarMayusculasInputs();
+  //Validar solo letras 
   document.getElementById("nombreTramite").addEventListener("input", function() {
     this.value = this.value.replace(/[^a-zA-Z\s]/g, '');
 
@@ -97,5 +116,21 @@ $(document).on('submit', '#registroForm', function(e) {
         }
       });
     });
+
+
+    // Validaciones de Bootstrap
+      (function() {
+              'use strict';
+              var forms = document.querySelectorAll('.needs-validation');
+              Array.prototype.slice.call(forms).forEach(function(form) {
+                form.addEventListener('submit', function(event) {
+                  if (!form.checkValidity()) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                  }
+                  form.classList.add('was-validated');
+                }, false);
+              });
+            })();   
 </script>
 {% endblock javascripts %}

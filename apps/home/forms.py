@@ -99,7 +99,7 @@ class FormacionForm(forms.ModelForm):
 
     class Meta:  
         model = Formacion  
-        fields = ['nombreFormacion','valorFormacion', 'duracion', 'estadoFormacion']
+        fields = ['idTF', 'nombreFormacion','valorFormacion', 'duracion', 'estadoFormacion']
 
     def clean_nombreFormacion(self):
         nombre = self.cleaned_data['nombreFormacion'].strip()
@@ -205,7 +205,17 @@ class DenominacionForm(forms.ModelForm):
 
     class Meta:  
         model = Denominacion  
-        fields = ['idDenominacion', 'nombreDenominacion', 'estadoDenominacion']  
+        fields = ['idDenominacion', 'nombreDenominacion', 'estadoDenominacion']
+    
+    def clean_nombreDenominacion(self):
+        nombre = self.cleaned_data['nombreDenominacion'].strip()
+        # Si es edición y no cambió, lo devolvemos directamente
+        if self.instance.pk and nombre.lower() == self.instance.nombreDenominacion.lower():
+            return nombre
+        # Si cambió, comprobamos unicidad
+        if Denominacion.objects.filter(nombreDenominacion__iexact=nombre).exists():
+            raise ValidationError("Ya existe una Denominación con ese nombre.")
+        return nombre
 
 
 class BancoForm(forms.ModelForm):  

@@ -11,6 +11,7 @@ urlpatterns = [
     path('deleteHonorario/<int:pk>/', views.delete_honorario, name='delete_honorario'),
     path('desactivar_honorario/<int:pk>/', views.desactivar_honorario, name='desactivar_honorario'),
     path('reactivateHonorario/<int:pk>/', views.reactivate_honorario, name='reactivate_honorario'),
+    path('reporteHonorarios/', views.reporte_honorarios_pdf, name='reporte_honorarios_pdf'),
 
     # Coincide con cualquier archivo HTML (no mover de lugar)
     re_path(r'^.*\.*', views.pages, name='pages'),

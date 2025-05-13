@@ -44,12 +44,18 @@
         <input class="form-control" id="searchInput" type="text" placeholder="Buscar por Nombre...">
       </div>
     </div>
-    <div class="col-md-8 text-end">
+    <div class="col-md-4 text-center">
       {% if perms.home.add_tipoformacion %}
         <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#tipoFormacionModal">
           <i class="fas fa-plus-circle me-1"></i> Registrar Tipo de Formación
         </button>
       {% endif %}
+    </div>
+
+    <div class="col-md-4 text end">
+      <a href="{% url 'reporte_tipo_formacion_pdf' %}" class="btn btn-outline-danger btn-sm" target="_blank">
+        <i class="fas fa-file-pdf"></i> Descargar PDF
+      </a>
     </div>
   </div>
 
@@ -237,81 +243,216 @@
 {% block javascripts %}
 <script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
 <script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
+<script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
+
 <script>
-$(function(){
-  // Helper para cargar AJAX en modales
-  function loadInModal(modalId, urlFn, contentSel){
-    $(modalId).on('show.bs.modal', function(e){
+document.addEventListener("DOMContentLoaded", function() {
+  // Helper para cargar contenido en modales
+  function loadInModal(modalId, urlFn, contentSel) {
+    $(modalId).on('show.bs.modal', function(e) {
       const $c = $(this).find(contentSel);
       $c.html('<div class="text-center py-4"><div class="spinner-border text-primary"></div></div>');
       $.get(urlFn(e)).done(html => $c.html(html));
-    }).on('hidden.bs.modal', function(){
+    }).on('hidden.bs.modal', function() {
       $(contentSel).empty();
     });
   }
 
-  // Crear
+  // Cargar modales
   loadInModal(
     '#tipoFormacionModal',
     () => "{% url 'tipoFormacion_modal' %}",
     '#registrarTipoFormacionContent'
   );
 
-  // Editar
   loadInModal(
     '#editTipoFormacionModal',
     e => $(e.relatedTarget).data('url'),
     '#editTipoFormacionContent'
   );
 
-  // Asignar action a delete/reactivate
-  $('#deleteTipoFormacionModal').on('show.bs.modal', e=>{
-    $('#deleteTipoFormacionForm').attr('action', $(e.relatedTarget).data('url'));
+  // Configurar acciones de desactivación/reactivación
+  $('#deleteTipoFormacionModal').on('show.bs.modal', function(e) {
+    const button = $(e.relatedTarget);
+    $('#deleteTipoFormacionForm').attr('action', button.data('url'));
   });
-  $('#reactivateTipoFormacionModal').on('show.bs.modal', e=>{
-    $('#reactivateTipoFormacionForm').attr('action', $(e.relatedTarget).data('url'));
-  });
-  // No interceptamos submits de delete/reactivate para que Django redirija y muestre messages
 
-  // AJAX para crear y editar
-  $(document).on('submit', '#tipoFormacionForm, #editTipoFormacionForm', function(e){
-    e.preventDefault();
-    const $f = $(this);
-    $.post($f.attr('action'), $f.serialize())
-      .done(resp => {
-        const isEdit = $f.is('#editTipoFormacionForm');
-        if (resp.success) {
-          const modal = isEdit ? '#editTipoFormacionModal' : '#tipoFormacionModal';
-          $(modal).modal('hide');
-          $('#globalMessages').prepend(`
-            <div class="alert alert-success alert-dismissible fade show" role="alert">
-              ${resp.message}
-               <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+  $('#reactivateTipoFormacionModal').on('show.bs.modal', function(e) {
+    const button = $(e.relatedTarget);
+    $('#reactivateTipoFormacionForm').attr('action', button.data('url'));
+  });
+
+  // Configurar acciones de desactivación/reactivación
+  let currentActionUrl = null;
+
+  $('#deleteTipoFormacionModal').on('show.bs.modal', function(event) {
+    currentActionUrl = $(event.relatedTarget).data('url');
+  });
+
+  $('#reactivateTipoFormacionModal').on('show.bs.modal', function(event) {
+    currentActionUrl = $(event.relatedTarget).data('url');
+  });
+
+  // Manejar envío de formularios modales
+  function handleFormSubmit(formSelector, modalId) {
+    $(document).on('submit', formSelector, function(e) {
+      e.preventDefault();
+      const $form = $(this);
+      
+      if (!highlightInvalidInputs(formSelector)) return false;
+
+      $.ajax({
+        url: $form.attr('action'),
+        method: $form.attr('method'),
+        data: $form.serialize(),
+        success: function(response) {
+          handleFormResponse(response, modalId);
+        },
+        error: function() {
+          Swal.fire('Error', 'Error al procesar la solicitud', 'error');
+        }
+      });
+    });
+  }
+
+  // Registrar handlers para formularios
+  handleFormSubmit('#tipoFormacionForm', '#tipoFormacionModal');
+  handleFormSubmit('#editTipoFormacionForm', '#editTipoFormacionModal');
+
+  // Función para manejar respuestas del servidor
+  function handleFormResponse(response, modalId) {
+    const modal = $(modalId);
+    const messagesContainer = modal.find('.modal-body');
+    
+    messagesContainer.find('.alert').remove();
+    
+    if (response.success) {
+      modal.modal('hide');
+      showGlobalMessage(response.message, 'success');
+      setTimeout(() => location.reload(), 1500);
+    } else {
+      if (response.errors?.__all__) {
+        Swal.fire({
+          title: 'Error de registro',
+          text: response.errors.__all__.join('\n'),
+          icon: 'error',
+          confirmButtonText: 'OK'
+        });
+      }
+      $.each(response.errors, function(field, errors) {
+        if (field !== "__all__") {
+          messagesContainer.prepend(
+            `<div class="alert alert-danger alert-dismissible fade show" role="alert">
+              ${errors.join(', ')}
+              <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
             <i class="fas fa-times"></i>
           </button>
-            </div>`);
-          setTimeout(()=>location.reload(),500);
-        } else {
-          const $cont = isEdit
-                        ? $('#editTipoFormacionContent')
-                        : $('#registrarTipoFormacionContent');
-          Object.values(resp.errors).forEach(msg=>{
-            $cont.prepend(`<div class="alert alert-danger alert-dismissible fade show" role="alert">${msg} <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
-            <i class="fas fa-times"></i>
-          </button></div>`);
-          });
+            </div>`
+          );
         }
-      })
-      .fail(()=>alert('Error al procesar la solicitud.'));
-  });
+      });
+    }
+  }
 
-  // Filtrar tabla
-  $('#searchInput').on('keyup', function(){
-    const val = this.value.toUpperCase();
-    $('#tipoFormacionesTable tbody tr').each(function(){
-      $(this).toggle($(this).text().toUpperCase().includes(val));
+  // Función para validación de campos
+  function highlightInvalidInputs(formSelector) {
+    const form = document.querySelector(formSelector);
+    let valid = true;
+    let firstInvalid = null;
+
+    form.querySelectorAll('[data-required]').forEach(input => {
+      if (!input.value.trim()) {
+        input.classList.add('is-invalid');
+        if (!firstInvalid) firstInvalid = input;
+        valid = false;
+      } else {
+        input.classList.remove('is-invalid');
+      }
+    });
+
+    if (!valid) {
+      Swal.fire({
+        title: 'Campos requeridos',
+        text: 'Complete los campos obligatorios marcados en rojo',
+        icon: 'warning',
+        confirmButtonText: 'OK'
+      }).then(() => firstInvalid?.focus());
+    }
+    return valid;
+  }
+
+  // Función para mensajes globales
+  function showGlobalMessage(message, type) {
+    const container = $('#globalMessages');
+    const alertClass = {
+      success: 'alert-success',
+      error: 'alert-danger',
+      warning: 'alert-warning'
+    }[type] || 'alert-info';
+
+    container.html(`
+      <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
+        ${message}
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+            <i class="fas fa-times"></i>
+          </button>
+      </div>
+    `);
+  }
+
+  // Filtrado de tabla
+  $('#searchInput').on('keyup', function() {
+    const filter = this.value.toUpperCase();
+    $('#tipoFormacionesTable tbody tr').each(function() {
+      $(this).toggle($(this).text().toUpperCase().includes(filter));
     });
   });
+
+  // Manejar acciones de eliminación/reactivación
+  window.manageTipoFormacion = function(id, action) {
+    const isDelete = action === 'delete';
+    const url = isDelete 
+      ? "{% url 'desactivar_tipoFormacion' 0 %}".replace('0', id)
+      : "{% url 'reactivate_tipoFormacion' 0 %}".replace('0', id);
+
+    Swal.fire({
+      title: isDelete ? '¿Eliminar registro?' : '¿Reactivar registro?',
+      icon: isDelete ? 'warning' : 'question',
+      showCancelButton: true,
+      confirmButtonText: isDelete ? 'Eliminar' : 'Reactivar',
+      cancelButtonText: 'Cancelar',
+      customClass: {
+        confirmButton: isDelete ? 'btn btn-danger' : 'btn btn-success',
+        cancelButton: 'btn btn-secondary'
+      }
+    }).then((result) => {
+      if (result.isConfirmed) {
+        fetch(url, {
+          method: 'POST',
+          headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+          }
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            showGlobalMessage(data.message, 'success');
+            setTimeout(() => location.reload(), 1500);
+          } else {
+            showGlobalMessage(data.message || 'Error en la operación', 'error');
+          }
+        })
+        .catch(() => showGlobalMessage('Error de conexión', 'error'));
+      }
+    });
+  }
 });
 </script>
+
+<style>
+  .is-invalid {
+    border-color: #dc3545 !important;
+    box-shadow: 0 0 0 0.2rem rgba(220,53,69,.25);
+  }
+</style>
 {% endblock javascripts %}

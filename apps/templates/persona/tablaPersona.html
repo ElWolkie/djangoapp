@@ -291,6 +291,177 @@ $(function(){
 });
 
 
+  function managePersona(id, action) {
+  const confirmMessage = action === 'delete' 
+    ? '¿Está seguro de eliminar este registro?' 
+    : '¿Está seguro de reactivar este registro?';
+  
+  if (confirm(confirmMessage)) {
+    const url = action === 'delete' 
+      ? "{% url 'desactivar_persona' 0 %}".replace('0', id) 
+      : "{% url 'reactivate_persona' 0 %}".replace('0', id);
+    
+    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    fetch(url, {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': csrftoken,
+      },
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        location.reload();  // Recargar la página
+      } else {
+        alert('Error: ' + data.message);
+      }
+    })
+    .catch(error => console.error('Error:', error));
+  }
+}
+  function filterTable() {
+    const filter = document.getElementById("searchInput").value.toUpperCase();
+    const rows = document.querySelectorAll("#personasTable tbody tr");
+    rows.forEach(row => {
+      const cells = row.querySelectorAll("td");
+      row.style.display = Array.from(cells).some(cell => cell.textContent.toUpperCase().includes(filter)) ? "" : "none";
+    });
+  }
+  document.addEventListener('DOMContentLoaded', function () {
+    const table = document.getElementById('personasTable');
+    const pagination = document.createElement('ul');
+    pagination.className = 'pagination justify-content-center';
+    table.parentNode.appendChild(pagination);
+
+    const rowsPerPage = 5; // Número de filas por página
+    let currentPage = 1;
+
+    // Función para mostrar las filas de la página actual
+    function displayRows() {
+      const rows = table.getElementsByTagName('tr');
+      const start = (currentPage - 1) * rowsPerPage + 1; // Ignorar encabezado
+      const end = start + rowsPerPage;
+
+      for (let i = 1; i < rows.length; i++) {
+        rows[i].style.display = i >= start && i < end ? '' : 'none';
+      }
+    }
+
+    // Función para configurar la paginación
+    function setupPagination() {
+      const rows = table.getElementsByTagName('tr');
+      const totalPages = Math.ceil((rows.length - 1) / rowsPerPage);
+
+      pagination.innerHTML = '';
+
+      // Botón "Anterior"
+      const prevLi = document.createElement('li');
+      prevLi.className = 'page-item' + (currentPage === 1 ? ' disabled' : '');
+      prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Anterior"><span aria-hidden="true">&laquo;</span></a>`;
+      prevLi.addEventListener('click', function (e) {
+        e.preventDefault();
+        if (currentPage > 1) {
+          currentPage--;
+          displayRows();
+          setupPagination();
+        }
+      });
+      pagination.appendChild(prevLi);
+
+      // Botones de páginas
+      for (let i = 1; i <= totalPages; i++) {
+        const li = document.createElement('li');
+        li.className = 'page-item' + (i === currentPage ? ' active' : '');
+        li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+        li.addEventListener('click', function (e) {
+          e.preventDefault();
+          currentPage = i;
+          displayRows();
+          setupPagination();
+        });
+        pagination.appendChild(li);
+      }
+
+      // Botón "Siguiente"
+      const nextLi = document.createElement('li');
+      nextLi.className = 'page-item' + (currentPage === totalPages ? ' disabled' : '');
+      nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Siguiente"><span aria-hidden="true">&raquo;</span></a>`;
+      nextLi.addEventListener('click', function (e) {
+        e.preventDefault();
+        if (currentPage < totalPages) {
+          currentPage++;
+          displayRows();
+          setupPagination();
+        }
+      });
+      pagination.appendChild(nextLi);
+    }
+
+    // Inicializar la tabla y la paginación
+    displayRows();
+    setupPagination();
+  });
+  //Evita que el formulario se envíe por defecto y maneja la respuesta del servidor
+  document.addEventListener("DOMContentLoaded", function() {
+    const form = document.getElementById("editPersonaForm");
+    
+    // Convertir cédula a mayúsculas automáticamente
+    document.getElementById('cedula').addEventListener('input', function() {
+        this.value = this.value.toUpperCase();
+    });
+
+    // Manejar envío del formulario
+    form.addEventListener("submit", async function(e) {
+        e.preventDefault();
+        
+        try {
+            const response = await fetch(form.action, {
+                method: "POST",
+                body: new FormData(form),
+                headers: {
+                    "X-CSRFToken": "{{ csrf_token }}",
+                    "X-Requested-With": "XMLHttpRequest"
+                }
+            });
+            
+            const data = await response.json();
+            
+            if(data.success) {
+                await Swal.fire({
+                    title: "¡Éxito!",
+                    text: data.message,
+                    icon: "success",
+                    confirmButtonText: "OK",
+                    customClass: {
+                        confirmButton: "btn btn-warning"
+                    }
+                });
+                window.location.reload();
+            } else {
+                let errorMsg = Object.values(data.errors).join("<br>");
+                Swal.fire({
+                    title: "Error",
+                    html: errorMsg,
+                    icon: "error",
+                    confirmButtonText: "Entendido",
+                    customClass: {
+                        confirmButton: "btn btn-danger"
+                    }
+                });
+            }
+        } catch(error) {
+            console.error("Error:", error);
+            Swal.fire({
+                title: "Error crítico",
+                text: "Error de conexión con el servidor",
+                icon: "error"
+            });
+        }
+    });
+});
+
+
   // Al abrir modal Reactivar
   $('#reactivatePersonaModal').on('show.bs.modal', e => {
     actionUrl = $(e.relatedTarget).data('url');

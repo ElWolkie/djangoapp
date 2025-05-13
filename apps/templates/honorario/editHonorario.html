@@ -18,67 +18,63 @@
     {% csrf_token %}  
     
     <div class="form-row">  
-      <div class="form-group col-md-6">  
-        <label for="cedulaPersona">Cédula del Proveedor:</label>  
-        <div class="input-group"> <!-- Usar input-group para alinear botón y select -->  
-            <input type="text" id="cedulaPersona" name="cedulaPersona" class="form-control text-dark" tabindex="1" required oninput="checkPersona()" value="{{ honorario.idPersona.cedula }}"
-                 disabled>
-            <div class="input-group-append">
-                <span id="check-icon" class="input-group-text"></span>
-            </div>
-            <input type="hidden" id="idPersona" name="idPersona" value="{{ honorario.idPersona.idPersona }}" />
-        </div>  
+      <div class="form-group col-md-6">
+        <label for="cedulaPersona">Cédula del Cliente:</label>
+        <div class="input-group">
+          <input type="text" id="cedulaPersona" name="cedulaPersona" class="form-control text-dark" tabindex="1" data-required="true" oninput="checkPersona()" placeholder="Ingrese cédula..." value="{{ honorario.idPersona.cedula|default_if_none:'' }}" readonly>
+          <div class="input-group-append">
+            <span id="check-icon" class="input-group-text"></span>
+          </div>
+          <input type="hidden" id="idPersona" name="idPersona" value="{{ honorario.idPersona.idPersona|default_if_none:'' }}" />
+          <div class="invalid-feedback">Por favor, ingrese una cédula válida.</div>
+        </div>
       </div>
+
       <div class="form-group col-md-6">  
         <label for="idCargo">Cargo:</label>  
         <div class="input-group"> <!-- Usar input-group para alinear botón y select -->  
-          <select id="idCargo" name="idCargo" class="form-control text-dark" tabindex="1" required>  
-            <option value="" disabled selected>Seleccione..</option>  
-           {% for cargo in cargos %}
-            <option value="{{ cargo.idCargo }}"
-                    {% if cargo.idCargo == honorario.idCargo.idCargo %}selected{% endif %}>
-              {{ cargo.nombreCargo }}
-            </option>
-          {% endfor %}
+          <select id="idCargo" name="idCargo" class="form-control text-dark" tabindex="1" data-required="true">  
+        <option value="" disabled {% if not honorario.idCargo %}selected{% endif %}>Seleccione..</option>  
+        {% for cargo in cargos %}  
+          <option value="{{ cargo.idCargo }}" class="text-orange" {% if honorario.idCargo.idCargo == cargo.idCargo %}selected{% endif %}>{{ cargo.nombreCargo }}</option>  
+        {% endfor %}
           </select>  
+          <div class="invalid-feedback">Por favor, seleccione un cargo válido.</div>
         </div>  
       </div>  
-      
       <div class="form-group col-md-6">  
         <label for="idMateria">Materia:</label>  
         <div class="input-group"> <!-- Usar input-group para alinear botón y select -->  
-          <select id="idMateria" name="idMateria" class="form-control text-dark" tabindex="1" required>  
-            <option value="" disabled selected>Seleccione..</option>  
-            {% for materia in materias %}
-            <option value="{{ materia.idMateria }}"
-                    {% if materia.idMateria == honorario.idMateria.idMateria %}selected{% endif %}>
-              {{ materia.nombreMateria }}
-            </option>
-          {% endfor %}
+          <select id="idMateria" name="idMateria" class="form-control text-dark" tabindex="1" data-required="true">  
+        <option value="" disabled {% if not honorario.idMateria %}selected{% endif %}>Seleccione..</option>  
+        {% for materia in materias %}  
+          <option value="{{ materia.idMateria }}" class="text-orange" {% if honorario.idMateria.idMateria == materia.idMateria %}selected{% endif %}>{{ materia.nombreMateria }}</option>  
+        {% endfor %}
           </select>  
+          <div class="invalid-feedback">Por favor, seleccione una materia válida.</div>
         </div>  
       </div>  
 
       <div class="form-group col-md-6">  
         <label for="nombreCohorte">Cohorte:</label>  
         <div class="input-group"> <!-- Usar input-group para alinear botón y select -->  
-          <input type="text" id="nombreCohorte" name="nombreCohorte" class="form-control text-dark" tabindex="1" required oninput="checkCohorte()" value="{{ honorario.idCohorte.nombreCohorte }}"
-                 disabled>
+          <input type="text" id="nombreCohorte" name="nombreCohorte" class="form-control text-dark" tabindex="1" data-required="true" oninput="checkCohorte()" placeholder="Ingrese nombre de cohorte..." value="{% if honorario.idCohorte %}{{ honorario.idCohorte.nombreCohorte }}{% endif %}" readonly>
           <div class="input-group-append">
-              <span id="check-cohorte-icon" class="input-group-text"></span>
+          <span id="check-cohorte-icon" class="input-group-text"></span>
           </div>
-          <input type="hidden" id="idCohorte" name="idCohorte" value="{{ honorario.idCohorte.idCohorte }}"/>
+          <input type="hidden" id="idCohorte" name="idCohorte" value="{% if honorario.idCohorte %}{{ honorario.idCohorte.idCohorte }}{% endif %}" />
+          <input type="hidden" id="estadoContrato" name="estadoContrato" class="form-control text-dark" value="ACTIVO" />
+          <div class="invalid-feedback">Por favor, ingrese un cohorte válido.</div>
         </div>  
       </div>  
       <div class="form-group col-md-6">  
         <label for="horas">Horas:</label>  
-        <input type="text" id="horas" name="horas" class="form-control text-dark" placeholder="Ingrese las horas (HH:mm)" tabindex="3" required value="{{ honorario.horas }}"/>  
+        <input type="text" id="horas" name="horas" class="form-control text-dark" placeholder="Ingrese las horas (HH:mm)" tabindex="3" data-required="true" value="{{ honorario.horas|default_if_none:'' }}"/>  
+        <input type="hidden" id="estadoHonorario" name="estadoHonorario" class="form-control text-dark" value="ACTIVO" />  
+        <div class="invalid-feedback">Por favor, ingrese las horas en formato válido.</div>
       </div>  
-    </div>  
-      <div id="alert-container"></div> <!-- Contenedor para las alertas -->
-
-      <!-- Estado oculto -->
-      <input type="hidden" name="estadoHonorario" value="{{ honorario.estadoHonorario }}">
+        </div>  
+          <div id="alert-container"></div> <!-- Contenedor para las alertas -->
 
     <div class="text-center">  
       <input type="submit" class="btn btn-warning mt-4" value="Guardar" />  
@@ -125,6 +121,27 @@ $(document).on("submit", "#editHonorarioForm", function(e){
     .always(()=>{
       $btn.prop('disabled',false);
     });
+});
+</script>
+<script>
+  document.getElementById("nombreCohorte").addEventListener("input", function() {
+    const input = this;
+    const errorElement = document.getElementById("roman-error");
+    
+    // 1. Forzar mayúsculas y filtrar caracteres
+    input.value = input.value.toUpperCase().replace(/[^MDCLXVI]/g, '');
+    
+    // 2. Validación estricta de número romano
+    const isValid = /^M{0,3}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})$/.test(input.value);
+    
+    // 3. Mostrar feedback
+    if (input.value && !isValid) {
+        input.classList.add("is-invalid");
+        errorElement.textContent = "Formato inválido. Ejemplos válidos: VIII, XIX, MMXXIII";
+    } else {
+        input.classList.remove("is-invalid");
+        errorElement.textContent = "";
+    }
 });
 </script>
 {% endblock javascripts %}
