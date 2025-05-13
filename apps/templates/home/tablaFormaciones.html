@@ -1,372 +1,450 @@
 {% extends 'layouts/base.html' %}
+{% load static %}
 
 {% block title %}Listado de Formaciones{% endblock title %}
 
 {% block stylesheets %}
-<link rel="stylesheet" href="/static/assets/css/styleForms.css" />
-<link rel="stylesheet" href="/static/assets/css/argon.css" />
+<link rel="stylesheet" href="{% static 'assets/css/styleForms.css' %}" />
+<link rel="stylesheet" href="{% static 'assets/css/argon.css' %}" />
+<style>
+  .btn-purple {
+    background-color: #6f42c1 !important;
+    color: white !important;
+    border-color: #6f42c1 !important;
+  }
+  .btn-purple:hover {
+    background-color: #5a32a3 !important;
+    border-color: #5a32a3 !important;
+  }
+  .actions-column .btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+    transition: all 0.3s ease;
+  }
+  .badge {
+    font-size: 0.85em;
+    padding: 0.5em 0.75em;
+  }
+  .modal-dialog { max-width: 600px; }
+  .modal.fade.show {
+    display: block !important;
+    background-color: rgba(0,0,0,0.5);
+  }
+</style>
 {% endblock stylesheets %}
 
 {% block content %}
-<div class="container mt-5">
-  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Lista de Formaciones Registradas</h2>
+<div class="container mt-4">
+  <h2 class="text-center mb-4">Lista de Formaciones Académicas</h2>
 
-  {% if messages %}
-    {% for message in messages %}
-      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-        {{ message }}
-      </div>
-    {% endfor %}
-  {% endif %}
-
-  <div class="row">
+  <div class="row mb-3">
     <div class="col-md-4">
       <div class="input-group">
-        <div class="input-group-prepend">
-          <span class="input-group-text" style="background-color: #bcbcbc; border: none;">
-            <i class="fas fa-search text-warning"></i>
-          </span>
-        </div>
-        <input class="form-control" id="searchInput" type="text" placeholder="Buscar..." onkeyup="filterTable()">
+        <span class="input-group-text"><i class="fas fa-search"></i></span>
+        <input class="form-control" id="searchInput" type="text" placeholder="Buscar por Nombre...">
       </div>
     </div>
-    <div class="col-md-4">
-      <button class="btn btn-warning btn-square btn-sm my-2" type="button" title="Registrar Oferta Académica" data-toggle="modal" data-target="#formacionModal">+</button>
+    <div class="col-md-4 text-center">
+      {% if perms.home.add_formacion %}
+        <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#formacionModal">
+          <i class="fas fa-plus-circle me-1"></i> Registrar Formación
+        </button>
+      {% endif %}
+    </div>
+
+    <div class="col-md-4 text-end">
       <a href="{% url 'reporte_formaciones_pdf' %}" class="btn btn-outline-danger btn-sm" target="_blank">
         <i class="fas fa-file-pdf"></i> Descargar PDF
       </a>
     </div>
   </div>
 
-  <br>
-  <div class="table-responsive">
-  <table class="table table-responsive-striped text-gray-dark" id="formacionesTable">
-    <thead class="text-darker">
-      <tr>
-        <th scope="col">ID</th>
-        <th scope="col">Tipo</th>
-        <th scope="col">Nombre</th>
-        <th scope="col">Valor</th>
-        <th scope="col">Duración</th>
-        <th scope="col">Estado</th>
-        <th scope="col">Fecha</th>
-        <th>Acciones</th>
-      </tr>
-    </thead>
-      <tbody>
-        <!-- Contenido de la tabla -->
-        {% for formacion in formaciones %}
-        <tr>
-          <td>{{ formacion.idFormacion }}</td>
-          <td>{{ formacion.idTF.nombreTipoFormacion }}</td>
-          <td>{{ formacion.nombreFormacion }}</td>
-          <td>{{ formacion.valorFormacion }}</td>
-          <td>{{ formacion.duracion }}</td>
-          <td>{{ formacion.estadoFormacion }}</td>
-          <td>{{ formacion.fechaFormacion|date:"d/m/Y" }}</td>
-          <td>
-            <button class="btn btn-sm btn-primary" type="button" data-toggle="modal" data-target="#editFormacionModal" data-id="{{ formacion.idFormacion }}">Editar</button>
-            {% if formacion.estadoFormacion == "ACTIVO" %}
-            <button class="btn btn-sm btn-danger" type="button" onclick="manageFormacion('{{ formacion.idFormacion }}','delete')">Eliminar</button>
-            {% endif %}
+  <div class="mb-3">
+    <a href="?mostrar_inactivos={% if mostrar_inactivos %}false{% else %}true{% endif %}"
+       class="btn btn-outline-secondary btn-sm">
+      {% if mostrar_inactivos %}
+        <i class="fas fa-eye-slash me-1"></i> Ocultar inactivos
+      {% else %}
+        <i class="fas fa-eye me-1"></i> Mostrar inactivos
+      {% endif %}
+    </a>
+  </div>
 
-            {% if formacion.estadoFormacion == "INACTIVO" %}
-            <button class="btn btn-sm btn-success" type="button" onclick="manageFormacion('{{ formacion.idFormacion }}','reactivate')">Reactivar</button>
-            {% endif %}
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-  </table>
-</div >
+  <div id="globalMessages">
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+      {% endfor %}
+    {% endif %}
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="table-responsive">
+      <table class="table table-striped table-hover align-middle text-gray-dark" id="formacionesTable">
+        <thead class="table-light">
+          <tr>
+            <th>ID</th>
+            <th>Tipo</th>
+            <th>Nombre</th>
+            <th>Duración</th>
+            <th>Estado</th>
+            <th>Fecha</th>
+            <th class="actions-column">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for formacion in formaciones %}
+          <tr>
+            <td>{{ formacion.idFormacion }}</td>
+            <td>{{ formacion.idTF.nombreTipoFormacion }}</td>
+            <td>{{ formacion.nombreFormacion }}</td>
+            <td>{{ formacion.duracion }}</td>
+            <td>
+              {% if formacion.estadoFormacion|upper == "ACTIVO" %}
+              <span class="badge bg-success text-white">
+                <i class="fas fa-check-circle me-1"></i> Activo
+              </span>
+            {% else %}
+              <span class="badge bg-danger text-white">
+                <i class="fas fa-times-circle me-1"></i> Inactivo
+              </span>
+              {% endif %}
+            </td>
+            <td>{{ formacion.fechaFormacion|date:"d/m/Y" }}</td>
+            <td class="actions-column">
+              <div class="d-flex gap-2">
+                {% if perms.home.change_formacion %}
+                  <button class="btn btn-primary btn-sm"
+                          data-bs-toggle="modal"
+                          data-bs-target="#editFormacionModal"
+                          data-url="{% url 'edit_formacion' formacion.idFormacion %}"
+                          title="Editar">
+                    <i class="fas fa-edit"></i>
+                  </button>
+                {% endif %}
+                {% if formacion.estadoFormacion|upper == "ACTIVO" and perms.home.delete_formacion %}
+                  <button class="btn btn-outline-warning btn-sm"
+                          data-bs-toggle="modal"
+                          data-bs-target="#deleteFormacionModal"
+                          data-url="{% url 'desactivar_formacion' formacion.idFormacion %}"
+                          title="Inhabilitar">
+                    <i class="fas fa-user-slash"></i>
+                  </button>
+                {% endif %}
+                {% if formacion.estadoFormacion|upper == "INACTIVO" and perms.home.change_formacion %}
+                  <button class="btn btn-success btn-sm"
+                          data-bs-toggle="modal"
+                          data-bs-target="#reactivateFormacionModal"
+                          data-url="{% url 'reactivate_formacion' formacion.idFormacion %}"
+                          title="Reactivar">
+                    <i class="fas fa-redo"></i>
+                  </button>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="7" class="text-center py-4">No hay formaciones registradas.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
 </div>
-<!-- Modal -->
-<div class="modal fade" id="formacionModal" tabindex="-1" role="dialog" aria-labelledby="formacionModalLabel" aria-hidden="true">
-  <div class="modal-dialog" role="document">
+
+{# ─── Modales ─── #}
+
+<!-- Modal: Registrar Formación -->
+<div class="modal fade" id="formacionModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-md">
     <div class="modal-content">
-      <div class="modal-header">
-      <h5 class="modal-title" id="formacionModalLabel">Registro de Formación Académica</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title text-white"><i class="fas fa-plus-circle me-2"></i> Registro de Formación</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
         </button>
       </div>
-      <div class="modal-body">
-        <!-- Contenedor para los mensajes -->
-        <div id="modalMessages"></div>
-        <!-- El contenido del formulario se cargará aquí -->
+      <div class="modal-body" id="registrarFormacionContent">
+        <div class="text-center py-4 text-muted">Cargando formulario…</div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Modal para editar -->
-<div class="modal fade" id="editFormacionModal" tabindex="-1" role="dialog" aria-labelledby="editFormacionModalLabel" aria-hidden="true">
-  <div class="modal-dialog" role="document">
+<!-- Modal: Editar Formación -->
+<div class="modal fade" id="editFormacionModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-md">
     <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="editFormacionModalLabel">Editar Formación</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title text-white"><i class="fas fa-edit me-2"></i> Editar Formación</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
         </button>
       </div>
-      <div class="modal-body">
-        <!-- Contenedor para los mensajes -->
-        <div id="modalMessagesEdit"></div>
-        <form id="edit_formacionForm">
-          <!-- El contenido del formulario de edición se cargará aquí -->
+      <div class="modal-body" id="editFormacionContent">
+        <div class="text-center py-4 text-muted">Cargando formulario…</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Inhabilitar Formación -->
+<div class="modal fade" id="deleteFormacionModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-warning text-dark">
+        <h5 class="modal-title text-white"><i class="fas fa-user-slash me-2"></i> Confirmar Inhabilitación</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">¿Seguro que deseas inhabilitar esta formación?</div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <form id="deleteFormacionForm" method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-warning">Inhabilitar</button>
         </form>
       </div>
     </div>
   </div>
 </div>
 
-
+<!-- Modal: Reactivar Formación -->
+<div class="modal fade" id="reactivateFormacionModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title text-white"><i class="fas fa-redo me-2"></i> Confirmar Reactivación</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">¿Deseas reactivar esta formación?</div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <form id="reactivateFormacionForm" method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-success">Reactivar</button>
+        </form>
+      </div>
+    </div>
+  </div>
 </div>
 {% endblock content %}
-
 {% block javascripts %}
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
+<script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
+<script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
+
 <script>
-
-    // Función para resaltar los campos inválidos y mostrar un mensaje de advertencia
-    function highlightInvalidInputs(formSelector) {
-  const form = document.querySelector(formSelector);
-  if (!form) return;
-  let valid = true;
-  let firstInvalid = null;
-  form.querySelectorAll('input[data-required], select[data-required], textarea[data-required]').forEach(input => {
-    if (!input.value.trim()) {
-      input.classList.add('is-invalid');
-      if (!firstInvalid) firstInvalid = input;
-      valid = false;
-    } else {
-      input.classList.remove('is-invalid');
-    }
-  });
-  if (!valid) {
-    Swal.fire({
-      title: 'Campos requeridos',
-      text: 'Por favor, complete todos los campos obligatorios resaltados en rojo.',
-      icon: 'warning',
-      confirmButtonText: 'OK',
-      customClass: { confirmButton: 'btn btn-warning' },
-      buttonsStyling: false,
-    }).then(() => {
-      if (firstInvalid) firstInvalid.focus();
-    });
-  }
-  return valid;
-}
 document.addEventListener("DOMContentLoaded", function() {
-  // Función para cargar el formulario en el modal de registro
-  $('#formacionModal').on('show.bs.modal', function (e) {
-    var modal = $(this);
-    $.ajax({
-      url: '{% url "formacion_modal" %}', // URL de la vista
-      method: 'GET',
-      success: function(data) {
-        modal.find('.modal-body').html(data);
-      },
-      error: function() {
-        alert('Error al cargar el formulario.');
-      }
+  // Helper para cargar contenido en modales
+  function loadInModal(modalId, urlFn, contentSel) {
+    $(modalId).on('show.bs.modal', function(e) {
+      const $c = $(this).find(contentSel);
+      $c.html('<div class="text-center py-4"><div class="spinner-border text-primary"></div></div>');
+      $.get(urlFn(e)).done(html => $c.html(html));
+    }).on('hidden.bs.modal', function() {
+      $(contentSel).empty();
     });
+  }
+
+  // Cargar modales principales
+  loadInModal(
+    '#formacionModal',
+    () => "{% url 'formacion_modal' %}",
+    '#registrarFormacionContent'
+  );
+
+  loadInModal(
+    '#editFormacionModal',
+    e => $(e.relatedTarget).data('url'),
+    '#editFormacionContent'
+  );
+
+  // Configurar acciones de desactivación/reactivación
+  $('#deleteFormacionModal').on('show.bs.modal', function(e) {
+    const button = $(e.relatedTarget);
+    $('#deleteFormacionForm').attr('action', button.data('url'));
   });
-  // Función para enviar el formulario de registro
-  $(document).on('submit', '#formacionForm', function(e) {
-    e.preventDefault();
-    var form = $(this);
-    if (!highlightInvalidInputs('#formacionForm')) {
+
+  $('#reactivateFormacionModal').on('show.bs.modal', function(e) {
+    const button = $(e.relatedTarget);
+    $('#reactivateFormacionForm').attr('action', button.data('url'));
+  });
+
+  // Manejar envío de formularios
+  function handleFormSubmit(formSelector, modalId) {
+    $(document).on('submit', formSelector, function(e) {
       e.preventDefault();
-      return false;
-    }
-    $.ajax({
-    url: form.attr('action'),
-    method: form.attr('method'),
-    data: form.serialize(),
-    success: function(response) {
-      handleFormResponse(response, '#formacionModal');
-    },
-    error: function() {
-      alert('Error al procesar la solicitud');
-    }
-  });
-      });
-    });
+      const $form = $(this);
+      
+      if (!highlightInvalidInputs(formSelector)) return false;
 
-  // Función para cargar el formulario en el modal de edición
-  $('#editFormacionModal').on('show.bs.modal', function (e) {
-  var button = $(e.relatedTarget);
-  var idFormacion = button.data('id');
-  var modal = $(this);
-  $.ajax({
-    url: '/editFormacion/' + idFormacion + '/',
-    type: 'get',
-    dataType: 'html',
-    success: function(data) {
-      modal.find('.modal-body').html(data);
-    },
-    error: function(error) {
-      console.log(error);
-    }
-  });
-});
-        // Adjuntar el evento submit al formulario de edición después de cargarlo
-        $(document).on('submit', '#editFormacionForm', function(e) {
-  e.preventDefault();
-  var form = $(this);
-  if (!highlightInvalidInputs('#editFormacionForm')) {
-    return false;
-  }
-  $.ajax({
-    url: form.attr('action'),
-    method: 'POST',
-    data: form.serialize(),
-    success: function(response) {
-      var messagesContainer = $('#modalMessagesEdit');
-      messagesContainer.empty();
-      if (response.success) {
-        messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
-        $('#editFormacionModal').modal('hide');
-        location.reload();
-      } else {
-        var errors = response.errors;
-        for (var field in errors) {
-          // Si errors[field] es un array, muestra todos los mensajes
-          if (Array.isArray(errors[field])) {
-            errors[field].forEach(function(msg) {
-              messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + msg + '</div>');
-            });
-          } else {
-            messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + errors[field] + '</div>');
-          }
-        }
-      }
-    },
-    error: function() {
-      alert('Error al procesar la solicitud.');
-    }
-  });
-});
-
-
-
-function handleFormResponse(response, modalId) {
-  var modal = $(modalId);
-  var messagesContainer = modal.find('.modalMessages');
-  messagesContainer.empty();
-  if (response.success) {
-    messagesContainer.append('<div class="alert alert-success">' + response.message + '</div>');
-    $(modalId).modal('hide');
-    setTimeout(() => location.reload(), 1500);
-  } else {
-    // Mostrar alerta si hay error general (__all__)
-    if (response.errors && response.errors.__all__) {
-      Swal.fire({
-        title: 'Registro duplicado',
-        text: response.errors.__all__.join('\n'),
-        icon: 'warning',
-        confirmButtonText: 'OK',
-        customClass: { confirmButton: 'btn btn-warning' },
-        buttonsStyling: false,
-      });
-    }
-    // Mostrar otros errores de campos
-    $.each(response.errors, function(field, error) {
-      if (field !== "__all__") {
-        // Si error es array, muestra todos los mensajes
-        if (Array.isArray(error)) {
-          error.forEach(function(msg) {
-            messagesContainer.append('<div class="alert alert-danger">' + msg + '</div>');
-          });
-        } else {
-          messagesContainer.append('<div class="alert alert-danger">' + error + '</div>');
-        }
-      }
-    });
-  }
-}    
-// Función para manejar la eliminación y reactivación de registros
-function manageFormacion(id, action) {
-  const confirmMessage = action === 'delete'
-    ? '¿Está seguro de eliminar este registro?'
-    : (action === 'reactivate'
-        ? '¿Está seguro de reactivar este registro?'
-        : '¿Está seguro de realizar esta acción?');
-
-  Swal.fire({
-    title: confirmMessage,
-    icon: action === 'delete' ? 'warning' : 'question',
-    showCancelButton: true,
-    confirmButtonText: action === 'delete' ? 'Eliminar' : 'Reactivar',
-    cancelButtonText: 'Cancelar',
-    customClass: {
-      confirmButton: action === 'delete' ? 'btn btn-danger' : 'btn btn-success',
-      cancelButton: 'btn btn-secondary'
-    },
-    buttonsStyling: false,
-  }).then((result) => {
-    if (result.isConfirmed) {
-      const url = action === 'delete'
-        ? "{% url 'delete_formacion' 0 %}".replace('0', id)
-        : "{% url 'reactivate_formacion' 0 %}".replace('0', id);
-
-      const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-
-      fetch(url, {
-        method: 'POST',
-        headers: {
-          'X-CSRFToken': csrftoken,
+      $.ajax({
+        url: $form.attr('action'),
+        method: $form.attr('method'),
+        data: $form.serialize(),
+        success: function(response) {
+          handleFormResponse(response, modalId);
         },
-      })
-      .then(response => response.json())
-      .then(data => {
-        if (data.success) {
-          Swal.fire({
-            title: action === 'delete' ? 'Eliminado' : 'Reactivado',
-            text: data.message,
-            icon: 'success',
-            confirmButtonText: 'OK',
-            customClass: { confirmButton: 'btn btn-warning' },
-            buttonsStyling: false,
-          }).then(() => location.reload());
-        } else {
-          Swal.fire('Error', data.message, 'error');
+        error: function() {
+          Swal.fire('Error', 'Error al procesar la solicitud', 'error');
         }
-      })
-      .catch(error => Swal.fire('Error', 'Ocurrió un error en el servidor.', 'error'));
-    }
-  });
-}
+      });
+    });
+  }
 
-// Función para filtrar la tabla
-function filterTable() {
-  var input, filter, table, tr, td, i, j, txtValue;
-  input = document.getElementById("searchInput");
-  filter = input.value.toUpperCase();
-  table = document.getElementById("formacionesTable");
-  tr = table.getElementsByTagName("tr");
-  for (i = 1; i < tr.length; i++) {
-    tr[i].style.display = "none";
-    td = tr[i].getElementsByTagName("td");
-    for (j = 0; j < td.length; j++) {
-      if (td[j]) {
-        txtValue = td[j].textContent || td[j].innerText;
-        if (txtValue.toUpperCase().indexOf(filter) > -1) {
-          tr[i].style.display = "";
-          break;
-        }
+  // Registrar handlers para formularios
+  handleFormSubmit('#formacionForm', '#formacionModal');
+  handleFormSubmit('#editFormacionForm', '#editFormacionModal');
+
+  // Función para manejar respuestas del servidor
+  function handleFormResponse(response, modalId) {
+    const modal = $(modalId);
+    const messagesContainer = modal.find('.modal-body');
+    
+    messagesContainer.find('.alert').remove();
+    
+    if (response.success) {
+      modal.modal('hide');
+      showGlobalMessage(response.message, 'success');
+      setTimeout(() => location.reload(), 1500);
+    } else {
+      if (response.errors?.__all__) {
+        Swal.fire({
+          title: 'Error de registro',
+          text: response.errors.__all__.join('\n'),
+          icon: 'error',
+          confirmButtonText: 'OK'
+        });
       }
+      $.each(response.errors, function(field, errors) {
+        if (field !== "__all__") {
+          messagesContainer.prepend(
+            `<div class="alert alert-danger alert-dismissible fade show" role="alert">
+              ${errors.join(', ')}
+              <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>`
+          );
+        }
+      });
     }
   }
-}
+
+  // Función para validación de campos
+  function highlightInvalidInputs(formSelector) {
+    const form = document.querySelector(formSelector);
+    if (!form) return false;
+    
+    let valid = true;
+    let firstInvalid = null;
+    
+    form.querySelectorAll('[data-required]').forEach(input => {
+      if (!input.value.trim()) {
+        input.classList.add('is-invalid');
+        if (!firstInvalid) firstInvalid = input;
+        valid = false;
+      } else {
+        input.classList.remove('is-invalid');
+      }
+    });
+
+    if (!valid) {
+      Swal.fire({
+        title: 'Campos requeridos',
+        text: 'Complete los campos obligatorios marcados en rojo',
+        icon: 'warning',
+        confirmButtonText: 'OK'
+      }).then(() => firstInvalid?.focus());
+    }
+    return valid;
+  }
+
+  // Función para mensajes globales
+  function showGlobalMessage(message, type) {
+    const container = $('#globalMessages');
+    const alertClass = {
+      success: 'alert-success',
+      error: 'alert-danger',
+      warning: 'alert-warning'
+    }[type] || 'alert-info';
+
+    container.html(`
+      <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
+        ${message}
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+            <i class="fas fa-times"></i>
+          </button>
+      </div>
+    `);
+  }
+
+  // Filtrado de tabla
+  $('#searchInput').on('keyup', function() {
+    const filter = this.value.toUpperCase();
+    $('#formacionesTable tbody tr').each(function() {
+      $(this).toggle($(this).text().toUpperCase().includes(filter));
+    });
+  });
+
+  // Manejar acciones de eliminación/reactivación
+  window.manageFormacion = function(id, action) {
+    const isDelete = action === 'delete';
+    const url = isDelete 
+      ? "{% url 'desactivar_formacion' 0 %}".replace('0', id)
+      : "{% url 'reactivate_formacion' 0 %}".replace('0', id);
+
+    Swal.fire({
+      title: isDelete ? '¿Eliminar registro?' : '¿Reactivar registro?',
+      icon: isDelete ? 'warning' : 'question',
+      showCancelButton: true,
+      confirmButtonText: isDelete ? 'Eliminar' : 'Reactivar',
+      cancelButtonText: 'Cancelar',
+      customClass: {
+        confirmButton: isDelete ? 'btn btn-danger' : 'btn btn-success',
+        cancelButton: 'btn btn-secondary'
+      }
+    }).then((result) => {
+      if (result.isConfirmed) {
+        $.ajax({
+          url: url,
+          method: 'POST',
+          data: {
+            csrfmiddlewaretoken: '{{ csrf_token }}'
+          },
+          success: function(response) {
+            if(response.success) {
+              showGlobalMessage(response.message, 'success');
+              setTimeout(() => location.reload(), 1500);
+            } else {
+              Swal.fire('Error', response.message, 'error');
+            }
+          },
+          error: function() {
+            Swal.fire('Error', 'Error de conexión', 'error');
+          }
+        });
+      }
+    });
+  }
+});
 </script>
+
 <style>
   .is-invalid {
     border-color: #dc3545 !important;
     box-shadow: 0 0 0 0.2rem rgba(220,53,69,.25);
   }
-  </style>
+</style>
 {% endblock javascripts %}
-
-

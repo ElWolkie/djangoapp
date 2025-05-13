@@ -1,276 +1,365 @@
-{% extends 'layouts/base.html' %}  
+{% extends 'layouts/base.html' %}
+{% load static %}
 
-{% block title %}Listado de Personas{% endblock title %}  
+{% block title %}Listado de Ingresos{% endblock title %}
 
-{% block stylesheets %}  
-<link rel="stylesheet" href="/static/assets/css/styleForms.css" />  
-<link rel="stylesheet" href="/static/assets/css/argon.css" />  
-{% endblock stylesheets %}  
+{% block stylesheets %}
+<link rel="stylesheet" href="{% static 'assets/css/styleForms.css' %}">
+<link rel="stylesheet" href="{% static 'assets/css/argon.css' %}">
+<style>
+  .btn-purple {
+    background-color: #6f42c1 !important;
+    color: white !important;
+    border-color: #6f42c1 !important;
+  }
+  .btn-purple:hover {
+    background-color: #5a32a3 !important;
+    border-color: #5a32a3 !important;
+  }
+  .actions-column .btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+    transition: all 0.3s ease;
+  }
+  .badge {
+    font-size: 0.85em;
+    padding: 0.5em 0.75em;
+  }
+  .modal-dialog { max-width: 800px; }
+  .modal.fade.show {
+    display: block !important;
+    background-color: rgba(0,0,0,0.5);
+  }
+  .table-hover tbody tr:hover { background-color: #f8f9fa; }
+  .table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table { white-space: nowrap; }
 
-{% block content %}  
-<div class="container mt-5">  
-  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Lista de Ingresos Registrados</h2>  
+  .table-responsive {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(107, 143, 250) #f1f1f1;
+  }
 
-  {% if messages %}  
-    {% for message in messages %}  
-      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">  
-        {{ message }}  
-      </div>  
-    {% endfor %}  
-  {% endif %}  
+  .table-responsive::-webkit-scrollbar { height: 8px; }
+  .table-responsive::-webkit-scrollbar-track { background: #f1f1f1; }
+  .table-responsive::-webkit-scrollbar-thumb {
+    background-color: rgb(81, 141, 245);
+    border-radius: 4px;
+    border: 2px solid #f1f1f1;
+  }
+</style>
+{% endblock stylesheets %}
 
-  <div class="row">  
-    <div class="col-md-4">  
-      <div class="input-group">  
-        <div class="input-group-prepend">  
-          <span class="input-group-text" style="background-color: #bcbcbc; border: none;">  
-            <i class="fas fa-search text-warning"></i>  
-          </span>  
-        </div>  
-        <input class="form-control" id="searchInput" type="text" placeholder="Buscar..." onkeyup="filterTable()">  
-      </div>  
-    </div>  
-    <div class="col-md-4">  
-      <button class="btn btn-warning btn-square btn-sm my-2" type="button" title="Registrar Ingreso"   
-      data-toggle="modal" data-target="#movimientoModal" data-naturaleza="ingreso">+</button>  
-    </div>  
-  </div>  
+{% block content %}
+<div class="container mt-4">
+  <h2 class="text-center mb-4">Registro de Ingresos</h2>
 
-  <br>  
-  <table class="table table-striped table-responsive text-gray-dark" id="ingresosTable">  
-    <thead class="text-darker">  
-      <tr>  
-        <th scope="col">ID</th>  
-        <th scope="col">Tipo</th>  
-        <th scope="col">Denominación</th>  
-        <th scope="col">Tipo de Pago</th>  
-        <th scope="col">Monto</th>  
-        <th scope="col">Banco</th>  
-        <th scope="col">Referencia</th>  
-        <th scope="col">Estado</th>  
-        <th scope="col">Fecha</th>  
-        <th scope="col">Acciones</th>
-      </tr>  
-    </thead>  
-    <tbody>  
-      {% for movimiento in movimientos %}  
-      <tr>  
-        <td>{{ movimiento.idMovimiento }}</td>  
-        <td>{{ movimiento.idTipoMovimiento.nombreTipoMovimiento }}</td>  
-        <td>{{ movimiento.idDenominacion.nombreDenominacion }}</td>  
-        <td>{{ movimiento.tipoPago }}</td>  
-        <td>{{ movimiento.monto }} {{ movimiento.idTasa.idMoneda.simboloMoneda }}</td>  
-        <td>{{ movimiento.idBanco.nombreBanco|default:"No Aplica" }}</td>  
-        <td>{{ movimiento.referencia|default:"No Aplica" }}</td>  
-        <td>{{ movimiento.estadoMovimiento }}</td>  
-        <td>{{ movimiento.fechaMovimiento|date:"d/m/Y" }}</td>
-        <td>
-          <button class="btn btn-sm btn-primary" data-toggle="modal" data-target="#editMovimientoModal" data-id="{{ movimiento.idMovimiento }}" data-url="{% url 'edit_movimiento' movimiento.idMovimiento %}">Editar</button>
-
-          {% if movimiento.estadoMovimiento == "ACTIVO" %}
-            <button class="btn btn-sm btn-danger" onclick="ManageMovimiento('{{ movimiento.idMovimiento }}','delete')">Eliminar</button>
-          {% else %}
-            <button class="btn btn-sm btn-success" onclick="ManageMovimiento('{{ movimiento.idMovimiento }}','reactivate')">Reactivar</button>           
-          {% endif %}
-        </td>
-        
-      </tr>  
-      {% endfor %}  
-    </tbody>  
-  </table>  
-</div>  
-
-<!-- Modal -->  
-<div class="modal fade" id="movimientoModal" tabindex="-1" role="dialog" aria-labelledby="movimientoModalLabel" aria-hidden="true">  
-  <div class="modal-dialog" role="document">  
-    <div class="modal-content">  
-      <div class="modal-header">  
-        <h5 class="modal-title" id="movimientoModalLabel">Registro de Movimiento</h5>  
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">  
-          <span aria-hidden="true">&times;</span>  
-        </button>  
-      </div>  
-      <div class="modal-body">  
-        <div id="modalMessages"></div> <!-- Para mensajes -->  
-        <!-- El contenido del formulario se cargará aquí -->  
-      </div>  
-    </div>  
-  </div>  
-</div>
-
-<!-- Modal para editar -->
-<div class="modal fade" id="editMovimientoModal" tabindex="-1" role="dialog" aria-labelledby="editMovimientoModalLabel" aria-hidden="true">
-  <div class="modal-dialog" role="document">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="editMovimientoModalLabel">Editar Ingreso</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
+  <div class="row mb-3">
+    <div class="col-md-4">
+      <div class="input-group">
+        <span class="input-group-text"><i class="fas fa-search"></i></span>
+        <input class="form-control" id="searchInput" type="text" placeholder="Buscar ingresos...">
       </div>
-      <div class="modal-body">
-        <!-- Contenedor para los mensajes -->
-        <div id="modalMessages"></div>
-        <!-- El contenido del formulario se cargará aquí -->
-      </div>
+    </div>
+    <div class="col-md-4 text-end">
+      {% if perms.home.add_movimiento %}
+      <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#movimientoModal">
+        <i class="fas fa-plus-circle me-1"></i> Nuevo Ingreso
+      </button>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="mb-3">
+    <a href="?mostrar_inactivos={% if mostrar_inactivos %}false{% else %}true{% endif %}"
+       class="btn btn-outline-secondary btn-sm">
+      {% if mostrar_inactivos %}
+        <i class="fas fa-eye-slash me-1"></i> Ocultar inactivos
+      {% else %}
+        <i class="fas fa-eye me-1"></i> Mostrar inactivos
+      {% endif %}
+    </a>
+  </div>
+
+  <div id="globalMessages">
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+      {% endfor %}
+    {% endif %}
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="table-responsive">
+      <table class="table table-striped table-hover align-middle text-gray-dark" id="ingresosTable">
+        <thead class="table-light">
+          <tr>
+            <th>#</th>
+            <th>Tipo</th>
+            <th>Denominación</th>
+            <th>Método de Pago</th>
+            <th>Monto</th>
+            <th>Banco</th>
+            <th>Referencia</th>
+            <th>Estado</th>
+            <th>Fecha</th>
+            <th class="actions-column">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for movimiento in movimientos %}
+          <tr>
+            <td>{{ forloop.counter }}</td>
+            <td>{{ movimiento.idTipoMovimiento.nombreTipoMovimiento }}</td>
+            <td>{{ movimiento.idDenominacion.nombreDenominacion }}</td>
+            <td>
+              <span class="badge bg-info text-dark">{{ movimiento.tipoPago }}</span>
+            </td>
+            <td class="fw-bold">{{ movimiento.monto }} {{ movimiento.idTasa.idMoneda.simboloMoneda }}</td>
+            <td>{{ movimiento.idBanco.nombreBanco|default:"-" }}</td>
+            <td>{{ movimiento.referencia|default:"-" }}</td>
+            <td>
+              {% if movimiento.estadoMovimiento == "ACTIVO" %}
+                <span class="badge bg-success text-white">
+                  <i class="fas fa-check-circle me-1"></i> Activo
+                </span>
+              {% else %}
+                <span class="badge bg-danger text-white">
+                  <i class="fas fa-times-circle me-1"></i> Inactivo
+                </span>
+              {% endif %}
+            </td>
+            <td>{{ movimiento.fechaMovimiento|date:"d/m/Y" }}</td>
+            <td class="actions-column">
+              <div class="d-flex gap-2">
+                {% if perms.home.change_movimiento %}
+                <button class="btn btn-primary btn-sm"
+                        data-bs-toggle="modal"
+                        data-bs-target="#editMovimientoModal"
+                        data-url="{% url 'edit_ingreso' movimiento.naturaleza movimiento.idMovimiento %}"
+                        title="Editar">
+                  <i class="fas fa-edit"></i>
+                </button>
+                {% endif %}
+
+                {% if movimiento.estadoMovimiento == "ACTIVO" %}
+                  {% if perms.home.delete_movimiento %}
+                  <button class="btn btn-outline-warning btn-sm"
+                          data-bs-toggle="modal"
+                          data-bs-target="#deleteMovimientoModal"
+                          data-url="{% url 'desactivar_ingreso' movimiento.idMovimiento %}"
+                          title="Desactivar">
+                    <i class="fas fa-user-slash"></i>
+                  </button>
+                  {% endif %}
+                {% else %}
+                  {% if perms.home.change_movimiento %}
+                  <button class="btn btn-success btn-sm"
+                          data-bs-toggle="modal"
+                          data-bs-target="#reactivateMovimientoModal"
+                          data-url="{% url 'reactivate_ingreso' movimiento.idMovimiento %}"
+                          title="Reactivar">
+                    <i class="fas fa-redo"></i>
+                  </button>
+                  {% endif %}
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="10" class="text-center py-4"><i class="fas fa-info-circle me-2"></i>No se encontraron ingresos registrados</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
   </div>
 </div>
 
-{% endblock content %}  
+<!-- Modals -->
+{% if perms.home.add_movimiento %}
+<div class="modal fade" id="movimientoModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title text-white"><i class="fas fa-plus-circle me-2"></i> Nuevo Ingreso</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-body" id="movimientoModalContent">
+        <div class="text-center py-4"><p class="text-muted">Cargando formulario…</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
 
-{% block javascripts %}  
-<script>  
-   document.addEventListener("DOMContentLoaded", function() {  
-    $('#movimientoModal').on('show.bs.modal', function (e) {  
-      var button = $(e.relatedTarget); // Botón que abrió el modal  
-      var naturaleza = button.data('naturaleza'); // Obtener el valor de data-naturaleza  
-      var modal = $(this);  
+{% if perms.home.change_movimiento %}
+<div class="modal fade" id="editMovimientoModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title text-white"><i class="fas fa-edit me-2"></i> Editar Ingreso</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-body" id="editMovimientoContent">
+        <div class="text-center py-4"><p class="text-muted">Cargando formulario…</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
 
-      // Cargar el formulario en el modal  
-      $.ajax({  
-        url: 'apps/home/movimiento.html?naturaleza=' + encodeURIComponent(naturaleza),  
-        method: 'GET',  
-        success: function(data) {  
-          modal.find('.modal-body').html(data);  
-          
-          // Establecer el valor del input naturaleza y filtrar los tipos de movimiento  
-          var naturalezaInput = modal.find('input[name="naturaleza"]');  
-          naturalezaInput.val(naturaleza);  
-          filterTipoMovimiento(naturalezaInput.val()); // Llama a la función para filtrar  
-        }  
-      });  
-    }); 
-    
-        $('#editMovimientoModal').on('show.bs.modal', function(e) {
-        const button = $(e.relatedTarget);
-        const url = button.data('url');
-        const modal = $(this);
-        
-        $.get(url, function(data) {
-            modal.find('.modal-body').html(data);
-            const naturaleza = modal.find('input[name="naturaleza"]').val();
-            $('#idTipoMovimiento option').hide()
-                .filter(`[data-naturaleza="${naturaleza}"]`)
-                .show();
-            toggleFields(); // Actualizar visibilidad de campos
-        });
+
+<!-- Modal Desactivar -->
+{% if perms.home.delete_movimiento %}
+<div class="modal fade" id="deleteMovimientoModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-warning text-dark">
+        <h5 class="modal-title text-white"><i class="fas fa-trash me-2"></i> Confirmar Desactivación</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        ¿Seguro que deseas desactivar este ingreso?
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <form id="deleteMovimientoForm" method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-warning">Desactivar</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Modal Reactivar -->
+{% if perms.home.change_movimiento %}
+<div class="modal fade" id="reactivateMovimientoModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title text-white"><i class="fas fa-redo me-2"></i> Confirmar Reactivación</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        ¿Deseas reactivar este ingreso?
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <form id="reactivateMovimientoForm" method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-success">Reactivar</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock content %}
+
+{% block javascripts %}
+<script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
+<script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const loadInModal = (modalId, urlGetter, contentId) => {
+    $(modalId).on('show.bs.modal', e => {
+      const modal = $(modalId);
+      const url = urlGetter(e);
+      modal.find(contentId).html(`<div class="text-center py-4"><div class="spinner-border text-primary" role="status"></div></div>`);
+      $.get(url).done(html => modal.find(contentId).html(html));
+    }).on('hidden.bs.modal', () => $(contentId).empty());
+  };
+
+  {% if perms.home.add_movimiento %}
+  loadInModal('#movimientoModal', () => "{% url 'ingreso_modal' %}", '#movimientoModalContent');
+  {% endif %}
+
+  {% if perms.home.change_movimiento %}
+  loadInModal('#editMovimientoModal', e => $(e.relatedTarget).data('url'), '#editMovimientoContent');
+  {% endif %}
+
+  ['delete', 'reactivate'].forEach(action => {
+    const modalId = `#${action}MovimientoModal`;
+    const formId = `#${action}MovimientoForm`;
+    $(modalId).on('show.bs.modal', e => {
+      const url = $(e.relatedTarget).data('url');
+      $(formId).attr('action', url);
     });
+  });
 
-      // Función toggleFields actualizada
-  function toggleFields() {
-      const pagoEfectivo = document.getElementById('pagoEfectivo').checked;
-      const bancoField = document.getElementById('bancoField');
-      const referenciaField = document.getElementById('referenciaField');
-      
-      bancoField.style.display = pagoEfectivo ? 'none' : 'block';
-      referenciaField.style.display = pagoEfectivo ? 'none' : 'block';
-  }
-
-    $(document).on('submit', '#movimientoForm', function(e) {  
-      e.preventDefault();  
-      var form = $(this);  
-      $.ajax({  
-        url: form.attr('action'),  
-        method: form.attr('method'),  
-        data: form.serialize(),  
-        success: function(response) {  
-          var messagesContainer = $('#modalMessages');  
-          messagesContainer.empty();  
-          if (response.success) {  
-            messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');  
-            $('#movimientoModal').modal('hide');  
-            location.reload();  // Recargar la página para ver los cambios  
-          } else {  
-            // Mostrar errores en el modal  
-            var errors = response.errors;  
-            for (var field in errors) {  
-              messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + errors[field] + '</div>');  
-            }  
-          }  
-        }  
-      });  
-    });
-
-          //Evita que el formulario se envíe por defecto y maneja la respuesta del servidor
-          $(document).on('submit', '#editMovimientoForm', function(e) {
-        e.preventDefault();
-        var form = $(this);
-        $.ajax({
-          url: form.attr('action'),
-          method: form.attr('method'),
-          data: form.serialize(),
-          success: function(response) {
-            var messagesContainer = $('#modalMessages');
-            messagesContainer.empty();
-            if (response.success) {
-              messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
-              $('#editMovimientoModal').modal('hide');
-              location.reload();  // Recargar la página para ver los cambios
-            } else {
-              // Mostrar errores en el modal
-              var errors = response.errors;
-              for (var field in errors) {
-                messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + errors[field] + '</div>');
-              }
-            }
+  const handleFormSubmit = (formSelector, modalId) => {
+    $(document).on('submit', formSelector, function(e) {
+      e.preventDefault();
+      const form = $(this);
+      $.ajax({
+        url: form.attr('action'),
+        method: 'POST',
+        data: form.serialize(),
+        dataType: 'json',
+        success: function(response) {
+          if (response.success) {
+            $(modalId).modal('hide');
+            $('#globalMessages').html(`<div class="alert alert-success alert-dismissible fade show" role="alert">${response.message}<button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;"><i class="fas fa-times"></i></button></div>`);
+            setTimeout(() => {
+              $.get(window.location.href, function(data) {
+                const newTable = $(data).find('#ingresosTable').html();
+                $('#ingresosTable').html(newTable);
+              });
+            }, 500);
           }
-        });
-      });  
+        },
+        error: function(xhr) {
+          let errorHtml = '';
+          if (xhr.responseJSON && xhr.responseJSON.error) {
+            errorHtml = `<div class="alert alert-danger">${xhr.responseJSON.error}</div>`;
+          } else {
+            errorHtml = '<div class="alert alert-danger">Error en el servidor</div>';
+          }
+          $('#globalMessages').html(errorHtml);
+        }
+      });
+    });
+  };
 
+  {% if perms.home.add_movimiento %}
+  handleFormSubmit('#movimientoForm', '#movimientoModal');
+  {% endif %}
 
+  {% if perms.home.change_movimiento %}
+  handleFormSubmit('#editMovimientoForm', '#editMovimientoModal');
+  handleFormSubmit('#deleteMovimientoForm', '#deleteMovimientoModal');
+  handleFormSubmit('#reactivateMovimientoForm', '#reactivateMovimientoModal');
+  {% endif %}
 
+  $('#searchInput').on('keyup', function() {
+    const filter = this.value.toUpperCase();
+    $('#ingresosTable tbody tr').each(function() {
+      $(this).toggle($(this).text().toUpperCase().includes(filter));
+    });
+  });
+});
 
-
-  // Funcion para eliminar y reactivar
-  function ManageMovimiento(id, action) {
-    const confirmMessage = action === 'delete' 
-        ? '¿Está seguro de eliminar este registro?' 
-        : '¿Está seguro de reactivar este registro?';
-    
-    if (confirm(confirmMessage)) {
-        const url = action === 'delete' 
-            ? `/deleteMovimiento/${id}/`  // Coincidir con url name en urls.py
-            : `/reactivateMovimiento/${id}/`;
-        
-        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-
-        fetch(url, {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': csrftoken,
-                'Content-Type': 'application/json'
-            },
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                location.reload();
-            } else {
-                alert('Error: ' + (data.message || 'Acción fallida'));
-            }
-        })
-        .catch(error => console.error('Error:', error));
+const tableWrapper = document.querySelector('.table-responsive');
+if (tableWrapper) {
+  tableWrapper.addEventListener('wheel', function (e) {
+    if (e.deltaY !== 0) {
+      e.preventDefault();
+      tableWrapper.scrollLeft += e.deltaY;
     }
-} 
-
-// Función para filtrar el select de tipo de movimiento  
-    function filterTipoMovimiento(naturaleza) {  
-      const tipoMovimientoSelect = $('#idTipoMovimiento');  
-
-      // Muestra todas las opciones por defecto  
-      tipoMovimientoSelect.find('option').show();  
-
-      // Oculta las opciones que no coinciden con la naturaleza  
-      tipoMovimientoSelect.find('option').each(function() {  
-        if ($(this).data('naturaleza') !== naturaleza) {  
-          $(this).hide();  
-        }  
-      });  
-    }  
-  });  
-
-</script>  
-
-
-{% endblock javascripts %}  
+  });
+}
+</script>
+{% endblock javascripts %}

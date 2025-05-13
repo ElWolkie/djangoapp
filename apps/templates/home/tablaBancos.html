@@ -1,40 +1,62 @@
 {% extends 'layouts/base.html' %}
+{% load static %}
 
-{% block title %}Listado de Personas{% endblock title %}
+{% block title %}Listado de Bancos{% endblock title %}
 
 {% block stylesheets %}
-<link rel="stylesheet" href="/static/assets/css/styleForms.css" />
-<link rel="stylesheet" href="/static/assets/css/argon.css" />
+<link rel="stylesheet" href="{% static 'assets/css/styleForms.css' %}" />
+<link rel="stylesheet" href="{% static 'assets/css/argon.css' %}" />
+<style>
+  .btn-purple {
+    background-color: #6f42c1 !important;
+    color: white !important;
+    border-color: #6f42c1 !important;
+  }
+  .btn-purple:hover {
+    background-color: #5a32a3 !important;
+    border-color: #5a32a3 !important;
+  }
+  .actions-column .btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+    transition: all 0.3s ease;
+  }
+  .badge {
+    font-size: 0.85em;
+    padding: 0.5em 0.75em;
+  }
+  .modal-dialog { max-width: 600px; }
+  .modal.fade.show {
+    display: block !important;
+    background-color: rgba(0,0,0,0.5);
+  }
+</style>
 {% endblock stylesheets %}
 
 {% block content %}
-<div class="container mt-5">
-  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Lista de Bancos Registrados</h2>
+<div class="container mt-4">
+  <h2 class="text-center mb-4">Lista de Bancos Registrados</h2>
 
-  {% if messages %}
-        {% for message in messages %}
-            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert" style="margin:5px;">
-                {{ message }}
-                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-        {% endfor %}
-    {% endif %}
-
-  <div class="row">
+  <div class="row mb-3">
     <div class="col-md-4">
       <div class="input-group">
-        <div class="input-group-prepend">
-          <span class="input-group-text" style="background-color: #bcbcbc; border: none;">
-            <i class="fas fa-search text-warning"></i>
-          </span>
-        </div>
-        <input class="form-control" id="searchInput" type="text" placeholder="Buscar..." onkeyup="filterTable()">
+        <span class="input-group-text"><i class="fas fa-search"></i></span>
+        <input class="form-control" id="searchInput" type="text" placeholder="Buscar por Nombre o Código">
       </div>
     </div>
+    <div class="col-md-8 text-end">
+      {% if perms.home.add_banco %}
+      <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#bancoModal">
+        <i class="fas fa-plus-circle me-1"></i> Registrar Banco
+      </button>
+      <button class="btn btn-warning ms-2" data-bs-toggle="modal" data-bs-target="#confirmarActualizacionModal">
+        <i class="fas fa-credit-card me-1"></i> Actualizar Bancos
+      </button>
+      {% endif %}
+    </div>
+  </div>
+
     <div class="col-md-4">
-      <button class="btn btn-warning btn-square btn-sm my-2" type="button" title="Registrar Banco" data-toggle="modal" data-target="#bancoModal">+</button>
       <div class="btn-group">
         <a href="{% url 'reporte_bancos_pdf' %}" class="btn btn-outline-danger btn-sm" id="pdfDefaultBtn" target="_blank">
           <i class="fas fa-file-pdf"></i> PDF
@@ -54,89 +76,209 @@
       </div>
     </div>
 
-    <form action="{% url 'actualizar_bancos_api' %}" method="POST" style="display: inline-block;">
-      {% csrf_token %}
-      <button type="submit" class="btn btn-warning" title="Buscar y añadir bancos de Venezuela desde fuente externa">
-          <i class="fas fa-credit-card"></i>  Actualizar Bancos
-      </button>
-  </form>
+  <div class="mb-3">
+    <a href="?mostrar_inactivos={% if mostrar_inactivos %}false{% else %}true{% endif %}"
+       class="btn btn-outline-secondary btn-sm">
+      {% if mostrar_inactivos %}
+        <i class="fas fa-eye-slash me-1"></i> Ocultar inactivos
+      {% else %}
+        <i class="fas fa-eye me-1"></i> Mostrar inactivos
+      {% endif %}
+    </a>
   </div>
 
-  <br>
-    <div class="table-responsive">
-  <table class="table table-striped text-gray-dark" id="bancosTable">
-    <thead class="text-darker">
-      <tr>
-        <th scope="col">ID</th>
-        <th scope="col">Código Bancario</th>
-        <th scope="col">Código Contable</th>
-        <th scope="col">Nombre</th>
-        <th scope="col">Estado</th>
-        <th scope="col">Fecha</th>
-        <th scope="col">Acciones</th>
-      </tr>
-    </thead>
-      <tbody>
-        <!-- Contenido de la tabla -->
-        {% for banco in bancos %}
-        <tr>
-          <td>{{ banco.idBanco }}</td>
-          <td>{{ banco.codBanco }}</td>
-          <td>{{ banco.codContable }}</td>
-          <td>{{ banco.nombreBanco }}</td>
-          <td>{{ banco.estadoBanco }}</td>
-          <td>{{ banco.fechaBanco|date:"d/m/Y" }}</td>
-          <td>
-            <button class="btn btn-sm btn-primary" type="button" data-toggle="modal" data-target="#editBancoModal" data-id="{{ banco.idBanco }}" data-url="{% url 'edit_banco' banco.idBanco %}">Editar</button>
-            {% if banco.estadoBanco == "ACTIVO" %}
-            <button class="btn btn-sm btn-danger" type="button" onclick="manageBanco('{{ banco.idBanco }}','delete')">Eliminar</button>
-            {% endif %}
-            {% if banco.estadoBanco == "INACTIVO" %}
-            <button class="btn btn-sm btn-success" type="button" onclick="manageBanco('{{ banco.idBanco }}','reactivate')">Reactivar</button>
-            {% endif %}
+  <div id="globalMessages">
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+      {% endfor %}
+    {% endif %}
+  </div>
 
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-  </table>
+  <div class="card shadow-sm">
+    <div class="table-responsive">
+      <table class="table table-striped table-hover align-middle text-gray-dark" id="bancosTable">
+        <thead class="table-light">
+          <tr>
+            <th>ID</th>
+            <th>Código Bancario</th>
+            <th>Código Contable</th>
+            <th>Nombre</th>
+            <th>Fecha</th>
+            <th>Estado</th>
+            <th class="actions-column">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for banco in bancos %}
+          <tr>
+            <td>{{ banco.idBanco }}</td>
+            <td>{{ banco.codBanco }}</td>
+            <td>{{ banco.codContable }}</td>
+            <td>{{ banco.nombreBanco }}</td>
+            <td>{{ banco.fechaBanco|date:"d/m/Y" }}</td>
+            <td>
+              {% if banco.estadoBanco|upper == "ACTIVO" %}
+                <span class="badge bg-success text-white">
+                  <i class="fas fa-check-circle me-1"></i> Activo
+                </span>
+              {% else %}
+                <span class="badge bg-danger text-white">
+                  <i class="fas fa-times-circle me-1"></i> Inactivo
+                </span>
+              {% endif %}
+            </td>
+            <td class="actions-column">
+              <div class="d-flex gap-2">
+                {% if perms.home.change_banco %}
+                <button class="btn btn-primary btn-sm"
+                        data-bs-toggle="modal"
+                        data-bs-target="#editBancoModal"
+                        data-url="{% url 'edit_banco' banco.idBanco %}"
+                        title="Editar banco">
+                  <i class="fas fa-edit"></i>
+                </button>
+                {% endif %}
+                {% if banco.estadoBanco|upper == "ACTIVO" and perms.home.change_banco %}
+                <button class="btn btn-outline-warning btn-sm"
+                        data-bs-toggle="modal"
+                        data-bs-target="#deleteBancoModal"
+                        data-url="{% url 'desactivar_banco' banco.idBanco %}"
+                        title="Inhabilitar banco">
+                  <i class="fas fa-user-slash"></i>
+                </button>
+                {% endif %}
+                {% if banco.estadoBanco|upper == "INACTIVO" and perms.home.change_banco %}
+                <button class="btn btn-success btn-sm"
+                        data-bs-toggle="modal"
+                        data-bs-target="#reactivateBancoModal"
+                        data-url="{% url 'reactivate_banco' banco.idBanco %}"
+                        title="Reactivar banco">
+                  <i class="fas fa-redo"></i>
+                </button>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="7" class="text-center py-4">No hay bancos registrados.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
 </div>
-<!-- Modal -->
-<div class="modal fade" id="bancoModal" tabindex="-1" role="dialog" aria-labelledby="bancoModalLabel" aria-hidden="true">
-  <div class="modal-dialog" role="document">
+
+<!-- Modal Confirmación de Actualización -->
+<div class="modal fade" id="confirmarActualizacionModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-md">
     <div class="modal-content">
-      <div class="modal-header">
-      <h5 class="modal-title" id="bancoModalLabel">Registro de Banco</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
+      <div class="modal-header bg-warning text-dark">
+        <h5 class="modal-title text-white"><i class="fas fa-exclamation-triangle me-2"></i> Atención</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
         </button>
       </div>
       <div class="modal-body">
-        <!-- Contenedor para los mensajes -->
-        <div id="modalMessages"></div>
-        <!-- El contenido del formulario se cargará aquí -->
+        <p>Esto <b><strong>recargará todos los bancos desde la fuente externa</strong></b>. <br> Recuerde que los bancos se añadirán inactivos. <br><br>¿Deseas continuar?</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <form action="{% url 'actualizar_bancos_api' %}" method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-warning">
+            <i class="fas fa-credit-card me-1"></i> Actualizar
+          </button>
+        </form>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Editar Modal -->
-<div class="modal fade" id="editBancoModal" tabindex="-1" role="dialog" aria-labelledby="editBancoModalLabel" aria-hidden="true">
-  <div class="modal-dialog" role="document">
+<!-- Modal Registrar Banco -->
+<div class="modal fade" id="bancoModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-md">
     <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="editBancoModalLabel">Editar Banco</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title text-white"><i class="fas fa-plus-circle me-2"></i> Registro de Banco</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body" id="registrarBancoContent">
+        <div class="text-center py-4"><p class="text-muted">Cargando formulario…</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Editar Banco -->
+<div class="modal fade" id="editBancoModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-md">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title text-white"><i class="fas fa-edit me-2"></i> Editar Banco</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body" id="editBancoContent">
+        <div class="text-center py-4"><p class="text-muted">Cargando formulario…</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Inhabilitar Banco -->
+<div class="modal fade" id="deleteBancoModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-warning text-dark">
+        <h5 class="modal-title text-white"><i class="fas fa-user-slash me-2"></i> Confirmar Inhabilitación</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
         </button>
       </div>
       <div class="modal-body">
-        <!-- Contenedor para los mensajes -->
-        <div id="modalMessages"></div>
-        <form id="editBancoForm">
-          <!-- El contenido del formulario de edición se cargará aquí -->
+        <p>¿Seguro que deseas inhabilitar este banco?</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <form id="deleteBancoForm" method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-warning">Inhabilitar</button>
         </form>
-        <!-- El contenido del formulario se cargará aquí -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Reactivar Banco -->
+<div class="modal fade" id="reactivateBancoModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title text-white"><i class="fas fa-redo me-2"></i> Confirmar Reactivación</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p>¿Deseas reactivar este banco?</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <form id="reactivateBancoForm" method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-success">Reactivar</button>
+        </form>
       </div>
     </div>
   </div>
@@ -144,8 +286,194 @@
 </div>
 {% endblock content %}
 
+
 {% block javascripts %}
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
+<script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // ─── Carga dinámica en modales ───
+  const loadInModal = (modalId, urlGetter, contentId) => {
+    $(modalId).on('show.bs.modal', e => {
+      const modal = $(modalId);
+      const url   = urlGetter(e);
+      modal.find(contentId).html(
+        `<div class="text-center py-4">
+           <div class="spinner-border text-primary" role="status"></div>
+         </div>`);
+      $.get(url).done(html => modal.find(contentId).html(html));
+    }).on('hidden.bs.modal', () => {
+      $(contentId).empty();
+    });
+  };
+
+  // Registrar y editar bancos
+  loadInModal('#bancoModal',     () => "{% url 'banco_modal' %}",    '#registrarBancoContent');
+  loadInModal('#editBancoModal', e => $(e.relatedTarget).data('url'), '#editBancoContent');
+
+  // ─── Configurar action para DELETE y REACTIVATE ───
+  ['delete','reactivate'].forEach(action => {
+    const modalId = `#${action}BancoModal`;
+    const formId  = `#${action}BancoForm`;
+    $(modalId).on('show.bs.modal', e => {
+      const url = $(e.relatedTarget).data('url');
+      $(formId).attr('action', url);
+    });
+  });
+
+  // ─── Evitar post tradicional en delete/reactivate ───
+  $('#deleteBancoForm, #reactivateBancoForm').off('submit').on('submit', e => e.preventDefault());
+
+  // ─── AJAX Crear ───
+  $(document).on('submit', '#bancoForm', function(e){
+    e.preventDefault();
+    const form = $(this);
+    $.post(form.attr('action'), form.serialize())
+      .done(resp => {
+        if (resp.success) {
+          $('#bancoModal').modal('hide');
+          $('#globalMessages').prepend(`
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+              ${resp.message}
+              <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+            <i class="fas fa-times"></i>
+          </button>
+            </div>`);
+          setTimeout(() => location.reload(), 500);
+        } else {
+          let html = '';
+          Object.values(resp.errors).forEach(m => {
+            html += `<div class="alert alert-danger alert-dismissible fade show" role="alert">
+                       ${m}
+                       <button class="btn-close" data-bs-dismiss="alert"></button>
+                     </div>`;
+          });
+          $('#registrarBancoContent').prepend(html);
+        }
+      })
+      .fail(() => alert('Error en el servidor al registrar el banco.'));
+  });
+
+  // ─── AJAX Editar ───
+  $(document).on('submit', '#editBancoForm', function(e){
+    e.preventDefault();
+    const form = $(this);
+    $.post(form.attr('action'), form.serialize())
+      .done(resp => {
+        if (resp.success) {
+          $('#editBancoModal').modal('hide');
+          $('#globalMessages').prepend(`
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+              ${resp.message}
+              <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+            <i class="fas fa-times"></i>
+          </button>
+            </div>`);
+          setTimeout(() => location.reload(), 500);
+        } else {
+          let html = '';
+          Object.values(resp.errors).forEach(m => {
+            html += `<div class="alert alert-danger alert-dismissible fade show" role="alert">
+                       ${m}
+                       <button class="btn-close" data-bs-dismiss="alert"></button>
+                     </div>`;
+          });
+          $('#editBancoContent').prepend(html);
+        }
+      })
+      .fail(() => alert('Error en el servidor al editar el banco.'));
+  });
+
+  // ─── AJAX Inhabilitar ───
+  $(document).on('submit', '#deleteBancoForm', function(e){
+    e.preventDefault();
+    const form = $(this);
+    $.post(form.attr('action'), form.serialize())
+      .done(resp => {
+        if (resp.success) {
+          $('#deleteBancoModal').modal('hide');
+          $('#globalMessages').prepend(`
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+              ${resp.message}
+              <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+            <i class="fas fa-times"></i>
+          </button>
+            </div>`);
+          setTimeout(() => location.reload(), 500);
+        } else {
+          // Usamos nuestro propio mensaje personalizado en lugar de alert
+          $('#globalMessages').prepend(`
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+              ${resp.message || 'Error al inhabilitar el banco.'}
+              <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+            <i class="fas fa-times"></i>
+          </button>
+            </div>`);
+        }
+      })
+      .fail(() => {
+        $('#globalMessages').prepend(`
+          <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            Error en el servidor al inhabilitar el banco.
+            <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+            <i class="fas fa-times"></i>
+          </button>
+          </div>`);
+      });
+  });
+
+  // ─── AJAX Reactivar ───
+  $(document).on('submit', '#reactivateBancoForm', function(e){
+    e.preventDefault();
+    const form = $(this);
+    $.post(form.attr('action'), form.serialize())
+      .done(resp => {
+        if (resp.success) {
+          $('#reactivateBancoModal').modal('hide');
+          $('#globalMessages').prepend(`
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+              ${resp.message}
+              <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+            <i class="fas fa-times"></i>
+          </button>
+            </div>`);
+          setTimeout(() => location.reload(), 500);
+        } else {
+          // En lugar de alert, agregamos el mensaje de error al contenedor global
+          $('#globalMessages').prepend(`
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+              ${resp.message || 'Error al reactivar el banco.'}
+              <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+            <i class="fas fa-times"></i>
+          </button>
+            </div>`);
+        }
+      })
+      .fail(() => {
+        $('#globalMessages').prepend(`
+          <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            Error en el servidor al reactivar el banco.
+            <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+            <i class="fas fa-times"></i>
+          </button>
+          </div>`);
+      });
+  });
+
+
+  // ─── Filtrado de tabla ───
+  $('#searchInput').on('keyup', function(){
+    const filter = this.value.toUpperCase();
+    $('#bancosTable tbody tr').each(function(){
+      $(this).toggle($(this).text().toUpperCase().includes(filter));
+    });
+  });
+
+});
+</script>
+
+<script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
+
 <script>
   document.addEventListener("DOMContentLoaded", function() {
     $('#bancoModal').on('show.bs.modal', function (e) {

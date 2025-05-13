@@ -1,3 +1,5 @@
+{% load static %}
+
 {% block stylesheets %}
 <link rel="stylesheet" href="/static/assets/css/styleForms.css" />
 <link rel="stylesheet" href="/static/assets/css/argon.css" />
@@ -19,7 +21,7 @@
       <div class="form-group col-md-6">
         <label for="cedulaPersona">Cédula del Cliente:</label>
         <div class="input-group">
-          <input type="text" id="cedulaPersona" name="cedulaPersona" class="form-control text-dark" tabindex="1" data-required="true" oninput="checkPersona()" placeholder="Ingrese cédula..." value="{{ honorario.idPersona.cedula|default_if_none:'' }}">
+          <input type="text" id="cedulaPersona" name="cedulaPersona" class="form-control text-dark" tabindex="1" data-required="true" oninput="checkPersona()" placeholder="Ingrese cédula..." value="{{ honorario.idPersona.cedula|default_if_none:'' }}" readonly>
           <div class="input-group-append">
             <span id="check-icon" class="input-group-text"></span>
           </div>
@@ -56,7 +58,7 @@
       <div class="form-group col-md-6">  
         <label for="nombreCohorte">Cohorte:</label>  
         <div class="input-group"> <!-- Usar input-group para alinear botón y select -->  
-          <input type="text" id="nombreCohorte" name="nombreCohorte" class="form-control text-dark" tabindex="1" data-required="true" oninput="checkCohorte()" placeholder="Ingrese nombre de cohorte..." value="{% if honorario.idCohorte %}{{ honorario.idCohorte.nombreCohorte }}{% endif %}">
+          <input type="text" id="nombreCohorte" name="nombreCohorte" class="form-control text-dark" tabindex="1" data-required="true" oninput="checkCohorte()" placeholder="Ingrese nombre de cohorte..." value="{% if honorario.idCohorte %}{{ honorario.idCohorte.nombreCohorte }}{% endif %}" readonly>
           <div class="input-group-append">
           <span id="check-cohorte-icon" class="input-group-text"></span>
           </div>
@@ -82,133 +84,44 @@
 
 {% block javascripts %}
 <script>
-  document.addEventListener("DOMContentLoaded", function() {
-    $('c').on('show.bs.modal', function (e) {
-      var modal = $(this);
-      $.ajax({
-        url: 'apps/honorario/honorario.html',
-        method: 'GET',
-        success: function(data) {
-          modal.find('.modal-body').html(data);
-        }
-      });
+// validación solo dígitos y dos puntos para horas
+document.getElementById("horas").addEventListener("input", function() {
+  this.value = this.value.replace(/[^0-9:]/g, "").slice(0,5);
+});
+
+// AJAX submit (igual que antes)
+$(document).on("submit", "#editHonorarioForm", function(e){
+  e.preventDefault();
+  const $f = $(this);
+  const $btn = $f.find('button[type="submit"]').prop('disabled',true);
+
+  if (!$f[0].checkValidity()){
+    $f.addClass('was-validated');
+    $btn.prop('disabled',false);
+    return;
+  }
+
+  $.post($f.attr("action"), $f.serialize())
+    .done(resp => {
+      if (resp.success) {
+        // cerrar modal y recargar
+        $('#editHonorarioModal').modal('hide');
+        setTimeout(()=>location.reload(),500);
+      } else {
+        let html="";
+        Object.values(resp.errors).forEach(msg=>{
+          html+=`<div class="alert alert-danger">${msg}</div>`;
+        });
+        $("#alert-container").html(html);
+      }
+    })
+    .fail(()=>{
+      $("#alert-container").html('<div class="alert alert-danger">Error en el servidor.</div>');
+    })
+    .always(()=>{
+      $btn.prop('disabled',false);
     });
-  });
-  document.getElementById("horas").addEventListener("input", function() {  
-    this.value = this.value.replace(/[^0-9,]/g, '');  
-
-    if (this.value.length > 20) {  
-        this.value = this.value.slice(0, 20);  
-    }  
-});  
-  
-//Recarga dinamica
-
-$(document).on('submit', '#editHonorarioForm', function(e) {
-      e.preventDefault();
-      var form = $(this);
-      $.ajax({
-        url: form.attr('action'),
-        method: form.attr('method'),
-        data: form.serialize(),
-        success: function(response) {
-          var messagesContainer = $('#modalMessages');
-          messagesContainer.empty();
-          if (response.success) {
-            messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
-            $('#honorarioModal').modal('hide');
-            location.reload();  // Recargar la página para ver los cambios
-          } else {
-            // Mostrar errores en el modal
-            var errors = response.errors;
-            for (var field in errors) {
-              messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + errors[field] + '</div>');
-            }
-          }
-        }
-      });
-    });
-</script>
-<script>
- 
- const cohortes = [
-     {% for cohorte in cohortes %}
-         { idCohorte: "{{ cohorte.idCohorte|escapejs }}", nombreCohorte: "{{ cohorte.nombreCohorte|escapejs }}" },
-     {% endfor %}
- ];
-
- const personas = [
- {% for persona in personas %}
-     { 
-         idPersona: "{{ persona.idPersona|escapejs }}", 
-         cedula: "{{ persona.cedula|escapejs }}", 
-         nombres: "{{ persona.nombres|escapejs }}", 
-         apellidos: "{{ persona.apellidos|escapejs }}" 
-     },
- {% endfor %}
-];
-
-function checkPersona() {
- const input = document.getElementById('cedulaPersona').value;
- const icon = document.getElementById('check-icon');
- const idPersonaInput = document.getElementById('idPersona');
- const foundPersona = personas.find(persona => persona.cedula === input);
-
- if (foundPersona) {
-     icon.innerHTML = '✔️'; // Pajarito verde
-     icon.style.color = 'blue';
-     idPersonaInput.value = foundPersona.idPersona;
-
-     // Mostrar alerta con los datos de la persona
-     const alertHTML = `
-         <div class="alert alert-success alert-dismissible fade show" role="alert">
-             <strong style="color: orange; font-size: 1.2em;">Persona encontrada:</strong><br>
-             <span style="font-style: italic;">Cédula: ${foundPersona.cedula}</span><br>
-             <span style="font-style: italic;">Nombres: ${foundPersona.nombres}</span><br>
-             <span style="font-style: italic;">Apellidos: ${foundPersona.apellidos}</span>
-             <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                 <span aria-hidden="true">&times;</span>
-             </button>
-         </div>
-     `;
-
-     // Insertar la alerta en el DOM
-     document.getElementById('alert-container').innerHTML = alertHTML;
- } else {
-     icon.innerHTML = '❌'; // X roja
-     icon.style.color = 'red';
-     idPersonaInput.value = '';
-
-     // Mostrar alerta de que no se encontró la persona
-     const alertHTML = `
-         <div class="alert alert-danger alert-dismissible fade show" role="alert">
-             <strong>Persona no encontrada</strong>
-             <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                 <span aria-hidden="true">&times;</span>
-             </button>
-         </div>
-     `;
-
-     // Insertar la alerta en el DOM
-     document.getElementById('alert-container').innerHTML = alertHTML;
- }
-}
-function checkCohorte() {
-        const input = document.getElementById('nombreCohorte').value;
-        const icon = document.getElementById('check-cohorte-icon');
-        const idCohorteInput = document.getElementById('idCohorte');
-        const foundCohorte = cohortes.find(cohorte => cohorte.nombreCohorte === input);
-  
-        if (foundCohorte) {
-            icon.innerHTML = '✔️'; // Pajarito verde
-            icon.style.color = 'blue';
-            idCohorteInput.value = foundCohorte.idCohorte;
-        } else {
-            icon.innerHTML = '❌'; // X roja
-            icon.style.color = 'red';
-            idCohorteInput.value = '';
-        }
-    }
+});
 </script>
 <script>
   document.getElementById("nombreCohorte").addEventListener("input", function() {

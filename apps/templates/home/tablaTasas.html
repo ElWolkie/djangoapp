@@ -1,111 +1,242 @@
 {% extends 'layouts/base.html' %}
+{% load static %}
 
-{% block title %}Listado de Personas{% endblock title %}
+{% block title %}Listado de Tasas Cambiarias{% endblock title %}
 
 {% block stylesheets %}
-<link rel="stylesheet" href="/static/assets/css/styleForms.css" />
-<link rel="stylesheet" href="/static/assets/css/argon.css" />
+<link rel="stylesheet" href="{% static 'assets/css/styleForms.css' %}" />
+<link rel="stylesheet" href="{% static 'assets/css/argon.css' %}" />
+<style>
+  /* Botones personalizados */
+  .btn-purple {
+    background-color: #6f42c1 !important;
+    color: white !important;
+    border-color: #6f42c1 !important;
+  }
+  .btn-purple:hover {
+    background-color: #5a32a3 !important;
+    border-color: #5a32a3 !important;
+  }
+  .actions-column .btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+    transition: all 0.3s ease;
+  }
+  .badge {
+    font-size: 0.85em;
+    padding: 0.5em 0.75em;
+  }
+  .modal.fade.show {
+    display: block !important;
+    background-color: rgba(0,0,0,0.5);
+  }
+</style>
 {% endblock stylesheets %}
 
 {% block content %}
-<div class="container mt-5">
-  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Lista de Tasas Cambiarias Registradas</h2>
+<div class="container mt-4">
+  <h2 class="text-center mb-4">Lista de Tasas Cambiarias Registradas</h2>
 
-  {% if messages %}
-    {% for message in messages %}
-      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-        {{ message }}
-      </div>
-    {% endfor %}
-  {% endif %}
-
-  <div class="row">
+  <div class="row mb-3">
     <div class="col-md-4">
       <div class="input-group">
-        <div class="input-group-prepend">
-          <span class="input-group-text" style="background-color: #bcbcbc; border: none;">
-            <i class="fas fa-search text-warning"></i>
-          </span>
-        </div>
-        <input class="form-control" id="searchInput" type="text" placeholder="Buscar..." onkeyup="filterTable()">
+        <span class="input-group-text"><i class="fas fa-search"></i></span>
+        <input class="form-control" id="searchInput" type="text" placeholder="Buscar por Moneda o Monto...">
       </div>
     </div>
-    <div class="col-md-4">
-      <button class="btn btn-warning btn-square btn-sm my-2" type="button" title="Registrar Tasa" data-toggle="modal" data-target="#tasaModal">+</button>
+    <div class="col-md-8 text-end">
+      {% if perms.home.add_tasa %}
+        <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#tasaModal">
+          <i class="fas fa-plus-circle me-1"></i> Registrar Tasa
+        </button>
+      {% endif %}
     </div>
   </div>
 
-  <br>
-  <table class="table table-striped text-gray-dark" id="tasasTable">
-    <thead class="text-darker">
-      <tr>
-        <th scope="col">ID</th>
-        <th scope="col">Moneda</th>
-        <th scope="col">Monto</th>
-        <th scope="col">Estado</th>
-        <th scope="col">Fecha</th>
-        <th scope="col">Acciones</th>
-      </tr>
-    </thead>
-    <tbody>
-      <!-- Contenido de la tabla -->
-        {% for tasa in tasas %}
-        <tr>
-          <td>{{ tasa.idTasa }}</td>
-          <td>{{ tasa.idMoneda.nombreMoneda }} {{ tasa.idMoneda.simboloMoneda }}</td>
-          <td>{{ tasa.montoTasa }}</td>
-          <td>{{ tasa.estadoTasa }}</td>
-          <td>{{ tasa.fechaTasa|date:"d/m/Y" }}</td>
-          <td>
-            <button class="btn btn-sm btn-primary" type="button" data-toggle="modal" data-target="#editTasaModal" data-id="{{ tasa.idTasa}}" data-url="{% url 'edit_tasa' tasa.idTasa%}">Editar</button>
-            {% if tasa.estadoTasa == "ACTIVO" %}
-            <button class="btn btn-sm btn-danger" type="button" onclick="deleteTasa('{{ tasa.idTasa}}')">Eliminar</button>
-            {% endif %}
-            {% if tasa.estadoTasa == "INACTIVO" %}
-            <button class="btn btn-sm btn-success" type="button" onclick="reactivateTasa('{{ tasa.idTasa}}')">Reactivar</button>
-            {% endif %}
+  <!-- FILTRO PARA MOSTRAR/OCULTAR INACTIVOS -->
+  <div class="mb-3">
+    <a href="?mostrar_inactivos={% if mostrar_inactivos %}false{% else %}true{% endif %}"
+       class="btn btn-outline-secondary btn-sm">
+      {% if mostrar_inactivos %}
+        <i class="fas fa-eye-slash me-1"></i> Ocultar inactivos
+      {% else %}
+        <i class="fas fa-eye me-1"></i> Mostrar inactivos
+      {% endif %}
+    </a>
+  </div>
 
-          </td>
-        </tr>
+  <div id="globalMessages" data-dismiss="alert" aria-label="Close">
+    {% if messages %}
+        {% for message in messages %}
+          <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
         {% endfor %}
-    </tbody>
-  </table>
+    {% endif %}
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="table-responsive">
+      <table class="table table-striped table-hover align-middle text-gray-dark" id="tasasTable">
+        <thead class="table-light">
+          <tr>
+            <th>ID</th>
+            <th>Moneda</th>
+            <th>Monto</th>
+            <th>Fecha</th>
+            <th>Estado</th>
+            <th class="actions-column">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for tasa in tasas %}
+          <tr>
+            <td>{{ tasa.idTasa }}</td>
+            <td>{{ tasa.idMoneda.nombreMoneda }} {{ tasa.idMoneda.simboloMoneda }}</td>
+            <td>{{ tasa.montoTasa }}</td>
+            <td>{{ tasa.fechaTasa|date:"d/m/Y" }}</td>
+            <td>
+              {% if tasa.estadoTasa|upper == "ACTIVO" %}
+                <span class="badge bg-success text-white">
+                  <i class="fas fa-check-circle me-1"></i> Activo
+                </span>
+              {% else %}
+                <span class="badge bg-danger text-white">
+                  <i class="fas fa-times-circle me-1"></i> Inactivo
+                </span>
+              {% endif %}
+            </td>
+            <td class="actions-column">
+              <div class="d-flex gap-2">
+            
+                {# --- EDITAR --- #}
+                {% if perms.home.change_tasa %}
+                  <button class="btn btn-primary btn-sm"
+                          data-bs-toggle="modal"
+                          data-bs-target="#editTasaModal"
+                          data-id="{{ tasa.idTasa }}"
+                          data-url="{% url 'edit_tasa' tasa.idTasa %}"
+                          title="Editar tasa">
+                    <i class="fas fa-edit"></i>
+                  </button>
+                {% endif %}
+            
+                {# --- INHABILITAR (solo si está activo) --- #}
+                {% if tasa.estadoTasa|upper == "ACTIVO" and perms.home.change_tasa %}
+                  <button class="btn btn-outline-warning btn-sm"
+                          data-bs-toggle="modal"
+                          data-bs-target="#deleteTasaModal"
+                          data-url="{% url 'desactivar_tasa' tasa.idTasa %}"
+                          title="Inhabilitar tasa">
+                    <i class="fas fa-user-slash"></i>
+                  </button>
+                {% else %}
+            
+                {# --- REACTIVAR (solo si está inactivo) --- #}
+                {% if tasa.estadoTasa|upper == "INACTIVO" and perms.home.change_tasa %}
+                  <button class="btn btn-success btn-sm"
+                          data-bs-toggle="modal"
+                          data-bs-target="#reactivateTasaModal"
+                          data-url="{% url 'reactivate_tasa' tasa.idTasa %}"
+                          title="Reactivar tasa">
+                    <i class="fas fa-redo"></i>
+                  </button>
+                {% endif %}
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="6" class="text-center py-4">No hay tasas registradas.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
 </div>
-<!-- Modal -->
-<div class="modal fade" id="tasaModal" tabindex="-1" role="dialog" aria-labelledby="tasaModalLabel" aria-hidden="true">
-  <div class="modal-dialog" role="document">
+
+<!-- Modal: Registrar Tasa -->
+<div class="modal fade" id="tasaModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-md">
     <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="tasaModalLabel">Registro de Tasa Cambiaria</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title text-white"><i class="fas fa-plus-circle me-2 text-white"></i> Registro de Tasa Cambiaria</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
         </button>
       </div>
-      <div class="modal-body">
-        <!-- Contenedor para los mensajes -->
-        <div id="modalMessages"></div>
-        <!-- El contenido del formulario se cargará aquí -->
+      <div class="modal-body" id="registrarTasaContent">
+        <div class="text-center py-4">
+          <p class="text-muted">Cargando formulario...</p>
+        </div>
       </div>
     </div>
   </div>
 </div>
-<!-- Editar Modal -->
-<div class="modal fade" id="editTasaModal" tabindex="-1" role="dialog" aria-labelledby="editTasaModalLabel" aria-hidden="true">
-  <div class="modal-dialog" role="document">
+
+<!-- Modal: Editar Tasa -->
+<div class="modal fade" id="editTasaModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
     <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="editTasaModalLabel">Editar Tasa</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title text-white"><i class="fas fa-edit me-2"></i> Editar Tasa</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
         </button>
       </div>
+      <div class="modal-body" id="editTasaContent">
+        <div class="text-center py-4">
+          <p class="text-muted">Cargando formulario...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Inhabilitar Tasa -->
+<div class="modal fade" id="deleteTasaModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-warning text-dark">
+        <h5 class="modal-title text-white"><i class="fas fa-user-slash me-2"></i> Confirmar Inhabilitación</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
       <div class="modal-body">
-        <!-- Contenedor para los mensajes -->
-        <div id="modalMessages"></div>
-        <form id="editTasaForm">
-          <!-- El contenido del formulario de edición se cargará aquí -->
+        <p>¿Estás seguro de inhabilitar esta tasa? Esta acción no eliminará los datos.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <form id="deleteTasaForm" method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-warning">Inhabilitar</button>
         </form>
-        <!-- El contenido del formulario se cargará aquí -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Reactivar Tasa -->
+<div class="modal fade" id="reactivateTasaModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title text-white"><i class="fas fa-redo me-2"></i> Confirmar Reactivación</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p>¿Deseas reactivar esta tasa?</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <form id="reactivateTasaForm" method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-success">Reactivar</button>
+        </form>
       </div>
     </div>
   </div>
@@ -113,152 +244,125 @@
 {% endblock content %}
 
 {% block javascripts %}
-<script src="/static/assets/js/validacionesPersona.js"></script>
-<script>
-  document.addEventListener("DOMContentLoaded", function() {
-    $('#tasaModal').on('show.bs.modal', function (e) {
-      var modal = $(this);
-      $.ajax({
-        url: 'apps/home/tasa.html',
-        method: 'GET',
-        success: function(data) {
-          modal.find('.modal-body').html(data);
-        }
-      });
-    });
+<script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
+<script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
 
-    $(document).on('submit', '#tasaForm', function(e) {
-      e.preventDefault();
-      var form = $(this);
-      $.ajax({
-        url: form.attr('action'),
-        method: form.attr('method'),
-        data: form.serialize(),
-        success: function(response) {
-          var messagesContainer = $('#modalMessages');
-          messagesContainer.empty();
-          if (response.success) {
-            messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
-            $('#tasaModal').modal('hide');
-            location.reload();  // Recargar la página para ver los cambios
-          } else {
-            // Mostrar errores en el modal
-            var errors = response.errors;
-            for (var field in errors) {
-              messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + errors[field] + '</div>');
-            }
-          }
-        }
-      });
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  const registrarModalEl = document.getElementById('tasaModal');
+  const editarModalEl   = document.getElementById('editTasaModal');
+  const registrarContent = $('#registrarTasaContent');
+  const editarContent    = $('#editTasaContent');
+  const loadingSpinner = `
+    <div class="d-flex justify-content-center align-items-center py-5">
+      <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div>
+    </div>`;
+
+  // Carga FORM REGISTRAR
+  if (registrarModalEl) {
+    registrarModalEl.addEventListener('show.bs.modal', () => {
+      registrarContent.html(loadingSpinner);
+      $.get("{% url 'tasa_modal' %}")
+        .done(data => registrarContent.html(data))
+        .fail((_, status, err) => registrarContent.html(`<div class="alert alert-danger">Error: ${err}</div>`));
     });
+    registrarModalEl.addEventListener('hidden.bs.modal', () => registrarContent.empty());
+  }
+
+  // Carga FORM EDITAR
+  if (editarModalEl) {
+    editarModalEl.addEventListener('show.bs.modal', e => {
+      const btn = e.relatedTarget;
+      const id  = $(btn).data('id');
+      const url = $(btn).data('url');
+      editarContent.html(loadingSpinner);
+      $.get(url)
+        .done(data => editarContent.html(data))
+        .fail((_, status, err) => editarContent.html(`<div class="alert alert-danger">Error: ${err}</div>`));
+    });
+    editarModalEl.addEventListener('hidden.bs.modal', () => editarContent.empty());
+  }
+
+  // Interceptar SUBMIT registrar
+  $(document).on('submit', '#tasaForm', function(e) {
+    e.preventDefault();
+    const form = $(this);
+    const action = form.attr('action'), method = form.attr('method');
+    $.ajax({ url: action, method, data: form.serialize() })
+      .done(resp => {
+        if (resp.success) {
+          $('#tasaModal').modal('hide');
+          setTimeout(() => location.reload(), 500);
+        } else {
+          let msgs = '';
+          $.each(resp.errors, (f, msg) => msgs += `<div class="alert alert-danger">${msg}</div>`);
+          registrarContent.prepend(msgs);
+        }
+      })
+      .fail(() => alert('Error al procesar la solicitud.'));
   });
 
-        // Manejar la apertura del modal para editar
-        $('#editTasaModal').on('show.bs.modal', function (e) {
-      var modal = $(this);
-      var url = $(e.relatedTarget).data('url'); // Obtener la URL desde el botón que abrió el modal
-      $.ajax({
-      url: url, // URL para cargar el formulario de edición
-      method: 'GET',
-      success: function (data) {
-      modal.find('.modal-body').html(data); // Cargar el contenido del formulario en el modal
-      },
-      error: function () {
-      alert('Error al cargar el formulario de edición.');
+  // Interceptar SUBMIT editar
+  $(document).on('submit', '#editTasaForm', function(e) {
+    e.preventDefault();
+    const form = $(this);
+    $.ajax({ url: form.attr('action'), method: form.attr('method'), data: form.serialize() })
+      .done(resp => {
+        if (resp.success) {
+          $('#editTasaModal').modal('hide');
+          setTimeout(() => location.reload(), 500);
+        } else {
+          let msgs = '';
+          $.each(resp.errors, (f, msg) => msgs += `<div class="alert alert-danger">${msg}</div>`);
+          editarContent.prepend(msgs);
+        }
+      })
+      .fail(() => alert('Error al procesar la solicitud.'));
+  });
+
+  // Inhabilitar
+  // Sólo configuras la URL y next, sin interceptar el submit
+  $('#deleteTasaModal').on('show.bs.modal', function(e) {
+    const trigger = $(e.relatedTarget);
+    const url     = trigger.data('url');
+    const nextUrl = window.location.pathname + window.location.search;
+    $('#deleteTasaForm')
+      .attr('action', url)
+      .find('input[name="next"]').remove();
+    $('#deleteTasaForm')
+      .append(`<input type="hidden" name="next" value="${nextUrl}">`);
+  });
+
+
+  // Reactivar
+  // Sólo configuras la URL y next, sin interceptar el submit
+  $('#reactivateTasaModal').on('show.bs.modal', function(e) {
+    const trigger = $(e.relatedTarget);
+    const url     = trigger.data('url');
+    const nextUrl = window.location.pathname + window.location.search;
+    $('#reactivateTasaForm')
+      .attr('action', url)
+      .find('input[name="next"]').remove();
+    $('#reactivateTasaForm')
+      .append(`<input type="hidden" name="next" value="${nextUrl}">`);
+  });
+
+  const input = document.getElementById('searchInput');
+      if (input) {
+        input.addEventListener('keyup', filterTable);
       }
-    });
-    });
-  
-          // Manejar el envío del formulario de edición
-      $(document).on('submit', '#editTasaForm', function(e) {
-      e.preventDefault();
-      var form = $(this);
-      
-      $.ajax({
-        url: form.attr('action'),
-        method: form.attr('method'),
-        data: form.serialize(),
-        success: function(response) {
-          if (response.success) {
-            // Cierra el modal y recarga la página
-            $('#editDenominacionModal').modal('hide');
-            location.reload();
-          } else {
-            // Muestra errores de validación
-            var messagesContainer = $('#modalMessages');
-            messagesContainer.empty();
-            for (var field in response.errors) {
-              messagesContainer.append('<div class="alert alert-danger">' + response.errors[field] + '</div>');
-            }
-          }
-        },
-        error: function() {
-          alert('Error al procesar la solicitud');
-        }
-      });
-    });
-  
-
-    function deleteTasa(id) {
-    if (confirm('¿Estás seguro de que deseas eliminar esta Tasa?')) {
-      $.ajax({
-        url: '{% url "delete_tasa" 0 %}'.replace('0', id),
-        method: 'POST',
-        data: {
-          csrfmiddlewaretoken: '{{ csrf_token }}'
-        },
-        success: function(response) {
-          if (response.success) {
-            alert(response.message);
-            location.reload();  // Recargar la página para ver los cambios
-          } else {
-            alert('Error al eliminar el Requisito.');
-          }
-        }
-      });
-    }
-  }
-
-  function reactivateTasa(id) {
-    if (confirm('¿Estás seguro de que deseas reactivar esta Tasa?')) {
-      $.ajax({
-        url: '{% url "reactivate_tasa" 0 %}'.replace('0', id),
-        method: 'POST',
-        data: {
-          csrfmiddlewaretoken: '{{ csrf_token }}'
-        },
-        success: function(response) {
-          if (response.success) {
-            alert(response.message);
-            location.reload();  // Recargar la página para ver los cambios
-          } else {
-            alert('Error al reactivar el Requisito.');
-          }
-        }
-      });
-    }
-  }
+});
 </script>
+
 <script>
+  // 1) Defino la función en global
   function filterTable() {
-    var input, filter, table, tr, td, i, j, txtValue;
-    input = document.getElementById("searchInput");
-    filter = input.value.toUpperCase();
-    table = document.getElementById("tasasTable");
-    tr = table.getElementsByTagName("tr");
-    for (i = 1; i < tr.length; i++) {
-      tr[i].style.display = "none";
-      td = tr[i].getElementsByTagName("td");
-      for (j = 0; j < td.length; j++) {
-        if (td[j]) {
-          txtValue = td[j].textContent || td[j].innerText;
-          if (txtValue.toUpperCase().indexOf(filter) > -1) {
-            tr[i].style.display = "";
-            break;
-          }
-        }
-      }
-    }
+    const filter = document.getElementById('searchInput').value.toUpperCase();
+    document.querySelectorAll('#tasasTable tbody tr').forEach(row => {
+      row.style.display = row.textContent.toUpperCase().includes(filter)
+        ? '' : 'none';
+    });
   }
 </script>
+
 {% endblock javascripts %}

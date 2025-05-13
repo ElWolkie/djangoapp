@@ -7,9 +7,10 @@ urlpatterns = [
 
 
     # Specific route for solicitud modal
-    path('registrarSolicitud/', views.registrar_solicitud, name='registrar_solicitud'),
+    path('registrarSolicitud/', views.solicitud_modal, name='solicitud_modal'),
     path('editSolicitud/<int:pk>/', views.edit_solicitud, name='edit_solicitud'),
     path('deleteSolicitud/<int:pk>/', views.delete_solicitud, name='delete_solicitud'),
+    path('desactivar_solicitud/<int:pk>/', views.desactivar_solicitud, name='desactivar_solicitud'),
     path('reactivateSolicitud/<int:pk>/', views.reactivate_solicitud, name='reactivate_solicitud'),
     path('reporteSolicitudes/', views.reporte_solicitudes_pdf, name='reporte_solicitudes_pdf'),
     path('solicitudes/', views.pages, {'load_template': 'tablaSolicitud.html'}, name='lista_solicitudes'),

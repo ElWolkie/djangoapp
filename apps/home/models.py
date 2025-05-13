@@ -37,7 +37,7 @@ class UsuarioManager(BaseUserManager):
 
 class Usuarios(AbstractBaseUser, PermissionsMixin):
     idUsuario = models.AutoField(primary_key=True)
-    idPersona = models.OneToOneField(Personas, on_delete=models.CASCADE)
+    idPersona = models.OneToOneField(Personas, on_delete=models.CASCADE, related_name='usuario')
     preguntaSeguridad = models.CharField(max_length=255)
     respuestaSeguridad = models.CharField(max_length=255)
     coloresUsuario = models.CharField(max_length=50, blank=True, null=True)
@@ -104,16 +104,6 @@ class Formacion(models.Model):
     estadoFormacion = models.CharField(max_length=10)
     fechaFormacion = models.DateField(auto_now_add=True)
 
-    def clean(self):
-        qs = Formacion.objects.filter(nombreFormacion__iexact=self.nombreFormacion)
-        if self.pk:
-            qs = qs.exclude(pk=self.pk)
-        if qs.exists():
-            raise ValidationError({'nombreFormacion': "El nombre de la Formación ya existe."})
-
-    def __str__(self):
-        return f"Formación {self.idFormacion} - {self.nombreFormacion}"
-    
     class Meta:  
         verbose_name = "Formacion"  
         verbose_name_plural = "Formaciones"
@@ -126,16 +116,6 @@ class Materia(models.Model):
     estadoMateria = models.CharField(max_length=10)
     fechaMateria = models.DateField(auto_now_add=True)
 
-    def clean(self):
-        # Validación general para evitar duplicados (case-insensitive), tanto en creación como edición
-        qs = Materia.objects.filter(nombreMateria__iexact=self.nombreMateria)
-        if self.pk:
-            qs = qs.exclude(pk=self.pk)
-        if qs.exists():
-            # Si la materia ya existe y NO es la que estamos editando
-            raise ValidationError("Esa materia ya está registrada.")
-
-
     class Meta:  
         verbose_name = "Materia"  
         verbose_name_plural = "Materias"
@@ -143,9 +123,9 @@ class Materia(models.Model):
 class Cohorte(models.Model):  
     idCohorte = models.AutoField(primary_key=True)
     nombreCohorte = models.CharField(max_length=100, unique=True)
-    estadoCohorte = models.CharField(max_length=10)
-    fechaCohorte = models.DateField(auto_now_add=True)
-        
+    estadoCohorte = models.CharField(max_length=10, db_index=True)
+    fechaCohorte = models.DateField(auto_now_add=True, db_index=True)
+
     def clean(self):
         qs = Cohorte.objects.filter(nombreCohorte__iexact=self.nombreCohorte)
         if self.pk:
@@ -162,15 +142,6 @@ class Cargo(models.Model):
     nombreCargo = models.CharField(max_length=100, unique=True)
     estadoCargo = models.CharField(max_length=10)
     fechaCargo = models.DateField(auto_now_add=True)
-
-    # Validación general para evitar duplicados (case-insensitive), tanto en creación como edición
-    def clean(self):
-        qs = Cargo.objects.filter(nombreCargo__iexact=self.nombreCargo)
-        if self.pk:
-            qs = qs.exclude(pk=self.pk)
-        if qs.exists():
-            raise ValidationError("El nombre del Cargo ya existe.")
-
 
     class Meta:  
         verbose_name = "Cargo"  
@@ -198,22 +169,17 @@ class Servicio(models.Model):
     nombreServicio = models.CharField(max_length=100, unique=True)
     tiempoServicio = models.CharField(max_length=100)
     precioServicio = models.CharField(max_length=100)
-    estadoServicio = models.CharField(max_length=10)
-    fechaServicio = models.DateField(auto_now_add=True)
-
-    def clean(self):
-        qs = Servicio.objects.filter(nombreServicio__iexact=self.nombreServicio)
-        if self.pk:
-            qs = qs.exclude(pk=self.pk)
-        if qs.exists():
-            raise ValidationError("El nombre del Servicio ya existe.")
-        
-    def __str__(self):
-                return f"Servicio {self.idServicio} - {self.nombreServicio}"
+    estadoServicio = models.CharField(max_length=10, db_index=True)
+    fechaServicio = models.DateField(auto_now_add=True, db_index=True)
 
     class Meta:  
         verbose_name = "Servicio"
         verbose_name_plural = "Servicios"
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['estadoServicio', 'nombreServicio']),
+        ]
 
     @property
     def solicitudes(self):
@@ -227,16 +193,6 @@ class Tramite(models.Model):
     estadoTramite = models.CharField(max_length=10)
     fechaTramite = models.DateField(auto_now_add=True)
 
-    def clean(self):
-        qs = Tramite.objects.filter(nombreTramite__iexact=self.nombreTramite)
-        if self.pk:
-            qs = qs.exclude(pk=self.pk)
-        if qs.exists():
-            raise ValidationError("El nombre del Tramite ya existe.")
-        
-    def __str__(self):
-                return f"Tramite {self.idTramite} - {self.nombreTramite}"
-        
     class Meta:  
         verbose_name = "Tramite"  
         verbose_name_plural = "Tramites"
@@ -246,13 +202,6 @@ class Denominacion(models.Model):
     nombreDenominacion = models.CharField(max_length=100, unique=True)
     estadoDenominacion = models.CharField(max_length=10)
     fechaDenominacion = models.DateField(auto_now_add=True)
-
-    def clean(self):
-        qs = Denominacion.objects.filter(nombreDenominacion__iexact=self.nombreDenominacion)
-        if self.pk:
-            qs = qs.exclude(pk=self.pk)
-        if qs.exists():
-            raise ValidationError("El nombre de la Denominación ya existe.")
 
     class Meta:  
         verbose_name = "Denominacion"  
@@ -266,13 +215,13 @@ class Banco(models.Model):
     estadoBanco = models.CharField(max_length=10, default='ACTIVO', verbose_name="Estado")
     fechaBanco = models.DateField(default=timezone.now, verbose_name="Fecha Registro")
 
-    def clean(self):
-        qs = Banco.objects.filter(nombreBanco__iexact=self.nombreBanco)
-        if self.pk:
-            qs = qs.exclude(pk=self.pk)
-        if qs.exists():
+    def save(self, *args, **kwargs):
+        # Antes de guardar, verificamos si el nombre ya existe
+        if Banco.objects.exclude(pk=self.pk).filter(nombreBanco__iexact=self.nombreBanco).exists():
             raise ValidationError("El nombre del Banco ya existe.")
-
+        
+        super().save(*args, **kwargs)
+        
     class Meta:
         verbose_name = "Banco"
         verbose_name_plural = "Bancos"
@@ -305,7 +254,7 @@ def clean(self):
 
 class Tasa(models.Model):  
     idTasa = models.AutoField(primary_key=True)
-    idMoneda = models.ForeignKey(Moneda, on_delete=models.CASCADE)
+    idMoneda = models.ForeignKey(Moneda, on_delete=models.CASCADE, related_name='tasas')  # ← Nombre personalizado)
     montoTasa = models.CharField(max_length=100)
     estadoTasa = models.CharField(max_length=10)
     fechaTasa = models.DateTimeField(auto_now_add=True)

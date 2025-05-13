@@ -5,7 +5,8 @@
 {% block stylesheets %}
 <link rel="stylesheet" href="/static/assets/css/all.min.css"/>
 <link rel="stylesheet" href="/static/assets/css/style.css"/>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+<link rel="stylesheet" href="/static/assets/vendor/@fortawesome/fontawesome-free/css/all.min.css" type="text/css">
+
 <style>
   .input-box {
     position: relative;
@@ -61,7 +62,6 @@
 </style>
 {% endblock stylesheets %}
 
-
 {% block content %}
 
 {% if messages %}
@@ -100,12 +100,11 @@
         <form method="POST" autocomplete="off" action="{% url 'login' %}">
           {% csrf_token %}
           <input type="hidden" name="next" value="{{ next }}">
-          
           <div class="input-boxes">
             <!-- Campos de login -->
             <div class="input-box">
               <i class="fas fa-id-card"></i>
-              <input type="text" name="cedula" placeholder=" " required />
+              <input type="text" name="cedula" placeholder=" " maxlength="9" required />
               <label for="cedula">Cédula</label>
             </div>
             <div class="input-box">
