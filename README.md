@@ -40,6 +40,7 @@ $ # Access the web app in browser: http://127.0.0.1:8000/
 
 # CREA LOS GRUPOS EN RAIZ PROYECTO
 # python manage.py dumpdata auth.Group --indent 2 > grupos.json
+
 # CARGAR GRUPOS EN BD
 # python manage.py loaddata grupos.json
 ```
