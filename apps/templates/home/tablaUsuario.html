@@ -43,10 +43,28 @@
     padding: 0.5em 0.75em;
 }
 
-/* Asegurar que los modales se muestren correctamente */
 .modal.fade.show {
     display: block !important;
     background-color: rgba(0,0,0,0.5);
+}
+
+.table-responsive {
+  scrollbar-width: thin;
+  scrollbar-color:rgb(107, 143, 250) #f1f1f1;
+}
+
+.table-responsive::-webkit-scrollbar {
+  height: 8px;
+}
+
+.table-responsive::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+.table-responsive::-webkit-scrollbar-thumb {
+  background-color:rgb(81, 141, 245);
+  border-radius: 4px;
+  border: 2px solid #f1f1f1;
 }
 </style>
 {% endblock %}
@@ -56,7 +74,6 @@
         <h2 class="text-center mb-4">Listado de Usuarios</h2>
 
         {% if perms.home.view_usuarios %}
-
             <div class="row mb-3">
             <div class="col-md-4">
                 <div class="input-group">
@@ -105,8 +122,8 @@
         {% for message in messages %}
             <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
             {{ message }}
-            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                <span aria-hidden="true">&times;</span>
+            <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+                <i class="fas fa-times"></i>
             </button>
             </div>
         {% endfor %}
@@ -409,16 +426,112 @@ function initAsignarGruposForm(usuarioId) {
               submitBtn.disabled = false;
           }
       });
+
+      // --- INICIALIZACIÓN DE LA BÚSQUEDA Y LOS CHECKBOXES ---
+      console.log('JavaScript se está ejecutando dentro del modal'); // Debug
+
+      const searchInput = document.getElementById('permissionSearchInput');
+      const adminCardWrapper = form.querySelector('.admin-permission-card');
+      const categoryCards = form.querySelectorAll('.permission-category');
+
+      if (searchInput) {
+          searchInput.addEventListener('keyup', function() {
+              const searchTerm = this.value.toLowerCase().trim();
+              console.log('Término de búsqueda:', searchTerm); // Debug
+
+              // 1. Filtrar tarjeta de Administrador
+              if (adminCardWrapper) {
+                  const adminText = adminCardWrapper.textContent.toLowerCase();
+                  const adminVisible = adminText.includes(searchTerm) || searchTerm === '';
+                  adminCardWrapper.style.display = adminVisible ? '' : 'none';
+                  console.log('Tarjeta de Admin visible:', adminVisible); // Debug
+              }
+
+              // 2. Filtrar Categorías y Permisos
+              categoryCards.forEach(card => {
+                  const headerText = card.querySelector('.card-header').textContent.toLowerCase();
+                  const permissionItems = card.querySelectorAll('.permission-item');
+                  let hasVisibleItems = false;
+
+                  // Si la categoría coincide, mostrar todos los items
+                  if (headerText.includes(searchTerm)) {
+                      permissionItems.forEach(item => {
+                          item.style.display = ''; // Mostrar todos los items
+                          hasVisibleItems = true;
+                      });
+                  } else {
+                      // Si la categoría no coincide, filtrar los items individualmente
+                      permissionItems.forEach(item => {
+                          const itemText = item.textContent.toLowerCase();
+                          const isVisible = itemText.includes(searchTerm);
+                          item.style.display = isVisible ? '' : 'none';
+                          if (isVisible) hasVisibleItems = true;
+                      });
+                  }
+
+                  // Mostrar la tarjeta si el encabezado coincide O si hay elementos visibles
+                  const categoryVisible = headerText.includes(searchTerm) || hasVisibleItems || searchTerm === '';
+                  card.style.display = categoryVisible ? '' : 'none';
+
+                  // Después de filtrar los items, verificar si la categoría debe estar visible
+                  if (searchTerm) { // Solo si hay un término de búsqueda
+                      let anyItemVisible = false;
+                      permissionItems.forEach(item => {
+                          if (item.style.display !== 'none') {
+                              anyItemVisible = true;
+                          }
+                      });
+                      card.style.display = (headerText.includes(searchTerm) || anyItemVisible) ? '' : 'none';
+                  } else {
+                      card.style.display = ''; // Mostrar todas las categorías si no hay búsqueda
+                      permissionItems.forEach(item => {
+                          item.style.display = ''; // Mostrar todos los items
+                      });
+                  }
+
+                  console.log('Categoría visible:', categoryVisible, 'Categoría:', card.dataset.category); // Debug
+              });
+          });
+      }
+
+      form.querySelectorAll('.permission-category').forEach(categoryCard => {
+          const totalCheckbox = categoryCard.querySelector('input[type="checkbox"][id$="-gestion-total"]');
+          const actionCheckboxes = categoryCard.querySelectorAll('.card-body .row input[type="checkbox"]');
+
+          if (totalCheckbox) {
+              totalCheckbox.addEventListener('change', function() {
+                  const isChecked = this.checked;
+                  actionCheckboxes.forEach(cb => cb.checked = isChecked);
+              });
+
+              actionCheckboxes.forEach(cb => {
+                  cb.addEventListener('change', function() {
+                      if (!this.checked) {
+                          totalCheckbox.checked = false;
+                      } else {
+                          const allChecked = Array.from(actionCheckboxes).every(c => c.checked);
+                          totalCheckbox.checked = allChecked;
+                      }
+                  });
+              });
+
+              if (totalCheckbox.checked) {
+                  actionCheckboxes.forEach(cb => cb.checked = true);
+              }
+          }
+      });
+      // --- FIN INICIALIZACIÓN ---
   }
 }
-
 // Función para mostrar alertas en el modal
 function showModalAlert(form, message, type) {
   const alertDiv = document.createElement('div');
   alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
   alertDiv.innerHTML = `
       ${message}
-      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+        <i class="fas fa-times"></i>
+      </button>
   `;
   
   form.parentNode.insertBefore(alertDiv, form.previousElementSibling);
@@ -492,5 +605,17 @@ document.addEventListener('DOMContentLoaded', function() {
       row.style.display = match ? '' : 'none';
     });
   });
+
+  // Scroll horizontal con la rueda del ratón (shift no necesario)
+const tableWrapper = document.querySelector('.table-responsive');
+
+if (tableWrapper) {
+  tableWrapper.addEventListener('wheel', function (e) {
+    if (e.deltaY !== 0) {
+      e.preventDefault(); // evita scroll vertical
+      tableWrapper.scrollLeft += e.deltaY; // desplaza horizontalmente
+    }
+  });
+}
 </script>
 {% endblock %}

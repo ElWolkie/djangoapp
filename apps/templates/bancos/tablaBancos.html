@@ -1,0 +1,197 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}Listado de Bancos{% endblock title %}
+
+{% block stylesheets %}
+<link rel="stylesheet" href="/static/assets/css/styleForms.css" />
+<link rel="stylesheet" href="/static/assets/css/argon.css" />
+{% endblock stylesheets %}
+
+{% block content %}
+<div class="container mt-5">
+  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Lista de Bancos Registrados</h2>
+
+  {% if messages %}
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert" style="margin:5px;">
+        {{ message }}
+        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+    {% endfor %}
+  {% endif %}
+
+  <div class="row">
+    <div class="col-md-4">
+      <div class="input-group">
+        <div class="input-group-prepend">
+          <span class="input-group-text" style="background-color: #bcbcbc; border: none;">
+            <i class="fas fa-search text-warning"></i>
+          </span>
+        </div>
+        <input class="form-control" id="searchInput" type="text" placeholder="Buscar..." onkeyup="filterTable()">
+      </div>
+    </div>
+    <div class="col-md-4">
+      <button class="btn btn-warning btn-square btn-sm my-2" type="button" title="Registrar Banco" data-toggle="modal" data-target="#bancoModal">+</button>
+    </div>
+
+    <form action="{% url 'actualizar_bancos_api' %}" method="POST" style="display: inline-block;">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-warning" title="Buscar y añadir bancos de Venezuela desde fuente externa">
+          <i class="fas fa-credit-card"></i> Actualizar Bancos
+      </button>
+    </form>
+  </div>
+
+  <br>
+  <table class="table table-responsive table-sm  table-striped text-gray-dark mx-auto" id="bancosTable">
+    <thead class="text-darker">
+      <tr>
+        <th scope="col">ID</th>
+        <th scope="col">Código Local</th>
+        <th scope="col">Código SWIFT</th>
+        <th scope="col">Código Contable</th>
+        <th scope="col">Nombre</th>
+        <th scope="col">Estado</th>
+        <th scope="col">Fecha</th>
+        <th scope="col">Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for banco in bancos %}
+      <tr>
+        <td>{{ banco.idBanco }}</td>
+        <td>{{ banco.codLocalBanco }}</td>
+        <td>{{ banco.codSwiftBanco }}</td>
+        <td>
+          {% if banco.codigoPlanCuenta %}
+            {{ banco.codigoPlanCuenta.codigoPlanCuenta }}
+          {% else %}
+            N/A
+          {% endif %}
+        </td>        <td>{{ banco.nombreBanco }}</td>
+        <td>{{ banco.estadoBanco|yesno:"Activo,Inactivo" }}</td>
+        <td>{{ banco.fechaBanco|date:"d/m/Y" }}</td>
+        <td>
+          <button class="btn btn-sm btn-primary" type="button" data-toggle="modal" data-target="#editBancoModal" data-id="{{ banco.idBanco }}" data-url="{% url 'banco_update' banco.idBanco %}">Editar</button>
+          {% if banco.estadoBanco %}
+          <button class="btn btn-sm btn-danger" type="button" onclick="deleteBanco('{{ banco.idBanco }}')">Eliminar</button>
+          {% else %}
+          <button class="btn btn-sm btn-success" type="button" onclick="reactivateBanco('{{ banco.idBanco }}')">Reactivar</button>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Modal para registrar banco -->
+<div class="modal fade" id="bancoModal" tabindex="-1" role="dialog" aria-labelledby="bancoModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="bancoModalLabel">Registro de Banco</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <!-- Contenedor para los mensajes -->
+        <div id="modalMessages"></div>
+        <!-- El contenido del formulario se cargará aquí -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal para editar banco -->
+<div class="modal fade" id="editBancoModal" tabindex="-1" role="dialog" aria-labelledby="editBancoModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="editBancoModalLabel">Editar Banco</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <!-- Contenedor para los mensajes -->
+        <div id="modalMessages"></div>
+        <form id="editBancoForm">
+          <!-- El contenido del formulario de edición se cargará aquí -->
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}
+
+{% block javascripts %}
+<script>
+  function filterTable() {
+    var input, filter, table, tr, td, i, j, txtValue;
+    input = document.getElementById("searchInput");
+    filter = input.value.toUpperCase();
+    table = document.getElementById("bancosTable");
+    tr = table.getElementsByTagName("tr");
+    for (i = 1; i < tr.length; i++) {
+      tr[i].style.display = "none";
+      td = tr[i].getElementsByTagName("td");
+      for (j = 0; j < td.length; j++) {
+        if (td[j]) {
+          txtValue = td[j].textContent || td[j].innerText;
+          if (txtValue.toUpperCase().indexOf(filter) > -1) {
+            tr[i].style.display = "";
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  function deleteBanco(id) {
+    if (confirm("¿Estás seguro de que deseas eliminar este banco?")) {
+      fetch(`/cuentaBanco/eliminar/${id}/`, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': '{{ csrf_token }}',
+        },
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          alert(data.message);
+          location.reload();
+        } else {
+          alert("Error al eliminar el banco.");
+        }
+      })
+      .catch(error => console.error('Error:', error));
+    }
+  }
+
+  function reactivateBanco(id) {
+    if (confirm("¿Estás seguro de que deseas reactivar este banco?")) {
+      fetch(`/cuentaBanco/reactivar/${id}/`, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': '{{ csrf_token }}',
+        },
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          alert(data.message);
+          location.reload();
+        } else {
+          alert("Error al reactivar el banco.");
+        }
+      })
+      .catch(error => console.error('Error:', error));
+    }
+  }
+</script>
+{% endblock javascripts %}

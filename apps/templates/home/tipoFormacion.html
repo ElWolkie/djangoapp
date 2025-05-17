@@ -12,7 +12,7 @@
   {% endif %}
 <div class="mt-5">
   <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Registrar Tipo de Formación</h2>
-  <form method="POST" class="mt-3 text-dark" autocomplete="off" style="font-weight: bold; max-width: 600px; margin: 0 auto;" id="tipoFormacionForm" action="{% url 'tipo_formacion_modal' %}">
+  <form method="POST" class="mt-3 text-dark" autocomplete="off" style="font-weight: bold; max-width: 600px; margin: 0 auto;" id="tipoFormacionForm" action="{% url 'tipoFormacion_modal' %}">
     {% csrf_token %}
     <div class="form-group text-center">
       <label for="nombreTipoFormacion" class="d-block">Nombre:</label>

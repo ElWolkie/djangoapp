@@ -1,303 +1,243 @@
-
+{% load static %}
 
 {% block stylesheets %}
-<link rel="stylesheet" href="/static/assets/css/styleForms.css" />
-<link rel="stylesheet" href="/static/assets/css/argon.css" />
-{% endblock stylesheets %}
+<link rel="stylesheet" href="{% static 'assets/css/styleForms.css' %}" />
+<link rel="stylesheet" href="{% static 'assets/css/argon.css' %}" />
+{% endblock %}
 
 {% block content %}
-{% if messages %}
-    {% for message in messages %}
-      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-        {{ message }}
-      </div>
-    {% endfor %}
-{% endif %}
-<div class="container mt-5">
-  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Modificar Inscripcion</h2>
-  <form method="POST" class="mt-3 text-dark" autocomplete="off" style="font-weight: bold; max-width: 600px; margin: 0 auto;" id="editInscripcionForm" action="{% url 'edit_inscripcion' inscripcion.idInscripcion %}">
+  <h2 class="text-center text-dark" style="margin:0 auto; padding:5px 0 15px;">
+    Modificar Inscripción
+  </h2>
+
+  <form id="editInscripcionForm"
+        method="POST"
+        action="{% url 'edit_inscripcion' inscripcion.idInscripcion %}"
+        class="mt-3 text-dark needs-validation"
+        autocomplete="off"
+        novalidate
+        style="font-weight:bold; max-width:600px; margin:0 auto;">
+
     {% csrf_token %}
-
-    <div class="form-row">
-      <div class="form-group col-md-6">
-        <label for="cedulaPersona">Cédula del Cliente:</label>
-        <div class="input-group">
-          <input type="text" id="cedulaPersona" name="cedulaPersona" class="form-control text-dark" tabindex="1" data-required="true" oninput="checkPersona()" placeholder="Ingrese cédula..." value="{{ inscripcion.idPersona.cedula }}">
-          <div class="input-group-append">
-            <span id="check-icon" class="input-group-text"></span>
-          </div>
-          <div class="invalid-feedback">Por favor, ingrese una cedula válida.</div>
-          <input type="hidden" id="idPersona" name="idPersona" value="{{ inscripcion.idPersona.idPersona }}"  />
-        </div>
+    
+    <!-- CÉDULA (DESHABILITADA) -->
+    <div class="row">
+    <div class="form-group col-md-6">
+      <label for="cedulaPersona">Cédula del Cliente:</label>
+      <div class="input-group">
+        <input type="text"
+               id="cedulaPersona"
+               class="form-control text-dark"
+               value="{{ inscripcion.idPersona.cedula }}"
+               disabled>
+        <!-- Enviamos la cédula (si la necesitas en el backend) -->
+        <input type="hidden"
+               name="cedulaPersona"
+               value="{{ inscripcion.idPersona.cedula }}">
+        <!-- Campo oculto para enviar el idPersona (único) -->
+        <input type="hidden"
+               id="idPersona"
+               name="idPersona"
+               value="{{ inscripcion.idPersona.idPersona }}">
       </div>
+    </div>
 
-      <div class="form-group col-md-6">
-        <label for="idMateria">Materia:</label>
-        <div class="input-group">
-          <select id="idMateria" name="idMateria"  class="form-control text-dark" tabindex="1" data-required="true">
-            <option value="" disabled >Seleccione..</option>
-            {% for materia in materias %}
+
+    <!-- MATERIA -->
+    <div class="form-group col-md-6">
+      <label for="idMateria">Materia:</label>
+      <div class="input-group">
+        <select id="idMateria" name="idMateria"  class="form-control text-dark" tabindex="1" data-required="true" required>
+          <option value="" disabled>Seleccione..</option>
+          {% for materia in materias %}
             <option value="{{ materia.idMateria }}" 
-            {% if materia.idMateria == inscripcion.idMateria.idMateria %}selected{% endif %}>{{ materia.nombreMateria }}        
-            {% endfor %}
-          </select>
-          <div class="invalid-feedback">Por favor, seleccione una materia válida.</div>
-        </div>
-      </div>
-
-      <div class="form-group col-md-6">
-        <label for="nombreCohorte">Cohorte:</label>
-        <div class="input-group">
-          <input type="text" id="nombreCohorte" name="nombreCohorte" class="form-control text-dark" value="{{ inscripcion.idCohorte.nombreCohorte }}" pattern="[A-ZIVXLCDM]+" data-required="true" oninput="checkCohorte()" placeholder="Ingrese nombre de cohorte...">
-          <div class="input-group-append">
-            <span id="check-cohorte-icon" class="input-group-text"></span>
-          </div>
-          <div class="invalid-feedback">Por favor, seleccione una materia válida.</div>
-          <input type="hidden" id="idCohorte" name="idCohorte" />
-          <input type="hidden" id="estadoContrato" name="estadoContrato" class="form-control text-dark" value="ACTIVO" />
-        </div>
-      </div>
-      <div class="form-group col-md-6">
-        <label for="idTF">Tipo de Formación:</label>
-        <select id="idTF" name="idTF"  class="form-control text-dark" data-required="true">
-          <option value="" disabled >Seleccione..</option>
-          {% for tipo in tipos_formacion %}
-          <option value="{{ tipo.idTF }}"  class="text-orange">{{ tipo.nombreTipoFormacion }}</option>
+              {% if materia.idMateria == inscripcion.idMateria.idMateria %}selected{% endif %}>
+              {{ materia.nombreMateria }}
+            </option>
           {% endfor %}
         </select>
-        <div class="invalid-feedback">Por favor, seleccione una opción tipo de formación válida.</div>
+        <div class="invalid-feedback">Por favor, seleccione una materia válida.</div>
       </div>
-      <div class="form-group col-md-6">  
-        <label for="idFormacion">Formación Académica:</label>  
-        <div class="input-group"> <!-- Usar input-group para alinear botón y select -->  
-            <select id="idFormacion" name="idFormacion" class="form-control text-dark" tabindex="1" data-required="true">  
-                <option value="" disabled selected>Seleccione...</option>  
-                {% for formacion  in formaciones %}  
-                <option value="{{ formacion.idFormacion }}"{% if formacion.idFormacion == inscripcion.idFormacion.idFormacion %}selected{% endif %}>{{ formacion.nombreFormacion }}
-                </option>           
-                {% endfor %}  
-            </select>
-            <div class="invalid-feedback">Por favor, seleccione una opción de formación válida.</div>
-          </div>  
     </div>
     </div>
+
+    <!-- COHORTE -->
+    <div class="row">
+    <div class="form-group col-md-6">
+      <label for="nombreCohorte">Cohorte:</label>
+      <div class="input-group">
+        <input type="text" 
+               id="nombreCohorte" 
+               name="nombreCohorte" 
+               class="form-control text-dark" 
+               value="{{ inscripcion.idCohorte.nombreCohorte }}" 
+               pattern="[A-ZIVXLCDM]+" 
+               data-required="true" 
+               oninput="checkCohorte()" 
+               readonly>
+        <div class="input-group-append">
+          <span id="check-cohorte-icon" class="input-group-text"></span>
+        </div>
+        <div class="invalid-feedback">Por favor, seleccione una cohorte válida.</div>
+        <!-- Campo oculto para enviar el idCohorte (se actualizará vía JS) -->
+        <input type="hidden" id="idCohorte" name="idCohorte" value="{{ inscripcion.idCohorte.idCohorte }}" />
+        <input type="hidden" id="estadoContrato" name="estadoContrato" class="form-control text-dark" value="ACTIVO" />
+      </div>
+    </div>
+
+    <!-- Tipo de Formación -->
+    <div class="form-group col-md-6">
+      <label for="idTF">Tipo de Formación:</label>
+      <select id="idTF" name="idTF"  class="form-control text-dark" data-required="true" required>
+        <option value="" disabled>Seleccione..</option>
+        {% for tipo in tipos_formacion %}
+          <option value="{{ tipo.idTF }}" {% if tipo.idTF == inscripcion.idTF.idTF %}selected{% endif %} class="text-orange">
+            {{ tipo.nombreTipoFormacion }}
+          </option>
+        {% endfor %}
+      </select>
+      <div class="invalid-feedback">Por favor, seleccione una opción válida.</div>
+    </div>
+    </div>
+
+    <!-- Formación Académica -->
+    <div class="row">
+    <div class="form-group col-md-6">  
+      <label for="idFormacion">Formación Académica:</label>  
+      <div class="input-group">
+        <select id="idFormacion" name="idFormacion" class="form-control text-dark" tabindex="1" data-required="true" required>  
+          <option value="" disabled selected>Seleccione...</option>  
+          {% for formacion in formaciones %}  
+            <option value="{{ formacion.idFormacion }}"
+              {% if formacion.idFormacion == inscripcion.idFormacion.idFormacion %}selected{% endif %}>
+              {{ formacion.nombreFormacion }}
+            </option>           
+          {% endfor %}  
+        </select>
+        <div class="invalid-feedback">Por favor, seleccione una formación válida.</div>
+      </div>  
+    </div>
+    </div>
+
+
     <div id="alert-container"></div> <!-- Contenedor para las alertas -->
 
-    <div class="text-center">
-      <input type="submit" class="btn btn-warning mt-4" value="Guardar" />
+    <div class="text-center mt-4">
+      <button type="submit" class="btn btn-warning">Guardar</button>
     </div>
   </form>
-</div>
-{% endblock content %}
+{% endblock %}
 
 {% block javascripts %}
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
 <script>
-  document.addEventListener("DOMContentLoaded", function () {
-    const form = document.getElementById("editInscripcionForm");
+document.addEventListener('DOMContentLoaded', () => {
+  // Validación Bootstrap
+  const form = document.getElementById('editInscripcionForm');
+  
+  form.addEventListener('submit', function(e) {
+    if (!form.checkValidity()) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    form.classList.add('was-validated');
+  }, false);
 
-    form.addEventListener("submit", function (e) {
-      e.preventDefault(); // Evitar el envío tradicional del formulario
+  // Envío AJAX
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const submitBtn = form.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Guardando...';
 
-      const formData = new FormData(form); // Obtener los datos del formulario
-
-      fetch(form.action, {
-        method: "POST",
+    try {
+      const formData = new FormData(form);
+      const response = await fetch(form.action, {
+        method: 'POST',
         body: formData,
-        headers: {
-          "X-Requested-With": "XMLHttpRequest", // Indicar que es una solicitud AJAX
-        },
-      })
-        .then((response) => response.json())
-        .then((data) => {
-          if (data.success) {
-            // Mostrar alerta de éxito
-            Swal.fire({
-              title: "Registro exitoso",
-              text: "La inscripcion ha sido registrada correctamente.",
-                icon: "success",
-                confirmButtonText: "OK",
-                customClass: {
-                confirmButton: "btn btn-warning"
-                },
-                buttonsStyling: false,
-            }).then(() => {
-              // Opcional: Limpiar el formulario después del éxito
-              form.reset();
-              document.getElementById("alert-container").innerHTML = ""; // Limpiar alertas
-              document.getElementById("check-icon").innerHTML = ""; // Limpiar icono
-              document.getElementById("check-cohorte-icon").innerHTML = ""; // Limpiar icono
-            });
-          } else {
-            // Mostrar errores en caso de fallo
-            Swal.fire({
-              icon: "error",
-              title: "Error en el registro",
-              html: Object.values(data.errors)
-                .map((error) => `<p>${error}</p>`)
-                .join(""),
-            });
-          }
-        })
-        .catch((error) => {
-          console.error("Error:", error);
-          Swal.fire({
-            icon: "error",
-            title: "Error inesperado",
-            text: "Ocurrió un error al procesar la solicitud.",
-          });
+        headers: { 
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRFToken': '{{ csrf_token }}'
+        }
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        await Swal.fire({
+          icon: 'success',
+          title: '¡Actualizado!',
+          text: data.message,
+          confirmButtonText: 'OK',
+          customClass: { confirmButton: 'btn btn-success' }
         });
-    });
+        $('#editInscripcionModal').modal('hide'); // Cerrar el modal
+        window.location.reload();
+      } else {
+        let errorMessage = 'Error al guardar los cambios';
+        if (data.errors) {
+          errorMessage = Object.values(data.errors).flat().join('\n');
+        }
+        Swal.fire('Error', errorMessage, 'error');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      Swal.fire('Error', 'Error de conexión con el servidor', 'error');
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = 'Guardar';
+    }
   });
+});
 
+function checkCohorte() {
+  const input = document.getElementById("nombreCohorte").value;
+  const icon = document.getElementById("check-cohorte-icon");
+  const idCohorteInput = document.getElementById("idCohorte");
+  const foundCohorte = cohortes.find((cohorte) => cohorte.nombreCohorte === input);
 
-  function checkPersona(cedula = null) {
- const inputElement = document.getElementById('cedulaPersona');
- const input = cedula || inputElement.value;
- const icon = document.getElementById('check-icon');
- const idPersonaInput = document.getElementById('idPersona');
- const foundPersona = personas.find(persona => persona.cedula === input);
-
- if (cedula) {
-   inputElement.value = cedula; // Asignar automáticamente el valor al input
- }
-
- if (foundPersona) {
-  icon.innerHTML = '✔️'; // Pajarito verde
-  icon.style.color = 'blue';
-  idPersonaInput.value = foundPersona.idPersona;
-
-  // Mostrar alerta con los datos de la persona
-  const alertHTML = `
-      <div class="alert alert-success alert-dismissible fade show" role="alert">
-       <strong style="color: orange; font-size: 1.2em;">Persona encontrada:</strong><br>
-       <span style="font-style: italic;">Cédula: ${foundPersona.cedula}</span><br>
-       <span style="font-style: italic;">Nombres: ${foundPersona.nombres}</span><br>
-       <span style="font-style: italic;">Apellidos: ${foundPersona.apellidos}</span>
-       <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-        <span aria-hidden="true">&times;</span>
-       </button>
-      </div>
-  `;
-
-  // Insertar la alerta en el DOM
-  document.getElementById('alert-container').innerHTML = alertHTML;
- } else {
-  icon.innerHTML = '❌'; // X roja
-  icon.style.color = 'red';
-  idPersonaInput.value = '';
-
-  // Mostrar alerta de que no se encontró la persona
-  const alertHTML = `
-      <div class="alert alert-danger alert-dismissible fade show" role="alert">
-       <strong>Persona no encontrada</strong>
-       <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-        <span aria-hidden="true">&times;</span>
-       </button>
-      </div>
-  `;
-
-  // Insertar la alerta en el DOM
-  document.getElementById('alert-container').innerHTML = alertHTML;
- }
+  if (foundCohorte) {
+    icon.innerHTML = "✔️"; // Pajarito verde
+    icon.style.color = "blue";
+    idCohorteInput.value = foundCohorte.idCohorte;
+  } else {
+    icon.innerHTML = "❌"; // X roja
+    icon.style.color = "red";
+    idCohorteInput.value = "";
+  }
 }
 
-// Llamar automáticamente a checkPersona si se pasa un valor de cédula
-document.addEventListener("DOMContentLoaded", function() {
-  const cedula = document.getElementById('cedulaPersona').value;
-  if (cedula) {
-    checkPersona(cedula);
+const cohortes = [
+  {% for cohorte in cohortes %}
+    { idCohorte: "{{ cohorte.idCohorte|escapejs }}", nombreCohorte: "{{ cohorte.nombreCohorte|escapejs }}" },
+  {% endfor %}
+];
+
+const personas = [
+  {% for persona in personas %}
+    { idPersona: "{{ persona.idPersona|escapejs }}", cedula: "{{ persona.cedula|escapejs }}", nombres: "{{ persona.nombres|escapejs }}", apellidos: "{{ persona.apellidos|escapejs }}" },
+  {% endfor %}
+];
+
+document.getElementById("nombreCohorte").addEventListener("input", function() {
+  const input = this;
+  const errorElement = document.getElementById("roman-error");
+  
+  // Forzar mayúsculas y filtrar caracteres
+  input.value = input.value.toUpperCase().replace(/[^MDCLXVI]/g, '');
+  
+  // Validación estricta de número romano
+  const isValid = /^M{0,3}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})$/.test(input.value);
+  
+  // Mostrar feedback
+  if (input.value && !isValid) {
+    input.classList.add("is-invalid");
+    errorElement.textContent = "Formato inválido. Ejemplos válidos: VIII, XIX, MMXXIII";
+  } else {
+    input.classList.remove("is-invalid");
+    errorElement.textContent = "";
   }
 });
-  function checkCohorte() {
-    const input = document.getElementById("nombreCohorte").value;
-    const icon = document.getElementById("check-cohorte-icon");
-    const idCohorteInput = document.getElementById("idCohorte");
-    const foundCohorte = cohortes.find((cohorte) => cohorte.nombreCohorte === input);
-
-    if (foundCohorte) {
-      icon.innerHTML = "✔️"; // Pajarito verde
-      icon.style.color = "blue";
-      idCohorteInput.value = foundCohorte.idCohorte;
-    } else {
-      icon.innerHTML = "❌"; // X roja
-      icon.style.color = "red";
-      idCohorteInput.value = "";
-    }
-  }
-
-  const cohortes = [
-    {% for cohorte in cohortes %}
-      { idCohorte: "{{ cohorte.idCohorte|escapejs }}", nombreCohorte: "{{ cohorte.nombreCohorte|escapejs }}" },
-    {% endfor %}
-  ];
-
-  const personas = [
-    {% for persona in personas %}
-      {
-        idPersona: "{{ persona.idPersona|escapejs }}",
-        cedula: "{{ persona.cedula|escapejs }}",
-        nombres: "{{ persona.nombres|escapejs }}",
-        apellidos: "{{ persona.apellidos|escapejs }}"
-      },
-    {% endfor %}
-  ];
-
-  document.getElementById("nombreCohorte").addEventListener("input", function() {
-    const input = this;
-    const errorElement = document.getElementById("roman-error");
-    
-    // 1. Forzar mayúsculas y filtrar caracteres
-    input.value = input.value.toUpperCase().replace(/[^MDCLXVI]/g, '');
-    
-    // 2. Validación estricta de número romano
-    const isValid = /^M{0,3}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})$/.test(input.value);
-    
-    // 3. Mostrar feedback
-    if (input.value && !isValid) {
-        input.classList.add("is-invalid");
-        errorElement.textContent = "Formato inválido. Ejemplos válidos: VIII, XIX, MMXXIII";
-    } else {
-        input.classList.remove("is-invalid");
-        errorElement.textContent = "";
-    }
-});
 </script>
-<script>
-  document.getElementById("nombreCohorte").addEventListener("input", function() {
-    const input = this;
-    const errorElement = document.getElementById("roman-error");
-    
-    // 1. Forzar mayúsculas y filtrar caracteres
-    input.value = input.value.toUpperCase().replace(/[^MDCLXVI]/g, '');
-    
-    // 2. Validación estricta de número romano
-    const isValid = /^M{0,3}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})$/.test(input.value);
-    
-    // 3. Mostrar feedback
-    if (input.value && !isValid) {
-        input.classList.add("is-invalid");
-        errorElement.textContent = "Formato inválido. Ejemplos válidos: VIII, XIX, MMXXIII";
-    } else {
-        input.classList.remove("is-invalid");
-        errorElement.textContent = "";
-    }
-});
-
-// Validaciones de Bootstrap
-          (function() {
-        'use strict';
-        var forms = document.querySelectorAll('.needs-validation');
-        Array.prototype.slice.call(forms).forEach(function(form) {
-          form.addEventListener('submit', function(event) {
-            if (!form.checkValidity()) {
-              event.preventDefault();
-              event.stopPropagation();
-            }
-            form.classList.add('was-validated');
-          }, false);
-        });
-      })();
-
-</script>
-{% endblock javascripts %}
+{% endblock %}

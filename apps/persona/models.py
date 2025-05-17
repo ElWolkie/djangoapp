@@ -37,6 +37,10 @@ class Personas(models.Model):
 
     def __str__(self):
         return f"{self.nombres} {self.apellidos}"  # Representación legible en el admin de Django
+    
+    @property
+    def es_superuser(self):
+        return self.user.is_superuser if hasattr(self, 'user') else False
 
 
 # Tabla intermedia para la relación muchos a muchos entre Personas y TipoPersona

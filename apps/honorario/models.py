@@ -12,12 +12,20 @@ class Honorario(models.Model):
     idCohorte = models.ForeignKey(Cohorte, on_delete=models.CASCADE)  # Clave foránea a Cohorte  
     idMateria = models.ForeignKey(Materia, on_delete=models.CASCADE)  # Clave foránea a Materia  
     horas = models.FloatField()  # Número de horas trabajadas  
-    estadoHonorario = models.CharField(max_length=10)  # Estado del Honorario  
+    estadoHonorario = models.CharField(max_length=10, db_index=True)  # Estado del Honorario  
     fechaHonorario = models.DateField(auto_now_add=True)  # Fecha de creación del Honorario  
 
     class Meta:  
         verbose_name = "Honorario"  
         verbose_name_plural = "Honorarios"  
+    
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['idPersona', 'idMateria', 'idCohorte', 'horas'],
+                name='unique_honorario_per_persona_materia_cohorte_horas'
+            )
+        ]
 
     def clean(self):
         # Evita duplicados: una persona no puede tener más de un honorario para la misma cohorte, cargo y materia

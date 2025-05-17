@@ -1,4 +1,5 @@
 {% extends 'layouts/base.html' %}
+{% load static %}
 
 {% block title %}Registro de Persona{% endblock title %}
 
@@ -22,7 +23,7 @@
       {% endfor %}
   {% endif %}
   
-  <form method="POST" class="mt-4 text-dark" autocomplete="off" style="font-weight: bold;" id="registroPersona">
+  <form method="POST" class="mt-4 text-dark" autocomplete="off" style="font-weight: bold;" id="registroPersona" action="{% url 'persona_modal' %}">
     {% csrf_token %}
     <div class="row">
       <div class="col-md-6">
@@ -190,7 +191,7 @@
     }
   });
 </script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
 <script>
   document.addEventListener("DOMContentLoaded", function () {
     // Manejar el envío del formulario con AJAX

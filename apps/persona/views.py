@@ -1,16 +1,197 @@
-from django.http import JsonResponse, HttpResponse, HttpResponseRedirect
-from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse, HttpResponse, HttpResponseRedirect, HttpResponseForbidden
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.decorators import login_required, permission_required
 from django.template import loader
-from django.db.models import OuterRef, Subquery, Max
 from django.urls import reverse
 from django.contrib import messages
+from django.db import transaction
 
-from django.template.loader import render_to_string
+from apps.home.models import Usuarios
+
 from .forms import TipoPersonaForm, PersonaForm
 from .models import PersonaTP, Personas, TipoPersona
 
+@login_required(login_url='login')
+@permission_required("persona.add_personas", raise_exception=True)
+def persona_modal(request):
+    if request.method == 'POST':
+        # 1) Recogemos la lista de tipos seleccionados ANTES de guardar nada
+        tipos_ids = request.POST.getlist('tipoPersona')
+        if not tipos_ids:
+            return JsonResponse({
+                'success': False,
+                'errors': {'tipoPersona': ['Debes seleccionar al menos un tipo de persona.']}
+            })
+
+        # 2) Procesamos el formulario
+        form = PersonaForm(request.POST)
+        if not form.is_valid():
+            return JsonResponse({'success': False, 'errors': form.errors})
+
+        # 3) Todo OK: guardamos dentro de una transacción
+        with transaction.atomic():
+            persona = form.save()
+            # 4) Creamos las relaciones PersonaTP
+            for tid in tipos_ids:
+                try:
+                    tp = TipoPersona.objects.get(pk=int(tid))
+                    PersonaTP.objects.create(idPersona=persona, idTP=tp)
+                except (TipoPersona.DoesNotExist, ValueError):
+                    print(f"⚠️ TipoPersona inválido: {tid}")  # ni interrumpe ni duplica nada
+
+        # 5) Devolvemos éxito
+        return JsonResponse({
+            'success': True,
+            'message': 'Persona registrada exitosamente.',
+            'cedula': persona.cedula,
+            'persona_id': persona.idPersona
+        })
+
+    # Si es GET, devolvemos el template normal
+    tipos_persona = TipoPersona.objects.filter(estadoTP='ACTIVO')
+    return render(request, 'persona/persona.html', {
+        'tipos_persona': tipos_persona,
+        'form': PersonaForm(),
+    })
+
+
+@login_required(login_url='login')
+@permission_required("persona.change_personas", raise_exception=True)
+def edit_persona(request, pk):
+    persona = get_object_or_404(Personas, pk=pk)
+
+    # 1) Verificar si es superusuario
+    persona_is_super = Usuarios.objects.filter(idPersona=persona, is_superuser=True).exists()
+    
+    # Bloquear acceso si:
+    if persona_is_super and not (request.user.is_superuser and request.user.idPersona.idPersona == persona.idPersona):
+        return HttpResponseForbidden("No puedes editar superusuarios")
+
+    if request.method == 'POST':
+        form = PersonaForm(request.POST, instance=persona)
+        if form.is_valid():
+            persona = form.save()
+            # sincronizar tipos...
+            selected = request.POST.getlist('tipoPersona')
+            actuales = persona.personatp_set.all()
+            actuales_ids = { str(pt.idTP.idTP) for pt in actuales }
+            for pt in actuales:
+                if str(pt.idTP.idTP) not in selected:
+                    pt.delete()
+            for tipo_id in selected:
+                if tipo_id not in actuales_ids:
+                    tp = TipoPersona.objects.get(idTP=tipo_id)
+                    PersonaTP.objects.create(idPersona=persona, idTP=tp)
+
+            # Si es AJAX devolvemos JSON
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Persona actualizada.',
+                    'redirect_url': reverse('tabla_persona')
+                })
+            # Si NO es AJAX, redirigimos con mensaje
+            messages.success(request, 'Persona actualizada.')
+            return redirect('tabla_persona')
+
+        # errores de validación
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'errors': form.errors})
+        # fallback normal (no AJAX)
+        return render(request, 'persona/editPersona.html', {
+            'form': form, 'persona': persona,
+            'tipos_persona': TipoPersona.objects.filter(estadoTP='ACTIVO'),
+            'tipos_seleccionados': list(persona.personatp_set.values_list("idTP", flat=True)),
+            'persona_is_super': persona_is_super,
+        })
+
+    # GET: renderizamos modal
+    tipos_sel = list(persona.personatp_set.values_list("idTP", flat=True))
+    form = PersonaForm(instance=persona)
+    return render(request, 'persona/editPersona.html', {
+        'form': form,
+        'persona': persona,
+        'tipos_persona': TipoPersona.objects.filter(estadoTP='ACTIVO'),
+        'tipos_seleccionados': tipos_sel,
+        'persona_is_super': persona_is_super,
+    })
+
+
+@login_required(login_url='login')
+@permission_required("persona.change_personas", raise_exception=True)
+def delete_persona(request, pk):
+    instance = get_object_or_404(Personas, pk=pk)
+    instance.estadoPersona = "INACTIVO"
+    instance.save()
+    return JsonResponse({'success': True, 'message': 'Eliminación exitosa.'})
+
+@login_required(login_url='login')
+@permission_required('persona.change_personas', raise_exception=True)
+def desactivar_persona(request, pk):
+    persona = get_object_or_404(Personas, pk=pk)
+
+    # 1) Si existe un usuario asociado…
+    try:
+        user = Usuarios.objects.get(idPersona=persona)
+        if user.is_superuser:
+            return JsonResponse({'success': False,
+                                 'message': '❌ No puedes desactivar al superusuario.'})
+        if user.is_active:
+            return JsonResponse({'success': False,
+                                 'message': '❌ Primero desactiva la cuenta de usuario asociada.'})
+    except Usuarios.DoesNotExist:
+        pass
+
+    if request.method == 'POST':
+        persona.estadoPersona = "INACTIVO"
+        persona.save()
+        msg = f"⛔ {persona.nombres} desactivado"
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'success': True, 'message': msg})
+        messages.success(request, msg)
+        return redirect(request.POST.get('next', 'tabla_persona'))
+
+    return HttpResponseForbidden()
+
+@login_required(login_url='login')
+@permission_required('persona.change_personas', raise_exception=True)
+def reactivate_persona(request, pk):
+    persona = get_object_or_404(Personas, pk=pk)
+
+    # 1) Impedir reactivar al superusuario
+    try:
+        user = Usuarios.objects.get(idPersona=persona)
+        if user.is_superuser:
+            return JsonResponse({'success': False,
+                                 'message': '❌ No puedes reactivar al superusuario aquí.'})
+    except Usuarios.DoesNotExist:
+        pass
+
+    if request.method == 'POST':
+        persona.estadoPersona = "ACTIVO"
+        persona.save()
+        msg = f"✅ {persona.nombres} reactivado"
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'success': True, 'message': msg})
+        messages.success(request, msg)
+        return redirect(request.POST.get('next', 'tabla_persona'))
+
+    return HttpResponseForbidden()
+
+@login_required(login_url='login')
+@permission_required("persona.view_personas", raise_exception=True)
+def tabla_persona(request):
+    mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+    if mostrar:
+        personas = Personas.objects.all()
+    else:
+        personas = Personas.objects.filter(estadoPersona='ACTIVO')
+    return render(request, 'persona/tablaPersona.html', {
+        'personas': personas,
+        'mostrar_inactivos': mostrar,
+    })
+
+#TIPO PERSONA
 @login_required(login_url="/login/")
 def tipo_persona_modal(request):
     if request.method == 'POST':
@@ -27,55 +208,6 @@ def tipo_persona_modal(request):
         # sólo renderizamos el formulario en GET o si hay errores no-AJAX
     form = TipoPersonaForm()
     return render(request, 'persona/tablaTipoPersona.html', {'form': form})
-
-@csrf_exempt
-def edit_persona(request, pk):
-    instance = get_object_or_404(Personas, pk=pk)
-    if request.method == 'POST':
-        form = PersonaForm(request.POST, instance=instance)
-        if form.is_valid():
-            persona = form.save()
-            # Manejar relaciones de tipos de persona
-            selected_types = request.POST.getlist('tipoPersona')
-            current_types = instance.personatp_set.all()
-            
-            # Eliminar relaciones no seleccionadas
-            for pt in current_types:
-                if str(pt.idTP.idTP) not in selected_types:
-                    pt.delete()
-            
-            # Agregar nuevas relaciones
-            existing_types = set(str(pt.idTP.idTP) for pt in current_types)
-            for tipo_id in selected_types:
-                if tipo_id not in existing_types:
-                    PersonaTP.objects.create(
-                        idPersona=persona, 
-                        idTP=TipoPersona.objects.get(idTP=tipo_id)
-                    )
-            
-            return JsonResponse({'success': True, 'message': 'Persona actualizada'})
-        return JsonResponse({'success': False, 'errors': form.errors})
-    
-    # GET request
-    tipos_asignados = [str(tp.idTP.idTP) for tp in instance.personatp_set.all()]
-    return render(request, 'persona/editPersona.html', {
-        'persona': instance,
-        'tipopersonas': TipoPersona.objects.all(),
-        'tipos_asignados': tipos_asignados
-    })
-@csrf_exempt
-def delete_persona(request, pk):
-    instance = get_object_or_404(Personas, pk=pk)
-    instance.estadoPersona = "INACTIVO"
-    instance.save()
-    return JsonResponse({'success': True, 'message': 'Eliminación exitosa.'})
-
-@csrf_exempt
-def reactivate_persona(request, pk):
-    instance = get_object_or_404(Personas, pk=pk)
-    instance.estadoPersona = "ACTIVO"
-    instance.save()
-    return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
 
 @login_required(login_url='/login/')
 def registro_tipo_persona(request):

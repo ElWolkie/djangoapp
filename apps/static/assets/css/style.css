@@ -1,5 +1,25 @@
-/* Google Font Link */
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@200;300;400;500;600;700&display=swap');
+/* Ya no usamos @import de Google Fonts */
+
+@font-face {
+  font-family: 'Poppins';
+  src: url('/static/assets/fonts/poppins/Poppins-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Poppins';
+  src: url('/static/assets/fonts/poppins/Poppins-SemiBold.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Poppins';
+  src: url('/static/assets/fonts/poppins/Poppins-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+}
 
 * {
   margin: 0;

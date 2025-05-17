@@ -1,356 +1,411 @@
 {% extends 'layouts/base.html' %}
+{% load static %}
 
 {% block title %}Listado de Tipos de Cargos{% endblock title %}
 
 {% block stylesheets %}
-<link rel="stylesheet" href="/static/assets/css/styleForms.css" />
-<link rel="stylesheet" href="/static/assets/css/argon.css" />
+<link rel="stylesheet" href="{% static 'assets/css/styleForms.css' %}" />
+<link rel="stylesheet" href="{% static 'assets/css/argon.css' %}" />
+<style>
+  .btn-purple {
+    background-color: #6f42c1 !important;
+    color: white !important;
+    border-color: #6f42c1 !important;
+  }
+  .btn-purple:hover {
+    background-color: #5a32a3 !important;
+    border-color: #5a32a3 !important;
+  }
+  .actions-column .btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+    transition: all 0.3s ease;
+  }
+  .badge {
+    font-size: 0.85em;
+    padding: 0.5em 0.75em;
+  }
+  .modal-dialog { max-width: 600px; }
+  .modal.fade.show {
+    display: block !important;
+    background-color: rgba(0,0,0,0.5);
+  }
+  .is-invalid {
+    border-color: #dc3545 !important;
+    box-shadow: 0 0 0 0.2rem rgba(220,53,69,.25);
+  }
+</style>
 {% endblock stylesheets %}
 
 {% block content %}
-<div class="container mt-5">
-  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Lista de Tipos de Cargos Registradas</h2>
+<div class="container mt-4">
+  <h2 class="text-center mb-4">Lista de Tipos de Cargos</h2>
 
-  {% if messages %}
-    {% for message in messages %}
-      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-        {{ message }}
-      </div>
-    {% endfor %}
-  {% endif %}
-
-  <div class="row">
+  <div class="row mb-3">
     <div class="col-md-4">
       <div class="input-group">
-        <div class="input-group-prepend">
-          <span class="input-group-text" style="background-color: #bcbcbc; border: none;">
-            <i class="fas fa-search text-warning"></i>
-          </span>
-        </div>
-        <input class="form-control" id="searchInput" type="text" placeholder="Buscar..." onkeyup="filterTable()">
+        <span class="input-group-text"><i class="fas fa-search text-warning"></i></span>
+        <input class="form-control" id="searchInput" type="text" placeholder="Buscar por Nombre…" onkeyup="filterTable()">
       </div>
     </div>
-    <div class="col-md-4">
-      <button class="btn btn-warning btn-square btn-sm my-2" type="button" title="Registrar Cargo" data-toggle="modal" data-target="#cargoModal">+</button>
-   
-    <a href="{% url 'reporte_cargos_pdf' %}" class="btn btn-outline-danger btn-sm" target="_blank">
 
-      <i class="fas fa-file-pdf"></i> Descargar PDF</a>
-    </div>
+    <div class="col-md-4 text-center">
+      {% if perms.home.add_cargo %}
+        <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#cargoModal">
+          <i class="fas fa-plus-circle me-1"></i> Registrar Cargo
+        </button>
+      {% endif %}
     </div>
 
-  <br>
-  <table class="table table-striped-bordered text-gray-dark" id="cargosTable">
-    <thead class="text-darker">
-        <tr>
-            <th scope="col">ID</th>
-            <th scope="col">Nombre</th>
-            <th scope="col">Estado</th>
-            <th scope="col">Fecha</th>
-            <th scope="col">Acciones</th>
-        </tr>
-    </thead>
-    <tbody>
-        <!-- Contenido de la tabla -->
-        {% for cargo in cargos %}  <!-- Cambia "cargos" a "cargo" para coincidir con el contexto -->
-        <tr>
+    <div class="col-md-4 text-end">
+      <a href="{% url 'reporte_cargos_pdf' %}" class="btn btn-outline-danger btn-sm" target="_blank">
+        <i class="fas fa-file-pdf me-1"></i> Descargar PDF
+      </a>
+    </div>
+  </div>
+
+    <div class="mb-3">
+      <a href="?mostrar_inactivos={% if mostrar_inactivos %}false{% else %}true{% endif %}"
+        class="btn btn-outline-secondary btn-sm">
+        {% if mostrar_inactivos %}
+          <i class="fas fa-eye-slash me-1"></i> Ocultar inactivos
+        {% else %}
+          <i class="fas fa-eye me-1"></i> Mostrar inactivos
+        {% endif %}
+      </a>
+    </div>
+
+  <div id="globalMessages">
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+      {% endfor %}
+    {% endif %}
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="table-responsive">
+      <table class="table table-striped table-hover align-middle text-gray-dark" id="cargosTable">
+        <thead class="table-light">
+          <tr>
+            <th>ID</th>
+            <th>Nombre</th>
+            <th>Fecha</th>
+            <th>Estado</th>
+            <th class="actions-column">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for cargo in cargos %}
+          <tr>
             <td>{{ cargo.idCargo }}</td>
             <td>{{ cargo.nombreCargo }}</td>
-            <td>{{ cargo.estadoCargo }}</td>
-            <td>{{ cargo.fechaCargo |date:"d/m/Y" }}</td>
+            <td>{{ cargo.fechaCargo|date:"d/m/Y" }}</td>
             <td>
-
-              <button class="btn btn-sm btn-primary" type="button" data-toggle="modal" data-target="#editCargoModal" data-url="{% url 'edit_cargo' cargo.idCargo %}">
-              Editar
-              </button>
-              {% if cargo.estadoCargo == "ACTIVO" %}
-              <button class="btn btn-sm btn-danger" type="button" onclick="manageCargo('{{ cargo.idCargo }}','delete')">
-                Eliminar
-              </button>
-              {% endif %}
-
-              {% if cargo.estadoCargo == "INACTIVO" %}
-              <button class="btn btn-sm btn-success" type="button" onclick="manageCargo('{{ cargo.idCargo }}','reactivate')">
-                Reactivar
-              </button>
+              {% if cargo.estadoCargo|upper == "ACTIVO" %}
+                <span class="badge bg-success text-white">
+                  <i class="fas fa-check-circle me-1"></i> Activo
+                </span>
+              {% else %}
+                <span class="badge bg-danger text-white">
+                  <i class="fas fa-times-circle me-1"></i> Inactivo
+                </span>
               {% endif %}
             </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+            <td class="actions-column">
+              <div class="d-flex gap-2">
+                {% if perms.home.change_cargo %}
+                  <button class="btn btn-primary btn-sm"
+                          data-bs-toggle="modal"
+                          data-bs-target="#editCargoModal"
+                          data-url="{% url 'edit_cargo' cargo.idCargo %}">
+                    <i class="fas fa-edit"></i>
+                  </button>
+                {% endif %}
+                {% if cargo.estadoCargo|upper == "ACTIVO" and perms.home.change_cargo %}
+                  <button class="btn btn-outline-warning btn-sm"
+                          data-bs-toggle="modal"
+                          data-bs-target="#deleteCargoModal"
+                          data-url="{% url 'desactivar_cargo' cargo.idCargo %}">
+                    <i class="fas fa-user-slash"></i>
+                  </button>
+                {% endif %}
+                {% if cargo.estadoCargo|upper == "INACTIVO" and perms.home.change_cargo %}
+                  <button class="btn btn-success btn-sm"
+                          data-bs-toggle="modal"
+                          data-bs-target="#reactivateCargoModal"
+                          data-url="{% url 'reactivate_cargo' cargo.idCargo %}">
+                    <i class="fas fa-redo"></i>
+                  </button>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="5" class="text-center py-4">No hay cargos registrados.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
 </div>
-<!-- Modal -->
-<div class="modal fade" id="cargoModal" tabindex="-1" role="dialog" aria-labelledby="cargoModalLabel" aria-hidden="true">
-  <div class="modal-dialog" role="document">
+
+{# ─── Modales ─── #}
+
+<!-- Registrar Cargo -->
+<div class="modal fade" id="cargoModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-md">
     <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="cargoModalLabel">Registro de Cargo</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title text-white"><i class="fas fa-plus-circle me-2"></i> Registro de Cargo</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
         </button>
       </div>
-      <div class="modal-body">
-        <!-- Contenedor para los mensajes -->
-        <div id="modalMessages"></div>
-        <!-- El contenido del formulario se cargará aquí -->
+      <div class="modal-body" id="registrarCargoContent">
+        <div class="text-center py-4 text-muted">Cargando formulario…</div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Modal para editar -->
-<div class="modal fade" id="editCargoModal" tabindex="-1" role="dialog" aria-labelledby="editCargoModalLabel" aria-hidden="true">
-  <div class="modal-dialog" role="document">
+<!-- Editar Cargo -->
+<div class="modal fade" id="editCargoModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-md">
     <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="editCargoModalLabel">Editar Cargo</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title text-white"><i class="fas fa-edit me-2"></i> Editar Cargo</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
         </button>
       </div>
-      <div class="modal-body">
-        <div id="modalMessages">
-
-
-          <form id="editCargoForm">
-            <!-- El contenido del formulario de edición se cargará aquí -->
-          </form>
-        </div>
+      <div class="modal-body" id="editCargoContent">
+        <div class="text-center py-4 text-muted">Cargando formulario…</div>
       </div>
     </div>
   </div>
 </div>
 
+<!-- Inhabilitar Cargo -->
+<div class="modal fade" id="deleteCargoModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-warning text-dark">
+        <h5 class="modal-title text-white"><i class="fas fa-user-slash me-2"></i> Confirmar Inhabilitación</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        ¿Seguro que deseas inhabilitar este cargo?
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <form id="deleteCargoForm" method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-warning">Inhabilitar</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
 
-
-
+<!-- Reactivar Cargo -->
+<div class="modal fade" id="reactivateCargoModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title text-white"><i class="fas fa-redo me-2"></i> Confirmar Reactivación</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        ¿Deseas reactivar este cargo?
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <form id="reactivateCargoForm" method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-success">Reactivar</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock content %}
 
 {% block javascripts %}
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
+<script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
+<script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
 
-<script src="/static/assets/js/validacionesPersona.js"></script>
 <script>
-document.addEventListener("DOMContentLoaded", function() {
-    // Cargar formulario de registro
-    $('#cargoModal').on('show.bs.modal', function (e) {
-        var modal = $(this);
-        $.ajax({
-            url: 'apps/home/cargo.html',
-            method: 'GET',
-            success: function(data) {
-                modal.find('.modal-body').html(data);
-            }
-        });
+document.addEventListener('DOMContentLoaded', () => {
+  // Helper para cargar contenido en modales
+  const loadInModal = (modalId, urlFn, contentSel) => {
+    $(modalId)
+      .on('show.bs.modal', e => {
+        const $cont = $(contentSel);
+        $cont.html('<div class="text-center py-4"><div class="spinner-border text-primary"></div></div>');
+        $.get(urlFn(e)).done(html => $cont.html(html));
+      })
+      .on('hidden.bs.modal', () => $(contentSel).empty());
+  };
+
+  // Configurar acciones de eliminación/reactivación
+  ['delete', 'reactivate'].forEach(act => {
+    const mid = `#${act}CargoModal`;
+    const fid = `#${act}CargoForm`;
+    $(mid).on('show.bs.modal', e => {
+      $(fid).attr('action', $(e.relatedTarget).data('url'));
     });
+  });
 
-    // Cargar formulario de edición
-    $('#editCargoModal').on('show.bs.modal', function (e) {
-        var modal = $(this);
-        var url = $(e.relatedTarget).data('url');
-        
-        $.ajax({
-            url: url,
-            method: 'GET',
-            success: function(data) {
-                modal.find('.modal-body').html(data);
-            },
-            error: function() {
-                alert('Error al cargar el formulario');
-            }
-        });
-    });
+  // Cargar modales
+  loadInModal('#cargoModal', () => "{% url 'cargo_modal' %}", '#registrarCargoContent');
+  loadInModal('#editCargoModal', e => $(e.relatedTarget).data('url'), '#editCargoContent');
 
-    // Manejar envío del formulario de registro
-    $(document).on('submit', '#cargoForm', function(e) {
-        e.preventDefault();
-        var form = $(this);
-
-        if (!highlightInvalidInputs('#cargoForm')) {
-            e.preventDefault();
-            return false;
-        } // Validar campos del formulario
-        $.ajax({
-            url: form.attr('action'),
-            method: 'POST',
-            data: form.serialize(),
-            success: function(response) {
-                if (response.success) {
-                    $('#cargoModal').modal('hide');
-                    location.reload(); // Recargar la página después del registro exitoso
-                } else {
-                    $('#modalMessages').html('<div class="alert alert-danger">' + response.errors + '</div>');
-                }
-            }
-        });
-    });
-
-    // Manejar envío del formulario de edición
-    $(document).on('submit', '#editCargoForm', function(e) {
-        e.preventDefault();
-        var form = $(this);
-
-$(document).on('submit', '#editCargoForm', function(e) {
-  if (!highlightInvalidInputs('#editCargoForm')) {
-    e.preventDefault();
-    return false;
-  }      
-$.ajax({
-      url: form.attr('action'),
-      method: form.attr('method'),
-      data: form.serialize(),
-      success: function(response) {
-        handleFormResponse(response, '#editCargoModal');
-      },
-      error: function() {
-        alert('Error al procesar la solicitud');
+  // Manejar envío de formularios
+  const handleFormSubmit = (formSelector, modalId) => {
+    $(document).on('submit', formSelector, function(e) {
+      e.preventDefault();
+      const $form = $(this);
+      
+      if (!$form[0].checkValidity()) {
+        $form.addClass('was-validated');
+        return;
       }
-    });
-        });
-    });
-});
 
-function handleFormResponse(response, modalId) {
-  var modal = $(modalId);
-  var messagesContainer = modal.find('.modalMessages');
-  messagesContainer.empty();
-  if (response.success) {
-    messagesContainer.append('<div class="alert alert-success">' + response.message + '</div>');
-    $(modalId).modal('hide');
-    setTimeout(() => location.reload(), 1500);
-  } else {
-    // Mostrar alerta si hay error general (__all__)
-    if (response.errors && response.errors.__all__) {
-      Swal.fire({
-        title: 'Registro duplicado',
-        text: response.errors.__all__.join('\n'),
-        icon: 'warning',
-        confirmButtonText: 'OK',
-        customClass: { confirmButton: 'btn btn-warning' },
-        buttonsStyling: false,
+      $.ajax({
+        url: $form.attr('action'),
+        method: 'POST',
+        data: $form.serialize(),
+        success: (response) => handleFormResponse(response, modalId),
+        error: () => Swal.fire('Error', 'Error al procesar la solicitud', 'error')
+      });
+    });
+  };
+
+  // Registrar handlers para formularios
+  handleFormSubmit('#cargoForm', '#cargoModal');
+  handleFormSubmit('#editCargoForm', '#editCargoModal');
+
+  // Manejar respuestas del servidor
+  const handleFormResponse = (response, modalId) => {
+    const modal = $(modalId);
+    const messagesContainer = modal.find('.modal-body');
+    
+    messagesContainer.find('.alert').remove();
+    
+    if (response.success) {
+      modal.modal('hide');
+      showGlobalMessage(response.message, 'success');
+      setTimeout(() => location.reload(), 1500);
+    } else {
+      if (response.errors?.__all__) {
+        Swal.fire({
+          title: 'Error de registro',
+          text: response.errors.__all__.join('\n'),
+          icon: 'error',
+          confirmButtonText: 'OK'
+        });
+      }
+      $.each(response.errors, (field, errors) => {
+        if (field !== "__all__") {
+          messagesContainer.prepend(
+            `<div class="alert alert-danger alert-dismissible fade show" role="alert">
+              ${errors.join(', ')}
+              <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>`
+          );
+        }
       });
     }
-    // Mostrar otros errores de campos
-    $.each(response.errors, function(field, error) {
-      if (field !== "__all__") {
-        // Si error es array, muestra todos los mensajes
-        if (Array.isArray(error)) {
-          error.forEach(function(msg) {
-            messagesContainer.append('<div class="alert alert-danger">' + msg + '</div>');
-          });
-        } else {
-          messagesContainer.append('<div class="alert alert-danger">' + error + '</div>');
-        }
+  };
+
+  // Mostrar mensajes globales
+  const showGlobalMessage = (message, type) => {
+    const container = $('#globalMessages');
+    const alertClass = {
+      success: 'alert-success',
+      error: 'alert-danger',
+      warning: 'alert-warning'
+    }[type] || 'alert-info';
+
+    container.html(`
+      <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
+        ${message}
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+            <i class="fas fa-times"></i>
+          </button>
+      </div>
+    `);
+  };
+
+  // Filtrar tabla
+  window.filterTable = () => {
+    const val = $('#searchInput').val().toUpperCase();
+    $('#cargosTable tbody tr').each(function() {
+      $(this).toggle($(this).text().toUpperCase().includes(val));
+    });
+  };
+
+  // Manejar acciones CRUD
+  window.manageCargo = (id, action) => {
+    const txt = action === 'delete'
+      ? '¿Seguro que deseas inhabilitar este cargo?'
+      : '¿Seguro que deseas reactivar este cargo?';
+      
+    Swal.fire({
+      title: txt,
+      icon: action === 'delete' ? 'warning' : 'question',
+      showCancelButton: true,
+      confirmButtonText: action === 'delete' ? 'Inhabilitar' : 'Reactivar',
+      cancelButtonText: 'Cancelar',
+      customClass: {
+        confirmButton: action === 'delete' ? 'btn btn-warning' : 'btn btn-success',
+        cancelButton: 'btn btn-secondary'
+      },
+      buttonsStyling: false,
+    }).then(result => {
+      if (result.isConfirmed) {
+        const url = action === 'delete'
+          ? "{% url 'desactivar_cargo' 0 %}".replace('0', id)
+          : "{% url 'reactivate_cargo' 0 %}".replace('0', id);
+          
+        $.ajax({
+          url: url,
+          method: 'POST',
+          data: {
+            csrfmiddlewaretoken: '{{ csrf_token }}'
+          },
+          success: (data) => {
+            if (data.success) {
+              Swal.fire({
+                title: action === 'delete' ? 'Inhabilitado' : 'Reactivado',
+                text: data.message,
+                icon: 'success',
+                confirmButtonText: 'OK'
+              }).then(() => location.reload());
+            } else {
+              Swal.fire('Error', data.message, 'error');
+            }
+          },
+          error: () => Swal.fire('Error', 'Error de conexión', 'error')
+        });
       }
     });
-  }
-}
-
-function manageCargo(id, action) {
-  const confirmMessage = action === 'delete'
-    ? '¿Está seguro de eliminar este registro?'
-    : (action === 'reactivate'
-        ? '¿Está seguro de reactivar este registro?'
-        : '¿Está seguro de realizar esta acción?');
-
-  Swal.fire({
-    title: confirmMessage,
-    icon: action === 'delete' ? 'warning' : 'question',
-    showCancelButton: true,
-    confirmButtonText: action === 'delete' ? 'Eliminar' : 'Reactivar',
-    cancelButtonText: 'Cancelar',
-    customClass: {
-      confirmButton: action === 'delete' ? 'btn btn-danger' : 'btn btn-success',
-      cancelButton: 'btn btn-secondary'
-    },
-    buttonsStyling: false,
-  }).then((result) => {
-    if (result.isConfirmed) {
-      const url = action === 'delete'
-        ? "{% url 'delete_cargo' 0 %}".replace('0', id)
-        : "{% url 'reactivate_cargo' 0 %}".replace('0', id);
-
-      const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-
-      fetch(url, {
-        method: 'POST',
-        headers: {
-          'X-CSRFToken': csrftoken,
-        },
-      })
-      .then(response => response.json())
-      .then(data => {
-        if (data.success) {
-          Swal.fire({
-            title: action === 'delete' ? 'Eliminado' : 'Reactivado',
-            text: data.message,
-            icon: 'success',
-            confirmButtonText: 'OK',
-            customClass: { confirmButton: 'btn btn-warning' },
-            buttonsStyling: false,
-          }).then(() => location.reload());
-        } else {
-          Swal.fire('Error', data.message, 'error');
-        }
-      })
-      .catch(error => Swal.fire('Error', 'Ocurrió un error en el servidor.', 'error'));
-    }
-  });
-}
-
-function highlightInvalidInputs(formSelector) {
-  const form = document.querySelector(formSelector);
-  if (!form) return;
-  let valid = true;
-  let firstInvalid = null;
-  form.querySelectorAll('input[name="nombreCargo"], select[required], textarea[required]').forEach(input => {
-    if (!input.value.trim()) {
-      input.classList.add('is-invalid');
-      if (!firstInvalid) firstInvalid = input;
-      valid = false;
-    } else {
-      input.classList.remove('is-invalid');
-    }
-  });
-  if (!valid) {
-    Swal.fire({
-      title: 'Campos requeridos',
-      text: 'Por favor, complete todos los campos obligatorios resaltados en rojo.',
-      icon: 'warning',
-      confirmButtonText: 'OK',
-      customClass: { confirmButton: 'btn btn-warning' },
-      buttonsStyling: false,
-    }).then(() => {
-      if (firstInvalid) firstInvalid.focus();
-    });
-  }
-  return valid;
-}
-
-// Registro
-$(document).on('submit', '#cargoForm', function(e) {
-  if (!highlightInvalidInputs('#cargoForm')) {
-    e.preventDefault();
-    return false;
-  }
-  // ...tu código AJAX...
-});
-
-// Edición
-$(document).on('submit', '#editCargoForm', function(e) {
-  if (!highlightInvalidInputs('#editCargoForm')) {
-    e.preventDefault();
-    return false;
-  }
-  // ...tu código AJAX...
+  };
 });
 </script>
-
-<style>
-.is-invalid {
-  border-color: #dc3545 !important;
-  box-shadow: 0 0 0 0.2rem rgba(220,53,69,.25);
-}
-</style>
 {% endblock javascripts %}
