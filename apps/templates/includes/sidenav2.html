@@ -2,6 +2,48 @@
 
 <link rel="stylesheet" href="/static/assets/css/sidenav.css" />
 
+<style>
+  /* Evitar que se comprima el contenido al hacer scroll */
+.sidenav {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+/* Scroll moderno */
+.sidenav-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: #888 #f1f1f1;
+    padding-right: 6px;
+}
+
+/* WebKit scrollbar (Chrome, Edge, Safari) */
+.sidenav-scroll::-webkit-scrollbar {
+    width: 8px;
+}
+
+.sidenav-scroll::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.sidenav-scroll::-webkit-scrollbar-thumb {
+    background-color: #888;
+    border-radius: 10px;
+}
+
+.sidenav-scroll::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* Asegura que las palabras no se separen feo */
+.nav-link-text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+</style>
+
 {% load static %}
 {% load i18n %}
 
@@ -21,17 +63,18 @@
       </div>
       <div style="margin-bottom: 15px;"></div>
 
+  <br>
 
+   <div class="sidenav-scroll" style="overflow-y: auto; flex-grow: 1;">
     <div class="navbar-inner">
-        <div class="collapse navbar-collapse" id="sidenav-collapse-main">
-            <hr class="my-1">
-            <ul class="navbar-nav">
-                <li class="nav-item">
-                    <a class="nav-link {% if '/' == segment %} active {% endif %}" href="/">
-                        <i class="ni ni-tv-2 text-primary"></i>
-                        <span class="nav-link-text">Inicio</span>
-                    </a>
-                </li>
+      <div class="collapse navbar-collapse" id="sidenav-collapse-main">
+        <ul class="navbar-nav">
+            <li class="nav-item">
+                <a class="nav-link {% if request.path == '/' or request.path == '/contabilidad/' %} active {% endif %}" href="/contabilidad/">
+                    <i class="fas fa-home text-primary"></i>
+                    <span class="nav-link-text">Inicio</span>
+                </a>
+            </li>
         
       <li class="nav-item">
         <a class="nav-link" href="#" id="planCuentaDropdown" data-toggle="collapse" data-target="#planCuentaMenu" aria-expanded="false" aria-controls="planCuentaMenu">
@@ -41,13 +84,15 @@
         <div id="planCuentaMenu" class="collapse ml-3">
           <ul class="nav flex-column">
         <li class="nav-item"></li>
-          <a class="nav-link" href="{% url 'plan_cuenta_create' %}" style="padding-left: 15px;">
-            <i class="ni ni-fat-add text-orange"></i>Registrar
+          <a class="nav-link" {% if request.path == 'plan_cuenta_create' %}active{% endif %} href="{% url 'plan_cuenta_create' %}" style="padding-left: 15px;">
+            <i class="ni ni-fat-add text-orange"></i>
+            <span class="nav-link-text">Registrar
           </a>
         </li>
         <li class="nav-item">
           <a class="nav-link" href="{% url 'plan_cuenta_list' %}" style="padding-left: 15px;">
-            <i class="ni ni-bullet-list-67 text-orange"></i>Consultar
+            <i class="ni ni-bullet-list-67 text-orange"></i>
+            <span class="nav-link-text">Consultar
           </a>
         </li>
           </ul>
@@ -70,12 +115,14 @@
           <ul class="nav flex-column">
         <li class="nav-item">
           <a class="nav-link" href="/asientoContable/registrar" style="padding-left: 15px;">
-            <i class="ni ni-fat-add text-orange"></i>Registrar
+            <i class="ni ni-fat-add text-orange"></i>
+            <span class="nav-link-text">Registrar
           </a>
         </li>
         <li class="nav-item">
           <a class="nav-link" href="/asientoContable/consultar" style="padding-left: 15px;">
-            <i class="ni ni-bullet-list-67 text-orange"></i>Consultar
+            <i class="ni ni-bullet-list-67 text-orange"></i>
+            <span class="nav-link-text">Consultar
           </a>
         </li>
           </ul>
@@ -91,12 +138,14 @@
           <ul class="nav flex-column">
         <li class="nav-item">
           <a class="nav-link" href="/detalleAsiento/registrar" style="padding-left: 15px;">
-            <i class="ni ni-fat-add text-orange"></i>Registrar
+            <i class="ni ni-fat-add text-orange"></i>
+            <span class="nav-link-text">Registrar
           </a>
         </li>
         <li class="nav-item">
           <a class="nav-link" href="/detalleAsiento/consultar" style="padding-left: 15px;">
-            <i class="ni ni-bullet-list-67 text-orange"></i>Consultar
+            <i class="ni ni-bullet-list-67 text-orange"></i>
+            <span class="nav-link-text">Consultar
           </a>
         </li>
           </ul>
@@ -112,12 +161,14 @@
           <ul class="nav flex-column">
         <li class="nav-item">
           <a class="nav-link" href="/saldoContable/registrar" style="padding-left: 15px;">
-            <i class="ni ni-fat-add text-orange"></i>Registrar
+            <i class="ni ni-fat-add text-orange"></i>
+            <span class="nav-link-text">Registrar
           </a>
         </li>
         <li class="nav-item">
           <a class="nav-link" href="/saldoContable/consultar" style="padding-left: 15px;">
-            <i class="ni ni-bullet-list-67 text-orange"></i>Consultar
+            <i class="ni ni-bullet-list-67 text-orange"></i>
+            <span class="nav-link-text">Consultar
           </a>
         </li>
           </ul>
@@ -130,11 +181,7 @@
           <span class="nav-link-text">Empresa</span>
         </a>
       </li>
-      <!-- {% if perms.home.view_banco or perms.home.add_banco %}
-      <li class="nav-item">
-        <a class="nav-link" href="/tablaBancos.html" style="padding-left: 15px;"> <i class="ni ni-building text-orange"></i>Bancos</a>
-      </li>
-      {% endif %} -->
+
       <li class="nav-item">
         <a class="nav-link" href="#" id="bancoDropdown" data-toggle="collapse" data-target="#bancoMenu" aria-expanded="false" aria-controls="bancoMenu">
           <i class="ni ni-credit-card text-orange"></i>
@@ -143,21 +190,15 @@
         <div id="bancoMenu" class="collapse ml-3">
           <ul class="nav flex-column">
         <li class="nav-item">
-<<<<<<< HEAD
-          <a class="nav-link" href="{% url 'cuentaBanco_create' %}" style="padding-left: 15px;">
-=======
           <a class="nav-link" href="{% url 'banco_create' %}" style="padding-left: 15px;">
->>>>>>> e6a1408eca6c769f02eb5248ddce4d1bff6faa13
-            <i class="ni ni-fat-add text-orange"></i>Registrar
+            <i class="ni ni-fat-add text-orange"></i>
+            <span class="nav-link-text">Registrar
           </a>
         </li>
         <li class="nav-item">
-<<<<<<< HEAD
-          <a class="nav-link"  href="{% url 'cuentaBanco_list' %}" style="padding-left: 15px;">
-=======
           <a class="nav-link" href="{% url 'banco_list' %}" style="padding-left: 15px;">
->>>>>>> e6a1408eca6c769f02eb5248ddce4d1bff6faa13
-            <i class="ni ni-bullet-list-67 text-orange"></i>Consultar
+            <i class="ni ni-bullet-list-67 text-orange"></i>
+            <span class="nav-link-text">Consultar
           </a>
         </li>
           </ul>
@@ -173,12 +214,14 @@
           <ul class="nav flex-column">
             <li class="nav-item">
               <a class="nav-link" href="{% url 'cuenta_banco_create' %}" style="padding-left: 15px;">
-                <i class="ni ni-fat-add text-orange"></i>Registrar
+                <i class="ni ni-fat-add text-orange"></i>
+                <span class="nav-link-text">Registrar
               </a>
             </li>
             <li class="nav-item">
               <a class="nav-link" href="{% url 'cuenta_banco_list' %}" style="padding-left: 15px;">
-                <i class="ni ni-bullet-list-67 text-orange"></i>Consultar
+                <i class="ni ni-bullet-list-67 text-orange"></i>
+                <span class="nav-link-text">Consultar
               </a>
             </li>
           </ul>
@@ -194,18 +237,21 @@
           <ul class="nav flex-column">
         <li class="nav-item">
           <a class="nav-link" href="#" id="facturaAdministrativaDropdown" data-toggle="collapse" data-target="#facturaAdministrativaMenu" aria-expanded="false" aria-controls="facturaAdministrativaMenu" style="padding-left: 15px;">
-            <i class="ni ni-archive-2 text-orange"></i>Administrativa
+            <i class="ni ni-archive-2 text-orange"></i>
+            <span class="nav-link-text">Administrativa
           </a>
           <div id="facturaAdministrativaMenu" class="collapse ml-3">
             <ul class="nav flex-column">
           <li class="nav-item">
             <a class="nav-link" href="/factura/administrativa/registrar" style="padding-left: 30px;">
-              <i class="ni ni-fat-add text-orange"></i>Registrar
+              <i class="ni ni-fat-add text-orange"></i>
+              <span class="nav-link-text">Registrar
             </a>
           </li>
           <li class="nav-item">
             <a class="nav-link" href="/factura/administrativa/consultar" style="padding-left: 30px;">
-              <i class="ni ni-bullet-list-67 text-orange"></i>Consultar
+              <i class="ni ni-bullet-list-67 text-orange"></i>
+              <span class="nav-link-text">Consultar
             </a>
           </li>
             </ul>
@@ -213,18 +259,21 @@
         </li>
         <li class="nav-item">
           <a class="nav-link" href="#" id="facturaContableDropdown" data-toggle="collapse" data-target="#facturaContableMenu" aria-expanded="false" aria-controls="facturaContableMenu" style="padding-left: 15px;">
-            <i class="ni ni-collection text-orange"></i>Contable
+            <i class="ni ni-collection text-orange"></i>
+            <span class="nav-link-text">Contable
           </a>
           <div id="facturaContableMenu" class="collapse ml-3">
             <ul class="nav flex-column">
           <li class="nav-item">
             <a class="nav-link" href="/factura/contable/registrar" style="padding-left: 30px;">
-              <i class="ni ni-fat-add text-orange"></i>Registrar
+              <i class="ni ni-fat-add text-orange"></i>
+              <span class="nav-link-text">Registrar
             </a>
           </li>
           <li class="nav-item">
             <a class="nav-link" href="/factura/contable/consultar" style="padding-left: 30px;">
-              <i class="ni ni-bullet-list-67 text-orange"></i>Consultar
+              <i class="ni ni-bullet-list-67 text-orange"></i>
+              <span class="nav-link-text">Consultar
             </a>
           </li>
             </ul>
@@ -234,32 +283,24 @@
         </div>
       </li>
                     
+        {# --- CERRAR SESIÓN (Visible para todos los autenticados) --- #}
+        {% if user.is_authenticated %}
+        <li class="nav-item">
+            <form method="POST" action="{% url 'logout' %}">
+                {% csrf_token %}
+                <button type="submit" class="nav-link" style="background: none; border: none; cursor: pointer; text-align: left; padding-left: 1.5rem;"> {# Ajusta padding si es necesario #}
+                    <i class="fas fa-sign-out-alt text-red"></i>
+                    <span class="nav-link-text">Cerrar Sesión</span>
+                </button>
+            </form>
+        </li>
+        {% endif %}
+                    
         </ul>
         <!-- Divider -->
         <hr class="my-3">
         <!-- Heading -->
-
-        <script>
-          document.addEventListener("DOMContentLoaded", function () {
-              var dropdownTrigger = document.getElementById("personaDropdown");
-              var dropdownMenu = document.getElementById("personaMenu");
-
-              // Evento cuando el dropdown se abre
-              dropdownTrigger.addEventListener("click", function () {
-                  if (!dropdownMenu.classList.contains("show")) {
-                      dropdownTrigger.classList.add("active-dropdown");
-                  } else {
-                      dropdownTrigger.classList.remove("active-dropdown");
-                  }
-              });
-
-              // Evento cuando el dropdown se cierra
-              dropdownMenu.addEventListener("hidden.bs.collapse", function () {
-                  dropdownTrigger.classList.remove("active-dropdown");
-              });
-          });
-        </script>
-       
+     
       </div>
     </div>
   </div>

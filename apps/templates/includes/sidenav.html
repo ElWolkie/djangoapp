@@ -356,13 +356,13 @@
                     </li> 
                     {% endif %}
                     
-                    {% if perms.home.view_banco or perms.home.add_banco %}
+                    {% comment %} {% if perms.home.view_banco or perms.home.add_banco %}
                     <li class="nav-item">
                       <a class="nav-link" href="{% url 'tabla_bancos' %}" style="padding-left: 15px;"> <i class="ni ni-building text-orange"></i>
                         <span class="nav-link-text">Bancos
                       </a>
                     </li>
-                    {% endif %}
+                    {% endif %} {% endcomment %}
                     
                     {% if perms.home.view_denominacion or perms.home.add_denominacion %}
                     <li class="nav-item">

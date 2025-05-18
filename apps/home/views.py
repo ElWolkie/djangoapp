@@ -1,13 +1,13 @@
+import os
 import requests
 from django import forms
 from django.http import JsonResponse, HttpResponse, HttpResponseRedirect
 from django.shortcuts import render, redirect, get_object_or_404
 from django.template import loader
-from django.db.models import OuterRef, Subquery, Max, Count, Sum, F, Q, Prefetch
+from django.db.models import OuterRef, Subquery, Max, Count, Sum, Q, Prefetch
 from django.urls import reverse
 from django.contrib import messages
-from django.utils import timezone
-from django.core.exceptions import PermissionDenied, ValidationError, ValidationError
+from django.core.exceptions import ValidationError
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required, permission_required
 from django.db import IntegrityError
@@ -19,24 +19,18 @@ from django.db import models  # Para el output_field en Sum
 
 from django.template.loader import render_to_string
 from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import letter, landscape
+from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
 from reportlab.platypus import Table, TableStyle
-from reportlab.lib.units import inch
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-import os
 from django.db.models.functions import ExtractMonth
 
 from .forms import AsignarGrupoForm, UsuarioForm, TipoFormacionForm, FormacionForm, MateriaForm, CohorteForm, CargoForm, RequisitoForm, ServicioForm, TramiteForm, DenominacionForm, BancoForm, MonedaForm, TasaForm, TipoMovimientoForm, MovimientoForm, ConfiguracionForm
 from .models import Personas, Usuarios, TipoFormacion, Formacion, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Denominacion, Banco, Moneda, Tasa, Movimiento, TipoMovimiento, Configuracion
 
-from apps.persona.forms import TipoPersonaForm, PersonaForm
 from apps.honorario.models import Honorario
 from apps.solicitud.models import Solicitud
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny
+from apps.cuentaBanco.models import Banco, PlanCuenta
 
-from django.shortcuts import get_object_or_404
 
 def contabilidad_view(request):
     return render(request, 'home/index2.html')
@@ -1936,111 +1930,115 @@ def tabla_bancos(request):
 @login_required(login_url='login')
 @permission_required("home.view_banco", raise_exception=True)
 def reporte_bancos_pdf(request):
-    #Seleccion de cantidad de registros
+    # Rango de registros
     start = int(request.GET.get('start', 1))
-    end = int(request.GET.get('end', 0))
-    bancos = list(Banco.objects.all())
-    if end == 0 or end > len(bancos):
-        end = len(bancos)
-    bancos = bancos[start-1:end]
+    end   = int(request.GET.get('end',   0))
+    todos  = list(Banco.objects.all().order_by('nombreBanco'))
+    if end == 0 or end > len(todos):
+        end = len(todos)
+    bancos = todos[start-1:end]
 
+    # Preparar PDF
     response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = 'attachment; filename="reporte_bancos.pdf"'
+    response['Content-Disposition'] = 'inline; filename="reporte_bancos.pdf"'
     p = canvas.Canvas(response, pagesize=letter)
     width, height = letter
-    logo_width, logo_height, logo_margin = 100, 100, 15
 
-    config = Configuracion.objects.order_by('-fechaConfiguracion').first()
-    logo_path = config.logo.path if config and config.logo else None
-    firma_path = config.firma.path if config and config.firma else None
-    nombre_institucion = config.nombreInstitucion if config else "Institución"
-    rif_institucion = config.rif if config else ""
+    # Cargar logo/firma
+    config     = Configuracion.objects.order_by('-fechaConfiguracion').first()
+    logo_path  = config.logo.path   if config and config.logo   else None
+    firma_path = config.firma.path  if config and config.firma  else None
+    nombre_ins = config.nombreInstitucion if config else "Institución"
+    rif_ins    = config.rif if config else ""
 
-    safe_left = logo_margin + logo_width
-    safe_right = width - logo_margin - logo_width
-    safe_width = safe_right - safe_left
-    safe_center = safe_left + safe_width / 2
+    # Márgenes y espacios
+    logo_w, logo_h, mgn = 80, 80, 20
+    left_safe  = mgn + logo_w
+    right_safe = width - mgn - logo_w
+    safe_w     = right_safe - left_safe
 
-    # --- Define encabezado y pie ---
     def draw_header():
         if logo_path and os.path.exists(logo_path):
-            p.drawImage(
-                logo_path,
-                width - logo_width - logo_margin,
-                height - logo_height - logo_margin,
-                width=logo_width,
-                height=logo_height,
-                preserveAspectRatio=True,
-                mask='auto'
-            )
-        text_top = height - logo_margin - 15
-        p.setFont("Helvetica-Bold", 10)
-        p.drawString(logo_margin, text_top, nombre_institucion)
-        p.drawString(logo_margin, text_top - 20, f"RIF: {rif_institucion}")
-        p.drawString(logo_margin, text_top - 40, "AV. ALBERTO RAVELL CON AV. INTERCOMUNAL JOSE ANTONIO PAEZ,")
-        p.drawString(logo_margin, text_top - 60, "LOCAL UPTYAB, INDEPENDENCIA – EDO YARACUY")
-        p.drawString(logo_margin, text_top - 100, "REPORTE DE BANCOS")
+            p.drawImage(logo_path,
+                        width - logo_w - mgn, height - logo_h - mgn,
+                        width=logo_w, height=logo_h,
+                        preserveAspectRatio=True, mask='auto')
+        p.setFont("Helvetica-Bold", 12)
+        y = height - mgn - 10
+        p.drawString(mgn, y,    nombre_ins)
+        p.drawString(mgn, y-15, f"RIF: {rif_ins}")
+        p.drawString(mgn, y-35, "REPORTE DE BANCOS")
+        p.line(mgn, y-40, width-mgn, y-40)
 
     def draw_footer():
         if firma_path and os.path.exists(firma_path):
-            p.drawImage(firma_path, width/2 - 60, 60, width=120, height=60, preserveAspectRatio=True, mask='auto')
-            p.setFont("Helvetica-Oblique", 10)
-            p.drawCentredString(width/2, 40, "Firma autorizada")
+            p.drawImage(firma_path,
+                        width/2 - 50,  35,
+                        width=100, height=40,
+                        preserveAspectRatio=True, mask='auto')
+        p.setFont("Helvetica-Oblique", 9)
+        p.drawCentredString(width/2, 20, "Firma autorizada")
 
-    # --- Datos de la tabla ---
-    data = [["ID", "Nombre", "Código", "Contable", "Estado", "Fecha"]]
+    # Construir datos
+    headers = ["Código Local", "Código SWIFT", "Código Contable", "Nombre", "Estado", "Fecha"]
+    data = [headers]
     for b in bancos:
+        cod_cont = b.codigoPlanCuenta.codigoPlanCuenta if b.codigoPlanCuenta else ""
+        estado   = "Activo" if b.estadoBanco else "Inactivo"
         data.append([
-            str(b.idBanco),
+            b.codLocalBanco,
+            b.codSwiftBanco,
+            cod_cont,
             b.nombreBanco,
-            b.codBanco,
-            b.codContable,
-            b.estadoBanco,
-            b.fechaBanco.strftime("%d/%m/%Y")
+            estado,
+            b.fechaBanco.strftime("%d/%m/%Y"),
         ])
-    col_widths = [40, 120, 60, 60, 60, 60]
-    table_width = sum(col_widths)
 
-    # --- Cálculo de espacio ---
-    header_height = 100  # Altura total del encabezado (ajusta según tu diseño)
-    footer_height = 160  # Altura total del pie de página
-    row_height = 22      # Altura de cada fila de la tabla (ajusta si usas más o menos padding)
-    available_height = height - header_height - footer_height
+    # Anchos, alturas y cálculo de filas por página
+    col_widths  = [70, 70, 80, 150, 60, 60]
+    row_h       = 20
+    header_h    = 100  # aumentado para más espacio
+    footer_h    = 70
+    avail_h     = height - header_h - footer_h
+    max_rows    = max(1, int(avail_h // row_h))
 
-    max_rows_per_page = int(available_height // row_height)
-    if max_rows_per_page < 1:
-        max_rows_per_page = 1
-
-    total_rows = len(data) - 1  # Excluye encabezado
-    page = 0
-
-    for start in range(0, total_rows, max_rows_per_page):
-        end = start + max_rows_per_page
-        page_data = [data[0]] + data[start + 1:end + 1]
-        if page > 0:
+    # Dibujar páginas
+    for i in range(0, len(data)-1, max_rows):
+        if i > 0:
             p.showPage()
         draw_header()
-        # Y de inicio: justo debajo del encabezado
-        y = height - header_height
-        table = Table(page_data, colWidths=col_widths)
+
+        chunk = [data[0]] + data[i+1 : i+1+max_rows]
+        table = Table(chunk, colWidths=col_widths, rowHeights=row_h)
         table.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
-            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0,0), (-1,0), 12),
-            ('BOTTOMPADDING', (0,0), (-1,0), 10),
-            ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
-            ('GRID', (0,0), (-1,-1), 1, colors.black),
+            # Cabecera
+            ('BACKGROUND',       (0,0), (-1,0), colors.HexColor("#fe8330")),
+            ('TEXTCOLOR',        (0,0), (-1,0), colors.white),
+            ('FONTNAME',         (0,0), (-1,0), 'Helvetica-Bold'),
+            ('FONTSIZE',         (0,0), (-1,0), 10),
+            ('ALIGN',            (0,0), (-1,0), 'CENTER'),
+            ('BOTTOMPADDING',    (0,0), (-1,0), 6),
+
+            # Celdas de datos
+            ('FONTNAME',         (0,1), (-1,-1), 'Helvetica'),
+            ('FONTSIZE',         (0,1), (-1,-1), 9),
+            ('ALIGN',            (0,1), (-1,-1), 'CENTER'),
+            ('VALIGN',           (0,1), (-1,-1), 'MIDDLE'),
+            ('INNERGRID',        (0,0), (-1,-1), 0.5, colors.grey),
+            ('BOX',              (0,0), (-1,-1), 0.5, colors.grey),
+            ('BACKGROUND',       (0,1), (-1,-1), colors.whitesmoke),
         ]))
+
+        # Posición de la tabla (bajamos un poco más)
+        x = left_safe + (safe_w - sum(col_widths)) / 2
+        y = height - header_h - 10 - row_h * len(chunk)
         table.wrapOn(p, width, height)
-        table.drawOn(p, safe_left + (safe_width - table_width) / 2, y - row_height * len(page_data))
+        table.drawOn(p, x, y)
+
         draw_footer()
-        page += 1
 
     p.save()
     return response
-
 
 #MONEDA
 @login_required(login_url='login')
@@ -3105,83 +3103,69 @@ def actualizar_monedas_api(request):
     return redirect('tabla_monedas') # Redirige a la página de moneda
 
 
-# Vista para actualizar Bancos de Venezuela desde fuente externa
 @login_required(login_url='login')
 @permission_required("home.add_banco", raise_exception=True)
 def actualizar_bancos_api(request):
-    # Solo permitir método POST
     if request.method != 'POST':
         messages.error(request, "Método no permitido.")
-        return redirect('configuracion') # O a donde prefieras
+        return redirect('banco_list')
 
-    # Usaremos un archivo JSON conocido de un repositorio de GitHub
-    # Siempre apunta al enlace "Raw" del archivo
     BANK_API_URL = 'https://raw.githubusercontent.com/andresmdev/bankListVEN/refs/heads/master/bankVEN.json'
-    nuevos_bancos_contador = 0
+    nuevos = 0
 
     try:
-        # --- 1. Llamada a la "API" (Archivo JSON) ---
-        print(f"DEBUG: Obteniendo datos de bancos desde: {BANK_API_URL}") # Debug
-        response = requests.get(BANK_API_URL, timeout=15)
-        response.raise_for_status() # Verifica si la descarga fue exitosa (código 2xx)
+        resp = requests.get(BANK_API_URL, timeout=15)
+        resp.raise_for_status()
+        api_bancos = resp.json()
 
-        # --- 2. Procesar Respuesta JSON ---
-        api_bancos = response.json()
-        print(f"DEBUG: Recibidos {len(api_bancos)} bancos de la fuente.") # Debug
+        # Determinar una cuenta padre por defecto para todos los bancos nuevos
+        # Aquí usamos la primera PlanCuenta que encuentre; ajústalo según tu lógica
+        cuenta_padre = PlanCuenta.objects.first()
+        if not cuenta_padre:
+            messages.error(request, "No hay cuentas contables padre configuradas.")
+            return redirect('banco_list')
 
-        # --- 3. Obtener Códigos Existentes en BD ---
-        codigos_existentes = set(Banco.objects.values_list('codBanco', flat=True))
-        print(f"DEBUG: {len(codigos_existentes)} códigos de banco existentes en BD.") # Debug
+        # Obtener códigos locales existentes
+        cod_exist = set(Banco.objects.values_list('codLocalBanco', flat=True))
 
-        # --- 4. Comparar y Añadir Nuevos Bancos ---
-        bancos_para_crear = []
-        for banco_data in api_bancos:
-            # Extraer código y nombre, asegurándose que existan
-            codigo = banco_data.get('code')
-            nombre = banco_data.get('shortName')
+        nuevos_list = []
+        for item in api_bancos:
+            code = item.get('code', '').strip()
+            name = item.get('shortName', '').strip()
+            if not code or not name:
+                continue
 
-            if codigo and nombre: # Solo procesar si tenemos ambos datos
-                codigo_limpio = codigo.strip()[:4] # Limitar a 4 caracteres
-                nombre_limpio = nombre.strip()[:150] # Limitar a la longitud del modelo
+            cod_local = code[:10]  # hasta 10 chars para codLocalBanco
+            if cod_local in cod_exist:
+                continue
 
-                if codigo_limpio not in codigos_existentes:
-                    bancos_para_crear.append(
-                        Banco(
-                            nombreBanco=nombre_limpio,
-                            codBanco=codigo_limpio,
-                            codContable='0000', # Valor por defecto
-                            estadoBanco='INACTIVO', # Valor por defecto
-                            # fechaBanco usa default=timezone.now
-                        )
-                    )
-                    # Añadir al set para evitar intentar crear duplicados en este mismo lote
-                    codigos_existentes.add(codigo_limpio)
-            else:
-                 print(f"DEBUG: Dato de banco incompleto ignorado: {banco_data}") # Debug
+            # Hacemos el valor único incorporando el código local
+            cod_swift_placeholder = f"SW-N/A-{cod_local}"
 
-        # --- 5. Guardar Nuevos Bancos en BD (si hay) ---
-        if bancos_para_crear:
-            try:
-                Banco.objects.bulk_create(bancos_para_crear)
-                nuevos_bancos_contador = len(bancos_para_crear)
-                print(f"DEBUG: Añadidos {nuevos_bancos_contador} nuevos bancos.") # Debug
-                messages.success(request, f'¡Actualización completada! Se añadieron {nuevos_bancos_contador} nuevos bancos.')
-            except Exception as db_error:
-                print(f"ERROR DB al guardar bancos: {db_error}") # Debug
-                messages.error(request, f'Error al guardar los nuevos bancos en la base de datos: {db_error}')
+            # Preparamos el banco inactivo con valores por defecto
+            b = Banco(
+                nombreBanco=name[:100],
+                codLocalBanco=cod_local,
+                codSwiftBanco = cod_swift_placeholder,
+                cuentaPadre=cuenta_padre,
+                estadoBanco=False  # inactivo inicialmente
+            )
+            nuevos_list.append(b)
+            cod_exist.add(cod_local)
+
+        if nuevos_list:
+            Banco.objects.bulk_create(nuevos_list)
+            nuevos = len(nuevos_list)
+            messages.success(request, f"¡Actualización completa! Se añadieron {nuevos} nuevos bancos.")
         else:
-            print("DEBUG: No se encontraron nuevos bancos para añadir.") # Debug
-            messages.info(request, '¡Todo al día! No se encontraron nuevos bancos en la fuente de datos.')
+            messages.info(request, "¡Todo al día! No se encontraron bancos nuevos.")
 
     except requests.exceptions.RequestException as e:
-        print(f"ERROR API/Red: {e}") # Debug
-        messages.error(request, f"Error al obtener los datos de los bancos: {e}")
-    except Exception as e: # Otros errores (JSON inválido, etc.)
-        print(f"ERROR General: {e}") # Debug
-        messages.error(request, f"Ocurrió un error inesperado durante la actualización: {e}")
+        messages.error(request, f"Error al obtener datos de bancos: {e}")
+    except Exception as e:
+        messages.error(request, f"Error inesperado al actualizar bancos: {e}")
 
-    # --- 6. Redirigir de vuelta ---
-    return redirect('tabla_bancos') # Redirige al banco
+    return redirect('banco_list')
 
 
 #PAGES OTRAS
