@@ -1,0 +1,159 @@
+<form method="POST"
+      id="editBancoForm"
+      class="mt-3 text-dark needs-validation"
+      autocomplete="off"
+      style="font-weight:bold; max-width:600px; margin:0 auto;"
+      action="{% url 'banco_update' banco.idBanco %}"
+      novalidate>
+  {% csrf_token %}
+
+  <!-- Cuenta Padre Selector -->
+  <div class="form-group">
+    <label for="cuentaPadreEdit">Cuenta Padre:</label>
+    <div class="input-group">
+      <input type="text"
+             id="cuentaPadreEdit"
+             class="form-control text-dark"
+             readonly required
+             placeholder="Seleccione cuenta padre"
+             value="{{ banco.cuentaPadre.codigoPlanCuenta }} - {{ banco.cuentaPadre.nombrePlanCuenta }}">
+      <button type="button"
+              class="btn btn-warning"
+              data-bs-toggle="modal"
+              data-bs-target="#cuentaPadreModal">
+        <i class="fas fa-search"></i>
+      </button>
+    </div>
+    <input type="hidden"
+           id="cuentaPadreIdEdit"
+           name="cuentaPadre"
+           value="{{ banco.cuentaPadre.idPlanCuenta }}">
+    <div class="invalid-feedback">Seleccione una cuenta padre válida.</div>
+  </div>
+
+  <!-- Cuenta Contable Asociada Selector -->
+  <div class="form-group mt-3">
+    <label for="codigoPlanCuentaEdit">Cuenta Contable Asociada:</label>
+    <div class="input-group">
+      <input type="text"
+             id="codigoPlanCuentaEdit"
+             class="form-control text-dark"
+             readonly required
+             placeholder="Seleccione subcuenta"
+             value="{{ banco.codigoPlanCuenta.codigoPlanCuenta }} - {{ banco.codigoPlanCuenta.nombrePlanCuenta }}">
+      <button type="button"
+              class="btn btn-warning"
+              data-bs-toggle="modal"
+              data-bs-target="#subcuentaModal">
+        <i class="fas fa-search"></i>
+      </button>
+    </div>
+    <input type="hidden"
+           id="subcuentaIdEdit"
+           name="codigoPlanCuenta"
+           value="{{ banco.codigoPlanCuenta.idPlanCuenta }}">
+    <div class="invalid-feedback">Seleccione una subcuenta válida.</div>
+  </div>
+
+  <!-- Campos restantes -->
+  <div class="row mt-3">
+    <div class="col-md-6 form-group">
+      <label for="codLocalBancoEdit">Código Local:</label>
+      <input type="text"
+             id="codLocalBancoEdit"
+             name="codLocalBanco"
+             class="form-control text-dark"
+             maxlength="10"
+             required
+             value="{{ banco.codLocalBanco }}">
+      <div class="invalid-feedback">Código local obligatorio.</div>
+    </div>
+    <div class="col-md-6 form-group">
+      <label for="codSwiftBancoEdit">Código SWIFT:</label>
+      <input type="text"
+             id="codSwiftBancoEdit"
+             name="codSwiftBanco"
+             class="form-control text-dark"
+             maxlength="11"
+             required
+             value="{{ banco.codSwiftBanco }}">
+      <div class="invalid-feedback">Código SWIFT obligatorio.</div>
+    </div>
+  </div>
+
+  <div class="form-group mt-3">
+    <label for="nombreBancoEdit">Nombre del Banco:</label>
+    <input type="text"
+           id="nombreBancoEdit"
+           name="nombreBanco"
+           class="form-control text-dark"
+           maxlength="100"
+           required
+           value="{{ banco.nombreBanco }}">
+    <div class="invalid-feedback">Nombre obligatorio.</div>
+  </div>
+
+  <div class="text-center mt-4">
+    <button type="submit" class="btn btn-warning">
+      <i class="fas fa-save me-1"></i> Guardar Cambios
+    </button>
+  </div>
+</form>
+
+<!-- Modal Cuenta Padre -->
+<div class="modal fade" id="cuentaPadreModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Seleccionar Cuenta Padre</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-dark" data-bs-dismiss="modal">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <input id="searchPadre" class="form-control text-dark mb-2" placeholder="Buscar..." onkeyup="filterTable('searchPadre','tablaPadre')">
+        <table class="table table-sm table-hover" id="tablaPadre">
+          <thead><tr><th>Código</th><th>Nombre</th><th>Nivel</th></tr></thead>
+          <tbody>
+            {% for p in planes %}
+            <tr data-id="{{ p.idPlanCuenta }}" data-nombre="{{ p.codigoPlanCuenta }} - {{ p.nombrePlanCuenta }}">
+              <td>{{ p.codigoPlanCuenta }}</td>
+              <td>{{ p.nombrePlanCuenta }}</td>
+              <td>{{ p.nivelPlanCuenta }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Subcuenta -->
+<div class="modal fade" id="subcuentaModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Seleccionar Subcuenta</h5>
+       <button type="button" class="btn btn-sm btn-icon-only text-dark" data-bs-dismiss="modal">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <input id="searchSub" class="form-control text-dark mb-2" placeholder="Buscar..." onkeyup="filterTable('searchSub','tablaSub')">
+        <table class="table table-sm table-hover" id="tablaSub">
+          <thead><tr><th>Código</th><th>Nombre</th><th>Nivel</th></tr></thead>
+          <tbody>
+            {% for p in planes %}
+            <tr data-id="{{ p.idPlanCuenta }}" data-nombre="{{ p.codigoPlanCuenta }} - {{ p.nombrePlanCuenta }}">
+              <td>{{ p.codigoPlanCuenta }}</td>
+              <td>{{ p.nombrePlanCuenta }}</td>
+              <td>{{ p.nivelPlanCuenta }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>

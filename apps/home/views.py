@@ -1,19 +1,16 @@
+import os
 import requests
 from django import forms
 from django.http import JsonResponse, HttpResponse, HttpResponseRedirect
 from django.shortcuts import render, redirect, get_object_or_404
 from django.template import loader
-from django.db.models import OuterRef, Subquery, Max, Count, Sum, F, Q, Prefetch
+from django.db.models import OuterRef, Subquery, Max, Count, Sum, Q, Prefetch
 from django.urls import reverse
 from django.contrib import messages
-from django.utils import timezone
-from django.core.exceptions import PermissionDenied, ValidationError
-
+from django.core.exceptions import ValidationError
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required, permission_required
 from django.db import IntegrityError
-
-from django.contrib.auth.decorators import permission_required
 from django.contrib.auth.models import Group
 from collections import defaultdict # Para agrupar
 
@@ -21,29 +18,22 @@ from django.core.cache import cache
 from django.db import models  # Para el output_field en Sum
 
 from django.template.loader import render_to_string
-#Libreria para PDF
 from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import letter, landscape
+from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
 from reportlab.platypus import Table, TableStyle
-from reportlab.lib.units import inch
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-import os
-#
 from django.db.models.functions import ExtractMonth
 
 from .forms import AsignarGrupoForm, UsuarioForm, TipoFormacionForm, FormacionForm, MateriaForm, CohorteForm, CargoForm, RequisitoForm, ServicioForm, TramiteForm, DenominacionForm, BancoForm, MonedaForm, TasaForm, TipoMovimientoForm, MovimientoForm, ConfiguracionForm
 from .models import Personas, Usuarios, TipoFormacion, Formacion, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Denominacion, Banco, Moneda, Tasa, Movimiento, TipoMovimiento, Configuracion
 
-from apps.persona.forms import TipoPersonaForm, PersonaForm
 from apps.honorario.models import Honorario
 from apps.solicitud.models import Solicitud
+from apps.cuentaBanco.models import Banco, PlanCuenta
 
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny
 
-from django.shortcuts import get_object_or_404
-
+def contabilidad_view(request):
+    return render(request, 'home/index2.html')
 
 # Vista optimizada para el dashboard
 @login_required(login_url='login')
@@ -622,6 +612,73 @@ def tabla_formaciones(request):
         'mostrar_inactivos': mostrar,
     })
 
+@login_required(login_url='login')
+def reporte_formaciones_pdf(request):
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="reporte_formaciones.pdf"'
+    p = canvas.Canvas(response, pagesize=letter)
+    width, height = letter
+    logo_width, logo_height, logo_margin = 100, 100, 15
+
+    config = Configuracion.objects.order_by('-fechaConfiguracion').first()
+    logo_path = config.logo.path if config and config.logo else None
+    firma_path = config.firma.path if config and config.firma else None
+    nombre_institucion = config.nombreInstitucion if config else "Institución"
+    rif_institucion = config.rif if config else ""
+
+    safe_left = logo_margin + logo_width
+    safe_right = width - logo_margin - logo_width
+    safe_width = safe_right - safe_left
+    safe_center = safe_left + safe_width / 2
+
+    if logo_path and os.path.exists(logo_path):
+        p.drawImage(logo_path, width - logo_width - logo_margin, height - logo_height - logo_margin, width=logo_width, height=logo_height, preserveAspectRatio=True, mask='auto')
+
+    text_top = height - logo_margin - 22
+    p.setFont("Helvetica-Bold", 12)
+    p.drawCentredString(safe_center, text_top, nombre_institucion)
+    p.drawCentredString(safe_center, text_top - 20, f"RIF: {rif_institucion}")
+    p.drawCentredString(safe_center, text_top - 40, "REPORTE DE FORMACIONES")
+
+    if firma_path and os.path.exists(firma_path):
+        p.drawImage(firma_path, width/2 - 60, 60, width=120, height=60, preserveAspectRatio=True, mask='auto')
+        p.setFont("Helvetica-Oblique", 10)
+        p.drawCentredString(width/2, 25, "Firma autorizada")
+
+    formaciones = Formacion.objects.select_related('idTF').all()
+    data = [["ID", "Tipo", "Nombre", "Duración", "Valor", "Estado", "Fecha"]]
+    for f in formaciones:
+        data.append([
+            str(f.idFormacion),
+            f.idTF.nombreTipoFormacion if f.idTF else "",
+            f.nombreFormacion,
+            f.duracion,
+            f.valorFormacion, 
+            f.estadoFormacion,
+            f.fechaFormacion.strftime("%d/%m/%Y")
+        ])
+    col_widths = [40, 100, 120, 60, 60, 60, 60]
+    table_width = sum(col_widths)
+    x = safe_left + (safe_width - table_width) / 2
+    y = height - logo_margin - 100
+
+    table = Table(data, colWidths=col_widths)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0,0), (-1,0), 12),
+        ('BOTTOMPADDING', (0,0), (-1,0), 10),
+        ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
+        ('GRID', (0,0), (-1,-1), 1, colors.black),
+    ]))
+    table.wrapOn(p, width, height)
+    table.drawOn(p, x, y - 25 * len(data))
+    p.showPage()
+    p.save()
+    return response
+
 
 # Tipo de formación
 @login_required(login_url='login')
@@ -698,6 +755,70 @@ def tabla_tipoFormacion(request):
         'tipoFormaciones': tipoFormaciones,
         'mostrar_inactivos': mostrar,
     })
+
+@login_required(login_url='login')
+def reporte_tipo_formacion_pdf(request):
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="reporte_tipo_formacion.pdf"'
+    p = canvas.Canvas(response, pagesize=letter)
+    width, height = letter
+    logo_width, logo_height, logo_margin = 100, 100, 15
+
+    config = Configuracion.objects.order_by('-fechaConfiguracion').first()
+    logo_path = config.logo.path if config and config.logo else None
+    firma_path = config.firma.path if config and config.firma else None
+    nombre_institucion = config.nombreInstitucion if config else "Institución"
+    rif_institucion = config.rif if config else ""
+
+    safe_left = logo_margin + logo_width
+    safe_right = width - logo_margin - logo_width
+    safe_width = safe_right - safe_left
+    safe_center = safe_left + safe_width / 2
+
+    if logo_path and os.path.exists(logo_path):
+        p.drawImage(logo_path, width - logo_width - logo_margin, height - logo_height - logo_margin, width=logo_width, height=logo_height, preserveAspectRatio=True, mask='auto')
+
+    text_top = height - logo_margin - 22
+    p.setFont("Helvetica-Bold", 12)
+    p.drawCentredString(safe_center, text_top, nombre_institucion)
+    p.drawCentredString(safe_center, text_top - 20, f"RIF: {rif_institucion}")
+    p.drawCentredString(safe_center, text_top - 40, "REPORTE DE TIPOS DE FORMACIÓN")
+
+    if firma_path and os.path.exists(firma_path):
+        p.drawImage(firma_path, width/2 - 60, 60, width=120, height=60, preserveAspectRatio=True, mask='auto')
+        p.setFont("Helvetica-Oblique", 10)
+        p.drawCentredString(width/2, 25, "Firma autorizada")
+
+    tipos = TipoFormacion.objects.all()
+    data = [["ID", "Nombre", "Estado", "Fecha"]]
+    for t in tipos:
+        data.append([
+            str(t.idTF),
+            t.nombreTipoFormacion,
+            t.estadoTipoFormacion,
+            t.fechaTipoFormacion.strftime("%d/%m/%Y")
+        ])
+    col_widths = [40, 120, 60, 60]
+    table_width = sum(col_widths)
+    x = safe_left + (safe_width - table_width) / 2
+    y = height - logo_margin - 100
+
+    table = Table(data, colWidths=col_widths)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0,0), (-1,0), 12),
+        ('BOTTOMPADDING', (0,0), (-1,0), 10),
+        ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
+        ('GRID', (0,0), (-1,-1), 1, colors.black),
+    ]))
+    table.wrapOn(p, width, height)
+    table.drawOn(p, x, y - 25 * len(data))
+    p.showPage()
+    p.save()
+    return response    
 
 
 #MATERIA
@@ -788,6 +909,71 @@ def tabla_materias(request):
         'mostrar_inactivos': mostrar,
     })
 
+@login_required(login_url='login')
+def reporte_materias_pdf(request):
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="reporte_materias.pdf"'
+    p = canvas.Canvas(response, pagesize=letter)
+    width, height = letter
+    logo_width, logo_height, logo_margin = 100, 100, 15
+
+    config = Configuracion.objects.order_by('-fechaConfiguracion').first()
+    logo_path = config.logo.path if config and config.logo else None
+    firma_path = config.firma.path if config and config.firma else None
+    nombre_institucion = config.nombreInstitucion if config else "Institución"
+    rif_institucion = config.rif if config else ""
+
+    # Área útil para centrar
+    safe_left = logo_margin + logo_width
+    safe_right = width - logo_margin - logo_width
+    safe_width = safe_right - safe_left
+    safe_center = safe_left + safe_width / 2
+
+    if logo_path and os.path.exists(logo_path):
+        p.drawImage(logo_path, width - logo_width - logo_margin, height - logo_height - logo_margin, width=logo_width, height=logo_height, preserveAspectRatio=True, mask='auto')
+
+    text_top = height - logo_margin - 22
+    p.setFont("Helvetica-Bold", 12)
+    p.drawCentredString(safe_center, text_top, nombre_institucion)
+    p.drawCentredString(safe_center, text_top - 20, f"RIF: {rif_institucion}")
+    p.drawCentredString(safe_center, text_top - 40, "REPORTE DE MATERIAS")
+
+    if firma_path and os.path.exists(firma_path):
+        p.drawImage(firma_path, width/2 - 60, 60, width=120, height=60, preserveAspectRatio=True, mask='auto')
+        p.setFont("Helvetica-Oblique", 10)
+        p.drawCentredString(width/2, 25, "Firma autorizada")
+
+    materias = Materia.objects.select_related('idFormacion').all()
+    data = [["ID", "Formación", "Nombre", "Estado", "Fecha"]]
+    for m in materias:
+        data.append([
+            str(m.idMateria),
+            m.idFormacion.nombreFormacion if m.idFormacion else "",
+            m.nombreMateria,
+            m.estadoMateria,
+            m.fechaMateria.strftime("%d/%m/%Y")
+        ])
+    col_widths = [40, 120, 120, 60, 60]
+    table_width = sum(col_widths)
+    x = safe_left + (safe_width - table_width) / 2
+    y = height - logo_margin - 100
+
+    table = Table(data, colWidths=col_widths)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0,0), (-1,0), 12),
+        ('BOTTOMPADDING', (0,0), (-1,0), 10),
+        ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
+        ('GRID', (0,0), (-1,-1), 1, colors.black),
+    ]))
+    table.wrapOn(p, width, height)
+    table.drawOn(p, x, y - 25 * len(data))
+    p.showPage()
+    p.save()
+    return response
 
 #COHORTE
 @login_required(login_url='login')
@@ -867,6 +1053,71 @@ def tabla_cohortes(request):
         'mostrar_inactivos': mostrar,
     })
 
+@login_required(login_url='login')
+def reporte_cohortes_pdf(request):
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="reporte_cohortes.pdf"'
+    p = canvas.Canvas(response, pagesize=letter)
+    width, height = letter
+    logo_width, logo_height, logo_margin = 100, 100, 15
+
+    config = Configuracion.objects.order_by('-fechaConfiguracion').first()
+    logo_path = config.logo.path if config and config.logo else None
+    firma_path = config.firma.path if config and config.firma else None
+    nombre_institucion = config.nombreInstitucion if config else "Institución"
+    rif_institucion = config.rif if config else ""
+
+    safe_left = logo_margin + logo_width
+    safe_right = width - logo_margin - logo_width
+    safe_width = safe_right - safe_left
+    safe_center = safe_left + safe_width / 2
+
+    if logo_path and os.path.exists(logo_path):
+        p.drawImage(logo_path, width - logo_width - logo_margin, height - logo_height - logo_margin, width=logo_width, height=logo_height, preserveAspectRatio=True, mask='auto')
+
+    text_top = height - logo_margin - 22
+    p.setFont("Helvetica-Bold", 12)
+    p.drawCentredString(safe_center, text_top, nombre_institucion)
+    p.drawCentredString(safe_center, text_top - 20, f"RIF: {rif_institucion}")
+    p.drawCentredString(safe_center, text_top - 40, "REPORTE DE COHORTES")
+
+    if firma_path and os.path.exists(firma_path):
+        p.drawImage(firma_path, width/2 - 60, 60, width=120, height=60, preserveAspectRatio=True, mask='auto')
+        p.setFont("Helvetica-Oblique", 10)
+        p.drawCentredString(width/2, 25, "Firma autorizada")
+
+    cohortes = Cohorte.objects.all()
+    data = [["ID", "Nombre", "Estado", "Fecha"]]
+    for c in cohortes:
+        data.append([
+            str(c.idCohorte),
+            c.nombreCohorte,
+            c.estadoCohorte,
+            c.fechaCohorte.strftime("%d/%m/%Y")
+        ])
+    col_widths = [40, 120, 60, 60]
+    table_width = sum(col_widths)
+    x = safe_left + (safe_width - table_width) / 2
+    y = height - logo_margin - 100
+
+    table = Table(data, colWidths=col_widths)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0,0), (-1,0), 12),
+        ('BOTTOMPADDING', (0,0), (-1,0), 10),
+        ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
+        ('GRID', (0,0), (-1,-1), 1, colors.black),
+    ]))
+    table.wrapOn(p, width, height)
+    table.drawOn(p, x, y - 25 * len(data))
+    p.showPage()
+    p.save()
+    return response
+
+
 #CARGO
 @login_required(login_url='login')
 @permission_required("home.add_cargo", raise_exception=True)
@@ -940,6 +1191,8 @@ def tabla_cargos(request):
         'cargos': cargos,
         'mostrar_inactivos': mostrar,
     })
+    cargos = Cargo.objects.all()
+    return render(request, 'home/tablaCargos.html', {'cargos': cargos})
 
 @login_required(login_url='login')
 def reporte_cargos_pdf(request):
@@ -982,7 +1235,7 @@ def reporte_cargos_pdf(request):
     p.drawCentredString( safe_center, text_top - 40, "AV. ALBERTO RAVELL CON AV. INTERCOMUNAL JOSE ANTONIO PAEZ,")
     p.drawCentredString( safe_center, text_top - 60, "LOCAL UPTYAB, INDEPENDENCIA – EDO YARACUY")
     p.setFont("Helvetica", 12) 
-    p.drawCentredString( safe_center, text_top - 100, "Reporte de Cargos")
+    p.drawCentredString( safe_center, text_top - 80, "Reporte de Cargos")
 
     # --- Pie de página: Firma ---
     if firma_path and os.path.exists(firma_path):
@@ -1025,9 +1278,11 @@ def reporte_cargos_pdf(request):
     p.save()
     return response
 
+
 #REQUISITO
 @login_required(login_url='login')
 @permission_required("home.add_requisito", raise_exception=True)
+#Requisito
 def requisito_modal(request):
     if request.method == 'POST':
         form = RequisitoForm(request.POST)
@@ -1099,6 +1354,71 @@ def tabla_requisitos(request):
         'requisitos': requisitos,
         'mostrar_inactivos': mostrar,
     })
+
+@login_required(login_url='login')
+def reporte_requisitos_pdf(request):
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="reporte_requisitos.pdf"'
+    p = canvas.Canvas(response, pagesize=letter)
+    width, height = letter
+    logo_width, logo_height, logo_margin = 100, 100, 15
+
+    config = Configuracion.objects.order_by('-fechaConfiguracion').first()
+    logo_path = config.logo.path if config and config.logo else None
+    firma_path = config.firma.path if config and config.firma else None
+    nombre_institucion = config.nombreInstitucion if config else "Institución"
+    rif_institucion = config.rif if config else ""
+
+    safe_left = logo_margin + logo_width
+    safe_right = width - logo_margin - logo_width
+    safe_width = safe_right - safe_left
+    safe_center = safe_left + safe_width / 2
+
+    if logo_path and os.path.exists(logo_path):
+        p.drawImage(logo_path, width - logo_width - logo_margin, height - logo_height - logo_margin, width=logo_width, height=logo_height, preserveAspectRatio=True, mask='auto')
+
+    text_top = height - logo_margin - 22
+    p.setFont("Helvetica-Bold", 12)
+    p.drawCentredString(safe_center, text_top, nombre_institucion)
+    p.drawCentredString(safe_center, text_top - 20, f"RIF: {rif_institucion}")
+    p.drawCentredString(safe_center, text_top - 40, "REPORTE DE REQUISITOS")
+
+    if firma_path and os.path.exists(firma_path):
+        p.drawImage(firma_path, width/2 - 60, 60, width=120, height=60, preserveAspectRatio=True, mask='auto')
+        p.setFont("Helvetica-Oblique", 10)
+        p.drawCentredString(width/2, 25, "Firma autorizada")
+
+    requisitos = Requisito.objects.all()
+    data = [["ID", "Nombre", "Estado", "Fecha"]]
+    for r in requisitos:
+        data.append([
+            str(r.idRequisito),
+            r.nombreRequisito,
+            r.estadoRequisito,
+            r.fechaRequisito.strftime("%d/%m/%Y")
+        ])
+
+    col_widths = [40, 120, 60, 60]
+    table_width = sum(col_widths)
+    x = safe_left + (safe_width - table_width) / 2
+    y = height - logo_margin - 100
+
+    table = Table(data, colWidths=col_widths)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0,0), (-1,0), 12),
+        ('BOTTOMPADDING', (0,0), (-1,0), 10),
+        ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
+        ('GRID', (0,0), (-1,-1), 1, colors.black),
+    ]))
+    table.wrapOn(p, width, height)
+    table.drawOn(p, x, y - 25 * len(data))
+    p.showPage()
+    p.save()
+    return response
 
 
 #SERVICIO
@@ -1176,6 +1496,71 @@ def tabla_servicios(request):
         'mostrar_inactivos': mostrar,
     })
 
+@login_required(login_url='login')
+def reporte_servicios_pdf(request):
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="reporte_servicios.pdf"'
+    p = canvas.Canvas(response, pagesize=letter)
+    width, height = letter
+    logo_width, logo_height, logo_margin = 100, 100, 15
+
+    config = Configuracion.objects.order_by('-fechaConfiguracion').first()
+    logo_path = config.logo.path if config and config.logo else None
+    firma_path = config.firma.path if config and config.firma else None
+    nombre_institucion = config.nombreInstitucion if config else "Institución"
+    rif_institucion = config.rif if config else ""
+
+    safe_left = logo_margin + logo_width
+    safe_right = width - logo_margin - logo_width
+    safe_width = safe_right - safe_left
+    safe_center = safe_left + safe_width / 2
+
+    if logo_path and os.path.exists(logo_path):
+        p.drawImage(logo_path, width - logo_width - logo_margin, height - logo_height - logo_margin, width=logo_width, height=logo_height, preserveAspectRatio=True, mask='auto')
+
+    text_top = height - logo_margin - 22
+    p.setFont("Helvetica-Bold", 12)
+    p.drawCentredString(safe_center, text_top, nombre_institucion)
+    p.drawCentredString(safe_center, text_top - 20, f"RIF: {rif_institucion}")
+    p.drawCentredString(safe_center, text_top - 40, "REPORTE DE SERVICIOS")
+
+    if firma_path and os.path.exists(firma_path):
+        p.drawImage(firma_path, width/2 - 60, 60, width=120, height=60, preserveAspectRatio=True, mask='auto')
+        p.setFont("Helvetica-Oblique", 10)
+        p.drawCentredString(width/2, 25, "Firma autorizada")
+
+    servicios = Servicio.objects.all()
+    data = [["ID", "Nombre", "Tiempo", "Precio", "Estado", "Fecha"]]
+    for s in servicios:
+        data.append([
+            str(s.idServicio),
+            s.nombreServicio,
+            s.tiempoServicio,
+            s.precioServicio,
+            s.estadoServicio,
+            s.fechaServicio.strftime("%d/%m/%Y")
+        ])
+    col_widths = [40, 120, 80, 80, 60, 60]
+    table_width = sum(col_widths)
+    x = safe_left + (safe_width - table_width) / 2
+    y = height - logo_margin - 100
+
+    table = Table(data, colWidths=col_widths)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0,0), (-1,0), 12),
+        ('BOTTOMPADDING', (0,0), (-1,0), 10),
+        ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
+        ('GRID', (0,0), (-1,-1), 1, colors.black),
+    ]))
+    table.wrapOn(p, width, height)
+    table.drawOn(p, x, y - 25 * len(data))
+    p.showPage()
+    p.save()
+    return response
 
 #TRAMITE
 @login_required(login_url='login')
@@ -1251,6 +1636,73 @@ def tabla_tramites(request):
         'tramites': tramites,
         'mostrar_inactivos': mostrar,
     })
+
+
+@login_required(login_url='login')
+def reporte_tramites_pdf(request):
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="reporte_tramites.pdf"'
+    p = canvas.Canvas(response, pagesize=letter)
+    width, height = letter
+    logo_width, logo_height, logo_margin = 100, 100, 15
+
+    config = Configuracion.objects.order_by('-fechaConfiguracion').first()
+    logo_path = config.logo.path if config and config.logo else None
+    firma_path = config.firma.path if config and config.firma else None
+    nombre_institucion = config.nombreInstitucion if config else "Institución"
+    rif_institucion = config.rif if config else ""
+
+    safe_left = logo_margin + logo_width
+    safe_right = width - logo_margin - logo_width
+    safe_width = safe_right - safe_left
+    safe_center = safe_left + safe_width / 2
+
+    if logo_path and os.path.exists(logo_path):
+        p.drawImage(logo_path, width - logo_width - logo_margin, height - logo_height - logo_margin, width=logo_width, height=logo_height, preserveAspectRatio=True, mask='auto')
+
+    text_top = height - logo_margin - 22
+    p.setFont("Helvetica-Bold", 12)
+    p.drawCentredString(safe_center, text_top, nombre_institucion)
+    p.drawCentredString(safe_center, text_top - 20, f"RIF: {rif_institucion}")
+    p.drawCentredString(safe_center, text_top - 40, "REPORTE DE TRÁMITES")
+
+    if firma_path and os.path.exists(firma_path):
+        p.drawImage(firma_path, width/2 - 60, 60, width=120, height=60, preserveAspectRatio=True, mask='auto')
+        p.setFont("Helvetica-Oblique", 10)
+        p.drawCentredString(width/2, 25, "Firma autorizada")
+
+    tramites = Tramite.objects.all()
+    data = [["ID", "Nombre", "Tiempo", "Precio", "Estado", "Fecha"]]
+    for t in tramites:
+        data.append([
+            str(t.idTramite),
+            t.nombreTramite,
+            t.diasTramite,
+            t.precioTramite,
+            t.estadoTramite,
+            t.fechaTramite.strftime("%d/%m/%Y")
+        ])
+    col_widths = [40, 120, 80, 80, 60, 60]
+    table_width = sum(col_widths)
+    x = safe_left + (safe_width - table_width) / 2
+    y = height - logo_margin - 100
+
+    table = Table(data, colWidths=col_widths)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0,0), (-1,0), 12),
+        ('BOTTOMPADDING', (0,0), (-1,0), 10),
+        ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
+        ('GRID', (0,0), (-1,-1), 1, colors.black),
+    ]))
+    table.wrapOn(p, width, height)
+    table.drawOn(p, x, y - 25 * len(data))
+    p.showPage()
+    p.save()
+    return response
 
 
 #DENOMINACION
@@ -1333,6 +1785,67 @@ def tabla_denominaciones(request):
         'mostrar_inactivos': mostrar,
     })
 
+@login_required(login_url='login')
+@permission_required("home.view_denominacion", raise_exception=True)
+def reporte_denominaciones_pdf(request):
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="reporte_denominaciones.pdf"'
+    p = canvas.Canvas(response, pagesize=letter)
+    width, height = letter
+    logo_width, logo_height, logo_margin = 100, 100, 15
+
+    config = Configuracion.objects.order_by('-fechaConfiguracion').first()
+    logo_path = config.logo.path if config and config.logo else None
+    nombre_institucion = config.nombreInstitucion if config else "Institución"
+    rif_institucion = config.rif if config else ""
+
+    # Área útil para centrar
+    safe_left = logo_margin + logo_width
+    safe_right = width - logo_margin - logo_width
+    safe_width = safe_right - safe_left
+    safe_center = safe_left + safe_width / 2
+
+    # Mostrar el logo si existe
+    if logo_path and os.path.exists(logo_path):
+        p.drawImage(logo_path, width - logo_width - logo_margin, height - logo_height - logo_margin, width=logo_width, height=logo_height, preserveAspectRatio=True, mask='auto')
+
+    text_top = height - logo_margin - 22
+    p.setFont("Helvetica-Bold", 11)
+    p.drawCentredString(safe_center, text_top, nombre_institucion)
+    p.drawCentredString(safe_center, text_top - 20, f"RIF: {rif_institucion}")
+    p.drawCentredString(safe_center, text_top - 40, "REPORTE DE DENOMINACIONES")
+
+    denominaciones = Denominacion.objects.all()
+    data = [["ID", "Nombre", "Estado", "Fecha"]]
+    for d in denominaciones:
+        data.append([
+            str(d.idDenominacion),
+            d.nombreDenominacion,
+            d.estadoDenominacion,
+            d.fechaDenominacion.strftime("%d/%m/%Y")
+        ])
+    col_widths = [40, 120, 60, 60]
+    table_width = sum(col_widths)
+    x = safe_left + (safe_width - table_width) / 2
+    y = height - logo_margin - 100
+
+    table = Table(data, colWidths=col_widths)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0,0), (-1,0), 12),
+        ('BOTTOMPADDING', (0,0), (-1,0), 10),
+        ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
+        ('GRID', (0,0), (-1,-1), 1, colors.black),
+    ]))
+    table.wrapOn(p, width, height)
+    table.drawOn(p, x, y - 25 * len(data))
+    p.showPage()
+    p.save()
+    return response
+
 
 #BANCO
 @login_required(login_url='login')
@@ -1414,6 +1927,118 @@ def tabla_bancos(request):
         'mostrar_inactivos': mostrar,
     })
 
+@login_required(login_url='login')
+@permission_required("home.view_banco", raise_exception=True)
+def reporte_bancos_pdf(request):
+    # Rango de registros
+    start = int(request.GET.get('start', 1))
+    end   = int(request.GET.get('end',   0))
+    todos  = list(Banco.objects.all().order_by('nombreBanco'))
+    if end == 0 or end > len(todos):
+        end = len(todos)
+    bancos = todos[start-1:end]
+
+    # Preparar PDF
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'inline; filename="reporte_bancos.pdf"'
+    p = canvas.Canvas(response, pagesize=letter)
+    width, height = letter
+
+    # Cargar logo/firma
+    config     = Configuracion.objects.order_by('-fechaConfiguracion').first()
+    logo_path  = config.logo.path   if config and config.logo   else None
+    firma_path = config.firma.path  if config and config.firma  else None
+    nombre_ins = config.nombreInstitucion if config else "Institución"
+    rif_ins    = config.rif if config else ""
+
+    # Márgenes y espacios
+    logo_w, logo_h, mgn = 80, 80, 20
+    left_safe  = mgn + logo_w
+    right_safe = width - mgn - logo_w
+    safe_w     = right_safe - left_safe
+
+    def draw_header():
+        if logo_path and os.path.exists(logo_path):
+            p.drawImage(logo_path,
+                        width - logo_w - mgn, height - logo_h - mgn,
+                        width=logo_w, height=logo_h,
+                        preserveAspectRatio=True, mask='auto')
+        p.setFont("Helvetica-Bold", 12)
+        y = height - mgn - 10
+        p.drawString(mgn, y,    nombre_ins)
+        p.drawString(mgn, y-15, f"RIF: {rif_ins}")
+        p.drawString(mgn, y-35, "REPORTE DE BANCOS")
+        p.line(mgn, y-40, width-mgn, y-40)
+
+    def draw_footer():
+        if firma_path and os.path.exists(firma_path):
+            p.drawImage(firma_path,
+                        width/2 - 50,  35,
+                        width=100, height=40,
+                        preserveAspectRatio=True, mask='auto')
+        p.setFont("Helvetica-Oblique", 9)
+        p.drawCentredString(width/2, 20, "Firma autorizada")
+
+    # Construir datos
+    headers = ["Código Local", "Código SWIFT", "Código Contable", "Nombre", "Estado", "Fecha"]
+    data = [headers]
+    for b in bancos:
+        cod_cont = b.codigoPlanCuenta.codigoPlanCuenta if b.codigoPlanCuenta else ""
+        estado   = "Activo" if b.estadoBanco else "Inactivo"
+        data.append([
+            b.codLocalBanco,
+            b.codSwiftBanco,
+            cod_cont,
+            b.nombreBanco,
+            estado,
+            b.fechaBanco.strftime("%d/%m/%Y"),
+        ])
+
+    # Anchos, alturas y cálculo de filas por página
+    col_widths  = [70, 70, 80, 150, 60, 60]
+    row_h       = 20
+    header_h    = 100  # aumentado para más espacio
+    footer_h    = 70
+    avail_h     = height - header_h - footer_h
+    max_rows    = max(1, int(avail_h // row_h))
+
+    # Dibujar páginas
+    for i in range(0, len(data)-1, max_rows):
+        if i > 0:
+            p.showPage()
+        draw_header()
+
+        chunk = [data[0]] + data[i+1 : i+1+max_rows]
+        table = Table(chunk, colWidths=col_widths, rowHeights=row_h)
+        table.setStyle(TableStyle([
+            # Cabecera
+            ('BACKGROUND',       (0,0), (-1,0), colors.HexColor("#fe8330")),
+            ('TEXTCOLOR',        (0,0), (-1,0), colors.white),
+            ('FONTNAME',         (0,0), (-1,0), 'Helvetica-Bold'),
+            ('FONTSIZE',         (0,0), (-1,0), 10),
+            ('ALIGN',            (0,0), (-1,0), 'CENTER'),
+            ('BOTTOMPADDING',    (0,0), (-1,0), 6),
+
+            # Celdas de datos
+            ('FONTNAME',         (0,1), (-1,-1), 'Helvetica'),
+            ('FONTSIZE',         (0,1), (-1,-1), 9),
+            ('ALIGN',            (0,1), (-1,-1), 'CENTER'),
+            ('VALIGN',           (0,1), (-1,-1), 'MIDDLE'),
+            ('INNERGRID',        (0,0), (-1,-1), 0.5, colors.grey),
+            ('BOX',              (0,0), (-1,-1), 0.5, colors.grey),
+            ('BACKGROUND',       (0,1), (-1,-1), colors.whitesmoke),
+        ]))
+
+        # Posición de la tabla (bajamos un poco más)
+        x = left_safe + (safe_w - sum(col_widths)) / 2
+        y = height - header_h - 10 - row_h * len(chunk)
+        table.wrapOn(p, width, height)
+        table.drawOn(p, x, y)
+
+        draw_footer()
+
+    p.save()
+    return response
 
 #MONEDA
 @login_required(login_url='login')
@@ -1495,6 +2120,53 @@ def tabla_monedas(request):
         'mostrar_inactivos': mostrar,
     })
 
+@login_required(login_url='login')
+def reporte_monedas_pdf(request):
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="reporte_monedas.pdf"'
+    p = canvas.Canvas(response, pagesize=letter)
+    width, height = letter
+    logo_width, logo_height, logo_margin = 100, 100, 15
+
+    config = Configuracion.objects.order_by('-fechaConfiguracion').first()
+    logo_path = config.logo.path if config and config.logo else None
+    nombre_institucion = config.nombreInstitucion if config else "Institución"
+    rif_institucion = config.rif if config else ""
+
+    # Encabezado alineado a la izquierda (más de 4 campos)
+    x_title = 40
+    p.setFont("Helvetica-Bold", 12)
+    p.drawString(x_title, height - 40, nombre_institucion)
+    p.drawString(x_title, height - 60, f"RIF: {rif_institucion}")
+    p.drawString(x_title, height - 80, "REPORTE DE MONEDAS")
+
+    monedas = Moneda.objects.all()
+    data = [["ID", "Nombre", "Símbolo", "Estado", "Fecha"]]
+    for m in monedas:
+        data.append([
+            str(m.idMoneda),
+            m.nombreMoneda,
+            m.simboloMoneda,
+            m.estadoMoneda,
+            m.fechaMoneda.strftime("%d/%m/%Y")
+        ])
+    col_widths = [40, 120, 60, 60, 60]
+    table = Table(data, colWidths=col_widths)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0,0), (-1,0), 12),
+        ('BOTTOMPADDING', (0,0), (-1,0), 10),
+        ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
+        ('GRID', (0,0), (-1,-1), 1, colors.black),
+    ]))
+    table.wrapOn(p, width, height)
+    table.drawOn(p, x_title, height - 120 - 25 * len(data))
+    p.showPage()
+    p.save()
+    return response
 
 #TASA
 @login_required(login_url='login')
@@ -1576,6 +2248,55 @@ def tabla_tasas(request):
         'tasas': tasas,
         'mostrar_inactivos': mostrar,
     })
+
+@login_required(login_url='login')
+def reporte_tasas_pdf(request):
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="reporte_tasas.pdf"'
+    p = canvas.Canvas(response, pagesize=letter)
+    width, height = letter
+    logo_width, logo_height, logo_margin = 100, 100, 15
+
+    config = Configuracion.objects.order_by('-fechaConfiguracion').first()
+    logo_path = config.logo.path if config and config.logo else None
+    nombre_institucion = config.nombreInstitucion if config else "Institución"
+    rif_institucion = config.rif if config else ""
+
+    # Encabezado alineado a la izquierda (menos de 5 campos)
+    x_title = 40
+    p.setFont("Helvetica-Bold", 12)
+    p.drawString(x_title, height - 40, nombre_institucion)
+    p.drawString(x_title, height - 60, f"RIF: {rif_institucion}")
+    p.drawString(x_title, height - 80, "REPORTE DE TASAS CAMBIARIAS")
+
+    tasas = Tasa.objects.select_related('idMoneda').all()
+    data = [["ID", "Moneda", "Monto", "Estado", "Fecha"]]
+    for t in tasas:
+        data.append([
+            str(t.idTasa),
+            t.idMoneda.nombreMoneda if t.idMoneda else "",
+            t.montoTasa,
+            t.estadoTasa,
+            t.fechaTasa.strftime("%d/%m/%Y")
+        ])
+    col_widths = [40, 120, 80, 60, 60]
+    table = Table(data, colWidths=col_widths)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0,0), (-1,0), 12),
+        ('BOTTOMPADDING', (0,0), (-1,0), 10),
+        ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
+        ('GRID', (0,0), (-1,-1), 1, colors.black),
+    ]))
+    table.wrapOn(p, width, height)
+    table.drawOn(p, x_title, height - 120 - 25 * len(data))
+    p.showPage()
+    p.save()
+    return response
+
 
 #TIPO MOVIMIENTO
 @login_required(login_url='login')
@@ -2382,83 +3103,69 @@ def actualizar_monedas_api(request):
     return redirect('tabla_monedas') # Redirige a la página de moneda
 
 
-# Vista para actualizar Bancos de Venezuela desde fuente externa
 @login_required(login_url='login')
 @permission_required("home.add_banco", raise_exception=True)
 def actualizar_bancos_api(request):
-    # Solo permitir método POST
     if request.method != 'POST':
         messages.error(request, "Método no permitido.")
-        return redirect('configuracion') # O a donde prefieras
+        return redirect('banco_list')
 
-    # Usaremos un archivo JSON conocido de un repositorio de GitHub
-    # Siempre apunta al enlace "Raw" del archivo
     BANK_API_URL = 'https://raw.githubusercontent.com/andresmdev/bankListVEN/refs/heads/master/bankVEN.json'
-    nuevos_bancos_contador = 0
+    nuevos = 0
 
     try:
-        # --- 1. Llamada a la "API" (Archivo JSON) ---
-        print(f"DEBUG: Obteniendo datos de bancos desde: {BANK_API_URL}") # Debug
-        response = requests.get(BANK_API_URL, timeout=15)
-        response.raise_for_status() # Verifica si la descarga fue exitosa (código 2xx)
+        resp = requests.get(BANK_API_URL, timeout=15)
+        resp.raise_for_status()
+        api_bancos = resp.json()
 
-        # --- 2. Procesar Respuesta JSON ---
-        api_bancos = response.json()
-        print(f"DEBUG: Recibidos {len(api_bancos)} bancos de la fuente.") # Debug
+        # Determinar una cuenta padre por defecto para todos los bancos nuevos
+        # Aquí usamos la primera PlanCuenta que encuentre; ajústalo según tu lógica
+        cuenta_padre = PlanCuenta.objects.first()
+        if not cuenta_padre:
+            messages.error(request, "No hay cuentas contables padre configuradas.")
+            return redirect('banco_list')
 
-        # --- 3. Obtener Códigos Existentes en BD ---
-        codigos_existentes = set(Banco.objects.values_list('codBanco', flat=True))
-        print(f"DEBUG: {len(codigos_existentes)} códigos de banco existentes en BD.") # Debug
+        # Obtener códigos locales existentes
+        cod_exist = set(Banco.objects.values_list('codLocalBanco', flat=True))
 
-        # --- 4. Comparar y Añadir Nuevos Bancos ---
-        bancos_para_crear = []
-        for banco_data in api_bancos:
-            # Extraer código y nombre, asegurándose que existan
-            codigo = banco_data.get('code')
-            nombre = banco_data.get('shortName')
+        nuevos_list = []
+        for item in api_bancos:
+            code = item.get('code', '').strip()
+            name = item.get('shortName', '').strip()
+            if not code or not name:
+                continue
 
-            if codigo and nombre: # Solo procesar si tenemos ambos datos
-                codigo_limpio = codigo.strip()[:4] # Limitar a 4 caracteres
-                nombre_limpio = nombre.strip()[:150] # Limitar a la longitud del modelo
+            cod_local = code[:10]  # hasta 10 chars para codLocalBanco
+            if cod_local in cod_exist:
+                continue
 
-                if codigo_limpio not in codigos_existentes:
-                    bancos_para_crear.append(
-                        Banco(
-                            nombreBanco=nombre_limpio,
-                            codBanco=codigo_limpio,
-                            codContable='0000', # Valor por defecto
-                            estadoBanco='INACTIVO', # Valor por defecto
-                            # fechaBanco usa default=timezone.now
-                        )
-                    )
-                    # Añadir al set para evitar intentar crear duplicados en este mismo lote
-                    codigos_existentes.add(codigo_limpio)
-            else:
-                 print(f"DEBUG: Dato de banco incompleto ignorado: {banco_data}") # Debug
+            # Hacemos el valor único incorporando el código local
+            cod_swift_placeholder = f"SW-N/A-{cod_local}"
 
-        # --- 5. Guardar Nuevos Bancos en BD (si hay) ---
-        if bancos_para_crear:
-            try:
-                Banco.objects.bulk_create(bancos_para_crear)
-                nuevos_bancos_contador = len(bancos_para_crear)
-                print(f"DEBUG: Añadidos {nuevos_bancos_contador} nuevos bancos.") # Debug
-                messages.success(request, f'¡Actualización completada! Se añadieron {nuevos_bancos_contador} nuevos bancos.')
-            except Exception as db_error:
-                print(f"ERROR DB al guardar bancos: {db_error}") # Debug
-                messages.error(request, f'Error al guardar los nuevos bancos en la base de datos: {db_error}')
+            # Preparamos el banco inactivo con valores por defecto
+            b = Banco(
+                nombreBanco=name[:100],
+                codLocalBanco=cod_local,
+                codSwiftBanco = cod_swift_placeholder,
+                cuentaPadre=cuenta_padre,
+                estadoBanco=False  # inactivo inicialmente
+            )
+            nuevos_list.append(b)
+            cod_exist.add(cod_local)
+
+        if nuevos_list:
+            Banco.objects.bulk_create(nuevos_list)
+            nuevos = len(nuevos_list)
+            messages.success(request, f"¡Actualización completa! Se añadieron {nuevos} nuevos bancos.")
         else:
-            print("DEBUG: No se encontraron nuevos bancos para añadir.") # Debug
-            messages.info(request, '¡Todo al día! No se encontraron nuevos bancos en la fuente de datos.')
+            messages.info(request, "¡Todo al día! No se encontraron bancos nuevos.")
 
     except requests.exceptions.RequestException as e:
-        print(f"ERROR API/Red: {e}") # Debug
-        messages.error(request, f"Error al obtener los datos de los bancos: {e}")
-    except Exception as e: # Otros errores (JSON inválido, etc.)
-        print(f"ERROR General: {e}") # Debug
-        messages.error(request, f"Ocurrió un error inesperado durante la actualización: {e}")
+        messages.error(request, f"Error al obtener datos de bancos: {e}")
+    except Exception as e:
+        messages.error(request, f"Error inesperado al actualizar bancos: {e}")
 
-    # --- 6. Redirigir de vuelta ---
-    return redirect('tabla_bancos') # Redirige al banco
+    return redirect('banco_list')
 
 
 #PAGES OTRAS
@@ -2552,8 +3259,7 @@ def pages(request):
             context['denominaciones'] = denominaciones
 
         context["segment"] = load_template
-
-        if load_template == "tablaBancos.html":
+        if load_template in [ "tablaBancos.html", "cuentaBanco.html", "tablaCuentaBanco.html"]:
             bancos = Banco.objects.all()
             context['bancos'] = bancos
 

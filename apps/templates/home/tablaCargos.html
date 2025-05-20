@@ -48,6 +48,7 @@
         <input class="form-control" id="searchInput" type="text" placeholder="Buscar por Nombre…" onkeyup="filterTable()">
       </div>
     </div>
+
     <div class="col-md-4 text-center">
       {% if perms.home.add_cargo %}
         <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#cargoModal">
@@ -55,6 +56,7 @@
         </button>
       {% endif %}
     </div>
+
     <div class="col-md-4 text-end">
       <a href="{% url 'reporte_cargos_pdf' %}" class="btn btn-outline-danger btn-sm" target="_blank">
         <i class="fas fa-file-pdf me-1"></i> Descargar PDF
@@ -63,15 +65,15 @@
   </div>
 
     <div class="mb-3">
-    <a href="?mostrar_inactivos={% if mostrar_inactivos %}false{% else %}true{% endif %}"
-       class="btn btn-outline-secondary btn-sm">
-      {% if mostrar_inactivos %}
-        <i class="fas fa-eye-slash me-1"></i> Ocultar inactivos
-      {% else %}
-        <i class="fas fa-eye me-1"></i> Mostrar inactivos
-      {% endif %}
-    </a>
-  </div>
+      <a href="?mostrar_inactivos={% if mostrar_inactivos %}false{% else %}true{% endif %}"
+        class="btn btn-outline-secondary btn-sm">
+        {% if mostrar_inactivos %}
+          <i class="fas fa-eye-slash me-1"></i> Ocultar inactivos
+        {% else %}
+          <i class="fas fa-eye me-1"></i> Mostrar inactivos
+        {% endif %}
+      </a>
+    </div>
 
   <div id="globalMessages">
     {% if messages %}
@@ -246,115 +248,164 @@
 <script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
 
 <script>
-// Helper para cargar AJAX en los modales
-function loadInModal(modalId, urlFn, contentSel) {
-  $(modalId).on('show.bs.modal', e => {
-    const $cont = $(modalId).find(contentSel);
-    $cont.html('<div class="text-center py-4"><div class="spinner-border text-primary"></div></div>');
-    $.get(urlFn(e)).done(html => $cont.html(html));
-  }).on('hidden.bs.modal', () => $(contentSel).empty());
-}
+document.addEventListener('DOMContentLoaded', () => {
+  // Helper para cargar contenido en modales
+  const loadInModal = (modalId, urlFn, contentSel) => {
+    $(modalId)
+      .on('show.bs.modal', e => {
+        const $cont = $(contentSel);
+        $cont.html('<div class="text-center py-4"><div class="spinner-border text-primary"></div></div>');
+        $.get(urlFn(e)).done(html => $cont.html(html));
+      })
+      .on('hidden.bs.modal', () => $(contentSel).empty());
+  };
 
-// asignar action a delete/reactivate forms
-  ['delete','reactivate'].forEach(act => {
-    const mid = `#${act}CargoModal`, fid = `#${act}CargoForm`;
-    $(mid).on('show.bs.modal', e => $(fid).attr('action', $(e.relatedTarget).data('url')));
+  // Configurar acciones de eliminación/reactivación
+  ['delete', 'reactivate'].forEach(act => {
+    const mid = `#${act}CargoModal`;
+    const fid = `#${act}CargoForm`;
+    $(mid).on('show.bs.modal', e => {
+      $(fid).attr('action', $(e.relatedTarget).data('url'));
+    });
   });
-  // no interceptar DELETE/REACTIVATE para redirect normal
 
-$(function(){
-  // 1) Registro
+  // Cargar modales
   loadInModal('#cargoModal', () => "{% url 'cargo_modal' %}", '#registrarCargoContent');
-  // 2) Edición
   loadInModal('#editCargoModal', e => $(e.relatedTarget).data('url'), '#editCargoContent');
 
-  // AJAX Submits (registro y edición usan mismo handler)
-  $(document).on('submit', '#cargoForm, #editCargoForm', function(e){
-    e.preventDefault();
-    const $f = $(this);
-    // Validar requerido
-    if (!$f[0].checkValidity()) {
-      $f.addClass('was-validated');
-      return;
-    }
-    $.post($f.attr('action'), $f.serialize())
-      .done(resp => {
-        const isEdit = $f.is('#editCargoForm');
-        const modal  = isEdit ? '#editCargoModal' : '#cargoModal';
-        if (resp.success) {
-          $(modal).modal('hide');
-          $('#globalMessages').prepend(`
-            <div class="alert alert-success alert-dismissible fade show" role="alert">
-              ${resp.message}
+  // Manejar envío de formularios
+  const handleFormSubmit = (formSelector, modalId) => {
+    $(document).on('submit', formSelector, function(e) {
+      e.preventDefault();
+      const $form = $(this);
+      
+      if (!$form[0].checkValidity()) {
+        $form.addClass('was-validated');
+        return;
+      }
+
+      $.ajax({
+        url: $form.attr('action'),
+        method: 'POST',
+        data: $form.serialize(),
+        success: (response) => handleFormResponse(response, modalId),
+        error: () => Swal.fire('Error', 'Error al procesar la solicitud', 'error')
+      });
+    });
+  };
+
+  // Registrar handlers para formularios
+  handleFormSubmit('#cargoForm', '#cargoModal');
+  handleFormSubmit('#editCargoForm', '#editCargoModal');
+
+  // Manejar respuestas del servidor
+  const handleFormResponse = (response, modalId) => {
+    const modal = $(modalId);
+    const messagesContainer = modal.find('.modal-body');
+    
+    messagesContainer.find('.alert').remove();
+    
+    if (response.success) {
+      modal.modal('hide');
+      showGlobalMessage(response.message, 'success');
+      setTimeout(() => location.reload(), 1500);
+    } else {
+      if (response.errors?.__all__) {
+        Swal.fire({
+          title: 'Error de registro',
+          text: response.errors.__all__.join('\n'),
+          icon: 'error',
+          confirmButtonText: 'OK'
+        });
+      }
+      $.each(response.errors, (field, errors) => {
+        if (field !== "__all__") {
+          messagesContainer.prepend(
+            `<div class="alert alert-danger alert-dismissible fade show" role="alert">
+              ${errors.join(', ')}
               <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
-          <i class="fas fa-times"></i>
-        </button>
-            </div>`);
-          setTimeout(()=>location.reload(), 500);
-        } else {
-          const $cont = isEdit ? $('#editCargoContent') : $('#registrarCargoContent');
-          Object.values(resp.errors).forEach(msg => {
-            $cont.prepend(`
-              <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                ${msg}
-                <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
-          <i class="fas fa-times"></i>
-        </button>
-              </div>`);
-          });
+                <i class="fas fa-times"></i>
+              </button>
+            </div>`
+          );
         }
       });
-  });
+    }
+  };
+
+  // Mostrar mensajes globales
+  const showGlobalMessage = (message, type) => {
+    const container = $('#globalMessages');
+    const alertClass = {
+      success: 'alert-success',
+      error: 'alert-danger',
+      warning: 'alert-warning'
+    }[type] || 'alert-info';
+
+    container.html(`
+      <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
+        ${message}
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+            <i class="fas fa-times"></i>
+          </button>
+      </div>
+    `);
+  };
 
   // Filtrar tabla
   window.filterTable = () => {
     const val = $('#searchInput').val().toUpperCase();
-    $('#cargosTable tbody tr').each(function(){
+    $('#cargosTable tbody tr').each(function() {
       $(this).toggle($(this).text().toUpperCase().includes(val));
     });
   };
 
-  // SweetAlert2 para eliminar/reactivar
-window.manageCargo = (id, action) => {
-  const txt = action === 'delete'
-    ? '¿Seguro que deseas inhabilitar este cargo?'
-    : '¿Seguro que deseas reactivar este cargo?';
-  Swal.fire({
-    title: txt,
-    icon: action === 'delete' ? 'warning' : 'question',
-    showCancelButton: true,
-    confirmButtonText: action === 'delete' ? 'Inhabilitar' : 'Reactivar',
-    cancelButtonText: 'Cancelar',
-    customClass: {
-      confirmButton: action === 'delete' ? 'btn btn-warning' : 'btn btn-success',
-      cancelButton: 'btn btn-secondary'
-    },
-    buttonsStyling: false,
-  }).then(result => {
-    if (!result.isConfirmed) return;
-    const url = action === 'delete'
-      ? "{% url 'desactivar_cargo' 0 %}".replace('0', id)
-      : "{% url 'reactivate_cargo' 0 %}".replace('0', id);
-    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-    $.post(url, { csrfmiddlewaretoken: csrftoken })
-      .done(data => {
-        if (data.success) {
-          Swal.fire({
-            title: action === 'delete' ? 'Inhabilitado' : 'Reactivado',
-            text: data.message,
-            icon: 'success',
-            confirmButtonText: 'OK',
-            customClass: { confirmButton: 'btn btn-warning' },
-            buttonsStyling: false,
-          }).then(() => location.reload());
-        } else {
-          Swal.fire('Error', data.message, 'error');
-        }
-      })
-      .fail(() => Swal.fire('Error', 'Ocurrió un error en el servidor.', 'error'));
-  });
-};
-
+  // Manejar acciones CRUD
+  window.manageCargo = (id, action) => {
+    const txt = action === 'delete'
+      ? '¿Seguro que deseas inhabilitar este cargo?'
+      : '¿Seguro que deseas reactivar este cargo?';
+      
+    Swal.fire({
+      title: txt,
+      icon: action === 'delete' ? 'warning' : 'question',
+      showCancelButton: true,
+      confirmButtonText: action === 'delete' ? 'Inhabilitar' : 'Reactivar',
+      cancelButtonText: 'Cancelar',
+      customClass: {
+        confirmButton: action === 'delete' ? 'btn btn-warning' : 'btn btn-success',
+        cancelButton: 'btn btn-secondary'
+      },
+      buttonsStyling: false,
+    }).then(result => {
+      if (result.isConfirmed) {
+        const url = action === 'delete'
+          ? "{% url 'desactivar_cargo' 0 %}".replace('0', id)
+          : "{% url 'reactivate_cargo' 0 %}".replace('0', id);
+          
+        $.ajax({
+          url: url,
+          method: 'POST',
+          data: {
+            csrfmiddlewaretoken: '{{ csrf_token }}'
+          },
+          success: (data) => {
+            if (data.success) {
+              Swal.fire({
+                title: action === 'delete' ? 'Inhabilitado' : 'Reactivado',
+                text: data.message,
+                icon: 'success',
+                confirmButtonText: 'OK'
+              }).then(() => location.reload());
+            } else {
+              Swal.fire('Error', data.message, 'error');
+            }
+          },
+          error: () => Swal.fire('Error', 'Error de conexión', 'error')
+        });
+      }
+    });
+  };
 });
 </script>
 {% endblock javascripts %}

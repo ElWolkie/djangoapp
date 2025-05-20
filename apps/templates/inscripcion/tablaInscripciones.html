@@ -64,12 +64,18 @@
       </div>
     </div>
     
-    <div class="col-md-4 text-end">
+    <div class="col-md-4 text-center">
       {% if perms.home.add_inscripcion %}
       <a href="{% url 'inscripcion_modal' %}" class="btn btn-warning">
         <i class="fas fa-plus-circle me-1"></i> Nueva Inscripción
       </a>
       {% endif %}
+    </div>
+
+    <div class="col-md-4 text-end">
+      <a href="{% url 'reporte_inscripcion_pdf' %}" class="btn btn-outline-danger btn-sm" target="_blank">
+        <i class="fas fa-file-pdf"></i> Descargar PDF
+      </a>
     </div>
   </div>
   
@@ -230,7 +236,6 @@
 {% endif %}
 
 {% endblock content %}
-
 {% block javascripts %}
 <script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
 <script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
@@ -238,55 +243,34 @@
 
 <script>
 $(function(){
-  
   // --- FUNCIÓN PARA MOSTRAR MENSAJES GLOBALES ---
   function showGlobalMessage(message, type) {
     const globalMessagesContainer = $('#globalMessages');
     
-    // Determinar la clase de Bootstrap y el ícono según el tipo de mensaje
-    let alertClass = '';
-    let iconClass = ''; // Para FontAwesome
-
-    switch (type) {
-      case 'success':
-        alertClass = 'alert-success';
-        iconClass = 'fas fa-check-circle';
-        break;
-      case 'error':
-        alertClass = 'alert-danger';
-        iconClass = 'fas fa-times-circle';
-        break;
-      case 'warning': // Puedes añadir más tipos si los necesitas
-        alertClass = 'alert-warning';
-        iconClass = 'fas fa-exclamation-triangle';
-        break;
-      default:
-        alertClass = 'alert-info'; // Un default por si acaso
-        iconClass = 'fas fa-info-circle';
-    }
-
-    // Construir el HTML del mensaje, similar al que generas con el loop de Django
+    const alertClasses = {
+      success: { class: 'alert-success', icon: 'fas fa-check-circle' },
+      error: { class: 'alert-danger', icon: 'fas fa-times-circle' },
+      warning: { class: 'alert-warning', icon: 'fas fa-exclamation-triangle' },
+      info: { class: 'alert-info', icon: 'fas fa-info-circle' }
+    };
+    
+    const { class: alertClass, icon } = alertClasses[type] || alertClasses.info;
+    
     const messageHtml = `
       <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
-        <i class="${iconClass} me-1"></i>
+        <i class="${icon} me-1"></i>
         ${message}
-        <button type="button" class="btn btn-sm btn-icon-only text-dark" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:50%; right:1rem; transform: translateY(-50%);">
+        <button type="button" class="btn btn-sm btn-icon-only text-dark" data-bs-dismiss="alert" aria-label="Close" 
+          style="position:absolute; top:50%; right:1rem; transform: translateY(-50%);">
           <i class="fas fa-times"></i>
         </button>
       </div>
     `;
     
-    // Reemplazar el contenido de globalMessages con el nuevo mensaje.
-    // Esto asegura que solo se muestre el último mensaje de la acción AJAX.
     globalMessagesContainer.html(messageHtml);
-
-    // Opcional: hacer scroll hacia el mensaje si está fuera de la vista
-    // $('html, body').animate({
-    //scrollTop: globalMessagesContainer.offset().top - 20 // -20 para un pequeño margen superior
-    // }, 500);
   }
 
-  // Modal de edición (sin cambios)
+  // MODAL DE EDICIÓN
   {% if perms.home.change_inscripcion %}
   $('#editInscripcionModal')
     .on('show.bs.modal', e => {
@@ -300,39 +284,84 @@ $(function(){
     });
   {% endif %}
 
+  // MANEJO DE FORMULARIO DE EDICIÓN
+  $(document).on('submit', '#editInscripcionForm', function(e) {
+    e.preventDefault();
+    const $form = $(this);
+    const $modal = $('#editInscripcionModal');
+    const $submitBtn = $form.find('button[type="submit"]');
+    
+    $submitBtn.prop('disabled', true).html(`
+      <span class="spinner-border spinner-border-sm" role="status"></span> Guardando...
+    `);
+
+    $.ajax({
+      url: $form.attr('action'),
+      method: 'POST',
+      data: $form.serialize(),
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .done(response => {
+      if (response.success) {
+        $modal.modal('hide');
+        showGlobalMessage(response.message, 'success');
+        setTimeout(() => {
+          if (response.redirect_url) {
+            window.location.href = response.redirect_url;
+          } else {
+            location.reload();
+          }
+        }, 1500);
+      } else {
+        let errorHtml = '';
+        for (const [field, error] of Object.entries(response.errors)) {
+          errorHtml += `<div class="alert alert-danger">${error}</div>`;
+          $(`[name="${field}"]`).addClass('is-invalid');
+        }
+        $('#alert-container').html(errorHtml);
+      }
+    })
+    .fail((jqXHR, textStatus, errorThrown) => {
+      console.error("Error AJAX:", textStatus, errorThrown, jqXHR.responseText);
+      showGlobalMessage('Error de conexión con el servidor', 'error');
+    })
+    .always(() => {
+      $submitBtn.prop('disabled', false).html('Guardar');
+    });
+  });
+
+  // MANEJO DE MODALES DE DESACTIVACIÓN/REACTIVACIÓN
   let currentActionUrl = null;
 
-  // Cuando el modal de DESACTIVACIÓN se muestra
-  $('#deleteInscripcionModal').on('show.bs.modal', function (event) {
+  $('#deleteInscripcionModal, #reactivateInscripcionModal').on('show.bs.modal', function(event) {
     const button = $(event.relatedTarget);
     currentActionUrl = button.data('url');
-    $('#globalMessages').empty(); // Limpiar mensajes previos al abrir un modal de acción
+    $('#globalMessages').empty();
   });
 
-  // Clic en el botón de confirmación de DESACTIVACIÓN
-  $('#confirmDeleteButton').on('click', function() {
+  $('#confirmDeleteButton, #confirmReactivateButton').on('click', function() {
     if (currentActionUrl) {
+      const $modal = $(this).closest('.modal');
+      const actionType = $modal.attr('id') === 'deleteInscripcionModal' ? 'desactivar' : 'reactivar';
+      
       $.ajax({
         url: currentActionUrl,
         method: 'POST',
         data: { csrfmiddlewaretoken: '{{ csrf_token }}' },
-        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
       })
       .done(resp => {
-        $('#deleteInscripcionModal').modal('hide');
+        $modal.modal('hide');
         if (resp.success) {
           showGlobalMessage(resp.message, 'success');
-          setTimeout(() => { // Retraso antes de recargar
-            location.reload();
-          }, 2000); // 2 segundos
+          setTimeout(() => location.reload(), 1000);
         } else {
-          showGlobalMessage(resp.message || 'Algo falló al desactivar.', 'error');
-          // No recargamos si hay error para que el usuario vea el mensaje y el estado actual
+          showGlobalMessage(resp.message || `Error al ${actionType}`, 'error');
         }
       })
       .fail((jqXHR, textStatus, errorThrown) => {
-        console.error("Error AJAX (desactivar):", textStatus, errorThrown, jqXHR.responseText);
-        showGlobalMessage('Error de conexión o el servidor falló al intentar desactivar.', 'error');
+        console.error(`Error AJAX (${actionType}):`, textStatus, errorThrown, jqXHR.responseText);
+        showGlobalMessage(`Error al ${actionType}`, 'error');
       })
       .always(() => {
         currentActionUrl = null;
@@ -340,44 +369,7 @@ $(function(){
     }
   });
 
-  // Cuando el modal de REACTIVACIÓN se muestra
-  $('#reactivateInscripcionModal').on('show.bs.modal', function (event) {
-    const button = $(event.relatedTarget);
-    currentActionUrl = button.data('url');
-    $('#globalMessages').empty(); // Limpiar mensajes previos al abrir un modal de acción
-  });
-
-  // Clic en el botón de confirmación de REACTIVACIÓN
-  $('#confirmReactivateButton').on('click', function() {
-    if (currentActionUrl) {
-      $.ajax({
-        url: currentActionUrl,
-        method: 'POST',
-        data: { csrfmiddlewaretoken: '{{ csrf_token }}' },
-        headers: { 'X-Requested-With': 'XMLHttpRequest' },
-      })
-      .done(resp => {
-        $('#reactivateInscripcionModal').modal('hide');
-        if (resp.success) {
-          showGlobalMessage(resp.message, 'success');
-          setTimeout(() => { // Retraso antes de recargar
-            location.reload();
-          }, 2000); // 2 segundos
-        } else {
-          showGlobalMessage(resp.message || 'Algo falló al reactivar.', 'error');
-        }
-      })
-      .fail((jqXHR, textStatus, errorThrown) => {
-        console.error("Error AJAX (reactivar):", textStatus, errorThrown, jqXHR.responseText);
-        showGlobalMessage('Error de conexión o el servidor falló al intentar reactivar.', 'error');
-      })
-      .always(() => {
-        currentActionUrl = null;
-      });
-    }
-  });
-
-  // Filtrar tabla (sin cambios)
+  // FILTRADO DE TABLA
   $('#searchInput').on('keyup', function(){
     const v = this.value.toUpperCase();
     $('#inscripcionesTable tbody tr').each(function(){
@@ -385,16 +377,94 @@ $(function(){
     });
   });
 
-  // Scroll horizontal (sin cambios)
-  const wrapper = document.querySelector('.table-responsive');
-  if(wrapper){
-    wrapper.addEventListener('wheel', e => {
-      if(e.deltaY !== 0){
-        e.preventDefault();
-        wrapper.scrollLeft += e.deltaY;
-      }
+  // SCROLL HORIZONTAL
+  $('.table-responsive').on('wheel', function(e) {
+    if(e.originalEvent.deltaY !== 0){
+      e.preventDefault();
+      this.scrollLeft += e.originalEvent.deltaY;
+    }
+  });
+});
+
+// PAGINACIÓN
+document.addEventListener('DOMContentLoaded', function () {
+  const table = document.getElementById('inscripcionesTable');
+  if (!table) return;
+
+  const pagination = document.createElement('ul');
+  pagination.className = 'pagination justify-content-center';
+  table.parentNode.appendChild(pagination);
+
+  const rowsPerPage = 5;
+  let currentPage = 1;
+
+  function updateDisplay() {
+    const rows = table.querySelectorAll('tbody tr');
+    const start = (currentPage - 1) * rowsPerPage;
+    const end = start + rowsPerPage;
+
+    rows.forEach((row, index) => {
+      row.style.display = (index >= start && index < end) ? '' : 'none';
     });
   }
+
+  function setupPagination() {
+    const rows = table.querySelectorAll('tbody tr');
+    const totalPages = Math.ceil(rows.length / rowsPerPage);
+    
+    pagination.innerHTML = `
+      <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+        <a class="page-link" href="#" aria-label="Anterior">&laquo;</a>
+      </li>
+      ${Array.from({length: totalPages}, (_, i) => `
+        <li class="page-item ${i + 1 === currentPage ? 'active' : ''}">
+          <a class="page-link" href="#">${i + 1}</a>
+        </li>
+      `).join('')}
+      <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+        <a class="page-link" href="#" aria-label="Siguiente">&raquo;</a>
+      </li>
+    `;
+
+    pagination.querySelectorAll('.page-link').forEach(link => {
+      link.addEventListener('click', function(e) {
+        e.preventDefault();
+        const text = this.textContent.trim();
+        if (text === '«') currentPage--;
+        else if (text === '»') currentPage++;
+        else currentPage = parseInt(text);
+        
+        currentPage = Math.max(1, Math.min(currentPage, totalPages));
+        updateDisplay();
+        setupPagination();
+      });
+    });
+  }
+
+  updateDisplay();
+  setupPagination();
 });
 </script>
+
+<style>
+  .is-invalid {
+    border-color: #dc3545 !important;
+    box-shadow: 0 0 0 0.2rem rgba(220,53,69,.25);
+  }
+  
+  .table-responsive {
+    scrollbar-width: thin;
+    scrollbar-color: #6c757d #f8f9fa;
+  }
+  
+  .table-responsive::-webkit-scrollbar {
+    height: 8px;
+    background-color: #f8f9fa;
+  }
+  
+  .table-responsive::-webkit-scrollbar-thumb {
+    background-color: #6c757d;
+    border-radius: 4px;
+  }
+</style>
 {% endblock javascripts %}

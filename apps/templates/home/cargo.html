@@ -18,6 +18,8 @@
       <label for="nombreCargo" class="d-block">Nombre:</label>
       <input type="text" id="nombreCargo" name="nombreCargo" class="form-control text-dark mx-auto" placeholder="Ingrese un nombre" tabindex="3" maxlength="100"  style="width: 50%;"  />
       <input type="hidden" id="estadoCargo" name="estadoCargo" class="form-control text-dark" value="ACTIVO" />
+      <div class="invalid-feedback">Por favor, ingrese un nombre válido.</div>
+
     </div>
     <div class="text-center">
       <input type="submit" class="btn btn-warning mt-4" value="Guardar" />
@@ -27,6 +29,15 @@
 
 {% block javascripts %}
 <script>
+    function activarMayusculasInputs() {
+    document.addEventListener('input', function(e) {
+      if (e.target.tagName === 'INPUT' && !e.target.type.match(/password|hidden|email/)) {
+        e.target.value = e.target.value.toUpperCase();
+      }
+    });
+  }
+  activarMayusculasInputs();
+  //Recarga dinamica
   document.addEventListener("DOMContentLoaded", function() {
     $('c').on('show.bs.modal', function (e) {
       var modal = $(this);
@@ -43,6 +54,21 @@
   document.getElementById("nombreCargo").addEventListener("input", function() {
     this.value = this.value.replace(/[^a-zA-Z\s]/g, '');
   });
-  
+
+          // Validaciones de Bootstrap
+          (function() {
+        'use strict';
+        var forms = document.querySelectorAll('.needs-validation');
+        Array.prototype.slice.call(forms).forEach(function(form) {
+          form.addEventListener('submit', function(event) {
+            if (!form.checkValidity()) {
+              event.preventDefault();
+              event.stopPropagation();
+            }
+            form.classList.add('was-validated');
+          }, false);
+        });
+      })();
 </script>
+
 {% endblock javascripts %}

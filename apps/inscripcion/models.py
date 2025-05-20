@@ -13,7 +13,7 @@ class Inscripcion(models.Model):
 
     class Meta:
         verbose_name = "Inscripción"
-        verbose_name_plural = "Inscripciones"
+        verbose_name_plural = "Inscripciones"      
 
     def __str__(self):
         return f"Inscripción {self.idInscripcion} - {self.idPersona}"

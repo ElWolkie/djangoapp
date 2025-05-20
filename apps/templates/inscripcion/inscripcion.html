@@ -25,10 +25,11 @@
       <div class="form-group col-md-6">
         <label for="cedulaPersona">Cédula del Cliente:</label>
         <div class="input-group">
-          <input type="text" id="cedulaPersona" name="cedulaPersona" class="form-control text-dark" tabindex="1" required oninput="checkPersona()" placeholder="Ingrese cédula..." value="{{ request.GET.cedula|default:'' }}">
+          <input type="text" id="cedulaPersona" name="cedulaPersona" class="form-control text-dark" tabindex="1" data-required="true" oninput="checkPersona()" placeholder="Ingrese cédula..." value="{{ request.GET.cedula|default:'' }}">
           <div class="input-group-append">
             <span id="check-icon" class="input-group-text"></span>
           </div>
+          <div class="invalid-feedback">Por favor, ingrese una cedula válida.</div>
           <input type="hidden" id="idPersona" name="idPersona" />
         </div>
       </div>
@@ -36,51 +37,56 @@
       <div class="form-group col-md-6">
         <label for="idMateria">Materia:</label>
         <div class="input-group">
-          <select id="idMateria" name="idMateria"  class="form-control text-dark" tabindex="1" required>
+          <select id="idMateria" name="idMateria"  class="form-control text-dark" tabindex="1" data-required="true">
             <option value="" disabled selected>Seleccione..</option>
             {% for materia in materias %}
               <option value="{{ materia.idMateria }}" class="text-dark">{{ materia.nombreMateria }}</option>
             {% endfor %}
           </select>
+          <div class="invalid-feedback">Por favor, seleccione una materia válida.</div>
         </div>
       </div>
 
       <div class="form-group col-md-6">
         <label for="nombreCohorte">Cohorte:</label>
         <div class="input-group">
-          <input type="text" id="nombreCohorte" name="nombreCohorte" class="form-control text-dark" tabindex="1" required oninput="checkCohorte()" placeholder="Ingrese nombre de cohorte...">
+          <input type="text" id="nombreCohorte" name="nombreCohorte" class="form-control text-dark" tabindex="1" data-required="true" oninput="checkCohorte()" placeholder="Ingrese nombre de cohorte...">
           <div class="input-group-append">
             <span id="check-cohorte-icon" class="input-group-text"></span>
           </div>
+          <div class="invalid-feedback">Por favor, ingrese una cohorte válida.</div>
           <input type="hidden" id="idCohorte" name="idCohorte" />
           <input type="hidden" id="estadoContrato" name="estadoContrato" class="form-control text-dark" value="ACTIVO" />
         </div>
       </div>
       <div class="form-group col-md-6">
         <label for="idTF">Tipo de Formación:</label>
-        <select id="idTF" name="idTF"  class="form-control text-dark" required>
+        <select id="idTF" name="idTF"  class="form-control text-dark" data-required="true">
           <option value="" disabled selected>Seleccione..</option>
           {% for tipo in tipos_formacion %}
           <option value="{{ tipo.idTF }}"  class="text-dark">{{ tipo.nombreTipoFormacion }}</option>
           {% endfor %}
         </select>
+        <div class="invalid-feedback">Por favor, ingrese un tipo de formación válida.</div>
+
       </div>
       <div class="form-group col-md-6">  
         <label for="idFormacion">Formación Académica:</label>  
         <div class="input-group"> <!-- Usar input-group para alinear botón y select -->  
-            <select id="idFormacion" name="idFormacion" class="form-control text-dark" tabindex="1" required>  
+            <select id="idFormacion" name="idFormacion" class="form-control text-dark" tabindex="1" data-required="true">  
                 <option value="" disabled selected>Seleccione...</option>  
                 {% for formacion  in formaciones %}  
                     <option value="{{ formacion.idFormacion }}" class="text-dark">{{ formacion.nombreFormacion }}</option>  
                 {% endfor %}  
-            </select>  
+            </select>
+            <div class="invalid-feedback">Por favor, ingrese una formación válida.</div>  
         </div>  
     </div>
     </div>
     <div id="alert-container"></div> <!-- Contenedor para las alertas -->
 
     <div class="text-center">
-      <input type="submit" class="btn btn-warning mt-4" value="Guardar" />
+      <button type="submit" class="btn btn-warning mt-4">Guardar</button>
     </div>
   </form>
 </div>
@@ -89,6 +95,90 @@
 {% block javascripts %}
 <script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
 <script>
+//Resaltar campos requeridos
+function highlightInvalidInputs(formSelector) {
+  const form = document.querySelector(formSelector);
+  if (!form) return true;
+  let valid = true;
+  let firstInvalid = null;
+  form.querySelectorAll('input[data-required], select[data-required], textarea[data-required]').forEach(input => {
+    if (!input.value.trim()) {
+      input.classList.add('is-invalid');
+      if (!firstInvalid) firstInvalid = input;
+      valid = false;
+    } else {
+      input.classList.remove('is-invalid');
+    }
+  });
+  if (!valid) {
+    Swal.fire({
+      title: 'Campos requeridos',
+      text: 'Por favor, complete todos los campos obligatorios resaltados en rojo.',
+      icon: 'warning',
+      confirmButtonText: 'OK',
+      customClass: { confirmButton: 'btn btn-warning' },
+      buttonsStyling: false,
+    }).then(() => {
+      if (firstInvalid) firstInvalid.focus();
+    });
+  }
+  return valid;
+}
+</script>
+
+<script>
+function checkPersona(cedula = null) {
+ const inputElement = document.getElementById('cedulaPersona');
+ const input = cedula || inputElement.value;
+ const icon = document.getElementById('check-icon');
+ const idPersonaInput = document.getElementById('idPersona');
+ const foundPersona = personas.find(persona => persona.cedula === input);
+
+ if (cedula) {
+   inputElement.value = cedula; // Asignar automáticamente el valor al input
+ }
+
+ if (foundPersona) {
+  icon.innerHTML = '✔️'; // Pajarito verde
+  icon.style.color = 'blue';
+  idPersonaInput.value = foundPersona.idPersona;
+
+  // Mostrar alerta con los datos de la persona
+  const alertHTML = `
+      <div class="alert alert-success alert-dismissible fade show" role="alert">
+       <strong style="color: orange; font-size: 1.2em;">Persona encontrada:</strong><br>
+       <span style="font-style: italic;">Cédula: ${foundPersona.cedula}</span><br>
+       <span style="font-style: italic;">Nombres: ${foundPersona.nombres}</span><br>
+       <span style="font-style: italic;">Apellidos: ${foundPersona.apellidos}</span>
+       <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+        <span aria-hidden="true">&times;</span>
+       </button>
+      </div>
+  `;
+
+  // Insertar la alerta en el DOM
+  document.getElementById('alert-container').innerHTML = alertHTML;
+ } else {
+  icon.innerHTML = '❌'; // X roja
+  icon.style.color = 'red';
+  idPersonaInput.value = '';
+
+  // Mostrar alerta de que no se encontró la persona
+  const alertHTML = `
+      <div class="alert alert-danger alert-dismissible fade show" role="alert">
+       <strong>Persona no encontrada</strong>
+       <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+        <span aria-hidden="true">&times;</span>
+       </button>
+      </div>
+  `;
+
+  // Insertar la alerta en el DOM
+  document.getElementById('alert-container').innerHTML = alertHTML;
+ }
+}
+
+// Llamar automáticamente a checkPersona si se pasa un valor de cédula
 document.addEventListener("DOMContentLoaded", function() {
   // 1) Definición de datos de contexto: cohortes y personas
   const cohortes = [
@@ -215,4 +305,41 @@ document.addEventListener("DOMContentLoaded", function() {
     });
 });
 </script>
-{% endblock javascripts %}
+<script>
+  document.getElementById("nombreCohorte").addEventListener("input", function() {
+    const input = this;
+    const errorElement = document.getElementById("roman-error");
+    
+    // 1. Forzar mayúsculas y filtrar caracteres
+    input.value = input.value.toUpperCase().replace(/[^MDCLXVI]/g, '');
+    
+    // 2. Validación estricta de número romano
+    const isValid = /^M{0,3}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})$/.test(input.value);
+    
+    // 3. Mostrar feedback
+    if (input.value && !isValid) {
+        input.classList.add("is-invalid");
+        errorElement.textContent = "Formato inválido. Ejemplos válidos: VIII, XIX, MMXXIII";
+    } else {
+        input.classList.remove("is-invalid");
+        errorElement.textContent = "";
+    }
+});
+
+// Validaciones de Bootstrap
+          (function() {
+        'use strict';
+        var forms = document.querySelectorAll('.needs-validation');
+        Array.prototype.slice.call(forms).forEach(function(form) {
+          form.addEventListener('submit', function(event) {
+            if (!form.checkValidity()) {
+              event.preventDefault();
+              event.stopPropagation();
+            }
+            form.classList.add('was-validated');
+          }, false);
+        });
+      })();
+
+</script>
+{% endblock javascripts %}d

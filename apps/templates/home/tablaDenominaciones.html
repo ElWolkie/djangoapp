@@ -44,12 +44,18 @@
         <input class="form-control" id="searchInput" type="text" placeholder="Buscar por Nombre">
       </div>
     </div>
-    <div class="col-md-8 text-end">
+    <div class="col-md-4 text-center">
       {% if perms.home.add_denominacion %}
         <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#denominacionModal">
           <i class="fas fa-plus-circle me-1"></i> Registrar Denominación
         </button>
       {% endif %}
+    </div>
+
+     <div class="col-md-4 text-end">
+      <a href="{% url 'reporte_denominaciones_pdf' %}" class="btn btn-outline-danger btn-sm" target="_blank">
+        <i class="fas fa-file-pdf"></i> Descargar PDF
+      </a>
     </div>
   </div>
 
@@ -324,3 +330,113 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 {% endblock javascripts %}
+
+{% comment %} 
+    function manageDenominacion(id, action) {
+  const confirmMessage = action === 'delete'
+    ? '¿Está seguro de eliminar este registro?'
+    : (action === 'reactivate'
+        ? '¿Está seguro de reactivar este registro?'
+        : '¿Está seguro de realizar esta acción?');
+
+  Swal.fire({
+    title: confirmMessage,
+    icon: action === 'delete' ? 'warning' : 'question',
+    showCancelButton: true,
+    confirmButtonText: action === 'delete' ? 'Eliminar' : 'Reactivar',
+    cancelButtonText: 'Cancelar',
+    customClass: {
+      confirmButton: action === 'delete' ? 'btn btn-danger' : 'btn btn-success',
+      cancelButton: 'btn btn-secondary'
+    },
+    buttonsStyling: false,
+  }).then((result) => {
+    if (result.isConfirmed) {
+      const url = action === 'delete'
+        ? "{% url 'delete_denominacion' 0 %}".replace('0', id)
+        : "{% url 'reactivate_denominacion' 0 %}".replace('0', id);
+
+      const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+      fetch(url, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': csrftoken,
+        },
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          Swal.fire({
+            title: action === 'delete' ? 'Eliminado' : 'Reactivado',
+            text: data.message,
+            icon: 'success',
+            confirmButtonText: 'OK',
+            customClass: { confirmButton: 'btn btn-warning' },
+            buttonsStyling: false,
+          }).then(() => location.reload());
+        } else {
+          Swal.fire('Error', data.message, 'error');
+        }
+      })
+      .catch(error => Swal.fire('Error', 'Ocurrió un error en el servidor.', 'error'));
+    }
+  });
+}
+
+  function handleFormResponse(response, modalId) {
+  var messagesContainer = $('#modalMessages');
+  messagesContainer.empty();
+  if (response.success) {
+    messagesContainer.append('<div class="alert alert-success">' + response.message + '</div>');
+    $(modalId).modal('hide');
+    setTimeout(() => location.reload(), 1500);
+  } else {
+    // Mostrar alerta si hay error general (__all__)
+    if (response.errors && response.errors.__all__) {
+      Swal.fire({
+        title: 'Registro duplicado',
+        text: response.errors.__all__.join('\n'),
+        icon: 'warning',
+        confirmButtonText: 'OK',
+        customClass: { confirmButton: 'btn btn-warning' },
+        buttonsStyling: false,
+      });
+    }
+    // Mostrar otros errores de campos
+    $.each(response.errors, function(field, error) {
+      if (field !== "__all__") {
+        if (Array.isArray(error)) {
+          error.forEach(function(msg) {
+            messagesContainer.append('<div class="alert alert-danger">' + msg + '</div>');
+          });
+        } else {
+          messagesContainer.append('<div class="alert alert-danger">' + error + '</div>');
+        }
+      }
+    });
+  }
+}
+
+  function filterTable() {
+    var input, filter, table, tr, td, i, j, txtValue;
+    input = document.getElementById("searchInput");
+    filter = input.value.toUpperCase();
+    table = document.getElementById("denominacionesTable");
+    tr = table.getElementsByTagName("tr");
+    for (i = 1; i < tr.length; i++) {
+      tr[i].style.display = "none";
+      td = tr[i].getElementsByTagName("td");
+      for (j = 0; j < td.length; j++) {
+        if (td[j]) {
+          txtValue = td[j].textContent || td[j].innerText;
+          if (txtValue.toUpperCase().indexOf(filter) > -1) {
+            tr[i].style.display = "";
+            break;
+          }
+        }
+      }
+    }
+  }
+</script>
+{% endblock javascripts %} {% endcomment %}

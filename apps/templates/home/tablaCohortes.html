@@ -44,12 +44,17 @@
         <input class="form-control" id="searchInput" type="text" placeholder="Buscar por Nombre…">
       </div>
     </div>
-    <div class="col-md-8 text-end">
+    <div class="col-md-4 text-center">
       {% if perms.home.add_cohorte %}
         <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#cohorteModal">
           <i class="fas fa-plus-circle me-1"></i> Registrar Cohorte
         </button>
       {% endif %}
+    </div>
+    <div class="col-md-4 text-end">
+      <a href="{% url 'reporte_cohortes_pdf' %}" class="btn btn-outline-danger btn-sm" target="_blank">
+        <i class="fas fa-file-pdf"></i> Descargar PDF
+      </a>
     </div>
   </div>
 
@@ -237,115 +242,191 @@
 {% block javascripts %}
 <script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
 <script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
+<script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
+
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-  // helper para cargar formularios
+  // Helper para cargar formularios en modales
   const loadInModal = (modalId, urlGetter, contentId) => {
-    $(modalId).on('show.bs.modal', e => {
-      const $c = $(modalId).find(contentId)
-      $c.html('<div class="text-center py-4"><div class="spinner-border text-primary" role="status"></div></div>');
-      $.get(urlGetter(e)).done(html => $c.html(html));
-    }).on('hidden.bs.modal', () => $(contentId).empty());
+    $(modalId)
+      .on('show.bs.modal', e => {
+        const $content = $(contentId);
+        $content.html('<div class="text-center py-4"><div class="spinner-border text-primary"></div></div>');
+        $.get(urlGetter(e)).done(html => $content.html(html));
+      })
+      .on('hidden.bs.modal', () => $(contentId).empty());
   };
 
-  // crear / editar
-  loadInModal('#cohorteModal',      () => "{% url 'cohorte_modal' %}",         '#registrarCohorteContent');
-  loadInModal('#editCohorteModal',  e => $(e.relatedTarget).data('url'),      '#editCohorteContent');
+  // Cargar modales principales
+  loadInModal('#cohorteModal', () => "{% url 'cohorte_modal' %}", '#registrarCohorteContent');
+  loadInModal('#editCohorteModal', e => $(e.relatedTarget).data('url'), '#editCohorteContent');
 
-  // asignar URL a forms delete/reactivate
-  ['delete','reactivate'].forEach(act => {
-    const mid  = `#${act}CohorteModal`;
-    const fid  = `#${act}CohorteForm`;
-    $(mid).on('show.bs.modal', e => {
-      $(fid).attr('action', $(e.relatedTarget).data('url'));
+  // Configurar acciones de desactivación/reactivación
+  ['delete', 'reactivate'].forEach(action => {
+    const modal = `#${action}CohorteModal`;
+    $(modal).on('show.bs.modal', e => {
+      $(`#${action}CohorteForm`).attr('action', $(e.relatedTarget).data('url'));
     });
   });
-  
-  $(function(){
-    // editar
-    $('#editCohorteModal').on('show.bs.modal', e=>{
-      const url = $(e.relatedTarget).data('url');
-      const $body = $('#editCohorteContent').html('<div class="spinner-border text-primary"></div>');
-      $.get(url).done(html => $body.html(html));
+
+  // Función de validación de campos
+  const highlightInvalidInputs = (formSelector) => {
+    const form = document.querySelector(formSelector);
+    if (!form) return false;
+    
+    let valid = true;
+    let firstInvalid = null;
+    
+    form.querySelectorAll('[data-required]').forEach(input => {
+      if (!input.value.trim()) {
+        input.classList.add('is-invalid');
+        if (!firstInvalid) firstInvalid = input;
+        valid = false;
+      } else {
+        input.classList.remove('is-invalid');
+      }
     });
-  
-    // desactivar
-    $('#deleteCohorteModal').on('show.bs.modal', e=>{
-      const url = $(e.relatedTarget).data('url');
-      $('#deleteCohorteForm').attr('action', url);
-    });
-    // NO interceptamos submit de delete: que haga redirect y muestre mensaje
-  
-    // filtrar tabla
-    $('#searchInput').on('keyup', function(){
-      const f = this.value.toUpperCase();
-      $('#cohortesTable tbody tr').toggle(function(){
-        return $(this).text().toUpperCase().includes(f);
+
+    if (!valid) {
+      Swal.fire({
+        title: 'Campos requeridos',
+        text: 'Complete los campos obligatorios marcados en rojo',
+        icon: 'warning',
+        confirmButtonText: 'OK'
+      }).then(() => firstInvalid?.focus());
+    }
+    return valid;
+  };
+
+  // Manejar envío de formularios
+  const handleFormSubmit = (formSelector, modalId) => {
+    $(document).on('submit', formSelector, function(e) {
+      e.preventDefault();
+      const $form = $(this);
+      
+      if (!highlightInvalidInputs(formSelector)) return false;
+
+      $.ajax({
+        url: $form.attr('action'),
+        method: $form.attr('method'),
+        data: $form.serialize(),
+        success: (response) => handleFormResponse(response, modalId),
+        error: () => Swal.fire('Error', 'Error al procesar la solicitud', 'error')
       });
     });
-  });
+  };
 
-  // AJAX crear
-  $(document).on('submit','#cohorteForm',function(e){
-    e.preventDefault();
-    const f = $(this);
-    $.post(f.attr('action'),f.serialize())
-      .done(r => {
-        if(r.success){
-          $('#cohorteModal').modal('hide');
-          $('#globalMessages').prepend(`
-            <div class="alert alert-success alert-dismissible fade show" role="alert">
-              ${r.message}
+  // Registrar handlers para formularios
+  handleFormSubmit('#cohorteForm', '#cohorteModal');
+  handleFormSubmit('#editCohorteForm', '#editCohorteModal');
+
+  // Manejar respuestas del servidor
+  const handleFormResponse = (response, modalId) => {
+    const modal = $(modalId);
+    const messagesContainer = modal.find('.modal-body');
+    
+    messagesContainer.find('.alert').remove();
+    
+    if (response.success) {
+      modal.modal('hide');
+      showGlobalMessage(response.message, 'success');
+      setTimeout(() => location.reload(), 1500);
+    } else {
+      if (response.errors?.__all__) {
+        Swal.fire({
+          title: 'Error de registro',
+          text: response.errors.__all__.join('\n'),
+          icon: 'error',
+          confirmButtonText: 'OK'
+        });
+      }
+      $.each(response.errors, (field, errors) => {
+        if (field !== "__all__") {
+          messagesContainer.prepend(
+            `<div class="alert alert-danger alert-dismissible fade show" role="alert">
+              ${errors.join(', ')}
               <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
-          <i class="fas fa-times"></i>
-        </button>
-            </div>`);
-          setTimeout(()=>location.reload(),500);
-        } else {
-          let html='';
-          Object.values(r.errors).forEach(m => html+=`<div class="alert alert-danger">${m}<button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
-          <i class="fas fa-times"></i>
-        </button>/div>`);
-          $('#registrarCohorteContent').prepend(html);
+            <i class="fas fa-times"></i>
+          </button>
+            </div>`
+          );
         }
-      })
-      .fail(()=>alert('Error al crear cohorte.'));
-  });
+      });
+    }
+  };
 
-  // AJAX editar
-  $(document).on('submit','#editCohorteForm',function(e){
-    e.preventDefault();
-    const f = $(this);
-    $.post(f.attr('action'),f.serialize())
-      .done(r => {
-        if(r.success){
-          $('#editCohorteModal').modal('hide');
-          $('#globalMessages').prepend(`
-            <div class="alert alert-success alert-dismissible fade show" role="alert">
-              ${r.message}
-              <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
-          <i class="fas fa-times"></i>
-        </button>
-            </div>`);
-          setTimeout(()=>location.reload(),500);
-        } else {
-          let html='';
-          Object.values(r.errors).forEach(m => html+=`<div class="alert alert-danger">${m}<button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
-          <i class="fas fa-times"></i>
-        </button></div>`);
-          $('#editCohorteContent').prepend(html);
-        }
-      })
-      .fail(()=>alert('Error al editar cohorte.'));
-  });
+  // Mostrar mensajes globales
+  const showGlobalMessage = (message, type) => {
+    const container = $('#globalMessages');
+    const alertClass = {
+      success: 'alert-success',
+      error: 'alert-danger',
+      warning: 'alert-warning'
+    }[type] || 'alert-info';
 
-  // filtrar tabla
-  $('#searchInput').on('keyup',function(){
+    container.html(`
+      <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
+        ${message}
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+            <i class="fas fa-times"></i>
+          </button>
+      </div>
+    `);
+  };
+
+  // Manejar acciones CRUD
+  window.manageCohorte = (id, action) => {
+    const isDelete = action === 'delete';
+    const url = isDelete 
+      ? "{% url 'delete_cohorte' 0 %}".replace('0', id)
+      : "{% url 'reactivate_cohorte' 0 %}".replace('0', id);
+
+    Swal.fire({
+      title: isDelete ? '¿Eliminar registro?' : '¿Reactivar registro?',
+      icon: isDelete ? 'warning' : 'question',
+      showCancelButton: true,
+      confirmButtonText: isDelete ? 'Eliminar' : 'Reactivar',
+      cancelButtonText: 'Cancelar',
+      customClass: {
+        confirmButton: isDelete ? 'btn btn-danger' : 'btn btn-success',
+        cancelButton: 'btn btn-secondary'
+      }
+    }).then((result) => {
+      if (result.isConfirmed) {
+        $.ajax({
+          url: url,
+          method: 'POST',
+          data: {
+            csrfmiddlewaretoken: '{{ csrf_token }}'
+          },
+          success: (response) => {
+            if(response.success) {
+              showGlobalMessage(response.message, 'success');
+              setTimeout(() => location.reload(), 1500);
+            } else {
+              Swal.fire('Error', response.message, 'error');
+            }
+          },
+          error: () => Swal.fire('Error', 'Error de conexión', 'error')
+        });
+      }
+    });
+  };
+
+  // Filtrado de tabla
+  $('#searchInput').on('keyup', function() {
     const filter = this.value.toUpperCase();
-    $('#cohortesTable tbody tr').each(function(){
+    $('#cohortesTable tbody tr').each(function() {
       $(this).toggle($(this).text().toUpperCase().includes(filter));
     });
   });
 });
 </script>
+
+<style>
+  .is-invalid {
+    border-color: #dc3545 !important;
+    box-shadow: 0 0 0 0.2rem rgba(220,53,69,.25);
+  }
+</style>
 {% endblock javascripts %}
