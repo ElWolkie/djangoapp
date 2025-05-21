@@ -11,8 +11,6 @@ import os
 
 from apps.home.models import Configuracion
 from django.contrib.auth.decorators import login_required
-from django.contrib import messages
-from django.shortcuts import redirect
 
 def periodo_contable_list(request):
     mostrar_inactivos = request.GET.get('mostrar_inactivos') == 'true'
@@ -24,6 +22,7 @@ def periodo_contable_list(request):
         'periodos': periodos,
         'mostrar_inactivos': mostrar_inactivos
     })
+
 def periodo_contable_create(request):
     if request.method == 'POST':
         form = periodoContableForm(request.POST)

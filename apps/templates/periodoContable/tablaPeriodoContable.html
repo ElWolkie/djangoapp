@@ -358,7 +358,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (response.success) {
       modal.modal('hide');
       showGlobalMessage(response.message, 'success');
-      setTimeout(() => location.reload(), 1500);
+      setTimeout(() => location.reload(), 1000);
     } else {
       if (response.errors?.__all__) {
         Swal.fire({
