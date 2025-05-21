@@ -105,7 +105,6 @@
           <span class="nav-link-text">Periodo Contable</span>
         </a>
       </li>
-
       <li class="nav-item">
         <a class="nav-link" href="#" id="asientoContableDropdown" data-toggle="collapse" data-target="#asientoContableMenu" aria-expanded="false" aria-controls="asientoContableMenu">
           <i class="ni ni-single-copy-04 text-orange"></i>
@@ -113,44 +112,22 @@
         </a>
         <div id="asientoContableMenu" class="collapse ml-3">
           <ul class="nav flex-column">
-        <li class="nav-item">
-          <a class="nav-link" href="/asientoContable/registrar" style="padding-left: 15px;">
-            <i class="ni ni-fat-add text-orange"></i>
-            <span class="nav-link-text">Registrar
-          </a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="/asientoContable/consultar" style="padding-left: 15px;">
-            <i class="ni ni-bullet-list-67 text-orange"></i>
-            <span class="nav-link-text">Consultar
-          </a>
-        </li>
+            <li class="nav-item">
+              <a class="nav-link" href="{% url 'asiento_contable_create' %}" style="padding-left: 15px;">
+                <i class="ni ni-fat-add text-orange"></i>
+                <span class="nav-link-text">Registrar
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="{% url 'asiento_contable_list' %}" style="padding-left: 15px;">
+                <i class="ni ni-bullet-list-67 text-orange"></i>
+                <span class="nav-link-text">Consultar
+              </a>
+            </li>
           </ul>
         </div>
       </li>
-
-      <li class="nav-item">
-        <a class="nav-link" href="#" id="detalleAsientoDropdown" data-toggle="collapse" data-target="#detalleAsientoMenu" aria-expanded="false" aria-controls="detalleAsientoMenu">
-          <i class="ni ni-collection text-orange"></i>
-          <span class="nav-link-text">Detalle Asiento</span>
-        </a>
-        <div id="detalleAsientoMenu" class="collapse ml-3">
-          <ul class="nav flex-column">
-        <li class="nav-item">
-          <a class="nav-link" href="/detalleAsiento/registrar" style="padding-left: 15px;">
-            <i class="ni ni-fat-add text-orange"></i>
-            <span class="nav-link-text">Registrar
-          </a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="/detalleAsiento/consultar" style="padding-left: 15px;">
-            <i class="ni ni-bullet-list-67 text-orange"></i>
-            <span class="nav-link-text">Consultar
-          </a>
-        </li>
-          </ul>
-        </div>
-      </li>
+      
 
       <li class="nav-item">
         <a class="nav-link" href="#" id="saldoContableDropdown" data-toggle="collapse" data-target="#saldoContableMenu" aria-expanded="false" aria-controls="saldoContableMenu">

@@ -59,7 +59,7 @@ INSTALLED_APPS = [
     "apps.periodoContable",  # Habilita la aplicación para gestionar periodo contable  
     "apps.empresa",  # Habilita la aplicación para gestionar empresa
     "apps.cuentaBanco",  # Habilita la aplicación para gestionar cuenta bancaria
-    # "apps.asientoContable",  # Habilita la aplicación para gestionar asiento contable
+    "apps.asientoContable",  # Habilita la aplicación para gestionar asiento contable
 ]
 
 MIDDLEWARE = [
@@ -115,8 +115,8 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": config("DB_NAME", default="fundacion"),
-        "USER": config("DB_USER", default="prueba"),
-        "PASSWORD": config("DB_PASSWORD", default="Prueba2022"),
+        "USER": config("DB_USER", default="postgres"),
+        "PASSWORD": config("DB_PASSWORD", default="rafaeljesus"),
         "HOST": config("DB_HOST", default="localhost"),
         "PORT": config("DB_PORT", default="5432"),
         'OPTIONS': {
