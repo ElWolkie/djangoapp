@@ -15,6 +15,12 @@ class PlanCuenta(models.Model):
         ('gasto', 'Gasto'),
     ]
     
+
+    NATURALEZA_CHOICES = [
+        ('deudora', 'Deudora'),
+        ('acreedora', 'Acreedora'),
+    ]
+
     idPlanCuenta = models.AutoField(primary_key=True, verbose_name="ID Plan de Cuenta")
     codigoPlanCuenta = models.CharField(
         max_length=50, 
@@ -30,6 +36,16 @@ class PlanCuenta(models.Model):
         max_length=50,
         choices=TIPO_CUENTA_CHOICES,
         verbose_name="Tipo de Cuenta"
+    )
+
+    naturalezaPlanCuenta = models.CharField(
+        max_length=10,
+        choices=NATURALEZA_CHOICES,
+        verbose_name="Naturaleza de la Cuenta",
+        help_text="Indica si la cuenta es deudora o acreedora. Puede cambiar en casos excepcionales.",
+        default=None,
+        null=True,
+        blank=True
     )
     nivelPlanCuenta = models.PositiveIntegerField(
         verbose_name="Nivel Jerárquico",
@@ -96,7 +112,15 @@ class PlanCuenta(models.Model):
                     self.codigoPlanCuenta = f"{prefix}101"
                 
                 self.nivelPlanCuenta = 1
-        
+                if not self.naturalezaPlanCuenta:
+                    naturaleza_map = {
+                        'activo': 'deudora',
+                        'gasto': 'deudora',
+                        'pasivo': 'acreedora',
+                        'patrimonio': 'acreedora',
+                        'ingreso': 'acreedora',
+                    }
+                    self.naturalezaPlanCuenta = naturaleza_map.get(self.tipoPlanCuenta)
         super().save(*args, **kwargs)
 
     def _get_prefix_for_type(self):
