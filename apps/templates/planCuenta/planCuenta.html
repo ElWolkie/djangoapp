@@ -58,20 +58,40 @@
       </div>
     </div>
 
-    <div class="form-row">
-      <div class="form-group col-md-6">
-        <label for="cuentaPadre">Cuenta Padre:</label>
-        <div class="input-group">
-          <input type="text" id="cuentaPadre" class="form-control text-dark" placeholder="Seleccione una cuenta padre" readonly />
-          <button type="button" id="buscarCuentaPadre" class="btn btn-warning" data-toggle="modal" data-target="#cuentaPadreModal">
-            <i class="fas fa-search"></i>
-          </button>
-        </div>
+  
+  <div class="form-row">
+    <div class="form-group col-md-6">
+      <label for="cuentaPadre">Cuenta Padre:</label>
+      <div class="input-group">
+        <input type="text" id="cuentaPadre" class="form-control text-dark" placeholder="Seleccione una cuenta padre" readonly />
+        <button type="button" id="buscarCuentaPadre" class="btn btn-warning" data-toggle="modal" data-target="#cuentaPadreModal">
+          <i class="fas fa-search"></i>
+        </button>
       </div>
-      <input type="hidden" id="cuentaPadreId" name="cuentaPadre" />
-      <input type="hidden" id="estadoPlanCuenta" name="estadoPlanCuenta" value="True" />
     </div>
+    <div class="form-group col-md-6">
+      <label for="naturalezaPlanCuenta">Naturaleza:</label> &nbsp; &nbsp;<span>¿Modificar?</span>
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" name="habilitarNaturaleza" id="habilitarNaturalezaSi" value="si">
+        <label class="form-check-label" for="habilitarNaturalezaSi" style="font-size: 0.9em;">Sí</label>
+      </div>
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" name="habilitarNaturaleza" id="habilitarNaturalezaNo" value="no" checked>
+        <label class="form-check-label" for="habilitarNaturalezaNo" style="font-size: 0.9em;">No</label>
+      </div>
+      <!-- Input oculto para almacenar el valor de la naturaleza -->
+      <input type="hidden" id="naturalezaPlanCuentaHidden" name="naturalezaPlanCuenta" />
+      <select id="naturalezaPlanCuenta" name="naturalezaPlanCuentaSelect" class="form-control text-dark" disabled required>
+        <option value="" disabled selected>Seleccione...</option>
+        <option value="deudora">Deudora</option>
+        <option value="acreedora">Acreedora</option>
+      </select>
+    </div>
+    <input type="hidden" id="cuentaPadreId" name="cuentaPadre" />
+    <input type="hidden" id="estadoPlanCuenta" name="estadoPlanCuenta" value="True" />
+  </div>
 
+  </div>
     <div class="text-center">
       <input type="submit" class="btn btn-warning mt-4" value="Guardar" />
     </div>
@@ -141,28 +161,49 @@
     const planCuentaForm = document.getElementById('planCuentaForm');
     const nombrePlanCuentaInput = document.getElementById('nombrePlanCuenta');
     const tipoPlanCuentaInput = document.getElementById('tipoPlanCuenta');
+    const naturalezaPlanCuentaSelect = document.getElementById('naturalezaPlanCuenta');
+    const naturalezaPlanCuentaHidden = document.getElementById('naturalezaPlanCuentaHidden');
+    const habilitarNaturalezaSi = document.getElementById('habilitarNaturalezaSi');
+    const habilitarNaturalezaNo = document.getElementById('habilitarNaturalezaNo');
 
-    // Validar campo "Nombre"
-    nombrePlanCuentaInput.addEventListener('input', function () {
-      if (nombrePlanCuentaInput.value.trim() === '') {
-        nombrePlanCuentaInput.classList.remove('is-valid');
-        nombrePlanCuentaInput.classList.add('is-invalid');
-      } else {
-        nombrePlanCuentaInput.classList.remove('is-invalid');
-        nombrePlanCuentaInput.classList.add('is-valid');
-      }
-    });
+    // Mapa de naturaleza según el tipo de cuenta
+    const naturalezaMap = {
+      'activo': 'deudora',
+      'gasto': 'deudora',
+      'pasivo': 'acreedora',
+      'patrimonio': 'acreedora',
+      'ingreso': 'acreedora',
+    };
 
-    // Validar campo "Tipo"
+    // Función para actualizar el input oculto con el valor del select
+    function actualizarNaturalezaHidden() {
+      naturalezaPlanCuentaHidden.value = naturalezaPlanCuentaSelect.value;
+    }
+
+    // Actualizar la naturaleza automáticamente según el tipo de cuenta
     tipoPlanCuentaInput.addEventListener('change', function () {
-      if (tipoPlanCuentaInput.value === '') {
-        tipoPlanCuentaInput.classList.remove('is-valid');
-        tipoPlanCuentaInput.classList.add('is-invalid');
-      } else {
-        tipoPlanCuentaInput.classList.remove('is-invalid');
-        tipoPlanCuentaInput.classList.add('is-valid');
-      }
+      const tipoSeleccionado = tipoPlanCuentaInput.value;
+      naturalezaPlanCuentaSelect.value = naturalezaMap[tipoSeleccionado] || '';
+      actualizarNaturalezaHidden(); // Actualizar el input oculto
     });
+
+    // Habilitar o deshabilitar el select de naturaleza
+    habilitarNaturalezaSi.addEventListener('change', function () {
+      naturalezaPlanCuentaSelect.disabled = false;
+    });
+
+    habilitarNaturalezaNo.addEventListener('change', function () {
+      naturalezaPlanCuentaSelect.disabled = true;
+      const tipoSeleccionado = tipoPlanCuentaInput.value;
+      naturalezaPlanCuentaSelect.value = naturalezaMap[tipoSeleccionado] || '';
+      actualizarNaturalezaHidden(); // Actualizar el input oculto
+    });
+
+    // Actualizar el input oculto cada vez que el select cambie manualmente
+    naturalezaPlanCuentaSelect.addEventListener('change', actualizarNaturalezaHidden);
+
+    // Inicializar el valor del input oculto al cargar la página
+    actualizarNaturalezaHidden();
 
     // Manejar el cambio de nivel
     nivelPlanCuentaInput.addEventListener('input', function () {
