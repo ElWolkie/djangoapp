@@ -132,7 +132,7 @@ def reporte_periodos_pdf(request):
         p.drawString( logo_margin, text_top - 60, "LOCAL UPTYAB, INDEPENDENCIA – EDO YARACUY")
         # Título alineado a la izquierda
         p.setFont("Helvetica-Bold", 13)
-        p.drawCentredString(width / 2, text_top - 100, "Reporte de Cargos")
+        p.drawCentredString(width / 2, text_top - 100, "Reporte de Periodos Contables")
 
     def draw_footer():
         if firma_path and os.path.exists(firma_path):
