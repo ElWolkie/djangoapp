@@ -80,7 +80,6 @@
           <span id="check-cohorte-icon" class="input-group-text"></span>
           </div>
           <input type="hidden" id="idCohorte" name="idCohorte" />
-          <input type="hidden" id="estadoContrato" name="estadoContrato" class="form-control text-dark" value="ACTIVO" />
           <div class="invalid-feedback">
           Por favor ingrese un nombre de cohorte válido.
           </div>
@@ -93,6 +92,11 @@
         Por favor ingrese las horas en formato válido.
         </div>
       </div>  
+      <div class="form-group col-md-6">
+        <label for="horas">Monto:</label>
+        <input type="text" id="monto" name="monto" class="form-control text-dark" placeholder="100" tabindex="3" />
+        <input type="hidden" id="estadoHonorario" name="estadoHonorario" class="form-control text-dark" value="ACTIVO" />
+      </div>
     </div>  
 
         <!-- Estado oculto -->

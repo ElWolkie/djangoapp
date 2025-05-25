@@ -126,7 +126,8 @@
             <th>Nombres</th>
             <th>Apellidos</th>
             <th>Materia</th>
-            <th>Horas</th>
+            <th>Horas</th>  
+            <th>MOnto</th>
             <th>Cohorte</th>
             <th>Estado</th>
             <th>Fecha</th>
@@ -143,6 +144,7 @@
             <td>{{ honorario.idPersona.apellidos }}</td>
             <td>{{ honorario.idMateria.nombreMateria }}</td>
             <td>{{ honorario.horas }}</td>
+            <td>{{ honorario.monto }}</td>
             <td>{{ honorario.idCohorte.nombreCohorte }}</td>
             <td>
               {% if honorario.estadoHonorario == "ACTIVO" %}

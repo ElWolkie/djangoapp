@@ -7,5 +7,5 @@ class HonorarioForm(forms.ModelForm):
             
     class Meta:  
         model = Honorario  
-        fields = ['idHonorario', 'idPersona', 'idCargo', 'idCohorte', 'idMateria', 'horas', 'estadoHonorario']  
+        fields = ['idHonorario', 'idPersona', 'idCargo', 'idCohorte', 'idMateria', 'horas', 'monto', 'estadoHonorario']  
 
