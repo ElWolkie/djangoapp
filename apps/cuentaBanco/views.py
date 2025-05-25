@@ -162,13 +162,14 @@ def cuenta_banco_create(request):
             with transaction.atomic():
                 cuenta = form.save(commit=False)
                 plan_cuenta_credito = request.POST.get('planCuentaCredito')
+    
                 print(f"Plan Cuenta Crédito recibido: {plan_cuenta_credito}")  # Depuración
 
                 # Validar que se haya seleccionado una cuenta contable
                 if not plan_cuenta_credito:
                     return JsonResponse({
                         'success': False,
-                        'message': 'Debe seleccionar un plan de cuenta para el crédito.'
+                        'message': 'Debe seleccionar un plan de cuenta para el crédito (origen de los fondos).'
                     }, status=400)
 
                 # Generar automáticamente la cuenta contable asociada a la cuenta bancaria
@@ -200,10 +201,12 @@ def cuenta_banco_create(request):
                         nivelPlanCuenta=cuenta_producto.nivelPlanCuenta + 1,
                         cuentaPadre=cuenta_producto
                     )
+                    
+                    # Guardar explícitamente el plan de cuenta para garantizar que tenga un ID
+                    plan_cuenta.save()
                     cuenta.planCuenta = plan_cuenta
 
-                # Asignar el valor de plan_cuenta_credito al modelo
-                cuenta.planCuenta_id = plan_cuenta_credito
+                # Guardar la cuenta bancaria
                 cuenta.save()
 
                 # Lógica para registrar el asiento contable inicial
@@ -220,25 +223,28 @@ def cuenta_banco_create(request):
                     asiento = AsientoContable.objects.create(
                         numeroAsiento=f"INI-{cuenta.idCuentaBanco}-{date.today().strftime('%Y%m%d')}",
                         fechaAsiento=date.today(),
-                        conceptoAsiento=f"Asiento inicial para la cuenta bancaria {cuenta.numeroCuentaBanco}",
+                        conceptoAsiento=f"Apertura de cuenta bancaria {cuenta.numeroCuentaBanco}, saldo inicial",
                         idPeriodo=periodo_activo
                     )
 
+                    # Registrar el debe con el ID del plan de cuenta recién creado
                     DetalleAsiento.objects.create(
                         idAsiento=asiento,
-                        idPlanCuenta=cuenta.planCuenta,
+                        idPlanCuenta_id=cuenta.planCuenta.idPlanCuenta,  # Usar el ID del plan de cuenta recién creado
                         debe=cuenta.saldoDisponible,
                         haber=0.00
                     )
 
+                    # Registrar el haber con el ID del plan de cuenta de crédito
                     DetalleAsiento.objects.create(
                         idAsiento=asiento,
-                        idPlanCuenta_id=plan_cuenta_credito,
+                        idPlanCuenta_id=plan_cuenta_credito,  # Usar la cuenta de crédito para el haber
                         debe=0.00,
                         haber=cuenta.saldoDisponible
                     )
-
                     print(f"Asiento contable inicial registrado para la cuenta {cuenta.numeroCuentaBanco}")
+                    print(f"La cuenta débito es: {cuenta.planCuenta.idPlanCuenta}")
+                    print(f"La cuenta crédito es: {plan_cuenta_credito}")
 
                 return JsonResponse({
                     'success': True,
@@ -263,7 +269,6 @@ def cuenta_banco_create(request):
             'cuentas_plan': cuentas_plan,
             'titulo': 'Nueva Cuenta Bancaria'
         })
-
 
 def _generate_product_code(cuenta):
     try:
