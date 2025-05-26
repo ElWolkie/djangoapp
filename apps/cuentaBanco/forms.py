@@ -51,15 +51,17 @@ class CuentaBancoForm(forms.ModelForm):
         model = CuentaBanco
         exclude = ['planCuenta','estado']
         widgets = {
-            'banco': forms.Select(attrs={'class': 'form-control'}),
-            'moneda': forms.Select(attrs={'class': 'form-control'}),
-            'tipoCuenta': forms.Select(attrs={'class': 'form-control'}),
-            'tipoProducto': forms.Select(attrs={'class': 'form-control'}),
-            'fechaApertura': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'banco': forms.Select(attrs={'class': 'form-control text-dark'}),
+            'moneda': forms.Select(attrs={'class': 'form-control text-dark'}),
+            'tipoCuenta': forms.Select(attrs={'class': 'form-control text-dark'}),
+            'tipoProducto': forms.Select(attrs={'class': 'form-control text-dark'}),
+            'fechaApertura': forms.DateInput(attrs={'type': 'date', 'class': 'form-control text-dark'}),
         }
         labels = {
             'tipoCuenta': 'Clasificación Contable',
-            'tipoProducto': 'Tipo de Producto Bancario'
+            'tipoProducto': 'Tipo de Producto Bancario',
+            'moneda': 'Moneda',
+            'fechaApertura': 'Fecha de Apertura',
         }
 
     def clean_numeroCuentaBanco(self):

@@ -1,100 +1,247 @@
 {% extends 'layouts/base2.html' %}
+{% load static %}
 
 {% block title %}Listado de Cuentas Bancarias{% endblock title %}
 
 {% block stylesheets %}
-<link rel="stylesheet" href="/static/assets/css/styleForms.css" />
-<link rel="stylesheet" href="/static/assets/css/argon.css" />
+  <link rel="stylesheet" href="{% static 'assets/css/styleForms.css' %}" />
+  <link rel="stylesheet" href="{% static 'assets/css/argon.css' %}" />
+  <style>
+    .btn-purple {
+      background-color: #6f42c1 !important;
+      color: white !important;
+      border-color: #6f42c1 !important;
+    }
+    .btn-purple:hover {
+      background-color: #5a32a3 !important;
+      border-color: #5a32a3 !important;
+    }
+    .actions-column .btn-sm {
+      padding: 0.25rem 0.5rem;
+      font-size: 0.875rem;
+      transition: all 0.3s ease;
+    }
+    .badge {
+      font-size: 0.85em;
+      padding: 0.5em 0.75em;
+    }
+    .modal-dialog { max-width: 600px; }
+    .modal.fade.show {
+      display: block !important;
+      background-color: rgba(0,0,0,0.5);
+    }
+    .table-responsive {
+      scrollbar-width: thin;
+      scrollbar-color: rgb(107,143,250) #f1f1f1;
+    }
+    .table-responsive::-webkit-scrollbar {
+      height: 8px;
+    }
+    .table-responsive::-webkit-scrollbar-track {
+      background: #f1f1f1;
+    }
+    .table-responsive::-webkit-scrollbar-thumb {
+      background-color: rgb(81,141,245);
+      border-radius: 4px;
+      border: 2px solid #f1f1f1;
+    }
+  </style>
 {% endblock stylesheets %}
 
 {% block content %}
-<div class="container mt-5">
-  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Listado de Cuentas Bancarias</h2>
+<div class="container mt-4">
+  <h2 class="text-center mb-4">Listado de Cuentas Bancarias</h2>
 
-  <!-- Mensajes de éxito o error -->
-  {% if messages %}
-    {% for message in messages %}
-      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-        {{ message }}
-        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
-    {% endfor %}
-  {% endif %}
-
-  <!-- Barra de búsqueda y botón para agregar -->
   <div class="row mb-3">
     <div class="col-md-4">
       <div class="input-group">
-        <div class="input-group-prepend">
-          <span class="input-group-text" style="background-color: #bcbcbc; border: none;">
-            <i class="fas fa-search text-warning"></i>
-          </span>
-        </div>
-        <input class="form-control" id="searchInput" type="text" placeholder="Buscar..." onkeyup="filterTable()">
+        <span class="input-group-text"><i class="fas fa-search"></i></span>
+        <input class="form-control" id="searchInput" type="text" placeholder="Buscar por cualquier campo">
       </div>
     </div>
-    <div class="col-md-4">
-      <a class="btn btn-warning btn-square btn-sm my-2" href="{% url 'cuenta_banco_create' %}" title="Registrar Cuenta Bancaria">+</a>
+    {% if perms.cuentaBanco.add_cuentabanco %}
+    <div class="col-md-8 text-end">
+      <a href="{% url 'cuenta_banco_create' %}" class="btn btn-warning px-4">
+        <i class="fas fa-plus-circle me-1"></i> Registrar Cuenta
+      </a>
     </div>
-    <div class="col-md-4"></div>
+    {% endif %}
   </div>
 
-  <!-- Tabla de cuentas bancarias -->
-  <div class="table-responsive">
-    <table class="table table-striped text-gray-dark" id="cuentasBancoTable">
-      <thead class="text-darker">
-        <tr>
-          <th scope="col">Banco</th>
-          <th scope="col">Número de Cuenta</th>
-          <th scope="col">Tipo de Cuenta</th>
-          <th scope="col">Saldo Disponible</th>
-          <th scope="col">Estado</th>
-          <th scope="col">Fecha Registro</th>
-          <th scope="col">Acciones</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for cuenta in cuentas %}
-        <tr>
-          <td>{{ cuenta.banco.nombreBanco }}</td>
-          <td>{{ cuenta.numeroCuentaBanco }}</td>
-          <td>{{ cuenta.tipoProducto|title }}</td>
-          <td>{{ cuenta.saldoDisponible|floatformat:2 }}</td>
-          <td>{{ cuenta.estado|yesno:"Activo,Inactivo" }}</td>
-          <td>{{ cuenta.fechaRegistro|date:"d/m/Y" }}</td>
-          <td>
-            <button class="btn btn-sm btn-primary" data-toggle="modal" data-target="#editCuentaModal" data-id="{{ cuenta.id }}">Editar</button>
-            <button class="btn btn-sm btn-danger" onclick="confirmDelete('{{ cuenta.id }}')">Eliminar</button>
-          </td>
-        </tr>
-        {% empty %}
-        <tr>
-          <td colspan="7" class="text-center text-muted">No hay cuentas bancarias registradas.</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <div id="globalMessages">
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+      {% endfor %}
+    {% endif %}
+  </div>
+
+  <div class="row mb-3">
+    <div class="col-md-8 text-end">
+      <a href="?mostrar_inactivos={% if mostrar_inactivos %}false{% else %}true{% endif %}"
+         class="btn btn-outline-secondary btn-sm">
+        {% if mostrar_inactivos %}
+          <i class="fas fa-eye-slash me-1"></i> Ocultar inactivos
+        {% else %}
+          <i class="fas fa-eye me-1"></i> Mostrar inactivos
+        {% endif %}
+      </a>
+    </div>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="table-responsive">
+      <table class="table table-striped table-hover align-middle text-gray-dark" id="cuentasBancoTable">
+        <thead class="table-light">
+          <tr>
+            <th>Banco</th>
+            <th>Número Cuenta</th>
+            <th>Tipo</th>
+            <th>Saldo</th>
+            <th>Estado</th>
+            <th>Fecha Registro</th>
+            <th class="actions-column">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for cuenta in cuentas %}
+          <tr>
+            <td>{{ cuenta.banco.nombreBanco }}</td>
+            <td>{{ cuenta.numeroCuentaBanco }}</td>
+            <td>{{ cuenta.tipoProducto|title }}</td>
+            <td>{{ cuenta.saldoDisponible|floatformat:2 }}</td>
+            <td>
+              {% if cuenta.estado %}
+                <span class="badge bg-success text-white">
+                  <i class="fas fa-check-circle me-1"></i> Activo
+                </span>
+              {% else %}
+                <span class="badge bg-danger text-white">
+                  <i class="fas fa-times-circle me-1"></i> Inactivo
+                </span>
+              {% endif %}
+            </td>
+            <td>{{ cuenta.fechaRegistro|date:"d/m/Y" }}</td>
+            <td class="actions-column">
+              <div class="d-flex gap-2">
+                <!-- Editar -->
+                {% if perms.cuentaBanco.change_cuentabanco %}
+                <button class="btn btn-primary btn-sm"
+                        data-bs-toggle="modal"
+                        data-bs-target="#editCuentaModal"
+                        data-url="{% url 'cuenta_banco_update' cuenta.idCuentaBanco %}"
+                        title="Editar cuenta">
+                  <i class="fas fa-edit"></i>
+                </button>
+                {% endif %}
+                <!-- Inhabilitar / Reactivar -->
+                {% if cuenta.estado %}
+                  {% if perms.cuentaBanco.change_cuentabanco %}
+                  <button class="btn btn-outline-warning btn-sm"
+                          data-bs-toggle="modal"
+                          data-bs-target="#deleteCuentaModal"
+                          data-url="{% url 'cuenta_banco_delete' cuenta.idCuentaBanco %}"
+                          title="Inhabilitar cuenta">
+                    <i class="fas fa-user-slash"></i>
+                  </button>
+                  {% endif %}
+                {% else %}
+                  {% if perms.cuentaBanco.change_cuentabanco %}
+                  <button class="btn btn-success btn-sm"
+                          data-bs-toggle="modal"
+                          data-bs-target="#reactivateCuentaModal"
+                          data-url="{% url 'cuenta_banco_reactivate' cuenta.idCuentaBanco %}"
+                          title="Reactivar cuenta">
+                    <i class="fas fa-redo"></i>
+                  </button>
+                  {% endif %}
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="7" class="text-center py-4">No hay cuentas registradas.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </div>
 </div>
 
-<!-- Modal de confirmación para eliminar -->
-<div class="modal fade" id="deleteModal" tabindex="-1" role="dialog" aria-labelledby="deleteModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered" role="document">
+<!-- Modal Editar Cuenta -->
+<div class="modal fade" id="editCuentaModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-md">
     <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="deleteModalLabel">Confirmar Eliminación</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title"><i class="fas fa-edit me-2"></i> Editar Cuenta Bancaria</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white"
+                data-bs-dismiss="modal">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body" id="editCuentaContent">
+        <div class="text-center py-4"><p class="text-muted">Cargando formulario…</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Inhabilitar Cuenta -->
+<div class="modal fade" id="deleteCuentaModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-warning text-dark">
+        <h5 class="modal-title"><i class="fas fa-user-slash me-2"></i> Confirmar Inhabilitación</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white"
+                data-bs-dismiss="modal">
+          <i class="fas fa-times"></i>
         </button>
       </div>
       <div class="modal-body">
-        ¿Estás seguro de que deseas eliminar esta cuenta bancaria? Esta acción no se puede deshacer.
+        ¿Seguro que deseas inhabilitar esta cuenta bancaria?
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
-        <button type="button" class="btn btn-danger" id="confirmDeleteButton">Eliminar</button>
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <form id="deleteCuentaForm" method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-warning">
+            <i class="fas fa-user-slash me-1"></i> Inhabilitar
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Reactivar Cuenta -->
+<div class="modal fade" id="reactivateCuentaModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title"><i class="fas fa-redo me-2"></i> Confirmar Reactivación</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white"
+                data-bs-dismiss="modal">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        ¿Deseas reactivar esta cuenta bancaria?
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <form id="reactivateCuentaForm" method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-success">
+            <i class="fas fa-redo me-1"></i> Reactivar
+          </button>
+        </form>
       </div>
     </div>
   </div>
@@ -102,42 +249,147 @@
 {% endblock content %}
 
 {% block javascripts %}
+<script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
+<script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
+<script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
 <script>
-  // Función para filtrar la tabla
-  function filterTable() {
-    const filter = document.getElementById("searchInput").value.toUpperCase();
-    const rows = document.querySelectorAll("#cuentasBancoTable tbody tr");
-    rows.forEach(row => {
-      const cells = row.querySelectorAll("td");
-      row.style.display = Array.from(cells).some(cell => cell.textContent.toUpperCase().includes(filter)) ? "" : "none";
-    });
+// Para detectar AJAX
+function is_ajax() {
+  return window.XMLHttpRequest && true;
+}
+
+$(function(){
+
+  // 1) Carga el formulario de edición en el modal
+  function loadInModal(modalSel, urlGetter, contentSel){
+    $(modalSel)
+      .on('show.bs.modal', function(e){
+        const url = urlGetter(e);
+        $(contentSel).html(`
+          <div class="text-center py-4">
+            <div class="spinner-border text-primary" role="status"></div>
+          </div>`);
+        $.get(url).done(html => $(contentSel).html(html));
+      })
+      .on('hidden.bs.modal', function(){
+        $(contentSel).empty();
+      });
   }
 
-  // Función para confirmar la eliminación
-  function confirmDelete(id) {
-    const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
-    const confirmButton = document.getElementById('confirmDeleteButton');
+  loadInModal(
+    '#editCuentaModal',
+    e => $(e.relatedTarget).data('url'),
+    '#editCuentaContent'
+  );
 
-    confirmButton.onclick = function () {
-      fetch(`{% url 'cuenta_banco_delete' 0 %}`.replace('0', id), {
+  // 2) Cuando el modal ya esté visible, engancha el submit AJAX
+  $('#editCuentaModal').on('shown.bs.modal', function(){
+    const form = document.getElementById('editCuentaForm');
+    if (!form) return;
+
+    form.addEventListener('submit', function(ev){
+      ev.preventDefault();
+      const data = new FormData(form);
+
+      fetch(form.action, {
         method: 'POST',
-        headers: {
-          'X-CSRFToken': '{{ csrf_token }}',
-          'X-Requested-With': 'XMLHttpRequest'
-        }
+        headers: {'X-Requested-With':'XMLHttpRequest'},
+        body: data
       })
-      .then(response => response.json())
-      .then(data => {
-        if (data.success) {
-          location.reload(); // Recargar la página si se elimina correctamente
+      .then(r => r.json())
+      .then(json => {
+        if (json.success){
+          Swal.fire({
+            icon: 'success',
+            title: '¡Listo!',
+            text: json.message,
+            customClass: { confirmButton: 'btn btn-warning' },
+            buttonsStyling: false
+          }).then(() => window.location.href = json.redirect_url);
         } else {
-          alert('Error al eliminar la cuenta bancaria.');
+          Swal.fire({
+            icon: 'error',
+            title: 'Corrige los errores',
+            html: Object.values(json.errors).map(e=>`<p>${e}</p>`).join(''),
+            customClass: { confirmButton: 'btn btn-warning' },
+            buttonsStyling: false
+          });
         }
       })
-      .catch(error => console.error('Error:', error));
-    };
+      .catch(() => Swal.fire('Error','No se pudo procesar la solicitud','error'));
+    });
+  });
 
-    deleteModal.show();
+  // 3) Configura los modales de Inhabilitar / Reactivar
+  ['delete','reactivate'].forEach(action => {
+    const mid = action==='delete' ? '#deleteCuentaModal' : '#reactivateCuentaModal';
+    const fid = action==='delete' ? '#deleteCuentaForm'   : '#reactivateCuentaForm';
+    $(mid).on('show.bs.modal', function(e){
+      $(fid).attr('action', $(e.relatedTarget).data('url'));
+    }).find('form').off('submit').on('submit', function(ev){
+      ev.preventDefault();
+      $.post(this.action, $(this).serialize()).done(resp => {
+        if (resp.success){
+          $(mid).modal('hide');
+          $('#globalMessages').prepend(`
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+              ${resp.message}
+              <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>`);
+          setTimeout(()=>location.reload(),500);
+        } else {
+          Swal.fire('Error',resp.message||'Algo salió mal','error');
+        }
+      });
+    });
+  });
+
+  // 4) Buscador de la tabla principal
+  $('#searchInput').on('keyup', function(){
+    const f = this.value.toUpperCase();
+    $('#cuentasBancoTable tbody tr').each(function(){
+      $(this).toggle($(this).text().toUpperCase().includes(f));
+    });
+  });
+
+  // 5) Scroll horizontal con la rueda
+  const wrap = document.querySelector('.table-responsive');
+  wrap?.addEventListener('wheel', e => {
+    if (e.deltaY){ e.preventDefault(); wrap.scrollLeft += e.deltaY; }
+  });
+
+  // 6) Paginación simple
+  const $tbl = $('#cuentasBancoTable');
+  const $rows = $tbl.find('tbody tr');
+  const perPage = 10;
+  let page = 1;
+  const $pager = $('<ul class="pagination justify-content-center mt-3 mb-0"></ul>')
+                  .insertAfter($tbl.parent());
+
+  function showPage(p){
+    const start = (p-1)*perPage, end = p*perPage;
+    $rows.hide().slice(start, end).show();
   }
+  function buildPager(){
+    const total = Math.ceil($rows.length/perPage);
+    $pager.empty();
+    const makeLi = (txt, disabled, cb) =>
+      $('<li class="page-item">')
+        .toggleClass('disabled', disabled)
+        .append($('<a class="page-link" href="#">').text(txt)
+          .on('click', e=>{ e.preventDefault(); if(!disabled) cb(); }));
+    $pager.append(makeLi('«', page===1, ()=>{page--;update();}));
+    for(let i=1;i<=total;i++){
+      $pager.append(makeLi(i, page===i, ()=>{page=i;update();}));
+    }
+    $pager.append(makeLi('»', page===total, ()=>{page++;update();}));
+  }
+  function update(){ showPage(page); buildPager(); }
+  update();
+
+});
 </script>
+
 {% endblock javascripts %}

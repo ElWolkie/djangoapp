@@ -336,19 +336,26 @@ def asignar_grupos(request, idUsuario):
     # --- Agrupación de permisos ---
     grupo_admin = None
     admin_group_name = 'Administrador'
+    grupo_contable = None
+    contable_group_name = 'Contable'
     categorias_stems = {
+        'Asiento Contables': 'Asiento Contable',
         'Bancos': 'Banco',
         'Cargos': 'Cargo',
         'Clientes-Proveedores': 'Cliente-Proveedor',
         'Cohortes': 'Cohorte',
         'Configuracion': 'Configuracion',
+        'Cuenta Bancarias': 'Cuenta Bancaria',
         'Denominaciones': 'Denominacion',
+        'Empresas': 'Empresa',
         'Formaciones': 'Formacion',
         'Honorarios': 'Honorario',
         'Ingresos': 'Ingreso',
         'Inscripciones': 'Inscripcion',
         'Materias': 'Materia',
         'Monedas': 'Moneda',
+        'Periodo Contables': 'Periodo Contable',
+        'Plan Cuentas': 'Plan Cuenta',
         'Requisitos': 'Requisito',
         'Servicios': 'Servicio',
         'Solicitudes': 'Solicitud',
@@ -372,8 +379,13 @@ def asignar_grupos(request, idUsuario):
     grupos_categorizados = defaultdict(lambda: {'total': None, 'acciones': []})
 
     for grupo in todos_los_grupos:
+        # Manejar grupos especiales primero
         if grupo.name == admin_group_name:
             grupo_admin = grupo
+            continue  # <-- Este continue hacía que se salteara el contable
+            
+        if grupo.name == contable_group_name:
+            grupo_contable = grupo
             continue
 
         categorizado = False
@@ -425,7 +437,9 @@ def asignar_grupos(request, idUsuario):
         "form": form,
         "usuario": usuario,
         "grupo_admin": grupo_admin,
+        "grupo_contable": grupo_contable,
         "grupo_admin_id": grupo_admin.pk if grupo_admin else None,
+        "grupo_contable_id": grupo_contable.pk if grupo_contable else None,
         "grupos_categorizados": grupos_categorizados,
     }
     return render(request, 'home/asignar_grupos.html', context)

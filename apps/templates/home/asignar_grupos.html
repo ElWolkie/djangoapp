@@ -37,30 +37,60 @@
         {% endif %}
 
         {# === ADMINISTRADOR === #}
-        <div class="admin-permission-card"> {# <--- NUEVO WRAPPER AQUÍ #}
+        <div class="admin-permission-card">
             {% if grupo_admin %}
-                {% for ch in form.grupos %}
-                    {% if ch.data.value|stringformat:"s" == grupo_admin.pk|stringformat:"s" %}
-                        <div class="card mb-4 border-danger shadow-sm">
-                            <div class="card-header bg-danger text-white">
-                                <h5 class="mb-0"><i class="fas fa-hard-hat me-2"></i> Permisos de Administrador</h5>
-                            </div>
-                            <div class="card-body bg-light-danger">
-                                <div class="form-check form-switch form-check-lg">
-                                    {{ ch.tag }}
-                                    <label class="form-check-label fw-bold ps-2" for="{{ ch.id_for_label }}">
-                                        {{ ch.choice_label }} (¡Acceso Total!)
-                                    </label>
-                                </div>
-                                <p class="text-danger small mt-2 mb-0">
-                                    <i class="fas fa-exclamation-triangle me-1"></i> <strong>Atención:</strong> Otorgar este permiso concede control total sobre el sistema.
-                                </p>
-                            </div>
-                        </div>
-                    {% endif %}
-                {% endfor %}
+            <div class="card mb-4 border-danger shadow-sm">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0 text-white"><i class="ni ni-folder-17 text-white"></i> Permisos Administrativos</h5>
+                </div>
+                <div class="card-body bg-light-danger">
+                    <div class="form-check form-switch form-check-lg">
+                        <input type="checkbox" 
+                            name="grupos" 
+                            value="{{ grupo_admin_id }}" 
+                            id="grupo_admin_{{ grupo_admin_id }}" 
+                            class="form-check-input" 
+                            {% if grupo_admin in usuario.groups.all %}checked{% endif %}>
+                        <label class="form-check-label fw-bold ps-2" for="grupo_admin_{{ grupo_admin_id }}">
+                            {{ grupo_admin.name }} (¡Acceso Total!)
+                        </label>
+                    </div>
+                    <p class="text-danger small mt-2 mb-0">
+                        <i class="fas fa-exclamation-triangle me-1"></i> 
+                        <strong>Atención:</strong> Otorgar este permiso concede control total sobre los módulos Administrativos.
+                    </p>
+                </div>
+            </div>
             {% endif %}
-        </div> {# <--- FIN NUEVO WRAPPER #}
+        </div>
+
+        {# === CONTABLE === #}
+        <div class="contable-permission-card">
+            {% if grupo_contable %}
+            <div class="card mb-4 border-primary shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0 text-white"><i class="ni ni-archive-2 text-white"></i> Permisos de Contabilidad</h5>
+                </div>
+                <div class="card-body bg-light-primary">
+                    <div class="form-check form-switch form-check-lg">
+                        <input type="checkbox" 
+                            name="grupos" 
+                            value="{{ grupo_contable_id }}" 
+                            id="grupo_contable_{{ grupo_contable_id }}" 
+                            class="form-check-input" 
+                            {% if grupo_contable in usuario.groups.all %}checked{% endif %}>
+                        <label class="form-check-label fw-bold ps-2" for="grupo_contable_{{ grupo_contable_id }}">
+                            {{ grupo_contable.name }} (¡Acceso Total!)
+                        </label>
+                    </div>
+                    <p class="text-primary small mt-2 mb-0">
+                        <i class="fas fa-exclamation-triangle me-1"></i> 
+                        <strong>Atención:</strong> Otorgar este permiso concede control total sobre los módulos de Contabilidad.
+                    </p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
 
         {# === CATEGORÍAS === #}
         {% for categoria, data in grupos_categorizados.items %}
@@ -68,18 +98,23 @@
                 <div class="card mb-3 shadow-sm permission-category" data-category="{{ categoria|slugify }}">
                     <div class="card-header bg-light">
                         <h5 class="mb-0 text-dark">
+                            {% if categoria == "Asiento Contables" %}<i class="fas fa-university me-2 text-primary" style="padding: 0px 2px 0px 2px"></i>{% endif %}
                             {% if categoria == "Bancos" %}<i class="fas fa-university me-2 text-primary" style="padding: 0px 2px 0px 2px"></i>{% endif %}
                             {% if categoria == "Cargos" %}<i class="fas fa-user me-2 text-primary" style="padding: 0px 2px 0px 2px"></i>{% endif %}
                             {% if categoria == "Clientes-Proveedores" %}<i class="fas fa-user me-2 text-primary" style="padding: 0px 2px 0px 2px"></i>{% endif %}
                             {% if categoria == "Cohortes" %}<i class="fas fa-university me-2 text-info" style="padding: 0px 2px 0px 2px"></i>{% endif %}
                             {% if categoria == "Configuracion" %}<i class="fas fa-chart-line me-2 text-success" style="padding: 0px 2px 0px 2px"></i>{% endif %}
+                            {% if categoria == "Cuenta Bancarias" %}<i class="fas fa-chart-line me-2 text-success" style="padding: 0px 2px 0px 2px"></i>{% endif %}
                             {% if categoria == "Denominaciones" %}<i class="fas fa-user me-2 text-success" style="padding: 0px 2px 0px 2px"></i>{% endif %}
+                            {% if categoria == "Empresas" %}<i class="fas fa-user me-2 text-success" style="padding: 0px 2px 0px 2px"></i>{% endif %}
                             {% if categoria == "Formaciones" %}<i class="fas fa-university me-2 text-info" style="padding: 0px 2px 0px 2px"></i>{% endif %}
                             {% if categoria == "Honorarios" %}<i class="fas fa-university me-2 text-info" style="padding: 0px 2px 0px 2px"></i>{% endif %}
                             {% if categoria == "Ingresos" %}<i class="fas fa-university me-2 text-info" style="padding: 0px 2px 0px 2px"></i>{% endif %}
                             {% if categoria == "Inscripciones" %}<i class="fas fa-user me-2 text-info" style="padding: 0px 2px 0px 2px"></i>{% endif %}
                             {% if categoria == "Materias" %}<i class="fas fa-university me-2 text-success" style="padding: 0px 2px 0px 2px"></i>{% endif %}
                             {% if categoria == "Monedas" %}<i class="fas fa-university me-2 text-success" style="padding: 0px 2px 0px 2px"></i>{% endif %}
+                            {% if categoria == "Periodo Contables" %}<i class="fas fa-university me-2 text-success" style="padding: 0px 2px 0px 2px"></i>{% endif %}
+                            {% if categoria == "Plan Cuentas" %}<i class="fas fa-university me-2 text-success" style="padding: 0px 2px 0px 2px"></i>{% endif %}
                             {% if categoria == "Requisitos" %}<i class="fas fa-university me-2 text-success" style="padding: 0px 2px 0px 2px"></i>{% endif %}
                             {% if categoria == "Servicios" %}<i class="fas fa-university me-2 text-success" style="padding: 0px 2px 0px 2px"></i>{% endif %}
                             {% if categoria == "Solicitudes" %}<i class="fas fa-university me-2 text-success" style="padding: 0px 2px 0px 2px"></i>{% endif %}

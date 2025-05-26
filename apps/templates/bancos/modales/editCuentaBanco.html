@@ -1,0 +1,187 @@
+{# templates/bancos/modales/editCuentaBanco.html #}
+<form method="POST"
+      id="editCuentaForm"
+      class="mt-3 text-dark needs-validation"
+      autocomplete="off"
+      style="font-weight:bold; max-width:600px; margin:0 auto;"
+      action="{% url 'cuenta_banco_update' cuenta.idCuentaBanco %}"
+      novalidate>
+    {% csrf_token %}
+
+    {% if is_post_error_page and form.non_field_errors %}
+        <div class="alert alert-danger">
+            {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+        </div>
+    {% endif %}
+
+    <div class="form-group mb-3">
+        <label for="bancoEdit">Banco:</label>
+        <div class="input-group">
+            <input type="text"
+                   id="bancoEdit"
+                   class="form-control text-dark {% if form.banco.errors %}is-invalid{% endif %}"
+                   readonly required
+                   placeholder="Seleccione un banco"
+                   value="{{ cuenta.banco.nombreBanco }}">
+            {% comment %} <button type="button"
+                    class="btn btn-warning"
+                    data-bs-toggle="modal"
+                    data-bs-target="#bancoSelectorModal">
+                <i class="fas fa-search"></i>
+            </button> {% endcomment %}
+        </div>
+        <input type="hidden"
+               id="bancoIdEdit"
+               name="banco"
+               value="{{ cuenta.banco.idBanco }}">
+        {% if form.banco.errors %}
+            <div class="invalid-feedback d-block">
+                {% for error in form.banco.errors %}<span>{{ error }}</span><br>{% endfor %}
+            </div>
+        {% else %}
+            <div class="invalid-feedback">Seleccione un banco válido.</div>
+        {% endif %}
+    </div>
+
+    <div class="form-group mb-3">
+        <label for="{{ form.numeroCuentaBanco.id_for_label }}">Número de Cuenta:</label>
+        <input type="text"
+               name="{{ form.numeroCuentaBanco.name }}"
+               id="{{ form.numeroCuentaBanco.id_for_label }}"
+               class="form-control text-dark {% if form.numeroCuentaBanco.errors %}is-invalid{% endif %}"
+               maxlength="30"
+               required
+               readonly
+               value="{{ form.numeroCuentaBanco.value|default:cuenta.numeroCuentaBanco }}">
+        {% if form.numeroCuentaBanco.errors %}
+            <div class="invalid-feedback d-block">
+                {% for error in form.numeroCuentaBanco.errors %}<span>{{ error }}</span><br>{% endfor %}
+            </div>
+        {% else %}
+            <div class="invalid-feedback">Ingrese un número de cuenta válido.</div>
+        {% endif %}
+    </div>
+
+    {% if form.moneda %}
+    <div class="form-group mb-3">
+        <label for="{{ form.moneda.id_for_label }}">{{ form.moneda.label }}:</label>
+        {{ form.moneda }}
+        {% if form.moneda.errors %}
+            <div class="invalid-feedback d-block">
+                {% for error in form.moneda.errors %}<span>{{ error }}</span><br>{% endfor %}
+            </div>
+        {% else %}
+            <div class="invalid-feedback" readonly>Seleccione una moneda.</div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="form-group mb-3">
+        <label for="{{ form.tipoProducto.id_for_label }}">{{ form.tipoProducto.label }}:</label>
+        {{ form.tipoProducto }}
+        {% if form.tipoProducto.errors %}
+            <div class="invalid-feedback d-block">
+                {% for error in form.tipoProducto.errors %}<span>{{ error }}</span><br>{% endfor %}
+            </div>
+        {% else %}
+            <div class="invalid-feedback">Seleccione un tipo de producto.</div>
+        {% endif %}
+    </div>
+    
+    {% if form.tipoCuenta %}
+    <div class="form-group mb-3">
+        <label for="{{ form.tipoCuenta.id_for_label }}">{{ form.tipoCuenta.label }}:</label>
+        {{ form.tipoCuenta }}
+        {% if form.tipoCuenta.errors %}
+            <div class="invalid-feedback d-block">
+                {% for error in form.tipoCuenta.errors %}<span>{{ error }}</span><br>{% endfor %}
+            </div>
+        {% else %}
+            <div class="invalid-feedback">Seleccione una clasificación contable.</div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="form-group mb-3">
+        <label for="{{ form.saldoDisponible.id_for_label }}">Saldo Disponible:</label>
+        <input type="number"
+               name="{{ form.saldoDisponible.name }}"
+               id="{{ form.saldoDisponible.id_for_label }}"
+               step="0.01"
+               class="form-control text-dark {% if form.saldoDisponible.errors %}is-invalid{% endif %}"
+               required
+               value="{{ form.saldoDisponible.value|default:cuenta.saldoDisponible|stringformat:".2f" }}">
+        {% if form.saldoDisponible.errors %}
+            <div class="invalid-feedback d-block">
+                {% for error in form.saldoDisponible.errors %}<span>{{ error }}</span><br>{% endfor %}
+            </div>
+        {% else %}
+            <div class="invalid-feedback">Ingrese un saldo válido.</div>
+        {% endif %}
+    </div>
+    
+    {% if form.fechaApertura %}
+    <div class="form-group mb-3">
+        <label for="{{ form.fechaApertura.id_for_label }}">{{ form.fechaApertura.label }}:</label>
+        <input type="date"
+            name="{{ form.fechaApertura.name }}"
+            id="{{ form.fechaApertura.id_for_label }}"
+            class="form-control text-dark {% if form.fechaApertura.errors %}is-invalid{% endif %}"
+            readonly
+            value="{{ form.fechaApertura.value|default:cuenta.fechaApertura|date:'Y-m-d' }}">
+        {% if form.fechaApertura.errors %}
+            <div class="invalid-feedback d-block">
+                {% for error in form.fechaApertura.errors %}<span>{{ error }}</span><br>{% endfor %}
+            </div>
+        {% else %}
+            <div class="invalid-feedback">Ingrese una fecha de apertura válida.</div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% if 'estado' not in form.fields %}
+    <input type="hidden"
+           name="estado"
+           value="{{ cuenta.estado|lower }}">
+    {% else %}
+         <input type="hidden" name="estado" value="{{ form.estado.value|default:cuenta.estado|lower }}">
+    {% endif %}
+
+    <div class="text-center mt-4">
+        <button type="submit" class="btn btn-warning">
+            <i class="fas fa-save me-1"></i> Guardar Cambios
+        </button>
+    </div>
+</form>
+
+<div class="modal fade" id="bancoSelectorModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Seleccionar Banco</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-dark"
+                data-bs-dismiss="modal">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <input id="searchBanco" class="form-control text-dark mb-2"
+               placeholder="Buscar..."
+               onkeyup="filterTable('searchBanco','tablaBancoSel')">
+        <table class="table table-sm table-hover" id="tablaBancoSel">
+          <thead>
+            <tr><th>Código</th><th>Nombre</th></tr>
+          </thead>
+          <tbody>
+            {% for b in bancos %}
+            <tr data-id="{{ b.idBanco }}" data-nombre="{{ b.nombreBanco }}">
+              <td>{{ b.codLocalBanco }}</td>
+              <td>{{ b.nombreBanco }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,4 +1,4 @@
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required, permission_required
 from django.core.exceptions import ValidationError
 from django.http import JsonResponse
@@ -8,9 +8,10 @@ from .models import Banco, CuentaBanco
 from .forms import BancoForm, CuentaBancoForm
 from apps.planCuenta.models import PlanCuenta
 from apps.home.models import Moneda
+from django.contrib import messages # Importar messages
 
-@login_required
-@permission_required('home.view_banco', raise_exception=True)
+@login_required(login_url='login')
+@permission_required("cuentaBanco.view_banco", raise_exception=True)
 def banco_list(request):
     mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
     if mostrar:
@@ -23,7 +24,8 @@ def banco_list(request):
         'mostrar_inactivos': mostrar,
     })
 
-
+@login_required(login_url='login')
+@permission_required("cuentaBanco.view_banco", raise_exception=True)
 def banco_detail(request, pk):
     """
     Vista para mostrar los detalles de un banco y sus cuentas asociadas.
@@ -35,6 +37,8 @@ def banco_detail(request, pk):
         'cuentas': cuentas
     })
 
+@login_required(login_url='login')
+@permission_required("cuentaBanco.add_banco", raise_exception=True)
 def banco_create(request):
     if request.method == 'POST':
         form = BancoForm(request.POST)
@@ -65,7 +69,7 @@ def is_ajax(request):
     return request.META.get('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest'
 
 @login_required(login_url='login')
-@permission_required("home.change_banco", raise_exception=True)
+@permission_required("cuentaBanco.change_banco", raise_exception=True)
 def banco_update(request, pk):
     """
     Vista para actualizar un banco existente (GET devuelve el modal, POST via AJAX guarda).
@@ -101,7 +105,7 @@ def banco_update(request, pk):
     })
 
 @login_required(login_url='login')
-@permission_required("home.change_banco", raise_exception=True)
+@permission_required("cuentaBanco.change_banco", raise_exception=True)
 def banco_delete(request, pk):
     banco = get_object_or_404(Banco, pk=pk)
     # Actualizamos el estado sin modificar el nombre u otros campos únicos
@@ -114,7 +118,7 @@ def banco_delete(request, pk):
         return JsonResponse({'success': False, 'message': e.messages})
 
 @login_required(login_url='login')
-@permission_required("home.change_banco", raise_exception=True)
+@permission_required("cuentaBanco.change_banco", raise_exception=True)
 def banco_reactivate(request, pk):
     banco = get_object_or_404(Banco, pk=pk)
     # Actualizamos el estado sin modificar el nombre u otros campos únicos
@@ -127,19 +131,23 @@ def banco_reactivate(request, pk):
         # Regresamos el mensaje de error; esto ocurriría si se dispara la validación única
         return JsonResponse({'success': False, 'message': e.messages})
 
+@login_required(login_url='login')
+@permission_required("cuentaBanco.view_cuentabanco", raise_exception=True)
 def cuenta_banco_list(request):
-    """
-    Vista para listar todas las cuentas bancarias activas.
-    """
-    cuentas = CuentaBanco.objects.filter(estado=True).select_related(
-        'banco', 'moneda', 'planCuenta'
-    ).order_by('banco__nombreBanco', 'numeroCuentaBanco')
-    
+    mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+    if mostrar:
+        cuentas = CuentaBanco.objects.all()
+    else:
+        cuentas = CuentaBanco.objects.filter(estado=True).select_related('banco', 'moneda', 'planCuenta').order_by('banco__nombreBanco', 'numeroCuentaBanco')
+
     return render(request, 'bancos/tablaCuentaBanco.html', {
         'cuentas': cuentas,
-        'titulo': 'Listado de Cuentas Bancarias'
+        'titulo': 'Listado de Cuentas Bancarias',
+        'mostrar_inactivos': mostrar,
     })
 
+@login_required(login_url='login')
+@permission_required("cuentaBanco.view_cuentabanco", raise_exception=True)
 def cuenta_banco_detail(request, pk):
     """
     Vista para mostrar los detalles de una cuenta bancaria.
@@ -148,6 +156,9 @@ def cuenta_banco_detail(request, pk):
     return render(request, 'bancos/detalleCuentaBanco.html', {
         'cuenta': cuenta
     })
+
+@login_required(login_url='login')
+@permission_required("cuentaBanco.add_cuentabanco", raise_exception=True)
 def cuenta_banco_create(request):
     """
     Vista para crear una nueva cuenta bancaria con su cuenta contable asociada.
@@ -178,34 +189,49 @@ def cuenta_banco_create(request):
             'titulo': 'Nueva Cuenta Bancaria'
         })
 
+@login_required(login_url='login')
+@permission_required("cuentaBanco.change_cuentabanco", raise_exception=True)
 def cuenta_banco_update(request, pk):
-    """
-    Vista para actualizar una cuenta bancaria existente.
-    """
     cuenta = get_object_or_404(CuentaBanco, pk=pk)
-    
+    bancos = Banco.objects.filter(estadoBanco=True)
+
     if request.method == 'POST':
         form = CuentaBancoForm(request.POST, instance=cuenta)
         if form.is_valid():
-            with transaction.atomic():
-                form.save()
+            form.save()
+            # Verificar si la solicitud es AJAX
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
                 return JsonResponse({
                     'success': True,
-                    'message': 'Cuenta bancaria actualizada exitosamente!',
-                    'redirect_url': reverse('cuenta_banco_list')
+                    'message': 'Cuenta bancaria actualizada correctamente.',
+                    'redirect_url': reverse('cuenta_banco_list') # Asegúrate que este nombre de URL sea correcto
                 })
-        else:
-            return JsonResponse({
-                'success': False,
-                'errors': form.errors
-            })
-    else:
+            else:
+                # Solicitud POST no-AJAX exitosa
+                messages.success(request, 'Cuenta bancaria actualizada correctamente.')
+                return redirect(reverse('cuenta_banco_list')) # Redirigir a la lista
+        else: # El formulario no es válido
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'success': False, 'errors': form.errors})
+            else:
+                messages.error(request, "Por favor, corrija los errores a continuación.")
+                context = {
+                    'form': form, # El formulario con errores y datos POST
+                    'cuenta': cuenta,
+                    'bancos': bancos, # Para el selector de banco si es necesario
+                    'is_post_error_page': True # Flag opcional
+                }
+                return render(request, 'bancos/modales/editCuentaBanco.html', context)
+    else: # Solicitud GET
         form = CuentaBancoForm(instance=cuenta)
-        return render(request, 'bancos/cuentaBanco.html', {
-            'form': form,
-            'titulo': 'Editar Cuenta Bancaria',
-            'editar': True
-        })
+
+    context = {
+        'form': form,
+        'cuenta': cuenta,
+        'bancos': bancos, # Para el selector de banco
+    }
+    return render(request, 'bancos/modales/editCuentaBanco.html', context)
+
 
 def cuenta_banco_delete(request, pk):
     """
@@ -221,7 +247,17 @@ def cuenta_banco_delete(request, pk):
             'message': 'Cuenta bancaria desactivada exitosamente!',
             'redirect_url': reverse('cuenta_banco_list')
         })
+
+@login_required(login_url='login')
+@permission_required("cuentaBanco.change_cuentabanco", raise_exception=True)
+def cuenta_banco_reactivate(request, pk):
+    cuenta = get_object_or_404(CuentaBanco, pk=pk)
     
-    return render(request, 'bancos/confirmar_eliminacion.html', {
-        'cuenta': cuenta
-    })
+    if request.method == 'POST':
+        cuenta.estado = True
+        cuenta.save()
+        return JsonResponse({
+            'success': True,
+            'message': 'Cuenta bancaria activada exitosamente!',
+            'redirect_url': reverse('cuenta_banco_list')
+        })

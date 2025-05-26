@@ -5,9 +5,6 @@
   "fields": {
     "name": "Administrador",
     "permissions": [
-      21,
-      22,
-      24,
       25,
       26,
       28,
@@ -103,10 +100,10 @@
   "fields": {
     "name": "Bancos",
     "permissions": [
-      21,
-      22,
-      23,
-      24
+      125,
+      126,
+      127,
+      128
     ]
   }
 },
@@ -416,7 +413,7 @@
   "fields": {
     "name": "BancoRegistrar",
     "permissions": [
-      21
+      125
     ]
   }
 },
@@ -426,7 +423,7 @@
   "fields": {
     "name": "BancoVisualizar",
     "permissions": [
-      24
+      128
     ]
   }
 },
@@ -436,7 +433,7 @@
   "fields": {
     "name": "BancoEditar",
     "permissions": [
-      22
+      126
     ]
   }
 },
@@ -446,7 +443,7 @@
   "fields": {
     "name": "BancoEliminar",
     "permissions": [
-      23
+      127
     ]
   }
 },
@@ -1268,6 +1265,301 @@
     "name": "Asignacion Tipo PersonaVisualizar",
     "permissions": [
       100
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 117,
+  "fields": {
+    "name": "Plan Cuentas",
+    "permissions": [
+      113,
+      114,
+      115,
+      116
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 118,
+  "fields": {
+    "name": "Plan CuentaRegistrar",
+    "permissions": [
+      113
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 119,
+  "fields": {
+    "name": "Plan CuentaEditar",
+    "permissions": [
+      114
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 120,
+  "fields": {
+    "name": "Plan CuentaEliminar",
+    "permissions": [
+      115
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 121,
+  "fields": {
+    "name": "Plan CuentaVisualizar",
+    "permissions": [
+      116
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 122,
+  "fields": {
+    "name": "Periodo Contables",
+    "permissions": [
+      117,
+      118,
+      119,
+      120
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 123,
+  "fields": {
+    "name": "Periodo ContableRegistrar",
+    "permissions": [
+      117
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 124,
+  "fields": {
+    "name": "Periodo ContableEditar",
+    "permissions": [
+      118
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 125,
+  "fields": {
+    "name": "Periodo ContableEliminar",
+    "permissions": [
+      119
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 126,
+  "fields": {
+    "name": "Periodo ContableVisualizar",
+    "permissions": [
+      120
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 127,
+  "fields": {
+    "name": "Asiento Contables",
+    "permissions": [
+      133,
+      134,
+      135,
+      136
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 128,
+  "fields": {
+    "name": "Asiento ContableRegistrar",
+    "permissions": [
+      133
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 129,
+  "fields": {
+    "name": "Asiento ContableEditar",
+    "permissions": [
+      134
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 130,
+  "fields": {
+    "name": "Asiento ContableEliminar",
+    "permissions": [
+      135
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 131,
+  "fields": {
+    "name": "Asiento ContableVisualizar",
+    "permissions": [
+      136
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 132,
+  "fields": {
+    "name": "Empresas",
+    "permissions": [
+      121,
+      122,
+      123,
+      124
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 133,
+  "fields": {
+    "name": "EmpresaRegistrar",
+    "permissions": [
+      121
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 134,
+  "fields": {
+    "name": "EmpresaEditar",
+    "permissions": [
+      122
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 135,
+  "fields": {
+    "name": "EmpresaEliminar",
+    "permissions": [
+      123
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 136,
+  "fields": {
+    "name": "EmpresaVisualizar",
+    "permissions": [
+      124
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 137,
+  "fields": {
+    "name": "Cuenta Bancarias",
+    "permissions": [
+      129,
+      130,
+      131,
+      132
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 138,
+  "fields": {
+    "name": "Cuenta BancariaRegistrar",
+    "permissions": [
+      129
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 139,
+  "fields": {
+    "name": "Cuenta BancariaEditar",
+    "permissions": [
+      130
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 140,
+  "fields": {
+    "name": "Cuenta BancariaEliminar",
+    "permissions": [
+      131
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 141,
+  "fields": {
+    "name": "Cuenta BancariaVisualizar",
+    "permissions": [
+      132
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 142,
+  "fields": {
+    "name": "Contable",
+    "permissions": [
+      133,
+      134,
+      136,
+      137,
+      138,
+      140,
+      125,
+      126,
+      128,
+      129,
+      130,
+      132,
+      121,
+      122,
+      124,
+      117,
+      118,
+      120,
+      113,
+      114,
+      116
     ]
   }
 }

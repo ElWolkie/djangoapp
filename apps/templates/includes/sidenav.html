@@ -142,7 +142,7 @@
       {% if user.is_authenticated %}
         {% if user.is_superuser or perms.home.view_formacion or perms.home.add_formacion or perms.home.view_materia or perms.home.add_materia or perms.home.view_cohorte or perms.home.add_cohorte or perms.home.view_cargo or perms.home.add_cargo or perms.home.view_honorario or perms.home.add_honorario or perms.inscripcion.view_inscripcion or perms.inscripcion.add_inscripcion %}
             <li class="nav-item">
-                  <a class="nav-link menu2" href="#" id="ofertasDropdown" data-toggle="collapse" data-target="#menu2" aria-expanded="false" aria-controls="menu2">  
+                  <a class="nav-link menu2" href="#" id="academiaDropdownTrigger" data-toggle="collapse" data-target="#menu2" aria-expanded="false" aria-controls="menu2">  
                     <i class="ni ni-hat-3 text-orange"></i>  
                     <span class="nav-link-text">Gestionar Academia</span>  
                   </a> 
@@ -150,7 +150,7 @@
                   <ul class="nav flex-column">
                     {% if perms.home.view_formacion or perms.home.add_formacion or perms.home.view_tipoformacion or perms.home.add_tipoformacion %}
                       <li class="nav-item">  
-                        <a class="nav-link" href="#" id="ofertasDropdown" data-toggle="collapse" data-target="#ofertasMenu" aria-expanded="false" aria-controls="ofertasMenu" style="padding-left: 15px;">  
+                        <a class="nav-link" href="#" id="formacionSubTrigger" data-toggle="collapse" data-target="#ofertasMenu" aria-expanded="false" aria-controls="ofertasMenu" style="padding-left: 15px;">  
                           <i class="ni ni-ruler-pencil text-orange"></i>
                           <span class="nav-link-text">Formación
                         </a>
@@ -295,7 +295,7 @@
       {% if user.is_authenticated %}
         {% if user.is_superuser or perms.home.view_movimiento or perms.home.add_movimiento or perms.home.view_tipoingreso or perms.home.add_tipoingreso or perms.home.view_tipomovimiento or perms.home.add_tipomovimiento or perms.home.view_banco or perms.home.add_banco or perms.home.view_denominacion or perms.home.add_denominacion or perms.home.view_moneda or perms.home.add_moneda or perms.home.view_tasa or perms.home.add_tasa %}
               <li class="nav-item">
-                  <a class="nav-link menu4" href="#" id="tramiteDropdown" data-toggle="collapse" data-target="#menu4" aria-expanded="false" aria-controls="menu4">
+                  <a class="nav-link menu4" href="#" id="ingresoDropdown" data-toggle="collapse" data-target="#menu4" aria-expanded="false" aria-controls="menu4">
                     <i class="ni ni-credit-card text-orange"></i>
                     <span class="nav-link-text">Gestionar Finanza</span> 
                   </a>

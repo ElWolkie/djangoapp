@@ -17,4 +17,5 @@ urlpatterns = [
     path('cuentas/nuevo/', views.cuenta_banco_create, name='cuenta_banco_create'),
     path('cuentas/editar/<int:pk>/', views.cuenta_banco_update, name='cuenta_banco_update'),
     path('cuentas/eliminar/<int:pk>/', views.cuenta_banco_delete, name='cuenta_banco_delete'),
+    path('cuentas/reactivar/<int:pk>/', views.cuenta_banco_reactivate, name='cuenta_banco_reactivate'),
 ]

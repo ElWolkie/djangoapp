@@ -44,16 +44,16 @@
         <input class="form-control" id="searchInput" type="text" placeholder="Buscar por Nombre o Símbolo">
       </div>
     </div>
-    <div class="col-md-8 text-end">
+    <div class="col-md-4 text-end">
       {% if perms.home.add_moneda %}
           <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#monedaModal">
-            <i class="fas fa-plus-circle me-1"></i> Registrar Moneda
+            <i class="fas fa-plus-circle me-1"></i> Registrar
           </button>
 
         <button class="btn btn-warning ms-2"
                 data-bs-toggle="modal"
-                data-bs-target="#confirmarActualizacionModal">
-          <i class="fas fa-coins me-1"></i> Actualizar nuevas monedas
+                data-bs-target="#confirmarActualizacionModal" title="Actualizar monedas de fuente externa">
+          <i class="fas fa-coins me-1"></i> Actualizar
         </button>
       {% endif %}
       </form>

@@ -154,14 +154,39 @@
               <i class="ni ni-single-02"></i>
               <span>Mi Perfil</span>
             </a>
-            <a href="{% url 'home' %}" class="dropdown-item">
-              <i class="ni ni-folder-17"></i>
-              <span>Administrativo</span>
-            </a>
-            <a href="{% url 'contabilidad' %}" class="dropdown-item">
-              <i class="ni ni-archive-2"></i>
-              <span>Contabilidad</span>
-            </a>
+            
+            {% if user.is_superuser %}
+                <a href="{% url 'home' %}" class="dropdown-item">
+                    <i class="ni ni-folder-17"></i>
+                    <span>Administrativo</span>
+                </a>
+            {% else %}
+                {% for group in user.groups.all %}
+                    {% if group.name == 'Administrador' %}
+                        <a href="{% url 'home' %}" class="dropdown-item">
+                            <i class="ni ni-folder-17"></i>
+                            <span>Administrativo</span>
+                        </a>
+                    {% endif %}
+                {% endfor %}
+            {% endif %}
+
+             {% if user.is_superuser %}
+              <a href="{% url 'contabilidad' %}" class="dropdown-item">
+                <i class="ni ni-archive-2"></i>
+                <span>Contabilidad</span>
+              </a>
+            {% else %}
+            {% for group in user.groups.all %}
+                    {% if group.name == 'Contable' %}
+                        <a href="{% url 'contabilidad' %}" class="dropdown-item">
+                            <i class="ni ni-archive-2"></i>
+                            <span>Contabilidad</span>
+                        </a>
+                    {% endif %}
+                {% endfor %}
+            {% endif %}
+            
             <div class="dropdown-divider"></div>
             <a href="#" class="dropdown-item">
               <form method="POST" action="{% url 'logout' %}">

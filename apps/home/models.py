@@ -237,12 +237,12 @@ class Moneda(models.Model):
     estadoMoneda = models.CharField(max_length=10)
     fechaMoneda = models.DateField(auto_now_add=True)
 
-def clean(self):
-    qs = Moneda.objects.filter(nombreMoneda__iexact=self.nombreMoneda)
-    if self.pk:
-        qs = qs.exclude(pk=self.pk)
-    if qs.exists():
-        raise ValidationError("El nombre de la Moneda ya existe.")
+    def clean(self):
+        qs = Moneda.objects.filter(nombreMoneda__iexact=self.nombreMoneda)
+        if self.pk:
+            qs = qs.exclude(pk=self.pk)
+        if qs.exists():
+            raise ValidationError("El nombre de la Moneda ya existe.")
 
     class Meta:
         verbose_name = "Moneda"
