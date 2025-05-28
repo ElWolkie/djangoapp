@@ -29,11 +29,41 @@ from .models import Personas, Usuarios, TipoFormacion, Formacion, Materia, Cohor
 
 from apps.honorario.models import Honorario
 from apps.solicitud.models import Solicitud
-from apps.cuentaBanco.models import Banco, PlanCuenta
+from apps.cuentaBanco.models import Banco, PlanCuenta, CuentaBanco
+from apps.empresa.models import empresa
+from apps.periodoContable.models import periodoContable
 
+@login_required(login_url='login')
+def contabilidad(request):
+    # 1. Última cuenta bancaria
+    try:
+        ultima_cuenta = CuentaBanco.objects.latest('fechaActualizacion')
+    except CuentaBanco.DoesNotExist:
+        ultima_cuenta = None
 
-def contabilidad_view(request):
-    return render(request, 'home/index2.html')
+    # 2. Última empresa (corregir excepción)
+    try:
+        ultima_empresa = empresa.objects.latest('fechaEmpresa')
+    except empresa.DoesNotExist:  # ← Excepción corregida
+        ultima_empresa = None
+
+    # 3. Periodo contable
+    try:
+        periodo_actual = periodoContable.objects.latest('fechaInicioPeriodo')
+    except periodoContable.DoesNotExist:
+        periodo_actual = None
+
+    context = {
+        'ultima_cuenta': ultima_cuenta,
+        'ultima_empresa': ultima_empresa,
+        'periodo_actual': periodo_actual,
+        'saldo_contable': "En desarrollo...",
+        'total_cuentas': CuentaBanco.objects.count(),
+        'total_empresas': empresa.objects.count(),
+        'total_periodos': periodoContable.objects.count()
+    }
+    
+    return render(request, 'home/index2.html', context)
 
 # Vista optimizada para el dashboard
 @login_required(login_url='login')

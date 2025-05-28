@@ -6,7 +6,7 @@ from .views import registrar_usuario
 urlpatterns = [
     # Ruta principal (Home)
     path('', views.home, name='home'),
-    path('contabilidad/', views.contabilidad_view, name='contabilidad'),
+    path('contabilidad/', views.contabilidad, name='contabilidad'),
     path('login/', views.login_view, name='login'),
     path('logout/', views.logout_view, name='logout'),
 

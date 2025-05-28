@@ -5,6 +5,7 @@ urlpatterns = [
     #Ruta especifica para Persona
     path('persona.html', views.pages, name='persona_page'),
     path('persona_modal/', views.persona_modal, name='persona_modal'), # URL para el POST del formulario principal
+    path('seleccionar-tipo-consulta/', views.seleccionar_tipo_consulta, name='seleccionar_tipo_consulta'), # URL para el POST de la tabla principal
     path('editPersona/<int:pk>/', views.edit_persona, name='edit_persona'),
     path('deletePersona/<int:pk>/', views.delete_persona, name='delete_persona'),
     path('desactivar_persona/<int:pk>/', views.desactivar_persona, name='desactivar_persona'),

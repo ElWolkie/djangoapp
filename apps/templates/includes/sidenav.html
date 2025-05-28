@@ -96,10 +96,10 @@
                     
                     {% if perms.persona.view_personas %}
                     <li class="nav-item">
-                      <a class="nav-link"  href="{% url 'tabla_persona' %}" style="padding-left: 15px;">
-                        <i class="ni ni-archive-2 text-orange"></i>
-                        <span class="nav-link-text">Consultar
-                      </a>
+                        <a class="nav-link" href="{% url 'seleccionar_tipo_consulta' %}?tipo=2" style="padding-left: 15px;">
+                            <i class="ni ni-archive-2 text-orange"></i>
+                            <span class="nav-link-text">Consultar</span>
+                        </a>
                     </li>
                     {% endif %}
                   </ul>
@@ -128,9 +128,10 @@
                     
                     {% if perms.persona.view_personas %}
                     <li class="nav-item">
-                      <a class="nav-link" href="{% url 'tabla_persona' %}" style="padding-left: 15px;"><i class="ni ni-collection text-orange"></i>
-                        <span class="nav-link-text">Consultar
-                      </a>
+                        <a class="nav-link" href="{% url 'seleccionar_tipo_consulta' %}?tipo=3" style="padding-left: 15px;">
+                            <i class="ni ni-collection text-orange"></i>
+                            <span class="nav-link-text">Consultar</span>
+                        </a>
                     </li>
                     {% endif %}
                   </ul>
@@ -355,14 +356,6 @@
                       </div>  
                     </li> 
                     {% endif %}
-                    
-                    {% comment %} {% if perms.home.view_banco or perms.home.add_banco %}
-                    <li class="nav-item">
-                      <a class="nav-link" href="{% url 'tabla_bancos' %}" style="padding-left: 15px;"> <i class="ni ni-building text-orange"></i>
-                        <span class="nav-link-text">Bancos
-                      </a>
-                    </li>
-                    {% endif %} {% endcomment %}
                     
                     {% if perms.home.view_denominacion or perms.home.add_denominacion %}
                     <li class="nav-item">

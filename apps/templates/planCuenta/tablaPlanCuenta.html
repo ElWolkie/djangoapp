@@ -46,6 +46,26 @@
       border-radius: 4px;
       border: 2px solid #f1f1f1;
     }
+     .pagination-container {
+    margin-top: 1rem !important;
+}
+
+.pagination {
+    --bs-pagination-padding-x: 0.75rem;
+    --bs-pagination-padding-y: 0.375rem;
+    --bs-pagination-font-size: 0.875rem;
+}
+
+.page-link {
+    min-width: 32px;
+    text-align: center;
+    border-radius: 4px !important;
+}
+
+.page-item.active .page-link {
+    background-color: #fb6340;
+    border-color: #fb6340;
+}
   </style>
 {% endblock stylesheets %}
 
@@ -60,11 +80,13 @@
         <input class="form-control" id="searchInput" type="text" placeholder="Buscar por cualquier campo">
       </div>
     </div>
+    {% if perms.planCuenta.add_plancuenta %}
     <div class="col-md-8 text-end">
       <a href="{% url 'plan_cuenta_create' %}" class="btn btn-warning px-4">
         <i class="fas fa-plus-circle me-1"></i> Registrar
       </a>
     </div>
+    {% endif %}
   </div>
 
   <div id="globalMessages">
@@ -126,83 +148,122 @@
 <script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
 <script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
 <script>
-$(function(){
-  const $table      = $('#planesTable');
-  const perPage     = 5;
-  let currentPage   = 1;
-  let query         = '';
+document.addEventListener('DOMContentLoaded', function () {
+    const table = document.getElementById('planesTable');
+    const rows = Array.from(table.querySelectorAll('tbody tr'));
+    const paginationContainer = document.createElement('div');
+    paginationContainer.className = 'pagination-container mt-3';
+    table.parentNode.insertBefore(paginationContainer, table.nextSibling);
 
-  // Creamos el contenedor de paginación
-  const $pagination = $('<ul class="pagination justify-content-center mt-3"></ul>')
-    .insertAfter($table.parent());
+    const pagination = document.createElement('ul');
+    pagination.className = 'pagination justify-content-center';
+    paginationContainer.appendChild(pagination);
 
-  function render() {
-    // 1) Filtrar filas
-    const $allRows = $table.find('tbody tr');
-    const $matched = $allRows.filter((i, tr) =>
-      $(tr).text().toUpperCase().includes(query)
-    );
+    const rowsPerPage = 5;
+    let currentPage = 1;
+    let filteredRows = rows;
 
-    // 2) Mostrar sólo el slice actual
-    $allRows.hide();
-    const start = (currentPage - 1) * perPage;
-    $matched.slice(start, start + perPage).show();
-
-    // 3) Reconstruir paginación
-    const totalPages = Math.max(1, Math.ceil($matched.length / perPage));
-    $pagination.empty();
-
-    // Flecha «
-    $pagination.append(
-      $('<li class="page-item">')
-        .toggleClass('disabled', currentPage === 1)
-        .append($('<a class="page-link" href="#">&laquo;</a>').click(e=>{
-          e.preventDefault();
-          if(currentPage>1){ currentPage--; render(); }
-        }))
-    );
-
-    // Botones de página
-    for(let i=1; i<=totalPages; i++){
-      $pagination.append(
-        $('<li class="page-item">')
-          .toggleClass('active', i===currentPage)
-          .append($(`<a class="page-link" href="#">${i}</a>`).click(e=>{
-            e.preventDefault();
-            currentPage = i;
-            render();
-          }))
-      );
+    // Función para mostrar filas según filtro y paginación
+    function render() {
+        // Ocultar todas las filas
+        rows.forEach(row => row.style.display = 'none');
+        
+        // Mostrar solo las filas filtradas en la página actual
+        const start = (currentPage - 1) * rowsPerPage;
+        const end = start + rowsPerPage;
+        
+        filteredRows.slice(start, end).forEach(row => {
+            row.style.display = '';
+        });
+        
+        setupPagination();
     }
 
-    // Flecha »
-    $pagination.append(
-      $('<li class="page-item">')
-        .toggleClass('disabled', currentPage === totalPages)
-        .append($('<a class="page-link" href="#">&raquo;</a>').click(e=>{
-          e.preventDefault();
-          if(currentPage<totalPages){ currentPage++; render(); }
-        }))
-    );
-  }
+    // Función para filtrar filas
+    function filterRows() {
+        const query = document.getElementById('searchInput').value.trim().toUpperCase();
+        
+        if (!query) {
+            filteredRows = rows;
+            return;
+        }
+        
+        filteredRows = rows.filter(row => {
+            const cells = row.querySelectorAll('td');
+            return Array.from(cells).some(cell => 
+                cell.textContent.toUpperCase().includes(query)
+            );
+        });
+    }
 
-  // Cuando cambia el filtro…
-  $('#searchInput').on('keyup', function(){
-    query = $(this).val().trim().toUpperCase();
-    currentPage = 1;
-    render();
-  });
+    // Función para configurar la paginación
+    function setupPagination() {
+        const totalPages = Math.ceil(filteredRows.length / rowsPerPage);
+        pagination.innerHTML = '';
 
-  // Scroll horizontal con rueda
-  const wrapper = document.querySelector('.table-responsive');
-  if(wrapper){
-    wrapper.addEventListener('wheel', e=>{
-      if(e.deltaY){ e.preventDefault(); wrapper.scrollLeft += e.deltaY; }
+        // Botón Anterior
+        const prevLi = document.createElement('li');
+        prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+        prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Anterior">&laquo;</a>`;
+        prevLi.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (currentPage > 1) {
+                currentPage--;
+                render();
+            }
+        });
+        pagination.appendChild(prevLi);
+
+        // Botones de Páginas
+        const startPage = Math.max(1, currentPage - 2);
+        const endPage = Math.min(totalPages, startPage + 4);
+        
+        for (let i = startPage; i <= endPage; i++) {
+            const li = document.createElement('li');
+            li.className = `page-item ${i === currentPage ? 'active' : ''}`;
+            li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+            li.addEventListener('click', (e) => {
+                e.preventDefault();
+                currentPage = i;
+                render();
+            });
+            pagination.appendChild(li);
+        }
+
+        // Botón Siguiente
+        const nextLi = document.createElement('li');
+        nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+        nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Siguiente">&raquo;</a>`;
+        nextLi.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (currentPage < totalPages) {
+                currentPage++;
+                render();
+            }
+        });
+        pagination.appendChild(nextLi);
+    }
+
+    // Evento de búsqueda
+    document.getElementById('searchInput').addEventListener('keyup', function() {
+        filterRows();
+        currentPage = 1;
+        render();
     });
-  }
 
-  // Primera renderización
-  render();
+    // Scroll horizontal con rueda
+    const wrapper = document.querySelector('.table-responsive');
+    if (wrapper) {
+        wrapper.addEventListener('wheel', e => {
+            if (e.deltaY) {
+                e.preventDefault();
+                wrapper.scrollLeft += e.deltaY;
+            }
+        });
+    }
+
+    // Inicializar
+    render();
 });
 </script>
 {% endblock javascripts %}
