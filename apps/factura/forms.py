@@ -14,7 +14,7 @@ class FacturaForm(forms.ModelForm):
             'idEmpresa': forms.Select(attrs={'class': 'form-control'}),
             'idPeriodo': forms.Select(attrs={'class': 'form-control'}),
             'idAsiento': forms.Select(attrs={'class': 'form-control'}),
-            'idMoneda': forms.Select(attrs={'class': 'form-control'}),
+            'idTasa': forms.Select(attrs={'class': 'form-control'}),
             'estado': forms.Select(attrs={'class': 'form-control'}),
             'observaciones': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }

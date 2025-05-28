@@ -3,10 +3,11 @@ from django.http import JsonResponse
 from .models import Factura, FacturaDetalle, Pago
 from .forms import FacturaForm, FacturaDetalleForm, PagoForm
 from apps.asientoContable.models import AsientoContable
-from apps.home.models import Moneda
+from apps.home.models import Moneda, Tasa
 from apps.persona.models import Personas
 from apps.empresa.models import empresa
 from django.db import transaction
+from django.db.models import Max
 
 # Facturas
 def factura_list(request):
@@ -26,38 +27,62 @@ def factura_detail(request, pk):
 
 @transaction.atomic
 def factura_create(request):
-    """
-    Vista para crear una nueva factura.
-    También crea automáticamente un asiento contable asociado.
-    """
-    personas = Personas.objects.all()
-    empresas = empresa.objects.all()
-    monedas = Moneda.objects.all()
+        """
+        Vista para crear una nueva factura.
+        También crea automáticamente un asiento contable asociado.
+        """
+        personas = Personas.objects.all()
+        empresas = empresa.objects.all()
+        tasas = Tasa.objects.select_related('idMoneda') \
+        .values('idMoneda__idMoneda', 'idMoneda__nombreMoneda') \
+        .annotate(ultima_idTasa=Max('idTasa'), ultima_tasa=Max('montoTasa'))
 
-    if request.method == 'POST':
-        form = FacturaForm(request.POST)
-        if form.is_valid():
-            factura = form.save(commit=False)
+        if request.method == 'POST':
+            form = FacturaForm(request.POST)
+            if form.is_valid():
+                try:
+                    factura = form.save(commit=False)
 
-            # Crear el asiento contable asociado
-            asiento = AsientoContable.objects.create(
-                descripcion=f"Asiento para la factura {factura.numeroFactura}",
-                fecha=factura.fechaEmision
-            )
-            factura.idAsiento = asiento
-            factura.save()
+                    # Crear el asiento contable asociado
+                    asiento = AsientoContable.objects.create(
+                        descripcion=f"Asiento para la factura {factura.numeroFactura}",
+                        fecha=factura.fechaEmision
+                    )
+                    factura.idAsiento = asiento
+                    factura.save()
 
-            return redirect('factura_list')
-    else:
-        
-        form = FacturaForm()
-    return render(request, 'factura/factura.html', {
-        'form': form,
-        'personas': personas,
-        'empresas': empresas,
-        'monedas': monedas,
+                    return redirect('factura_list')
+                except Exception as e:
+                    # Mensaje de purificación para identificar errores
+                    print(f"Error al crear la factura o el asiento contable: {e}")
+                    return render(request, 'factura/factura.html', {
+                        'form': form,
+                        'personas': personas,
+                        'empresas': empresas,
+                        'monedas': tasas,
 
-    })
+                        'error_message': "Ocurrió un error al intentar guardar la factura. Por favor, inténtelo de nuevo."
+                    })
+            else:
+                # Mostrar errores de validación del formulario
+                print("Errores del formulario de factura:", form.errors)
+                return render(request, 'factura/factura.html', {
+                    'form': form,
+                    'personas': personas,
+                    'empresas': empresas,
+                    'monedas': tasas,
+                    'error_message': "El formulario contiene errores. Por favor, corríjalos e inténtelo de nuevo.",
+                    'form_errors': form.errors
+                })
+        else:
+            form = FacturaForm()
+        return render(request, 'factura/factura.html', {
+            'form': form,
+            'personas': personas,
+            'empresas': empresas,
+            'monedas': tasas,
+        })
+
 
 @transaction.atomic
 def factura_edit(request, pk):

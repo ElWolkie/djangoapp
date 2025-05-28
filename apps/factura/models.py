@@ -3,7 +3,7 @@ from apps.persona.models import Personas
 from apps.empresa.models import empresa
 from apps.periodoContable.models import periodoContable
 from apps.asientoContable.models import AsientoContable
-from apps.home.models import Moneda
+from apps.home.models import Moneda, Tasa
 from apps.cuentaBanco.models import CuentaBanco
 
 class Factura(models.Model):
@@ -24,9 +24,7 @@ class Factura(models.Model):
     ivaRetenido = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     descuento = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     totalVenta = models.DecimalField(max_digits=10, decimal_places=2)
-    idMoneda = models.ForeignKey(Moneda, on_delete=models.CASCADE)
-    tasaCambio = models.DecimalField(max_digits=10, decimal_places=4, default=1.0000)
-    totalDivisas = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    idTasa = models.ForeignKey(Tasa, on_delete=models.CASCADE)
     estado = models.CharField(max_length=20, default='Pendiente')
     observaciones = models.TextField(blank=True, null=True)
     fechaCreacion = models.DateTimeField(auto_now_add=True)
