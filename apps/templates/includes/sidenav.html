@@ -96,10 +96,10 @@
                     
                     {% if perms.persona.view_personas %}
                     <li class="nav-item">
-                      <a class="nav-link"  href="{% url 'tabla_persona' %}" style="padding-left: 15px;">
-                        <i class="ni ni-archive-2 text-orange"></i>
-                        <span class="nav-link-text">Consultar
-                      </a>
+                        <a class="nav-link" href="{% url 'seleccionar_tipo_consulta' %}?tipo=2" style="padding-left: 15px;">
+                            <i class="ni ni-archive-2 text-orange"></i>
+                            <span class="nav-link-text">Consultar</span>
+                        </a>
                     </li>
                     {% endif %}
                   </ul>
@@ -128,9 +128,10 @@
                     
                     {% if perms.persona.view_personas %}
                     <li class="nav-item">
-                      <a class="nav-link" href="{% url 'tabla_persona' %}" style="padding-left: 15px;"><i class="ni ni-collection text-orange"></i>
-                        <span class="nav-link-text">Consultar
-                      </a>
+                        <a class="nav-link" href="{% url 'seleccionar_tipo_consulta' %}?tipo=3" style="padding-left: 15px;">
+                            <i class="ni ni-collection text-orange"></i>
+                            <span class="nav-link-text">Consultar</span>
+                        </a>
                     </li>
                     {% endif %}
                   </ul>
@@ -142,7 +143,7 @@
       {% if user.is_authenticated %}
         {% if user.is_superuser or perms.home.view_formacion or perms.home.add_formacion or perms.home.view_materia or perms.home.add_materia or perms.home.view_cohorte or perms.home.add_cohorte or perms.home.view_cargo or perms.home.add_cargo or perms.home.view_honorario or perms.home.add_honorario or perms.inscripcion.view_inscripcion or perms.inscripcion.add_inscripcion %}
             <li class="nav-item">
-                  <a class="nav-link menu2" href="#" id="ofertasDropdown" data-toggle="collapse" data-target="#menu2" aria-expanded="false" aria-controls="menu2">  
+                  <a class="nav-link menu2" href="#" id="academiaDropdownTrigger" data-toggle="collapse" data-target="#menu2" aria-expanded="false" aria-controls="menu2">  
                     <i class="ni ni-hat-3 text-orange"></i>  
                     <span class="nav-link-text">Gestionar Academia</span>  
                   </a> 
@@ -150,7 +151,7 @@
                   <ul class="nav flex-column">
                     {% if perms.home.view_formacion or perms.home.add_formacion or perms.home.view_tipoformacion or perms.home.add_tipoformacion %}
                       <li class="nav-item">  
-                        <a class="nav-link" href="#" id="ofertasDropdown" data-toggle="collapse" data-target="#ofertasMenu" aria-expanded="false" aria-controls="ofertasMenu" style="padding-left: 15px;">  
+                        <a class="nav-link" href="#" id="formacionSubTrigger" data-toggle="collapse" data-target="#ofertasMenu" aria-expanded="false" aria-controls="ofertasMenu" style="padding-left: 15px;">  
                           <i class="ni ni-ruler-pencil text-orange"></i>
                           <span class="nav-link-text">Formación
                         </a>
@@ -295,13 +296,13 @@
       {% if user.is_authenticated %}
         {% if user.is_superuser or perms.home.view_movimiento or perms.home.add_movimiento or perms.home.view_tipoingreso or perms.home.add_tipoingreso or perms.home.view_tipomovimiento or perms.home.add_tipomovimiento or perms.home.view_banco or perms.home.add_banco or perms.home.view_denominacion or perms.home.add_denominacion or perms.home.view_moneda or perms.home.add_moneda or perms.home.view_tasa or perms.home.add_tasa %}
               <li class="nav-item">
-                  <a class="nav-link menu4" href="#" id="tramiteDropdown" data-toggle="collapse" data-target="#menu4" aria-expanded="false" aria-controls="menu4">
+                  <a class="nav-link menu4" href="#" id="ingresoDropdown" data-toggle="collapse" data-target="#menu4" aria-expanded="false" aria-controls="menu4">
                     <i class="ni ni-credit-card text-orange"></i>
                     <span class="nav-link-text">Gestionar Finanza</span> 
                   </a>
                 <div id="menu4" class="collapse ml-3">
                   <ul class="nav flex-column">
-                    {% if perms.home.view_movimiento or perms.home.add_movimiento or perms.tipoingreso.view_tipoingreso or perms.home.add_tipoingreso or perms.home.view_tipomovimiento or perms.home.add_tipomovimiento %}
+                    {% comment %} {% if perms.home.view_movimiento or perms.home.add_movimiento or perms.tipoingreso.view_tipoingreso or perms.home.add_tipoingreso or perms.home.view_tipomovimiento or perms.home.add_tipomovimiento %}
                     <li class="nav-item">  
                       <a class="nav-link" href="#" id="ingresoDropdown" data-toggle="collapse" data-target="#ingresoMenu" aria-expanded="false" aria-controls="ingresoMenu" style="padding-left: 15px;">  
                         <i class="ni  ni-caps-small text-orange"></i>
@@ -327,9 +328,9 @@
                         </ul>  
                       </div>  
                     </li> 
-                    {% endif %}
+                    {% endif %} {% endcomment %}
 
-                    {% if perms.home.view_movimiento or perms.home.add_movimiento or perms.tipoingreso.view_tipoingreso or perms.home.add_tipoingreso or perms.home.view_tipomovimiento or perms.home.add_tipomovimiento %}
+                    {% comment %} {% if perms.home.view_movimiento or perms.home.add_movimiento or perms.tipoingreso.view_tipoingreso or perms.home.add_tipoingreso or perms.home.view_tipomovimiento or perms.home.add_tipomovimiento %}
                     <li class="nav-item">  
                       <a class="nav-link" href="#" id="egresoDropdown" data-toggle="collapse" data-target="#egresoMenu" aria-expanded="false" aria-controls="egresoMenu" style="padding-left: 15px;">  
                         <i class="fas fa-hand-holding-usd text-orange"></i>
@@ -354,23 +355,15 @@
                         </ul>  
                       </div>  
                     </li> 
-                    {% endif %}
-                    
-                    {% comment %} {% if perms.home.view_banco or perms.home.add_banco %}
-                    <li class="nav-item">
-                      <a class="nav-link" href="{% url 'tabla_bancos' %}" style="padding-left: 15px;"> <i class="ni ni-building text-orange"></i>
-                        <span class="nav-link-text">Bancos
-                      </a>
-                    </li>
                     {% endif %} {% endcomment %}
                     
-                    {% if perms.home.view_denominacion or perms.home.add_denominacion %}
+                    {% comment %} {% if perms.home.view_denominacion or perms.home.add_denominacion %}
                     <li class="nav-item">
                       <a class="nav-link" href="{% url 'tabla_denominaciones' %}" style="padding-left: 15px;"> <i class="ni ni-archive-2 text-orange"></i>
                         <span class="nav-link-text">Denominaciones
                       </a>
                     </li>
-                    {% endif %}
+                    {% endif %} {% endcomment %}
 
                     {% if perms.home.view_moneda or perms.home.add_moneda %}
                     <li class="nav-item">

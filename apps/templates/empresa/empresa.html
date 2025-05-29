@@ -53,6 +53,14 @@
 
 {% block javascripts %}
 <script>
+  function activarMayusculasInputs() {
+      document.addEventListener('input', function(e) {
+        if (e.target.tagName === 'INPUT' && !e.target.type.match(/password|hidden|email/)) {
+          e.target.value = e.target.value.toUpperCase();
+        }
+      });
+    }
+    activarMayusculasInputs();
   document.addEventListener('DOMContentLoaded', function () {
     const form = document.getElementById('empresaForm');
     const inputs = form.querySelectorAll('input, textarea');

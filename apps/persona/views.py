@@ -14,6 +14,14 @@ from .models import PersonaTP, Personas, TipoPersona
 @login_required(login_url='login')
 @permission_required("persona.add_personas", raise_exception=True)
 def persona_modal(request):
+    tipo_persona = request.GET.get('idTP', '')  # Obtener el parámetro de la URL
+    tipo_texto = "Registro"  # Valor por defecto
+    
+    if tipo_persona == '2':
+        tipo_texto = "Cliente"
+    elif tipo_persona == '3':
+        tipo_texto = "Proveedor"
+        
     if request.method == 'POST':
         # 1) Recogemos la lista de tipos seleccionados ANTES de guardar nada
         tipos_ids = request.POST.getlist('tipoPersona')
@@ -52,6 +60,7 @@ def persona_modal(request):
     return render(request, 'persona/persona.html', {
         'tipos_persona': tipos_persona,
         'form': PersonaForm(),
+        'tipo_texto': tipo_texto,
     })
 
 
@@ -178,17 +187,38 @@ def reactivate_persona(request, pk):
 
     return HttpResponseForbidden()
 
+def seleccionar_tipo_consulta(request):
+    tipo = request.GET.get('tipo', '')
+    
+    # Validar y guardar en sesión
+    if tipo in ['2', '3']:
+        request.session['tipo_consulta'] = tipo
+    return redirect('tabla_persona')
+
 @login_required(login_url='login')
 @permission_required("persona.view_personas", raise_exception=True)
 def tabla_persona(request):
+    tipo_consulta = request.session.get('tipo_consulta', None)
     mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
-    if mostrar:
-        personas = Personas.objects.all()
-    else:
-        personas = Personas.objects.filter(estadoPersona='ACTIVO')
+
+    # Inicializar queryset
+    personas = Personas.objects.all()
+
+    # Filtrar por tipo (Cliente/Proveedor)
+    if tipo_consulta in ['2', '3']:
+        personas = personas.filter(personatp__idTP=tipo_consulta).distinct()
+
+    # Filtrar por estado (activo/inactivo)
+    if not mostrar:
+        personas = personas.filter(estadoPersona='ACTIVO')
+
+    # Determinar texto para el título
+    tipo_texto = "Clientes" if tipo_consulta == '2' else "Proveedores" if tipo_consulta == '3' else "Personas"
+
     return render(request, 'persona/tablaPersona.html', {
         'personas': personas,
         'mostrar_inactivos': mostrar,
+        'tipo_texto': tipo_texto,
     })
 
 #TIPO PERSONA

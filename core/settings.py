@@ -89,6 +89,8 @@ INSTALLED_APPS = [
     "apps.empresa",  # Habilita la aplicación para gestionar empresa
     "apps.cuentaBanco",  # Habilita la aplicación para gestionar cuenta bancaria
     "apps.asientoContable",  # Habilita la aplicación para gestionar asiento contable
+    "apps.factura",  # Habilita la aplicación para gestionar factura contable
+
 ]
 
 MIDDLEWARE = [

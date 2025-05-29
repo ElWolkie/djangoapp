@@ -196,25 +196,40 @@ class CuentaBanco(models.Model):
             self.planCuenta = plan_cuenta
         
         super().save(*args, **kwargs)
-
     def _generate_product_code(self):
-        """Genera código para la categoría de producto bancario"""
-        last_product = PlanCuenta.objects.filter(
-            cuentaPadre=self.banco.codigoPlanCuenta
-        ).aggregate(Max('codigoPlanCuenta'))
-        
-        if last_product['codigoPlanCuenta__max']:
-            last_num = int(last_product['codigoPlanCuenta__max'][-2:])
-            return f"{self.banco.codigoPlanCuenta.codigoPlanCuenta}{last_num + 1:02d}"
-        return f"{self.banco.codigoPlanCuenta.codigoPlanCuenta}01"
+            """Genera código para la categoría de producto bancario"""
+            try:
+                last_product = PlanCuenta.objects.filter(
+                    cuentaPadre=self.banco.codigoPlanCuenta
+                ).aggregate(Max('codigoPlanCuenta'))
+                
+                if last_product['codigoPlanCuenta__max']:
+                    last_num = int(last_product['codigoPlanCuenta__max'][-2:])
+                    new_code = f"{self.banco.codigoPlanCuenta.codigoPlanCuenta}{last_num + 1:02d}"
+                else:
+                    new_code = f"{self.banco.codigoPlanCuenta.codigoPlanCuenta}01"
+                
+                print(f"[DEBUG] Código de producto generado correctamente: {new_code}")
+                return new_code
+            except Exception as e:
+                print(f"[ERROR] Error al generar el código de producto: {e}")
+                raise
 
     def _generate_account_code(self, cuenta_producto):
-        """Genera código para la cuenta bancaria específica"""
-        last_account = PlanCuenta.objects.filter(
-            cuentaPadre=cuenta_producto
-        ).aggregate(Max('codigoPlanCuenta'))
-        
-        if last_account['codigoPlanCuenta__max']:
-            last_num = int(last_account['codigoPlanCuenta__max'][-2:])
-            return f"{cuenta_producto.codigoPlanCuenta}{last_num + 1:02d}"
-        return f"{cuenta_producto.codigoPlanCuenta}01"
+            """Genera código para la cuenta bancaria específica"""
+            try:
+                last_account = PlanCuenta.objects.filter(
+                    cuentaPadre=cuenta_producto
+                ).aggregate(Max('codigoPlanCuenta'))
+                
+                if last_account['codigoPlanCuenta__max']:
+                    last_num = int(last_account['codigoPlanCuenta__max'][-2:])
+                    new_code = f"{cuenta_producto.codigoPlanCuenta}{last_num + 1:02d}"
+                else:
+                    new_code = f"{cuenta_producto.codigoPlanCuenta}01"
+                
+                print(f"[DEBUG] Código de cuenta bancaria generado correctamente: {new_code}")
+                return new_code
+            except Exception as e:
+                print(f"[ERROR] Error al generar el código de cuenta bancaria: {e}")
+                raise

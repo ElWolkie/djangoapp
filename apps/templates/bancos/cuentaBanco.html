@@ -1,4 +1,5 @@
 {% extends 'layouts/base2.html' %}
+{% load static %}
 
 {% block title %}Registrar Cuenta Bancaria{% endblock title %}
 {% block stylesheets %}
@@ -101,7 +102,22 @@
         </div>
       </div>
     </div>
-  
+    <div class="form-row">
+      <div class="form-group col-md-12 mx-auto">
+        <label for="planCuentaInput">Plan de Cuenta:</label>
+        <div class="input-group">
+          <input type="text" id="planCuentaInput" class="form-control text-dark" placeholder="Seleccione un plan de cuenta" readonly required />
+          <button type="button" id="buscarPlanCuenta" class="btn btn-warning" data-toggle="modal" data-target="#planCuentaModal">
+            <i class="fas fa-search"></i>
+          </button>
+        </div>
+        <input type="hidden" id="idPlanCuenta" name="planCuentaCredito" required />
+        <div class="invalid-feedback">
+          Por favor seleccione un plan de cuenta.
+        </div>
+      </div>
+    </div>
+
     <div class="text-center">
       <input type="submit" class="btn btn-warning mt-4" value="Guardar" />
     </div>
@@ -127,7 +143,7 @@
                   <i class="fas fa-search text-warning"></i>
                 </span>
               </div>
-              <input class="form-control" id="searchBancoInput" type="text" placeholder="Buscar..." onkeyup="filterBancoTable()">
+              <input class="form-control" id="searchBancoInput" type="text" placeholder="Buscar..." onkeyup="filterTable('tablaBancos', 'searchBancoInput')">
             </div>
           </div>
         </div>
@@ -157,97 +173,132 @@
     </div>
   </div>
 </div>
+
+<!-- Modal para seleccionar Plan de Cuenta -->
+<div class="modal fade" id="planCuentaModal" tabindex="-1" role="dialog" aria-labelledby="planCuentaModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="planCuentaModalLabel">Seleccionar Plan de Cuenta</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="row mb-3">
+          <div class="col-md-8">
+            <div class="input-group">
+              <div class="input-group-prepend">
+                <span class="input-group-text" style="background-color: #bcbcbc; border: none;">
+                  <i class="fas fa-search text-warning"></i>
+                </span>
+              </div>
+              <input class="form-control" id="searchPlanCuentaInput" type="text" placeholder="Buscar..." onkeyup="filterTable('tablaPlanesCuenta', 'searchPlanCuentaInput')">
+            </div>
+          </div>
+        </div>
+        <table class="table table-sm table-responsive table-striped table-hover" id="tablaPlanesCuenta">
+          <thead>
+            <tr>
+              <th style="width: 10%;">Código</th>
+              <th style="width: 20%;">Nombre</th>
+              <th style="width: 10%;">Nivel</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for cuenta in cuentas_plan %}
+              <tr data-id="{{ cuenta.idPlanCuenta }}" data-nombre="{{ cuenta.codigoPlanCuenta }} - {{ cuenta.nombrePlanCuenta }}">
+                <td>{{ cuenta.codigoPlanCuenta }}</td>
+                <td>{{ cuenta.nombrePlanCuenta }}</td>
+                <td>{{ cuenta.nivelPlanCuenta }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <p id="mensajeSinRegistrosPlanCuenta" class="text-center text-muted" style="display: none;">No hay registros disponibles</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock content %}
 
 {% block javascripts %}
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
 
 <script>
   document.addEventListener('DOMContentLoaded', function () {
-    const tablaBancos = document.getElementById('tablaBancos');
-    const bancoInput = document.getElementById('bancoInput');
-    const idBancoInput = document.getElementById('idBanco');
+    const form = document.getElementById("cuentaBancoForm");
 
-    // Manejar selección de banco
-    tablaBancos.addEventListener('click', function (event) {
-      const fila = event.target.closest('tr');
-      if (fila) {
-        const bancoId = fila.getAttribute('data-id');
-        const bancoNombre = fila.getAttribute('data-nombre');
-
-        bancoInput.value = bancoNombre;
-        idBancoInput.value = bancoId;
-
-        bancoInput.classList.remove('is-invalid');
-        bancoInput.classList.add('is-valid');
-
-        $('#bancoModal').modal('hide');
-      }
-    });
-
-    // Filtrar tabla de bancos
-    window.filterBancoTable = function () {
-      const input = document.getElementById('searchBancoInput');
+    // Generalized table filter function
+    window.filterTable = function (tableId, inputId) {
+      const input = document.getElementById(inputId);
       const filter = input.value.toUpperCase();
-      const rows = tablaBancos.getElementsByTagName('tr');
+      const rows = document.getElementById(tableId).getElementsByTagName('tr');
 
-      for (let i = 0; i < rows.length; i++) {
-        const cells = rows[i].getElementsByTagName('td');
-        let match = false;
-
-        for (let j = 0; j < cells.length; j++) {
-          if (cells[j] && cells[j].textContent.toUpperCase().indexOf(filter) > -1) {
-            match = true;
-            break;
-          }
-        }
-
-        rows[i].style.display = match ? '' : 'none';
-      }
+      Array.from(rows).forEach(row => {
+        const cells = row.getElementsByTagName('td');
+        const match = Array.from(cells).some(cell => cell.textContent.toUpperCase().includes(filter));
+        row.style.display = match ? '' : 'none';
+      });
     };
 
-    // Manejar el envío del formulario con AJAX
-    const form = document.getElementById("cuentaBancoForm");
+    // Handle modal row selection
+    function handleRowSelection(modalId, tableId, inputId, hiddenInputId) {
+      const table = document.getElementById(tableId);
+      const input = document.getElementById(inputId);
+      const hiddenInput = document.getElementById(hiddenInputId);
+
+      table.addEventListener('click', function (event) {
+        const row = event.target.closest('tr');
+        if (row) {
+          input.value = row.getAttribute('data-nombre');
+          hiddenInput.value = row.getAttribute('data-id');
+          input.classList.remove('is-invalid');
+          input.classList.add('is-valid');
+          $(`#${modalId}`).modal('hide');
+        }
+      });
+    }
+
+    handleRowSelection('bancoModal', 'tablaBancos', 'bancoInput', 'idBanco');
+    handleRowSelection('planCuentaModal', 'tablaPlanesCuenta', 'planCuentaInput', 'idPlanCuenta');
+
+    // Handle form submission
     form.addEventListener("submit", function (e) {
-      e.preventDefault(); // Evitar el envío tradicional del formulario
+      e.preventDefault();
 
       const formData = new FormData(form);
 
       fetch(form.action, {
         method: "POST",
         body: formData,
-        headers: {
-          "X-Requested-With": "XMLHttpRequest", // Indicar que es una solicitud AJAX
-        },
+        headers: { "X-Requested-With": "XMLHttpRequest" },
       })
-        .then((response) => response.json())
-        .then((data) => {
+        .then(response => response.json())
+        .then(data => {
           if (data.success) {
-            // Mostrar mensaje de éxito
             Swal.fire({
               icon: "success",
               title: "Registro exitoso",
               text: data.message,
               confirmButtonText: "Aceptar",
-              customClass: {
-                confirmButton: "btn btn-warning",
-              },
+              customClass: { confirmButton: "btn btn-warning" },
               buttonsStyling: false,
             }).then(() => {
-              window.location.href = data.redirect_url; // Redirigir a la URL proporcionada
+              window.location.href = data.redirect_url;
             });
           } else {
-            // Mostrar errores
             Swal.fire({
               icon: "error",
               title: "Error en el registro",
-              html: Object.values(data.errors)
-                .map((error) => `<p>${error}</p>`)
-                .join(""),
+              html: Object.values(data.errors).map(error => `<p>${error}</p>`).join(""),
             });
           }
         })
-        .catch((error) => {
+        .catch(error => {
           console.error("Error:", error);
           Swal.fire({
             icon: "error",

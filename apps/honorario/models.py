@@ -11,7 +11,8 @@ class Honorario(models.Model):
     idCargo = models.ForeignKey(Cargo, on_delete=models.CASCADE)  # Clave foránea a Cargo  
     idCohorte = models.ForeignKey(Cohorte, on_delete=models.CASCADE)  # Clave foránea a Cohorte  
     idMateria = models.ForeignKey(Materia, on_delete=models.CASCADE)  # Clave foránea a Materia  
-    horas = models.FloatField()  # Número de horas trabajadas  
+    horas = models.PositiveIntegerField()  # Número de horas trabajadas (debe ser un número entero positivo)
+    monto = models.DecimalField(max_digits=15, decimal_places=2)  # Monto del Honorario  
     estadoHonorario = models.CharField(max_length=10, db_index=True)  # Estado del Honorario  
     fechaHonorario = models.DateField(auto_now_add=True)  # Fecha de creación del Honorario  
 
@@ -27,19 +28,23 @@ class Honorario(models.Model):
             )
         ]
 
+   
     def clean(self):
-        # Evita duplicados: una persona no puede tener más de un honorario para la misma cohorte, cargo y materia
+        # Evitar duplicados exactos
         qs = Honorario.objects.filter(
             idPersona=self.idPersona,
-            idCohorte=self.idCohorte,
             idCargo=self.idCargo,
+            idCohorte=self.idCohorte,
             idMateria=self.idMateria,
+            horas=self.horas,
+            monto=self.monto,
+            estadoHonorario=self.estadoHonorario
         )
-        # Excluye el propio registro si es edición
+        # Excluir el propio registro si es una edición
         if self.pk:
             qs = qs.exclude(pk=self.pk)
         if qs.exists():
-            raise ValidationError({'__all__': 'Este honorario ya está registrado para esta persona, cohorte, cargo y materia.'})
+            raise ValidationError({'__all__': 'Ya existe un registro exactamente igual.'})
 
     def __str__(self):
         return f"Honorario {self.idHonorario} - {self.idPersona}"

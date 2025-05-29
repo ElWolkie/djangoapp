@@ -29,11 +29,41 @@ from .models import Personas, Usuarios, TipoFormacion, Formacion, Materia, Cohor
 
 from apps.honorario.models import Honorario
 from apps.solicitud.models import Solicitud
-from apps.cuentaBanco.models import Banco, PlanCuenta
+from apps.cuentaBanco.models import Banco, PlanCuenta, CuentaBanco
+from apps.empresa.models import empresa
+from apps.periodoContable.models import periodoContable
 
+@login_required(login_url='login')
+def contabilidad(request):
+    # 1. Última cuenta bancaria
+    try:
+        ultima_cuenta = CuentaBanco.objects.latest('fechaActualizacion')
+    except CuentaBanco.DoesNotExist:
+        ultima_cuenta = None
 
-def contabilidad_view(request):
-    return render(request, 'home/index2.html')
+    # 2. Última empresa (corregir excepción)
+    try:
+        ultima_empresa = empresa.objects.latest('fechaEmpresa')
+    except empresa.DoesNotExist:  # ← Excepción corregida
+        ultima_empresa = None
+
+    # 3. Periodo contable
+    try:
+        periodo_actual = periodoContable.objects.latest('fechaInicioPeriodo')
+    except periodoContable.DoesNotExist:
+        periodo_actual = None
+
+    context = {
+        'ultima_cuenta': ultima_cuenta,
+        'ultima_empresa': ultima_empresa,
+        'periodo_actual': periodo_actual,
+        'saldo_contable': "En desarrollo...",
+        'total_cuentas': CuentaBanco.objects.count(),
+        'total_empresas': empresa.objects.count(),
+        'total_periodos': periodoContable.objects.count()
+    }
+    
+    return render(request, 'home/index2.html', context)
 
 # Vista optimizada para el dashboard
 @login_required(login_url='login')
@@ -108,14 +138,20 @@ def logout_view(request):
 # @ratelimit(key='post:cedula', rate='5/15m')  # 5 intentos por 15 minutos
 def login_view(request):
     if request.user.is_authenticated:
-        return redirect('home')
+        # Si ya está autenticado, redirigir según su grupo
+        if request.user.is_superuser:
+            return redirect('home')
+        elif request.user.groups.filter(name='Contable').exists():
+            return redirect('contabilidad')
+        else:  # Para Administrativo/Administrador
+            return redirect('home')
     
-    next_param = request.GET.get('next', 'home')  # Obtener next de la URL
-    
+    next_param = request.GET.get('next', 'home')
+
     if request.method == 'POST':
         cedula = request.POST.get('cedula')
         password = request.POST.get('password')
-        next_param = request.POST.get('next', 'home')  # Obtener next del POST
+        next_param = request.POST.get('next', 'home')
         
         try:
             persona = Personas.objects.get(cedula=cedula)
@@ -123,7 +159,14 @@ def login_view(request):
             
             if user is not None:
                 login(request, user)
-                return redirect(next_param)
+                
+                # Redirección según grupo
+                if user.is_superuser:
+                    return redirect('home')
+                elif user.groups.filter(name='Contable').exists():
+                    return redirect('contabilidad')
+                else:  # Grupo Administrativo/Administrador
+                    return redirect('home')
             else:
                 messages.error(request, "Contraseña incorrecta")
         except Personas.DoesNotExist:
@@ -336,27 +379,30 @@ def asignar_grupos(request, idUsuario):
     # --- Agrupación de permisos ---
     grupo_admin = None
     admin_group_name = 'Administrador'
+    grupo_contable = None
+    contable_group_name = 'Contable'
     categorias_stems = {
+        'Asiento Contables': 'Asiento Contable',
         'Bancos': 'Banco',
         'Cargos': 'Cargo',
         'Clientes-Proveedores': 'Cliente-Proveedor',
         'Cohortes': 'Cohorte',
         'Configuracion': 'Configuracion',
-        'Denominaciones': 'Denominacion',
+        'Cuenta Bancarias': 'Cuenta Bancaria',
+        'Empresas': 'Empresa',
         'Formaciones': 'Formacion',
         'Honorarios': 'Honorario',
-        'Ingresos': 'Ingreso',
         'Inscripciones': 'Inscripcion',
         'Materias': 'Materia',
         'Monedas': 'Moneda',
+        'Periodo Contables': 'Periodo Contable',
+        'Plan Cuentas': 'Plan Cuenta',
         'Requisitos': 'Requisito',
         'Servicios': 'Servicio',
         'Solicitudes': 'Solicitud',
         'Tasas': 'Tasa',
         'Tramites': 'Tramite',
         'Tipo Formaciones': 'Tipo Formacion',
-        'Tipo Ingresos': 'Tipo Ingreso',
-        'Tipo Movimientos': 'Tipo Movimiento',
         'Tipo Personas': 'Tipo Persona',
         'Asignacion Tipo Personas': 'Asignacion Tipo Persona',
         'Usuarios': 'Usuario',
@@ -372,8 +418,13 @@ def asignar_grupos(request, idUsuario):
     grupos_categorizados = defaultdict(lambda: {'total': None, 'acciones': []})
 
     for grupo in todos_los_grupos:
+        # Manejar grupos especiales primero
         if grupo.name == admin_group_name:
             grupo_admin = grupo
+            continue  # <-- Este continue hacía que se salteara el contable
+            
+        if grupo.name == contable_group_name:
+            grupo_contable = grupo
             continue
 
         categorizado = False
@@ -425,7 +476,9 @@ def asignar_grupos(request, idUsuario):
         "form": form,
         "usuario": usuario,
         "grupo_admin": grupo_admin,
+        "grupo_contable": grupo_contable,
         "grupo_admin_id": grupo_admin.pk if grupo_admin else None,
+        "grupo_contable_id": grupo_contable.pk if grupo_contable else None,
         "grupos_categorizados": grupos_categorizados,
     }
     return render(request, 'home/asignar_grupos.html', context)

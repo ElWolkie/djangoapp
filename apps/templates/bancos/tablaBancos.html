@@ -49,6 +49,27 @@
   border-radius: 4px;
   border: 2px solid #f1f1f1;
 }
+
+    .pagination-container {
+    margin-top: 1rem !important;
+}
+
+.pagination {
+    --bs-pagination-padding-x: 0.75rem;
+    --bs-pagination-padding-y: 0.375rem;
+    --bs-pagination-font-size: 0.875rem;
+}
+
+.page-link {
+    min-width: 32px;
+    text-align: center;
+    border-radius: 4px !important;
+}
+
+.page-item.active .page-link {
+    background-color: #fb6340;
+    border-color: #fb6340;
+}
   </style>
 {% endblock stylesheets %}
 
@@ -65,12 +86,12 @@
   </div>
 
   <div class="col-md-4 text-end">
-    {% if perms.bancos.add_banco %}
+    {% if perms.cuentaBanco.add_banco %}
     <a href="{% url 'banco_create' %}" class="btn btn-warning px-4">
       <i class="fas fa-plus-circle me-1"></i> Registrar
     </a>
     {% endif %}
-    {% if perms.bancos.change_banco %}
+    {% if perms.cuentaBanco.add_banco %}
     <button class="btn btn-warning px-4 ms-2" data-bs-toggle="modal" data-bs-target="#confirmarActualizacionModal" title="Actualizar bancos de fuente externa">
       <i class="fas fa-credit-card me-1"></i> Actualizar
     </button>
@@ -180,6 +201,7 @@
             <td>{{ banco.fechaBanco|date:"d/m/Y" }}</td>
             <td class="actions-column">
               <div class="d-flex gap-2">
+                {% if perms.cuentaBanco.change_banco %}
                 <button class="btn btn-primary btn-sm"
                         data-bs-toggle="modal"
                         data-bs-target="#editBancoModal"
@@ -187,27 +209,33 @@
                         title="Editar banco">
                   <i class="fas fa-edit"></i>
                 </button>
+                {% endif %}
+
 
                 <!-- INHABILITAR (solo si está ACTIVO) -->
                   {% if banco.estadoBanco %}
-                  <button class="btn btn-outline-warning btn-sm"
-                          data-bs-toggle="modal"
-                          data-bs-target="#deleteBancoModal"
-                          data-url="{% url 'banco_delete' banco.idBanco %}"
-                          title="Inhabilitar banco">
-                    <i class="fas fa-user-slash"></i>
-                  </button>
+                    {% if perms.cuentaBanco.change_banco %}
+                    <button class="btn btn-outline-warning btn-sm"
+                            data-bs-toggle="modal"
+                            data-bs-target="#deleteBancoModal"
+                            data-url="{% url 'banco_delete' banco.idBanco %}"
+                            title="Inhabilitar banco">
+                      <i class="fas fa-user-slash"></i>
+                    </button>
+                    {% endif %}
                   {% endif %}
 
                   <!-- REACTIVAR (solo si está INACTIVO) -->
                   {% if not banco.estadoBanco %}
-                  <button class="btn btn-success btn-sm"
-                          data-bs-toggle="modal"
-                          data-bs-target="#reactivateBancoModal"
-                          data-url="{% url 'banco_reactivate' banco.idBanco %}"
-                          title="Reactivar banco">
-                    <i class="fas fa-redo"></i>
-                  </button>
+                    {% if perms.cuentaBanco.change_banco %}
+                    <button class="btn btn-success btn-sm"
+                            data-bs-toggle="modal"
+                            data-bs-target="#reactivateBancoModal"
+                            data-url="{% url 'banco_reactivate' banco.idBanco %}"
+                            title="Reactivar banco">
+                      <i class="fas fa-redo"></i>
+                    </button>
+                    {% endif %}
                   {% endif %}
               </div>
             </td>

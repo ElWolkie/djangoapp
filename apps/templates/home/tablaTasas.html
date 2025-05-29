@@ -30,6 +30,26 @@
     display: block !important;
     background-color: rgba(0,0,0,0.5);
   }
+   .pagination-container {
+    margin-top: 1rem !important;
+}
+
+.pagination {
+    --bs-pagination-padding-x: 0.75rem;
+    --bs-pagination-padding-y: 0.375rem;
+    --bs-pagination-font-size: 0.875rem;
+}
+
+.page-link {
+    min-width: 32px;
+    text-align: center;
+    border-radius: 4px !important;
+}
+
+.page-item.active .page-link {
+    background-color: #fb6340;
+    border-color: #fb6340;
+}
 </style>
 {% endblock stylesheets %}
 
@@ -365,4 +385,78 @@ document.addEventListener("DOMContentLoaded", function() {
   }
 </script>
 
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const table = document.getElementById('tasasTable');
+    const paginationContainer = document.createElement('div');
+    paginationContainer.className = 'pagination-container mt-3';
+    table.parentNode.insertBefore(paginationContainer, table.nextSibling);
+
+    const pagination = document.createElement('ul');
+    pagination.className = 'pagination justify-content-center';
+    paginationContainer.appendChild(pagination);
+
+    const rowsPerPage = 10;
+    let currentPage = 1;
+
+    function displayRows() {
+        const rows = table.getElementsByTagName('tr');
+        const start = (currentPage - 1) * rowsPerPage + 1;
+        const end = start + rowsPerPage;
+
+        for (let i = 1; i < rows.length; i++) {
+            rows[i].style.display = i >= start && i < end ? '' : 'none';
+        }
+    }
+
+    function setupPagination() {
+        const rows = table.getElementsByTagName('tr');
+        const totalPages = Math.ceil((rows.length - 1) / rowsPerPage);
+
+        pagination.innerHTML = '';
+
+        // Botón Anterior
+        const prevLi = document.createElement('li');
+        prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+        prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Anterior">&laquo;</a>`;
+        prevLi.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (currentPage > 1) currentPage--;
+            displayRows();
+            setupPagination();
+        });
+        pagination.appendChild(prevLi);
+
+        // Botones de Páginas
+        for (let i = 1; i <= totalPages; i++) {
+            const li = document.createElement('li');
+            li.className = `page-item ${i === currentPage ? 'active' : ''}`;
+            li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+            li.addEventListener('click', (e) => {
+                e.preventDefault();
+                currentPage = i;
+                displayRows();
+                setupPagination();
+            });
+            pagination.appendChild(li);
+        }
+
+        // Botón Siguiente
+        const nextLi = document.createElement('li');
+        nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+        nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Siguiente">&raquo;</a>`;
+        nextLi.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (currentPage < totalPages) currentPage++;
+            displayRows();
+            setupPagination();
+        });
+        pagination.appendChild(nextLi);
+    }
+
+    displayRows();
+    setupPagination();
+});
+</script>
 {% endblock javascripts %}
