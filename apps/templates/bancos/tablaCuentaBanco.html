@@ -45,6 +45,27 @@
       border-radius: 4px;
       border: 2px solid #f1f1f1;
     }
+
+    .pagination-container {
+    margin-top: 1rem !important;
+}
+
+.pagination {
+    --bs-pagination-padding-x: 0.75rem;
+    --bs-pagination-padding-y: 0.375rem;
+    --bs-pagination-font-size: 0.875rem;
+}
+
+.page-link {
+    min-width: 32px;
+    text-align: center;
+    border-radius: 4px !important;
+}
+
+.page-item.active .page-link {
+    background-color: #fb6340;
+    border-color: #fb6340;
+}
   </style>
 {% endblock stylesheets %}
 
@@ -180,7 +201,7 @@
   <div class="modal-dialog modal-md">
     <div class="modal-content">
       <div class="modal-header bg-primary text-white">
-        <h5 class="modal-title"><i class="fas fa-edit me-2"></i> Editar Cuenta Bancaria</h5>
+        <h5 class="modal-title text-white"><i class="fas fa-edit me-2"></i> Editar Cuenta Bancaria</h5>
         <button type="button" class="btn btn-sm btn-icon-only text-white"
                 data-bs-dismiss="modal">
           <i class="fas fa-times"></i>
@@ -198,7 +219,7 @@
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header bg-warning text-dark">
-        <h5 class="modal-title"><i class="fas fa-user-slash me-2"></i> Confirmar Inhabilitación</h5>
+        <h5 class="modal-title text-white"><i class="fas fa-user-slash me-2"></i> Confirmar Inhabilitación</h5>
         <button type="button" class="btn btn-sm btn-icon-only text-white"
                 data-bs-dismiss="modal">
           <i class="fas fa-times"></i>
@@ -225,7 +246,7 @@
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header bg-success text-white">
-        <h5 class="modal-title"><i class="fas fa-redo me-2"></i> Confirmar Reactivación</h5>
+        <h5 class="modal-title text-white"><i class="fas fa-redo me-2"></i> Confirmar Reactivación</h5>
         <button type="button" class="btn btn-sm btn-icon-only text-white"
                 data-bs-dismiss="modal">
           <i class="fas fa-times"></i>
@@ -258,9 +279,12 @@ function is_ajax() {
   return window.XMLHttpRequest && true;
 }
 
-$(function(){
-
-  // 1) Carga el formulario de edición en el modal
+document.addEventListener('DOMContentLoaded', function () {
+  // ============================================
+  // 1) Funcionalidades MODALES (mantenidas del segundo código)
+  // ============================================
+  
+  // Carga el formulario de edición en el modal
   function loadInModal(modalSel, urlGetter, contentSel){
     $(modalSel)
       .on('show.bs.modal', function(e){
@@ -282,7 +306,7 @@ $(function(){
     '#editCuentaContent'
   );
 
-  // 2) Cuando el modal ya esté visible, engancha el submit AJAX
+  // Cuando el modal de edición esté visible
   $('#editCuentaModal').on('shown.bs.modal', function(){
     const form = document.getElementById('editCuentaForm');
     if (!form) return;
@@ -320,7 +344,7 @@ $(function(){
     });
   });
 
-  // 3) Configura los modales de Inhabilitar / Reactivar
+  // Configura modales de Inhabilitar/Reactivar
   ['delete','reactivate'].forEach(action => {
     const mid = action==='delete' ? '#deleteCuentaModal' : '#reactivateCuentaModal';
     const fid = action==='delete' ? '#deleteCuentaForm'   : '#reactivateCuentaForm';
@@ -346,50 +370,144 @@ $(function(){
     });
   });
 
-  // 4) Buscador de la tabla principal
-  $('#searchInput').on('keyup', function(){
-    const f = this.value.toUpperCase();
-    $('#cuentasBancoTable tbody tr').each(function(){
-      $(this).toggle($(this).text().toUpperCase().includes(f));
-    });
-  });
-
-  // 5) Scroll horizontal con la rueda
-  const wrap = document.querySelector('.table-responsive');
-  wrap?.addEventListener('wheel', e => {
-    if (e.deltaY){ e.preventDefault(); wrap.scrollLeft += e.deltaY; }
-  });
-
-  // 6) Paginación simple
-  const $tbl = $('#cuentasBancoTable');
-  const $rows = $tbl.find('tbody tr');
-  const perPage = 10;
-  let page = 1;
-  const $pager = $('<ul class="pagination justify-content-center mt-3 mb-0"></ul>')
-                  .insertAfter($tbl.parent());
-
-  function showPage(p){
-    const start = (p-1)*perPage, end = p*perPage;
-    $rows.hide().slice(start, end).show();
+  // ============================================
+  // 2) PAGINACIÓN y BÚSQUEDA (del primer código mejorado)
+  // ============================================
+  
+  // Obtener elementos clave
+  const table = document.getElementById('cuentasBancoTable');
+  const rows = Array.from(table.querySelectorAll('tbody tr'));
+  const searchInput = document.getElementById('searchInput');
+  
+  // Crear contenedor de paginación
+  const paginationContainer = document.createElement('div');
+  paginationContainer.className = 'pagination-container mt-3';
+  table.parentNode.insertBefore(paginationContainer, table.nextSibling);
+  
+  const pagination = document.createElement('ul');
+  pagination.className = 'pagination justify-content-center';
+  paginationContainer.appendChild(pagination);
+  
+  // Configuración
+  const rowsPerPage = 10;
+  let currentPage = 1;
+  let filteredRows = rows;
+  
+  // Función para renderizar la tabla
+  function render() {
+      // Ocultar todas las filas
+      rows.forEach(row => row.style.display = 'none');
+      
+      // Calcular rango para la página actual
+      const startIndex = (currentPage - 1) * rowsPerPage;
+      const endIndex = Math.min(startIndex + rowsPerPage, filteredRows.length);
+      
+      // Mostrar solo las filas de la página actual
+      for (let i = startIndex; i < endIndex; i++) {
+          filteredRows[i].style.display = '';
+      }
+      
+      // Actualizar paginación
+      setupPagination();
   }
-  function buildPager(){
-    const total = Math.ceil($rows.length/perPage);
-    $pager.empty();
-    const makeLi = (txt, disabled, cb) =>
-      $('<li class="page-item">')
-        .toggleClass('disabled', disabled)
-        .append($('<a class="page-link" href="#">').text(txt)
-          .on('click', e=>{ e.preventDefault(); if(!disabled) cb(); }));
-    $pager.append(makeLi('«', page===1, ()=>{page--;update();}));
-    for(let i=1;i<=total;i++){
-      $pager.append(makeLi(i, page===i, ()=>{page=i;update();}));
-    }
-    $pager.append(makeLi('»', page===total, ()=>{page++;update();}));
+  
+  // Función para filtrar filas
+  function filterRows() {
+      const query = searchInput.value.trim().toUpperCase();
+      
+      if (!query) {
+          filteredRows = rows;
+          return;
+      }
+      
+      filteredRows = rows.filter(row => {
+          const cells = row.querySelectorAll('td');
+          let rowText = '';
+          
+          // Concatenar todo el texto de la fila
+          cells.forEach(cell => {
+              rowText += cell.textContent.toUpperCase() + ' ';
+          });
+          
+          return rowText.includes(query);
+      });
   }
-  function update(){ showPage(page); buildPager(); }
-  update();
+  
+  // Función para configurar la paginación
+  function setupPagination() {
+      const totalPages = Math.ceil(filteredRows.length / rowsPerPage);
+      pagination.innerHTML = '';
+      
+      // Botón Anterior
+      const prevLi = document.createElement('li');
+      prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+      prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Anterior">&laquo;</a>`;
+      prevLi.addEventListener('click', (e) => {
+          e.preventDefault();
+          if (currentPage > 1) {
+              currentPage--;
+              render();
+          }
+      });
+      pagination.appendChild(prevLi);
+      
+      // Botones de Páginas
+      const maxVisiblePages = 5;
+      let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+      let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+      
+      // Ajustar si no hay suficientes páginas al inicio
+      if (endPage - startPage + 1 < maxVisiblePages) {
+          startPage = Math.max(1, endPage - maxVisiblePages + 1);
+      }
+      
+      for (let i = startPage; i <= endPage; i++) {
+          const li = document.createElement('li');
+          li.className = `page-item ${i === currentPage ? 'active' : ''}`;
+          li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+          li.addEventListener('click', (e) => {
+              e.preventDefault();
+              currentPage = i;
+              render();
+          });
+          pagination.appendChild(li);
+      }
+      
+      // Botón Siguiente
+      const nextLi = document.createElement('li');
+      nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+      nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Siguiente">&raquo;</a>`;
+      nextLi.addEventListener('click', (e) => {
+          e.preventDefault();
+          if (currentPage < totalPages) {
+              currentPage++;
+              render();
+          }
+      });
+      pagination.appendChild(nextLi);
+  }
+  
+  // Evento de búsqueda
+  searchInput.addEventListener('input', function() {
+      filterRows();
+      currentPage = 1;
+      render();
+  });
+  
+  // Scroll horizontal con rueda
+  const wrapper = document.querySelector('.table-responsive');
+  if (wrapper) {
+      wrapper.addEventListener('wheel', e => {
+          if (e.deltaY) {
+              e.preventDefault();
+              wrapper.scrollLeft += e.deltaY;
+          }
+      });
+  }
+  
+  // Inicializar
+  render();
 
 });
 </script>
-
 {% endblock javascripts %}

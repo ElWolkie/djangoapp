@@ -138,14 +138,20 @@ def logout_view(request):
 # @ratelimit(key='post:cedula', rate='5/15m')  # 5 intentos por 15 minutos
 def login_view(request):
     if request.user.is_authenticated:
-        return redirect('home')
+        # Si ya está autenticado, redirigir según su grupo
+        if request.user.is_superuser:
+            return redirect('home')
+        elif request.user.groups.filter(name='Contable').exists():
+            return redirect('contabilidad')
+        else:  # Para Administrativo/Administrador
+            return redirect('home')
     
-    next_param = request.GET.get('next', 'home')  # Obtener next de la URL
-    
+    next_param = request.GET.get('next', 'home')
+
     if request.method == 'POST':
         cedula = request.POST.get('cedula')
         password = request.POST.get('password')
-        next_param = request.POST.get('next', 'home')  # Obtener next del POST
+        next_param = request.POST.get('next', 'home')
         
         try:
             persona = Personas.objects.get(cedula=cedula)
@@ -153,7 +159,14 @@ def login_view(request):
             
             if user is not None:
                 login(request, user)
-                return redirect(next_param)
+                
+                # Redirección según grupo
+                if user.is_superuser:
+                    return redirect('home')
+                elif user.groups.filter(name='Contable').exists():
+                    return redirect('contabilidad')
+                else:  # Grupo Administrativo/Administrador
+                    return redirect('home')
             else:
                 messages.error(request, "Contraseña incorrecta")
         except Personas.DoesNotExist:
@@ -376,11 +389,9 @@ def asignar_grupos(request, idUsuario):
         'Cohortes': 'Cohorte',
         'Configuracion': 'Configuracion',
         'Cuenta Bancarias': 'Cuenta Bancaria',
-        'Denominaciones': 'Denominacion',
         'Empresas': 'Empresa',
         'Formaciones': 'Formacion',
         'Honorarios': 'Honorario',
-        'Ingresos': 'Ingreso',
         'Inscripciones': 'Inscripcion',
         'Materias': 'Materia',
         'Monedas': 'Moneda',
@@ -392,8 +403,6 @@ def asignar_grupos(request, idUsuario):
         'Tasas': 'Tasa',
         'Tramites': 'Tramite',
         'Tipo Formaciones': 'Tipo Formacion',
-        'Tipo Ingresos': 'Tipo Ingreso',
-        'Tipo Movimientos': 'Tipo Movimiento',
         'Tipo Personas': 'Tipo Persona',
         'Asignacion Tipo Personas': 'Asignacion Tipo Persona',
         'Usuarios': 'Usuario',

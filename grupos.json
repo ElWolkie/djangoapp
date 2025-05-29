@@ -148,19 +148,6 @@
 },
 {
   "model": "auth.group",
-  "pk": 10,
-  "fields": {
-    "name": "Denominaciones",
-    "permissions": [
-      33,
-      34,
-      35,
-      36
-    ]
-  }
-},
-{
-  "model": "auth.group",
   "pk": 11,
   "fields": {
     "name": "Formaciones",
@@ -195,19 +182,6 @@
       42,
       43,
       44
-    ]
-  }
-},
-{
-  "model": "auth.group",
-  "pk": 14,
-  "fields": {
-    "name": "Ingresos",
-    "permissions": [
-      85,
-      86,
-      87,
-      88
     ]
   }
 },
@@ -260,32 +234,6 @@
       54,
       55,
       56
-    ]
-  }
-},
-{
-  "model": "auth.group",
-  "pk": 19,
-  "fields": {
-    "name": "Tipo Ingresos",
-    "permissions": [
-      57,
-      58,
-      59,
-      60
-    ]
-  }
-},
-{
-  "model": "auth.group",
-  "pk": 20,
-  "fields": {
-    "name": "Tipo Movimientos",
-    "permissions": [
-      61,
-      62,
-      63,
-      64
     ]
   }
 },
@@ -590,46 +538,6 @@
 },
 {
   "model": "auth.group",
-  "pk": 49,
-  "fields": {
-    "name": "DenominacionRegistrar",
-    "permissions": [
-      33
-    ]
-  }
-},
-{
-  "model": "auth.group",
-  "pk": 50,
-  "fields": {
-    "name": "DenominacionEditar",
-    "permissions": [
-      34
-    ]
-  }
-},
-{
-  "model": "auth.group",
-  "pk": 51,
-  "fields": {
-    "name": "DenominacionEliminar",
-    "permissions": [
-      35
-    ]
-  }
-},
-{
-  "model": "auth.group",
-  "pk": 52,
-  "fields": {
-    "name": "DenominacionVisualizar",
-    "permissions": [
-      36
-    ]
-  }
-},
-{
-  "model": "auth.group",
   "pk": 53,
   "fields": {
     "name": "FormacionRegistrar",
@@ -705,46 +613,6 @@
     "name": "HonorarioVisualizar",
     "permissions": [
       104
-    ]
-  }
-},
-{
-  "model": "auth.group",
-  "pk": 61,
-  "fields": {
-    "name": "IngresoRegistrar",
-    "permissions": [
-      85
-    ]
-  }
-},
-{
-  "model": "auth.group",
-  "pk": 62,
-  "fields": {
-    "name": "IngresoEditar",
-    "permissions": [
-      86
-    ]
-  }
-},
-{
-  "model": "auth.group",
-  "pk": 63,
-  "fields": {
-    "name": "IngresoEliminar",
-    "permissions": [
-      87
-    ]
-  }
-},
-{
-  "model": "auth.group",
-  "pk": 64,
-  "fields": {
-    "name": "IngresoVisualizar",
-    "permissions": [
-      88
     ]
   }
 },
@@ -1105,86 +973,6 @@
     "name": "Tipo FormacionVisualizar",
     "permissions": [
       56
-    ]
-  }
-},
-{
-  "model": "auth.group",
-  "pk": 101,
-  "fields": {
-    "name": "Tipo IngresoRegistrar",
-    "permissions": [
-      57
-    ]
-  }
-},
-{
-  "model": "auth.group",
-  "pk": 102,
-  "fields": {
-    "name": "Tipo IngresoEditar",
-    "permissions": [
-      58
-    ]
-  }
-},
-{
-  "model": "auth.group",
-  "pk": 103,
-  "fields": {
-    "name": "Tipo IngresoEliminar",
-    "permissions": [
-      59
-    ]
-  }
-},
-{
-  "model": "auth.group",
-  "pk": 104,
-  "fields": {
-    "name": "Tipo IngresoVisualizar",
-    "permissions": [
-      60
-    ]
-  }
-},
-{
-  "model": "auth.group",
-  "pk": 105,
-  "fields": {
-    "name": "Tipo MovimientoRegistrar",
-    "permissions": [
-      61
-    ]
-  }
-},
-{
-  "model": "auth.group",
-  "pk": 106,
-  "fields": {
-    "name": "Tipo MovimientoEditar",
-    "permissions": [
-      62
-    ]
-  }
-},
-{
-  "model": "auth.group",
-  "pk": 107,
-  "fields": {
-    "name": "Tipo MovimientoVisualizar",
-    "permissions": [
-      64
-    ]
-  }
-},
-{
-  "model": "auth.group",
-  "pk": 108,
-  "fields": {
-    "name": "Tipo MovimientoEliminar",
-    "permissions": [
-      63
     ]
   }
 },

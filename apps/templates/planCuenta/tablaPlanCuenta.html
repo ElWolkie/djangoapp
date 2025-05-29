@@ -46,7 +46,8 @@
       border-radius: 4px;
       border: 2px solid #f1f1f1;
     }
-     .pagination-container {
+
+.pagination-container {
     margin-top: 1rem !important;
 }
 
@@ -81,12 +82,28 @@
       </div>
     </div>
     {% if perms.planCuenta.add_plancuenta %}
-    <div class="col-md-8 text-end">
+    <div class="col-md-4 text-end">
       <a href="{% url 'plan_cuenta_create' %}" class="btn btn-warning px-4">
         <i class="fas fa-plus-circle me-1"></i> Registrar
       </a>
     </div>
     {% endif %}
+    <div class="col-md-4 text-end">
+      <a href="{% url 'reporte_planes_pdf' %}" class="btn btn-outline-danger btn-sm" target="_blank">
+        <i class="fas fa-file-pdf"></i> Descargar PDF
+      </a>
+    </div>
+  </div>
+
+  <div class="mb-3">
+    <a href="?mostrar_inactivos={% if mostrar_inactivos %}false{% else %}true{% endif %}"
+       class="btn btn-outline-secondary btn-sm">
+      {% if mostrar_inactivos %}
+        <i class="fas fa-eye-slash me-1"></i> Ocultar inactivos
+      {% else %}
+        <i class="fas fa-eye me-1"></i> Mostrar inactivos
+      {% endif %}
+    </a>
   </div>
 
   <div id="globalMessages">
@@ -111,6 +128,7 @@
             <th>Nivel</th>
             <th>Estado</th>
             <th>Fecha</th>
+            <th class="actions-column">Acciones</th>
           </tr>
         </thead>
         <tbody>
@@ -122,20 +140,46 @@
             <td>{{ plan.nivelPlanCuenta }}</td>
             <td>
               {% if plan.estadoPlanCuenta %}
-                <span class="badge bg-success text-white">
-                  <i class="fas fa-check-circle me-1"></i> Activo
-                </span>
+                <span class="badge bg-success text-white">Activo</span>
               {% else %}
-                <span class="badge bg-danger text-white">
-                  <i class="fas fa-times-circle me-1"></i> Inactivo
-                </span>
+                <span class="badge bg-danger text-white">Inactivo</span>
               {% endif %}
             </td>
             <td>{{ plan.fechaPlanCuenta|date:"d/m/Y" }}</td>
+            <td class="actions-column">
+              <div class="d-flex gap-2">
+                {% if plan.idPlanCuenta %}
+                  {% if perms.planCuenta.change_plancuenta %}
+                  <a href="{% url 'editar_plan' plan.idPlanCuenta %}" class="btn btn-primary btn-sm" title="Editar">
+                    <i class="fas fa-edit"></i>
+                  </a>
+                  {% endif %}
+                {% endif %}
+                {% if plan.estadoPlanCuenta %}
+                  {% if perms.planCuenta.change_plancuenta %}
+                      <button class="btn btn-outline-warning btn-sm"
+                              data-bs-toggle="modal"
+                              data-bs-target="#deletePlanCuentaModal"
+                              data-url="{% url 'desactivar_plan' plan.idPlanCuenta %}"
+                              title="Inhabilitar">
+                        <i class="fas fa-user-slash"></i>
+                      </button>
+                    {% else %}
+                      <button class="btn btn-success btn-sm"
+                              data-bs-toggle="modal"
+                              data-bs-target="#reactivatePlanCuentaModal"
+                              data-url="{% url 'reactivar_plan' plan.idPlanCuenta %}"
+                              title="Reactivar">
+                        <i class="fas fa-redo"></i>
+                      </button>
+                  {% endif %}
+                {% endif %}
+              </div>
+            </td>
           </tr>
           {% empty %}
           <tr>
-            <td colspan="6" class="text-center py-4">No hay planes de cuenta disponibles</td>
+            <td colspan="7" class="text-center py-4">No hay planes de cuenta disponibles</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -143,45 +187,102 @@
     </div>
   </div>
 </div>
+
+<!-- Modal: Inhabilitar Plan de Cuenta -->
+<div class="modal fade" id="deletePlanCuentaModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-warning text-dark">
+              <h5 class="modal-title text-dark"><i class="fas fa-book me-2"></i> Confirmar Inhabilitación</h5>
+              <button type="button" class="btn btn-sm btn-icon-only text-dark" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+      <div class="modal-body">
+        ¿Seguro que deseas inhabilitar este plan de cuenta?
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <form id="deletePlanCuentaForm" method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-warning">Inhabilitar</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Reactivar Plan de Cuenta -->
+<div class="modal fade" id="reactivatePlanCuentaModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title text-white"><i class="fas fa-book me-2"></i> Confirmar Reactivación</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        ¿Deseas reactivar este plan de cuenta?
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <form id="reactivatePlanCuentaForm" method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-success">Reactivar</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock content %}
+
 {% block javascripts %}
 <script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
 <script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
+<script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    // Obtener elementos clave
     const table = document.getElementById('planesTable');
     const rows = Array.from(table.querySelectorAll('tbody tr'));
+    const searchInput = document.getElementById('searchInput');
+    
+    // Crear contenedor de paginación
     const paginationContainer = document.createElement('div');
     paginationContainer.className = 'pagination-container mt-3';
     table.parentNode.insertBefore(paginationContainer, table.nextSibling);
-
+    
     const pagination = document.createElement('ul');
     pagination.className = 'pagination justify-content-center';
     paginationContainer.appendChild(pagination);
-
+    
+    // Configuración
     const rowsPerPage = 5;
     let currentPage = 1;
     let filteredRows = rows;
-
-    // Función para mostrar filas según filtro y paginación
+    
+    // Función para renderizar la tabla
     function render() {
         // Ocultar todas las filas
         rows.forEach(row => row.style.display = 'none');
         
-        // Mostrar solo las filas filtradas en la página actual
-        const start = (currentPage - 1) * rowsPerPage;
-        const end = start + rowsPerPage;
+        // Calcular rango para la página actual
+        const startIndex = (currentPage - 1) * rowsPerPage;
+        const endIndex = Math.min(startIndex + rowsPerPage, filteredRows.length);
         
-        filteredRows.slice(start, end).forEach(row => {
-            row.style.display = '';
-        });
+        // Mostrar solo las filas de la página actual
+        for (let i = startIndex; i < endIndex; i++) {
+            filteredRows[i].style.display = '';
+        }
         
+        // Actualizar paginación
         setupPagination();
     }
-
+    
     // Función para filtrar filas
     function filterRows() {
-        const query = document.getElementById('searchInput').value.trim().toUpperCase();
+        const query = searchInput.value.trim().toUpperCase();
         
         if (!query) {
             filteredRows = rows;
@@ -190,17 +291,22 @@ document.addEventListener('DOMContentLoaded', function () {
         
         filteredRows = rows.filter(row => {
             const cells = row.querySelectorAll('td');
-            return Array.from(cells).some(cell => 
-                cell.textContent.toUpperCase().includes(query)
-            );
+            let rowText = '';
+            
+            // Concatenar todo el texto de la fila
+            cells.forEach(cell => {
+                rowText += cell.textContent.toUpperCase() + ' ';
+            });
+            
+            return rowText.includes(query);
         });
     }
-
+    
     // Función para configurar la paginación
     function setupPagination() {
         const totalPages = Math.ceil(filteredRows.length / rowsPerPage);
         pagination.innerHTML = '';
-
+        
         // Botón Anterior
         const prevLi = document.createElement('li');
         prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
@@ -213,10 +319,16 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
         pagination.appendChild(prevLi);
-
+        
         // Botones de Páginas
-        const startPage = Math.max(1, currentPage - 2);
-        const endPage = Math.min(totalPages, startPage + 4);
+        const maxVisiblePages = 5;
+        let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+        let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+        
+        // Ajustar si no hay suficientes páginas al inicio
+        if (endPage - startPage + 1 < maxVisiblePages) {
+            startPage = Math.max(1, endPage - maxVisiblePages + 1);
+        }
         
         for (let i = startPage; i <= endPage; i++) {
             const li = document.createElement('li');
@@ -229,7 +341,7 @@ document.addEventListener('DOMContentLoaded', function () {
             });
             pagination.appendChild(li);
         }
-
+        
         // Botón Siguiente
         const nextLi = document.createElement('li');
         nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
@@ -243,14 +355,14 @@ document.addEventListener('DOMContentLoaded', function () {
         });
         pagination.appendChild(nextLi);
     }
-
+    
     // Evento de búsqueda
-    document.getElementById('searchInput').addEventListener('keyup', function() {
+    searchInput.addEventListener('input', function() {
         filterRows();
         currentPage = 1;
         render();
     });
-
+    
     // Scroll horizontal con rueda
     const wrapper = document.querySelector('.table-responsive');
     if (wrapper) {
@@ -261,9 +373,46 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
     }
-
+    
     // Inicializar
     render();
+    
+    // Configurar modales de acción
+    // Modal para desactivar
+    $('#deletePlanCuentaModal').on('show.bs.modal', function(e) {
+        const url = $(e.relatedTarget).data('url');
+        $('#deletePlanCuentaForm').attr('action', url);
+    });
+    
+    // Modal para reactivar
+    $('#reactivatePlanCuentaModal').on('show.bs.modal', function(e) {
+        const url = $(e.relatedTarget).data('url');
+        $('#reactivatePlanCuentaForm').attr('action', url);
+    });
+    
+    // Manejar envío de formularios modales
+    $('#deletePlanCuentaForm, #reactivatePlanCuentaForm').on('submit', function(e) {
+        e.preventDefault();
+        const form = $(this);
+        
+        $.ajax({
+            url: form.attr('action'),
+            method: 'POST',
+            data: form.serialize(),
+            success: function(response) {
+                if (response.success) {
+                    // Cerrar modal y recargar
+                    form.closest('.modal').modal('hide');
+                    setTimeout(() => location.reload(), 500);
+                } else {
+                    alert('Error: ' + response.message);
+                }
+            },
+            error: function() {
+                alert('Error en el servidor');
+            }
+        });
+    });
 });
 </script>
 {% endblock javascripts %}

@@ -302,7 +302,7 @@
                   </a>
                 <div id="menu4" class="collapse ml-3">
                   <ul class="nav flex-column">
-                    {% if perms.home.view_movimiento or perms.home.add_movimiento or perms.tipoingreso.view_tipoingreso or perms.home.add_tipoingreso or perms.home.view_tipomovimiento or perms.home.add_tipomovimiento %}
+                    {% comment %} {% if perms.home.view_movimiento or perms.home.add_movimiento or perms.tipoingreso.view_tipoingreso or perms.home.add_tipoingreso or perms.home.view_tipomovimiento or perms.home.add_tipomovimiento %}
                     <li class="nav-item">  
                       <a class="nav-link" href="#" id="ingresoDropdown" data-toggle="collapse" data-target="#ingresoMenu" aria-expanded="false" aria-controls="ingresoMenu" style="padding-left: 15px;">  
                         <i class="ni  ni-caps-small text-orange"></i>
@@ -328,9 +328,9 @@
                         </ul>  
                       </div>  
                     </li> 
-                    {% endif %}
+                    {% endif %} {% endcomment %}
 
-                    {% if perms.home.view_movimiento or perms.home.add_movimiento or perms.tipoingreso.view_tipoingreso or perms.home.add_tipoingreso or perms.home.view_tipomovimiento or perms.home.add_tipomovimiento %}
+                    {% comment %} {% if perms.home.view_movimiento or perms.home.add_movimiento or perms.tipoingreso.view_tipoingreso or perms.home.add_tipoingreso or perms.home.view_tipomovimiento or perms.home.add_tipomovimiento %}
                     <li class="nav-item">  
                       <a class="nav-link" href="#" id="egresoDropdown" data-toggle="collapse" data-target="#egresoMenu" aria-expanded="false" aria-controls="egresoMenu" style="padding-left: 15px;">  
                         <i class="fas fa-hand-holding-usd text-orange"></i>
@@ -355,15 +355,15 @@
                         </ul>  
                       </div>  
                     </li> 
-                    {% endif %}
+                    {% endif %} {% endcomment %}
                     
-                    {% if perms.home.view_denominacion or perms.home.add_denominacion %}
+                    {% comment %} {% if perms.home.view_denominacion or perms.home.add_denominacion %}
                     <li class="nav-item">
                       <a class="nav-link" href="{% url 'tabla_denominaciones' %}" style="padding-left: 15px;"> <i class="ni ni-archive-2 text-orange"></i>
                         <span class="nav-link-text">Denominaciones
                       </a>
                     </li>
-                    {% endif %}
+                    {% endif %} {% endcomment %}
 
                     {% if perms.home.view_moneda or perms.home.add_moneda %}
                     <li class="nav-item">

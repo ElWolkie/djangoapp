@@ -19,6 +19,7 @@ urlpatterns = [
     path('empresa/', include('apps.empresa.urls')),      # UI Kits Html files empresa
     path('cuentaBanco/', include('apps.cuentaBanco.urls')),      # UI Kits Html files cuentaBanco
     path('asientoContable/', include('apps.asientoContable.urls')),      # UI Kits Html files empresa
+    path('factura/', include('apps.factura.urls')),      # UI Kits Html files factura
 
 
     path('home/', include("apps.home.urls")),

@@ -5,6 +5,9 @@ from django.template import loader
 from django.urls import reverse
 from django.contrib import messages
 
+from django.db import transaction
+from datetime import date
+from apps.asientoContable.models import AsientoContable, DetalleAsiento, periodoContable
 from .forms import HonorarioForm
 from .models import Honorario
 from apps.persona.models import Personas
@@ -24,13 +27,55 @@ def honorario_modal(request):
     if request.method == 'POST':
         form = HonorarioForm(request.POST)
         if form.is_valid():
-            form.save()
-            return JsonResponse({'success': True, 'message': 'Honorario registrado.'})
+            with transaction.atomic():
+                # Guardar el honorario
+                honorario = form.save()
+
+                # Crear el asiento contable asociado
+                try:
+                    # Obtener el periodo contable activo
+                    periodo_activo = periodoContable.objects.filter(estadoPeriodo=True).first()
+                    if not periodo_activo:
+                        periodo_activo = periodoContable.objects.order_by('-idPeriodo').first()
+                    if not periodo_activo:
+                        return JsonResponse({
+                            'success': False,
+                            'message': 'No hay ningún periodo contable registrado en el sistema.'
+                        }, status=400)
+
+                    # Crear el asiento contable
+                    asiento = AsientoContable.objects.create(
+                        numeroAsiento=f"HON-{honorario.idHonorario}-{date.today().strftime('%Y%m%d')}",
+                        fechaAsiento=date.today(),
+                        conceptoAsiento=f"Registro de honorario {honorario.idHonorario} para {honorario.idPersona.nombres} {honorario.idPersona.apellidos}",
+                        idPeriodo=periodo_activo
+                    )
+
+                    # # Registrar el detalle del asiento (Debe y Haber)
+                    # DetalleAsiento.objects.create(
+                    #     idAsiento=asiento,
+                    #     idPlanCuenta=honorario.idCargo.planCuentaDebe,  # Plan de cuenta para el debe
+                    #     debe=honorario.monto,  # Monto del honorario
+                    #     haber=0.00
+                    # )
+                    # DetalleAsiento.objects.create(
+                    #     idAsiento=asiento,
+                    #     idPlanCuenta=honorario.idCargo.planCuentaHaber,  # Plan de cuenta para el haber
+                    #     debe=0.00,
+                    #     haber=honorario.monto
+                    # )
+                except Exception as e:
+                    return JsonResponse({
+                        'success': False,
+                        'message': f'Error al crear el asiento contable: {e}'
+                    }, status=500)
+
+                return JsonResponse({'success': True, 'message': 'Honorario registrado y asiento contable creado.'})
         else:
             return JsonResponse({
-                    'success': False,
-                    'errors': {'__all__': ['Ya existe un registro idéntico.']}
-                })
+                'success': False,
+                'errors': {'__all__': ['Ya existe un registro idéntico.']}
+            })
             
     # GET: mostrar el formulario
     form = HonorarioForm()
@@ -46,6 +91,7 @@ def honorario_modal(request):
         'cohortes'  : cohortes,
         'personas'  : personas,
     })
+
 
 @login_required(login_url='login')
 @permission_required("honorario.change_honorario", raise_exception=True)

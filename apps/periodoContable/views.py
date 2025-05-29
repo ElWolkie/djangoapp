@@ -1,4 +1,5 @@
 from django.shortcuts import render, get_object_or_404
+from django.contrib.auth.decorators import login_required, permission_required
 from django.http import JsonResponse
 from .models import periodoContable
 from .forms import periodoContableForm
@@ -8,10 +9,10 @@ from reportlab.lib.pagesizes import landscape, letter
 from reportlab.platypus import Table, TableStyle
 from reportlab.lib import colors
 import os
-
 from apps.home.models import Configuracion
-from django.contrib.auth.decorators import login_required
 
+@login_required(login_url='login')
+@permission_required("periodoContable.view_periodocontable", raise_exception=True)
 def periodo_contable_list(request):
     mostrar_inactivos = request.GET.get('mostrar_inactivos') == 'true'
     if mostrar_inactivos:
@@ -23,6 +24,8 @@ def periodo_contable_list(request):
         'mostrar_inactivos': mostrar_inactivos
     })
 
+@login_required(login_url='login')
+@permission_required("periodoContable.add_periodocontable", raise_exception=True)
 def periodo_contable_create(request):
     if request.method == 'POST':
         form = periodoContableForm(request.POST)
@@ -38,6 +41,8 @@ def periodo_contable_create(request):
         else:
             return JsonResponse({'success': False, 'message': 'Solicitud no válida.'}, status=400)
 
+@login_required(login_url='login')
+@permission_required("periodoContable.change_periodocontable", raise_exception=True)
 def periodo_contable_edit(request, id):
     periodo = get_object_or_404(periodoContable, idPeriodo=id)
     if request.method == 'POST':
@@ -65,6 +70,8 @@ def periodo_contable_edit(request, id):
             return JsonResponse({'success': False, 'message': 'Solicitud no válida.'}, status=400)
 
 @login_required(login_url='login')
+@permission_required("periodoContable.change_periodocontable", raise_exception=True)
+@login_required(login_url='login')
 def desactivar_periodo_contable(request, id):
     periodo = get_object_or_404(periodoContable, idPeriodo=id)
     if request.method == 'POST':
@@ -73,6 +80,8 @@ def desactivar_periodo_contable(request, id):
         return JsonResponse({'success': True, 'message': f'⛔ Periodo Contable {getattr(periodo, "nombrePeriodo", periodo.pk)} desactivado'})
     return JsonResponse({'success': False, 'message': 'Solicitud no válida.'}, status=400)
 
+@login_required(login_url='login')
+@permission_required("periodoContable.change_periodocontable", raise_exception=True)
 @login_required(login_url='login')
 def reactivar_periodo_contable(request, id):
     periodo = get_object_or_404(periodoContable, idPeriodo=id)
@@ -132,7 +141,7 @@ def reporte_periodos_pdf(request):
         p.drawString( logo_margin, text_top - 60, "LOCAL UPTYAB, INDEPENDENCIA – EDO YARACUY")
         # Título alineado a la izquierda
         p.setFont("Helvetica-Bold", 13)
-        p.drawCentredString(width / 2, text_top - 100, "Reporte de Cargos")
+        p.drawCentredString(width / 2, text_top - 100, "Reporte de Periodos Contables")
 
     def draw_footer():
         if firma_path and os.path.exists(firma_path):

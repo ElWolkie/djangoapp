@@ -2,6 +2,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required, permission_required
 from django.core.exceptions import ValidationError
 from django.http import JsonResponse
+
 from django.urls import reverse
 from django.db import transaction
 from .models import Banco, CuentaBanco
@@ -160,9 +161,6 @@ def cuenta_banco_detail(request, pk):
 @login_required(login_url='login')
 @permission_required("cuentaBanco.add_cuentabanco", raise_exception=True)
 def cuenta_banco_create(request):
-    """
-    Vista para crear una nueva cuenta bancaria con su cuenta contable asociada.
-    """
     if request.method == 'POST':
         form = CuentaBancoForm(request.POST)
         if form.is_valid():
@@ -181,11 +179,14 @@ def cuenta_banco_create(request):
     else:
         form = CuentaBancoForm()
         bancos = Banco.objects.filter(estadoBanco=True).order_by('nombreBanco')
-        monedas = Moneda.objects.filter(estadoMoneda="ACTIVO").order_by('nombreMoneda')  # Obtener monedas activas
+        monedas = Moneda.objects.filter(estadoMoneda="ACTIVO").order_by('nombreMoneda')
+        cuentas_plan = PlanCuenta.objects.filter(estadoPlanCuenta=True).order_by('codigoPlanCuenta')
+
         return render(request, 'bancos/cuentaBanco.html', {
             'form': form,
             'bancos': bancos,
-            'monedas': monedas,  # Pasar las monedas al contexto
+            'monedas': monedas,
+            'cuentas_plan': cuentas_plan,
             'titulo': 'Nueva Cuenta Bancaria'
         })
 

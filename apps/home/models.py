@@ -254,7 +254,7 @@ class Moneda(models.Model):
 
 class Tasa(models.Model):  
     idTasa = models.AutoField(primary_key=True)
-    idMoneda = models.ForeignKey(Moneda, on_delete=models.CASCADE, related_name='tasas')  # ← Nombre personalizado)
+    idMoneda = models.ForeignKey(Moneda, on_delete=models.CASCADE, related_name='tasas')  # ← Nombre personalizado
     montoTasa = models.CharField(max_length=100)
     estadoTasa = models.CharField(max_length=10)
     fechaTasa = models.DateTimeField(auto_now_add=True)
@@ -262,13 +262,14 @@ class Tasa(models.Model):
     class Meta:  
         verbose_name = "Tasa"  
         verbose_name_plural = "Tasas"
+        unique_together = ('idMoneda', 'montoTasa', 'fechaTasa')  # Garantiza que no haya duplicados exactos
 
     def clean(self):
-        qs = Tasa.objects.filter(idMoneda=self.idMoneda)
+        qs = Tasa.objects.filter(idMoneda=self.idMoneda, montoTasa=self.montoTasa, fechaTasa=self.fechaTasa)
         if self.pk:
             qs = qs.exclude(pk=self.pk)
         if qs.exists():
-            raise ValidationError("Ya existe una tasa para esta moneda.")
+            raise ValidationError("Ya existe una tasa con la misma moneda, monto y fecha/hora.")
 
 class TipoIngreso(models.Model):  
     idTipoIngreso = models.AutoField(primary_key=True)
