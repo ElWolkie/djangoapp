@@ -202,7 +202,6 @@
           </ul>
         </div>
       </li>
-
       <li class="nav-item">
         <a class="nav-link" href="#" id="facturaDropdown" data-toggle="collapse" data-target="#facturaMenu" aria-expanded="false" aria-controls="facturaMenu">
           <i class="ni ni-single-copy-04 text-orange"></i>
@@ -210,50 +209,65 @@
         </a>
         <div id="facturaMenu" class="collapse ml-3">
           <ul class="nav flex-column">
-        <li class="nav-item">
-          <a class="nav-link" href="#" id="facturaAdministrativaDropdown" data-toggle="collapse" data-target="#facturaAdministrativaMenu" aria-expanded="false" aria-controls="facturaAdministrativaMenu" style="padding-left: 15px;">
-            <i class="ni ni-archive-2 text-orange"></i>
-            <span class="nav-link-text">Administrativa
-          </a>
-          <div id="facturaAdministrativaMenu" class="collapse ml-3">
-            <ul class="nav flex-column">
-          <li class="nav-item">
-            <a class="nav-link" href="/factura/administrativa/registrar" style="padding-left: 30px;">
-              <i class="ni ni-fat-add text-orange"></i>
-              <span class="nav-link-text">Registrar
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="/factura/administrativa/consultar" style="padding-left: 30px;">
-              <i class="ni ni-bullet-list-67 text-orange"></i>
-              <span class="nav-link-text">Consultar
-            </a>
-          </li>
-            </ul>
-          </div>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="#" id="facturaContableDropdown" data-toggle="collapse" data-target="#facturaContableMenu" aria-expanded="false" aria-controls="facturaContableMenu" style="padding-left: 15px;">
-            <i class="ni ni-collection text-orange"></i>
-            <span class="nav-link-text">Contable
-          </a>
-          <div id="facturaContableMenu" class="collapse ml-3">
-            <ul class="nav flex-column">
-          <li class="nav-item">
-            <a class="nav-link" href="/factura/contable/registrar" style="padding-left: 30px;">
-              <i class="ni ni-fat-add text-orange"></i>
-              <span class="nav-link-text">Registrar
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="/factura/contable/consultar" style="padding-left: 30px;">
-              <i class="ni ni-bullet-list-67 text-orange"></i>
-              <span class="nav-link-text">Consultar
-            </a>
-          </li>
-            </ul>
-          </div>
-        </li>
+            <!-- Facturas -->
+            <li class="nav-item">
+              <a class="nav-link" href="{% url 'factura_list' %}" style="padding-left: 15px;">
+                <i class="ni ni-bullet-list-67 text-orange"></i>
+                <span class="nav-link-text">Consultar Facturas</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="{% url 'factura_create' %}" style="padding-left: 15px;">
+                <i class="ni ni-fat-add text-orange"></i>
+                <span class="nav-link-text">Registrar Factura</span>
+              </a>
+            </li>
+            <!-- Detalles de Factura -->
+            <li class="nav-item">
+              <a class="nav-link" href="#" id="detalleFacturaDropdown" data-toggle="collapse" data-target="#detalleFacturaMenu" aria-expanded="false" aria-controls="detalleFacturaMenu" style="padding-left: 15px;">
+                <i class="ni ni-collection text-orange"></i>
+                <span class="nav-link-text">Detalles de Factura</span>
+              </a>
+              <div id="detalleFacturaMenu" class="collapse ml-3">
+                <ul class="nav flex-column">
+                  <li class="nav-item">
+                    <a class="nav-link" href="{% url 'factura_detalle_list' factura_id=1 %}" style="padding-left: 30px;">
+                      <i class="ni ni-bullet-list-67 text-orange"></i>
+                      <span class="nav-link-text">Consultar Detalles</span>
+                    </a>
+                  </li>
+                  <li class="nav-item">
+                    <a class="nav-link" href="{% url 'factura_detalle_create' factura_id=1 %}" style="padding-left: 30px;">
+                      <i class="ni ni-fat-add text-orange"></i>
+                      <span class="nav-link-text">Registrar Detalle</span>
+                    </a>
+                  </li>
+                </ul>
+              </div>
+            </li>
+            <!-- Pagos -->
+            <li class="nav-item">
+              <a class="nav-link" href="#" id="pagoDropdown" data-toggle="collapse" data-target="#pagoMenu" aria-expanded="false" aria-controls="pagoMenu" style="padding-left: 15px;">
+                <i class="ni ni-credit-card text-orange"></i>
+                <span class="nav-link-text">Pagos</span>
+              </a>
+              <div id="pagoMenu" class="collapse ml-3">
+                <ul class="nav flex-column">
+                  <li class="nav-item">
+                    <a class="nav-link" href="{% url 'pago_list' %}" style="padding-left: 30px;">
+                      <i class="ni ni-bullet-list-67 text-orange"></i>
+                      <span class="nav-link-text">Consultar Pagos</span>
+                    </a>
+                  </li>
+                  <li class="nav-item">
+                    <a class="nav-link" href="{% url 'pago_create' %}" style="padding-left: 30px;">
+                      <i class="ni ni-fat-add text-orange"></i>
+                      <span class="nav-link-text">Registrar Pago</span>
+                    </a>
+                  </li>
+                </ul>
+              </div>
+            </li>
           </ul>
         </div>
       </li>
