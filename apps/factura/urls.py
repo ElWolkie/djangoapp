@@ -21,4 +21,12 @@ urlpatterns = [
     path('pagos/nuevo/', views.pago_create, name='pago_create'),
     path('pagos/editar/<int:pk>/', views.pago_edit, name='pago_edit'),
     path('pagos/eliminar/<int:pk>/', views.pago_delete, name='pago_delete'),
+
+    # Parámetros Tributarios
+    path('parametros/', views.parametro_tributario_list, name='parametro_tributario_list'),
+    path('parametros/<int:pk>/', views.parametro_tributario_detail, name='parametro_tributario_detail'),
+    path('parametros/nuevo/', views.parametro_tributario_create, name='parametro_tributario_create'),
+    path('parametros/editar/<int:pk>/', views.parametro_tributario_edit, name='parametro_tributario_edit'),
+    path('parametros/eliminar/<int:pk>/', views.parametro_tributario_delete, name='parametro_tributario_delete'),
+        path('obtener-parametros-tributarios/', views.obtener_parametros_tributarios, name='obtener_parametros_tributarios'),
 ]

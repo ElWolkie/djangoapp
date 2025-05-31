@@ -4,8 +4,8 @@ from django.db import transaction
 from django.db.models import Max
 
 from apps.periodoContable.models import periodoContable
-from .models import Factura, FacturaDetalle, Pago
-from .forms import FacturaForm, FacturaDetalleForm, PagoForm
+from .models import Factura, FacturaDetalle, Pago, ParametroTributario
+from .forms import FacturaForm, FacturaDetalleForm, PagoForm, ParametroTributarioForm
 from apps.asientoContable.models import AsientoContable, DetalleAsiento
 from apps.home.models import Moneda, Tasa
 from apps.persona.models import Personas
@@ -96,7 +96,8 @@ def factura_create(request):
         else:
             return JsonResponse({
                 'success': False,
-                'message': 'El formulario contiene errores. Por favor, corríjalos e inténtelo de nuevo.'
+                'message': 'El formulario contiene errores. Por favor, corríjalos e inténtelo de nuevo.',
+                'errors': form.errors
             }, status=400)
     else:
         form = FacturaForm()
@@ -265,3 +266,84 @@ def pago_delete(request, pk):
     pago = get_object_or_404(Pago, pk=pk)
     pago.delete()
     return redirect('pago_list')
+
+
+# Parametros Tributarios
+
+def parametro_tributario_list(request):
+    """
+    Vista para listar todos los parámetros tributarios.
+    """
+    parametros = ParametroTributario.objects.all()
+    return render(request, 'factura/tablaParametrosTributarios.html', {'parametros': parametros})
+
+def parametro_tributario_detail(request, pk):
+    """
+    Vista para mostrar los detalles de un parámetro tributario específico.
+    """
+    parametro = get_object_or_404(ParametroTributario, pk=pk)
+    return render(request, 'factura/parametrosDetails.html', {'parametro': parametro})
+
+
+@transaction.atomic
+def parametro_tributario_create(request):
+    """
+    Vista para crear un nuevo parámetro tributario.
+    """
+    if request.method == 'POST':
+        form = ParametroTributarioForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return redirect('parametro_tributario_list')
+    else:
+        form = ParametroTributarioForm()
+
+    # Pasar las opciones al contexto
+    context = {
+        'form': form,
+        'TIPO_PARAMETRO': ParametroTributario.TIPO_PARAMETRO,
+        'TIPOS_APLICABLES': ParametroTributario.TIPOS_APLICABLES,
+    }
+    return render(request, 'factura/parametroTributario.html', context)
+
+@transaction.atomic
+def parametro_tributario_edit(request, pk):
+    """
+    Vista para editar un parámetro tributario existente.
+    """
+    parametro = get_object_or_404(ParametroTributario, pk=pk)
+    if request.method == 'POST':
+        form = ParametroTributarioForm(request.POST, instance=parametro)
+        if form.is_valid():
+            form.save()
+            return redirect('parametro_tributario_list')
+    else:
+        form = ParametroTributarioForm(instance=parametro)
+    return render(request, 'factura/editParametroTributario.html', {'form': form})
+
+@transaction.atomic
+def parametro_tributario_delete(request, pk):
+    """
+    Vista para eliminar un parámetro tributario existente.
+    """
+    parametro = get_object_or_404(ParametroTributario, pk=pk)
+    parametro.delete()
+    return redirect('tablaParametrosTributarios.html')
+
+def obtener_parametros_tributarios(request):
+    # Agrupar parámetros por tipo para facilitar el acceso en el frontend
+    parametros = ParametroTributario.objects.all()
+    parametros_agrupados = {}
+    
+    for param in parametros:
+        if param.tipo not in parametros_agrupados:
+            parametros_agrupados[param.tipo] = []
+        
+        parametros_agrupados[param.tipo].append({
+            'aplica_a': param.aplica_a,
+            'porcentaje': float(param.porcentaje) if param.porcentaje is not None else 0,
+            'valor_fijo': float(param.valor_fijo) if param.valor_fijo is not None else 0,
+            'descripcion': param.descripcion
+        })
+    
+    return JsonResponse(parametros_agrupados)

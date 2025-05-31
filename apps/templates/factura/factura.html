@@ -19,6 +19,11 @@
 {% endblock stylesheets %}
 
 {% block content %}
+<br>
+<div class="text-right mb-3">
+  <button type="button" id="toggleReadonly" class="btn btn-secondary">Habilitar edición manual</button>
+</div>
+
 <div class="container mt-5">
   <h2 class="text-center text-dark mb-4">Registrar Factura</h2>
 
@@ -34,42 +39,82 @@
     {% csrf_token %}
 
     <div class="form-row">
-      <div class="form-group col-md-6">
-        <label for="tipoFactura">Tipo de Factura:</label>
-        <select id="tipoFactura" name="tipoFactura" class="form-control text-dark" required>
-          <option value="" disabled selected>Seleccione el tipo de factura...</option>
-          <option value="PROVEEDOR">Proveedor-Empresa</option>
-          <option value="HONORARIO">Proveedor-Honorario</option>
-          <option value="CLIENTE" selected>Cliente</option>
-        </select>
-        <div class="invalid-feedback">Por favor seleccione un tipo de factura.</div>
-      </div>
-
-      <div class="form-group col-md-6">
-        <label for="personaInput">Persona:</label>
-        <div class="input-group">
-          <input type="text" id="personaInput" class="form-control text-dark" placeholder="Seleccione una persona" readonly required />
-          <button type="button" id="buscarPersona" class="btn btn-warning" data-toggle="modal" data-target="#personaModal">
-            <i class="fas fa-search"></i>
-          </button>
+      <div class="form-row">
+        <div class="form-group col-md-4">
+            <label for="tipoFacturaCheckbox" class="form-label small">Tipo de Operación:</label>
+            <div class="form-check ml-3">
+            <input class="form-check-input" type="radio" name="tipoOperacion" id="ingresoCheckbox" value="ingreso" required>
+            <label class="form-check-label small" for="ingresoCheckbox">Ingreso</label>
+            </div>
+            <div class="form-check ml-3">
+            <input class="form-check-input" type="radio" name="tipoOperacion" id="egresoCheckbox" value="egreso" required>
+            <label class="form-check-label small" for="egresoCheckbox">Egreso</label>
+            </div>
+            <div class="invalid-feedback small">Por favor seleccione el tipo de operación.</div>
         </div>
-        <input type="hidden" id="idPersona" name="idPersona" required />
-        <div class="invalid-feedback">Por favor seleccione una persona.</div>
-      </div>
-
-      <div class="form-group col-md-6" style="display: none;" id="empresaGroup">
-        <label for="empresaInput">Empresa:</label>
-        <div class="input-group">
-            <input type="text" id="empresaInput" class="form-control text-dark" placeholder="Seleccione una empresa" readonly required />
-            <button type="button" id="buscarEmpresa" class="btn btn-warning" data-toggle="modal" data-target="#empresaModal">
-                <i class="fas fa-search"></i>
-            </button>
+      
+        <div class="form-group col-md-7 ml-3">
+          <label for="tipoFactura">Tipo de Factura:</label>
+          <select id="tipoFactura" name="tipoFactura" class="form-control text-dark" required disabled>
+            <option value="" disabled selected>Seleccione el tipo de factura...</option>
+            
+            <!-- Facturas de Egresos (Pagos) -->
+            <optgroup label="Pagos a Proveedores" class="egreso-options" style="display: none;">
+              <option value="HONORARIO_PROFESOR">Honorarios Profesionales</option>
+              <option value="SERVICIO_GENERAL">Servicios Generales (Internet, Luz, etc.)</option>
+              <option value="COMPRA_BIENES">Compra de Bienes/Materiales</option>
+            </optgroup>
+            
+            <!-- Facturas de Ingresos -->
+            <optgroup label="Ingresos de Estudiantes" class="ingreso-options" style="display: none;">
+              <option value="INSCRIPCION">Inscripción</option>
+              <option value="SOLICITUD">Solicitud de Trámites</option>
+            </optgroup>
+          </select>
+          <div class="invalid-feedback">Por favor seleccione un tipo de factura.</div>
         </div>
-        <input type="hidden" id="idEmpresa" name="idEmpresa" required />
-        <div class="invalid-feedback">Por favor seleccione una empresa.</div>
-    </div>
-    </div>
+      </div>
+        <div class="form-group col-md-6 ml-5 d-flex align-items-center">
+          <div class="mr-3">
+            <label for="tipoEntidadCheckbox"  class="form-label small">Tipo de Entidad:</label>
+            <div class="form-check ml-3">
+              <input class="form-check-input" type="radio" name="tipoEntidad" id="personaCheckbox" value="persona" required>
+              <label class="form-check-label small" for="personaCheckbox">Persona</label>
+            </div>
+            <div class="form-check ml-3">
+              <input class="form-check-input" type="radio" name="tipoEntidad" id="empresaCheckbox" value="empresa" required>
+              <label class="form-check-label small" for="empresaCheckbox">Empresa</label>
+            </div>
+            <div class="invalid-feedback">Por favor seleccione el tipo de entidad.</div>
+          </div>
 
+          <div class="flex-grow-1 ml-2">
+            <div id="personaGroup" style="display: none;">
+              <label for="personaInput">Persona:</label>
+              <div class="input-group">
+                <input type="text" id="personaInput" class="form-control text-dark" placeholder="Seleccione una persona" readonly />
+                <button type="button" id="buscarPersona" class="btn btn-warning" data-toggle="modal" data-target="#personaModal">
+                  <i class="fas fa-search"></i>
+                </button>
+              </div>
+              <input type="hidden" id="idPersona" name="idPersona" />
+              <div class="invalid-feedback">Por favor seleccione una persona.</div>
+            </div>
+
+            <div id="empresaGroup" style="display: none;">
+              <label for="empresaInput">Empresa:</label>
+              <div class="input-group">
+                <input type="text" id="empresaInput" class="form-control text-dark" placeholder="Seleccione una empresa" readonly />
+                <button type="button" id="buscarEmpresa" class="btn btn-warning" data-toggle="modal" data-target="#empresaModal">
+                  <i class="fas fa-search"></i>
+                </button>
+              </div>
+              <input type="hidden" id="idEmpresa" name="idEmpresa" />
+              <div class="invalid-feedback">Por favor seleccione una empresa.</div>
+            </div>
+          </div>
+        </div>
+    </div>
     <div class="form-row">
       <div class="form-group col-md-6">
         <label for="numeroFactura">Número de Factura:</label>
@@ -130,22 +175,28 @@
       <div class="form-group col-md-6">
         <label for="subtotalGravado">Subtotal Gravado:</label>
         <input type="number" id="subtotalGravado" name="subtotalGravado" class="form-control text-dark" placeholder="Ingrese el subtotal gravado" step="0.01" min="0" required />
+        <small id="ivaPercentageHelp" class="form-text text-muted">IVA aplicable: <span id="ivaPercentage">16</span>%</small>
         <div class="invalid-feedback">Por favor ingrese un subtotal gravado válido.</div>
-      </div>
-      <div class="form-group col-md-6">
-        <label for="iva">IVA:</label>
-        <input type="number" id="iva" name="iva" class="form-control text-dark" placeholder="Ingrese el IVA" step="0.01" min="0" required />
-        <div class="invalid-feedback">Por favor ingrese un IVA válido.</div>
-      </div>
-    
-      <div class="form-group col-md-6">
-        <label for="ivaRetenido">IVA Retenido:</label>
-        <input type="number" id="ivaRetenido" name="ivaRetenido" class="form-control text-dark" placeholder="Ingrese el IVA retenido" step="0.01" min="0" />
     </div>
+
     <div class="form-group col-md-6">
-        <label for="islrRetenido">ISLR Retenido:</label>
-        <input type="number" id="islrRetenido" name="islrRetenido" class="form-control text-dark" placeholder="Ingrese el ISLR retenido" step="0.01" min="0" />
+      <label for="iva">IVA:</label>
+      <input type="number" id="iva" name="iva" class="form-control text-dark" placeholder="Ingrese el IVA" step="0.01" min="0" readonly required />
+      <div class="invalid-feedback">Por favor ingrese un IVA válido.</div>
     </div>
+  
+    
+  <div class="form-group col-md-6">
+    <label for="ivaRetenido">IVA Retenido:</label>
+    <input type="number" id="ivaRetenido" name="ivaRetenido" class="form-control text-dark" placeholder="Ingrese el IVA retenido" step="0.01" min="0" readonly />
+    <small id="ivaRetentionHelp" class="form-text text-muted">Porcentaje de retención: <span id="ivaRetentionPercentage">75</span>%</small>
+  </div>
+
+  <div class="form-group col-md-6">
+    <label for="islrRetenido">ISLR Retenido:</label>
+    <input type="number" id="islrRetenido" name="islrRetenido" class="form-control text-dark" placeholder="Ingrese el ISLR retenido" step="0.01" min="0" readonly />
+    <small id="islrRetentionHelp" class="form-text text-muted">Porcentaje de retención: <span id="islrRetentionPercentage">3</span>%</small>
+  </div>
 
       <div class="form-group col-md-6">
         <label for="descuento">Descuento:</label>
@@ -402,212 +453,329 @@
 {% endblock content %}
 {% block javascripts %}
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Elementos principales
-    const tipoFacturaSelect = document.getElementById('tipoFactura');
-    const personaGroup = document.getElementById('personaInput')?.closest('.form-group');
-    const empresaGroup = document.getElementById('empresaInput')?.closest('.form-group');
-    const form = document.getElementById('facturaForm');
-    
-    // 1. Configuración inicial de campos persona/empresa
-    const initTipoFactura = () => {
-        if (!personaGroup || !empresaGroup) return;
-        
-        personaGroup.style.display = 'block';
-        empresaGroup.style.display = 'none';
-        document.getElementById('empresaInput').required = false;
-        document.getElementById('personaInput').required = true;
-    };
+  let parametrosTributarios = {};
+  const facturaForm = document.getElementById('facturaForm');
 
-    // Función para manejar la visibilidad de los campos
-    const handleTipoFacturaChange = () => {
-        if (!tipoFacturaSelect || !personaGroup || !empresaGroup) return;
-        
-        const tipoFactura = tipoFacturaSelect.value;
-        const isProveedor = tipoFactura === 'PROVEEDOR';
-        
-        // Mostrar/ocultar grupos
-        personaGroup.style.display = isProveedor ? 'none' : 'block';
-        empresaGroup.style.display = isProveedor ? 'block' : 'none';
-        
-        // Manejar campos requeridos
-        document.getElementById('personaInput').required = !isProveedor;
-        document.getElementById('empresaInput').required = isProveedor;
-        
-        // Limpiar campos ocultos
-        if (personaGroup.style.display === 'none') {
-            document.getElementById('personaInput').value = '';
-            document.getElementById('idPersona').value = '';
-        }
-        if (empresaGroup.style.display === 'none') {
-            document.getElementById('empresaInput').value = '';
-            document.getElementById('idEmpresa').value = '';
-        }
-        
-        resetValidation();
-    };
-    
-    // 2. Función para resetear validación del formulario
-    const resetValidation = () => {
-        if (form) {
-            form.classList.remove('was-validated');
-        }
-    };
-    
-    // 3. Manejo de crédito a plazo
-    const formaPagoSelect = document.getElementById('formaPago');
-    if (formaPagoSelect) {
-        formaPagoSelect.addEventListener('change', function() {
-            const plazoCreditoGroup = document.getElementById('plazoCreditoGroup');
-            const plazoCreditoInput = document.getElementById('plazoCredito');
-            
-            if (this.value === 'credito') {
-                plazoCreditoGroup.style.display = 'block';
-                plazoCreditoInput.required = true;
-            } else {
-                plazoCreditoGroup.style.display = 'none';
-                plazoCreditoInput.required = false;
-                plazoCreditoInput.value = '';
-            }
+  // Referencias a los elementos del DOM
+  const subtotalExento = document.getElementById('subtotalExento');
+  const subtotalGravado = document.getElementById('subtotalGravado');
+  const descuento = document.getElementById('descuento');
+  const iva = document.getElementById('iva');
+  const ivaRetenido = document.getElementById('ivaRetenido');
+  const islrRetenido = document.getElementById('islrRetenido');
+  const totalVenta = document.getElementById('totalVenta');
+  const tipoFacturaSelect = document.getElementById('tipoFactura');
+  const ingresoCheckbox = document.getElementById('ingresoCheckbox');
+  const egresoCheckbox = document.getElementById('egresoCheckbox');
+  const fechaEmision = document.getElementById('fechaEmision');
+  const fechaVencimiento = document.getElementById('fechaVencimiento');
+  const formaPago = document.getElementById('formaPago');
+  const plazoCreditoInput = document.getElementById('plazoCredito');
+  const toggleReadonlyButton = document.getElementById('toggleReadonly');
+  const camposReadonly = ['iva', 'ivaRetenido', 'islrRetenido'];
+  
+
+  // Interceptar el envío del formulario
+  facturaForm.addEventListener('submit', async function (event) {
+    event.preventDefault(); // Evitar el redireccionamiento por defecto
+
+    const formData = new FormData(facturaForm); // Obtener los datos del formulario
+    const submitButton = facturaForm.querySelector('input[type="submit"]');
+    submitButton.disabled = true; // Deshabilitar el botón mientras se procesa la solicitud
+
+    try {
+      const response = await fetch(facturaForm.action, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest', // Indicar que es una solicitud AJAX
+        },
+      });
+
+      const result = await response.json(); // Parsear la respuesta como JSON
+
+      if (response.ok && result.success) {
+        // Mostrar mensaje de éxito
+        Swal.fire({
+          icon: 'success',
+          title: 'Éxito',
+          text: result.message,
+        }).then(() => {
+          // Redirigir si se proporciona una URL de redirección
+          if (result.redirect_url) {
+            window.location.href = result.redirect_url;
+          }
         });
-    }
-    
-    // 4. Función para filtrar tablas en los modales
-    window.filterTable = function(tableId, inputId) {
-        const input = document.getElementById(inputId);
-        const table = document.getElementById(tableId);
-        if (!input || !table) return;
-        
-        const filter = input.value.toUpperCase();
-        const rows = table.querySelectorAll('tbody tr');
-        let hasResults = false;
-
-        for (const row of rows) {
-            const cells = row.querySelectorAll('td');
-            let match = false;
-            
-            for (const cell of cells) {
-                if (cell.textContent.toUpperCase().includes(filter)) {
-                    match = true;
-                    break;
-                }
-            }
-            
-            row.style.display = match ? '' : 'none';
-            if (match) hasResults = true;
-        }
-
-        // Mostrar mensaje si no hay resultados
-        const messageId = tableId === 'tablaPersonas' 
-            ? 'mensajeSinRegistrosPersona' 
-            : 'mensajeSinRegistrosEmpresa';
-        const messageElement = document.getElementById(messageId);
-        if (messageElement) {
-            messageElement.style.display = hasResults ? 'none' : 'block';
-        }
-    };
-
-    // 5. Configurar selección en modales (función reutilizable)
-    const setupModalSelection = (modalId, tableId, inputId, hiddenInputId) => {
-        const table = document.getElementById(tableId);
-        const modalElement = document.getElementById(modalId);
-        
-        if (!table || !modalElement) return;
-        
-        table.addEventListener('click', (event) => {
-            const row = event.target.closest('tr[data-id]');
-            if (row) {
-                document.getElementById(inputId).value = row.getAttribute('data-nombre');
-                document.getElementById(hiddenInputId).value = row.getAttribute('data-id');
-                
-                // Marcar como válido
-                const inputElement = document.getElementById(inputId);
-                inputElement.classList.remove('is-invalid');
-                inputElement.classList.add('is-valid');
-                
-                // Cerrar modal usando Bootstrap JavaScript API
-                const modal = bootstrap.Modal.getInstance(modalElement) || new bootstrap.Modal(modalElement);
-                modal.hide();
-            }
+      } else {
+        // Mostrar errores del servidor
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: result.message || 'Ocurrió un error al procesar la solicitud.',
         });
-    };
 
-    // Configurar modales
-    setupModalSelection('personaModal', 'tablaPersonas', 'personaInput', 'idPersona');
-    setupModalSelection('empresaModal', 'tablaEmpresas', 'empresaInput', 'idEmpresa');
-    setupModalSelection('planCuentaDebeModal', 'tablaPlanCuentaDebe', 'planCuentaDebe', 'idPlanCuentaDebe');
-    setupModalSelection('planCuentaHaberModal', 'tablaPlanCuentaHaber', 'planCuentaHaber', 'idPlanCuentaHaber');
-
-    // 6. Manejo del envío del formulario
-    if (form) {
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            // Validación del formulario
-            if (!form.checkValidity()) {
-                e.stopPropagation();
-                form.classList.add('was-validated');
-                return;
+        // Mostrar errores específicos del formulario (si existen)
+        if (result.errors) {
+          for (const [field, messages] of Object.entries(result.errors)) {
+            const input = document.querySelector(`[name="${field}"]`);
+            if (input) {
+              const feedback = input.nextElementSibling;
+              if (feedback && feedback.classList.contains('invalid-feedback')) {
+                feedback.textContent = messages.join(', ');
+                input.classList.add('is-invalid');
+              }
             }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error al enviar el formulario:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Ocurrió un error inesperado. Por favor, inténtelo de nuevo.',
+      });
+    } finally {
+      submitButton.disabled = false; // Habilitar el botón nuevamente
+    }
+  });
 
-            const formData = new FormData(form);
-            
-            try {
-                const response = await fetch(form.action, {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'X-CSRFToken': '{{ csrf_token }}'
-                    }
-                });
-                
-                if (!response.ok) throw new Error('Error en la respuesta del servidor');
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    await Swal.fire({
-                        icon: 'success',
-                        title: 'Éxito',
-                        text: data.message,
-                        confirmButtonText: 'Aceptar',
-                        customClass: { confirmButton: 'btn btn-warning' },
-                        buttonsStyling: false
-                    });
-                    
-                    if (data.redirect_url) {
-                        window.location.href = data.redirect_url;
-                    }
-                } else {
-                    let errorMessages = data.errors 
-                        ? Object.values(data.errors).join('<br>') 
-                        : data.message || 'Ocurrió un error al procesar la solicitud';
-                    
-                    await Swal.fire({
-                        icon: 'error',
-                        title: 'Error',
-                        html: errorMessages
-                    });
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                await Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: 'Ocurrió un error inesperado al comunicarse con el servidor'
-                });
-            }
-        });
+  // Limpiar mensajes de error al modificar los campos
+  facturaForm.querySelectorAll('input, select, textarea').forEach((input) => {
+    input.addEventListener('input', () => {
+      input.classList.remove('is-invalid');
+      const feedback = input.nextElementSibling;
+      if (feedback && feedback.classList.contains('invalid-feedback')) {
+        feedback.textContent = '';
+      }
+    });
+  });
+
+
+ // Manejar la selección de filas en el modal de Personas
+ const tablaPersonas = document.getElementById('tablaPersonas');
+  if (tablaPersonas) {
+    tablaPersonas.addEventListener('click', function(event) {
+      const fila = event.target.closest('tr');
+      if (fila) {
+        const idPersona = fila.getAttribute('data-id');
+        const nombrePersona = fila.getAttribute('data-nombre');
+        document.getElementById('personaInput').value = nombrePersona;
+        document.getElementById('idPersona').value = idPersona;
+        $('#personaModal').modal('hide'); // Cerrar el modal
+      }
+    });
+  }
+
+  // Manejar la selección de filas en el modal de Empresas
+  const tablaEmpresas = document.getElementById('tablaEmpresas');
+  if (tablaEmpresas) {
+    tablaEmpresas.addEventListener('click', function(event) {
+      const fila = event.target.closest('tr');
+      if (fila) {
+        const idEmpresa = fila.getAttribute('data-id');
+        const nombreEmpresa = fila.getAttribute('data-nombre');
+        document.getElementById('empresaInput').value = nombreEmpresa;
+        document.getElementById('idEmpresa').value = idEmpresa;
+        $('#empresaModal').modal('hide'); // Cerrar el modal
+      }
+    });
+  }
+
+  // Manejar la selección de filas en el modal de Plan de Cuenta (Debe)
+  const tablaPlanCuentaDebe = document.getElementById('tablaPlanCuentaDebe');
+  if (tablaPlanCuentaDebe) {
+    tablaPlanCuentaDebe.addEventListener('click', function(event) {
+      const fila = event.target.closest('tr');
+      if (fila) {
+        const idPlanCuentaDebe = fila.getAttribute('data-id');
+        const nombrePlanCuentaDebe = fila.getAttribute('data-nombre');
+        document.getElementById('planCuentaDebe').value = nombrePlanCuentaDebe;
+        document.getElementById('idPlanCuentaDebe').value = idPlanCuentaDebe;
+        $('#planCuentaDebeModal').modal('hide'); // Cerrar el modal
+      }
+    });
+  }
+
+  // Manejar la selección de filas en el modal de Plan de Cuenta (Haber)
+  const tablaPlanCuentaHaber = document.getElementById('tablaPlanCuentaHaber');
+  if (tablaPlanCuentaHaber) {
+    tablaPlanCuentaHaber.addEventListener('click', function(event) {
+      const fila = event.target.closest('tr');
+      if (fila) {
+        const idPlanCuentaHaber = fila.getAttribute('data-id');
+        const nombrePlanCuentaHaber = fila.getAttribute('data-nombre');
+        document.getElementById('planCuentaHaber').value = nombrePlanCuentaHaber;
+        document.getElementById('idPlanCuentaHaber').value = idPlanCuentaHaber;
+        $('#planCuentaHaberModal').modal('hide'); // Cerrar el modal
+      }
+    });
+  }
+   // Referencias a los elementos del DOM para Persona y Empresa
+   const personaCheckbox = document.getElementById('personaCheckbox');
+  const empresaCheckbox = document.getElementById('empresaCheckbox');
+  const personaGroup = document.getElementById('personaGroup');
+  const empresaGroup = document.getElementById('empresaGroup');
+
+  // Función para actualizar la visibilidad de los campos
+  function actualizarVisibilidadEntidad() {
+    if (personaCheckbox.checked) {
+      personaGroup.style.display = 'block';
+      empresaGroup.style.display = 'none';
+    } else if (empresaCheckbox.checked) {
+      personaGroup.style.display = 'none';
+      empresaGroup.style.display = 'block';
+    }
+  }
+  
+
+  // Eventos para cambiar la visibilidad según la selección
+  personaCheckbox.addEventListener('change', actualizarVisibilidadEntidad);
+  empresaCheckbox.addEventListener('change', actualizarVisibilidadEntidad);
+
+  // Inicializar la visibilidad al cargar la página
+  actualizarVisibilidadEntidad();
+  // Obtener parámetros tributarios desde el servidor
+  async function obtenerParametrosTributarios() {
+    try {
+      const response = await fetch('/factura/obtener-parametros-tributarios/');
+      if (!response.ok) throw new Error('Error al obtener parámetros tributarios');
+      parametrosTributarios = await response.json();
+    } catch (error) {
+      console.error('Error:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'No se pudieron cargar los parámetros tributarios. Los cálculos podrían no ser exactos.',
+      });
+    }
+  }
+
+  // Obtener un parámetro tributario específico
+  function obtenerParametro(tipo, aplicaA) {
+    return parametrosTributarios[tipo]?.find(p => p.aplica_a === aplicaA) || null;
+  }
+
+  // Calcular montos de la factura
+  function calcularMontos() {
+    const gravado = parseFloat(subtotalGravado.value) || 0;
+    const exento = parseFloat(subtotalExento.value) || 0;
+    const descuentoValor = parseFloat(descuento.value) || 0;
+    const tipoFactura = tipoFacturaSelect.value;
+
+    const parametroIva = obtenerParametro('IVA_GENERAL', tipoFactura);
+    const parametroRetencionIva = obtenerParametro('IVA_RETENIDO_SERVICIOS', tipoFactura);
+    const parametroRetencionIslr = egresoCheckbox.checked 
+      ? obtenerParametro(tipoFactura === 'HONORARIO_PROFESOR' ? 'ISLR_HONORARIOS' : 'ISLR_SERVICIOS', tipoFactura) 
+      : null;
+
+    const porcentajeIva = parametroIva?.porcentaje || 16;
+    const ivaCalculado = gravado * (porcentajeIva / 100);
+    iva.value = ivaCalculado.toFixed(2);
+
+    if (egresoCheckbox.checked) {
+      ivaRetenido.value = (ivaCalculado * (parametroRetencionIva?.porcentaje || 0) / 100).toFixed(2);
+      islrRetenido.value = (gravado * (parametroRetencionIslr?.porcentaje || 0) / 100).toFixed(2);
+    } else {
+      ivaRetenido.value = islrRetenido.value = '0.00';
     }
 
-    // Inicialización
-    initTipoFactura();
-    if (tipoFacturaSelect) {
-        tipoFacturaSelect.addEventListener('change', handleTipoFacturaChange);
+    const total = exento + gravado + ivaCalculado - descuentoValor;
+    totalVenta.value = total.toFixed(2);
+
+    document.getElementById('ivaPercentage').textContent = porcentajeIva;
+    if (egresoCheckbox.checked) {
+      document.getElementById('ivaRetentionPercentage').textContent = parametroRetencionIva?.porcentaje || 0;
+      document.getElementById('islrRetentionPercentage').textContent = parametroRetencionIslr?.porcentaje || 0;
     }
+  }
+
+  // Actualizar la fecha de vencimiento según la forma de pago
+  function actualizarFechaVencimiento() {
+    const fecha = new Date(fechaEmision.value);
+    if (!fechaEmision.value) return (fechaVencimiento.value = '');
+    const dias = formaPago.value === 'credito' ? parseInt(plazoCreditoInput.value) || 0 : 1;
+    fecha.setDate(fecha.getDate() + dias);
+    fechaVencimiento.value = fecha.toISOString().split('T')[0];
+  }
+
+  // Validar que la fecha de vencimiento no sea anterior a la fecha de emisión
+  fechaVencimiento.addEventListener('change', () => {
+    const fechaEmisionValor = new Date(fechaEmision.value);
+    const fechaVencimientoValor = new Date(fechaVencimiento.value);
+
+    if (fechaVencimientoValor < fechaEmisionValor) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Fecha inválida',
+        text: 'La fecha de vencimiento no puede ser anterior a la fecha de emisión.',
+      });
+      fechaVencimiento.value = fechaEmision.value; // Restablecer a la fecha de emisión
+    }
+  });
+
+  // Alternar el estado de readonly en los campos
+  toggleReadonlyButton.addEventListener('click', () => {
+    camposReadonly.forEach(campoId => {
+      const campo = document.getElementById(campoId);
+      const isReadonly = campo.hasAttribute('readonly');
+      campo.toggleAttribute('readonly', !isReadonly);
+    });
+    toggleReadonlyButton.textContent = toggleReadonlyButton.textContent.includes('Habilitar') 
+      ? 'Deshabilitar edición manual' 
+      : 'Habilitar edición manual';
+    toggleReadonlyButton.classList.toggle('btn-secondary');
+    toggleReadonlyButton.classList.toggle('btn-warning');
+  });
+
+  // Actualizar opciones de tipo de factura según el tipo de operación
+  function actualizarOpciones() {
+    const isIngreso = ingresoCheckbox.checked;
+    tipoFacturaSelect.disabled = !isIngreso && !egresoCheckbox.checked;
+    document.querySelector('.ingreso-options').style.display = isIngreso ? 'block' : 'none';
+    document.querySelector('.egreso-options').style.display = isIngreso ? 'none' : 'block';
+    tipoFacturaSelect.value = '';
+    calcularMontos();
+  }
+
+  // Eventos para actualizar cálculos y fechas
+  [subtotalExento, subtotalGravado, descuento, tipoFacturaSelect].forEach(el => {
+    el.addEventListener('input', calcularMontos);
+    el.addEventListener('change', calcularMontos);
+  });
+
+  
+  // Función para actualizar la visibilidad del campo de plazo de crédito
+  function actualizarVisibilidadPlazoCredito() {
+    if (formaPago.value === 'credito') {
+      plazoCreditoGroup.style.display = 'block'; // Mostrar el campo de plazo de crédito
+    } else {
+      plazoCreditoGroup.style.display = 'none'; // Ocultar el campo de plazo de crédito
+      plazoCreditoInput.value = ''; // Limpiar el valor del campo
+    }
+  }
+    // Función para establecer la fecha de hoy
+    function establecerFechaHoy() {
+    const hoy = new Date();
+    const fechaHoy = hoy.toISOString().split('T')[0]; // Formato YYYY-MM-DD
+    fechaEmision.value = fechaHoy; // Establecer la fecha de hoy en el campo
+  }
+
+  // Evento para cambiar la visibilidad del campo según la forma de pago seleccionada
+  formaPago.addEventListener('change', actualizarVisibilidadPlazoCredito);
+  [fechaEmision, formaPago, plazoCreditoInput].forEach(el => el.addEventListener('change', actualizarFechaVencimiento));
+  [ingresoCheckbox, egresoCheckbox].forEach(el => el.addEventListener('change', actualizarOpciones));
+
+  // Inicializar datos y cálculos
+  obtenerParametrosTributarios();
+  actualizarOpciones();
+  calcularMontos();
+  // Inicializar la visibilidad al cargar la página
+  actualizarVisibilidadPlazoCredito();
+  // Llamar a la función al cargar la página
+  establecerFechaHoy();
 });
 </script>
 {% endblock javascripts %}
