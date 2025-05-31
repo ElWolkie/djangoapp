@@ -160,7 +160,92 @@ def cuenta_banco_create(request):
         form = CuentaBancoForm(request.POST)
         if form.is_valid():
             with transaction.atomic():
-                cuenta = form.save()
+                cuenta = form.save(commit=False)
+                plan_cuenta_credito = request.POST.get('planCuentaCredito')
+    
+                print(f"Plan Cuenta Crédito recibido: {plan_cuenta_credito}")  # Depuración
+
+                # Validar que se haya seleccionado una cuenta contable
+                if not plan_cuenta_credito:
+                    return JsonResponse({
+                        'success': False,
+                        'message': 'Debe seleccionar un plan de cuenta para el crédito (origen de los fondos).'
+                    }, status=400)
+
+                # Generar automáticamente la cuenta contable asociada a la cuenta bancaria
+                if not cuenta.planCuenta_id:
+                    nombre_producto = {
+                        'corriente': "CUENTAS CORRIENTES",
+                        'ahorro': "CUENTAS DE AHORRO",
+                        'plazo_fijo': "DEPÓSITOS A PLAZO",
+                        'prestamo': "PRÉSTAMOS BANCARIOS",
+                        'inversion': "FONDOS DE INVERSIÓN"
+                    }.get(cuenta.tipoProducto, "OTRAS CUENTAS")
+                    
+                    cuenta_producto, created = PlanCuenta.objects.get_or_create(
+                        nombrePlanCuenta=nombre_producto,
+                        tipoPlanCuenta=cuenta.banco.codigoPlanCuenta.tipoPlanCuenta,
+                        nivelPlanCuenta=cuenta.banco.codigoPlanCuenta.nivelPlanCuenta + 1,
+                        cuentaPadre=cuenta.banco.codigoPlanCuenta,
+                        defaults={
+                            'codigoPlanCuenta': _generate_product_code(cuenta)
+                        }
+                    )
+                    
+                    new_code = _generate_account_code(cuenta, cuenta_producto)
+                    
+                    plan_cuenta = PlanCuenta.objects.create(
+                        codigoPlanCuenta=new_code,
+                        nombrePlanCuenta=f"{cuenta.get_tipoProducto_display()} {cuenta.numeroCuentaBanco}",
+                        tipoPlanCuenta=cuenta.banco.codigoPlanCuenta.tipoPlanCuenta,
+                        nivelPlanCuenta=cuenta_producto.nivelPlanCuenta + 1,
+                        cuentaPadre=cuenta_producto
+                    )
+                    
+                    # Guardar explícitamente el plan de cuenta para garantizar que tenga un ID
+                    plan_cuenta.save()
+                    cuenta.planCuenta = plan_cuenta
+
+                # Guardar la cuenta bancaria
+                cuenta.save()
+
+                # Lógica para registrar el asiento contable inicial
+                if cuenta.saldoDisponible != 0:
+                    periodo_activo = periodoContable.objects.filter(estadoPeriodo=True).first()
+                    if not periodo_activo:
+                        periodo_activo = periodoContable.objects.order_by('-idPeriodo').first()
+                    if not periodo_activo:
+                        return JsonResponse({
+                            'success': False,
+                            'message': 'No hay ningún periodo contable registrado en el sistema.'
+                        }, status=400)
+
+                    asiento = AsientoContable.objects.create(
+                        numeroAsiento=f"INI-{cuenta.idCuentaBanco}-{date.today().strftime('%Y%m%d')}",
+                        fechaAsiento=date.today(),
+                        conceptoAsiento=f"Apertura de cuenta bancaria {cuenta.numeroCuentaBanco}, saldo inicial",
+                        idPeriodo=periodo_activo
+                    )
+
+                    # Registrar el debe con el ID del plan de cuenta recién creado
+                    DetalleAsiento.objects.create(
+                        idAsiento=asiento,
+                        idPlanCuenta_id=cuenta.planCuenta.idPlanCuenta,  # Usar el ID del plan de cuenta recién creado
+                        debe=cuenta.saldoDisponible,
+                        haber=0.00
+                    )
+
+                    # Registrar el haber con el ID del plan de cuenta de crédito
+                    DetalleAsiento.objects.create(
+                        idAsiento=asiento,
+                        idPlanCuenta_id=plan_cuenta_credito,  # Usar la cuenta de crédito para el haber
+                        debe=0.00,
+                        haber=cuenta.saldoDisponible
+                    )
+                    print(f"Asiento contable inicial registrado para la cuenta {cuenta.numeroCuentaBanco}")
+                    print(f"La cuenta débito es: {cuenta.planCuenta.idPlanCuenta}")
+                    print(f"La cuenta crédito es: {plan_cuenta_credito}")
+
                 return JsonResponse({
                     'success': True,
                     'message': 'Cuenta bancaria creada exitosamente!',
@@ -185,6 +270,42 @@ def cuenta_banco_create(request):
             'titulo': 'Nueva Cuenta Bancaria'
         })
 
+def _generate_product_code(cuenta):
+    try:
+        last_product = PlanCuenta.objects.filter(
+            cuentaPadre=cuenta.banco.codigoPlanCuenta
+        ).aggregate(Max('codigoPlanCuenta'))
+        
+        if last_product['codigoPlanCuenta__max']:
+            last_num = int(last_product['codigoPlanCuenta__max'][-2:])
+            new_code = f"{cuenta.banco.codigoPlanCuenta.codigoPlanCuenta}{last_num + 1:02d}"
+        else:
+            new_code = f"{cuenta.banco.codigoPlanCuenta.codigoPlanCuenta}01"
+        
+        print(f"[DEBUG] Código de producto generado correctamente: {new_code}")
+        return new_code
+    except Exception as e:
+        print(f"[ERROR] Error al generar el código de producto: {e}")
+        raise
+
+
+def _generate_account_code(cuenta, cuenta_producto):
+    try:
+        last_account = PlanCuenta.objects.filter(
+            cuentaPadre=cuenta_producto
+        ).aggregate(Max('codigoPlanCuenta'))
+        
+        if last_account['codigoPlanCuenta__max']:
+            last_num = int(last_account['codigoPlanCuenta__max'][-2:])
+            new_code = f"{cuenta_producto.codigoPlanCuenta}{last_num + 1:02d}"
+        else:
+            new_code = f"{cuenta_producto.codigoPlanCuenta}01"
+        
+        print(f"[DEBUG] Código de cuenta bancaria generado correctamente: {new_code}")
+        return new_code
+    except Exception as e:
+        print(f"[ERROR] Error al generar el código de cuenta bancaria: {e}")
+        raise
 def cuenta_banco_update(request, pk):
     """
     Vista para actualizar una cuenta bancaria existente.
