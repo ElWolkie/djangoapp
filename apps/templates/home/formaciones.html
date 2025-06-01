@@ -101,4 +101,26 @@
   })();
 });
 </script>
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const tipoFormacionSelect = document.getElementById("idTF");
+    const formacionSelect = document.getElementById("idFormacion");
+  
+    tipoFormacionSelect.addEventListener("change", function () {
+      const selectedTipoFormacion = this.value;
+  
+      // Mostrar solo las opciones que coincidan con el tipo de formación seleccionado
+      Array.from(formacionSelect.options).forEach(option => {
+        if (option.dataset.tf === selectedTipoFormacion || option.value === "") {
+          option.style.display = "block";
+        } else {
+          option.style.display = "none";
+        }
+      });
+  
+      // Reiniciar el valor seleccionado en el campo de formación
+      formacionSelect.value = "";
+    });
+  });
+  </script>
 {% endblock javascripts %}

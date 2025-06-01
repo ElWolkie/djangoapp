@@ -14,9 +14,13 @@ class PersonaForm(forms.ModelForm):
 
     class Meta:
         model = Personas
-        fields = ['cedula', 'nombres', 'apellidos', 'telefono', 'correo', 'estadoPersona']
+        fields = ['cedula', 'nombres', 'apellidos', 'telefono', 'correo', 'rif', 'direccion', 'estadoPersona']
         widgets = {
             'estadoPersona': forms.HiddenInput(),
+        }
+        
+        widgets = {
+            'cedula': forms.TextInput(attrs={'maxlength': 15}),
         }
 
     def clean_cedula(self):

@@ -1,0 +1,203 @@
+{% extends 'layouts/base.html' %}
+{% load static %}
+
+{% block title %}Listado de Parámetros Tributarios{% endblock title %}
+
+{% block stylesheets %}
+<link rel="stylesheet" href="{% static 'assets/css/styleForms.css' %}">
+<link rel="stylesheet" href="{% static 'assets/css/argon.css' %}">
+<style>
+  .actions-column .btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+  }
+  .badge {
+    font-size: 0.85em;
+    padding: 0.5em 0.75em;
+  }
+  .badge.bg-success {
+    background-color: #28a745 !important; /* Verde */
+    color: #fff !important;
+  }
+  .badge.bg-danger {
+    background-color: #dc3545 !important; /* Rojo */
+    color: #fff !important;
+  }
+  .badge.bg-info {
+    background-color: #17a2b8 !important; /* Azul claro */
+    color: #fff !important;
+  }
+  .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: rgb(81,141,245) #f1f1f1;
+  }
+  .table-responsive::-webkit-scrollbar {
+    height: 8px;
+  }
+  .table-responsive::-webkit-scrollbar-track {
+    background: #f1f1f1;
+  }
+  .table-responsive::-webkit-scrollbar-thumb {
+    background-color: rgb(81,141,245);
+    border-radius: 4px;
+    border: 2px solid #f1f1f1;
+  }
+  .modal-dialog { max-width: 700px; }
+  .modal.fade.show { background-color: rgba(0,0,0,0.5); }
+</style>
+{% endblock stylesheets %}
+
+{% block content %}
+<div class="container mt-4">
+  <h2 class="text-center mb-4">Lista de Parámetros Tributarios</h2>
+
+  <div class="row mb-3">
+    <div class="col-md-4">
+      <div class="input-group">
+        <span class="input-group-text"><i class="fas fa-search"></i></span>
+        <input id="searchInput" class="form-control" type="text" placeholder="Buscar parámetros…">
+      </div>
+    </div>
+    <div class="col-md-4 text-end">
+      <a href="{% url 'parametro_tributario_create' %}" class="btn btn-warning">
+        <i class="fas fa-plus-circle me-1"></i> Nuevo Parámetro Tributario
+      </a>
+    </div>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="table-responsive">
+      <table id="parametrosTable" class="table table-striped table-hover align-middle text-gray-dark">
+        <thead class="table-light">
+          <tr>
+            <th>ID</th>
+            <th>Tipo</th>
+            <th>Aplica a</th>
+            <th>Porcentaje</th>
+            <th>Valor Fijo</th>
+            <th>Fecha Inicio</th>
+            <th>Fecha Fin</th>
+            <th>Activo</th>
+            <th class="actions-column">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for parametro in parametros %}
+          <tr>
+            <td>{{ parametro.idPT }}</td>
+            <td>{{ parametro.get_tipo_display }}</td>
+            <td>{{ parametro.get_aplica_a_display }}</td>
+            <td>{{ parametro.porcentaje }}%</td>
+            <td>{{ parametro.valor_fijo|default:"-" }}</td>
+            <td>{{ parametro.fecha_inicio }}</td>
+            <td>{{ parametro.fecha_fin|default:"-" }}</td>
+            <td>
+              {% if parametro.activo %}
+                <span class="badge bg-success">
+                  <i class="fas fa-check-circle me-1"></i> Sí
+                </span>
+              {% else %}
+                <span class="badge bg-danger">
+                  <i class="fas fa-times-circle me-1"></i> No
+                </span>
+              {% endif %}
+            </td>
+            <td class="actions-column">
+              <div class="d-flex gap-2">
+                <a href="{% url 'parametro_tributario_edit' parametro.idPT %}" class="btn btn-primary btn-sm">
+                  <i class="fas fa-edit"></i>
+                </a>
+                <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteModal" data-id="{{ parametro.idPT }}">
+                  <i class="fas fa-trash-alt"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="9" class="text-center py-4">No hay parámetros tributarios registrados.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <!-- Paginación -->
+    <nav>
+      <ul class="pagination justify-content-center" id="pagination"></ul>
+    </nav>
+  </div>
+</div>
+
+<!-- Modal de confirmación -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title" id="deleteModalLabel">Confirmar Eliminación</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        ¿Estás seguro de que deseas eliminar este parámetro tributario?
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button id="confirmDeleteButton" class="btn btn-danger">Eliminar</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}
+
+{% block scripts %}
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const rowsPerPage = 5; // Número de filas por página
+    const table = document.getElementById('parametrosTable');
+    const pagination = document.getElementById('pagination');
+    const rows = table.querySelectorAll('tbody tr');
+    let currentPage = 1;
+
+    function displayRows() {
+      const start = (currentPage - 1) * rowsPerPage;
+      const end = start + rowsPerPage;
+      rows.forEach((row, index) => {
+        row.style.display = index >= start && index < end ? '' : 'none';
+      });
+    }
+
+    function setupPagination() {
+      pagination.innerHTML = '';
+      const pageCount = Math.ceil(rows.length / rowsPerPage);
+      for (let i = 1; i <= pageCount; i++) {
+        const li = document.createElement('li');
+        li.className = 'page-item';
+        li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+        li.addEventListener('click', function (e) {
+          e.preventDefault();
+          currentPage = i;
+          displayRows();
+          document.querySelectorAll('.page-item').forEach(item => item.classList.remove('active'));
+          li.classList.add('active');
+        });
+        pagination.appendChild(li);
+      }
+      pagination.firstChild.classList.add('active');
+    }
+
+    // Inicializar tabla y paginación
+    displayRows();
+    setupPagination();
+
+    // Filtrar tabla
+    document.getElementById('searchInput').addEventListener('keyup', function () {
+      const filter = this.value.toUpperCase();
+      rows.forEach(row => {
+        const cells = row.querySelectorAll('td');
+        row.style.display = Array.from(cells).some(cell => cell.textContent.toUpperCase().includes(filter)) ? '' : 'none';
+      });
+    });
+  });
+</script>
+{% endblock scripts %}

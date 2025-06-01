@@ -35,19 +35,6 @@
       </div>
 
       <div class="form-group col-md-6">
-        <label for="idMateria">Materia:</label>
-        <div class="input-group">
-          <select id="idMateria" name="idMateria"  class="form-control text-dark" tabindex="1" data-required="true">
-            <option value="" disabled selected>Seleccione..</option>
-            {% for materia in materias %}
-              <option value="{{ materia.idMateria }}" class="text-dark">{{ materia.nombreMateria }}</option>
-            {% endfor %}
-          </select>
-          <div class="invalid-feedback">Por favor, seleccione una materia válida.</div>
-        </div>
-      </div>
-
-      <div class="form-group col-md-6">
         <label for="nombreCohorte">Cohorte:</label>
         <div class="input-group">
           <input type="text" id="nombreCohorte" name="nombreCohorte" class="form-control text-dark" tabindex="1" data-required="true" oninput="checkCohorte()" placeholder="Ingrese nombre de cohorte...">
@@ -72,16 +59,18 @@
       </div>
       <div class="form-group col-md-6">  
         <label for="idFormacion">Formación Académica:</label>  
-        <div class="input-group"> <!-- Usar input-group para alinear botón y select -->  
-            <select id="idFormacion" name="idFormacion" class="form-control text-dark" tabindex="1" data-required="true">  
-                <option value="" disabled selected>Seleccione...</option>  
-                {% for formacion  in formaciones %}  
-                    <option value="{{ formacion.idFormacion }}" class="text-dark">{{ formacion.nombreFormacion }}</option>  
-                {% endfor %}  
-            </select>
-            <div class="invalid-feedback">Por favor, ingrese una formación válida.</div>  
+        <div class="input-group">  
+          <select id="idFormacion" name="idFormacion" class="form-control text-dark" tabindex="1" data-required="true">  
+            <option value="" disabled selected>Seleccione...</option>  
+            {% for formacion in formaciones %}  
+              <option value="{{ formacion.idFormacion }}" class="text-dark" data-tf="{{ formacion.idTF.idTF }}">
+                {{ formacion.nombreFormacion }} {{ formacion.idTF.idTF }}
+              </option>  
+            {% endfor %}  
+          </select>
+          <div class="invalid-feedback">Por favor, ingrese una formación válida.</div>  
         </div>  
-    </div>
+      </div>
     </div>
     <div id="alert-container"></div> <!-- Contenedor para las alertas -->
 
@@ -256,11 +245,11 @@ document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("nombreCohorte")
           .addEventListener("input", () => checkCohorte());
 
-  // 6) Si vienes con cedula por GET, bótalo al iniciar
+  // 6) Si viene con cedula por GET, bótalo al iniciar
   const initialCed = document.getElementById("cedulaPersona").value.trim();
   if (initialCed) checkPersona(initialCed);
 
-  // 7) Envío AJAX del formulario
+  // 8) Envío AJAX del formulario
   document.getElementById("inscripcionForm")
     .addEventListener("submit", function(e) {
       e.preventDefault();
@@ -277,7 +266,7 @@ document.addEventListener("DOMContentLoaded", function() {
             icon: "success",
             title: "¡Listo!",
             text: json.message,
-            confirmButtonText: "OK",
+            confirmButtonText: "Facturar",
             customClass: { confirmButton: "btn btn-warning" },
             buttonsStyling: false
           }).then(() => {
@@ -342,4 +331,26 @@ document.addEventListener("DOMContentLoaded", function() {
       })();
 
 </script>
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const tipoFormacionSelect = document.getElementById("idTF");
+    const formacionSelect = document.getElementById("idFormacion");
+  
+    tipoFormacionSelect.addEventListener("change", function () {
+      const selectedTipoFormacion = this.value;
+  
+      // Mostrar solo las opciones que coincidan con el tipo de formación seleccionado
+      Array.from(formacionSelect.options).forEach(option => {
+        if (option.dataset.tf === selectedTipoFormacion || option.value === "") {
+          option.style.display = "block";
+        } else {
+          option.style.display = "none";
+        }
+      });
+  
+      // Reiniciar el valor seleccionado en el campo de formación
+      formacionSelect.value = "";
+    });
+  });
+  </script>
 {% endblock javascripts %}d

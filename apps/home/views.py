@@ -31,6 +31,7 @@ from apps.honorario.models import Honorario
 from apps.solicitud.models import Solicitud
 from apps.cuentaBanco.models import Banco, PlanCuenta, CuentaBanco
 from apps.empresa.models import empresa
+from apps.persona.models import PersonaTP
 from apps.periodoContable.models import periodoContable
 
 @login_required(login_url='login')
@@ -184,23 +185,33 @@ def es_superuser(user):
 @permission_required("home.add_usuarios", login_url='page-403', raise_exception=True)
 def registrar_usuario(request):
     if request.method == 'POST':
-        cedula = request.POST.get('cedula')
-        password = request.POST.get('password')
-        pregunta = request.POST.get('preguntaSeguridad')
+        cedula    = request.POST.get('cedula')
+        password  = request.POST.get('password')
+        pregunta  = request.POST.get('preguntaSeguridad')
         respuesta = request.POST.get('respuestaSeguridad')
         
         try:
-            # Obtener la persona por cédula
+            # 1) Obtener la persona por cédula
             persona = Personas.objects.get(cedula=cedula)
             
-            # Verificar si ya existe un usuario para esta persona
+            # 2) Verificar que esa persona tenga asignado el TipoPersona "Usuario" (idTP = 1)
+            existe_tipo_usuario = PersonaTP.objects.filter(
+                idPersona=persona,
+                idTP__idTP=1   # aquí asumimos que 'idTP' es PK de TipoPersona
+            ).exists()
+            
+            if not existe_tipo_usuario:
+                messages.error(request, 'Esa cédula no corresponde a un Tipo “Usuario”')
+                return render(request, 'home/usuario.html')
+            
+            # 3) Verificar si ya existe un usuario para esta persona
             if Usuarios.objects.filter(idPersona=persona).exists():
                 messages.error(request, 'Ya existe un usuario para esta cédula')
-                return render(request, 'usuario.html')
+                return render(request, 'home/usuario.html')
             
-            # Usar el manager para crear el usuario CORRECTAMENTE
+            # 4) Crear el usuario mediante el manager (create_user)
             usuario = Usuarios.objects.create_user(
-                idPersona=persona.idPersona,  # Pasar el ID numérico
+                idPersona=persona.idPersona,  # Pasar el ID numérico de la persona
                 password=password,
                 preguntaSeguridad=pregunta,
                 respuestaSeguridad=respuesta,
@@ -212,11 +223,11 @@ def registrar_usuario(request):
             
             messages.success(request, '¡Usuario registrado exitosamente!')
             return redirect('lista_usuarios')
-            
+        
         except Personas.DoesNotExist:
             messages.error(request, 'Cédula no registrada en Personas')
         except IntegrityError as e:
-            messages.error(request, 'Error: Posible usuario duplicado o datos inválidos')
+            messages.error(request, 'Error: posible usuario duplicado o datos inválidos')
             print(f"Error de integridad: {str(e)}")
         except Exception as e:
             messages.error(request, f'Error inesperado: {str(e)}')
@@ -333,15 +344,18 @@ def page_403(request):
 
 def verificar_cedula(request):
     cedula = request.GET.get('cedula', '')
+    persona = Personas.objects.get(cedula=cedula)
     
     # Asegurar respuesta consistente
     try:
         existe_persona = Personas.objects.filter(cedula=cedula).exists()
         existe_usuario = Usuarios.objects.filter(idPersona__cedula=cedula).exists()
+        tiene_tipo_usuario = PersonaTP.objects.filter(idPersona=persona, idTP__idTP=1).exists()
         
         return JsonResponse({
             'existe_en_personas': existe_persona,
-            'existe_en_usuarios': existe_usuario
+            'existe_en_usuarios': existe_usuario,
+            'tiene_tipo_usuario': tiene_tipo_usuario
         })
         
     except Exception as e:

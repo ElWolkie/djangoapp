@@ -106,23 +106,28 @@
                     <div class="col-md-6">
                         <div class="form-group">
                             <label for="cedula" class="form-label">
-                                <i class="fas fa-id-card form-icon"></i>Cédula de la Persona
+                                <i class="fas fa-id-card form-icon"></i> Cédula de la Persona
                             </label>
                             <div class="cedula-input-group">
-                              <input type="text" id="cedula" name="cedula" 
-                                     class="form-control form-control-lg" 
-                                     placeholder="Ej: 12345678"
-                                     maxlength="8"
-                                     required>
-                              <div id="cedulaStatus" class="cedula-status"></div>
-                          </div>
-                          <!-- Este div debe estar justo debajo del input -->
-                          <div id="cedulaFeedback" class="invalid-feedback"></div>
-                          
+                                <input 
+                                type="text" 
+                                id="cedula" 
+                                name="cedula" 
+                                class="form-control form-control-lg" 
+                                placeholder="Ej: V-12345678" 
+                                maxlength="10" 
+                                required
+                                >
+                                <div id="cedulaStatus" class="cedula-status"></div>
+                            </div>
+                            <!-- Mensaje de error/éxito debajo del input -->
+                            <div id="cedulaFeedback" class="invalid-feedback"></div>
+
                             <small class="form-text text-muted mt-2">
                                 <i class="fas fa-info-circle"></i> Debe estar registrada previamente en Personas
                             </small>
                         </div>
+
 
                         <div class="form-group">
                             <label for="password" class="form-label">
@@ -211,34 +216,27 @@
     {% endif %}
 </div>
 {% endblock content %}
-
 {% block javascripts %}
 <script>
-  // Función para mostrar errores
+  // Función para mostrar errores generales del formulario
   function showError(message) {
     const alertDiv = document.createElement('div');
     alertDiv.className = 'alert alert-danger alert-dismissible fade show mt-2';
     alertDiv.innerHTML = `
-        <div class="d-flex align-items-center">
-            <i class="fas fa-exclamation-circle me-2"></i>
-            <div>${message}</div>
-            <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
-        </div>
+      <div class="d-flex align-items-center">
+        <i class="fas fa-exclamation-circle me-2"></i>
+        <div>${message}</div>
+        <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
+      </div>
     `;
-    
     const container = document.querySelector('.alert-container');
     if (container) {
-        // Mantener alertas anteriores y añadir nuevas
-        container.appendChild(alertDiv);
-        
-        // Auto-eliminar después de 5 segundos
-        setTimeout(() => {
-            alertDiv.remove();
-        }, 5000);
+      container.appendChild(alertDiv);
+      setTimeout(() => { alertDiv.remove(); }, 5000);
     }
-}
-  
-  // Función para actualizar mensajes
+  }
+
+  // Función para actualizar mensajes de validación junto al input
   function actualizarFeedback(elemento, mensaje, esValido) {
     elemento.textContent = mensaje;
     elemento.style.display = mensaje ? 'block' : 'none';
@@ -246,117 +244,139 @@
     elemento.classList.add(esValido ? 'valid-feedback' : 'invalid-feedback');
   }
 
-  function verificarCedula(cedula) {
+  // ----------------------------------------------------
+  // Función principal: valida formato y llama al servidor
+  // ----------------------------------------------------
+  function validarCedulaYVerificar() {
     const inputField = document.getElementById('cedula');
     const statusIcon = document.getElementById('cedulaStatus');
-    const feedback = document.getElementById('cedulaFeedback');
-  
-    // Reset completo del estado
+    const feedback   = document.getElementById('cedulaFeedback');
+    const cedula     = inputField.value.trim();
+
+    // Limpiar estado previo
     inputField.classList.remove('is-valid', 'is-invalid');
     statusIcon.innerHTML = '';
     feedback.textContent = '';
-  
-    if (/^\d{7,8}$/.test(cedula)) {
-      fetch(`/verificar-cedula/?cedula=${cedula}`)
+
+    // Regex: letra V/J/G/E (mayúscula o minúscula) + guion + 7 u 8 dígitos
+    const regexCedula = /^[VvJjGgEePe]-\d{7,8}$/;
+
+    if (regexCedula.test(cedula)) {
+      // Llamada al endpoint
+      fetch(`/verificar-cedula/?cedula=${encodeURIComponent(cedula)}`)
         .then(response => {
           if (!response.ok) throw new Error('Error en el servidor');
           return response.json();
         })
         .then(data => {
-          // Verificar estructura de la respuesta
-          if (!data.hasOwnProperty('existe_en_personas') || !data.hasOwnProperty('existe_en_usuarios')) {
-            throw new Error('Respuesta del servidor inválida');
-          }
-  
-          if (data.existe_en_personas) {
-            if (data.existe_en_usuarios) {
-              inputField.classList.add('is-invalid');
-              statusIcon.innerHTML = '<i class="fas fa-times-circle"></i>';
-              actualizarFeedback(feedback, '❌ Usuario ya registrado', false);
-            } else {
-              inputField.classList.add('is-valid'); // Añade clase de éxito
-              statusIcon.innerHTML = '<i class="fas fa-check-circle"></i>';
-              actualizarFeedback(feedback, '✅ Cédula válida', true);
-            }
-          } else {
+          if (
+          !data.hasOwnProperty('existe_en_personas') ||
+          !data.hasOwnProperty('existe_en_usuarios') ||
+          !data.hasOwnProperty('tiene_tipo_usuario')
+        ) {
+          throw new Error('Respuesta del servidor inválida');
+        }
+
+        if (data.existe_en_personas) {
+          // >>> Nuevo caso: existe Persona PERO no tiene asignado TipoUsuario (idTP=1)
+          if (!data.tiene_tipo_usuario) {
             inputField.classList.add('is-invalid');
-            statusIcon.innerHTML = '<i class="fas fa-times-circle"></i>';
-            actualizarFeedback(feedback, '❌ Cédula no existe en Personas', false);
+            statusIcon.innerHTML = '<i class="fas fa-times-circle text-danger"></i>';
+            actualizarFeedback(feedback, '❌ Cédula válida PERO no es de tipo “Usuario”', false);
           }
-        })
-        .catch(error => {
-          console.error('Error:', error);
+          // >>> Si existe Persona y tiene TipoUsuario:
+          else if (data.existe_en_usuarios) {
+            inputField.classList.add('is-invalid');
+            statusIcon.innerHTML = '<i class="fas fa-times-circle text-danger"></i>';
+            actualizarFeedback(feedback, '❌ Ya existe un usuario creado para esta cédula', false);
+          } else {
+            // ¡Todo OK: la persona existe, es tipo Usuario y no tiene usuario creado!
+            inputField.classList.add('is-valid');
+            statusIcon.innerHTML = '<i class="fas fa-check-circle text-success"></i>';
+            actualizarFeedback(feedback, '✅ Cédula válida para crear usuario', true);
+          }
+        } else {
           inputField.classList.add('is-invalid');
-          actualizarFeedback(feedback, '⚠️ Error al verificar: ' + error.message, false);
-        });
-    } else if (cedula.length < 7) { // Mostrar error solo si hay input
+          statusIcon.innerHTML = '<i class="fas fa-times-circle text-danger"></i>';
+          actualizarFeedback(feedback, '❌ Cédula no existe en Personas', false);
+        }
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        inputField.classList.add('is-invalid');
+        actualizarFeedback(feedback, '⚠️ Error al verificar: ' + error.message, false);
+      });
+
+    } else {
+      // Si no coincide con el patrón, mostramos mensaje de formato
       inputField.classList.add('is-invalid');
-      actualizarFeedback(feedback, '❌ Debe tener 7-8 dígitos', false);
+      actualizarFeedback(feedback, '❌ Formato inválido. Use V/J/G/E-1234567(8)', false);
     }
   }
-  
-  // Eventos
+
+  // ----------------------------------------------------
+  // Código que se ejecuta al cargar la página
+  // ----------------------------------------------------
   document.addEventListener('DOMContentLoaded', () => {
-      // Toggle password
-      document.querySelectorAll('.toggle-password').forEach(button => {
-          button.addEventListener('click', function() {
-              const passwordField = this.parentElement.querySelector('input');
-              const type = passwordField.type === 'password' ? 'text' : 'password';
-              passwordField.type = type;
-              this.querySelector('i').classList.toggle('fa-eye-slash');
-          });
-      });
-  
-      // Validación cédula en tiempo real
-      document.getElementById('cedula').addEventListener('input', function(e) {
-        const cedula = e.target.value.replace(/\D/g, '');
-        e.target.value = cedula;
-        
-        // Limpiar timeout anterior y agregar debounce de 500ms
-        clearTimeout(this.debounce);
-        this.debounce = setTimeout(() => {
-            verificarCedula(cedula);
-        }, 500);
-      });
-  
-      // Validación formulario
-      document.getElementById('registroUsuario').addEventListener('submit', function(e) {
-          const cedula = document.getElementById('cedula').value;
-          const password = document.getElementById('password').value;
-          let errores = [];
-  
-          // Validar cédula
-          if (!/^\d{7,8}$/.test(cedula)) {
-              errores.push('La cédula debe tener entre 7 y 8 dígitos');
-          }
-          
-          if (document.getElementById('cedula').classList.contains('is-invalid')) {
-              errores.push('Verifique el estado de la cédula');
-          }
-  
-          // Validar contraseña
-          if (!/(?=.*[A-Z])(?=.*[a-z])(?=.*\d).{8,}/.test(password)) {
-            errores.push('La contraseña debe tener más de 8 caracteres, incluyendo mayúscula, minúscula y número');
-          }
 
-          // Validar pregunta de seguridad
-            const pregunta = document.getElementById('preguntaSeguridad').value;
-            if (!pregunta) {
-                errores.push('Seleccione una pregunta de seguridad');
-            }
-
-            // Validar respuesta de seguridad
-            const respuesta = document.getElementById('respuestaSeguridad').value.trim();
-            if (!respuesta) {
-                errores.push('Ingrese una respuesta de seguridad');
-            }
-  
-          // Mostrar errores
-          if (errores.length > 0) {
-              e.preventDefault();
-              errores.forEach(error => showError(error));
-          }
+    // 1) Toggle de visibilidad de contraseña
+    document.querySelectorAll('.toggle-password').forEach(button => {
+      button.addEventListener('click', function() {
+        const passwordField = this.parentElement.querySelector('input');
+        const type = passwordField.type === 'password' ? 'text' : 'password';
+        passwordField.type = type;
+        this.querySelector('i').classList.toggle('fa-eye-slash');
       });
+    });
+
+    // 2) Validación de cédula en tiempo real
+    const cedulaInput = document.getElementById('cedula');
+    cedulaInput.addEventListener('input', function() {
+      // *No* eliminamos la “V-” ni el “-”:
+      // simplemente dejamos que el usuario escriba “V-12345678” completo.
+      // Por tanto, no hacemos replace(/\D/g, '') aquí.
+
+      // Lanzamos la validación con debounce de 500ms para no hacer demasiadas llamadas
+      clearTimeout(this.debounce);
+      this.debounce = setTimeout(() => {
+        validarCedulaYVerificar();
+      }, 500);
+    });
+
+    // 3) Validación final antes de enviar el formulario
+    document.getElementById('registroUsuario').addEventListener('submit', function(e) {
+      const inputField = document.getElementById('cedula');
+      const password  = document.getElementById('password').value;
+      let errores = [];
+
+      // Chequear que el campo cedula esté marcado como válido:
+      if (!inputField.classList.contains('is-valid')) {
+        errores.push('Verifique el estado de la cédula (formato o existencia).');
+      }
+
+      // Validar contraseña
+      if (!/(?=.*[A-Z])(?=.*[a-z])(?=.*\d).{8,}/.test(password)) {
+        errores.push('La contraseña debe tener mínimo 8 caracteres, con mayúscula, minúscula y número.');
+      }
+
+      // Pregunta de seguridad
+      const pregunta = document.getElementById('preguntaSeguridad').value;
+      if (!pregunta) {
+        errores.push('Seleccione una pregunta de seguridad.');
+      }
+
+      // Respuesta de seguridad
+      const respuesta = document.getElementById('respuestaSeguridad').value.trim();
+      if (!respuesta) {
+        errores.push('Ingrese una respuesta de seguridad.');
+      }
+
+      if (errores.length > 0) {
+        e.preventDefault();
+        errores.forEach(err => showError(err));
+      }
+    });
+
   });
 </script>
 {% endblock javascripts %}
