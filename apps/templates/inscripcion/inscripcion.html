@@ -6,168 +6,281 @@
 {% block stylesheets %}
 <link rel="stylesheet" href="/static/assets/css/styleForms.css" />
 <link rel="stylesheet" href="/static/assets/css/argon.css" />
+<style>
+  .inscripcion-form {
+      background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+      border-radius: 1rem;
+      box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.1);
+      padding: 2rem;
+      margin: 2rem auto;
+      max-width: 800px;
+  }
+  
+  .form-header {
+      text-align: center;
+      margin-bottom: 2rem;
+      position: relative;
+      padding-bottom: 1rem;
+  }
+  
+  .form-header h2 {
+      color: #343a40;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+  }
+  
+  .form-header::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 80px;
+      height: 4px;
+      background: linear-gradient(90deg, #ffc107, #fd7e14);
+      border-radius: 2px;
+  }
+  
+  .input-group {
+      position: relative;
+      display: flex;
+  }
+  
+  .cedula-select {
+      flex: 0 0 100px;
+      border-radius: 0.5rem 0 0 0.5rem !important;
+      border-right: none;
+      background-color: #fff;
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+      background-repeat: no-repeat;
+      background-position: right 0.75rem center;
+      background-size: 16px 12px;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+      padding-right: 2.5rem;
+  }
+  
+  .cedula-input {
+      flex: 1;
+      border-radius: 0 0.5rem 0.5rem 0 !important;
+  }
+  
+  .check-icon {
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+      background-color: #fff;
+      border: 1px solid #ced4da;
+      border-left: none;
+      border-radius: 0 0.5rem 0.5rem 0;
+  }
+  
+  .btn-submit {
+      background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+      border: none;
+      color: #fff;
+      font-weight: 600;
+      padding: 0.75rem 2rem;
+      border-radius: 0.5rem;
+      transition: all 0.3s;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      display: block;
+      margin: 2rem auto 0;
+      width: 200px;
+  }
+  
+  .btn-submit:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+      background: linear-gradient(135deg, #fd7e14 0%, #ffc107 100%);
+  }
+  
+  /* Estilo mejorado para selects */
+  .styled-select {
+      border-radius: 0.5rem;
+      padding: 0.75rem 1.25rem;
+      border: 1px solid #ced4da;
+      background-color: #fff;
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+      background-repeat: no-repeat;
+      background-position: right 1rem center;
+      background-size: 16px 12px;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+      color: #212529;
+      font-weight: 500;
+      transition: all 0.3s;
+  }
+  
+  .styled-select:focus {
+      border-color: #ffc107;
+      box-shadow: 0 0 0 0.25rem rgba(255, 193, 7, 0.25);
+  }
+  
+  .select-group {
+      position: relative;
+      margin-bottom: 1.5rem;
+  }
+  
+  .select-group label {
+      display: flex;
+      align-items: center;
+      margin-bottom: 0.5rem;
+      font-weight: 600;
+      color: #495057;
+  }
+  
+  .select-group i {
+      margin-right: 10px;
+      color: #6c757d;
+      font-size: 1.2rem;
+  }
+  
+  .form-divider {
+      position: relative;
+      text-align: center;
+      margin: 2rem 0;
+  }
+  
+  .form-divider::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, #dee2e6, transparent);
+  }
+  
+  .form-divider span {
+      position: relative;
+      background: #f8f9fa;
+      padding: 0 15px;
+      color: #6c757d;
+      font-weight: 600;
+      z-index: 1;
+  }
+</style>
 {% endblock stylesheets %}
 
 {% block content %}
-{% if messages %}
-    {% for message in messages %}
-      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-        {{ message }}
-      </div>
-    {% endfor %}
-{% endif %}
-<div class="container mt-5">
-  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Registrar Inscripcion</h2>
-  <form method="POST" class="mt-3 text-dark" autocomplete="off" style="font-weight: bold; max-width: 600px; margin: 0 auto;" id="inscripcionForm" action="{% url 'inscripcion_modal' %}">
-    {% csrf_token %}
-
-    <div class="form-row">
-      <div class="form-group col-md-6">
-        <label for="cedulaPersona">Cédula del Cliente:</label>
-        <div class="input-group">
-          <input type="text" id="cedulaPersona" name="cedulaPersona" class="form-control text-dark" tabindex="1" data-required="true" oninput="checkPersona()" placeholder="Ingrese cédula..." value="{{ request.GET.cedula|default:'' }}">
-          <div class="input-group-append">
-            <span id="check-icon" class="input-group-text"></span>
+<div class="container mt-4">
+  <div class="inscripcion-form">
+    <div class="form-header">
+      <h2><i class="fas fa-file-contract text-warning"></i> Registrar Inscripción</h2>
+      <p class="text-muted">Complete todos los campos para registrar una nueva inscripción</p>
+    </div>
+    
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+          <div class="d-flex align-items-center">
+            <i class="fas {% if message.tags == 'success' %}fa-check-circle{% else %}fa-exclamation-circle{% endif %} me-2"></i>
+            <div>{{ message }}</div>
           </div>
-          <div class="invalid-feedback">Por favor, ingrese una cedula válida.</div>
-          <input type="hidden" id="idPersona" name="idPersona" />
+          <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
         </div>
+      {% endfor %}
+    {% endif %}
+    
+    <form method="POST" autocomplete="off" id="inscripcionForm" action="{% url 'inscripcion_modal' %}">
+      {% csrf_token %}
+      
+      <!-- Grupo de Cédula con nuevo formato -->
+      <div class="form-group mb-4">
+        <label class="form-label">
+          <i class="fas fa-id-card me-2"></i> Cédula del Cliente
+        </label>
+        
+        <div class="input-group">
+          <select id="tipo_cedula" class="form-select cedula-select" style="padding: 5px;">
+            <option value="V" selected>Venezolano</option>
+            <option value="J">Jurídico</option>
+            <option value="G">Gubernamental</option>
+            <option value="E">Extranjero</option>
+            <option value="P">Pasaporte</option>
+          </select>
+          <input type="text" id="numero_cedula" 
+                 class="form-control cedula-input" 
+                 placeholder="12345678" maxlength="8" 
+                 oninput="this.value = this.value.replace(/[^0-9]/g, '')"
+                 value="{{ request.GET.cedula|default:''|slice:'2:' }}">
+          <div class="check-icon" id="check-icon"></div>
+        </div>
+        <div class="invalid-feedback">Por favor, ingrese una cedula válida.</div>
+        <input type="hidden" id="idPersona" name="idPersona" />
       </div>
 
-      <div class="form-group col-md-6">
-        <label for="nombreCohorte">Cohorte:</label>
-        <div class="input-group">
-          <input type="text" id="nombreCohorte" name="nombreCohorte" class="form-control text-dark" tabindex="1" data-required="true" oninput="checkCohorte()" placeholder="Ingrese nombre de cohorte...">
-          <div class="input-group-append">
-            <span id="check-cohorte-icon" class="input-group-text"></span>
-          </div>
-          <div class="invalid-feedback">Por favor, ingrese una cohorte válida.</div>
-          <input type="hidden" id="idCohorte" name="idCohorte" />
-          <input type="hidden" id="estadoContrato" name="estadoContrato" class="form-control text-dark" value="ACTIVO" />
-        </div>
+      <div class="form-divider">
+        <span><i class="fas fa-book me-2"></i> Información Académica</span>
       </div>
-      <div class="form-group col-md-6">
-        <label for="idTF">Tipo de Formación:</label>
-        <select id="idTF" name="idTF"  class="form-control text-dark" data-required="true">
-          <option value="" disabled selected>Seleccione..</option>
-          {% for tipo in tipos_formacion %}
-          <option value="{{ tipo.idTF }}"  class="text-dark">{{ tipo.nombreTipoFormacion }}</option>
+      
+      <div class="row">
+        <div class="col-md-4">
+          <div class="form-group mb-4">
+            <label for="nombreCohorte" class="form-label">
+              <i class="fas fa-users me-2"></i> Cohorte
+            </label>
+            <div class="input-group">
+              <input type="text" id="nombreCohorte" name="nombreCohorte" class="form-control" 
+                     oninput="checkCohorte()" placeholder="Nombre de cohorte">
+              <div class="check-icon" id="check-cohorte-icon"></div>
+            </div>
+            <div class="invalid-feedback">Por favor, ingrese una cohorte válida.</div>
+            <input type="hidden" id="idCohorte" name="idCohorte" />
+            <input type="hidden" id="estadoContrato" name="estadoContrato" value="ACTIVO" />
+          </div>
+        </div>
+        
+        <div class="col-md-4">
+          <div class="select-group">
+            <label for="idTF" class="form-label">
+              <i class="fas fa-graduation-cap me-2"></i> Tipo de Formación
+            </label>
+            <select id="idTF" name="idTF" class="form-select styled-select" style="width: 100%;">
+              <option value="" disabled selected>Seleccione...</option>
+              {% for tipo in tipos_formacion %}
+              <option value="{{ tipo.idTF }}">{{ tipo.nombreTipoFormacion }}</option>
+              {% endfor %}
+            </select>
+            <div class="invalid-feedback">Por favor, seleccione un tipo de formación.</div>
+          </div>
+        </div>
+
+        <div class="select-group">
+        <label for="idFormacion" class="form-label">
+          <i class="fas fa-book me-2"></i> Formación Académica
+        </label>
+        <select id="idFormacion" name="idFormacion" class="form-select styled-select" style="width: 100%;">
+          <option value="" disabled selected>Seleccione...</option>
+          {% for formacion in formaciones %}
+            <option value="{{ formacion.idFormacion }}" data-tf="{{ formacion.idTF.idTF }}">
+              {{ formacion.nombreFormacion }}
+            </option>
           {% endfor %}
         </select>
-        <div class="invalid-feedback">Por favor, ingrese un tipo de formación válida.</div>
-
+        <div class="invalid-feedback">Por favor, seleccione una formación académica.</div>
       </div>
-      <div class="form-group col-md-6">  
-        <label for="idFormacion">Formación Académica:</label>  
-        <div class="input-group">  
-          <select id="idFormacion" name="idFormacion" class="form-control text-dark" tabindex="1" data-required="true">  
-            <option value="" disabled selected>Seleccione...</option>  
-            {% for formacion in formaciones %}  
-              <option value="{{ formacion.idFormacion }}" class="text-dark" data-tf="{{ formacion.idTF.idTF }}">
-                {{ formacion.nombreFormacion }} {{ formacion.idTF.idTF }}
-              </option>  
-            {% endfor %}  
-          </select>
-          <div class="invalid-feedback">Por favor, ingrese una formación válida.</div>  
-        </div>  
+      
       </div>
-    </div>
-    <div id="alert-container"></div> <!-- Contenedor para las alertas -->
+      
+      <div id="alert-container"></div> <!-- Contenedor para las alertas -->
 
-    <div class="text-center">
-      <button type="submit" class="btn btn-warning mt-4">Guardar</button>
-    </div>
-  </form>
+      <button type="submit" class="btn-submit">
+        <i class="fas fa-save me-2"></i> Guardar
+      </button>
+    </form>
+  </div>
 </div>
 {% endblock content %}
 
 {% block javascripts %}
 <script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
 <script>
-//Resaltar campos requeridos
-function highlightInvalidInputs(formSelector) {
-  const form = document.querySelector(formSelector);
-  if (!form) return true;
-  let valid = true;
-  let firstInvalid = null;
-  form.querySelectorAll('input[data-required], select[data-required], textarea[data-required]').forEach(input => {
-    if (!input.value.trim()) {
-      input.classList.add('is-invalid');
-      if (!firstInvalid) firstInvalid = input;
-      valid = false;
-    } else {
-      input.classList.remove('is-invalid');
-    }
-  });
-  if (!valid) {
-    Swal.fire({
-      title: 'Campos requeridos',
-      text: 'Por favor, complete todos los campos obligatorios resaltados en rojo.',
-      icon: 'warning',
-      confirmButtonText: 'OK',
-      customClass: { confirmButton: 'btn btn-warning' },
-      buttonsStyling: false,
-    }).then(() => {
-      if (firstInvalid) firstInvalid.focus();
-    });
-  }
-  return valid;
-}
-</script>
-
-<script>
-function checkPersona(cedula = null) {
- const inputElement = document.getElementById('cedulaPersona');
- const input = cedula || inputElement.value;
- const icon = document.getElementById('check-icon');
- const idPersonaInput = document.getElementById('idPersona');
- const foundPersona = personas.find(persona => persona.cedula === input);
-
- if (cedula) {
-   inputElement.value = cedula; // Asignar automáticamente el valor al input
- }
-
- if (foundPersona) {
-  icon.innerHTML = '✔️'; // Pajarito verde
-  icon.style.color = 'blue';
-  idPersonaInput.value = foundPersona.idPersona;
-
-  // Mostrar alerta con los datos de la persona
-  const alertHTML = `
-      <div class="alert alert-success alert-dismissible fade show" role="alert">
-       <strong style="color: orange; font-size: 1.2em;">Persona encontrada:</strong><br>
-       <span style="font-style: italic;">Cédula: ${foundPersona.cedula}</span><br>
-       <span style="font-style: italic;">Nombres: ${foundPersona.nombres}</span><br>
-       <span style="font-style: italic;">Apellidos: ${foundPersona.apellidos}</span>
-       <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-        <span aria-hidden="true">&times;</span>
-       </button>
-      </div>
-  `;
-
-  // Insertar la alerta en el DOM
-  document.getElementById('alert-container').innerHTML = alertHTML;
- } else {
-  icon.innerHTML = '❌'; // X roja
-  icon.style.color = 'red';
-  idPersonaInput.value = '';
-
-  // Mostrar alerta de que no se encontró la persona
-  const alertHTML = `
-      <div class="alert alert-danger alert-dismissible fade show" role="alert">
-       <strong>Persona no encontrada</strong>
-       <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-        <span aria-hidden="true">&times;</span>
-       </button>
-      </div>
-  `;
-
-  // Insertar la alerta en el DOM
-  document.getElementById('alert-container').innerHTML = alertHTML;
- }
-}
-
-// Llamar automáticamente a checkPersona si se pasa un valor de cédula
 document.addEventListener("DOMContentLoaded", function() {
   // 1) Definición de datos de contexto: cohortes y personas
   const cohortes = [
@@ -199,64 +312,128 @@ document.addEventListener("DOMContentLoaded", function() {
       </div>`;
   }
 
+  // Función para combinar tipo y número de cédula
+  function getCedulaCompleta() {
+    const tipo = document.getElementById('tipo_cedula').value;
+    const numero = document.getElementById('numero_cedula').value;
+    return `${tipo}-${numero}`;
+  }
+
   // 3) checkPersona: buscar por cédula en el array
-  function checkPersona(cedula = null) {
-    const inputEl = document.getElementById("cedulaPersona");
-    const icon    = document.getElementById("check-icon");
-    const hid     = document.getElementById("idPersona");
+  function checkPersona() {
+    const cedulaCompleta = getCedulaCompleta();
+    const icon = document.getElementById("check-icon");
+    const hid = document.getElementById("idPersona");
 
-    const val = cedula || inputEl.value.trim();
-    if (cedula) inputEl.value = cedula;
-
-    const p = personas.find(x => x.cedula === val);
+    const p = personas.find(x => x.cedula === cedulaCompleta);
     if (p) {
-      icon.textContent = "✔️";
+      icon.innerHTML = "✔️";
       icon.style.color = "green";
-      hid.value        = p.idPersona;
+      hid.value = p.idPersona;
       showAlert(`Persona encontrada: ${p.nombres} ${p.apellidos}`, "success");
     } else {
-      icon.textContent = "❌";
+      icon.innerHTML = "❌";
       icon.style.color = "red";
-      hid.value        = "";
+      hid.value = "";
       showAlert("Persona no encontrada", "danger");
     }
   }
 
-  // 4) checkCohorte (igual que antes)
+  // 4) checkCohorte
   function checkCohorte() {
     const val  = document.getElementById("nombreCohorte").value.trim();
     const icon = document.getElementById("check-cohorte-icon");
     const hid  = document.getElementById("idCohorte");
     const c    = cohortes.find(x => x.nombreCohorte === val);
     if (c) {
-      icon.textContent = "✔️";
+      icon.innerHTML = "✔️";
       icon.style.color = "green";
-      hid.value        = c.idCohorte;
+      hid.value = c.idCohorte;
     } else {
-      icon.textContent = "❌";
+      icon.innerHTML = "❌";
       icon.style.color = "red";
-      hid.value        = "";
+      hid.value = "";
     }
   }
 
   // 5) Enlazar eventos
-  document.getElementById("cedulaPersona")
+  document.getElementById("tipo_cedula")
+          .addEventListener("change", () => checkPersona());
+  document.getElementById("numero_cedula")
           .addEventListener("input", () => checkPersona());
   document.getElementById("nombreCohorte")
           .addEventListener("input", () => checkCohorte());
 
   // 6) Si viene con cedula por GET, bótalo al iniciar
-  const initialCed = document.getElementById("cedulaPersona").value.trim();
-  if (initialCed) checkPersona(initialCed);
+  const urlParams = new URLSearchParams(window.location.search);
+  const initialCed = urlParams.get('cedula');
+  if (initialCed) {
+    // Separar la cédula en tipo y número
+    const cedParts = initialCed.split('-');
+    if (cedParts.length >= 2) {
+      const tipo = cedParts[0];
+      const numero = cedParts.slice(1).join(''); // Unir las partes restantes
+      
+      // Seleccionar automáticamente el tipo de cédula
+      document.getElementById('tipo_cedula').value = tipo;
+      document.getElementById('numero_cedula').value = numero;
+      
+      setTimeout(() => checkPersona(), 300);
+    }
+  }
+
+  // 7) Relación entre tipo de formación y formación académica
+  document.getElementById("idTF")
+          .addEventListener("change", function() {
+    const selectedTipoFormacion = this.value;
+    const formacionSelect = document.getElementById("idFormacion");
+    
+    // Mostrar solo las opciones que coincidan con el tipo de formación seleccionado
+    Array.from(formacionSelect.options).forEach(option => {
+      if (option.dataset.tf === selectedTipoFormacion || option.value === "") {
+        option.style.display = "block";
+        option.disabled = false;
+      } else {
+        option.style.display = "none";
+        option.disabled = true;
+      }
+    });
+    
+    // Reiniciar el valor seleccionado en el campo de formación
+    formacionSelect.value = "";
+  });
 
   // 8) Envío AJAX del formulario
   document.getElementById("inscripcionForm")
     .addEventListener("submit", function(e) {
       e.preventDefault();
-      const frm = e.target, data = new FormData(frm);
-      fetch(frm.action, {
+      
+      // Validar campos requeridos
+      const tipoFormacion = document.getElementById("idTF").value;
+      const formacion = document.getElementById("idFormacion").value;
+      
+      if (!tipoFormacion || !formacion) {
+        Swal.fire({
+          icon: "warning",
+          title: "Campos requeridos",
+          text: "Por favor seleccione un tipo de formación y una formación académica",
+          confirmButtonText: "OK",
+          customClass: { confirmButton: "btn btn-warning" },
+          buttonsStyling: false
+        });
+        return;
+      }
+      
+      // Combinar la cédula antes de enviar
+      const cedulaCompleta = getCedulaCompleta();
+      
+      // Crear FormData y agregar la cédula combinada
+      const formData = new FormData(this);
+      formData.append('cedulaPersona', cedulaCompleta);
+      
+      fetch(this.action, {
         method: "POST",
-        body: data,
+        body: formData,
         headers: { "X-Requested-With": "XMLHttpRequest" }
       })
       .then(r => r.json())
@@ -270,7 +447,6 @@ document.addEventListener("DOMContentLoaded", function() {
             customClass: { confirmButton: "btn btn-warning" },
             buttonsStyling: false
           }).then(() => {
-            // redirijo a la URL que devolvió el servidor
             window.location.href = json.redirect_url;
           });
         } else if (json.error) {
@@ -294,63 +470,4 @@ document.addEventListener("DOMContentLoaded", function() {
     });
 });
 </script>
-<script>
-  document.getElementById("nombreCohorte").addEventListener("input", function() {
-    const input = this;
-    const errorElement = document.getElementById("roman-error");
-    
-    // 1. Forzar mayúsculas y filtrar caracteres
-    input.value = input.value.toUpperCase().replace(/[^MDCLXVI]/g, '');
-    
-    // 2. Validación estricta de número romano
-    const isValid = /^M{0,3}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})$/.test(input.value);
-    
-    // 3. Mostrar feedback
-    if (input.value && !isValid) {
-        input.classList.add("is-invalid");
-        errorElement.textContent = "Formato inválido. Ejemplos válidos: VIII, XIX, MMXXIII";
-    } else {
-        input.classList.remove("is-invalid");
-        errorElement.textContent = "";
-    }
-});
-
-// Validaciones de Bootstrap
-          (function() {
-        'use strict';
-        var forms = document.querySelectorAll('.needs-validation');
-        Array.prototype.slice.call(forms).forEach(function(form) {
-          form.addEventListener('submit', function(event) {
-            if (!form.checkValidity()) {
-              event.preventDefault();
-              event.stopPropagation();
-            }
-            form.classList.add('was-validated');
-          }, false);
-        });
-      })();
-
-</script>
-<script>
-  document.addEventListener("DOMContentLoaded", function () {
-    const tipoFormacionSelect = document.getElementById("idTF");
-    const formacionSelect = document.getElementById("idFormacion");
-  
-    tipoFormacionSelect.addEventListener("change", function () {
-      const selectedTipoFormacion = this.value;
-  
-      // Mostrar solo las opciones que coincidan con el tipo de formación seleccionado
-      Array.from(formacionSelect.options).forEach(option => {
-        if (option.dataset.tf === selectedTipoFormacion || option.value === "") {
-          option.style.display = "block";
-        } else {
-          option.style.display = "none";
-        }
-      });
-  
-      // Reiniciar el valor seleccionado en el campo de formación
-      formacionSelect.value = "";
-    });
-  });
-  </script>
-{% endblock javascripts %}d
+{% endblock javascripts %}

@@ -41,8 +41,10 @@ def solicitud_modal(request):
     # Cargar datos para los dropdowns
     tramites = Tramite.objects.all()
     servicios = Servicio.objects.all()
-    personas = Personas.objects.all()
-    
+    personas = Personas.objects.filter(
+        personatp__idTP=2,  # Relación con TipoPersona idTP=2
+        estadoPersona='ACTIVO'  # Estado activo
+    ).distinct()
     return render(request, 'solicitud/solicitud.html', {
         'form': SolicitudForm(),
         'tramites': tramites,

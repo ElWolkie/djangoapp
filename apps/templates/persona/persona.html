@@ -361,6 +361,7 @@
   </div>
 </div>
 {% endblock content %}
+
 {% block javascripts %}
 <script src="/static/assets/js/validacionesPersona.js"></script>
 <script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
@@ -521,15 +522,59 @@
         .then((response) => response.json())
         .then((data) => {
           if (data.success) {
-            // ———— 4) Mostrar SweetAlert de éxito y luego redirigir ————
+            const cedulaCompleta = combineCedula();
+            const tipoPersonaSeleccionados = Array.from(
+              document.querySelectorAll('input[name="tipoPersona"]:checked')
+            ).map(checkbox => checkbox.value);
+
+            // Construir las opciones de redirección según el tipo de persona
+            const opciones = [];
+            if (tipoPersonaSeleccionados.includes("2")) {
+              opciones.push({ text: "Solicitud", value: `/solicitud/solicitud.html?cedula=${cedulaCompleta}` });
+              opciones.push({ text: "Inscripción", value: `/inscripcion/inscripcion.html?cedula=${cedulaCompleta}` });
+            }
+            if (tipoPersonaSeleccionados.includes("3")) {
+              opciones.push({ text: "Honorario", value: `/honorario/honorario2.html?cedula=${cedulaCompleta}` });
+            }
+            if (tipoPersonaSeleccionados.includes("1")) {
+              opciones.push({ 
+                  text: "Usuario", 
+                  value: "{% url 'registrar_usuario' %}?cedula=" + cedulaCompleta 
+              });
+            }
+
+            // Si solo hay un tipo seleccionado, redirigir directamente
+            if (opciones.length === 1) {
+              window.location.href = opciones[0].value;
+              return;
+            }
+
+            // Mostrar SweetAlert con las opciones de redirección
             Swal.fire({
-              icon: "success",
               title: "Registro exitoso",
-              text: "La persona se ha guardado correctamente.",
-              confirmButtonColor: "#ffc107",
-            }).then(() => {
-              // Redirige a la lista de personas filtrada por el mismo tipo (idTP).
-              window.location.href = "{% url 'seleccionar_tipo_consulta' %}?tipo=" + idTP;
+              text: "¿Qué quieres hacer ahora?",
+              icon: "success",
+              input: "select",
+              inputOptions: opciones.reduce((acc, opcion) => {
+                acc[opcion.value] = opcion.text;
+                return acc;
+              }, {}),
+              inputPlaceholder: "Selecciona una opción",
+              showCancelButton: true,
+              confirmButtonText: "Ir",
+              cancelButtonText: "Cancelar",
+              customClass: {
+                confirmButton: "btn btn-warning",
+                cancelButton: "btn btn-secondary",
+              },
+              buttonsStyling: false,
+            }).then((result) => {
+              if (result.isConfirmed && result.value) {
+                window.location.href = result.value;
+              } else {
+                // Si el usuario cancela, redirigir a la lista de personas
+                window.location.href = "{% url 'seleccionar_tipo_consulta' %}?tipo=" + (idTP || '');
+              }
             });
           } else {
             // Si hubo errores de validación en el servidor, muestra el SweetAlert
@@ -559,4 +604,3 @@
   }); // Fin de DOMContentLoaded
 </script>
 {% endblock javascripts %}
-
