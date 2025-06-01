@@ -1,13 +1,16 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse
-from .models import Factura, FacturaDetalle, Pago
-from .forms import FacturaForm, FacturaDetalleForm, PagoForm
-from apps.asientoContable.models import AsientoContable
+from django.db import transaction
+from django.db.models import Max
+
+from apps.periodoContable.models import periodoContable
+from .models import Factura, FacturaDetalle, Pago, ParametroTributario
+from .forms import FacturaForm, FacturaDetalleForm, PagoForm, ParametroTributarioForm
+from apps.asientoContable.models import AsientoContable, DetalleAsiento
 from apps.home.models import Moneda, Tasa
 from apps.persona.models import Personas
 from apps.empresa.models import empresa
-from django.db import transaction
-from django.db.models import Max
+from apps.planCuenta.models import PlanCuenta
 
 # Facturas
 def factura_list(request):
@@ -27,62 +30,84 @@ def factura_detail(request, pk):
 
 @transaction.atomic
 def factura_create(request):
-        """
-        Vista para crear una nueva factura.
-        También crea automáticamente un asiento contable asociado.
-        """
-        personas = Personas.objects.all()
-        empresas = empresa.objects.all()
-        tasas = Tasa.objects.select_related('idMoneda') \
+    personas = Personas.objects.all()
+    empresas = empresa.objects.all()
+    tasas = Tasa.objects.select_related('idMoneda') \
         .values('idMoneda__idMoneda', 'idMoneda__nombreMoneda') \
         .annotate(ultima_idTasa=Max('idTasa'), ultima_tasa=Max('montoTasa'))
+    cuentas_plan = PlanCuenta.objects.filter(estadoPlanCuenta=True).order_by('codigoPlanCuenta')
 
-        if request.method == 'POST':
-            form = FacturaForm(request.POST)
-            if form.is_valid():
-                try:
-                    factura = form.save(commit=False)
+    if request.method == 'POST':
+        form = FacturaForm(request.POST)
+        if form.is_valid():
+            try:
+                factura = form.save(commit=False)
+                periodo_activo = periodoContable.objects.filter(estadoPeriodo=True).first()
+                if not periodo_activo:
+                    periodo_activo = periodoContable.objects.order_by('-idPeriodo').first()
+                if not periodo_activo:
+                    return JsonResponse({
+                        'success': False,
+                        'message': 'No hay ningún periodo contable registrado en el sistema.'
+                    }, status=400)
 
-                    # Crear el asiento contable asociado
-                    asiento = AsientoContable.objects.create(
-                        descripcion=f"Asiento para la factura {factura.numeroFactura}",
-                        fecha=factura.fechaEmision
-                    )
-                    factura.idAsiento = asiento
-                    factura.save()
+                if 'idPlanCuentaDebe' not in request.POST or 'idPlanCuentaHaber' not in request.POST:
+                    return JsonResponse({
+                        'success': False,
+                        'message': 'Debe seleccionar las cuentas contables para el debe y el haber.'
+                    }, status=400)
 
-                    return redirect('factura_list')
-                except Exception as e:
-                    # Mensaje de purificación para identificar errores
-                    print(f"Error al crear la factura o el asiento contable: {e}")
-                    return render(request, 'factura/factura.html', {
-                        'form': form,
-                        'personas': personas,
-                        'empresas': empresas,
-                        'monedas': tasas,
+                # Crear el asiento contable
+                asiento = AsientoContable.objects.create(
+                    numeroAsiento=f"FAC-{factura.numeroFactura}",
+                    fechaAsiento=factura.fechaEmision,
+                    conceptoAsiento=f"Asiento para la factura {factura.numeroFactura}",
+                    idPeriodo=periodo_activo
+                )
+                DetalleAsiento.objects.create(
+                    idAsiento=asiento,
+                    idPlanCuenta_id=request.POST['idPlanCuentaDebe'],
+                    debe=factura.totalVenta,
+                    haber=0.00
+                )
+                DetalleAsiento.objects.create(
+                    idAsiento=asiento,
+                    idPlanCuenta_id=request.POST['idPlanCuentaHaber'],
+                    debe=0.00,
+                    haber=factura.totalVenta
+                )
 
-                        'error_message': "Ocurrió un error al intentar guardar la factura. Por favor, inténtelo de nuevo."
-                    })
-            else:
-                # Mostrar errores de validación del formulario
-                print("Errores del formulario de factura:", form.errors)
-                return render(request, 'factura/factura.html', {
-                    'form': form,
-                    'personas': personas,
-                    'empresas': empresas,
-                    'monedas': tasas,
-                    'error_message': "El formulario contiene errores. Por favor, corríjalos e inténtelo de nuevo.",
-                    'form_errors': form.errors
+                factura.idAsiento = asiento
+                factura.save()
+
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Factura creada exitosamente.',
+                    'redirect_url': '/factura/list/'  # Cambia esto por la URL correcta
                 })
+            except Exception as e:
+                import traceback
+                print(f"Error al crear la factura o el asiento contable: {e}")
+                print(traceback.format_exc())
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Ocurrió un error al intentar guardar la factura. Por favor, inténtelo de nuevo.'
+                }, status=500)
         else:
-            form = FacturaForm()
-        return render(request, 'factura/factura.html', {
-            'form': form,
-            'personas': personas,
-            'empresas': empresas,
-            'monedas': tasas,
-        })
-
+            return JsonResponse({
+                'success': False,
+                'message': 'El formulario contiene errores. Por favor, corríjalos e inténtelo de nuevo.',
+                'errors': form.errors
+            }, status=400)
+    else:
+        form = FacturaForm()
+    return render(request, 'factura/factura.html', {
+        'form': form,
+        'personas': personas,
+        'empresas': empresas,
+        'monedas': tasas,
+        'cuentas_plan': cuentas_plan
+    })
 
 @transaction.atomic
 def factura_edit(request, pk):
@@ -241,3 +266,84 @@ def pago_delete(request, pk):
     pago = get_object_or_404(Pago, pk=pk)
     pago.delete()
     return redirect('pago_list')
+
+
+# Parametros Tributarios
+
+def parametro_tributario_list(request):
+    """
+    Vista para listar todos los parámetros tributarios.
+    """
+    parametros = ParametroTributario.objects.all()
+    return render(request, 'factura/tablaParametrosTributarios.html', {'parametros': parametros})
+
+def parametro_tributario_detail(request, pk):
+    """
+    Vista para mostrar los detalles de un parámetro tributario específico.
+    """
+    parametro = get_object_or_404(ParametroTributario, pk=pk)
+    return render(request, 'factura/parametrosDetails.html', {'parametro': parametro})
+
+
+@transaction.atomic
+def parametro_tributario_create(request):
+    """
+    Vista para crear un nuevo parámetro tributario.
+    """
+    if request.method == 'POST':
+        form = ParametroTributarioForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return redirect('parametro_tributario_list')
+    else:
+        form = ParametroTributarioForm()
+
+    # Pasar las opciones al contexto
+    context = {
+        'form': form,
+        'TIPO_PARAMETRO': ParametroTributario.TIPO_PARAMETRO,
+        'TIPOS_APLICABLES': ParametroTributario.TIPOS_APLICABLES,
+    }
+    return render(request, 'factura/parametroTributario.html', context)
+
+@transaction.atomic
+def parametro_tributario_edit(request, pk):
+    """
+    Vista para editar un parámetro tributario existente.
+    """
+    parametro = get_object_or_404(ParametroTributario, pk=pk)
+    if request.method == 'POST':
+        form = ParametroTributarioForm(request.POST, instance=parametro)
+        if form.is_valid():
+            form.save()
+            return redirect('parametro_tributario_list')
+    else:
+        form = ParametroTributarioForm(instance=parametro)
+    return render(request, 'factura/editParametroTributario.html', {'form': form})
+
+@transaction.atomic
+def parametro_tributario_delete(request, pk):
+    """
+    Vista para eliminar un parámetro tributario existente.
+    """
+    parametro = get_object_or_404(ParametroTributario, pk=pk)
+    parametro.delete()
+    return redirect('tablaParametrosTributarios.html')
+
+def obtener_parametros_tributarios(request):
+    # Agrupar parámetros por tipo para facilitar el acceso en el frontend
+    parametros = ParametroTributario.objects.all()
+    parametros_agrupados = {}
+    
+    for param in parametros:
+        if param.tipo not in parametros_agrupados:
+            parametros_agrupados[param.tipo] = []
+        
+        parametros_agrupados[param.tipo].append({
+            'aplica_a': param.aplica_a,
+            'porcentaje': float(param.porcentaje) if param.porcentaje is not None else 0,
+            'valor_fijo': float(param.valor_fijo) if param.valor_fijo is not None else 0,
+            'descripcion': param.descripcion
+        })
+    
+    return JsonResponse(parametros_agrupados)

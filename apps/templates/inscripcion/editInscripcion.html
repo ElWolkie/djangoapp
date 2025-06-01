@@ -42,25 +42,6 @@
       </div>
     </div>
 
-
-    <!-- MATERIA -->
-    <div class="form-group col-md-6">
-      <label for="idMateria">Materia:</label>
-      <div class="input-group">
-        <select id="idMateria" name="idMateria"  class="form-control text-dark" tabindex="1" data-required="true" required>
-          <option value="" disabled>Seleccione..</option>
-          {% for materia in materias %}
-            <option value="{{ materia.idMateria }}" 
-              {% if materia.idMateria == inscripcion.idMateria.idMateria %}selected{% endif %}>
-              {{ materia.nombreMateria }}
-            </option>
-          {% endfor %}
-        </select>
-        <div class="invalid-feedback">Por favor, seleccione una materia válida.</div>
-      </div>
-    </div>
-    </div>
-
     <!-- COHORTE -->
     <div class="row">
     <div class="form-group col-md-6">
@@ -109,7 +90,7 @@
           <option value="" disabled selected>Seleccione...</option>  
           {% for formacion in formaciones %}  
             <option value="{{ formacion.idFormacion }}"
-              {% if formacion.idFormacion == inscripcion.idFormacion.idFormacion %}selected{% endif %}>
+              {% if formacion.idFormacion == inscripcion.idFormacion.idFormacion %}selected{% endif %} data-tf="{{ formacion.idTF.idTF }}">
               {{ formacion.nombreFormacion }}
             </option>           
           {% endfor %}  

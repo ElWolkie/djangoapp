@@ -1,5 +1,5 @@
 from django import forms
-from .models import Factura, FacturaDetalle, Pago
+from .models import Factura, FacturaDetalle, Pago, ParametroTributario
 
 class FacturaForm(forms.ModelForm):
     """
@@ -31,6 +31,11 @@ class FacturaForm(forms.ModelForm):
         if fecha_vencimiento and fecha_emision and fecha_vencimiento < fecha_emision:
             raise forms.ValidationError("La fecha de vencimiento no puede ser anterior a la fecha de emisión.")
 
+        # Validar que el total de la venta sea mayor a 0
+        total_venta = cleaned_data.get('totalVenta')
+        if total_venta is not None and total_venta <= 0:
+            raise forms.ValidationError("El total de la venta debe ser mayor a 0.")
+
         return cleaned_data
 
 
@@ -57,10 +62,16 @@ class FacturaDetalleForm(forms.ModelForm):
         precio_unitario = cleaned_data.get('precioUnitario')
 
         # Validar que la cantidad y el precio unitario sean mayores a 0
-        if cantidad <= 0:
+        if cantidad is not None and cantidad <= 0:
             raise forms.ValidationError("La cantidad debe ser mayor a 0.")
-        if precio_unitario <= 0:
+        if precio_unitario is not None and precio_unitario <= 0:
             raise forms.ValidationError("El precio unitario debe ser mayor a 0.")
+
+        # Validar que el subtotal sea igual a cantidad * precio_unitario
+        subtotal = cleaned_data.get('subtotal')
+        if cantidad and precio_unitario and subtotal is not None:
+            if subtotal != cantidad * precio_unitario:
+                raise forms.ValidationError("El subtotal debe ser igual a la cantidad multiplicada por el precio unitario.")
 
         return cleaned_data
 
@@ -91,7 +102,34 @@ class PagoForm(forms.ModelForm):
         monto = cleaned_data.get('monto')
 
         # Validar que el monto sea mayor a 0
-        if monto <= 0:
+        if monto is not None and monto <= 0:
             raise forms.ValidationError("El monto del pago debe ser mayor a 0.")
+
+        return cleaned_data
+    
+class ParametroTributarioForm(forms.ModelForm):
+    class Meta:
+        model = ParametroTributario
+        fields = [
+            'tipo', 'aplica_a', 'porcentaje', 'valor_fijo', 
+            'fecha_inicio', 'fecha_fin', 'activo', 'descripcion'
+        ]
+        widgets = {
+            'fecha_inicio': forms.DateInput(attrs={'type': 'date'}),
+            'fecha_fin': forms.DateInput(attrs={'type': 'date'}),
+            'descripcion': forms.Textarea(attrs={'rows': 3}),
+        }
+        help_texts = {
+            'porcentaje': 'Ingrese el porcentaje a aplicar (0 para exenciones).',
+            'valor_fijo': 'Ingrese un valor fijo si aplica, en lugar de porcentaje.',
+        }
+
+    def clean(self):
+        cleaned_data = super().clean()
+        fecha_inicio = cleaned_data.get('fecha_inicio')
+        fecha_fin = cleaned_data.get('fecha_fin')
+
+        if fecha_fin and fecha_inicio and fecha_fin < fecha_inicio:
+            raise forms.ValidationError("La fecha de fin no puede ser anterior a la fecha de inicio.")
 
         return cleaned_data

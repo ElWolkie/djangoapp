@@ -22,13 +22,15 @@ class TipoPersona(models.Model):
 
 class Personas(models.Model):  
     idPersona = models.AutoField(primary_key=True)  # Clave primaria para Personas  
-    cedula = models.CharField(max_length=10, unique=True)  # Número de cedula (único)  
+    cedula = models.CharField(max_length=15, unique=True)  # Número de cedula (único)  
     nombres = models.CharField(max_length=100)  # Nombres  
     apellidos = models.CharField(max_length=100)  # Apellidos  
     telefono = models.CharField(max_length=15)  # Número de teléfono  
-    correo = models.EmailField()  # Dirección de correo electrónico  
+    correo = models.EmailField()  # Dirección de correo electrónico
+    rif = models.CharField(max_length=20, blank=True, null=True, unique=True, help_text="Formato: J-XXXXXXXX-X")
+    direccion = models.TextField(blank=True, null=True, max_length=255)
     estadoPersona = models.CharField(max_length=10)  # Estado de la Persona  
-    fechaPersona = models.DateField(auto_now_add=True)  # Fecha de creación de la Persona  
+    fechaPersona = models.DateField(auto_now_add=True)  # Fecha de creación de la Persona
 
     class Meta:  
         verbose_name = "Persona"  

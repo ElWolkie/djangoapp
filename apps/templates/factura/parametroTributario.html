@@ -1,0 +1,303 @@
+{% extends 'layouts/base2.html' %}
+
+{% block title %}{% if parametro %}Editar Parámetro Tributario{% else %}Crear Parámetro Tributario{% endif %}{% endblock title %}
+
+{% block stylesheets %}
+<link rel="stylesheet" href="/static/assets/css/styleForms.css" />
+<link rel="stylesheet" href="/static/assets/css/argon.css" />
+
+<style>
+  #tablaParametros th, #tablaParametros td {
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  #tablaParametros th {
+    font-weight: bold;
+  }
+
+  .form-group label {
+    font-weight: bold;
+  }
+
+  .form-group .invalid-feedback {
+    font-size: 0.875rem;
+  }
+  
+  .placeholder-example {
+    font-size: 0.8rem;
+    color: #6c757d;
+    font-style: italic;</div>
+  }
+  
+  .toggle-group {
+    display: flex;
+    align-items: center;
+    margin-bottom: 5px;
+  }
+  
+  .toggle-group label {
+    margin-right: 10px;
+    margin-bottom: 0;
+  }
+  
+  .toggle-options {
+    display: flex;
+  }
+  
+  .toggle-options .form-check {
+    margin-right: 15px;
+  }
+  
+  input[readonly] {
+    background-color: #e9ecef;
+    opacity: 1;
+  }
+</style>
+{% endblock stylesheets %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2 class="text-center text-dark mb-4">
+        {% if parametro %}
+            Editar Parámetro Tributario
+        {% else %}
+            Crear Parámetro Tributario
+        {% endif %}
+    </h2>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <form method="POST" action="" class="needs-validation text-dark" novalidate>
+        {% csrf_token %}
+        <div class="form-row">
+            <div class="form-group col-md-6">
+                <label for="tipo">Tipo de Parámetro:</label>
+                <select id="tipo" name="tipo" class="form-control" required>
+                    <option value="" disabled selected>Seleccione un tipo de parámetro...</option>
+                    {% for key, value in TIPO_PARAMETRO %}
+                        <option value="{{ key }}" {% if parametro and parametro.tipo == key %}selected{% endif %}>{{ value }}</option>
+                    {% endfor %}
+                </select>
+                <small class="placeholder-example">Ej: IVA General, Retención ISLR, etc.</small>
+                <div class="invalid-feedback">Por favor seleccione un tipo de parámetro.</div>
+            </div>
+            <div class="form-group col-md-6">
+                <label for="aplica_a">Aplica a:</label>
+                <select id="aplica_a" name="aplica_a" class="form-control" required>
+                    <option value="" disabled selected>Seleccione el tipo de factura...</option>
+                    {% for key, value in TIPOS_APLICABLES %}
+                        <option value="{{ key }}" {% if parametro and parametro.aplica_a == key %}selected{% endif %}>{{ value }}</option>
+                    {% endfor %}
+                </select>
+                <small class="placeholder-example">Ej: Honorarios Profesionales, Servicios Generales, etc.</small>
+                <div class="invalid-feedback">Por favor seleccione a qué aplica este parámetro.</div>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group col-md-6">
+                <div class="toggle-group">
+                    <label>Tipo de Valor:</label>
+                    <div class="toggle-options">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="tipo_valor" id="porcentaje_radio" value="porcentaje" checked>
+                            <label class="form-check-label" for="porcentaje_radio">Porcentaje</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="tipo_valor" id="valor_fijo_radio" value="fijo">
+                            <label class="form-check-label" for="valor_fijo_radio">Valor Fijo</label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="porcentaje_group">
+                    <label for="porcentaje">Porcentaje:</label>
+                    <input type="number" id="porcentaje" name="porcentaje" class="form-control" 
+                           step="0.01" min="0" value="{{ parametro.porcentaje|default:'' }}" 
+                           placeholder="Ej: 16 para IVA, 10 para ISLR honorarios" required>
+                    <small class="placeholder-example">Usar 0 para exenciones</small>
+                    <div class="invalid-feedback">Por favor ingrese un porcentaje válido.</div>
+                </div>
+                
+                <div id="valor_fijo_group" style="display: none;">
+                    <label for="valor_fijo">Valor Fijo:</label>
+                    <input type="number" id="valor_fijo" name="valor_fijo" class="form-control" 
+                           step="0.01" min="0" value="{{ parametro.valor_fijo|default:'' }}"
+                           placeholder="Ej: 1500 para monto exento de ISLR">
+                    <small class="placeholder-example">Solo para montos fijos (no porcentajes)</small>
+                    <div class="invalid-feedback">Por favor ingrese un valor fijo válido.</div>
+                </div>
+            </div>
+            
+            <div class="form-group col-md-6">
+                <div class="toggle-group">
+                    <label>Vigencia:</label>
+                    <div class="toggle-options">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="tipo_vigencia" id="vigencia_indefinida" value="indefinida" checked>
+                            <label class="form-check-label" for="vigencia_indefinida">Indefinida</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="tipo_vigencia" id="vigencia_limitada" value="limitada">
+                            <label class="form-check-label" for="vigencia_limitada">Limitada</label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="fecha_inicio_group">
+                    <label for="fecha_inicio">Fecha de Inicio:</label>
+                    <input type="date" id="fecha_inicio" name="fecha_inicio" class="form-control" 
+                           value="{{ parametro.fecha_inicio|default:'' }}" required>
+                    <small class="placeholder-example">Fecha cuando entra en vigencia este parámetro</small>
+                    <div class="invalid-feedback">Por favor ingrese una fecha de inicio válida.</div>
+                </div>
+                
+                <div id="fecha_fin_group" style="display: none;">
+                    <label for="fecha_fin">Fecha de Fin:</label>
+                    <input type="date" id="fecha_fin" name="fecha_fin" class="form-control" 
+                           value="{{ parametro.fecha_fin|default:'' }}"
+                           placeholder="Dejar vacío si no tiene fecha de finalización">
+                    <small class="placeholder-example">Usar solo si el parámetro tiene vigencia limitada</small>
+                    <div class="invalid-feedback">Por favor ingrese una fecha de fin válida.</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group col-md-6">
+            <div class="form-check">
+                <input type="checkbox" id="activo" name="activo" class="form-check-input" 
+                   {% if not parametro or parametro.activo %}checked{% endif %}>
+                <label class="form-check-label" for="activo">¿Está activo?</label>
+            </div>
+            <small class="placeholder-example">Desmarque para desactivar este parámetro sin eliminarlo</small>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="descripcion">Descripción:</label>
+            <textarea id="descripcion" name="descripcion" class="form-control" rows="3"
+                      placeholder="Ej: 'Retención de IVA al 75% para servicios según Providencia SENIAT 123'">{{ parametro.descripcion|default:'' }}</textarea>
+            <small class="placeholder-example">Incluya referencia legal o notas importantes</small>
+        </div>
+
+        <div class="text-center">
+            <button type="submit" class="btn btn-warning mt-4">
+                {% if parametro %}
+                    Guardar Cambios
+                {% else %}
+                    Crear Parámetro
+                {% endif %}
+            </button>
+            <a href="{% url 'parametro_tributario_list' %}" class="btn btn-secondary mt-4">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock content %}
+
+{% block javascripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Validación básica del formulario
+        (function() {
+            'use strict';
+            var forms = document.getElementsByClassName('needs-validation');
+            Array.prototype.filter.call(forms, function(form) {
+                form.addEventListener('submit', function(event) {
+                    if (form.checkValidity() === false) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                    }
+                    form.classList.add('was-validated');
+                }, false);
+            });
+        })();
+
+        // Control de campos porcentaje/valor fijo
+        const tipoValorPorcentaje = document.getElementById('porcentaje_radio');
+        const tipoValorFijo = document.getElementById('valor_fijo_radio');
+        const porcentajeGroup = document.getElementById('porcentaje_group');
+        const valorFijoGroup = document.getElementById('valor_fijo_group');
+        const porcentajeInput = document.getElementById('porcentaje');
+        const valorFijoInput = document.getElementById('valor_fijo');
+
+        function toggleTipoValor() {
+            if (tipoValorPorcentaje.checked) {
+                porcentajeGroup.style.display = 'block';
+                valorFijoGroup.style.display = 'none';
+                porcentajeInput.required = true;
+                valorFijoInput.required = false;
+                valorFijoInput.value = '';
+            } else {
+                porcentajeGroup.style.display = 'none';
+                valorFijoGroup.style.display = 'block';
+                porcentajeInput.required = false;
+                valorFijoInput.required = true;
+                porcentajeInput.value = '';
+            }
+        }
+
+        tipoValorPorcentaje.addEventListener('change', toggleTipoValor);
+        tipoValorFijo.addEventListener('change', toggleTipoValor);
+        toggleTipoValor(); // Ejecutar al cargar
+
+        // Control de vigencia
+        const vigenciaIndefinida = document.getElementById('vigencia_indefinida');
+        const vigenciaLimitada = document.getElementById('vigencia_limitada');
+        const fechaFinGroup = document.getElementById('fecha_fin_group');
+
+        function toggleVigencia() {
+            if (vigenciaIndefinida.checked) {
+                fechaFinGroup.style.display = 'none';
+                document.getElementById('fecha_fin').value = '';
+            } else {
+                fechaFinGroup.style.display = 'block';
+            }
+        }
+
+        vigenciaIndefinida.addEventListener('change', toggleVigencia);
+        vigenciaLimitada.addEventListener('change', toggleVigencia);
+        toggleVigencia(); // Ejecutar al cargar
+
+        // Validación condicional según tipo de parámetro
+        const tipoSelect = document.getElementById('tipo');
+        
+        function validarSegunTipo() {
+            const tiposQueUsanValorFijo = ['MONTO_EXENCION_ISLR', 'MONTO_EXENCION_IVA'];
+            
+            if (tiposQueUsanValorFijo.includes(tipoSelect.value)) {
+                // Forzar selección de valor fijo para estos tipos
+                tipoValorFijo.checked = true;
+                tipoValorPorcentaje.disabled = true;
+                toggleTipoValor();
+            } else {
+                tipoValorPorcentaje.disabled = false;
+            }
+        }
+        
+        tipoSelect.addEventListener('change', validarSegunTipo);
+        validarSegunTipo(); // Ejecutar al cargar
+
+        // Inicialización para edición
+        {% if parametro %}
+            // Configurar radios según valores existentes
+            {% if parametro.valor_fijo %}
+                document.getElementById('valor_fijo_radio').checked = true;
+                toggleTipoValor();
+            {% endif %}
+            
+            {% if parametro.fecha_fin %}
+                document.getElementById('vigencia_limitada').checked = true;
+                toggleVigencia();
+            {% endif %}
+        {% endif %}
+    });
+</script>
+{% endblock javascripts %}

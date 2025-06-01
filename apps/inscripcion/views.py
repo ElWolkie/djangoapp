@@ -26,10 +26,16 @@ def inscripcion_modal(request):
             inscripcion = form.save(commit=False)
             inscripcion.is_active = True  # ⬅️ Establecer como activo
             inscripcion.save()
+
+            # Obtener el valor de la formación seleccionada
+            formacion = inscripcion.idFormacion
+            valor_formacion = getattr(formacion, 'valorFormacion', 0)  # 'valor'
+            print (f"Valor de la formación: {valor_formacion}")
+            # Redirigir a la vista de factura con el valor de la formación
             return JsonResponse({
                 'success': True,
                 'message': 'Registro exitoso.',
-                'redirect_url': reverse('tabla_inscripciones')
+                'redirect_url': f"{reverse('factura_create')}?valor_formacion={valor_formacion}"
             })
         else:
             errors = {field: error for field, error in form.errors.items()}
@@ -40,8 +46,10 @@ def inscripcion_modal(request):
     tipos_formacion  = TipoFormacion.objects.filter(estadoTipoFormacion='ACTIVO')
     cohortes         = Cohorte.objects.filter(estadoCohorte='ACTIVO')
     materias         = Materia.objects.filter(estadoMateria='ACTIVO')
-    personas         = Personas.objects.all()
-
+    personas = Personas.objects.filter(
+        personatp__idTP=2,  # Relación con TipoPersona idTP=2
+        estadoPersona='ACTIVO'  # Estado activo
+    ).distinct()
     return render(request, 'inscripcion/inscripcion.html', {
         'formaciones'     : formaciones,
         'tipos_formacion' : tipos_formacion,
@@ -49,7 +57,6 @@ def inscripcion_modal(request):
         'materias'        : materias,
         'personas'        : personas,
     })
-
 @login_required(login_url='login')
 @permission_required("inscripcion.change_inscripcion", raise_exception=True)
 def edit_inscripcion(request, pk):

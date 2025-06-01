@@ -4,14 +4,14 @@ document.addEventListener("DOMContentLoaded", function() {
     this.value = this.value.replace(/\D/g, '');
   });
 
-  // Validar nombres sin números y caracteres especiales
+  // Validar nombres incluyendo acentos y la ñ
   document.getElementById("nombres").addEventListener("input", function() {
-    this.value = this.value.replace(/[^a-zA-Z\s]/g, '');
+      this.value = this.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '');
   });
 
-  // Validar apellidos sin números y caracteres especiales
+  // Validar apellidos incluyendo acentos y la ñ
   document.getElementById("apellidos").addEventListener("input", function() {
-    this.value = this.value.replace(/[^a-zA-Z\s]/g, '');
+      this.value = this.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '');
   });
 
   // Validar teléfono en formato 0412-000-0000

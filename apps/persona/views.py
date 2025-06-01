@@ -14,17 +14,28 @@ from .models import PersonaTP, Personas, TipoPersona
 @login_required(login_url='login')
 @permission_required("persona.add_personas", raise_exception=True)
 def persona_modal(request):
-    tipo_persona = request.GET.get('idTP', '')  # Obtener el parámetro de la URL
-    tipo_texto = "Registro"  # Valor por defecto
-    
-    if tipo_persona == '2':
+    tipo_persona = request.GET.get('idTP', '')   # vendrá '1', '2', '3' o ''
+    tipo_texto = "Registro"
+
+    if tipo_persona == '1':
+        tipo_texto = "Usuario"
+    elif tipo_persona == '2':
         tipo_texto = "Cliente"
     elif tipo_persona == '3':
         tipo_texto = "Proveedor"
-        
+
     if request.method == 'POST':
-        # 1) Recogemos la lista de tipos seleccionados ANTES de guardar nada
-        tipos_ids = request.POST.getlist('tipoPersona')
+        # Combinar tipo y número de cédula
+        tipo_cedula = request.POST.get('tipo_cedula', 'V')
+        numero_cedula = request.POST.get('numero_cedula', '')
+        cedula_completa = f"{tipo_cedula}-{numero_cedula}"
+        
+        # Crear copia mutable del POST
+        data = request.POST.copy()
+        data['cedula'] = cedula_completa
+        
+        # 1) Recogemos la lista de tipos seleccionados
+        tipos_ids = data.getlist('tipoPersona')
         if not tipos_ids:
             return JsonResponse({
                 'success': False,
@@ -32,7 +43,7 @@ def persona_modal(request):
             })
 
         # 2) Procesamos el formulario
-        form = PersonaForm(request.POST)
+        form = PersonaForm(data)
         if not form.is_valid():
             return JsonResponse({'success': False, 'errors': form.errors})
 
@@ -45,9 +56,9 @@ def persona_modal(request):
                     tp = TipoPersona.objects.get(pk=int(tid))
                     PersonaTP.objects.create(idPersona=persona, idTP=tp)
                 except (TipoPersona.DoesNotExist, ValueError):
-                    print(f"⚠️ TipoPersona inválido: {tid}")  # ni interrumpe ni duplica nada
+                    print(f"⚠️ TipoPersona inválido: {tid}")
 
-        # 5) Devolvemos éxito
+        # 5) Devolvemos éxito con la cédula completa
         return JsonResponse({
             'success': True,
             'message': 'Persona registrada exitosamente.',
@@ -191,7 +202,7 @@ def seleccionar_tipo_consulta(request):
     tipo = request.GET.get('tipo', '')
     
     # Validar y guardar en sesión
-    if tipo in ['2', '3']:
+    if tipo in ['1', '2', '3']:
         request.session['tipo_consulta'] = tipo
     return redirect('tabla_persona')
 
@@ -205,7 +216,7 @@ def tabla_persona(request):
     personas = Personas.objects.all()
 
     # Filtrar por tipo (Cliente/Proveedor)
-    if tipo_consulta in ['2', '3']:
+    if tipo_consulta in ['1', '2', '3']:
         personas = personas.filter(personatp__idTP=tipo_consulta).distinct()
 
     # Filtrar por estado (activo/inactivo)
@@ -213,12 +224,13 @@ def tabla_persona(request):
         personas = personas.filter(estadoPersona='ACTIVO')
 
     # Determinar texto para el título
-    tipo_texto = "Clientes" if tipo_consulta == '2' else "Proveedores" if tipo_consulta == '3' else "Personas"
+    tipo_texto = "Usuarios" if tipo_consulta == '1' else "Clientes" if tipo_consulta == '2' else "Proveedores" if tipo_consulta == '3' else "Personas"
 
     return render(request, 'persona/tablaPersona.html', {
         'personas': personas,
         'mostrar_inactivos': mostrar,
         'tipo_texto': tipo_texto,
+        'tipo_consulta': tipo_consulta,
     })
 
 #TIPO PERSONA

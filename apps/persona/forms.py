@@ -1,3 +1,4 @@
+import re
 from django import forms  
 from .models import TipoPersona, Personas, PersonaTP
 
@@ -14,23 +15,39 @@ class PersonaForm(forms.ModelForm):
 
     class Meta:
         model = Personas
-        fields = ['cedula', 'nombres', 'apellidos', 'telefono', 'correo', 'estadoPersona']
+        fields = ['cedula', 'nombres', 'apellidos', 'telefono', 'correo', 'rif', 'direccion', 'estadoPersona']
         widgets = {
             'estadoPersona': forms.HiddenInput(),
+            'cedula': forms.TextInput(attrs={'maxlength': 15}),
         }
 
     def clean_cedula(self):
         cedula = self.cleaned_data.get('cedula')
-        # Si es una creación (self.instance.pk es None) y la cédula ya existe
-        if not self.instance.pk and Personas.objects.filter(cedula=cedula).exists():
-            raise forms.ValidationError("Esta cédula ya está registrada.")
-        # Aquí puedes añadir más validaciones para el formato de la cédula si es necesario
+        
+        # Validar formato
+        if not re.match(r'^[VJEGP]-\d{5,15}$', cedula):
+            raise forms.ValidationError("Formato inválido. Use: [V|J|E|G|P]-[números]")
+        
+        # Extraer parte numérica
+        numeros_cedula = cedula.split('-', 1)[-1]  # Obtiene todo después del primer guión
+        
+        # Buscar si existe alguna cédula con la misma parte numérica
+        qs = Personas.objects.exclude(pk=self.instance.pk)
+        for persona in qs.iterator():
+            # Obtener parte numérica de la cédula existente
+            numeros_existentes = persona.cedula.split('-', 1)[-1]
+            
+            if numeros_existentes == numeros_cedula:
+                raise forms.ValidationError(
+                    f"La parte numérica de esta cédula ya está registrada como: {persona.cedula}"
+                )
         return cedula
 
     def clean_correo(self):
         correo = self.cleaned_data.get('correo')
-        # Validar unicidad del correo si es necesario
-        if not self.instance.pk and Personas.objects.filter(correo=correo).exists():
+        # Validar unicidad del correo
+        qs = Personas.objects.filter(correo=correo).exclude(pk=self.instance.pk)
+        if qs.exists():
             raise forms.ValidationError("Este correo electrónico ya está registrado.")
         return correo
 

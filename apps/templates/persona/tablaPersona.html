@@ -71,9 +71,11 @@
     </div>
     <div class="col-md-4 text-end">
       {% if perms.persona.add_personas %}
-      <a href="{% url 'persona_modal' %}" class="btn btn-warning">
-        <i class="fas fa-plus-circle me-1"></i> Nueva Persona
-      </a>
+        <!-- Uso de la variable tipo_texto y tipo_consulta que viene de contexto -->
+        <a href="{% url 'persona_modal' %}?idTP={{ tipo_consulta }}" 
+          class="btn btn-warning">
+          <i class="fas fa-plus-circle me-1"></i> Registrar {{ tipo_texto }}
+        </a>
       {% endif %}
     </div>
   </div>
@@ -110,6 +112,8 @@
             <th>Apellidos</th>
             <th>Teléfono</th>
             <th>Correo</th>
+            <th>RIF</th>
+            <th>Dirección</th>
             <th>Tipos</th>
             <th>Estado</th>
             <th class="actions-column">Acciones</th>
@@ -123,6 +127,8 @@
             <td>{{ persona.apellidos }}</td>
             <td>{{ persona.telefono|default:"—" }}</td>
             <td>{{ persona.correo|default:"—" }}</td>
+            <td>{{ persona.rif|default:"—" }}</td>
+            <td>{{ persona.direccion }}</td>
             <td>
               {% for tp in persona.personatp_set.all %}
                 <span class="badge bg-info text-dark">{{ tp.idTP.nombreTP }}</span>
