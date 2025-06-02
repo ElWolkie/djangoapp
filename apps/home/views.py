@@ -1,6 +1,7 @@
 import os
 import requests
 from django import forms
+import re  # Para expresiones regulares
 from django.http import JsonResponse, HttpResponse, HttpResponseRedirect
 from django.shortcuts import render, redirect, get_object_or_404
 from django.template import loader
@@ -139,34 +140,34 @@ def logout_view(request):
 # @ratelimit(key='post:cedula', rate='5/15m')  # 5 intentos por 15 minutos
 def login_view(request):
     if request.user.is_authenticated:
-        # Si ya está autenticado, redirigir según su grupo
         if request.user.is_superuser:
             return redirect('home')
         elif request.user.groups.filter(name='Contable').exists():
             return redirect('contabilidad')
-        else:  # Para Administrativo/Administrador
+        else:
             return redirect('home')
-    
+
     next_param = request.GET.get('next', 'home')
 
     if request.method == 'POST':
-        cedula = request.POST.get('cedula')
+        cedula_input = request.POST.get('cedula', '').strip()
         password = request.POST.get('password')
         next_param = request.POST.get('next', 'home')
-        
+
+        # Extraer solo los dígitos de la cédula usando regex
+        cedula_numerica = re.sub(r'\D', '', cedula_input)  # elimina todo lo que no es número
+
         try:
-            persona = Personas.objects.get(cedula=cedula)
+            persona = Personas.objects.get(cedula__regex=r'[A-Z]-?' + cedula_numerica)
             user = authenticate(request, idPersona=persona.idPersona, password=password)
-            
+
             if user is not None:
                 login(request, user)
-                
-                # Redirección según grupo
                 if user.is_superuser:
                     return redirect('home')
                 elif user.groups.filter(name='Contable').exists():
                     return redirect('contabilidad')
-                else:  # Grupo Administrativo/Administrador
+                else:
                     return redirect('home')
             else:
                 messages.error(request, "Contraseña incorrecta")
@@ -174,7 +175,7 @@ def login_view(request):
             messages.error(request, "No existe un usuario con esta cédula")
         except Exception as e:
             messages.error(request, f"Error al iniciar sesión: {str(e)}")
-    
+
     return render(request, 'home/login.html', {'next': next_param})
 
 # Vista para el superuser
@@ -501,35 +502,44 @@ def asignar_grupos(request, idUsuario):
 # PARA LA RECUPERACION DE CONTRASEÑA
 def recover_password(request):
     context = {}
-    cedula = request.POST.get('cedula') if request.method == 'POST' else None
+    cedula_input = request.POST.get('cedula') if request.method == 'POST' else None
 
     if request.method == 'POST':
-
         # --- Validación básica de Cédula ---
-        if not cedula:
-             messages.error(request, "Por favor, ingrese su cédula.")
-             return render(request, 'home/login.html', {'show_recover_form': True}) # Mostrar recover form
+        if not cedula_input:
+            messages.error(request, "Por favor, ingrese su cédula.")
+            return render(request, 'home/login.html', {'show_recover_form': True})
+
+        # Extraer solo los dígitos de la cédula (ej.: "V-12345678" → "12345678")
+        cedula_numerica = re.sub(r'\D', '', cedula_input)
+
+        # Construir un regex que busque en la BD el formato completo (letra-guion-dígitos)
+        # Por ejemplo: r'^[VJ]-?12345678$'
+        regex_busqueda = rf'^[A-Z]-?{cedula_numerica}$'
 
         try:
-            persona = Personas.objects.get(cedula=cedula)
+            # Buscamos el objeto Persona cuyo campo cedula coincida con el regex
+            persona = Personas.objects.get(cedula__regex=regex_busqueda)
             usuario = Usuarios.objects.select_related('idPersona').get(idPersona=persona)
 
         except Personas.DoesNotExist:
             messages.error(request, "La cédula no se encuentra registrada.")
-            context['cedula'] = cedula
-            context['show_recover_form'] = True # Mantener vista recover
+            context['cedula'] = cedula_input
+            context['show_recover_form'] = True
             return render(request, 'home/login.html', context)
+
         except Usuarios.DoesNotExist:
             messages.error(request, "No existe un usuario vinculado a esta cédula.")
-            context['cedula'] = cedula
-            context['show_recover_form'] = True # Mantener vista recover
+            context['cedula'] = cedula_input
+            context['show_recover_form'] = True
             return render(request, 'home/login.html', context)
+
         except Exception as e:
-             messages.error(request, "Ocurrió un error buscando la información del usuario.")
-             print(f"Error buscando usuario/persona: {e}")
-             context['cedula'] = cedula
-             context['show_recover_form'] = True # Mantener vista recover
-             return render(request, 'home/login.html', context)
+            messages.error(request, "Ocurrió un error buscando la información del usuario.")
+            print(f"Error buscando usuario/persona: {e}")
+            context['cedula'] = cedula_input
+            context['show_recover_form'] = True
+            return render(request, 'home/login.html', context)
 
         # --- Lógica de Pasos ---
         respuesta_input = request.POST.get('respuestaSeguridad')
@@ -539,33 +549,32 @@ def recover_password(request):
         # Paso 3: Procesar cambio de contraseña
         if nueva_contrasenia_input is not None and confirmar_contrasenia_input is not None:
             context['security_question'] = usuario.preguntaSeguridad
-            context['cedula'] = cedula
+            context['cedula'] = cedula_input
             context['show_password_fields'] = True
-            context['show_recover_form'] = True # <-- Mantener flip
+            context['show_recover_form'] = True
 
             if nueva_contrasenia_input != confirmar_contrasenia_input:
                 messages.error(request, "Las contraseñas no coinciden.")
                 return render(request, 'home/login.html', context)
-            elif len(nueva_contrasenia_input) < 8: # <-- Validación longitud
+            elif len(nueva_contrasenia_input) < 8:
                 messages.error(request, "La nueva contraseña debe tener al menos 8 caracteres.")
                 return render(request, 'home/login.html', context)
             else:
-                # (Opcional: añadir validación de complejidad aquí con validate_password)
                 try:
                     usuario.set_password(nueva_contrasenia_input)
                     usuario.save()
                     messages.success(request, "Contraseña actualizada exitosamente. Por favor, inicie sesión.")
                     return redirect('login')
                 except Exception as e:
-                     messages.error(request, "Error al guardar la nueva contraseña.")
-                     print(f"Error guardando contraseña: {e}")
-                     return render(request, 'home/login.html', context)
+                    messages.error(request, "Error al guardar la nueva contraseña.")
+                    print(f"Error guardando contraseña: {e}")
+                    return render(request, 'home/login.html', context)
 
         # Paso 2: Procesar respuesta de seguridad
         elif respuesta_input is not None:
-            context['cedula'] = cedula
+            context['cedula'] = cedula_input
             context['security_question'] = usuario.preguntaSeguridad
-            context['show_recover_form'] = True # <-- Mantener flip
+            context['show_recover_form'] = True
 
             if usuario.respuestaSeguridad and usuario.respuestaSeguridad.lower() == respuesta_input.lower():
                 context['show_password_fields'] = True
@@ -578,16 +587,14 @@ def recover_password(request):
         # Paso 1: Mostrar pregunta de seguridad
         else:
             context['security_question'] = usuario.preguntaSeguridad
-            context['cedula'] = cedula
-            context['show_recover_form'] = True # <-- Mantener flip
+            context['cedula'] = cedula_input
+            context['show_recover_form'] = True
             messages.info(request, "Usuario encontrado. Por favor, ingrese la respuesta de seguridad.")
             return render(request, 'home/login.html', context)
 
     # Para peticiones GET
     else:
-        # Si se accede a /recover-password/ directamente con GET,
-        # podríamos querer mostrar el formulario de recuperación directamente.
-        context['show_recover_form'] = True # <-- Mostrar lado recover por defecto en GET
+        context['show_recover_form'] = True
         return render(request, 'home/login.html', context)
 
 # FORMACION
