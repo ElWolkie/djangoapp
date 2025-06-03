@@ -112,6 +112,7 @@
             <th>ID</th>
             <th>Tipo</th>
             <th>Nombre</th>
+            <th>Valor</th>
             <th>Duración</th>
             <th>Estado</th>
             <th>Fecha</th>
@@ -124,6 +125,7 @@
             <td>{{ formacion.idFormacion }}</td>
             <td>{{ formacion.idTF.nombreTipoFormacion }}</td>
             <td>{{ formacion.nombreFormacion }}</td>
+            <td>{{ formacion.valorFormacion }}</td>
             <td>{{ formacion.duracion }}</td>
             <td>
               {% if formacion.estadoFormacion|upper == "ACTIVO" %}

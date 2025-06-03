@@ -161,7 +161,6 @@ def cuenta_banco_detail(request, pk):
     return render(request, 'bancos/detalleCuentaBanco.html', {
         'cuenta': cuenta
     })
-
 @login_required(login_url='login')
 @permission_required("cuentaBanco.add_cuentabanco", raise_exception=True)
 def cuenta_banco_create(request):
@@ -271,6 +270,12 @@ def cuenta_banco_create(request):
                     'message': 'Cuenta bancaria creada exitosamente!',
                     'redirect_url': reverse('cuenta_banco_list')
                 })
+        else:
+            # Manejo de errores de formulario
+            return JsonResponse({
+                'success': False,
+                'errors': form.errors
+            }, status=400)
     else:
         form = CuentaBancoForm()
         bancos = Banco.objects.filter(estadoBanco=True).order_by('nombreBanco')

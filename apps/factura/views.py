@@ -2,6 +2,8 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse
 from django.db import transaction
 from django.db.models import Max
+import uuid
+from django.utils.timezone import now
 
 from apps.periodoContable.models import periodoContable
 from .models import Factura, FacturaDetalle, Pago, ParametroTributario
@@ -27,6 +29,11 @@ def factura_detail(request, pk):
     factura = get_object_or_404(Factura, pk=pk)
     detalles = FacturaDetalle.objects.filter(idFactura=factura)
     return render(request, 'factura/detalleFactura.html', {'factura': factura, 'detalles': detalles})
+def generar_numero_factura():
+    # Generar un número único basado en la fecha y un UUID
+    fecha_actual = now().strftime('%Y%m%d')  # Formato: YYYYMMDD
+    numero_unico = uuid.uuid4().hex[:6].upper()  # Tomar los primeros 6 caracteres del UUID
+    return f"FAC-{fecha_actual}-{numero_unico}"
 
 @transaction.atomic
 def factura_create(request):
@@ -36,6 +43,7 @@ def factura_create(request):
         .values('idMoneda__idMoneda', 'idMoneda__nombreMoneda') \
         .annotate(ultima_idTasa=Max('idTasa'), ultima_tasa=Max('montoTasa'))
     cuentas_plan = PlanCuenta.objects.filter(estadoPlanCuenta=True).order_by('codigoPlanCuenta')
+    numero_factura = generar_numero_factura()  # Generar el número de factura
 
     if request.method == 'POST':
         form = FacturaForm(request.POST)
@@ -80,10 +88,32 @@ def factura_create(request):
                 factura.idAsiento = asiento
                 factura.save()
 
+                # Crear un detalle de factura predeterminado
+                detalle = FacturaDetalle.objects.create(
+                    idFactura=factura,
+                    tipoItem=factura.tipoFactura,
+                    descripcion=f"Detalle predeterminado para {factura.tipoFactura}",
+                    cantidad=1,
+                    precioUnitario=factura.totalVenta,
+                    exento=True,
+                    subtotal=factura.totalVenta,
+                    ivaItem=0.00,
+                    totalItem=factura.totalVenta
+                )
+
                 return JsonResponse({
                     'success': True,
                     'message': 'Factura creada exitosamente.',
-                    'redirect_url': '/factura/list/'  # Cambia esto por la URL correcta
+                    'detalle': {
+                        'idFactura': factura.idFactura,
+                        'tipoItem': detalle.tipoItem,
+                        'descripcion': detalle.descripcion,
+                        'cantidad': detalle.cantidad,
+                        'precioUnitario': detalle.precioUnitario,
+                        'subtotal': detalle.subtotal,
+                        'ivaItem': detalle.ivaItem,
+                        'totalItem': detalle.totalItem
+                    }
                 })
             except Exception as e:
                 import traceback
@@ -106,7 +136,8 @@ def factura_create(request):
         'personas': personas,
         'empresas': empresas,
         'monedas': tasas,
-        'cuentas_plan': cuentas_plan
+        'cuentas_plan': cuentas_plan,
+        'numero_factura': numero_factura
     })
 
 @transaction.atomic

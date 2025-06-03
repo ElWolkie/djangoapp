@@ -17,7 +17,6 @@ from reportlab.lib.pagesizes import letter
 from reportlab.platypus import Table, TableStyle
 from reportlab.lib import colors
 import os
-
 #SOLICITUD
 @login_required(login_url='login')
 @permission_required("solicitud.add_solicitud", raise_exception=True)
@@ -25,9 +24,13 @@ def solicitud_modal(request):
     if request.method == 'POST':
         form = SolicitudForm(request.POST)
         if form.is_valid():
-            form.save()
+            solicitud = form.save()  # Guardar la solicitud y obtener la instancia
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Registro exitoso.',
+                    'redirect_url': f"{reverse('factura_create')}?inscripcion={solicitud.montoTotal}"
+                })
             messages.success(request, 'Registro exitoso.')
             return redirect('tabla_solicitud')
         else:

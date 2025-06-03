@@ -45,7 +45,6 @@ class FacturaDetalle(models.Model):
     idDetalle = models.AutoField(primary_key=True)
     idFactura = models.ForeignKey(Factura, on_delete=models.CASCADE, related_name='detalles')
     tipoItem = models.CharField(max_length=50)  # Bien o servicio
-    idReferencia = models.IntegerField()  # Ajustar según el modelo relacionado
     descripcion = models.TextField()
     cantidad = models.DecimalField(max_digits=10, decimal_places=2)
     precioUnitario = models.DecimalField(max_digits=10, decimal_places=2)

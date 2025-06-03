@@ -17,6 +17,7 @@ from reportlab.platypus import Table, TableStyle
 from reportlab.lib import colors
 import os
 
+
 @login_required(login_url='login')
 @permission_required("inscripcion.add_inscripcion", raise_exception=True)
 def inscripcion_modal(request):
@@ -30,12 +31,13 @@ def inscripcion_modal(request):
             # Obtener el valor de la formación seleccionada
             formacion = inscripcion.idFormacion
             valor_formacion = getattr(formacion, 'valorFormacion', 0)  # 'valor'
-            print (f"Valor de la formación: {valor_formacion}")
-            # Redirigir a la vista de factura con el valor de la formación
+            print(f"Valor de la formación: {valor_formacion}")
+            
+            # Redirigir a la vista de factura con el valor de la formación y la ID de inscripción
             return JsonResponse({
-                'success': True,
-                'message': 'Registro exitoso.',
-                'redirect_url': f"{reverse('factura_create')}?valor_formacion={valor_formacion}"
+            'success': True,
+            'message': 'Registro exitoso.',
+            'redirect_url': f"{reverse('factura_create')}?inscripcion={valor_formacion}&id={inscripcion.idInscripcion}"
             })
         else:
             errors = {field: error for field, error in form.errors.items()}
@@ -57,6 +59,8 @@ def inscripcion_modal(request):
         'materias'        : materias,
         'personas'        : personas,
     })
+
+
 @login_required(login_url='login')
 @permission_required("inscripcion.change_inscripcion", raise_exception=True)
 def edit_inscripcion(request, pk):

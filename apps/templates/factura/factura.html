@@ -78,7 +78,7 @@
           <div class="mr-3">
             <label for="tipoEntidadCheckbox"  class="form-label small">Tipo de Entidad:</label>
             <div class="form-check ml-3">
-              <input class="form-check-input" type="radio" name="tipoEntidad" id="personaCheckbox" value="persona" required>
+              <input class="form-check-input" type="radio" name="tipoEntidad" id="personaCheckbox" value="persona"  checked required>
               <label class="form-check-label small" for="personaCheckbox">Persona</label>
             </div>
             <div class="form-check ml-3">
@@ -118,7 +118,8 @@
     <div class="form-row">
       <div class="form-group col-md-6">
         <label for="numeroFactura">Número de Factura:</label>
-        <input type="text" id="numeroFactura" name="numeroFactura" class="form-control text-dark" placeholder="Ingrese el número de factura" maxlength="50" required />
+        <input type="text" id="numeroFactura" name="numeroFactura" class="form-control text-dark" 
+           value="{{ numero_factura }}" {% if not numero_factura %}required{% else %}readonly{% endif %} />
         <div class="invalid-feedback">Por favor ingrese un número de factura válido.</div>
       </div>
       <div class="form-group col-md-6">
@@ -158,8 +159,10 @@
       <div class="form-group col-md-6">
         <label for="idTasa">Moneda:</label>
         <select id="idTasa" name="idTasa" class="form-control text-dark" required>
+          
           <option value="" disabled selected>Seleccione una moneda...</option>
           {% for moneda in monedas %}
+          
             <option value="{{ moneda.ultima_idTasa }}">{{ moneda.idMoneda__nombreMoneda }}{% if moneda.ultima_tasa %} | Tasa: {{ moneda.ultima_tasa }}{% else %} - Sin tasa{% endif %}</option>
           {% endfor %}
         </select>
@@ -450,6 +453,26 @@
     </div>
   </div>
 </div>
+
+<div class="modal fade" id="detalleFacturaModal" tabindex="-1" role="dialog" aria-labelledby="detalleFacturaModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="detalleFacturaModalLabel">Detalles de la Factura</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body" id="detalleFacturaModalBody">
+        <!-- Los detalles de la factura se llenarán dinámicamente -->
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">OK</button>
+        <a href="/factura/detalle/edit/" class="btn btn-warning">Modificar Detalles</a>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock content %}
 {% block javascripts %}
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -474,7 +497,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const formaPago = document.getElementById('formaPago');
   const plazoCreditoInput = document.getElementById('plazoCredito');
   const toggleReadonlyButton = document.getElementById('toggleReadonly');
-  const camposReadonly = ['iva', 'ivaRetenido', 'islrRetenido'];
+  const camposReadonly = ['iva', 'ivaRetenido', 'islrRetenido', 'numeroFactura'];
   
 
   // Interceptar el envío del formulario
@@ -497,18 +520,20 @@ document.addEventListener('DOMContentLoaded', function() {
       const result = await response.json(); // Parsear la respuesta como JSON
 
       if (response.ok && result.success) {
-        // Mostrar mensaje de éxito
-        Swal.fire({
-          icon: 'success',
-          title: 'Éxito',
-          text: result.message,
-        }).then(() => {
-          // Redirigir si se proporciona una URL de redirección
-          if (result.redirect_url) {
-            window.location.href = result.redirect_url;
-          }
-        });
-      } else {
+            // Mostrar el modal con los detalles de la factura
+            const modalBody = document.getElementById('detalleFacturaModalBody');
+            modalBody.innerHTML = `
+                <p><strong>ID Factura:</strong> ${result.detalle.idFactura}</p>
+                <p><strong>Tipo de Item:</strong> ${result.detalle.tipoItem}</p>
+                <p><strong>Descripción:</strong> ${result.detalle.descripcion}</p>
+                <p><strong>Cantidad:</strong> ${result.detalle.cantidad}</p>
+                <p><strong>Precio Unitario:</strong> ${result.detalle.precioUnitario}</p>
+                <p><strong>Subtotal:</strong> ${result.detalle.subtotal}</p>
+                <p><strong>IVA:</strong> ${result.detalle.ivaItem}</p>
+                <p><strong>Total:</strong> ${result.detalle.totalItem}</p>
+            `;
+            $('#detalleFacturaModal').modal('show');
+        }  else {
         // Mostrar errores del servidor
         Swal.fire({
           icon: 'error',
@@ -552,7 +577,54 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     });
   });
+// Obtener el parámetro 'inscripcion' de la URL
+const urlParams = new URLSearchParams(window.location.search);
+const inscripcionValue = urlParams.get('inscripcion');
 
+// Si el parámetro 'inscripcion' existe
+if (inscripcionValue) {
+  // Asignar el valor al campo 'subtotalExento'
+  subtotalExento.value = parseFloat(inscripcionValue).toFixed(2);
+  subtotalExento.setAttribute('readonly', true); // Establecer en readonly
+
+  // Marcar la opción "Ingreso" en los checkboxes
+  ingresoCheckbox.checked = true;
+
+  // Habilitar el select de tipo de factura
+  tipoFacturaSelect.disabled = false;
+
+  // Mostrar las opciones de ingreso y ocultar las de egreso
+  document.querySelector('.ingreso-options').style.display = 'block';
+  document.querySelector('.egreso-options').style.display = 'none';
+
+  // Seleccionar la opción "Inscripción" en el select
+  setTimeout(() => {
+    tipoFacturaSelect.value = "INSCRIPCION"; // Seleccionar la opción "Inscripción"
+    tipoFacturaSelect.setAttribute('readonly', true); // Establecer en readonly
+  }, 0);
+
+  // Establecer valores por defecto
+  subtotalGravado.value = '0.00'; // Inicializar subtotal gravado en 0
+  subtotalGravado.setAttribute('readonly', true); // Establecer en readonly
+  descuento.value = '0.00'; // Inicializar descuento en 0
+  descuento.setAttribute('readonly', true); // Establecer en readonly
+
+  // Ejecutar los cálculos necesarios
+  calcularMontos();
+}
+
+// Obtener el parámetro 'id' de la URL
+const idParam = urlParams.get('id');
+
+// Si el parámetro 'id' existe
+if (idParam) {
+  const filaPersona = document.querySelector(`#tablaPersonas tr[data-id="${idParam}"]`);
+  if (filaPersona) {
+    const nombrePersona = filaPersona.getAttribute('data-nombre');
+    document.getElementById('personaInput').value = nombrePersona; // Asignar el nombre al input
+    document.getElementById('idPersona').value = idParam; // Asignar el ID al input oculto
+  }
+}
 
  // Manejar la selección de filas en el modal de Personas
  const tablaPersonas = document.getElementById('tablaPersonas');
