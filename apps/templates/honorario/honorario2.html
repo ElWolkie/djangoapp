@@ -103,25 +103,22 @@
           "X-Requested-With": "XMLHttpRequest", // Indicar que es una solicitud AJAX
         },
       })
-        .then((response) => response.json())
+      .then((response) => response.json())
         .then((data) => {
           if (data.success) {
             // Mostrar alerta de éxito
             Swal.fire({
               title: "Registro exitoso",
               text: "El honorario ha sido registrado correctamente.",
-                icon: "success",
-                confirmButtonText: "OK",
-                customClass: {
+              icon: "success",
+              confirmButtonText: "OK",
+              customClass: {
                 confirmButton: "btn btn-warning"
-                },
-                buttonsStyling: false,
+              },
+              buttonsStyling: false,
             }).then(() => {
-              // Opcional: Limpiar el formulario después del éxito
-              form.reset();
-              document.getElementById("alert-container").innerHTML = ""; // Limpiar alertas
-              document.getElementById("check-icon").innerHTML = ""; // Limpiar icono
-              document.getElementById("check-cohorte-icon").innerHTML = ""; // Limpiar icono
+              // Redirigir después de presionar OK
+              window.location.href = data.redirect_url;
             });
           } else {
             // Mostrar errores en caso de fallo

@@ -454,6 +454,7 @@
   </div>
 </div>
 
+<!-- Modal para Detalles de la Factura -->
 <div class="modal fade" id="detalleFacturaModal" tabindex="-1" role="dialog" aria-labelledby="detalleFacturaModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered" role="document">
     <div class="modal-content">
@@ -467,12 +468,27 @@
         <!-- Los detalles de la factura se llenarán dinámicamente -->
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">OK</button>
-        <a href="/factura/detalle/edit/" class="btn btn-warning">Modificar Detalles</a>
+        <button type="button" id="okButton" class="btn btn-secondary" data-dismiss="modal">OK</button>
+        <!-- <button type="button" id="modificarButton" class="btn btn-warning">Modificar Detalles</button> -->
       </div>
     </div>
   </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  // Botón "OK" redirige a factura_list
+  document.getElementById('okButton').addEventListener('click', function () {
+    window.location.href = "{% url 'factura_list' %}";
+  });
+
+  // Botón "Modificar" redirige a factura_detalle_edit
+  document.getElementById('modificarButton').addEventListener('click', function () {
+    const facturaId = "{{ result.detalle.idFactura }}"; // Asegúrate de que este ID esté disponible en el contexto
+    window.location.href = `/facturas/detalles/editar/${facturaId}/`;
+  });
+});
+</script>
 {% endblock content %}
 {% block javascripts %}
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -540,7 +556,7 @@ document.addEventListener('DOMContentLoaded', function() {
           title: 'Error',
           text: result.message || 'Ocurrió un error al procesar la solicitud.',
         });
-
+    
         // Mostrar errores específicos del formulario (si existen)
         if (result.errors) {
           for (const [field, messages] of Object.entries(result.errors)) {
@@ -577,9 +593,20 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     });
   });
+    // Botón "OK" redirige a factura_list
+    document.getElementById('okButton').addEventListener('click', function () {
+        window.location.href = "{% url 'factura_list' %}";
+      });
+
+      // // Botón "Modificar" redirige a factura_detalle_edit
+      // document.getElementById('modificarButton').addEventListener('click', function () {
+      //   const facturaId = "{{ result.detalle.idFactura }}"; // Asegúrate de que este ID esté disponible en el contexto
+      //   window.location.href = `/facturas/detalles/editar/${facturaId}/`;
+      // });
 // Obtener el parámetro 'inscripcion' de la URL
 const urlParams = new URLSearchParams(window.location.search);
 const inscripcionValue = urlParams.get('inscripcion');
+const honorarioValue = urlParams.get('honorario');
 
 // Si el parámetro 'inscripcion' existe
 if (inscripcionValue) {
@@ -612,6 +639,45 @@ if (inscripcionValue) {
   // Ejecutar los cálculos necesarios
   calcularMontos();
 }
+
+// Si el parámetro 'Honorario' existe
+if (honorarioValue) {
+  // Asignar el valor al campo 'subtotalGravado'
+  subtotalGravado.value = parseFloat(honorarioValue).toFixed(2);
+  subtotalGravado.setAttribute('readonly', true); // Establecer en readonly
+
+  // Marcar la opción "Ingreso" en los checkboxes
+  egresoCheckbox.checked = true;
+
+  // Habilitar el select de tipo de factura
+  tipoFacturaSelect.disabled = false;
+
+  // Mostrar las opciones de ingreso y ocultar las de egreso
+  document.querySelector('.ingreso-options').style.display = 'block';
+  document.querySelector('.egreso-options').style.display = 'none';
+
+  // Seleccionar la opción "Inscripción" en el select
+  setTimeout(() => {
+    tipoFacturaSelect.value = "HONORARIO_PROFESOR"; // Seleccionar la opción "Honorario"
+    tipoFacturaSelect.setAttribute('readonly', true); // Establecer en readonly
+  }, 0);
+
+  // Establecer valores por defecto
+  subtotalExento.value = '0.00'; // Inicializar subtotal gravado en 0
+  subtotalExento.setAttribute('readonly', true); // Establecer en readonly
+  descuento.value = '0.00'; // Inicializar descuento en 0
+  descuento.setAttribute('readonly', true); // Establecer en readonly
+
+  // Hacer editable el campo de IVA retenido
+  ivaRetenido.removeAttribute('readonly'); // Eliminar el atributo readonly
+  ivaRetenido.readOnly = false; // Asegurarse de que no esté bloqueado
+  // Ejecutar los cálculos necesarios
+  calcularMontos();
+}
+
+
+
+
 
 // Obtener el parámetro 'id' de la URL
 const idParam = urlParams.get('id');

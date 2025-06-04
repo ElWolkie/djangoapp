@@ -30,16 +30,24 @@ def honorario_modal(request):
         if form.is_valid():
             honorario = form.save()  # Guardar el formulario y obtener el objeto Honorario
             monto = honorario.monto  # Obtener el monto del objeto guardado
+
+
             return JsonResponse({
-                'success': True,
-                'message': 'Registro exitoso.',
-                'redirect_url': f"{reverse('factura_create')}?inscripcion={monto}"
+            'success': True,
+            'message': 'Registro exitoso.',
+            'redirect_url': f"{reverse('factura_create')}?honorario={monto}&id={honorario.idPersona.idPersona}"
             })
         else:
+            errors = {field: error for field, error in form.errors.items()}
             return JsonResponse({
-                'success': False,
-                'errors': {'__all__': ['Ya existe un registro idéntico.']}
+            'success': False,
+            'errors': errors
             })
+
+
+
+
+
 
 @login_required(login_url='login')
 @permission_required("honorario.change_honorario", raise_exception=True)
