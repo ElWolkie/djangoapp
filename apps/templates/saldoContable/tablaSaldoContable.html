@@ -1,0 +1,94 @@
+{% extends 'layouts/base2.html' %}
+{% load static %}
+
+{% block title %}Listado de Saldos Contables{% endblock title %}
+
+{% block stylesheets %}
+<link rel="stylesheet" href="{% static 'assets/css/styleForms.css' %}" />
+<link rel="stylesheet" href="{% static 'assets/css/argon.css' %}" />
+{% endblock stylesheets %}
+
+{% block content %}
+<div class="container mt-5">
+  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Lista de Saldos Contables</h2>
+
+  {% if messages %}
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        {{ message }}
+      </div>
+    {% endfor %}
+  {% endif %}
+
+  <div class="row">
+    <div class="col-md-4">
+      <div class="input-group">
+        <div class="input-group-prepend">
+          <span class="input-group-text" style="background-color: #bcbcbc; border: none;">
+            <i class="fas fa-search text-warning"></i>
+          </span>
+        </div>
+        <input class="form-control" id="searchInput" type="text" placeholder="Buscar..." onkeyup="filterTable()">
+      </div>
+    </div>
+    <div class="col-md-4 text-end">
+      <a href="{% url 'saldo_contable_create' %}" class="btn btn-warning px-4">
+        <i class="fas fa-plus-circle me-1"></i> Registrar
+      </a>
+    </div>
+  </div>
+
+  <br>
+  <table class="table table-striped text-gray-dark" id="saldosTable">
+    <thead class="text-darker">
+      <tr>
+        <th scope="col">ID</th>
+        <th scope="col">Plan de Cuenta</th>
+        <th scope="col">Periodo</th>
+        <th scope="col">Saldo Inicial</th>
+        <th scope="col">Saldo Final</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for saldo in saldos %}
+      <tr>
+        <td>{{ saldo.idSaldo }}</td>
+        <td>{{ saldo.id_plan_cuenta.codigoPlanCuenta }} - {{ saldo.id_plan_cuenta.nombrePlanCuenta }}</td>
+        <td>{{ saldo.id_periodo.nombrePeriodo }} ({{ saldo.id_periodo.fechaInicioPeriodo|date:"d/m/Y" }} - {{ saldo.id_periodo.fechaFinPeriodo|date:"d/m/Y" }})</td>
+        <td>{{ saldo.saldo_inicial }}</td>
+        <td>{{ saldo.saldo_final }}</td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="5" class="text-center">No hay saldos contables registrados.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock content %}
+
+{% block javascripts %}
+<script>
+  function filterTable() {
+    var input, filter, table, tr, td, i, j, txtValue;
+    input = document.getElementById("searchInput");
+    filter = input.value.toUpperCase();
+    table = document.getElementById("saldosTable");
+    tr = table.getElementsByTagName("tr");
+    for (i = 1; i < tr.length; i++) {
+      tr[i].style.display = "none";
+      td = tr[i].getElementsByTagName("td");
+      for (j = 0; j < td.length; j++) {
+        if (td[j]) {
+          txtValue = td[j].textContent || td[j].innerText;
+          if (txtValue.toUpperCase().indexOf(filter) > -1) {
+            tr[i].style.display = "";
+            break;
+          }
+        }
+      }
+    }
+  }
+</script>
+{% endblock javascripts %}
