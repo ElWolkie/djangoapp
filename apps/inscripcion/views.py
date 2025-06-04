@@ -11,6 +11,8 @@ from .forms import InscripcionForm
 from .models import Inscripcion
 from apps.persona.models import Personas
 from apps.home.models import Cargo, Cohorte, Materia, TipoFormacion, Formacion, Configuracion
+from apps.requisitoCliente.models import RequisitoCliente
+from apps.requisitoCliente.models import Requisito
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import Table, TableStyle
@@ -228,8 +230,52 @@ def reporte_inscripcion_pdf(request):
     p.save()
     return response
 
-    
+@login_required
+def requisitos_inscripcion_modal(request, pk):
+    inscripcion = get_object_or_404(Inscripcion, pk=pk)
+    requisitos = Requisito.objects.all()
+    entregados = RequisitoCliente.objects.filter(idInscripcion=inscripcion, entregado=True).values_list('idRequisito_id', flat=True)
+    context = {
+        'inscripcion': inscripcion,
+        'requisitos': requisitos,
+        'requisitos_entregados': list(entregados),
+    }
+    return render(request, 'requisitoCliente/requisitoCliente.html', context)
 
+@login_required
+def guardar_requisitos_inscripcion(request, pk):
+    inscripcion = get_object_or_404(Inscripcion, pk=pk)
+    if request.method == 'POST':
+        entregados = request.POST.getlist('requisitos_entregados')
+        # Primero, marca todos como no entregados
+        RequisitoCliente.objects.filter(idInscripcion=inscripcion).update(entregado=False)
+        # Luego, marca como entregados los seleccionados
+        for id_req in entregados:
+            rc, created = RequisitoCliente.objects.get_or_create(
+                idInscripcion=inscripcion,
+                idRequisito_id=id_req,
+                defaults={'entregado': True}
+            )
+            if not created:
+                rc.entregado = True
+                rc.save()
+                pass
+        return JsonResponse({'success': True, 'message': 'Requisitos actualizados correctamente.'})
+    return JsonResponse({'success': False, 'message': 'Método no permitido.'}, status=405)    
+    
+def tabla_inscripciones(request):
+    inscripciones = Inscripcion.objects.all()  # o tu queryset filtrado
+    requisitos_entregados_dict = {}
+    for inscripcion in inscripciones:
+        requisitos = RequisitoCliente.objects.filter(
+            idInscripcion=inscripcion, entregado=True
+        ).select_related('idRequisito')
+        requisitos_entregados_dict[inscripcion.idInscripcion] = [r.idRequisito.nombreRequisito for r in requisitos]
+    return render(request, 'inscripcion/tablaInscripciones.html', {
+        'inscripciones': inscripciones,
+        'requisitos_entregados_dict': requisitos_entregados_dict,
+        # ...otros contextos...
+    })
 
 @login_required(login_url="/login/")
 def pages(request):

@@ -1,0 +1,30 @@
+<form id="requisitosClienteForm" method="post">
+  {% csrf_token %}
+  <div class="table-responsive">
+    <table class="table table-bordered align-middle">
+      <thead>
+        <tr>
+          <th>Requisito</th>
+          <th>Entregado</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for requisito in requisitos %}
+        <tr>
+          <td>{{ requisito.nombreRequisito }}</td>
+          <td class="text-center">
+            <input type="checkbox"
+                   name="requisitos_entregados"
+                   value="{{ requisito.idRequisito }}"
+                   {% if requisito.idRequisito in requisitos_entregados %}checked{% endif %}>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+    <button type="submit" class="btn btn-warning">Guardar</button>
+  </div>
+</form>
