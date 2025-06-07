@@ -259,10 +259,14 @@ def guardar_requisitos_inscripcion(request, pk):
             if not created:
                 rc.entregado = True
                 rc.save()
-                pass
-        return JsonResponse({'success': True, 'message': 'Requisitos actualizados correctamente.'})
-    return JsonResponse({'success': False, 'message': 'Método no permitido.'}, status=405)    
-    
+        # Redireccionar a la tabla de inscripciones usando render
+        inscripciones = Inscripcion.objects.all()
+        return render(request, 'inscripcion/tablaInscripciones.html', {
+            'inscripciones': inscripciones,
+            'success': True,
+            'message': 'Requisitos actualizados correctamente.'
+        })
+
 def tabla_inscripciones(request):
     inscripciones = Inscripcion.objects.all()  # o tu queryset filtrado
     requisitos_entregados_dict = {}
