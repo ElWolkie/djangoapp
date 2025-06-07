@@ -183,7 +183,7 @@
 {% endblock stylesheets %}
 
 {% block content %}
-<div class="container mt-4">
+<div class=" mt-4">
   <div class="solicitud-form">
     <div class="form-header">
       <h2><i class="fas fa-file-alt text-warning"></i> Registrar Solicitud</h2>
@@ -245,18 +245,18 @@
             <select id="idTramite" name="idTramite" class="form-select styled-select" style="width: 100%;">
               <option value="" disabled selected>Seleccione...</option>
               {% for tramite in tramites %}
-                <option value="{{ tramite.idTramite }}">{{ tramite.nombreTramite }}</option>
+                <option value="{{ tramite.idTramite }}" data-="{{ tramite.precioTramite }}" data-diasTramite="{{ tramite.diasTramite }}">{{ tramite.nombreTramite }}</option>
               {% endfor %}
             </select>
           </div>
           
-          <div class="form-group">
+            <div class="form-group">
             <label for="montoTotal" class="form-label">
               <i class="fas fa-dollar-sign me-2"></i> Monto Total
             </label>
-            <input type="text" id="montoTotal" name="montoTotal" class="form-control" 
-                   placeholder="0.00" required>
-          </div>
+            <input type="text" id="montoTotal" name="montoTotal" class="form-control text-dark" 
+                 placeholder="0.00" required readonly>
+            </div>
         </div>
         
         <div class="col-md-6">
@@ -266,8 +266,15 @@
             </label>
             <select id="idServicio" name="idServicio" class="form-select styled-select" style="width: 100%;">
               <option value="" disabled selected>Seleccione...</option>
-              {% for servicio in servicios %}
-                <option value="{{ servicio.idServicio }}">{{ servicio.nombreServicio }}</option>
+                {% for servicio in servicios|dictsort:"idServicio" %}
+                {% if servicio.idServicio == 0 %}
+                  <option value="{{ servicio.idServicio }}" data-="{{ servicio.precioServicio }}">{{ servicio.nombreServicio }}</option>
+                {% endif %}
+                {% endfor %}
+                {% for servicio in servicios|dictsort:"idServicio" %}
+                {% if servicio.idServicio != 0 %}
+                  <option value="{{ servicio.idServicio }}" data-="{{ servicio.precioServicio }}">{{ servicio.nombreServicio }}</option>
+                {% endif %}
               {% endfor %}
             </select>
           </div>
@@ -409,12 +416,12 @@ document.addEventListener("DOMContentLoaded", function() {
             icon: "success",
             title: "¡Solicitud Registrada!",
             text: json.message,
-            confirmButtonText: "OK",
+            confirmButtonText: "Generar Factura",
             customClass: { confirmButton: "btn btn-warning" },
             buttonsStyling: false
           }).then(() => {
             // Redirigir a la lista de solicitudes o a donde corresponda
-            window.location.href = "{% url 'tabla_solicitud' %}";
+            window.location.href = json.redirect_url;
           });
         } else if (json.error) {
           Swal.fire({
@@ -435,6 +442,78 @@ document.addEventListener("DOMContentLoaded", function() {
       })
       .catch(() => Swal.fire("Error","Error al comunicarse con el servidor","error"));
     });
+// Función para actualizar el monto total
+function updateMontoTotal() {
+    const tramiteSelect = document.getElementById("idTramite");
+    const servicioSelect = document.getElementById("idServicio");
+    const montoTotalInput = document.getElementById("montoTotal");
+
+    // Obtener los precios seleccionados y convertirlos a números
+    const tramitePrecio = parseFloat(tramiteSelect.options[tramiteSelect.selectedIndex]?.getAttribute("data-")) || 0;
+    const servicioPrecio = parseFloat(servicioSelect.options[servicioSelect.selectedIndex]?.getAttribute("data-")) || 0;
+
+    // Calcular la suma
+    const total = tramitePrecio + servicioPrecio;
+
+    // Actualizar el campo de monto total
+    montoTotalInput.value = total.toFixed(2);
+}
+// Función para calcular la fecha de entrega
+function calculateFechaEntrega() {
+    const tramiteSelect = document.getElementById("idTramite");
+    const servicioSelect = document.getElementById("idServicio");
+    const fechaEntregaInput = document.getElementById("fechaEntrega");
+
+    // Obtener los atributos de los selectores
+    const tramiteDias = tramiteSelect.options[tramiteSelect.selectedIndex]?.getAttribute("data-diasTramite") || "";
+    const servicioTiempo = servicioSelect.options[servicioSelect.selectedIndex]?.getAttribute("data-tiempoServicio") || "";
+
+    // Función para interpretar el tiempo (ejemplo: "10 DIAS", "10 HORAS", etc.)
+    function interpretarTiempo(tiempo) {
+      const [cantidad, unidad] = tiempo.split(" ");
+      const cantidadNumerica = parseInt(cantidad, 10);
+
+      if (isNaN(cantidadNumerica)) return 0;
+
+      switch (unidad?.toUpperCase()) {
+        case "HORAS":
+          return cantidadNumerica / 24; // Convertir horas a días
+        case "DIAS":
+          return cantidadNumerica; // Mantener días
+        case "SEMANAS":
+          return cantidadNumerica * 7; // Convertir semanas a días
+        case "MESES":
+          return cantidadNumerica * 30; // Aproximar meses a días
+        default:
+          return 0; // Si la unidad no es reconocida
+      }
+    }
+
+    // Calcular días según las reglas
+    let diasEntrega = 0;
+    if (servicioSelect.value === "0") {
+      // Si el servicio tiene id = 0, usar solo diasTramite
+      diasEntrega = interpretarTiempo(tramiteDias);
+    } else {
+      // Si se selecciona otro servicio, usar tiempoServicio
+      diasEntrega = interpretarTiempo(servicioTiempo);
+    }
+
+    // Calcular la nueva fecha de entrega
+    const fechaActual = new Date();
+    fechaActual.setDate(fechaActual.getDate() + diasEntrega);
+
+    // Formatear la fecha en formato YYYY-MM-DD
+    const fechaFormateada = fechaActual.toISOString().split("T")[0];
+    fechaEntregaInput.value = fechaFormateada;
+  }
+
+  // Enlazar eventos de cambio en los selectores
+  document.getElementById("idTramite").addEventListener("change", calculateFechaEntrega);
+  document.getElementById("idServicio").addEventListener("change", calculateFechaEntrega);
+  // Enlazar eventos de cambio en los selectores
+  document.getElementById("idTramite").addEventListener("change", updateMontoTotal);
+  document.getElementById("idServicio").addEventListener("change", updateMontoTotal);
 });
 </script>
 {% endblock javascripts %}
