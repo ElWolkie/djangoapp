@@ -33,6 +33,7 @@
   <form method="POST" class="mt-3 text-dark needs-validation" autocomplete="off" style="font-weight: bold; max-width: 800px; margin: 0 auto;" id="pagoForm" action="{% url 'pago_create' %}" novalidate>
     {% csrf_token %}
 
+    <!-- Factura y Cuenta Bancaria -->
     <div class="form-row">
       <div class="form-group col-md-6">
         <label for="facturaInput">Factura:</label>
@@ -43,9 +44,7 @@
           </button>
         </div>
         <input type="hidden" id="idFactura" name="idFactura" required />
-        <div class="invalid-feedback">
-          Por favor seleccione una factura.
-        </div>
+        <div class="invalid-feedback">Por favor seleccione una factura.</div>
       </div>
       <div class="form-group col-md-6">
         <label for="cuentaBancoInput">Cuenta Bancaria:</label>
@@ -56,29 +55,34 @@
           </button>
         </div>
         <input type="hidden" id="idCuentaBanco" name="idCuentaBanco" required />
-        <div class="invalid-feedback">
-          Por favor seleccione una cuenta bancaria.
-        </div>
+        <input type="hidden" id="idPlanCuentaDebe" name="idPlanCuentaDebe" required /> <!-- Input oculto para el idPlanCuenta -->
+        <div class="invalid-feedback">Por favor seleccione una cuenta bancaria.</div>
       </div>
     </div>
 
+    <!-- Monto y Fecha de Pago -->
     <div class="form-row">
       <div class="form-group col-md-6">
         <label for="monto">Monto:</label>
         <input type="number" id="monto" name="monto" class="form-control text-dark" placeholder="Ingrese el monto del pago" step="0.01" min="0" required />
-        <div class="invalid-feedback">
-          Por favor ingrese un monto válido.
-        </div>
+        <div class="invalid-feedback">Por favor ingrese un monto válido.</div>
+        <small id="deudaFactura" class="form-text text-muted">Seleccione una factura para ver la deuda.</small>
+
       </div>
       <div class="form-group col-md-6">
-        <label for="fechaPago">Fecha de Pago:</label>
-        <input type="date" id="fechaPago" name="fechaPago" class="form-control text-dark" max="{{ today_date }}" required />
-        <div class="invalid-feedback">
-          Por favor ingrese una fecha de pago válida.
-        </div>
+        <label for="idTasa">Moneda:</label>
+        <select id="idTasa" name="idTasa" class="form-control text-dark" required>
+          <option value="" disabled selected>Seleccione una moneda...</option>
+          {% for moneda in monedas %}
+            <option value="{{ moneda.ultima_idTasa }}">{{ moneda.idMoneda__nombreMoneda }}{% if moneda.ultima_tasa %} | Tasa: {{ moneda.ultima_tasa }}{% else %} - Sin tasa{% endif %}</option>
+          {% endfor %}
+        </select>
+        <div class="invalid-feedback">Por favor seleccione una moneda.</div>
       </div>
+     
     </div>
 
+    <!-- Forma de Pago y Moneda -->
     <div class="form-row">
       <div class="form-group col-md-6">
         <label for="formaPago">Forma de Pago:</label>
@@ -89,31 +93,22 @@
           <option value="tarjeta">Tarjeta</option>
           <option value="cheque">Cheque</option>
         </select>
-        <div class="invalid-feedback">
-          Por favor seleccione una forma de pago.
-        </div>
+        <div class="invalid-feedback">Por favor seleccione una forma de pago.</div>
       </div>
       <div class="form-group col-md-6">
-        <label for="idMoneda">Moneda:</label>
-        <select id="idMoneda" name="idMoneda" class="form-control text-dark" required>
-          <option value="" disabled selected>Seleccione una moneda...</option>
-          {% for moneda in monedas %}
-            <option value="{{ moneda.idMoneda }}">{{ moneda.nombreMoneda }}</option>
-          {% endfor %}
-        </select>
-        <div class="invalid-feedback">
-          Por favor seleccione una moneda.
-        </div>
+        <label for="fechaPago">Fecha de Pago:</label>
+        <input type="date" id="fechaPago" name="fechaPago" class="form-control text-dark" max="{{ today_date }}" required />
+        <div class="invalid-feedback">Por favor ingrese una fecha de pago válida.</div>
       </div>
     </div>
 
+    <!-- Referencia y Observaciones -->
     <div class="form-row">
       <div class="form-group col-md-12">
         <label for="referencia">Referencia:</label>
         <input type="text" id="referencia" name="referencia" class="form-control text-dark" placeholder="Ingrese la referencia del pago (opcional)" maxlength="100" />
       </div>
     </div>
-
     <div class="form-row">
       <div class="form-group col-md-12">
         <label for="observaciones">Observaciones:</label>
@@ -145,15 +140,17 @@
               <th>Número</th>
               <th>Cliente</th>
               <th>Total</th>
+              <th>Deuda</th>
             </tr>
           </thead>
           <tbody>
             {% for factura in facturas %}
-              <tr data-id="{{ factura.idFactura }}" data-nombre="{{ factura.numeroFactura }}">
+              <tr data-id="{{ factura.idFactura }}" data-nombre="{{ factura.numeroFactura }}" data-deuda="{{ factura.saldoPendiente }}">
                 <td>{{ factura.idFactura }}</td>
                 <td>{{ factura.numeroFactura }}</td>
-                <td>{{ factura.idPersona.nombre }}</td>
-                <td>{{ factura.totalVenta }}</td>
+                <td>{{ factura.idPersona.cedula|default:"N/A" }}</td>
+                <td>{{ factura.totalVenta|default:"0.00" }}</td>
+                <td>{{ factura.saldoPendiente|default:"0.00" }}</td> <!-- Mostrar la deuda -->
               </tr>
             {% endfor %}
           </tbody>
@@ -183,20 +180,19 @@
               <th>ID</th>
               <th>Banco</th>
               <th>Número de Cuenta</th>
-              <th>Saldo</th>
             </tr>
           </thead>
           <tbody>
             {% for cuenta in cuentas_banco %}
-              <tr data-id="{{ cuenta.idCuentaBanco }}" data-nombre="{{ cuenta.numeroCuentaBanco }}">
+              <tr data-id="{{ cuenta.idCuentaBanco }}" data-nombre="{{ cuenta.numeroCuentaBanco }}" data-plan="{{ cuenta.planCuenta.idPlanCuenta }}">
                 <td>{{ cuenta.idCuentaBanco }}</td>
                 <td>{{ cuenta.banco.nombreBanco }}</td>
                 <td>{{ cuenta.numeroCuentaBanco }}</td>
-                <td>{{ cuenta.saldoDisponible }}</td>
               </tr>
             {% endfor %}
           </tbody>
         </table>
+        <p id="mensajeSinRegistrosCuenta" class="text-center text-muted" style="display: none;">No hay registros disponibles</p>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
@@ -207,26 +203,154 @@
 {% endblock content %}
 
 {% block javascripts %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
   document.addEventListener('DOMContentLoaded', function () {
-    // Handle modal row selection
-    function handleRowSelection(modalId, tableId, inputId, hiddenInputId) {
-      const table = document.getElementById(tableId);
-      const input = document.getElementById(inputId);
-      const hiddenInput = document.getElementById(hiddenInputId);
+    const pagoForm = document.getElementById('pagoForm');
 
-      table.addEventListener('click', function (event) {
-        const row = event.target.closest('tr');
-        if (row) {
-          input.value = row.getAttribute('data-nombre');
-          hiddenInput.value = row.getAttribute('data-id');
-          $(`#${modalId}`).modal('hide');
+    // Establecer la fecha de pago por defecto con la fecha de hoy
+    const fechaPagoInput = document.getElementById('fechaPago');
+    if (fechaPagoInput) {
+      const hoy = new Date();
+      const dia = String(hoy.getDate()).padStart(2, '0');
+      const mes = String(hoy.getMonth() + 1).padStart(2, '0'); // Los meses empiezan desde 0
+      const anio = hoy.getFullYear();
+      fechaPagoInput.value = `${anio}-${mes}-${dia}`; // Formato YYYY-MM-DD
+    }
+        // Activar validaciones de Bootstrap
+        pagoForm.addEventListener('submit', function (event) {
+      if (!pagoForm.checkValidity()) {
+        event.preventDefault();
+        event.stopPropagation();
+        pagoForm.classList.add('was-validated');
+      }
+ // Validar Factura
+ const facturaInput = document.getElementById('facturaInput');
+      const idFactura = document.getElementById('idFactura').value;
+      if (!idFactura) {
+        facturaInput.classList.add('is-invalid');
+        isValid = false;
+      } else {
+        facturaInput.classList.remove('is-invalid');
+      }
+
+      // Validar Cuenta Bancaria
+      const cuentaBancoInput = document.getElementById('cuentaBancoInput');
+      const idCuentaBanco = document.getElementById('idCuentaBanco').value;
+      if (!idCuentaBanco) {
+        cuentaBancoInput.classList.add('is-invalid');
+        isValid = false;
+      } else {
+        cuentaBancoInput.classList.remove('is-invalid');
+      }
+
+      if (!isValid || !pagoForm.checkValidity()) {
+        event.preventDefault();
+        event.stopPropagation();
+        pagoForm.classList.add('was-validated');
+      }
+      const formData = new FormData(pagoForm);
+
+      fetch(pagoForm.action, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+      })
+        .then((response) => response.json())
+        .then((data) => {
+          if (data.success) {
+            // Mostrar alerta de éxito
+            Swal.fire({
+              icon: 'success',
+              title: 'Pago registrado exitosamente',
+              html: `
+                <p><strong>ID Pago:</strong> ${data.pago.idPago}</p>
+                <p><strong>Factura:</strong> ${data.pago.idFactura}</p>
+                <p><strong>Monto:</strong> ${data.pago.monto}</p>
+                <p><strong>Fecha de Pago:</strong> ${data.pago.fechaPago}</p>
+                <p><strong>Forma de Pago:</strong> ${data.pago.formaPago}</p>
+                <p><strong>Referencia:</strong> ${data.pago.referencia || 'N/A'}</p>
+              `,
+              confirmButtonText: 'Aceptar',
+              customClass: {
+                confirmButton: 'btn btn-warning',
+              },
+              buttonsStyling: false,
+            }).then(() => {
+              // Redirigir a la lista de pagos
+              window.location.href = "{% url 'pago_list' %}";
+            });
+          } else {
+            // Mostrar errores si el registro falla
+            Swal.fire({
+              icon: 'error',
+              title: 'Error al registrar el pago',
+              text: data.message || 'Ocurrió un error inesperado.',
+              confirmButtonText: 'Aceptar',
+              customClass: {
+                confirmButton: 'btn btn-warning',
+              },
+              buttonsStyling: false,
+            });
+          }
+        })
+        .catch((error) => {
+          console.error('Error:', error);
+          Swal.fire({
+            icon: 'error',
+            title: 'Error inesperado',
+            text: 'Ocurrió un error al procesar la solicitud.',
+            confirmButtonText: 'Aceptar',
+            customClass: {
+              confirmButton: 'btn btn-warning',
+            },
+            buttonsStyling: false,
+          });
+        });
+    });
+
+    // Manejar la selección de filas en el modal de Cuenta Bancaria
+    const tablaCuentas = document.getElementById('tablaCuentas');
+    if (tablaCuentas) {
+      tablaCuentas.addEventListener('click', function (event) {
+        const fila = event.target.closest('tr');
+        if (fila) {
+          const idCuentaBanco = fila.getAttribute('data-id');
+          const nombreCuentaBanco = fila.getAttribute('data-nombre');
+          const idPlanCuentaDebe = fila.getAttribute('data-plan'); // Obtener el idPlanCuenta asociado
+
+          document.getElementById('cuentaBancoInput').value = nombreCuentaBanco;
+          document.getElementById('idCuentaBanco').value = idCuentaBanco;
+          document.getElementById('idPlanCuentaDebe').value = idPlanCuentaDebe; // Asignar el idPlanCuenta al input oculto
+
+          $('#cuentaBancoModal').modal('hide'); // Cerrar el modal
         }
       });
     }
 
-    handleRowSelection('facturaModal', 'tablaFacturas', 'facturaInput', 'idFactura');
-    handleRowSelection('cuentaBancoModal', 'tablaCuentas', 'cuentaBancoInput', 'idCuentaBanco');
+    // Manejar la selección de filas en el modal de Facturas
+    const tablaFacturas = document.getElementById('tablaFacturas');
+    if (tablaFacturas) {
+      tablaFacturas.addEventListener('click', function (event) {
+        const fila = event.target.closest('tr');
+        if (fila) {
+          const idFactura = fila.getAttribute('data-id');
+          const nombreFactura = fila.getAttribute('data-nombre');
+          const deudaFactura = fila.getAttribute('data-deuda'); // Obtener la deuda de la factura
+
+          document.getElementById('facturaInput').value = nombreFactura;
+          document.getElementById('idFactura').value = idFactura;
+          // Mostrar la deuda debajo del input de monto
+          const deudaElement = document.getElementById('deudaFactura');
+          if (deudaElement) {
+            deudaElement.textContent = `Deuda actual: ${deudaFactura}`;
+          }
+          $('#facturaModal').modal('hide'); // Cerrar el modal
+        }
+      });
+    }
   });
 </script>
 {% endblock javascripts %}

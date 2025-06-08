@@ -16,6 +16,13 @@ class Factura(models.Model):
     ]
     
     idFactura = models.AutoField(primary_key=True)
+    idAsiento = models.ForeignKey(
+        AsientoContable, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        verbose_name="Asiento Contable"
+    )
     idPersona = models.ForeignKey(Personas, on_delete=models.CASCADE, blank=True, null=True)  # Cliente o profesor
     idEmpresa = models.ForeignKey(empresa, on_delete=models.CASCADE, blank=True, null=True)  # Fundación emisora
     tipoFactura = models.CharField(max_length=50, choices=TIPOS_FACTURA)
@@ -66,8 +73,7 @@ class Pago(models.Model):
     fechaPago = models.DateField()
     formaPago = models.CharField(max_length=50)
     referencia = models.CharField(max_length=100, blank=True, null=True)
-    idMoneda = models.ForeignKey(Moneda, on_delete=models.CASCADE)
-    tasaCambio = models.DecimalField(max_digits=10, decimal_places=4, default=1.0000)
+    idTasa = models.ForeignKey(Tasa, on_delete=models.CASCADE)
     observaciones = models.TextField(blank=True, null=True)
     fechaRegistro = models.DateTimeField(auto_now_add=True)
 

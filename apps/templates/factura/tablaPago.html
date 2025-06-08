@@ -1,0 +1,180 @@
+{% extends 'layouts/base.html' %}
+{% load static %}
+
+{% block title %}Listado de Pagos{% endblock title %}
+
+{% block stylesheets %}
+<link rel="stylesheet" href="{% static 'assets/css/styleForms.css' %}">
+<link rel="stylesheet" href="{% static 'assets/css/argon.css' %}">
+<style>
+  .actions-column .btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+  }
+  .badge {
+    font-size: 0.85em;
+    padding: 0.5em 0.75em;
+  }
+  .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: rgb(81,141,245) #f1f1f1;
+  }
+  .table-responsive::-webkit-scrollbar {
+    height: 8px;
+  }
+  .table-responsive::-webkit-scrollbar-track {
+    background: #f1f1f1;
+  }
+  .table-responsive::-webkit-scrollbar-thumb {
+    background-color: rgb(81,141,245);
+    border-radius: 4px;
+    border: 2px solid #f1f1f1;
+  }
+  .modal-dialog { max-width: 700px; }
+  .modal.fade.show { background-color: rgba(0,0,0,0.5); }
+</style>
+{% endblock stylesheets %}
+
+{% block content %}
+<div class="container mt-4">
+  <h2 class="text-center mb-4">Lista de Pagos Registrados</h2>
+
+  <div class="row mb-3">
+    <div class="col-md-4">
+      <div class="input-group">
+        <span class="input-group-text"><i class="fas fa-search"></i></span>
+        <input id="searchInput" class="form-control" type="text" placeholder="Buscar pagos…">
+      </div>
+    </div>
+    <div class="col-md-4 text-end">
+      {% if perms.factura.add_pago %}
+        <a href="{% url 'pago_create' %}" class="btn btn-warning">
+          <i class="fas fa-plus-circle me-1"></i> Registrar Pago
+        </a>
+      {% endif %}
+    </div>
+  </div>
+
+  <div id="globalMessages">
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+    {% endfor %}
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="table-responsive">
+      <table id="pagosTable" class="table table-striped table-hover align-middle text-gray-dark">
+        <thead class="table-light">
+          <tr>
+            <th>ID Pago</th>
+            <th>Factura</th>
+            <th>Monto</th>
+            <th>Fecha de Pago</th>
+            <th>Forma de Pago</th>
+            <th>Referencia</th>
+            <th>Observaciones</th>
+            <th class="actions-column">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for pago in pagos %}
+          <tr>
+            <td>{{ pago.idPago }}</td>
+            <td>{{ pago.idFactura.numeroFactura }}</td>
+            <td>{{ pago.monto }}</td>
+            <td>{{ pago.fechaPago|date:"d/m/Y" }}</td>
+            <td>{{ pago.formaPago }}</td>
+            <td>{{ pago.referencia|default:"—" }}</td>
+            <td>{{ pago.observaciones|default:"—" }}</td>
+            <td class="actions-column">
+              <div class="d-flex gap-2">
+                {% if perms.factura.change_pago %}
+                  <a href="{% url 'pago_edit' pago.idPago %}" class="btn btn-primary btn-sm">
+                    <i class="fas fa-edit"></i>
+                  </a>
+                {% endif %}
+                {% if perms.factura.delete_pago %}
+                  <button class="btn btn-outline-danger btn-sm"
+                          data-bs-toggle="modal"
+                          data-bs-target="#deletePagoModal"
+                          data-url="{% url 'pago_delete' pago.idPago %}">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="8" class="text-center py-4">No hay pagos registrados.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% if perms.factura.delete_pago %}
+<div class="modal fade" id="deletePagoModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title"><i class="fas fa-trash me-2"></i> Confirmar Eliminación</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">¿Seguro que deseas eliminar este pago?</div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button id="confirmDeletePago" class="btn btn-danger">Eliminar</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock content %}
+
+{% block javascripts %}
+<script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
+<script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
+<script>
+$(function(){
+  $('#deletePagoModal').on('show.bs.modal', e => {
+    const url = $(e.relatedTarget).data('url');
+    $('#confirmDeletePago').off('click').on('click', function(){
+      $.ajax({
+        url: url,
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        data: { csrfmiddlewaretoken: '{{ csrf_token }}' }
+      })
+      .done(resp => {
+        $('#deletePagoModal').modal('hide');
+        if (resp.success) {
+          location.reload();
+        } else {
+          alert(resp.message || 'Error inesperado');
+        }
+      })
+      .fail(() => alert('Error en el servidor'));
+    });
+  });
+
+  $('#searchInput').on('keyup', function(){
+    const v = this.value.toUpperCase();
+    $('#pagosTable tbody tr').each(function(){
+      $(this).toggle($(this).text().toUpperCase().includes(v));
+    });
+  });
+});
+</script>
+{% endblock javascripts %}
