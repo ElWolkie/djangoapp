@@ -83,10 +83,9 @@ class PagoForm(forms.ModelForm):
     """
     class Meta:
         model = Pago
-        fields = '__all__'
+        exclude = ['idAsiento']  # Excluir el campo idAsiento
         widgets = {
             'idFactura': forms.Select(attrs={'class': 'form-control'}),
-            'idAsiento': forms.Select(attrs={'class': 'form-control'}),
             'idCuentaBanco': forms.Select(attrs={'class': 'form-control'}),
             'idMoneda': forms.Select(attrs={'class': 'form-control'}),
             'formaPago': forms.TextInput(attrs={'class': 'form-control'}),
@@ -103,10 +102,9 @@ class PagoForm(forms.ModelForm):
 
         # Validar que el monto sea mayor a 0
         if monto is not None and monto <= 0:
-            raise forms.ValidationError("El monto del pago debe ser mayor a 0.")
+            self.add_error('monto', "El monto del pago debe ser mayor a 0.")
 
         return cleaned_data
-    
 class ParametroTributarioForm(forms.ModelForm):
     class Meta:
         model = ParametroTributario
