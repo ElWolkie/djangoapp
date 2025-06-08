@@ -5,6 +5,9 @@ from django.db import transaction
 from django.db.models import Max
 import uuid
 from django.utils.timezone import now
+from django.core.exceptions import ValidationError
+from django.views.decorators.http import require_POST
+
 
 from apps.cuentaBanco.models import CuentaBanco
 from apps.periodoContable.models import periodoContable
@@ -580,6 +583,10 @@ def parametro_tributario_edit(request, pk):
     Vista para editar un parámetro tributario existente.
     """
     parametro = get_object_or_404(ParametroTributario, pk=pk)
+    # Obtener las opciones de tipos y aplicables del modelo para el formulario
+    tipo_parametro = ParametroTributario.TIPO_PARAMETRO
+    tipos_aplicables = ParametroTributario.TIPOS_APLICABLES
+
     if request.method == 'POST':
         form = ParametroTributarioForm(request.POST, instance=parametro)
         if form.is_valid():
@@ -587,16 +594,36 @@ def parametro_tributario_edit(request, pk):
             return redirect('parametro_tributario_list')
     else:
         form = ParametroTributarioForm(instance=parametro)
-    return render(request, 'factura/editParametroTributario.html', {'form': form})
-
+    return render(request, 'factura/editParametroTributario.html', {
+        'form': form,
+        'TIPO_PARAMETRO': tipo_parametro,
+        'TIPOS_APLICABLES': tipos_aplicables,
+        'parametro': parametro
+    })
+@require_POST
 @transaction.atomic
-def parametro_tributario_delete(request, pk):
-    """
-    Vista para eliminar un parámetro tributario existente.
-    """
+def parametro_tributario_eliminar(request, pk):
     parametro = get_object_or_404(ParametroTributario, pk=pk)
-    parametro.delete()
-    return redirect('tablaParametrosTributarios.html')
+    # Actualizamos el estado sin modificar el nombre u otros campos únicos
+    parametro.activo = False  # Desactivamos el parámetro tributario
+    # Intentamos guardar el objeto, lo que disparará la validación única
+    try:
+        parametro.save()  # Aquí se ejecuta la validación en save()
+        return JsonResponse({'success': True, 'message': 'Parámetro tributario desactivado correctamente. ⛔'})
+    except ValidationError as e:
+        # Regresamos el mensaje de error; esto ocurriría si se dispara la validación única
+        return JsonResponse({'success': False, 'message': e.messages})
+    
+@require_POST
+@transaction.atomic
+def parametro_tributario_reactivar(request, pk):
+    parametro = get_object_or_404(ParametroTributario, pk=pk)
+    parametro.activo = True
+    try:
+        parametro.save()
+        return JsonResponse({'success': True, 'message': 'Parámetro tributario reactivado correctamente. ✅'})
+    except ValidationError as e:
+        return JsonResponse({'success': False, 'message': e.messages})    
 
 def obtener_parametros_tributarios(request):
     # Agrupar parámetros por tipo para facilitar el acceso en el frontend
