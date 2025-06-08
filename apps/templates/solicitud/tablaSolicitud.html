@@ -183,6 +183,13 @@
                   <i class="fas fa-redo"></i>
                 </button>
                 {% endif %}
+
+                <button class="btn btn-info btn-sm"
+                        data-bs-toggle="modal"
+                        data-bs-target="#requisitosSolicitudModal"
+                        data-url="{% url 'guardar_requisitos_solicitud' solicitud.idSoli %}">
+                  <i class="fas fa-clipboard-check"></i>
+                </button>
               </div>
             </td>
           </tr>
@@ -265,6 +272,21 @@
     </div>
   </div>
 </div>
+
+<!-- Modal: Requisitos de Solicitud -->
+<div class="modal fade" id="requisitosSolicitudModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title"><i class="fas fa-clipboard-check me-2"></i> Requisitos de la Solicitud</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <!-- Aquí se cargará el listado y formulario dinámicamente -->
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block javascripts %}
@@ -334,6 +356,57 @@ document.addEventListener('DOMContentLoaded', () => {
       .find('input[name="next"]').remove();
     $('#reactivateSolicitudForm')
       .append(`<input type="hidden" name="next" value="${nextUrl}">`);
+  });
+
+
+  // MODAL DE REQUISITOS DE SOLICITUD
+  $('#requisitosSolicitudModal').on('show.bs.modal', function(event) {
+    const button = $(event.relatedTarget);
+    const urlForm = button.data('url').replace(/\/$/, '') + '/form/';
+    const $modalBody = $(this).find('.modal-body');
+    $modalBody.html('<div class="text-center py-4"><div class="spinner-border text-primary"></div></div>');
+    $.get(urlForm, function(html) {
+      $modalBody.html(html);
+      // Setea el action del form para el submit
+      $('#requisitosClienteForm').attr('action', button.data('url'));
+    });
+  });
+
+  // SUBMIT DEL FORMULARIO DE REQUISITOS
+  $(document).on('submit', '#requisitosClienteForm', function(e) {
+    e.preventDefault();
+    const $form = $(this);
+    const $modal = $('#requisitosSolicitudModal');
+    $.ajax({
+      url: $form.attr('action'),
+      method: 'POST',
+      data: $form.serialize(),
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .done(function(resp) {
+      if (resp.success) {
+        $modal.modal('hide');
+        showGlobalMessage(resp.message, 'success');
+        setTimeout(() => location.reload(), 1000);
+      } else {
+        showGlobalMessage(resp.message || 'Error al guardar requisitos', 'error');
+      }
+    })
+    .fail(function() {
+      showGlobalMessage('Error de conexión con el servidor', 'error');
+    });
+  });
+
+  // Mostrar el formulario al hacer clic en "Editar requisitos"
+  $(document).on('click', '#mostrarFormularioRequisitos', function() {
+    $('#requisitosEntregadosView').hide();
+    $('#requisitosClienteFormContainer').show();
+  });
+
+  // Cancelar edición y volver al listado
+  $(document).on('click', '#cancelarEdicionRequisitos', function() {
+    $('#requisitosClienteFormContainer').hide();
+    $('#requisitosEntregadosView').show();
   });
 
 

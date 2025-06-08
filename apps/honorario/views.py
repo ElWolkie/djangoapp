@@ -65,6 +65,11 @@ def honorario_modal(request):
         'cohortes': cohortes,
     })
 
+
+
+
+
+
 @login_required(login_url='login')
 @permission_required("honorario.change_honorario", raise_exception=True)
 def edit_honorario(request, pk):

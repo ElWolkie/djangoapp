@@ -43,6 +43,9 @@ $ # Access the web app in browser: http://127.0.0.1:8000/
 
 # CARGAR GRUPOS EN BD
 # python manage.py loaddata grupos.json
+
+#CARGAR PARAMETROS TRIBUTARIOS
+#python manage.py create_parametros_tributarios
 ```
 
 > Note: Para usar esta aplicación es necesario tener un usuario autenticado para acceder a las pantallas.

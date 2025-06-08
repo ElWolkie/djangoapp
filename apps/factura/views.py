@@ -14,14 +14,33 @@ from apps.persona.models import Personas
 from apps.empresa.models import empresa
 from apps.planCuenta.models import PlanCuenta
 
-# Facturas
 def factura_list(request):
     """
-    Vista para listar todas las facturas.
+    Vista para listar todas las facturas junto con sus detalles.
     """
-    facturas = Factura.objects.all()
-    return render(request, 'factura/tablaFactura.html', {'facturas': facturas})
-
+    facturas = Factura.objects.prefetch_related('detalles').all()  # 'detalles' es el related_name definido en el modelo
+    facturas_data = [
+        {
+            'pk': factura.pk,
+            'numeroFactura': factura.numeroFactura,
+            'fechaEmision': factura.fechaEmision.strftime('%d/%m/%Y'),
+            'idPersonaCedula': factura.idPersona.cedula if factura.idPersona else "N/A",
+            'idEmpresa': factura.idEmpresa.nombreEmpresa if factura.idEmpresa else "N/A",
+            'totalVenta': float(factura.totalVenta),
+            'estado': factura.estado,
+            'detalles': [
+                {
+                    'descripcion': detalle.descripcion,
+                    'cantidad': float(detalle.cantidad),
+                    'precioUnitario': float(detalle.precioUnitario),
+                    'subtotal': float(detalle.subtotal),
+                }
+                for detalle in factura.detalles.all()
+            ],
+        }
+        for factura in facturas
+    ]
+    return render(request, 'factura/tablaFactura.html', {'facturas': facturas_data})
 def factura_detail(request, pk):
     """
     Vista para mostrar los detalles de una factura específica.
@@ -50,56 +69,85 @@ def factura_create(request):
         if form.is_valid():
             try:
                 factura = form.save(commit=False)
+
+                # Verificar si hay un periodo contable activo
                 periodo_activo = periodoContable.objects.filter(estadoPeriodo=True).first()
                 if not periodo_activo:
                     periodo_activo = periodoContable.objects.order_by('-idPeriodo').first()
                 if not periodo_activo:
                     return JsonResponse({
                         'success': False,
-                        'message': 'No hay ningún periodo contable registrado en el sistema.'
+                        'message': 'No hay ningún periodo contable registrado o activo en el sistema. '
+                                   'Por favor, registre o active un periodo contable antes de continuar.'
                     }, status=400)
 
+                # Verificar que las cuentas contables estén presentes en la solicitud
                 if 'idPlanCuentaDebe' not in request.POST or 'idPlanCuentaHaber' not in request.POST:
                     return JsonResponse({
                         'success': False,
-                        'message': 'Debe seleccionar las cuentas contables para el debe y el haber.'
+                        'message': 'Debe seleccionar las cuentas contables para el debe y el haber. '
+                                   'Asegúrese de que los campos "idPlanCuentaDebe" y "idPlanCuentaHaber" estén presentes.'
                     }, status=400)
 
                 # Crear el asiento contable
-                asiento = AsientoContable.objects.create(
-                    numeroAsiento=f"FAC-{factura.numeroFactura}",
-                    fechaAsiento=factura.fechaEmision,
-                    conceptoAsiento=f"Asiento para la factura {factura.numeroFactura}",
-                    idPeriodo=periodo_activo
-                )
-                DetalleAsiento.objects.create(
-                    idAsiento=asiento,
-                    idPlanCuenta_id=request.POST['idPlanCuentaDebe'],
-                    debe=factura.totalVenta,
-                    haber=0.00
-                )
-                DetalleAsiento.objects.create(
-                    idAsiento=asiento,
-                    idPlanCuenta_id=request.POST['idPlanCuentaHaber'],
-                    debe=0.00,
-                    haber=factura.totalVenta
-                )
+                try:
+                    asiento = AsientoContable.objects.create(
+                        numeroAsiento=f"FAC-{factura.numeroFactura}",
+                        fechaAsiento=factura.fechaEmision,
+                        conceptoAsiento=f"Asiento para la factura {factura.numeroFactura}",
+                        idPeriodo=periodo_activo
+                    )
+                except Exception as e:
+                    return JsonResponse({
+                        'success': False,
+                        'message': f'Error al crear el asiento contable: {str(e)}. '
+                                   'Por favor, revise los datos ingresados e inténtelo nuevamente.'
+                    }, status=500)
 
+                # Crear los detalles del asiento contable
+                try:
+                    DetalleAsiento.objects.create(
+                        idAsiento=asiento,
+                        idPlanCuenta_id=request.POST['idPlanCuentaDebe'],
+                        debe=factura.totalVenta,
+                        haber=0.00
+                    )
+                    DetalleAsiento.objects.create(
+                        idAsiento=asiento,
+                        idPlanCuenta_id=request.POST['idPlanCuentaHaber'],
+                        debe=0.00,
+                        haber=factura.totalVenta
+                    )
+                except Exception as e:
+                    return JsonResponse({
+                        'success': False,
+                        'message': f'Error al crear los detalles del asiento contable: {str(e)}. '
+                                   'Por favor, revise las cuentas contables seleccionadas.'
+                    }, status=500)
+
+                # Asociar el asiento contable a la factura
                 factura.idAsiento = asiento
                 factura.save()
 
                 # Crear un detalle de factura predeterminado
-                detalle = FacturaDetalle.objects.create(
-                    idFactura=factura,
-                    tipoItem=factura.tipoFactura,
-                    descripcion=f"Detalle predeterminado para {factura.tipoFactura}",
-                    cantidad=1,
-                    precioUnitario=factura.totalVenta,
-                    exento=True,
-                    subtotal=factura.totalVenta,
-                    ivaItem=0.00,
-                    totalItem=factura.totalVenta
-                )
+                try:
+                    detalle = FacturaDetalle.objects.create(
+                        idFactura=factura,
+                        tipoItem=factura.tipoFactura,
+                        descripcion=f"Detalle predeterminado para {factura.tipoFactura}",
+                        cantidad=1,
+                        precioUnitario=factura.totalVenta,
+                        exento=True,
+                        subtotal=factura.totalVenta,
+                        ivaItem=0.00,
+                        totalItem=factura.totalVenta
+                    )
+                except Exception as e:
+                    return JsonResponse({
+                        'success': False,
+                        'message': f'Error al crear el detalle de la factura: {str(e)}. '
+                                   'Por favor, revise los datos de la factura e inténtelo nuevamente.'
+                    }, status=500)
 
                 return JsonResponse({
                     'success': True,
@@ -117,16 +165,17 @@ def factura_create(request):
                 })
             except Exception as e:
                 import traceback
-                print(f"Error al crear la factura o el asiento contable: {e}")
+                print(f"Error inesperado al crear la factura o el asiento contable: {e}")
                 print(traceback.format_exc())
                 return JsonResponse({
                     'success': False,
-                    'message': 'Ocurrió un error al intentar guardar la factura. Por favor, inténtelo de nuevo.'
+                    'message': f'Ocurrió un error inesperado: {str(e)}. '
+                               'Por favor, contacte al administrador del sistema si el problema persiste.'
                 }, status=500)
         else:
             return JsonResponse({
                 'success': False,
-                'message': 'El formulario contiene errores. Por favor, corríjalos e inténtelo de nuevo.',
+                'message': 'El formulario contiene errores. Por favor, corríjalos e inténtelo nuevamente.',
                 'errors': form.errors
             }, status=400)
     else:
@@ -139,7 +188,6 @@ def factura_create(request):
         'cuentas_plan': cuentas_plan,
         'numero_factura': numero_factura
     })
-
 @transaction.atomic
 def factura_edit(request, pk):
     """
@@ -167,12 +215,12 @@ def factura_edit(request, pk):
 @transaction.atomic
 def factura_delete(request, pk):
     """
-    Vista para eliminar una factura existente.
+    Vista para realizar una eliminación lógica de una factura.
     """
     factura = get_object_or_404(Factura, pk=pk)
-    factura.delete()
-    return redirect('factura_list')
-
+    factura.estadoFactura = 'ELIMINADA'  # Cambia el estado a "ELIMINADA"
+    factura.save()
+    return JsonResponse({'success': True, 'message': 'Factura marcada como eliminada.'})
 # Detalles de Factura
 def factura_detalle_list(request, factura_id):
     """

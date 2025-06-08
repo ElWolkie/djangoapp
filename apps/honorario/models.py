@@ -18,8 +18,8 @@ class Honorario(models.Model):
         verbose_name_plural = "Honorarios"
         constraints = [
             models.UniqueConstraint(
-                fields=['idPersona', 'idMateria', 'idCohorte', 'horas'],
-                name='unique_honorario_per_persona_materia_cohorte_horas'
+                fields=['idPersona', 'idMateria', 'idCohorte', 'fechaHonorario', 'monto', 'estadoHonorario'],
+                name='unique_honorario_per_persona_materia_cohorte_fecha'
             )
         ]
 
