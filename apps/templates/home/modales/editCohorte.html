@@ -12,13 +12,15 @@
   {% endif %}
 <div class=" mt-5">
   <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Modificar Cohorte</h2>
-  <form method="POST" class="mt-3 text-dark" autocomplete="off" style="font-weight: bold; max-width: 600px; margin: 0 auto;" id="editCohorteForm" action="/editCohorte/{{ cohorte.idCohorte }}/">
+  <form method="POST" class="mt-3 text-dark" autocomplete="off" style="font-weight: bold; max-width: 600px; margin: 0 auto;" id="editCohorteForm" action="{% url 'edit_cohorte' cohorte.idCohorte %}">
     {% csrf_token %}    
   
     <div class="form-group text-center">
       <label for="nombreCohorte" class="d-block">Nombre:</label>
-      <input type="text" id="nombreCohorte" name="nombreCohorte" class="form-control text-dark mx-auto" placeholder="Ingrese un nombre" tabindex="3" maxlength="100" required style="width: 50%;" />
+      <input type="text" id="nombreCohorte" name="nombreCohorte" class="form-control text-dark mx-auto" value="{{cohorte.nombreCohorte}}" placeholder="Ingrese un nombre" tabindex="3" maxlength="100" data-required="true" style="width: 50%;" />
       <input type="hidden" id="estadoCohorte" name="estadoCohorte" class="form-control text-dark" value="ACTIVO" />
+      <div class="invalid-feedback">Por favor, ingrese un nombre válido.</div>
+
     </div>
     <div class="text-center">
       <button type="submit" class="btn btn-warning">Actualizar</button>
@@ -87,6 +89,21 @@ $(document).on('submit', '#editCohorteForm', function(e) {
         }
       });
     });
+    
+          // Validaciones de Bootstrap
+          (function() {
+        'use strict';
+        var forms = document.querySelectorAll('.needs-validation');
+        Array.prototype.slice.call(forms).forEach(function(form) {
+          form.addEventListener('submit', function(event) {
+            if (!form.checkValidity()) {
+              event.preventDefault();
+              event.stopPropagation();
+            }
+            form.classList.add('was-validated');
+          }, false);
+        });
+      })();
 </script>
 
 {% endblock javascripts %}

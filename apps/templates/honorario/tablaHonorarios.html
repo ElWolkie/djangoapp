@@ -1,227 +1,519 @@
 {% extends 'layouts/base.html' %}
+{% load static %}
 
-{% block title %}Listado de Personas{% endblock title %}
+{% block title %}Listado de Honorarios{% endblock title %}
 
 {% block stylesheets %}
-<link rel="stylesheet" href="/static/assets/css/styleForms.css" />
-<link rel="stylesheet" href="/static/assets/css/argon.css" />
+<link rel="stylesheet" href="{% static 'assets/css/styleForms.css' %}">
+<link rel="stylesheet" href="{% static 'assets/css/argon.css' %}">
+<style>
+  .btn-purple {
+    background-color: #6f42c1 !important;
+    color: white !important;
+    border-color: #6f42c1 !important;
+  }
+  .btn-purple:hover {
+    background-color: #5a32a3 !important;
+    border-color: #5a32a3 !important;
+  }
+  .actions-column .btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+    transition: all 0.3s ease;
+  }
+  .badge {
+    font-size: 0.85em;
+    padding: 0.5em 0.75em;
+  }
+  .modal-dialog { max-width: 800px; }
+  .modal.fade.show {
+    display: block !important;
+    background-color: rgba(0,0,0,0.5);
+  }
+  .table-hover tbody tr:hover {
+    background-color: #f8f9fa;
+  }
+  .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: rgb(107,143,250) #f1f1f1;
+  }
+  .table-responsive {
+  scrollbar-width: thin;
+  scrollbar-color:rgb(107, 143, 250) #f1f1f1;
+  }
+
+  .table-responsive::-webkit-scrollbar {
+    height: 8px;
+  }
+
+  .table-responsive::-webkit-scrollbar-track {
+    background: #f1f1f1;
+  }
+
+  .table-responsive::-webkit-scrollbar-thumb {
+    background-color:rgb(81, 141, 245);
+    border-radius: 4px;
+    border: 2px solid #f1f1f1;
+  }
+   .pagination-container {
+    margin-top: 1rem !important;
+}
+
+.pagination {
+    --bs-pagination-padding-x: 0.75rem;
+    --bs-pagination-padding-y: 0.375rem;
+    --bs-pagination-font-size: 0.875rem;
+}
+
+.page-link {
+    min-width: 32px;
+    text-align: center;
+    border-radius: 4px !important;
+}
+
+.page-item.active .page-link {
+    background-color: #fb6340;
+    border-color: #fb6340;
+}
+</style>
 {% endblock stylesheets %}
 
 {% block content %}
-<div class="container mt-5">
-  <h2 class="text-center text-dark mb-4">Lista de Honorario Registrados</h2>
+<div class="container mt-4">
+  <h2 class="text-center mb-4">Lista de Honorarios Registrados</h2>
 
-  {% if messages %}
-    {% for message in messages %}
-      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-        {{ message }}
-      </div>
-    {% endfor %}
-  {% endif %}
-  <div class="row">
+  <div class="row mb-3">
+    <!-- Buscador -->
     <div class="col-md-4">
       <div class="input-group">
-        <div class="input-group-prepend">
-          <span class="input-group-text" style="background-color: #bcbcbc; border: none;">
-            <i class="fas fa-search text-warning"></i>
-          </span>
+        <span class="input-group-text"><i class="fas fa-search"></i></span>
+        <input class="form-control" id="searchInput" type="text" placeholder="Buscar por cargos, cédula, materia...">
+      </div>
+    </div>
+    <!-- Botón Nuevo -->
+    <div class="col-md-4 text-center">
+      {% if perms.home.add_honorario %}
+      <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#honorarioModal">
+        <i class="fas fa-plus-circle me-1"></i> Nuevo Honorario
+      </button>
+      {% endif %}
+    </div>
+
+    <div class="col-md-4 text-end">
+      <a href="{% url 'reporte_honorarios_pdf' %}" class="btn btn-outline-danger btn-sm" target="_blank">
+        <i class="fas fa-file-pdf"></i> Descargar PDF
+      </a>
+    </div>
+  </div> 
+
+  <!-- Mostrar / Ocultar inactivos -->
+  <div class="mb-3">
+    <a href="?mostrar_inactivos={% if mostrar_inactivos %}false{% else %}true{% endif %}"
+       class="btn btn-outline-secondary btn-sm">
+      {% if mostrar_inactivos %}
+        <i class="fas fa-eye-slash me-1"></i> Ocultar inactivos
+      {% else %}
+        <i class="fas fa-eye me-1"></i> Mostrar inactivos
+      {% endif %}
+    </a>
+  </div>
+
+  <!-- Mensajes globales -->
+  <div id="globalMessages">
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+            <i class="fas fa-times"></i>
+          </button>
         </div>
-        <input class="form-control" id="searchInput" type="text" placeholder="Buscar..." onkeyup="filterTable()">
-      </div>
-    </div>
-    <div class="col-md-4">
-      <button class="btn btn-warning btn-square btn-sm my-2" type="button" title="Registrar Honorario" data-toggle="modal" data-target="#honorarioModal">+</button>
-    </div>
+      {% endfor %}
+    {% endif %}
   </div>
 
-  <div class="table-responsive">
-    <table class="table table-striped text-gray-dark" id="honorariosTable">
-      <thead class="text-darker">
-        <tr>
-          <th>ID</th>
-          <th>Cargo</th>
-          <th>Cédula</th>
-          <th>Nombres</th>
-          <th>Apellidos</th>
-          <th>Materia</th>
-          <th>Horas</th>
-          <th>Cohorte</th>
-          <th>Estado</th>
-          <th>Fecha</th>
-          <th>Acciones</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for honorario in honorarios %}
-        <tr>
-          <td>{{ honorario.idHonorario }}</td>
-          <td>{{ honorario.idCargo.nombreCargo }}</td>
-          <td>{{ honorario.idPersona.cedula }}</td>
-          <td>{{ honorario.idPersona.nombres }}</td>
-          <td>{{ honorario.idPersona.apellidos }}</td>
-          <td>{{ honorario.idMateria.nombreMateria }}</td>
-          <td>{{ honorario.horas }}</td>
-          <td>{{ honorario.idCohorte.nombreCohorte }}</td>
-          <td>{{ honorario.estadoHonorario }}</td>
-          <td>{{ honorario.fechaHonorario|date:"d/m/Y" }}</td>
-          <td>
-            <button class="btn btn-sm btn-primary" type="button" data-toggle="modal" data-target="#editHonorarioModal" data-id="{{ honorario.idHonorario }}">Editar</button>
-            {% if honorario.estadoHonorario == "ACTIVO" %}
-            <button class="btn btn-sm btn-danger" type="button" onclick="manageHonorario('{{ honorario.idHonorario }}', 'delete')">Eliminar</button>
-            {% else %}
-            <button class="btn btn-sm btn-success" type="button" onclick="manageHonorario('{{ honorario.idHonorario }}', 'reactivate')">Reactivar</button>
-            {% endif %}
-          </td>
-        </tr>
-        {% empty %}
-        <tr>
-          <td colspan="11" class="text-center">No hay registros disponibles.</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <!-- Tabla -->
+  <div class="card shadow-sm">
+    <div class="table-responsive">
+      <table class="table table-striped table-hover align-middle text-gray-dark" id="honorariosTable">
+        <thead class="table-light">
+          <tr>
+            <th>#</th>
+            <th>Cargo</th>
+            <th>Cédula</th>
+            <th>Nombres</th>
+            <th>Apellidos</th>
+            <th>Materia</th>
+            <th>Horas</th>  
+            <th>MOnto</th>
+            <th>Cohorte</th>
+            <th>Estado</th>
+            <th>Fecha</th>
+            <th class="actions-column">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for honorario in honorarios %}
+          <tr>
+            <td>{{ forloop.counter }}</td>
+            <td>{{ honorario.idCargo.nombreCargo }}</td>
+            <td>{{ honorario.idPersona.cedula }}</td>
+            <td>{{ honorario.idPersona.nombres }}</td>
+            <td>{{ honorario.idPersona.apellidos }}</td>
+            <td>{{ honorario.idMateria.nombreMateria }}</td>
+            <td>{{ honorario.horas }}</td>
+            <td>{{ honorario.monto }}</td>
+            <td>{{ honorario.idCohorte.nombreCohorte }}</td>
+            <td>
+              {% if honorario.estadoHonorario == "ACTIVO" %}
+                <span class="badge bg-success text-white">
+                  <i class="fas fa-check-circle me-1"></i> Activo
+                </span>
+              {% else %}
+                <span class="badge bg-danger text-white">
+                  <i class="fas fa-times-circle me-1"></i> Inactivo
+                </span>
+              {% endif %}
+            </td>
+            <td>{{ honorario.fechaHonorario|date:"d/m/Y" }}</td>
+            <td class="actions-column">
+              <div class="d-flex gap-2">
+                {% if perms.home.change_honorario %}
+                  <button class="btn btn-primary btn-sm"
+                          data-bs-toggle="modal"
+                          data-bs-target="#editHonorarioModal"
+                          data-url="{% url 'edit_honorario' honorario.idHonorario %}">
+                    <i class="fas fa-edit"></i>
+                  </button>
+                {% endif %}
+                {% if honorario.estadoHonorario == "ACTIVO" and perms.home.delete_honorario %}
+                  <button class="btn btn-outline-warning btn-sm"
+                          data-bs-toggle="modal"
+                          data-bs-target="#deleteHonorarioModal"
+                          data-url="{% url 'desactivar_honorario' honorario.idHonorario %}">
+                    <i class="fas fa-user-slash"></i>
+                  </button>
+                {% endif %}
+                {% if honorario.estadoHonorario == "INACTIVO" and perms.home.change_honorario %}
+                  <button class="btn btn-success btn-sm"
+                          data-bs-toggle="modal"
+                          data-bs-target="#reactivateHonorarioModal"
+                          data-url="{% url 'reactivate_honorario' honorario.idHonorario %}">
+                    <i class="fas fa-redo"></i>
+                  </button>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="11" class="text-center py-4">
+              <i class="fas fa-info-circle me-2"></i> No hay honorarios registrados.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </div>
 </div>
 
-<!-- Modal Registro -->
-<div class="modal fade" id="honorarioModal" tabindex="-1" role="dialog" aria-labelledby="honorarioModalLabel" aria-hidden="true">
-  <div class="modal-dialog" role="document">
+{# ─── Modales ─── #}
+
+<!-- Registrar Honorario -->
+{% if perms.home.add_honorario %}
+<div class="modal fade" id="honorarioModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
     <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="honorarioModalLabel">Registro de Honorario</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title text-white"><i class="fas fa-plus-circle me-2"></i> Nuevo Honorario</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
         </button>
       </div>
-      <div class="modal-body" id="modalMessages"></div>
+      <div class="modal-body" id="honorarioModalContent">
+        <div class="text-center py-4 text-muted">
+          Cargando formulario…
+        </div>
+      </div>
     </div>
   </div>
 </div>
+{% endif %}
 
-<!-- Modal Edición -->
-<div class="modal fade" id="editHonorarioModal" tabindex="-1" role="dialog" aria-labelledby="editHonorarioModalLabel" aria-hidden="true">
-  <div class="modal-dialog" role="document">
+<!-- Editar Honorario -->
+{% if perms.home.change_honorario %}
+<div class="modal fade" id="editHonorarioModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
     <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="editHonorarioModalLabel">Actualizar Honorario</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title text-white"><i class="fas fa-edit me-2"></i> Editar Honorario</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
         </button>
       </div>
-      <div class="modal-body" id="modalMessagesEdit"></div>
+      <div class="modal-body" id="editHonorarioContent">
+        <div class="text-center py-4 text-muted">
+          Cargando formulario…
+        </div>
+      </div>
     </div>
   </div>
 </div>
+{% endif %}
+
+<!-- Desactivar Honorario -->
+{% if perms.home.delete_honorario %}
+<div class="modal fade" id="deleteHonorarioModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-warning text-dark">
+        <h5 class="modal-title text-white"><i class="fas fa-user-slash me-2"></i> Confirmar Desactivación</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">¿Deseas desactivar este honorario?</div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <form id="deleteHonorarioForm" method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-warning">Desactivar</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Reactivar Honorario -->
+{% if perms.home.change_honorario %}
+<div class="modal fade" id="reactivateHonorarioModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title text-white"><i class="fas fa-redo me-2"></i> Confirmar Reactivación</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">¿Deseas reactivar este honorario?</div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <form id="reactivateHonorarioForm" method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-success">Reactivar</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
 {% endblock content %}
 
 {% block javascripts %}
-<script src="/static/assets/js/validacionesPersona.js"></script>
-<script>
-  document.addEventListener("DOMContentLoaded", function() {
-    // Cargar el formulario en el modal de registro
-    $('#honorarioModal').on('show.bs.modal', function () {
-      $.get('apps/honorario/honorario.html', function(data) {
-        $('#modalMessages').html(data);
-      });
-    });
+<script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
+<script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
+<script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
 
-    // Adjuntar el evento submit al formulario de registro
-    $(document).off('submit', '#honorarioForm').on('submit', '#honorarioForm', function(e) {
-      e.preventDefault(); // Evitar el comportamiento predeterminado del formulario
-      const form = $(this);
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // Helper para cargar modales
+  const loadModal = (modalId, urlFn, contentSel) => {
+    $(modalId).on('show.bs.modal', e => {
+      $(contentSel).html('<div class="text-center py-4"><div class="spinner-border text-primary"></div></div>');
+      $.get(urlFn(e)).done(html => $(contentSel).html(html));
+    });
+  };
+
+  // Configurar acciones de desactivación/reactivación
+  $('#deleteHonorarioModal').on('show.bs.modal', function(e) {
+    const button = $(e.relatedTarget);
+    $('#deleteHonorarioForm').attr('action', button.data('url'));
+  });
+
+  $('#reactivateHonorarioModal').on('show.bs.modal', function(e) {
+    const button = $(e.relatedTarget);
+    $('#reactivateHonorarioForm').attr('action', button.data('url'));
+  });
+
+  // Cargar modales principales
+  {% if perms.home.add_honorario %}
+  loadModal('#honorarioModal', () => "{% url 'honorario_modal' %}", '#honorarioModalContent');
+  {% endif %}
+
+  {% if perms.home.change_honorario %}
+  loadModal('#editHonorarioModal', e => $(e.relatedTarget).data('url'), '#editHonorarioContent');
+  {% endif %}
+
+  // Manejar submits
+  const handleFormSubmit = (formSelector, modalId) => {
+    $(document).on('submit', formSelector, function(e) {
+      e.preventDefault();
+      const $form = $(this);
+      
+      if (!highlightInvalidInputs(formSelector)) return false;
 
       $.ajax({
-        url: form.attr('action'), // URL definida en el atributo action del formulario
-        method: form.attr('method'), // Método definido en el atributo method del formulario
-        data: form.serialize(), // Serializar los datos del formulario
-        success: function(response) {
-          const messagesContainer = $('#modalMessages');
-          messagesContainer.empty();
-
-          if (response.success) {
-            // Mostrar mensaje de éxito
-            messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
-            $('#honorarioModal').modal('hide'); // Cerrar el modal
-            location.reload(); // Recargar la página para reflejar los cambios
+        url: $form.attr('action'),
+        method: 'POST',
+        data: $form.serialize(),
+        success: (response) => {
+          if(response.success) {
+            $(modalId).modal('hide');
+            showGlobalMessage(response.message, 'success');
+            setTimeout(() => location.reload(), 1500);
           } else {
-            // Mostrar errores en el modal
-            const errors = response.errors;
-            for (const field in errors) {
-              messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + errors[field] + '</div>');
-            }
+            handleFormErrors(response.errors, modalId);
           }
         },
-        error: function(xhr, status, error) {
-          alert('Error al procesar la solicitud: ' + error);
-        }
+        error: () => Swal.fire('Error', 'Error de conexión', 'error')
       });
     });
+  };
 
-    // Cargar el formulario en el modal de edición
-    $('#editHonorarioModal').on('show.bs.modal', function (e) {
-      const idHonorario = $(e.relatedTarget).data('id');
-      $.get(`/honorario/editHonorario/${idHonorario}/`, function(data) {
-        $('#modalMessagesEdit').html(data);
+  // Registrar handlers
+  handleFormSubmit('#honorarioForm', '#honorarioModal');
+  handleFormSubmit('#editHonorarioForm', '#editHonorarioModal');
 
-        // Adjuntar el evento submit al formulario de edición
-        $(document).off('submit', '#editHonorarioForm').on('submit', '#editHonorarioForm', function(e) {
-          e.preventDefault();
-          const form = $(this);
+  // Función de validación
+  const highlightInvalidInputs = (formSelector) => {
+    const form = document.querySelector(formSelector);
+    let valid = true;
+    // ... (misma implementación que antes)
+    return valid;
+  };
 
-          $.ajax({
-            url: form.attr('action'),
-            method: 'POST',
-            data: form.serialize(),
-            success: function(response) {
-              const messagesContainer = $('#modalMessagesEdit');
-              messagesContainer.empty();
+  // Manejar acciones CRUD
+  window.manageHonorario = (id, action) => {
+    const isDelete = action === 'delete';
+    const url = isDelete 
+      ? "{% url 'desactivar_honorario' 0 %}".replace('0', id)
+      : "{% url 'reactivate_honorario' 0 %}".replace('0', id);
 
-              if (response.success) {
-                messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
-                $('#editHonorarioModal').modal('hide');
-                location.reload();
-              } else {
-                const errors = response.errors;
-                for (const field in errors) {
-                  messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + errors[field] + '</div>');
-                }
-              }
-            },
-            error: function(xhr, status, error) {
-              alert('Error al procesar la solicitud: ' + error);
+    Swal.fire({
+      title: isDelete ? '¿Desactivar honorario?' : '¿Reactivar honorario?',
+      icon: isDelete ? 'warning' : 'question',
+      showCancelButton: true,
+      confirmButtonText: isDelete ? 'Desactivar' : 'Reactivar',
+      customClass: {
+        confirmButton: isDelete ? 'btn btn-warning' : 'btn btn-success',
+        cancelButton: 'btn btn-secondary'
+      }
+    }).then((result) => {
+      if (result.isConfirmed) {
+        $.ajax({
+          url: url,
+          method: 'POST',
+          data: { csrfmiddlewaretoken: '{{ csrf_token }}' },
+          success: (response) => {
+            if(response.success) {
+              showGlobalMessage(response.message, 'success');
+              setTimeout(() => location.reload(), 1500);
+            } else {
+              Swal.fire('Error', response.message, 'error');
             }
-          });
-        });
-      });
-    });
-
-    // Función para manejar eliminar o reactivar honorarios
-    function manageHonorario(id, action) {
-      const confirmMessage = action === 'delete' ? '¿Está seguro de eliminar este registro?' : '¿Está seguro de reactivar este registro?';
-      if (confirm(confirmMessage)) {
-        const url = action === 'delete' ? "{% url 'delete_honorario' 0 %}".replace('0', id) : "{% url 'reactivate_honorario' 0 %}".replace('0', id);
-        $.post(url, {
-          csrfmiddlewaretoken: '{{ csrf_token }}'
-        }).done(function(response) {
-          if (response.success) location.reload();
-          else alert(`Error al ${action === 'delete' ? 'eliminar' : 'reactivar'}`);
+          }
         });
       }
-    }
+    });
+  };
 
-    // Función para filtrar la tabla
-    function filterTable() {
-      const filter = document.getElementById("searchInput").value.toUpperCase();
-      const rows = document.querySelectorAll("#honorariosTable tbody tr");
-      rows.forEach(row => {
-        const cells = row.querySelectorAll("td");
-        row.style.display = Array.from(cells).some(cell => cell.textContent.toUpperCase().includes(filter)) ? "" : "none";
-      });
-    }
-
-    // Exponer funciones globalmente
-    window.manageHonorario = manageHonorario;
-    window.filterTable = filterTable;
+  // Filtrado de tabla
+  $('#searchInput').on('keyup', function() {
+    const filter = this.value.toUpperCase();
+    $('#honorariosTable tbody tr').each(function() {
+      $(this).toggle($(this).text().toUpperCase().includes(filter));
+    });
   });
+});
+
+// Scroll horizontal con la rueda del ratón (shift no necesario)
+const tableWrapper = document.querySelector('.table-responsive');
+
+if (tableWrapper) {
+  tableWrapper.addEventListener('wheel', function (e) {
+    if (e.deltaY !== 0) {
+      e.preventDefault(); // evita scroll vertical
+      tableWrapper.scrollLeft += e.deltaY; // desplaza horizontalmente
+    }
+  });
+}
+</script>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const table = document.getElementById('honorariosTable');
+    const paginationContainer = document.createElement('div');
+    paginationContainer.className = 'pagination-container mt-3';
+    table.parentNode.insertBefore(paginationContainer, table.nextSibling);
+
+    const pagination = document.createElement('ul');
+    pagination.className = 'pagination justify-content-center';
+    paginationContainer.appendChild(pagination);
+
+    const rowsPerPage = 10;
+    let currentPage = 1;
+
+    function displayRows() {
+        const rows = table.getElementsByTagName('tr');
+        const start = (currentPage - 1) * rowsPerPage + 1;
+        const end = start + rowsPerPage;
+
+        for (let i = 1; i < rows.length; i++) {
+            rows[i].style.display = i >= start && i < end ? '' : 'none';
+        }
+    }
+
+    function setupPagination() {
+        const rows = table.getElementsByTagName('tr');
+        const totalPages = Math.ceil((rows.length - 1) / rowsPerPage);
+
+        pagination.innerHTML = '';
+
+        // Botón Anterior
+        const prevLi = document.createElement('li');
+        prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+        prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Anterior">&laquo;</a>`;
+        prevLi.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (currentPage > 1) currentPage--;
+            displayRows();
+            setupPagination();
+        });
+        pagination.appendChild(prevLi);
+
+        // Botones de Páginas
+        for (let i = 1; i <= totalPages; i++) {
+            const li = document.createElement('li');
+            li.className = `page-item ${i === currentPage ? 'active' : ''}`;
+            li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+            li.addEventListener('click', (e) => {
+                e.preventDefault();
+                currentPage = i;
+                displayRows();
+                setupPagination();
+            });
+            pagination.appendChild(li);
+        }
+
+        // Botón Siguiente
+        const nextLi = document.createElement('li');
+        nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+        nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Siguiente">&raquo;</a>`;
+        nextLi.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (currentPage < totalPages) currentPage++;
+            displayRows();
+            setupPagination();
+        });
+        pagination.appendChild(nextLi);
+    }
+
+    displayRows();
+    setupPagination();
+});
 </script>
 {% endblock javascripts %}

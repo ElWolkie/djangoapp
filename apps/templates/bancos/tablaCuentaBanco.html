@@ -1,0 +1,513 @@
+{% extends 'layouts/base2.html' %}
+{% load static %}
+
+{% block title %}Listado de Cuentas Bancarias{% endblock title %}
+
+{% block stylesheets %}
+  <link rel="stylesheet" href="{% static 'assets/css/styleForms.css' %}" />
+  <link rel="stylesheet" href="{% static 'assets/css/argon.css' %}" />
+  <style>
+    .btn-purple {
+      background-color: #6f42c1 !important;
+      color: white !important;
+      border-color: #6f42c1 !important;
+    }
+    .btn-purple:hover {
+      background-color: #5a32a3 !important;
+      border-color: #5a32a3 !important;
+    }
+    .actions-column .btn-sm {
+      padding: 0.25rem 0.5rem;
+      font-size: 0.875rem;
+      transition: all 0.3s ease;
+    }
+    .badge {
+      font-size: 0.85em;
+      padding: 0.5em 0.75em;
+    }
+    .modal-dialog { max-width: 600px; }
+    .modal.fade.show {
+      display: block !important;
+      background-color: rgba(0,0,0,0.5);
+    }
+    .table-responsive {
+      scrollbar-width: thin;
+      scrollbar-color: rgb(107,143,250) #f1f1f1;
+    }
+    .table-responsive::-webkit-scrollbar {
+      height: 8px;
+    }
+    .table-responsive::-webkit-scrollbar-track {
+      background: #f1f1f1;
+    }
+    .table-responsive::-webkit-scrollbar-thumb {
+      background-color: rgb(81,141,245);
+      border-radius: 4px;
+      border: 2px solid #f1f1f1;
+    }
+
+    .pagination-container {
+    margin-top: 1rem !important;
+}
+
+.pagination {
+    --bs-pagination-padding-x: 0.75rem;
+    --bs-pagination-padding-y: 0.375rem;
+    --bs-pagination-font-size: 0.875rem;
+}
+
+.page-link {
+    min-width: 32px;
+    text-align: center;
+    border-radius: 4px !important;
+}
+
+.page-item.active .page-link {
+    background-color: #fb6340;
+    border-color: #fb6340;
+}
+  </style>
+{% endblock stylesheets %}
+
+{% block content %}
+<div class="container mt-4">
+  <h2 class="text-center mb-4">Listado de Cuentas Bancarias</h2>
+
+  <div class="row mb-3">
+    <div class="col-md-4">
+      <div class="input-group">
+        <span class="input-group-text"><i class="fas fa-search"></i></span>
+        <input class="form-control" id="searchInput" type="text" placeholder="Buscar por cualquier campo">
+      </div>
+    </div>
+    {% if perms.cuentaBanco.add_cuentabanco %}
+    <div class="col-md-8 text-end">
+      <a href="{% url 'cuenta_banco_create' %}" class="btn btn-warning px-4">
+        <i class="fas fa-plus-circle me-1"></i> Registrar Cuenta
+      </a>
+    </div>
+    {% endif %}
+  </div>
+
+  <div id="globalMessages">
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+      {% endfor %}
+    {% endif %}
+  </div>
+
+  <div class="row mb-3">
+    <div class="col-md-8 text-end">
+      <a href="?mostrar_inactivos={% if mostrar_inactivos %}false{% else %}true{% endif %}"
+         class="btn btn-outline-secondary btn-sm">
+        {% if mostrar_inactivos %}
+          <i class="fas fa-eye-slash me-1"></i> Ocultar inactivos
+        {% else %}
+          <i class="fas fa-eye me-1"></i> Mostrar inactivos
+        {% endif %}
+      </a>
+    </div>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="table-responsive">
+      <table class="table table-striped table-hover align-middle text-gray-dark" id="cuentasBancoTable">
+        <thead class="table-light">
+          <tr>
+            <th>Banco</th>
+            <th>Número Cuenta</th>
+            <th>Tipo</th>
+            <th>Saldo</th>
+            <th>Estado</th>
+            <th>Fecha Registro</th>
+            <th class="actions-column">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for cuenta in cuentas %}
+          <tr>
+            <td>{{ cuenta.banco.nombreBanco }}</td>
+            <td>{{ cuenta.numeroCuentaBanco }}</td>
+            <td>{{ cuenta.tipoProducto|title }}</td>
+            <td>{{ cuenta.saldoDisponible|floatformat:2 }}</td>
+            <td>
+              {% if cuenta.estado %}
+                <span class="badge bg-success text-white">
+                  <i class="fas fa-check-circle me-1"></i> Activo
+                </span>
+              {% else %}
+                <span class="badge bg-danger text-white">
+                  <i class="fas fa-times-circle me-1"></i> Inactivo
+                </span>
+              {% endif %}
+            </td>
+            <td>{{ cuenta.fechaRegistro|date:"d/m/Y" }}</td>
+            <td class="actions-column">
+              <div class="d-flex gap-2">
+                <!-- Editar -->
+                {% if perms.cuentaBanco.change_cuentabanco %}
+                <button class="btn btn-primary btn-sm"
+                        data-bs-toggle="modal"
+                        data-bs-target="#editCuentaModal"
+                        data-url="{% url 'cuenta_banco_update' cuenta.idCuentaBanco %}"
+                        title="Editar cuenta">
+                  <i class="fas fa-edit"></i>
+                </button>
+                {% endif %}
+                <!-- Inhabilitar / Reactivar -->
+                {% if cuenta.estado %}
+                  {% if perms.cuentaBanco.change_cuentabanco %}
+                  <button class="btn btn-outline-warning btn-sm"
+                          data-bs-toggle="modal"
+                          data-bs-target="#deleteCuentaModal"
+                          data-url="{% url 'cuenta_banco_delete' cuenta.idCuentaBanco %}"
+                          title="Inhabilitar cuenta">
+                    <i class="fas fa-user-slash"></i>
+                  </button>
+                  {% endif %}
+                {% else %}
+                  {% if perms.cuentaBanco.change_cuentabanco %}
+                  <button class="btn btn-success btn-sm"
+                          data-bs-toggle="modal"
+                          data-bs-target="#reactivateCuentaModal"
+                          data-url="{% url 'cuenta_banco_reactivate' cuenta.idCuentaBanco %}"
+                          title="Reactivar cuenta">
+                    <i class="fas fa-redo"></i>
+                  </button>
+                  {% endif %}
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="7" class="text-center py-4">No hay cuentas registradas.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Editar Cuenta -->
+<div class="modal fade" id="editCuentaModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-md">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title text-white"><i class="fas fa-edit me-2"></i> Editar Cuenta Bancaria</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white"
+                data-bs-dismiss="modal">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body" id="editCuentaContent">
+        <div class="text-center py-4"><p class="text-muted">Cargando formulario…</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Inhabilitar Cuenta -->
+<div class="modal fade" id="deleteCuentaModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-warning text-dark">
+        <h5 class="modal-title text-white"><i class="fas fa-user-slash me-2"></i> Confirmar Inhabilitación</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white"
+                data-bs-dismiss="modal">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        ¿Seguro que deseas inhabilitar esta cuenta bancaria?
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <form id="deleteCuentaForm" method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-warning">
+            <i class="fas fa-user-slash me-1"></i> Inhabilitar
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Reactivar Cuenta -->
+<div class="modal fade" id="reactivateCuentaModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title text-white"><i class="fas fa-redo me-2"></i> Confirmar Reactivación</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white"
+                data-bs-dismiss="modal">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        ¿Deseas reactivar esta cuenta bancaria?
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <form id="reactivateCuentaForm" method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-success">
+            <i class="fas fa-redo me-1"></i> Reactivar
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}
+
+{% block javascripts %}
+<script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
+<script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
+<script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
+<script>
+// Para detectar AJAX
+function is_ajax() {
+  return window.XMLHttpRequest && true;
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  // ============================================
+  // 1) Funcionalidades MODALES (mantenidas del segundo código)
+  // ============================================
+  
+  // Carga el formulario de edición en el modal
+  function loadInModal(modalSel, urlGetter, contentSel){
+    $(modalSel)
+      .on('show.bs.modal', function(e){
+        const url = urlGetter(e);
+        $(contentSel).html(`
+          <div class="text-center py-4">
+            <div class="spinner-border text-primary" role="status"></div>
+          </div>`);
+        $.get(url).done(html => $(contentSel).html(html));
+      })
+      .on('hidden.bs.modal', function(){
+        $(contentSel).empty();
+      });
+  }
+
+  loadInModal(
+    '#editCuentaModal',
+    e => $(e.relatedTarget).data('url'),
+    '#editCuentaContent'
+  );
+
+  // Cuando el modal de edición esté visible
+  $('#editCuentaModal').on('shown.bs.modal', function(){
+    const form = document.getElementById('editCuentaForm');
+    if (!form) return;
+
+    form.addEventListener('submit', function(ev){
+      ev.preventDefault();
+      const data = new FormData(form);
+
+      fetch(form.action, {
+        method: 'POST',
+        headers: {'X-Requested-With':'XMLHttpRequest'},
+        body: data
+      })
+      .then(r => r.json())
+      .then(json => {
+        if (json.success){
+          Swal.fire({
+            icon: 'success',
+            title: '¡Listo!',
+            text: json.message,
+            customClass: { confirmButton: 'btn btn-warning' },
+            buttonsStyling: false
+          }).then(() => window.location.href = json.redirect_url);
+        } else {
+          Swal.fire({
+            icon: 'error',
+            title: 'Corrige los errores',
+            html: Object.values(json.errors).map(e=>`<p>${e}</p>`).join(''),
+            customClass: { confirmButton: 'btn btn-warning' },
+            buttonsStyling: false
+          });
+        }
+      })
+      .catch(() => Swal.fire('Error','No se pudo procesar la solicitud','error'));
+    });
+  });
+
+  // Configura modales de Inhabilitar/Reactivar
+  ['delete','reactivate'].forEach(action => {
+    const mid = action==='delete' ? '#deleteCuentaModal' : '#reactivateCuentaModal';
+    const fid = action==='delete' ? '#deleteCuentaForm'   : '#reactivateCuentaForm';
+    $(mid).on('show.bs.modal', function(e){
+      $(fid).attr('action', $(e.relatedTarget).data('url'));
+    }).find('form').off('submit').on('submit', function(ev){
+      ev.preventDefault();
+      $.post(this.action, $(this).serialize()).done(resp => {
+        if (resp.success){
+          $(mid).modal('hide');
+          $('#globalMessages').prepend(`
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+              ${resp.message}
+              <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>`);
+          setTimeout(()=>location.reload(),500);
+        } else {
+          Swal.fire('Error',resp.message||'Algo salió mal','error');
+        }
+      });
+    });
+  });
+
+  // ============================================
+  // 2) PAGINACIÓN y BÚSQUEDA (del primer código mejorado)
+  // ============================================
+  
+  // Obtener elementos clave
+  const table = document.getElementById('cuentasBancoTable');
+  const rows = Array.from(table.querySelectorAll('tbody tr'));
+  const searchInput = document.getElementById('searchInput');
+  
+  // Crear contenedor de paginación
+  const paginationContainer = document.createElement('div');
+  paginationContainer.className = 'pagination-container mt-3';
+  table.parentNode.insertBefore(paginationContainer, table.nextSibling);
+  
+  const pagination = document.createElement('ul');
+  pagination.className = 'pagination justify-content-center';
+  paginationContainer.appendChild(pagination);
+  
+  // Configuración
+  const rowsPerPage = 10;
+  let currentPage = 1;
+  let filteredRows = rows;
+  
+  // Función para renderizar la tabla
+  function render() {
+      // Ocultar todas las filas
+      rows.forEach(row => row.style.display = 'none');
+      
+      // Calcular rango para la página actual
+      const startIndex = (currentPage - 1) * rowsPerPage;
+      const endIndex = Math.min(startIndex + rowsPerPage, filteredRows.length);
+      
+      // Mostrar solo las filas de la página actual
+      for (let i = startIndex; i < endIndex; i++) {
+          filteredRows[i].style.display = '';
+      }
+      
+      // Actualizar paginación
+      setupPagination();
+  }
+  
+  // Función para filtrar filas
+  function filterRows() {
+      const query = searchInput.value.trim().toUpperCase();
+      
+      if (!query) {
+          filteredRows = rows;
+          return;
+      }
+      
+      filteredRows = rows.filter(row => {
+          const cells = row.querySelectorAll('td');
+          let rowText = '';
+          
+          // Concatenar todo el texto de la fila
+          cells.forEach(cell => {
+              rowText += cell.textContent.toUpperCase() + ' ';
+          });
+          
+          return rowText.includes(query);
+      });
+  }
+  
+  // Función para configurar la paginación
+  function setupPagination() {
+      const totalPages = Math.ceil(filteredRows.length / rowsPerPage);
+      pagination.innerHTML = '';
+      
+      // Botón Anterior
+      const prevLi = document.createElement('li');
+      prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+      prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Anterior">&laquo;</a>`;
+      prevLi.addEventListener('click', (e) => {
+          e.preventDefault();
+          if (currentPage > 1) {
+              currentPage--;
+              render();
+          }
+      });
+      pagination.appendChild(prevLi);
+      
+      // Botones de Páginas
+      const maxVisiblePages = 5;
+      let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+      let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+      
+      // Ajustar si no hay suficientes páginas al inicio
+      if (endPage - startPage + 1 < maxVisiblePages) {
+          startPage = Math.max(1, endPage - maxVisiblePages + 1);
+      }
+      
+      for (let i = startPage; i <= endPage; i++) {
+          const li = document.createElement('li');
+          li.className = `page-item ${i === currentPage ? 'active' : ''}`;
+          li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+          li.addEventListener('click', (e) => {
+              e.preventDefault();
+              currentPage = i;
+              render();
+          });
+          pagination.appendChild(li);
+      }
+      
+      // Botón Siguiente
+      const nextLi = document.createElement('li');
+      nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+      nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Siguiente">&raquo;</a>`;
+      nextLi.addEventListener('click', (e) => {
+          e.preventDefault();
+          if (currentPage < totalPages) {
+              currentPage++;
+              render();
+          }
+      });
+      pagination.appendChild(nextLi);
+  }
+  
+  // Evento de búsqueda
+  searchInput.addEventListener('input', function() {
+      filterRows();
+      currentPage = 1;
+      render();
+  });
+  
+  // Scroll horizontal con rueda
+  const wrapper = document.querySelector('.table-responsive');
+  if (wrapper) {
+      wrapper.addEventListener('wheel', e => {
+          if (e.deltaY) {
+              e.preventDefault();
+              wrapper.scrollLeft += e.deltaY;
+          }
+      });
+  }
+  
+  // Inicializar
+  render();
+
+});
+</script>
+{% endblock javascripts %}

@@ -3,14 +3,20 @@
 <link rel="stylesheet" href="/static/assets/css/styleForms.css" />
 <link rel="stylesheet" href="/static/assets/css/argon.css" />
 {% endblock stylesheets %}
+
 {% block content %}
-{% if messages %}
+
+  {% if messages %}
     {% for message in messages %}
-      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-        {{ message }}
-      </div>
+    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+      {{ message }}
+      <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+        <span aria-hidden="true">&times;</span>
+      </button>
+    </div>
     {% endfor %}
   {% endif %}
+  
 <div class=" mt-5">
   <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Editar Tipo Persona</h2>
   <form method="POST" class="mt-3 text-dark" autocomplete="off" style="font-weight: bold; max-width: 600px; margin: 0 auto;" id="editTipoPersonaForm" action="{% url 'edit_tipo_persona' tipopersona.idTP %}">
@@ -27,6 +33,5 @@
 {% endblock content %}
 
 {% block javascripts %}
-
-
+<script src="/static/assets/js/jquery-3.6.0.min.js"></script>
 {% endblock javascripts %}

@@ -1,0 +1,1354 @@
+[
+{
+  "model": "auth.group",
+  "pk": 1,
+  "fields": {
+    "name": "Administrador",
+    "permissions": [
+      25,
+      26,
+      28,
+      29,
+      30,
+      32,
+      80,
+      33,
+      34,
+      36,
+      37,
+      38,
+      40,
+      73,
+      74,
+      76,
+      41,
+      42,
+      44,
+      85,
+      86,
+      88,
+      45,
+      46,
+      48,
+      49,
+      50,
+      52,
+      81,
+      82,
+      84,
+      53,
+      54,
+      56,
+      57,
+      58,
+      60,
+      61,
+      62,
+      64,
+      65,
+      66,
+      68,
+      69,
+      72,
+      101,
+      102,
+      104,
+      105,
+      106,
+      108,
+      89,
+      90,
+      92,
+      98,
+      100,
+      96,
+      109,
+      110,
+      112
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 3,
+  "fields": {
+    "name": "Usuarios",
+    "permissions": [
+      69,
+      70,
+      71,
+      72
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 4,
+  "fields": {
+    "name": "Clientes-Proveedores",
+    "permissions": [
+      89,
+      90,
+      91,
+      92
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 6,
+  "fields": {
+    "name": "Bancos",
+    "permissions": [
+      125,
+      126,
+      127,
+      128
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 7,
+  "fields": {
+    "name": "Cargos",
+    "permissions": [
+      25,
+      26,
+      27,
+      28
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 8,
+  "fields": {
+    "name": "Cohortes",
+    "permissions": [
+      29,
+      30,
+      31,
+      32
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 9,
+  "fields": {
+    "name": "Configuracion",
+    "permissions": [
+      77,
+      78,
+      79,
+      80
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 11,
+  "fields": {
+    "name": "Formaciones",
+    "permissions": [
+      37,
+      38,
+      39,
+      40
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 12,
+  "fields": {
+    "name": "Materias",
+    "permissions": [
+      73,
+      74,
+      75,
+      76
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 13,
+  "fields": {
+    "name": "Monedas",
+    "permissions": [
+      41,
+      42,
+      43,
+      44
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 15,
+  "fields": {
+    "name": "Requisitos",
+    "permissions": [
+      45,
+      46,
+      47,
+      48
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 16,
+  "fields": {
+    "name": "Servicios",
+    "permissions": [
+      49,
+      50,
+      51,
+      52
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 17,
+  "fields": {
+    "name": "Tasas",
+    "permissions": [
+      81,
+      82,
+      83,
+      84
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 18,
+  "fields": {
+    "name": "Tipo Formaciones",
+    "permissions": [
+      53,
+      54,
+      55,
+      56
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 21,
+  "fields": {
+    "name": "Tramites",
+    "permissions": [
+      65,
+      66,
+      67,
+      68
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 22,
+  "fields": {
+    "name": "Honorarios",
+    "permissions": [
+      101,
+      102,
+      103,
+      104
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 23,
+  "fields": {
+    "name": "Inscripciones",
+    "permissions": [
+      105,
+      106,
+      107,
+      108
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 24,
+  "fields": {
+    "name": "Asignacion Tipo Personas",
+    "permissions": [
+      97,
+      98,
+      99,
+      100
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 25,
+  "fields": {
+    "name": "Tipo Personas",
+    "permissions": [
+      93,
+      94,
+      95,
+      96
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 26,
+  "fields": {
+    "name": "Solicitudes",
+    "permissions": [
+      109,
+      110,
+      111,
+      112
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 27,
+  "fields": {
+    "name": "UsuarioRegistrar",
+    "permissions": [
+      69
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 28,
+  "fields": {
+    "name": "UsuarioVisualizar",
+    "permissions": [
+      72
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 29,
+  "fields": {
+    "name": "UsuarioEliminar",
+    "permissions": [
+      71
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 30,
+  "fields": {
+    "name": "UsuarioEditar",
+    "permissions": [
+      70
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 31,
+  "fields": {
+    "name": "BancoRegistrar",
+    "permissions": [
+      125
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 32,
+  "fields": {
+    "name": "BancoVisualizar",
+    "permissions": [
+      128
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 33,
+  "fields": {
+    "name": "BancoEditar",
+    "permissions": [
+      126
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 34,
+  "fields": {
+    "name": "BancoEliminar",
+    "permissions": [
+      127
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 35,
+  "fields": {
+    "name": "ConfiguracionEditar",
+    "permissions": [
+      77,
+      78
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 36,
+  "fields": {
+    "name": "ConfiguracionVisualizar",
+    "permissions": [
+      80
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 37,
+  "fields": {
+    "name": "CargoRegistrar",
+    "permissions": [
+      25
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 38,
+  "fields": {
+    "name": "CargoVisualizar",
+    "permissions": [
+      28
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 39,
+  "fields": {
+    "name": "CargoEditar",
+    "permissions": [
+      26
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 40,
+  "fields": {
+    "name": "CargoEliminar",
+    "permissions": [
+      27
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 41,
+  "fields": {
+    "name": "CohorteRegistrar",
+    "permissions": [
+      29
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 42,
+  "fields": {
+    "name": "CohorteEditar",
+    "permissions": [
+      30
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 43,
+  "fields": {
+    "name": "CohorteEliminar",
+    "permissions": [
+      31
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 44,
+  "fields": {
+    "name": "CohorteVisualizar",
+    "permissions": [
+      32
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 45,
+  "fields": {
+    "name": "Cliente-ProveedorRegistrar",
+    "permissions": [
+      89
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 46,
+  "fields": {
+    "name": "Cliente-ProveedorEditar",
+    "permissions": [
+      90
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 47,
+  "fields": {
+    "name": "Cliente-ProveedorVisualizar",
+    "permissions": [
+      92
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 48,
+  "fields": {
+    "name": "Cliente-ProveedorEliminar",
+    "permissions": [
+      91
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 53,
+  "fields": {
+    "name": "FormacionRegistrar",
+    "permissions": [
+      37
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 54,
+  "fields": {
+    "name": "FormacionEditar",
+    "permissions": [
+      38
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 55,
+  "fields": {
+    "name": "FormacionEliminar",
+    "permissions": [
+      39
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 56,
+  "fields": {
+    "name": "FormacionVisualizar",
+    "permissions": [
+      40
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 57,
+  "fields": {
+    "name": "HonorarioRegistrar",
+    "permissions": [
+      101
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 58,
+  "fields": {
+    "name": "HonorarioEditar",
+    "permissions": [
+      102
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 59,
+  "fields": {
+    "name": "HonorarioEliminar",
+    "permissions": [
+      103
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 60,
+  "fields": {
+    "name": "HonorarioVisualizar",
+    "permissions": [
+      104
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 65,
+  "fields": {
+    "name": "InscripcionRegistrar",
+    "permissions": [
+      105
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 66,
+  "fields": {
+    "name": "InscripcionEditar",
+    "permissions": [
+      106
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 67,
+  "fields": {
+    "name": "InscripcionEliminar",
+    "permissions": [
+      107
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 68,
+  "fields": {
+    "name": "InscripcionVisualizar",
+    "permissions": [
+      108
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 69,
+  "fields": {
+    "name": "MateriaRegistrar",
+    "permissions": [
+      73
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 70,
+  "fields": {
+    "name": "MateriaEditar",
+    "permissions": [
+      74
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 71,
+  "fields": {
+    "name": "MateriaEliminar",
+    "permissions": [
+      75
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 72,
+  "fields": {
+    "name": "MateriaVisualizar",
+    "permissions": [
+      76
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 73,
+  "fields": {
+    "name": "MonedaRegistrar",
+    "permissions": [
+      41
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 74,
+  "fields": {
+    "name": "MonedaEditar",
+    "permissions": [
+      42
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 75,
+  "fields": {
+    "name": "MonedaEliminar",
+    "permissions": [
+      43
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 76,
+  "fields": {
+    "name": "MonedaVisualizar",
+    "permissions": [
+      44
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 77,
+  "fields": {
+    "name": "RequisitoRegistrar",
+    "permissions": [
+      45
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 78,
+  "fields": {
+    "name": "RequisitoEditar",
+    "permissions": [
+      46
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 79,
+  "fields": {
+    "name": "RequisitoEliminar",
+    "permissions": [
+      47
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 80,
+  "fields": {
+    "name": "RequisitoVisualizar",
+    "permissions": [
+      48
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 81,
+  "fields": {
+    "name": "ServicioRegistrar",
+    "permissions": [
+      49
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 82,
+  "fields": {
+    "name": "ServicioEditar",
+    "permissions": [
+      50
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 83,
+  "fields": {
+    "name": "ServicioEliminar",
+    "permissions": [
+      51
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 84,
+  "fields": {
+    "name": "ServicioVisualizar",
+    "permissions": [
+      52
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 85,
+  "fields": {
+    "name": "SolicitudRegistrar",
+    "permissions": [
+      109
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 86,
+  "fields": {
+    "name": "SolicitudEditar",
+    "permissions": [
+      110
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 87,
+  "fields": {
+    "name": "SolicitudEliminar",
+    "permissions": [
+      111
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 88,
+  "fields": {
+    "name": "SolicitudVisualizar",
+    "permissions": [
+      112
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 89,
+  "fields": {
+    "name": "TasaRegistrar",
+    "permissions": [
+      81
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 90,
+  "fields": {
+    "name": "TasaEditar",
+    "permissions": [
+      82
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 91,
+  "fields": {
+    "name": "TasaEliminar",
+    "permissions": [
+      83
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 92,
+  "fields": {
+    "name": "TasaVisualizar",
+    "permissions": [
+      84
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 93,
+  "fields": {
+    "name": "TramiteRegistrar",
+    "permissions": [
+      65
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 94,
+  "fields": {
+    "name": "TramiteEditar",
+    "permissions": [
+      66
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 95,
+  "fields": {
+    "name": "TramiteEliminar",
+    "permissions": [
+      67
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 96,
+  "fields": {
+    "name": "TramiteVisualizar",
+    "permissions": [
+      68
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 97,
+  "fields": {
+    "name": "Tipo FormacionRegistrar",
+    "permissions": [
+      53
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 98,
+  "fields": {
+    "name": "Tipo FormacionEditar",
+    "permissions": [
+      54
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 99,
+  "fields": {
+    "name": "Tipo FormacionEliminar",
+    "permissions": [
+      55
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 100,
+  "fields": {
+    "name": "Tipo FormacionVisualizar",
+    "permissions": [
+      56
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 109,
+  "fields": {
+    "name": "Tipo PersonaRegistrar",
+    "permissions": [
+      93
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 110,
+  "fields": {
+    "name": "Tipo PersonaEditar",
+    "permissions": [
+      94
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 111,
+  "fields": {
+    "name": "Tipo PersonaEliminar",
+    "permissions": [
+      95
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 112,
+  "fields": {
+    "name": "Tipo PersonaVisualizar",
+    "permissions": [
+      96
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 113,
+  "fields": {
+    "name": "Asignacion Tipo PersonaRegistrar",
+    "permissions": [
+      97
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 114,
+  "fields": {
+    "name": "Asignacion Tipo PersonaEditar",
+    "permissions": [
+      98
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 115,
+  "fields": {
+    "name": "Asignacion Tipo PersonaEliminar",
+    "permissions": [
+      99
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 116,
+  "fields": {
+    "name": "Asignacion Tipo PersonaVisualizar",
+    "permissions": [
+      100
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 117,
+  "fields": {
+    "name": "Plan Cuentas",
+    "permissions": [
+      113,
+      114,
+      115,
+      116
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 118,
+  "fields": {
+    "name": "Plan CuentaRegistrar",
+    "permissions": [
+      113
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 119,
+  "fields": {
+    "name": "Plan CuentaEditar",
+    "permissions": [
+      114
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 120,
+  "fields": {
+    "name": "Plan CuentaEliminar",
+    "permissions": [
+      115
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 121,
+  "fields": {
+    "name": "Plan CuentaVisualizar",
+    "permissions": [
+      116
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 122,
+  "fields": {
+    "name": "Periodo Contables",
+    "permissions": [
+      117,
+      118,
+      119,
+      120
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 123,
+  "fields": {
+    "name": "Periodo ContableRegistrar",
+    "permissions": [
+      117
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 124,
+  "fields": {
+    "name": "Periodo ContableEditar",
+    "permissions": [
+      118
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 125,
+  "fields": {
+    "name": "Periodo ContableEliminar",
+    "permissions": [
+      119
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 126,
+  "fields": {
+    "name": "Periodo ContableVisualizar",
+    "permissions": [
+      120
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 127,
+  "fields": {
+    "name": "Asiento Contables",
+    "permissions": [
+      133,
+      134,
+      135,
+      136
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 128,
+  "fields": {
+    "name": "Asiento ContableRegistrar",
+    "permissions": [
+      133
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 129,
+  "fields": {
+    "name": "Asiento ContableEditar",
+    "permissions": [
+      134
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 130,
+  "fields": {
+    "name": "Asiento ContableEliminar",
+    "permissions": [
+      135
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 131,
+  "fields": {
+    "name": "Asiento ContableVisualizar",
+    "permissions": [
+      136
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 132,
+  "fields": {
+    "name": "Empresas",
+    "permissions": [
+      121,
+      122,
+      123,
+      124
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 133,
+  "fields": {
+    "name": "EmpresaRegistrar",
+    "permissions": [
+      121
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 134,
+  "fields": {
+    "name": "EmpresaEditar",
+    "permissions": [
+      122
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 135,
+  "fields": {
+    "name": "EmpresaEliminar",
+    "permissions": [
+      123
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 136,
+  "fields": {
+    "name": "EmpresaVisualizar",
+    "permissions": [
+      124
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 137,
+  "fields": {
+    "name": "Cuenta Bancarias",
+    "permissions": [
+      129,
+      130,
+      131,
+      132
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 138,
+  "fields": {
+    "name": "Cuenta BancariaRegistrar",
+    "permissions": [
+      129
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 139,
+  "fields": {
+    "name": "Cuenta BancariaEditar",
+    "permissions": [
+      130
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 140,
+  "fields": {
+    "name": "Cuenta BancariaEliminar",
+    "permissions": [
+      131
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 141,
+  "fields": {
+    "name": "Cuenta BancariaVisualizar",
+    "permissions": [
+      132
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 142,
+  "fields": {
+    "name": "Contable",
+    "permissions": [
+      133,
+      134,
+      136,
+      137,
+      138,
+      140,
+      125,
+      126,
+      128,
+      129,
+      130,
+      132,
+      121,
+      122,
+      124,
+      117,
+      118,
+      120,
+      113,
+      114,
+      116
+    ]
+  }
+}
+]

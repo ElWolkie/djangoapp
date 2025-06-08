@@ -1,207 +1,519 @@
 {% extends 'layouts/base.html' %}
+{% load static %}
 
 {% block title %}Registro de Solicitud{% endblock title %}
 
 {% block stylesheets %}
 <link rel="stylesheet" href="/static/assets/css/styleForms.css" />
 <link rel="stylesheet" href="/static/assets/css/argon.css" />
+<style>
+  .solicitud-form {
+      background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+      border-radius: 1rem;
+      box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.1);
+      padding: 2rem;
+      margin: 2rem auto;
+      max-width: 800px;
+  }
+  
+  .form-header {
+      text-align: center;
+      margin-bottom: 2rem;
+      position: relative;
+      padding-bottom: 1rem;
+  }
+  
+  .form-header h2 {
+      color: #343a40;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+  }
+  
+  .form-header::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 80px;
+      height: 4px;
+      background: linear-gradient(90deg, #ffc107, #fd7e14);
+      border-radius: 2px;
+  }
+  
+  .input-group {
+      position: relative;
+      display: flex;
+  }
+  
+  .cedula-select {
+      flex: 0 0 100px;
+      border-radius: 0.5rem 0 0 0.5rem !important;
+      border-right: none;
+      background-color: #fff;
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+      background-repeat: no-repeat;
+      background-position: right 0.75rem center;
+      background-size: 16px 12px;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+      padding-right: 2.5rem;
+  }
+  
+  .cedula-input {
+      flex: 1;
+      border-radius: 0 0.5rem 0.5rem 0 !important;
+  }
+  
+  .check-icon {
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+      background-color: #fff;
+      border: 1px solid #ced4da;
+      border-left: none;
+      border-radius: 0 0.5rem 0.5rem 0;
+  }
+  
+  .btn-submit {
+      background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+      border: none;
+      color: #fff;
+      font-weight: 600;
+      padding: 0.75rem 2rem;
+      border-radius: 0.5rem;
+      transition: all 0.3s;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      display: block;
+      margin: 2rem auto 0;
+      width: 200px;
+  }
+  
+  .btn-submit:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+      background: linear-gradient(135deg, #fd7e14 0%, #ffc107 100%);
+  }
+  
+  /* Estilo mejorado para selects */
+  .styled-select {
+      border-radius: 0.5rem;
+      padding: 0.75rem 1.25rem;
+      border: 1px solid #ced4da;
+      background-color: #fff;
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+      background-repeat: no-repeat;
+      background-position: right 1rem center;
+      background-size: 16px 12px;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+      color: #212529;
+      font-weight: 500;
+      transition: all 0.3s;
+  }
+  
+  .styled-select:focus {
+      border-color: #ffc107;
+      box-shadow: 0 0 0 0.25rem rgba(255, 193, 7, 0.25);
+  }
+  
+  .select-group {
+      position: relative;
+      margin-bottom: 1.5rem;
+  }
+  
+  .select-group label {
+      display: flex;
+      align-items: center;
+      margin-bottom: 0.5rem;
+      font-weight: 600;
+      color: #495057;
+  }
+  
+  .select-group i {
+      margin-right: 10px;
+      color: #6c757d;
+      font-size: 1.2rem;
+  }
+  
+  .form-divider {
+      position: relative;
+      text-align: center;
+      margin: 2rem 0;
+  }
+  
+  .form-divider::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, #dee2e6, transparent);
+  }
+  
+  .form-divider span {
+      position: relative;
+      background: #f8f9fa;
+      padding: 0 15px;
+      color: #6c757d;
+      font-weight: 600;
+      z-index: 1;
+  }
+  
+  .date-input {
+      border-radius: 0.5rem;
+      padding: 0.75rem 1.25rem;
+      border: 1px solid #ced4da;
+      background-color: #fff;
+      color: #212529;
+      font-weight: 500;
+      transition: all 0.3s;
+      width: 100%;
+  }
+  
+  .date-input:focus {
+      border-color: #ffc107;
+      box-shadow: 0 0 0 0.25rem rgba(255, 193, 7, 0.25);
+      outline: none;
+  }
+</style>
 {% endblock stylesheets %}
+
 {% block content %}
-<div class="container mt-5">
-  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Registro de Solicitud</h2>
-  
-  {% if messages %}
-    {% for message in messages %}
-      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-        {{ message }}
+<div class=" mt-4">
+  <div class="solicitud-form">
+    <div class="form-header">
+      <h2><i class="fas fa-file-alt text-warning"></i> Registrar Solicitud</h2>
+      <p class="text-muted">Complete todos los campos para registrar una nueva solicitud</p>
+    </div>
+    
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+          <div class="d-flex align-items-center">
+            <i class="fas {% if message.tags == 'success' %}fa-check-circle{% else %}fa-exclamation-circle{% endif %} me-2"></i>
+            <div>{{ message }}</div>
+          </div>
+          <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+        </div>
+      {% endfor %}
+    {% endif %}
+    
+    <form method="POST" autocomplete="off" id="registroSolicitud" action="{% url 'solicitud_modal' %}">
+      {% csrf_token %}
+      
+      <!-- Grupo de Cédula con nuevo formato -->
+      <div class="form-group mb-4">
+        <label class="form-label">
+          <i class="fas fa-id-card me-2"></i> Cédula del Cliente
+        </label>
+        
+        <div class="input-group">
+          <select id="tipo_cedula" class="form-select cedula-select" style="padding: 5px;">
+            <option value="V" selected>Venezolano</option>
+            <option value="J">Jurídico</option>
+            <option value="G">Gubernamental</option>
+            <option value="E">Extranjero</option>
+            <option value="P">Pasaporte</option>
+          </select>
+          <input type="text" id="numero_cedula" 
+                 class="form-control cedula-input" 
+                 placeholder="12345678" maxlength="8" 
+                 oninput="this.value = this.value.replace(/[^0-9]/g, '')"
+                 value="{{ request.GET.cedula|default:''|slice:'2:' }}">
+          <div class="check-icon" id="check-icon"></div>
+        </div>
+        <div class="invalid-feedback">Por favor, ingrese una cedula válida.</div>
+        <input type="hidden" id="idPersona" name="idPersona" />
       </div>
-    {% endfor %}
-  {% endif %}
-  
-  <form method="POST" class="mt-4 text-dark" autocomplete="off" style="font-weight: bold;" id="registroSolicitud">
-    {% csrf_token %}
-    <div class="row">
-      <div class="col-md-6">
-        <div class="form-group">
-          <label for="cedulaPersona">Cédula: <span id="cedulaDisplay" class="text-primary"></span></label>  
-          <div class="input-group"> <!-- Usar input-group para alinear botón y select -->  
-              <input type="text" id="cedulaPersona" name="cedulaPersona" class="form-control text-dark" tabindex="1" required oninput="checkPersona()" placeholder="Ingrese cédula...">
-              <div class="input-group-append">
-                  <span id="check-icon" class="input-group-text"></span>
-              </div>
-              <input type="hidden" id="idPersona" name="idPersona" />
+
+      <div class="form-divider">
+        <span><i class="fas fa-info-circle me-2"></i> Información de la Solicitud</span>
+      </div>
+      
+      <div class="row">
+        <div class="col-md-6">
+          <div class="select-group mb-4">
+            <label for="idTramite" class="form-label">
+              <i class="fas fa-list-alt me-2"></i> Trámite
+            </label>
+            <select id="idTramite" name="idTramite" class="form-select styled-select" style="width: 100%;">
+              <option value="" disabled selected>Seleccione...</option>
+              {% for tramite in tramites %}
+                <option value="{{ tramite.idTramite }}" data-="{{ tramite.precioTramite }}" data-diasTramite="{{ tramite.diasTramite }}">{{ tramite.nombreTramite }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          
+            <div class="form-group">
+            <label for="montoTotal" class="form-label">
+              <i class="fas fa-dollar-sign me-2"></i> Monto Total
+            </label>
+            <input type="text" id="montoTotal" name="montoTotal" class="form-control text-dark" 
+                 placeholder="0.00" required readonly>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+          <div class="select-group mb-4">
+            <label for="idServicio" class="form-label">
+              <i class="fas fa-concierge-bell me-2"></i> Servicio
+            </label>
+            <select id="idServicio" name="idServicio" class="form-select styled-select" style="width: 100%;">
+              <option value="" disabled selected>Seleccione...</option>
+                {% for servicio in servicios|dictsort:"idServicio" %}
+                {% if servicio.idServicio == 0 %}
+                  <option value="{{ servicio.idServicio }}" data-="{{ servicio.precioServicio }}">{{ servicio.nombreServicio }}</option>
+                {% endif %}
+                {% endfor %}
+                {% for servicio in servicios|dictsort:"idServicio" %}
+                {% if servicio.idServicio != 0 %}
+                  <option value="{{ servicio.idServicio }}" data-="{{ servicio.precioServicio }}">{{ servicio.nombreServicio }}</option>
+                {% endif %}
+              {% endfor %}
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label for="fechaEntrega" class="form-label">
+              <i class="fas fa-calendar-day me-2"></i> Fecha de Entrega
+            </label>
+            <input type="date" id="fechaEntrega" name="fechaEntrega" class="form-control date-input" 
+                   value="{{ fechaEntrega|date:'Y-m-d' }}" required>
+            <input type="hidden" id="estadoSolicitud" name="estadoSolicitud" value="ACTIVO" />
           </div>
         </div>
-        <div class="form-group">
-          <label for="tramite">Tipo de Trámite:</label>
-          <select id="idTramite" name="idTramite" class="form-control text-dark" tabindex="1" required>  
-            <option value="" disabled selected>Seleccione..</option>  
-           {% for tramite in tramites %}  
-              <option value="{{ tramite.idTramite }}" class="text-orange">{{ tramite.nombreTramite }}</option>  
-            {% endfor %}
-          </select>  
-        </div>
-        <div class="form-group">
-          <label for="servicio">Tipo de Servicio:</label>
-          <select id="idServicio" name="idServicio" class="form-control text-dark" tabindex="1" required>  
-            <option value="" disabled selected>Seleccione..</option>  
-           {% for servicio in servicios %}  
-              <option value="{{ servicio.idServicio }}" class="text-orange">{{ servicio.nombreServicio }}</option>  
-            {% endfor %}
-          </select>  
-        </div>
       </div>
-      <div class="col-md-6">
-        <div class="form-group">
-          <label for="montoTotal">Monto Total:</label>
-          <input type="text" id="montoTotal" name="montoTotal" class="form-control text-dark" placeholder="0" tabindex="2" maxlength="8" required />
-        </div>
-        <div class="form-group">
-          <label for="fechaEntrega">Fecha de Entrega:</label>
-          <input type="date" id="fechaEntrega" name="fechaEntrega" class="form-control text-dark" value="{{ fechaEntrega|date:'Y-m-d' }}" tabindex="4" maxlength="100" required />
-          <input type="hidden" id="estadoSolicitud" name="estadoSolicitud" class="form-control text-dark" value="ACTIVO" />
-        </div>
-      </div>
-    </div>
-    <div class="text-center">
-      <input type="submit" class="btn btn-warning mt-4" value="Guardar" />
-    </div>
-  </form>
+      
+      <div id="alert-container"></div> <!-- Contenedor para las alertas -->
+
+      <button type="submit" class="btn-submit">
+        <i class="fas fa-save me-2"></i> Guardar
+      </button>
+    </form>
+  </div>
 </div>
 {% endblock content %}
 
 {% block javascripts %}
+<script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
 <script>
-  document.addEventListener("DOMContentLoaded", function () {
-    const params = new URLSearchParams(window.location.search);
-    const cedula = params.get("cedula");
-
-    if (cedula) {
-      // Prellenar el input de cédula
-      const cedulaInput = document.getElementById("cedulaPersona");
-      cedulaInput.value = cedula;
-
-      // Deshabilitar el input de cédula para evitar cambios
-      cedulaInput.setAttribute("readonly", true);
-
-      // Ejecutar la función de comparación automáticamente
-      checkPersona();
-    }
-  });
-
+document.addEventListener("DOMContentLoaded", function() {
+  // 1) Definición de datos de contexto: personas
   const personas = [
-  {% for persona in personas %}
-      { 
-          idPersona: "{{ persona.idPersona|escapejs }}", 
-          cedula: "{{ persona.cedula|escapejs }}", 
-          nombres: "{{ persona.nombres|escapejs }}", 
-          apellidos: "{{ persona.apellidos|escapejs }}" 
+    {% for persona in personas %}
+      {
+        idPersona: "{{ persona.idPersona|escapejs }}",
+        cedula:   "{{ persona.cedula|escapejs }}",
+        nombres:  "{{ persona.nombres|escapejs }}",
+        apellidos:"{{ persona.apellidos|escapejs }}"
       },
-  {% endfor %}
+    {% endfor %}
   ];
 
+  // 2) Función para mostrar alertas
+  function showAlert(msg, type) {
+    document.getElementById("alert-container").innerHTML = `
+      <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+        ${msg}
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>`;
+  }
+
+  // Función para combinar tipo y número de cédula
+  function getCedulaCompleta() {
+    const tipo = document.getElementById('tipo_cedula').value;
+    const numero = document.getElementById('numero_cedula').value;
+    return `${tipo}-${numero}`;
+  }
+
+  // 3) checkPersona: buscar por cédula en el array
   function checkPersona() {
-    const input = document.getElementById('cedulaPersona').value;
-    const icon = document.getElementById('check-icon');
-    const idPersonaInput = document.getElementById('idPersona');
-    const foundPersona = personas.find(persona => persona.cedula === input);
+    const cedulaCompleta = getCedulaCompleta();
+    const icon = document.getElementById("check-icon");
+    const hid = document.getElementById("idPersona");
 
-    if (foundPersona) {
-        icon.innerHTML = '✔️'; // Pajarito verde
-        icon.style.color = 'blue';
-        idPersonaInput.value = foundPersona.idPersona;
-
-        // Mostrar alerta con los datos de la persona
-        const alertHTML = `
-            <div class="alert alert-success alert-dismissible fade show" role="alert">
-                <strong style="color: orange; font-size: 1.2em;">Persona encontrada:</strong><br>
-                <span style="font-style: italic;">Cédula: ${foundPersona.cedula}</span><br>
-                <span style="font-style: italic;">Nombres: ${foundPersona.nombres}</span><br>
-                <span style="font-style: italic;">Apellidos: ${foundPersona.apellidos}</span>
-                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-        `;
-
-        // Insertar la alerta en el DOM
-        document.getElementById('alert-container').innerHTML = alertHTML;
+    const p = personas.find(x => x.cedula === cedulaCompleta);
+    if (p) {
+      icon.innerHTML = "✔️";
+      icon.style.color = "green";
+      hid.value = p.idPersona;
+      showAlert(`Persona encontrada: ${p.nombres} ${p.apellidos}`, "success");
     } else {
-        icon.innerHTML = '❌'; // X roja
-        icon.style.color = 'red';
-        idPersonaInput.value = '';
-
-        // Mostrar alerta de que no se encontró la persona
-        const alertHTML = `
-            <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                <strong>Persona no encontrada</strong>
-                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-        `;
-
-        // Insertar la alerta en el DOM
-        document.getElementById('alert-container').innerHTML = alertHTML;
+      icon.innerHTML = "❌";
+      icon.style.color = "red";
+      hid.value = "";
+      showAlert("Persona no encontrada", "danger");
     }
   }
-</script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script>
-  document.addEventListener("DOMContentLoaded", function () {
-    const form = document.getElementById("registroSolicitud");
 
-    form.addEventListener("submit", function (e) {
-      e.preventDefault(); // Evitar el envío tradicional del formulario
+  // 4) Enlazar eventos
+  document.getElementById("tipo_cedula")
+          .addEventListener("change", () => checkPersona());
+  document.getElementById("numero_cedula")
+          .addEventListener("input", () => checkPersona());
 
-      const formData = new FormData(form); // Obtener los datos del formulario
+  // 5) Si viene con cedula por GET, cargarla al iniciar
+  const urlParams = new URLSearchParams(window.location.search);
+  const initialCed = urlParams.get('cedula');
+  if (initialCed) {
+    // Separar la cédula en tipo y número
+    const cedParts = initialCed.split('-');
+    if (cedParts.length >= 2) {
+      const tipo = cedParts[0];
+      const numero = cedParts.slice(1).join(''); // Unir las partes restantes
+      
+      // Seleccionar automáticamente el tipo de cédula
+      document.getElementById('tipo_cedula').value = tipo;
+      document.getElementById('numero_cedula').value = numero;
+      
+      setTimeout(() => checkPersona(), 300);
+    }
+  }
 
-      fetch(form.action, {
+  // 6) Envío AJAX del formulario
+  document.getElementById("registroSolicitud")
+    .addEventListener("submit", function(e) {
+      e.preventDefault();
+      
+      // Validar que se haya encontrado una persona
+      const idPersona = document.getElementById("idPersona").value;
+      if (!idPersona) {
+        Swal.fire({
+          icon: "warning",
+          title: "Persona no encontrada",
+          text: "Por favor, ingrese una cédula válida",
+          confirmButtonText: "OK",
+          customClass: { confirmButton: "btn btn-warning" },
+          buttonsStyling: false
+        });
+        return;
+      }
+      
+      // Combinar la cédula antes de enviar (aunque ya se validó, por si acaso)
+      const cedulaCompleta = getCedulaCompleta();
+      
+      // Crear FormData y agregar la cédula combinada
+      const formData = new FormData(this);
+      formData.append('cedulaPersona', cedulaCompleta);
+      
+      fetch(this.action, {
         method: "POST",
         body: formData,
-        headers: {
-          "X-Requested-With": "XMLHttpRequest", // Indicar que es una solicitud AJAX
-        },
+        headers: { "X-Requested-With": "XMLHttpRequest" }
       })
-        .then((response) => response.json())
-        .then((data) => {
-          if (data.success) {
-            // Mostrar alerta de éxito
-            Swal.fire({
-              title: "Registro exitoso",
-              text: "La solicitud ha sido registrada correctamente.",
-              icon: "success",
-              confirmButtonText: "OK",
-              customClass: {
-                confirmButton: "btn btn-warning"
-              },
-              buttonsStyling: false,
-            }).then(() => {
-              // Opcional: Limpiar el formulario después del éxito
-              form.reset();
-              document.getElementById("alert-container").innerHTML = ""; // Limpiar alertas
-              document.getElementById("check-icon").innerHTML = ""; // Limpiar icono
-            });
-          } else {
-            // Mostrar errores en caso de fallo
-            Swal.fire({
-              icon: "error",
-              title: "Error en el registro",
-              html: Object.values(data.errors)
-                .map((error) => `<p>${error}</p>`)
-                .join(""),
-            });
-          }
-        })
-        .catch((error) => {
-          console.error("Error:", error);
+      .then(r => r.json())
+      .then(json => {
+        if (json.success) {
+          Swal.fire({
+            icon: "success",
+            title: "¡Solicitud Registrada!",
+            text: json.message,
+            confirmButtonText: "Generar Factura",
+            customClass: { confirmButton: "btn btn-warning" },
+            buttonsStyling: false
+          }).then(() => {
+            // Redirigir a la lista de solicitudes o a donde corresponda
+            window.location.href = json.redirect_url;
+          });
+        } else if (json.error) {
           Swal.fire({
             icon: "error",
-            title: "Error inesperado",
-            text: "Ocurrió un error al procesar la solicitud.",
+            title: "Error",
+            text: json.message,
+            confirmButtonText: "OK",
+            customClass: { confirmButton: "btn btn-warning" },
+            buttonsStyling: false
+          }); 
+        } else {
+          Swal.fire({
+            icon: "error",
+            title: "Errores",
+            html: Object.values(json.errors).map(m => `<p>${m}</p>`).join("")
           });
-        });
+        }
+      })
+      .catch(() => Swal.fire("Error","Error al comunicarse con el servidor","error"));
     });
-  });
+// Función para actualizar el monto total
+function updateMontoTotal() {
+    const tramiteSelect = document.getElementById("idTramite");
+    const servicioSelect = document.getElementById("idServicio");
+    const montoTotalInput = document.getElementById("montoTotal");
+
+    // Obtener los precios seleccionados y convertirlos a números
+    const tramitePrecio = parseFloat(tramiteSelect.options[tramiteSelect.selectedIndex]?.getAttribute("data-")) || 0;
+    const servicioPrecio = parseFloat(servicioSelect.options[servicioSelect.selectedIndex]?.getAttribute("data-")) || 0;
+
+    // Calcular la suma
+    const total = tramitePrecio + servicioPrecio;
+
+    // Actualizar el campo de monto total
+    montoTotalInput.value = total.toFixed(2);
+}
+// Función para calcular la fecha de entrega
+function calculateFechaEntrega() {
+    const tramiteSelect = document.getElementById("idTramite");
+    const servicioSelect = document.getElementById("idServicio");
+    const fechaEntregaInput = document.getElementById("fechaEntrega");
+
+    // Obtener los atributos de los selectores
+    const tramiteDias = tramiteSelect.options[tramiteSelect.selectedIndex]?.getAttribute("data-diasTramite") || "";
+    const servicioTiempo = servicioSelect.options[servicioSelect.selectedIndex]?.getAttribute("data-tiempoServicio") || "";
+
+    // Función para interpretar el tiempo (ejemplo: "10 DIAS", "10 HORAS", etc.)
+    function interpretarTiempo(tiempo) {
+      const [cantidad, unidad] = tiempo.split(" ");
+      const cantidadNumerica = parseInt(cantidad, 10);
+
+      if (isNaN(cantidadNumerica)) return 0;
+
+      switch (unidad?.toUpperCase()) {
+        case "HORAS":
+          return cantidadNumerica / 24; // Convertir horas a días
+        case "DIAS":
+          return cantidadNumerica; // Mantener días
+        case "SEMANAS":
+          return cantidadNumerica * 7; // Convertir semanas a días
+        case "MESES":
+          return cantidadNumerica * 30; // Aproximar meses a días
+        default:
+          return 0; // Si la unidad no es reconocida
+      }
+    }
+
+    // Calcular días según las reglas
+    let diasEntrega = 0;
+    if (servicioSelect.value === "0") {
+      // Si el servicio tiene id = 0, usar solo diasTramite
+      diasEntrega = interpretarTiempo(tramiteDias);
+    } else {
+      // Si se selecciona otro servicio, usar tiempoServicio
+      diasEntrega = interpretarTiempo(servicioTiempo);
+    }
+
+    // Calcular la nueva fecha de entrega
+    const fechaActual = new Date();
+    fechaActual.setDate(fechaActual.getDate() + diasEntrega);
+
+    // Formatear la fecha en formato YYYY-MM-DD
+    const fechaFormateada = fechaActual.toISOString().split("T")[0];
+    fechaEntregaInput.value = fechaFormateada;
+  }
+
+  // Enlazar eventos de cambio en los selectores
+  document.getElementById("idTramite").addEventListener("change", calculateFechaEntrega);
+  document.getElementById("idServicio").addEventListener("change", calculateFechaEntrega);
+  // Enlazar eventos de cambio en los selectores
+  document.getElementById("idTramite").addEventListener("change", updateMontoTotal);
+  document.getElementById("idServicio").addEventListener("change", updateMontoTotal);
+});
 </script>
 {% endblock javascripts %}

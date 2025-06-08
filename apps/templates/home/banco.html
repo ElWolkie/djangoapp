@@ -11,25 +11,27 @@
     {% endfor %}
   {% endif %}
 <div class=" mt-5">
-  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Registrar Banco </h2>
+  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Registrar Banco</h2>
   <form method="POST" class="mt-3 text-dark" autocomplete="off" style="font-weight: bold; max-width: 600px; margin: 0 auto;" id="bancoForm" action="{% url 'banco_modal' %}">  
     {% csrf_token %}  
     
     <div class="form-row">  
       <div class="form-group col-md-6">  
         <label for="codBanco">Código del Banco:</label>  
-        <input type="text" id="codBanco" name="codBanco" class="form-control text-dark" placeholder="Ingrese un nombre" tabindex="3" maxlength="100" required />  
+        <input type="text" id="codBanco" name="codBanco" class="form-control text-dark" placeholder="Ingrese un nombre" tabindex="3" maxlength="100" data-required="true" />  
+        <div class="invalid-feedback">Por favor, ingrese un codigo válido.</div>
       </div>  
       
       <div class="form-group col-md-6">  
         <label for="codContable">Código Contable:</label>  
-        <input type="text" id="codContable" name="codContable" class="form-control text-dark" placeholder="Ingrese un nombre" tabindex="3" maxlength="100" required />          
+        <input type="text" id="codContable" name="codContable" class="form-control text-dark" placeholder="Ingrese un nombre" tabindex="3" maxlength="100" data-required="true" />          
+        <div class="invalid-feedback">Por favor, ingrese un codigo válido.</div>
       </div>  
       <div class="form-group col-md-6">  
         <label for="nombreBanco">Nombre:</label>  
-        <input type="text" id="nombreBanco" name="nombreBanco" class="form-control text-dark" placeholder="Ingrese un nombre" tabindex="3" maxlength="100" required />  
+        <input type="text" id="nombreBanco" name="nombreBanco" class="form-control text-dark" placeholder="Ingrese un nombre" tabindex="3" maxlength="100" data-required="true" />  
+        <div class="invalid-feedback">Por favor, ingrese un nombre válido.</div>
         <input type="hidden" id="estadoBanco" name="estadoBanco" class="form-control text-dark" value="ACTIVO" />  
-        
       </div>  
     </div>  
     
@@ -37,24 +39,38 @@
       <input type="submit" class="btn btn-warning mt-4" value="Guardar" />  
     </div>  
   </form>
+
 {% endblock content %}
 
 {% block javascripts %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
   document.addEventListener("DOMContentLoaded", function() {
     $('c').on('show.bs.modal', function (e) {
       var modal = $(this);
       $.ajax({
-        url: 'apps/home/oferta.html',
+        url: 'apps/home/Banco.html',
         method: 'GET',
         success: function(data) {
           modal.find('.modal-body').html(data);
         }
       });
     });
-    //Validar solo letras 
+     
   });
+
+// Activar mayúsculas en inputs
+function activarMayusculasInputs() {
+    document.addEventListener('input', function(e) {
+      if (e.target.tagName === 'INPUT' && !e.target.type.match(/password|hidden|email/)) {
+        e.target.value = e.target.value.toUpperCase();
+      }
+    });
+  }
+  activarMayusculasInputs();  
+  
+//Validar solo letras 
   document.getElementById("nombreBanco").addEventListener("input", function() {
     this.value = this.value.replace(/[^a-zA-Z\s]/g, '');
 
@@ -62,49 +78,108 @@
         this.value = this.value.slice(0, 35);
     }
   });
-  document.getElementById("duracion").addEventListener("input", function() {
-    this.value = this.value.replace(/[^a-zA-Z0-9ñÑ ^]+$/, '');
-
-    if (this.value.length > 6) {
-        this.value = this.value.slice(0, 6);
-    }
-
+  // Validar solo números y máximo 9 dígitos para Código del Banco
+  document.getElementById("codBanco").addEventListener("input", function() {
+    this.value = this.value.replace(/\D/g, '').slice(0, 9);
   });
-  
+
+  // Validar solo números y máximo 9 dígitos para Código Contable
+  document.getElementById("codContable").addEventListener("input", function() {
+    this.value = this.value.replace(/\D/g, '').slice(0, 9);
+  });
   
 //Recarga dinamica
 
-$(document).on('submit', '#registroForm', function(e) {
-      e.preventDefault();
-      var form = $(this);
-      $.ajax({
-        url: form.attr('action'),
-        method: form.attr('method'),
-        data: form.serialize(),
-        success: function(response) {
-          var messagesContainer = $('#modalMessages');
-          messagesContainer.empty();
-          if (response.success) {
-            messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
-            $('#ofertaModal').modal('hide');
-            location.reload();  // Recargar la página para ver los cambios
-          } else {
-            // Mostrar errores en el modal
-            var errors = response.errors;
-            for (var field in errors) {
-              messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + errors[field] + '</div>');
-            }
+$(document).on('submit', '#bancoForm', function(e) {
+  e.preventDefault();
+  var form = $(this);
+  if (!highlightInvalidInputs(form)) return false;
+  $.ajax({
+    url: form.attr('action'),
+    method: form.attr('method'),
+    data: form.serialize(),
+    success: function(response) {
+      var messagesContainer = $('#modalMessages');
+      messagesContainer.empty();
+      if (response.success) {
+        messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
+        $('.modal').modal('hide');
+        location.reload();
+      } else {
+        if (response.errors && response.errors.__all__) {
+          Swal.fire({
+            title: 'Registro duplicado',
+            text: response.errors.__all__.join('\n'),
+            icon: 'warning',
+            confirmButtonText: 'OK',
+            customClass: { confirmButton: 'btn btn-warning' },
+            buttonsStyling: false,
+          });
+        }
+        for (var field in response.errors) {
+          if (field !== "__all__") {
+            var errorMsgs = Array.isArray(response.errors[field]) ? response.errors[field] : [response.errors[field]];
+            errorMsgs.forEach(function(msg) {
+              messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + msg + '</div>');
+            });
           }
         }
-      });
+      }
+    },
+    error: function() {
+      Swal.fire('Error inesperado', 'Ocurrió un error al procesar la solicitud', 'error');
+    }
+  });
+});
+
+function highlightInvalidInputs(form) {
+  // form puede ser un objeto jQuery o un elemento DOM
+  var $form = $(form);
+  let valid = true;
+  let firstInvalid = null;
+  $form.find('input[data-required], select[required], textarea[required]').each(function() {
+    if (!$(this).val().trim()) {
+      $(this).addClass('is-invalid');
+      if (!firstInvalid) firstInvalid = this;
+      valid = false;
+    } else {
+      $(this).removeClass('is-invalid');
+    }
+  });
+  if (!valid) {
+    Swal.fire({
+      title: 'Campos requeridos',
+      text: 'Por favor, complete todos los campos obligatorios resaltados en rojo.',
+      icon: 'warning',
+      confirmButtonText: 'OK',
+      customClass: { confirmButton: 'btn btn-warning' },
+      buttonsStyling: false,
+    }).then(() => {
+      if (firstInvalid) firstInvalid.focus();
     });
-</script>
-
-
-
-
-
-
-
-
+  }
+  return valid;
+}
+// Validaciones de Bootstrap
+            (function() {
+          'use strict';
+          var forms = document.querySelectorAll('.needs-validation');
+          Array.prototype.slice.call(forms).forEach(function(form) {
+            form.addEventListener('submit', function(event) {
+              if (!form.checkValidity()) {
+                event.preventDefault();
+                event.stopPropagation();
+              }
+              form.classList.add('was-validated');
+            }, false);
+          });
+        })();
+  
+  </script>
+  <style>
+    .is-invalid {
+      border-color: #dc3545 !important;
+      box-shadow: 0 0 0 0.2rem rgba(220,53,69,.25);
+    }
+    </style>
 {% endblock javascripts %}

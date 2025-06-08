@@ -1,0 +1,621 @@
+{% extends 'layouts/base.html' %}
+{% load static %}
+
+{% block title %}Gestión de Usuarios{% endblock %}
+
+{% block stylesheets %}
+<link rel="stylesheet" href="/static/assets/css/styleForms.css" />
+<link rel="stylesheet" href="/static/assets/css/argon.css" />
+<style>
+  .btn-purple {
+    background-color: #6f42c1 !important;
+    color: white !important;
+    border-color: #6f42c1 !important;
+}
+
+.btn-purple:hover {
+    background-color: #5a32a3 !important;
+    border-color: #5a32a3 !important;
+}
+
+.actions-column .btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+    transition: all 0.3s ease;
+}
+
+.btn-outline-danger {
+    border-color: #dc3545;
+    color: #dc3545;
+}
+
+.btn-outline-danger:hover {
+    background-color: #dc3545;
+    color: white;
+}
+
+.action-buttons {
+    min-width: 200px;
+}
+
+.badge {
+    font-size: 0.85em;
+    padding: 0.5em 0.75em;
+}
+
+.modal.fade.show {
+    display: block !important;
+    background-color: rgba(0,0,0,0.5);
+}
+
+.table-responsive {
+  scrollbar-width: thin;
+  scrollbar-color:rgb(107, 143, 250) #f1f1f1;
+}
+
+.table-responsive::-webkit-scrollbar {
+  height: 8px;
+}
+
+.table-responsive::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+.table-responsive::-webkit-scrollbar-thumb {
+  background-color:rgb(81, 141, 245);
+  border-radius: 4px;
+  border: 2px solid #f1f1f1;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+    <div class="container mt-4">
+        <h2 class="text-center mb-4">Listado de Usuarios</h2>
+
+        {% if perms.home.view_usuarios %}
+            <div class="row mb-3">
+            <div class="col-md-4">
+                <div class="input-group">
+                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                <input class="form-control" id="searchInput" type="text" placeholder="Buscar por cédula, nombre...">
+                </div>
+            </div>
+            <div class="col-md-8 text-end">
+                {# Botón para añadir usuario #}
+                {% if perms.home.add_usuarios %}
+                    <a href="{% url 'registrar_usuario' %}" class="btn btn-warning">
+                        <i class="fas fa-plus me-1"></i>  Registrar Usuario
+                    </a>
+                {% endif %}
+            </div>
+            </div>
+        {% else %}
+        {# Mensaje de acceso denegado con diseño profesional #}
+        <div class="alert alert-danger shadow-lg">
+            <div class="d-flex align-items-center">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-ban fa-2x me-3"></i>
+                </div>
+                <div class="flex-grow-1">
+                    <h4 class="alert-heading mb-3"><i class="fas fa-exclamation-triangle"></i> Acceso restringido</h4>
+                    <p class="mb-0">No tienes los permisos necesarios para visualizar esta información.</p>
+                    <hr>
+                    <p class="mb-0 small">Contacta al administrador del sistema si necesitas acceso.</p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        <!-- Filtro para mostrar inactivos -->
+        <div class="mb-3">
+            <a href="?mostrar_inactivos={% if mostrar_inactivos %}false{% else %}true{% endif %}" 
+            class="btn btn-outline-secondary btn-sm">
+            {% if mostrar_inactivos %}
+                <i class="fas fa-eye-slash me-1"></i> Ocultar inactivos
+            {% else %}
+                <i class="fas fa-eye me-1"></i> Mostrar inactivos
+            {% endif %}
+            </a>
+        </div>
+
+        {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+                <i class="fas fa-times"></i>
+            </button>
+            </div>
+        {% endfor %}
+        {% endif %}
+
+        <!-- Tabla de usuarios -->
+        <div class="card shadow-sm">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover text-gray-dark align-middle" id="usuariosTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th scope="col">Cédula</th>
+                            <th scope="col">Nombre</th>
+                            <th scope="col">Registro</th>
+                            <th scope="col">Estado</th>
+                            <th scope="col">Tipo</th>
+                            <th scope="col" class="actions-column">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for usuario in usuarios %}
+                        <tr>
+                            <td>{{ usuario.idPersona.cedula }}</td>
+                            <td>{{ usuario.idPersona.nombres }} {{ usuario.idPersona.apellidos }}</td>
+                            <td>{{ usuario.fechaUsuario|date:"d/m/Y H:i" }}</td>
+                            
+                            <td>
+                            {% if usuario.is_active %}
+                                <span class="badge bg-success text-white"><i class="fas fa-check-circle me-1"></i> Activo</span>
+                            {% else %}
+                                <span class="badge bg-danger text-white"><i class="fas fa-times-circle me-1"></i> Inactivo</span>
+                            {% endif %}
+                            </td>
+                            
+                            <td>
+                                {% for group in usuario.groups.all %}
+                                <span class="badge bg-info me-1">{{ group.name }}</span>
+                                {% empty %}
+                                    {% if usuario.is_superuser %}
+                                    <span class="badge bg-primary text-white">Superusuario</span>
+                                    {% elif usuario.is_staff %}
+                                    <span class="badge bg-secondary">Administrador</span>
+                                    {% else %}
+                                    <span class="badge bg-light text-dark">Estándar</span>
+                                    {% endif %}
+                                {% endfor %}
+                            </td>
+                            
+                            <td class="actions-column">
+                                <div class="d-flex gap-2">
+                                    {% if perms.home.change_usuarios %}
+                                    <button class="btn btn-purple btn-sm btnAsignarGrupos" 
+                                            title="Asignar grupos"
+                                            data-url="{% url 'asignar_grupos' usuario.idUsuario %}"
+                                            data-usuario-id="{{ usuario.idUsuario }}">
+                                        <i class="fas fa-users-cog"></i>
+                                    </button>
+                                    {% endif %}
+                                    
+                                    {% if perms.home.change_usuarios %}
+                                    <button class="btn btn-primary btn-sm btnEditarUsuario"
+                                            data-id="{{ usuario.idUsuario }}"
+                                            data-url="{% url 'editar_usuario' usuario.pk %}"
+                                            title="Editar usuario">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    {% endif %}
+                                    
+                                    {% if usuario.is_active and perms.home.change_usuarios %}
+                                    <button class="btn btn-outline-warning btn-sm"
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#desactivarModal{{ usuario.pk }}"
+                                            title="Desactivar usuario">
+                                        <i class="fas fa-user-slash"></i>
+                                    </button>
+                                    {% endif %}
+                                    
+                                    {% if request.user.is_superuser %}
+                                    <button class="btn btn-danger btn-sm"
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#eliminarModal{{ usuario.pk }}"
+                                            title="Eliminar permanentemente">
+                                        <i class="fas fa-skull-crossbones"></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center py-4">No se encontraron usuarios registrados</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Editar Usuario -->
+    <div class="modal fade" id="editUsuarioModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary">
+                    <h5 class="modal-title text-neutral">Editar Usuario</h5>
+                    <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body" id="editUsuarioModalBody">
+                    <!-- Contenido dinámico -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+        <!-- Modal para Asignar Grupos -->
+        <div class="modal fade" id="asignarGruposModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-purple">
+                    <h5 class="modal-title text-neutral">
+                        <i class="fas fa-users-cog me-2"></i> Asignación de Grupos
+                    </h5>
+                    <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body" id="asignarGruposModalBody">
+                    <!-- Contenido dinámico -->
+                </div>
+            </div>
+        </div>
+        </div>
+
+    <!-- Modales FUERA de la tabla -->
+    {% for usuario in usuarios %}
+        {% if usuario.is_active and perms.home.change_usuarios %}
+        <div class="modal fade" id="desactivarModal{{ usuario.pk }}" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header bg-warning text-dark">
+                        <h5 class="modal-title">
+                            <i class="fas fa-exclamation-triangle me-2"></i> Confirmar Desactivación
+                        </h5>
+                        <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <p>¿Estás seguro de desactivar al usuario:</p>
+                        <h5 class="mb-3">{{ usuario.idPersona.nombres }} {{ usuario.idPersona.apellidos }}</h5>
+                        <p class="text-muted small">El usuario perderá acceso al sistema pero podrá ser reactivado.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <form method="post" action="{% url 'desactivar_usuario' usuario.pk %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-warning">Confirmar Desactivación</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if request.user.is_superuser %}
+        <div class="modal fade" id="eliminarModal{{ usuario.pk }}" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title">
+                            <i class="fas fa-radiation me-2"></i> Eliminación Definitiva
+                        </h5>
+                        <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            ¡Esta acción es irreversible!
+                        </div>
+                        <p>Usuario a eliminar:</p>
+                        <h5>{{ usuario.idPersona.nombres }} {{ usuario.idPersona.apellidos }}</h5>
+                        <p class="text-muted small mt-3">Se eliminarán todos los registros asociados permanentemente.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <form method="post" action="{% url 'eliminar_usuario' usuario.pk %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-danger">Eliminar Permanentemente</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    {% endfor %}
+{% endblock %}
+
+{% block javascripts %}
+<script src="/static/assets/js/jquery-3.6.0.min.js"></script>
+<script src="/static/assets/js/bootstrap.bundle.min.js"></script>
+
+<script>
+// Asignar Grupos
+document.querySelectorAll('.btnAsignarGrupos').forEach(btn => {
+  btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const modalBody = document.getElementById('asignarGruposModalBody');
+      const usuarioId = btn.dataset.usuarioId;
+      const url = btn.dataset.url;
+
+      // Spinner
+      modalBody.innerHTML = `
+          <div class="text-center py-4">
+              <div class="spinner-border text-purple" role="status">
+                  <span class="visually-hidden">Cargando...</span>
+              </div>
+          </div>`;
+
+      try {
+          const response = await fetch(url, {
+              headers: { 'X-Requested-With': 'XMLHttpRequest' }
+          });
+          
+          if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+          
+          const html = await response.text();
+          modalBody.innerHTML = html;
+          new bootstrap.Modal(document.getElementById('asignarGruposModal')).show();
+          
+          // Inicializar validaciones después de cargar contenido
+          initAsignarGruposForm(usuarioId);
+          
+      } catch (error) {
+          modalBody.innerHTML = `
+              <div class="alert alert-danger">
+                  Error al cargar: ${error.message}
+              </div>`;
+      }
+  });
+});
+
+// Función para inicializar el formulario
+function initAsignarGruposForm(usuarioId) {
+  const form = document.querySelector(`#asignarGruposForm${usuarioId}`);
+  
+  if (form) {
+      form.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const formData = new FormData(form);
+          const submitBtn = form.querySelector('button[type="submit"]');
+          const originalBtnText = submitBtn.innerHTML;
+          
+          // Validación simple
+          const checkboxes = form.querySelectorAll('input[type="checkbox"]:checked');
+          if (checkboxes.length === 0) {
+              showModalAlert(form, 'Debe seleccionar al menos un grupo', 'danger');
+              return;
+          }
+
+          // Loading state
+          submitBtn.innerHTML = `
+              <span class="spinner-border spinner-border-sm" role="status"></span>
+              Guardando...
+          `;
+          submitBtn.disabled = true;
+
+          try {
+              const response = await fetch(form.action, {
+                  method: 'POST',
+                  body: formData,
+                  headers: { 'X-Requested-With': 'XMLHttpRequest' }
+              });
+
+              const data = await response.json();
+              
+              if (data.success) {
+                  showModalAlert(form, data.message, 'success');
+                  setTimeout(() => {
+                      bootstrap.Modal.getInstance(document.getElementById('asignarGruposModal')).hide();
+                      location.reload();
+                  }, 1500);
+              } else {
+                  // Actualizar formulario con errores
+                  const tempDiv = document.createElement('div');
+                  tempDiv.innerHTML = data.form_html;
+                  form.parentNode.replaceChild(tempDiv.querySelector('form'), form);
+                  initAsignarGruposForm(usuarioId); // Re-inicializar
+              }
+              
+          } catch (error) {
+              showModalAlert(form, `Error: ${error.message}`, 'danger');
+          } finally {
+              submitBtn.innerHTML = originalBtnText;
+              submitBtn.disabled = false;
+          }
+      });
+
+      // --- INICIALIZACIÓN DE LA BÚSQUEDA Y LOS CHECKBOXES ---
+      console.log('JavaScript se está ejecutando dentro del modal'); // Debug
+
+      const searchInput = document.getElementById('permissionSearchInput');
+      const adminCardWrapper = form.querySelector('.admin-permission-card');
+      const categoryCards = form.querySelectorAll('.permission-category');
+
+      if (searchInput) {
+          searchInput.addEventListener('keyup', function() {
+              const searchTerm = this.value.toLowerCase().trim();
+              console.log('Término de búsqueda:', searchTerm); // Debug
+
+              // 1. Filtrar tarjeta de Administrador
+              if (adminCardWrapper) {
+                  const adminText = adminCardWrapper.textContent.toLowerCase();
+                  const adminVisible = adminText.includes(searchTerm) || searchTerm === '';
+                  adminCardWrapper.style.display = adminVisible ? '' : 'none';
+                  console.log('Tarjeta de Admin visible:', adminVisible); // Debug
+              }
+
+              // 2. Filtrar Categorías y Permisos
+              categoryCards.forEach(card => {
+                  const headerText = card.querySelector('.card-header').textContent.toLowerCase();
+                  const permissionItems = card.querySelectorAll('.permission-item');
+                  let hasVisibleItems = false;
+
+                  // Si la categoría coincide, mostrar todos los items
+                  if (headerText.includes(searchTerm)) {
+                      permissionItems.forEach(item => {
+                          item.style.display = ''; // Mostrar todos los items
+                          hasVisibleItems = true;
+                      });
+                  } else {
+                      // Si la categoría no coincide, filtrar los items individualmente
+                      permissionItems.forEach(item => {
+                          const itemText = item.textContent.toLowerCase();
+                          const isVisible = itemText.includes(searchTerm);
+                          item.style.display = isVisible ? '' : 'none';
+                          if (isVisible) hasVisibleItems = true;
+                      });
+                  }
+
+                  // Mostrar la tarjeta si el encabezado coincide O si hay elementos visibles
+                  const categoryVisible = headerText.includes(searchTerm) || hasVisibleItems || searchTerm === '';
+                  card.style.display = categoryVisible ? '' : 'none';
+
+                  // Después de filtrar los items, verificar si la categoría debe estar visible
+                  if (searchTerm) { // Solo si hay un término de búsqueda
+                      let anyItemVisible = false;
+                      permissionItems.forEach(item => {
+                          if (item.style.display !== 'none') {
+                              anyItemVisible = true;
+                          }
+                      });
+                      card.style.display = (headerText.includes(searchTerm) || anyItemVisible) ? '' : 'none';
+                  } else {
+                      card.style.display = ''; // Mostrar todas las categorías si no hay búsqueda
+                      permissionItems.forEach(item => {
+                          item.style.display = ''; // Mostrar todos los items
+                      });
+                  }
+
+                  console.log('Categoría visible:', categoryVisible, 'Categoría:', card.dataset.category); // Debug
+              });
+          });
+      }
+
+      form.querySelectorAll('.permission-category').forEach(categoryCard => {
+          const totalCheckbox = categoryCard.querySelector('input[type="checkbox"][id$="-gestion-total"]');
+          const actionCheckboxes = categoryCard.querySelectorAll('.card-body .row input[type="checkbox"]');
+
+          if (totalCheckbox) {
+              totalCheckbox.addEventListener('change', function() {
+                  const isChecked = this.checked;
+                  actionCheckboxes.forEach(cb => cb.checked = isChecked);
+              });
+
+              actionCheckboxes.forEach(cb => {
+                  cb.addEventListener('change', function() {
+                      if (!this.checked) {
+                          totalCheckbox.checked = false;
+                      } else {
+                          const allChecked = Array.from(actionCheckboxes).every(c => c.checked);
+                          totalCheckbox.checked = allChecked;
+                      }
+                  });
+              });
+
+              if (totalCheckbox.checked) {
+                  actionCheckboxes.forEach(cb => cb.checked = true);
+              }
+          }
+      });
+      // --- FIN INICIALIZACIÓN ---
+  }
+}
+// Función para mostrar alertas en el modal
+function showModalAlert(form, message, type) {
+  const alertDiv = document.createElement('div');
+  alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+  alertDiv.innerHTML = `
+      ${message}
+      <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+        <i class="fas fa-times"></i>
+      </button>
+  `;
+  
+  form.parentNode.insertBefore(alertDiv, form.previousElementSibling);
+  
+  // Auto-remove after 5 seconds
+  setTimeout(() => {
+      alertDiv.remove();
+  }, 5000);
+}
+
+  document.querySelectorAll('.btnEditarUsuario').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+        e.preventDefault();  // Previene acción por defecto
+        const modalBody = document.getElementById('editUsuarioModalBody');
+        const url = btn.dataset.url;
+        
+        // Spinner de carga
+        modalBody.innerHTML = `
+            <div class="text-center py-4">
+                <div class="spinner-border text-secondary" role="status">
+                    <span class="visually-hidden">Cargando...</span>
+                </div>
+            </div>`;
+
+        try {
+            const response = await fetch(url, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'  // Cabecera para identificar AJAX
+                }
+            });
+            
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            
+            const html = await response.text();
+            modalBody.innerHTML = html;
+            new bootstrap.Modal(document.getElementById('editUsuarioModal')).show();
+            
+        } catch (error) {
+            modalBody.innerHTML = `
+                <div class="alert alert-danger">
+                    Error al cargar: ${error.message}
+                </div>`;
+        }
+    });
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[title]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl, {
+            trigger: 'hover',
+            placement: 'top'
+        });
+    });
+});
+
+  document.getElementById('searchInput').addEventListener('keyup', function() {
+    var input = this.value.toLowerCase();
+    var table = document.getElementById('usuariosTable');
+    var rows = table.querySelectorAll('tbody tr');
+    rows.forEach(function(row) {
+      // Buscar en todas las celdas EXCEPTO la última (acciones)
+      var cells = row.querySelectorAll('td:not(:last-child)');
+      var match = false;
+      cells.forEach(function(cell) {
+        if (cell.textContent.toLowerCase().includes(input)) { // .includes es más moderno que indexOf > -1
+          match = true;
+        }
+      });
+      row.style.display = match ? '' : 'none';
+    });
+  });
+
+  // Scroll horizontal con la rueda del ratón (shift no necesario)
+const tableWrapper = document.querySelector('.table-responsive');
+
+if (tableWrapper) {
+  tableWrapper.addEventListener('wheel', function (e) {
+    if (e.deltaY !== 0) {
+      e.preventDefault(); // evita scroll vertical
+      tableWrapper.scrollLeft += e.deltaY; // desplaza horizontalmente
+    }
+  });
+}
+</script>
+{% endblock %}

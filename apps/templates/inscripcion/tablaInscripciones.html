@@ -1,179 +1,582 @@
 {% extends 'layouts/base.html' %}
-
-{% block title %}Listado de Personas{% endblock title %}
+{% load static %}
+{% load dict_extras %}
+{% block title %}Listado de Inscripciones{% endblock title %}
 
 {% block stylesheets %}
-<link rel="stylesheet" href="/static/assets/css/styleForms.css" />
-<link rel="stylesheet" href="/static/assets/css/argon.css" />
+<link rel="stylesheet" href="{% static 'assets/css/styleForms.css' %}">
+<link rel="stylesheet" href="{% static 'assets/css/argon.css' %}">
+<style>
+  .btn-purple {
+    background-color: #6f42c1 !important;
+    color: white !important;
+    border-color: #6f42c1 !important;
+  }
+  .btn-purple:hover {
+    background-color: #5a32a3 !important;
+    border-color: #5a32a3 !important;
+  }
+  .actions-column .btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+    transition: all 0.3s ease;
+  }
+  .badge {
+    font-size: 0.85em;
+    padding: 0.5em 0.75em;
+  }
+  .modal-dialog { max-width: 700px; }
+  .modal.fade.show {
+    display: block !important;
+    background-color: rgba(0,0,0,0.5);
+  }
+  .table-hover tbody tr:hover {
+    background-color: #f8f9fa;
+  }
+  .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  table { white-space: nowrap; }
+  .table-responsive {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(107,143,250) #f1f1f1;
+  }
+  .table-responsive::-webkit-scrollbar { height: 8px; }
+  .table-responsive::-webkit-scrollbar-track { background: #f1f1f1; }
+  .table-responsive::-webkit-scrollbar-thumb {
+    background-color: rgb(81,141,245);
+    border-radius: 4px;
+    border: 2px solid #f1f1f1;
+  }
+
+   .pagination-container {
+    margin-top: 1rem !important;
+}
+
+.pagination {
+    --bs-pagination-padding-x: 0.75rem;
+    --bs-pagination-padding-y: 0.375rem;
+    --bs-pagination-font-size: 0.875rem;
+}
+
+.page-link {
+    min-width: 32px;
+    text-align: center;
+    border-radius: 4px !important;
+}
+
+.page-item.active .page-link {
+    background-color: #fb6340;
+    border-color: #fb6340;
+}
+</style>
 {% endblock stylesheets %}
 
 {% block content %}
-<div class="container mt-5">
-  <h2 class="text-center text-dark mb-4">Lista de Inscripción Registrados</h2>
+<div class="container mt-4">
+  <h2 class="text-center mb-4">Lista de Inscripciones Registradas</h2>
 
-  {% if messages %}
+  <div class="row mb-3">
+    <div class="col-md-4">
+      <div class="input-group">
+        <span class="input-group-text"><i class="fas fa-search"></i></span>
+        <input id="searchInput" class="form-control" type="text" placeholder="Buscar inscripciones...">
+      </div>
+    </div>
+    
+    <div class="col-md-4 text-center">
+      {% if perms.home.add_inscripcion %}
+      <a href="{% url 'inscripcion_modal' %}" class="btn btn-warning">
+        <i class="fas fa-plus-circle me-1"></i> Nueva Inscripción
+      </a>
+      {% endif %}
+    </div>
+
+    <div class="col-md-4 text-end">
+      <a href="{% url 'reporte_inscripcion_pdf' %}" class="btn btn-outline-danger btn-sm" target="_blank">
+        <i class="fas fa-file-pdf"></i> Descargar PDF
+      </a>
+    </div>
+  </div>
+  
+    <div class="mb-3">
+      <a href="?mostrar_inactivos={% if mostrar_inactivos %}false{% else %}true{% endif %}"
+        class="btn btn-outline-secondary btn-sm">
+        {% if mostrar_inactivos %}
+          <i class="fas fa-eye-slash me-1"></i> Ocultar inactivos
+        {% else %}
+          <i class="fas fa-eye me-1"></i> Mostrar inactivos
+        {% endif %}
+      </a>
+    </div>
+
+  <div id="globalMessages">
     {% for message in messages %}
       <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
         {{ message }}
-      </div>
-    {% endfor %}
-  {% endif %}
-
-  <div class="row">
-    <div class="col-md-4">
-      <div class="input-group">
-        <div class="input-group-prepend">
-          <span class="input-group-text" style="background-color: #bcbcbc; border: none;">
-        <i class="fas fa-search text-warning"></i>
-          </span>
-        </div>
-        <input class="form-control" id="searchInput" type="text" placeholder="Buscar...">
-      </div>
-    </div>
-    <div class="col-md-4">
-      <a class="btn btn-warning btn-square btn-sm my-2" href="/inscripcion/inscripcion.html" title="Registrar Inscripcion">+</a>
-    </div>
-  <div class="col-md-4"></div>
-  </div>
-
-  <div class="table-responsive">
-    <table class="table table-striped text-gray-dark" id="inscripcionesTable">
-      <thead class="text-darker">
-      <tr>
-        <th>ID</th>
-        <th>Cédula</th>
-        <th>Cohorte</th>
-        <th>Tipo Formación</th>
-        <th>Formación</th>
-        <th>Estado</th>
-        <th>Fecha</th>
-        <th>Acciones</th>
-      </tr>
-      </thead>
-      <tbody>
-      {% for inscripcion in inscripciones %}
-      <tr>
-        <td>{{ inscripcion.idInscripcion }}</td>
-        <td>{{ inscripcion.idPersona.cedula }}</td>
-        <td>{{ inscripcion.idCohorte.nombreCohorte }}</td>
-        <td>{{ inscripcion.idTF.nombreTipoFormacion }}</td>
-        <td>{{ inscripcion.idFormacion.nombreFormacion }}</td>
-        <td>{{ inscripcion.is_active|yesno:"ACTIVO,INACTIVO" }}</td>
-        <td>{{ inscripcion.fechaInscripcion|date:"d/m/Y" }}</td>
-        <td>
-        <button class="btn btn-sm btn-primary" type="button" data-toggle="modal" data-target="#editInscripcionModal" data-id="{{ inscripcion.idInscripcion }}">Editar</button>
-        {% if inscripcion.is_active %}
-        <button class="btn btn-sm btn-danger" type="button" onclick="manageInscripcion('{{ inscripcion.idInscripcion }}', 'delete')">Eliminar</button>
-        {% else %}
-        <button class="btn btn-sm btn-success" type="button" onclick="manageInscripcion('{{ inscripcion.idInscripcion }}', 'reactivate')">Reactivar</button>
-        {% endif %}
-        </td>
-      </tr>
-      {% empty %}
-      <tr>
-        <td colspan="8" class="text-center">No hay registros disponibles.</td>
-      </tr>
-      {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
-
-<!-- Modal Edición -->
-<div class="modal fade" id="editInscripcionModal" tabindex="-1" role="dialog" aria-labelledby="editInscripcionModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered" role="document">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="editInscripcionModalLabel">Editar Inscripcion</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
         </button>
       </div>
-      <div class="modal-body" id="modalMessagesEdit"></div>
+    {% endfor %}
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="table-responsive">
+      <table id="inscripcionesTable" class="table table-striped table-hover align-middle text-gray-dark">
+        <thead class="table-light">
+          <tr>
+            <th>ID</th>
+            <th>Cédula</th>
+            <th>Cohorte</th>
+            <th>Tipo Formación</th>
+            <th>Formación</th>
+            <th>Estado</th>
+            <th>Fecha</th>
+            <th class="actions-column">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for inscripcion in inscripciones %}
+          <tr>
+            <td>{{ inscripcion.idInscripcion }}</td>
+            <td>{{ inscripcion.idPersona.cedula }}</td>
+            <td>{{ inscripcion.idCohorte.nombreCohorte }}</td>
+            <td>{{ inscripcion.idTF.nombreTipoFormacion }}</td>
+            <td>{{ inscripcion.idFormacion.nombreFormacion }}</td>
+            <td>
+              {% if inscripcion.is_active %}
+                <span class="badge bg-success text-white"><i class="fas fa-check-circle me-1"></i> Activo</span>
+              {% else %}
+                <span class="badge bg-danger text-white"><i class="fas fa-times-circle me-1"></i> Inactivo</span>
+              {% endif %}
+            </td>
+            <td>{{ inscripcion.fechaInscripcion|date:"d/m/Y" }}</td>
+
+            <td class="actions-column">
+              <div class="d-flex gap-2">
+                {% if perms.home.change_inscripcion %}
+                <button class="btn btn-primary btn-sm"
+                        data-bs-toggle="modal"
+                        data-bs-target="#editInscripcionModal"
+                        data-url="{% url 'edit_inscripcion' inscripcion.idInscripcion %}">
+                  <i class="fas fa-edit"></i>
+                </button>
+                {% endif %}
+                {% if inscripcion.is_active and perms.home.change_inscripcion %}
+                <button class="btn btn-outline-warning btn-sm"
+                        data-bs-toggle="modal"
+                        data-bs-target="#deleteInscripcionModal"
+                        data-url="{% url 'desactivar_inscripcion' inscripcion.idInscripcion %}">
+                  <i class="fas fa-user-slash"></i>
+                </button>
+                {% endif %}
+                {% if not inscripcion.is_active and perms.home.change_inscripcion %}
+                <button class="btn btn-success btn-sm"
+                        data-bs-toggle="modal"
+                        data-bs-target="#reactivateInscripcionModal"
+                        data-url="{% url 'reactivate_inscripcion' inscripcion.idInscripcion %}">
+                  <i class="fas fa-redo"></i>
+                </button>
+                {% endif %}
+                {% if inscripcion.idInscripcion %}
+                <button class="btn btn-info btn-sm"
+                        data-bs-toggle="modal"
+                        data-bs-target="#requisitosInscripcionModal"
+                        data-url="{% url 'guardar_requisitos_inscripcion' inscripcion.idInscripcion %}">
+                  <i class="fas fa-clipboard-check"></i>
+                </button>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="9" class="text-center py-4">No hay inscripciones registradas.</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
     </div>
   </div>
 </div>
+
+{# ─── Modales ─── #}
+{% if perms.inscripcion.change_inscripcion %}
+<div class="modal fade" id="editInscripcionModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title text-white"><i class="fas fa-edit me-2"></i> Editar Inscripción</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body" id="editInscripcionContent">
+        <div class="text-center py-4 text-muted">Cargando formulario…</div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% comment %} ------ Modal de Desactivación ------ {% endcomment %}
+{% if perms.inscripcion.change_inscripcion %}
+<div class="modal fade" id="deleteInscripcionModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-warning text-dark">
+        <h5 class="modal-title text-white"><i class="fas fa-user-slash me-2"></i> Confirmar Desactivación</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">¿Seguro que deseas desactivar esta inscripción?</div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        {% comment %} NO es un form, es un botón que disparará AJAX {% endcomment %}
+        <button type="button" id="confirmDeleteButton" class="btn btn-warning">Desactivar</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% comment %} ------ Modal de Reactivación ------ {% endcomment %}
+{% if perms.inscripcion.change_inscripcion %}
+<div class="modal fade" id="reactivateInscripcionModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title text-white"><i class="fas fa-redo me-2"></i> Confirmar Reactivación</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">¿Deseas reactivar esta inscripción?</div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        {% comment %} NO es un form, es un botón que disparará AJAX {% endcomment %}
+        <button type="button" id="confirmReactivateButton" class="btn btn-success">Reactivar</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Modal: Requisitos de Inscripción -->
+<div class="modal fade" id="requisitosInscripcionModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form id="requisitosInscripcionForm" method="post">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title"><i class="fas fa-clipboard-check me-2"></i> Requisitos de la Inscripción</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <!-- Aquí se cargará el formulario dinámicamente -->
+      </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 {% endblock content %}
-
 {% block javascripts %}
-<script src="/static/assets/js/validacionesPersona.js"></script>
-<script>
-  document.addEventListener("DOMContentLoaded", function() {
-    $('#inscripcionModal').on('show.bs.modal', function () {
-      $.get('apps/inscripcion/inscripcion.html', function(data) {
-        $('#modalMessages').html(data);
-      });
-    });
+<script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
+<script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
+<script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
 
-    $('#editInscripcionModal').on('show.bs.modal', function (e) {
-      const idInscripcion = $(e.relatedTarget).data('id');
-      $.get(`/inscripcion/editInscripcion/${idInscripcion}/`, function(data) {
-        $('#modalMessagesEdit').html(data);
-      });
+<script>
+$(function(){
+  // --- FUNCIÓN PARA MOSTRAR MENSAJES GLOBALES ---
+  function showGlobalMessage(message, type) {
+    const globalMessagesContainer = $('#globalMessages');
+    
+    const alertClasses = {
+      success: { class: 'alert-success', icon: 'fas fa-check-circle' },
+      error: { class: 'alert-danger', icon: 'fas fa-times-circle' },
+      warning: { class: 'alert-warning', icon: 'fas fa-exclamation-triangle' },
+      info: { class: 'alert-info', icon: 'fas fa-info-circle' }
+    };
+    
+    const { class: alertClass, icon } = alertClasses[type] || alertClasses.info;
+    
+    const messageHtml = `
+      <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
+        <i class="${icon} me-1"></i>
+        ${message}
+        <button type="button" class="btn btn-sm btn-icon-only text-dark" data-bs-dismiss="alert" aria-label="Close" 
+          style="position:absolute; top:50%; right:1rem; transform: translateY(-50%);">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+    `;
+    
+    globalMessagesContainer.html(messageHtml);
+  }
+
+  // MODAL DE EDICIÓN
+  {% if perms.home.change_inscripcion %}
+  $('#editInscripcionModal')
+    .on('show.bs.modal', e => {
+      const url = $(e.relatedTarget).data('url'),
+            $c  = $('#editInscripcionContent');
+      $c.html('<div class="text-center py-4"><div class="spinner-border text-primary"></div></div>');
+      $.get(url).done(html => $c.html(html));
+    })
+    .on('hidden.bs.modal', () => {
+      $('#editInscripcionContent').empty();
+    });
+  {% endif %}
+
+  // MANEJO DE FORMULARIO DE EDICIÓN
+  $(document).on('submit', '#editInscripcionForm', function(e) {
+    e.preventDefault();
+    const $form = $(this);
+    const $modal = $('#editInscripcionModal');
+    const $submitBtn = $form.find('button[type="submit"]');
+    
+    $submitBtn.prop('disabled', true).html(`
+      <span class="spinner-border spinner-border-sm" role="status"></span> Guardando...
+    `);
+
+    $.ajax({
+      url: $form.attr('action'),
+      method: 'POST',
+      data: $form.serialize(),
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .done(response => {
+      if (response.success) {
+        $modal.modal('hide');
+        showGlobalMessage(response.message, 'success');
+        setTimeout(() => {
+          if (response.redirect_url) {
+            window.location.href = response.redirect_url;
+          } else {
+            location.reload();
+          }
+        }, 1500);
+      } else {
+        let errorHtml = '';
+        for (const [field, error] of Object.entries(response.errors)) {
+          errorHtml += `<div class="alert alert-danger">${error}</div>`;
+          $(`[name="${field}"]`).addClass('is-invalid');
+        }
+        $('#alert-container').html(errorHtml);
+      }
+    })
+    .fail((jqXHR, textStatus, errorThrown) => {
+      console.error("Error AJAX:", textStatus, errorThrown, jqXHR.responseText);
+      showGlobalMessage('Error de conexión con el servidor', 'error');
+    })
+    .always(() => {
+      $submitBtn.prop('disabled', false).html('Guardar');
     });
   });
 
-  function manageInscripcion(id, action) {
-  const confirmMessage = action === 'delete' 
-    ? '¿Está seguro de eliminar este registro?' 
-    : '¿Está seguro de reactivar este registro?';
-  
-  if (confirm(confirmMessage)) {
-    const url = action === 'delete' 
-      ? "{% url 'delete_inscripcion' 0 %}".replace('0', id) 
-      : "{% url 'reactivate_inscripcion' 0 %}".replace('0', id);
-    
-    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+  // MANEJO DE MODALES DE DESACTIVACIÓN/REACTIVACIÓN
+  let currentActionUrl = null;
 
-    fetch(url, {
+  $('#deleteInscripcionModal, #reactivateInscripcionModal').on('show.bs.modal', function(event) {
+    const button = $(event.relatedTarget);
+    currentActionUrl = button.data('url');
+    $('#globalMessages').empty();
+  });
+
+  $('#confirmDeleteButton, #confirmReactivateButton').on('click', function() {
+    if (currentActionUrl) {
+      const $modal = $(this).closest('.modal');
+      const actionType = $modal.attr('id') === 'deleteInscripcionModal' ? 'desactivar' : 'reactivar';
+      
+      $.ajax({
+        url: currentActionUrl,
+        method: 'POST',
+        data: { csrfmiddlewaretoken: '{{ csrf_token }}' },
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      })
+      .done(resp => {
+        $modal.modal('hide');
+        if (resp.success) {
+          showGlobalMessage(resp.message, 'success');
+          setTimeout(() => location.reload(), 1000);
+        } else {
+          showGlobalMessage(resp.message || `Error al ${actionType}`, 'error');
+        }
+      })
+      .fail((jqXHR, textStatus, errorThrown) => {
+        console.error(`Error AJAX (${actionType}):`, textStatus, errorThrown, jqXHR.responseText);
+        showGlobalMessage(`Error al ${actionType}`, 'error');
+      })
+      .always(() => {
+        currentActionUrl = null;
+      });
+    }
+  });
+
+  // MODAL DE REQUISITOS DE INSCRIPCIÓN
+  $('#requisitosInscripcionModal').on('show.bs.modal', function(event) {
+    const button = $(event.relatedTarget);
+    const urlForm = button.data('url').replace(/\/$/, '') + '/form/';
+    const $modalBody = $(this).find('.modal-body');
+    $modalBody.html('<div class="text-center py-4"><div class="spinner-border text-primary"></div></div>');
+    $.get(urlForm, function(html) {
+      $modalBody.html(html);
+      // Setea el action del form para el submit
+      $('#requisitosInscripcionForm').attr('action', button.data('url'));
+    });
+  });
+
+  // SUBMIT DEL FORMULARIO DE REQUISITOS
+  $(document).on('submit', '#requisitosClienteForm', function(e) {
+    e.preventDefault();
+    const $form = $(this);
+    const $modal = $('#requisitosInscripcionModal');
+    $.ajax({
+      url: $form.attr('action'),
       method: 'POST',
-      headers: {
-        'X-CSRFToken': csrftoken,
-      },
+      data: $form.serialize(),
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
     })
-    .then(response => response.json())
-    .then(data => {
-      if (data.success) {
-        location.reload();  // Recargar la página
+    .done(function(resp) {
+      if (resp.success) {
+        $modal.modal('hide');
+        showGlobalMessage(resp.message, 'success');
+        setTimeout(() => location.reload(), 1000);
       } else {
-        alert('Error: ' + data.message);
+        showGlobalMessage(resp.message || 'Error al guardar requisitos', 'error');
       }
     })
-    .catch(error => console.error('Error:', error));
-  }
-}
-  function filterTable() {
-    const filter = document.getElementById("searchInput").value.toUpperCase();
-    const rows = document.querySelectorAll("#inscripcionesTable tbody tr");
-    rows.forEach(row => {
-      const cells = row.querySelectorAll("td");
-      row.style.display = Array.from(cells).some(cell => cell.textContent.toUpperCase().includes(filter)) ? "" : "none";
+    .fail(function() {
+      showGlobalMessage('Error de conexión con el servidor', 'error');
     });
-  }
-  //Evita que el formulario se envíe por defecto y maneja la respuesta del servidor
-  $(document).on('submit', '#editInscripcionForm', function(e) {
+  });
+
+  // FILTRADO DE TABLA
+  $('#searchInput').on('keyup', function(){
+    const v = this.value.toUpperCase();
+    $('#inscripcionesTable tbody tr').each(function(){
+      $(this).toggle($(this).text().toUpperCase().includes(v));
+    });
+  });
+
+  // SCROLL HORIZONTAL
+  $('.table-responsive').on('wheel', function(e) {
+    if(e.originalEvent.deltaY !== 0){
       e.preventDefault();
-      var form = $(this);
-      $.ajax({
-        url: form.attr('action'),
-        method: form.attr('method'),
-        data: form.serialize(),
-        success: function(response) {
-          var messagesContainer = $('#modalMessages');
-          messagesContainer.empty();
-          if (response.success) {
-            messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
-            $('#editInscripcionModal').modal('hide');
-            location.reload();  // Recargar la página para ver los cambios
-          } else {
-            // Mostrar errores en el modal
-            var errors = response.errors;
-            for (var field in errors) {
-              messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + errors[field] + '</div>');
-            }
-          }
-        }
-      });
-    });
+      this.scrollLeft += e.originalEvent.deltaY;
+    }
+  });
+});
 </script>
+
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const table = document.getElementById('inscripcionesTable');
+    const paginationContainer = document.createElement('div');
+    paginationContainer.className = 'pagination-container mt-3';
+    table.parentNode.insertBefore(paginationContainer, table.nextSibling);
+
+    const pagination = document.createElement('ul');
+    pagination.className = 'pagination justify-content-center';
+    paginationContainer.appendChild(pagination);
+
+    const rowsPerPage = 10;
+    let currentPage = 1;
+
+    function displayRows() {
+        const rows = table.getElementsByTagName('tr');
+        const start = (currentPage - 1) * rowsPerPage + 1;
+        const end = start + rowsPerPage;
+
+        for (let i = 1; i < rows.length; i++) {
+            rows[i].style.display = i >= start && i < end ? '' : 'none';
+        }
+    }
+
+    function setupPagination() {
+        const rows = table.getElementsByTagName('tr');
+        const totalPages = Math.ceil((rows.length - 1) / rowsPerPage);
+
+        pagination.innerHTML = '';
+
+        // Botón Anterior
+        const prevLi = document.createElement('li');
+        prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+        prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Anterior">&laquo;</a>`;
+        prevLi.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (currentPage > 1) currentPage--;
+            displayRows();
+            setupPagination();
+        });
+        pagination.appendChild(prevLi);
+
+        // Botones de Páginas
+        for (let i = 1; i <= totalPages; i++) {
+            const li = document.createElement('li');
+            li.className = `page-item ${i === currentPage ? 'active' : ''}`;
+            li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+            li.addEventListener('click', (e) => {
+                e.preventDefault();
+                currentPage = i;
+                displayRows();
+                setupPagination();
+            });
+            pagination.appendChild(li);
+        }
+
+        // Botón Siguiente
+        const nextLi = document.createElement('li');
+        nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+        nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Siguiente">&raquo;</a>`;
+        nextLi.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (currentPage < totalPages) currentPage++;
+            displayRows();
+            setupPagination();
+        });
+        pagination.appendChild(nextLi);
+    }
+
+    displayRows();
+    setupPagination();
+});
+// Mostrar el formulario al hacer clic en "Editar requisitos"
+$(document).on('click', '#mostrarFormularioRequisitos', function() {
+  $('#requisitosEntregadosView').hide();
+  $('#requisitosClienteFormContainer').show();
+});
+
+// Cancelar edición y volver al listado
+$(document).on('click', '#cancelarEdicionRequisitos', function() {
+  $('#requisitosClienteFormContainer').hide();
+  $('#requisitosEntregadosView').show();
+});
+</script>
+
+<style>
+  .is-invalid {
+    border-color: #dc3545 !important;
+    box-shadow: 0 0 0 0.2rem rgba(220,53,69,.25);
+  }
+  
+  .table-responsive {
+    scrollbar-width: thin;
+    scrollbar-color: #6c757d #f8f9fa;
+  }
+  
+  .table-responsive::-webkit-scrollbar {
+    height: 8px;
+    background-color: #f8f9fa;
+  }
+  
+  .table-responsive::-webkit-scrollbar-thumb {
+    background-color: #6c757d;
+    border-radius: 4px;
+  }
+</style>
 {% endblock javascripts %}

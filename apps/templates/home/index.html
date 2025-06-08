@@ -2,114 +2,123 @@
 
 {% block title %} Dashboard {% endblock title %}
 
-<!-- Specific CSS goes HERE -->
 {% block stylesheets %}
-<style>
-
-  
-</style>
+<link rel="stylesheet" href="/static/assets/css/argon.css" />
 {% endblock stylesheets %}
 
 {% block content %}
 <!-- Welcome Menu -->
 <div class="welcome-menu" style="position: relative; background-color: white; height: 100vh; overflow: hidden;">
-    <div class="header bg-primary pb-6 background-image">
-      <div class="container-fluid">
-        <div class="header-body">
-          <div class="row align-items-center py-4">
-            <div class="col-lg-6 col-7">
-              <h6 class="h2 text-white d-inline-block mb-0 welcome-background">¡Bienvenido!</h6>
-              <nav aria-label="breadcrumb" class="d-none d-md-inline-block ml-md-4">
-                <ol class="breadcrumb breadcrumb-links breadcrumb-dark">
-                  <li class="b</ol>readcrumb-item"><a href="#"><i class="fas fa-home"></i></a></li>
-                  <li class="breadcrumb-item"><a href="#">Inicio</a></li>
-                  <li class="breadcrumb-item active" aria-current="page">¡Bienvenido!</li>
-                </ol>
-              </nav>
+  <div class="header bg-primary pb-6 background-image">
+    <div class="container-fluid">
+      <div class="header-body">
+        <div class="row align-items-center py-4">
+          {% comment %} <div class="col-lg-6 col-7">
+            <h6 class="h2 text-white d-inline-block mb-0 welcome-background">¡Bienvenido!</h6>
+            <nav aria-label="breadcrumb" class="d-none d-md-inline-block ml-md-4">
+              <ol class="breadcrumb breadcrumb-links breadcrumb-dark">
+                <li class="breadcrumb-item"><a href="#"><i class="fas fa-home"></i></a></li>
+                <li class="breadcrumb-item"><a href="#">Inicio</a></li>
+                <li class="breadcrumb-item active" aria-current="page">¡Bienvenido!</li>
+              </ol>
+            </nav>
+          </div> {% endcomment %}
+        </div>
+        <!-- Card stats -->
+        <div class="row">
+
+          <div class="col-xl-3 col-md-6">
+            <div class="card card-stats">
+              <div class="card-body">
+                <div class="row">
+                  <div class="col">
+                    <h5 class="card-title text-uppercase text-muted mb-0">Solicitudes activas</h5>
+                    <span class="h2 font-weight-bold mb-0">{{ total_solicitudes }}</span>
+                  </div>
+                  <div class="col-auto">
+                    <div class="icon icon-shape bg-gradient-orange text-white rounded-circle shadow">
+                      <i class="ni ni-caps-small"></i>
+                    </div>
+                  </div>
+                </div>
+                <p class="mt-3 mb-0 text-sm">
+                  <span class="text-success mr-2"><i class="fa fa-arrow-up"></i> {{ ultima_solicitud|date:"d/m/Y" }}</span>
+                  <span class="text-nowrap">Último registro</span>
+                </p>
+              </div>
             </div>
-            
           </div>
-          <!-- Card stats -->
-          <div class="row">
 
-            <div class="col-xl-3 col-md-6">
-              <div class="card card-stats">
-                <!-- Card body -->
-                <div class="card-body">
-                  <div class="row">
-                    <div class="col">
-                      <h5 class="card-title text-uppercase text-muted mb-0"><a href="tablaSolicitud.html">Solicitud de tramite</a></h5>
-                    </div>
-                    <div class="col-auto">
-                      <div class="icon icon-shape bg-gradient-orange text-white rounded-circle shadow">
-                        <i class="ni ni-caps-small"></i>
-                      </div>
+          <div class="col-xl-3 col-md-6">
+            <div class="card card-stats">
+              <div class="card-body">
+                <div class="row">
+                  <div class="col">
+                    <h5 class="card-title text-uppercase text-muted mb-0">Servicios activos</h5>
+                    <span class="h2 font-weight-bold mb-0">{{ total_servicios }}</span>
+                  </div>
+                  <div class="col-auto">
+                    <div class="icon icon-shape bg-gradient-green text-white rounded-circle shadow">
+                      <i class="ni ni-delivery-fast"></i>
                     </div>
                   </div>
                 </div>
+                <p class="mt-3 mb-0 text-sm">
+                  <span class="text-success mr-2"><i class="fa fa-arrow-up"></i> {{ servicio_popular }}</span>
+                  <span class="text-nowrap">Más pedido</span>
+                </p>
               </div>
             </div>
-            <div class="col-xl-3 col-md-6">
-              <div class="card card-stats">
-                <!-- Card body -->
-                <div class="card-body">
-                  <div class="row">
-                    <div class="col">
-                      <h5 class="card-title text-uppercase text-muted mb-0"><a href="tablaServicios.html">Servicio Expedito</a></h5>
-                    </div>
-                    <div class="col-auto">
-                      <div class="icon icon-shape bg-gradient-green text-white rounded-circle shadow">
-                        <i class="ni ni-delivery-fast"></i>
-                      </div>
-                    </div>
-                  </div>
-
-                </div>
-              </div>
-            </div>
-
-            <div class="col-xl-3 col-md-6">
-              <div class="card card-stats">
-                <!-- Card body -->
-                <div class="card-body">
-                  <div class="row">
-                    <div class="col">
-                      <h5 class="card-title text-uppercase text-muted mb-0"><a href="tablaHonorarios.html">Honorario</a></h5>
-                    </div>
-                    <div class="col-auto">
-                      <div class="icon icon-shape bg-gradient-info text-white rounded-circle shadow">
-                        <i class="ni ni-money-coins"></i>
-                      </div>
-                    </div>
-                  </div>
-            
-                </div>
-              </div>
-            </div>
-
-            <div class="col-xl-3 col-md-6">
-              <div class="card card-stats">
-                <!-- Card body -->
-                <div class="card-body">
-                  <div class="row">
-                    <div class="col">
-                      <h5 class="card-title text-uppercase text-muted mb-0"><a href="tablaCohortes.html">Cohorte</a></h5>
-                    </div>
-                    <div class="col-auto">
-                      <div class="icon icon-shape bg-gradient-info text-white rounded-circle shadow">
-                        <i class="ni ni-book-bookmark"></i>
-                      </div>
-                    </div>
-                  </div>
-            
-                </div>
-              </div>
-            </div>
-
           </div>
+
+          <div class="col-xl-3 col-md-6">
+            <div class="card card-stats">
+              <div class="card-body">
+                <div class="row">
+                  <div class="col">
+                    <h5 class="card-title text-uppercase text-muted mb-0">Honorarios</h5>
+                    <span class="h2 font-weight-bold mb-0">{{ total_honorarios }}</span>
+                  </div>
+                  <div class="col-auto">
+                    <div class="icon icon-shape bg-gradient-info text-white rounded-circle shadow">
+                      <i class="ni ni-money-coins"></i>
+                    </div>
+                  </div>
+                </div>
+                <p class="mt-3 mb-0 text-sm">
+                  <span class="text-success mr-2"><i class="fa fa-clock"></i> {{ total_horas }}h</span>
+                  <span class="text-nowrap">Horas totales</span>
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-xl-3 col-md-6">
+            <div class="card card-stats">
+              <div class="card-body">
+                <div class="row">
+                  <div class="col">
+                    <h5 class="card-title text-uppercase text-muted mb-0">Cohortes</h5>
+                    <span class="h2 font-weight-bold mb-0">{{ total_cohortes }}</span>
+                  </div>
+                  <div class="col-auto">
+                    <div class="icon icon-shape bg-gradient-red text-white rounded-circle shadow">
+                      <i class="ni ni-book-bookmark"></i>
+                    </div>
+                  </div>
+                </div>
+                <p class="mt-3 mb-0 text-sm">
+                  <span class="text-success mr-2"><i class="fa fa-star"></i> {{ cohorte_reciente }}</span>
+                  <span class="text-nowrap">Más reciente</span>
+                </p>
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
     </div>
+  </div>
 
     <!-- Page content -->
     <div class="container-fluid mt--6 ">
@@ -181,5 +190,57 @@
 
   <script src="/static/assets/vendor/chart.js/dist/Chart.min.js"></script>
   <script src="/static/assets/vendor/chart.js/dist/Chart.extension.js"></script>
+
+  <script>
+    // Gráfico de líneas
+    var ctx = document.getElementById('chart-sales-dark').getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'],
+            datasets: [{
+                label: 'Solicitudes',
+                data: {{ chart_data|safe }},
+                borderColor: '#f5365c',
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
+        }
+    });
+    
+    // Gráfico de barras
+    var ctx2 = document.getElementById('chart-bars').getContext('2d');
+    new Chart(ctx2, {
+        type: 'bar',
+        data: {
+            labels: ['Solicitudes', 'Servicios', 'Honorarios', 'Cohortes'],
+            datasets: [{
+                label: 'Total',
+                data: [
+                    {{ total_solicitudes|default:0 }},
+                    {{ total_servicios|default:0 }},
+                    {{ total_honorarios|default:0 }},
+                    {{ total_cohortes|default:0 }}
+                ],
+                backgroundColor: ['#fb6340', '#2dce89', '#11cdef', '#f5365c']
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
+        }
+    });
+  </script>
 
 {% endblock javascripts %}

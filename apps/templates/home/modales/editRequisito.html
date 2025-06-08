@@ -7,16 +7,20 @@
     {% for message in messages %}
       <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
         {{ message }}
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
       </div>
     {% endfor %}
   {% endif %}
 <div class=" mt-5">
-  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Registrar Requisito</h2>
+  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Editar Requisito</h2>
   <form method="POST" class="mt-3 text-dark" autocomplete="off" style="font-weight: bold; max-width: 600px; margin: 0 auto;" id="editRequisitoForm" action="{% url 'edit_requisito' requisito.idRequisito %}">
     {% csrf_token %}
     <div class="form-group text-center">
       <label for="nombreRequisito" class="d-block">Nombre:</label>
-      <input type="text" id="nombreRequisito" name="nombreRequisito" class="form-control text-dark mx-auto" value="{{ requisito.nombreRequisito }}" placeholder="Ingrese un nombre" tabindex="3" maxlength="100" required style="width: 50%;" />
+      <input type="text" id="nombreRequisito" name="nombreRequisito" class="form-control text-dark mx-auto" value="{{ requisito.nombreRequisito }}" placeholder="Ingrese un nombre" tabindex="3" maxlength="100" data-required="true" style="width: 50%;" />
+      <div class="invalid-feedback">Por favor, ingrese un nombre válido.</div>
       <input type="hidden" id="estadoRequisito" name="estadoRequisito" class="form-control text-dark" value="ACTIVO" />
     </div>
     <div class="text-center">
@@ -44,6 +48,15 @@
   document.getElementById("nombreRequisito").addEventListener("input", function() {
     this.value = this.value.replace(/[^a-zA-Z\s]/g, '');
   });
+          // Activar mayúsculas en inputs
+          function activarMayusculasInputs() {
+      document.addEventListener('input', function(e) {
+        if (e.target.tagName === 'INPUT' && !e.target.type.match(/password|hidden|email/)) {
+          e.target.value = e.target.value.toUpperCase();
+        }
+      });
+    }
+    activarMayusculasInputs();
   
 //Recarga dinamica
 
@@ -51,6 +64,7 @@ $(document).on('submit', '#registroForm', function(e) {
       e.preventDefault();
       var form = $(this);
       $.ajax({
+
         url: form.attr('action'),
         method: form.attr('method'),
         data: form.serialize(),

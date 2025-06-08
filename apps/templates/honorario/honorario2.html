@@ -71,6 +71,10 @@
         <input type="text" id="horas" name="horas" class="form-control text-dark" placeholder="Ingrese las horas (HH:mm)" tabindex="3" />
         <input type="hidden" id="estadoHonorario" name="estadoHonorario" class="form-control text-dark" value="ACTIVO" />
       </div>
+      <div class="form-group col-md-6">
+        <label for="monto">Monto:</label>
+        <input type="text" id="monto" name="monto" class="form-control text-dark" placeholder="100" tabindex="3" />
+      </div>
     </div>
     <div id="alert-container"></div> <!-- Contenedor para las alertas -->
 
@@ -99,25 +103,22 @@
           "X-Requested-With": "XMLHttpRequest", // Indicar que es una solicitud AJAX
         },
       })
-        .then((response) => response.json())
+      .then((response) => response.json())
         .then((data) => {
           if (data.success) {
             // Mostrar alerta de éxito
             Swal.fire({
               title: "Registro exitoso",
               text: "El honorario ha sido registrado correctamente.",
-                icon: "success",
-                confirmButtonText: "OK",
-                customClass: {
+              icon: "success",
+              confirmButtonText: "Generar Factura",
+              customClass: {
                 confirmButton: "btn btn-warning"
-                },
-                buttonsStyling: false,
+              },
+              buttonsStyling: false,
             }).then(() => {
-              // Opcional: Limpiar el formulario después del éxito
-              form.reset();
-              document.getElementById("alert-container").innerHTML = ""; // Limpiar alertas
-              document.getElementById("check-icon").innerHTML = ""; // Limpiar icono
-              document.getElementById("check-cohorte-icon").innerHTML = ""; // Limpiar icono
+              // Redirigir después de presionar OK
+              window.location.href = data.redirect_url;
             });
           } else {
             // Mostrar errores en caso de fallo

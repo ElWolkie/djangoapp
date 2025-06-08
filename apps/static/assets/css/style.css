@@ -1,5 +1,25 @@
-/* Google Font Link */
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@200;300;400;500;600;700&display=swap');
+/* Ya no usamos @import de Google Fonts */
+
+@font-face {
+  font-family: 'Poppins';
+  src: url('/static/assets/fonts/poppins/Poppins-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Poppins';
+  src: url('/static/assets/fonts/poppins/Poppins-SemiBold.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Poppins';
+  src: url('/static/assets/fonts/poppins/Poppins-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+}
 
 * {
   margin: 0;
@@ -31,6 +51,35 @@ body {
   100% {
     background-position: 0% 50%;
   }
+}
+
+.alert {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  padding: 15px;
+  margin: 10px;
+  border-radius: 5px;
+  font-size: 1rem;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+}
+
+.alert.error {
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.alert.success {
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.alert i {
+  margin-right: 10px;
 }
 
 .container {

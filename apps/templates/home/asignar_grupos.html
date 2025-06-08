@@ -1,0 +1,224 @@
+{% load static %}
+
+{% block content %}
+<div class="container pt-3 pb-2">
+    <h4 class="mb-3 text-purple">
+        <i class="fas fa-user-shield me-2"></i>
+        Asignar Permisos a: {{ usuario.idPersona.nombres }} {{ usuario.idPersona.apellidos }}
+    </h4>
+
+     {# --- CAMPO DE BÚSQUEDA --- #}
+    <div class="mb-3">
+        <div class="input-group">
+            <span class="input-group-text" id="search-addon"><i class="fas fa-search"></i></span>
+            <input type="text" class="form-control" id="permissionSearchInput" placeholder="Buscar permisos o categorías..." aria-label="Buscar permisos" aria-describedby="search-addon">
+        </div>
+    </div>
+
+    <div class="modal-messages-placeholder mb-3"></div>
+
+    <form method="post" action="{% url 'asignar_grupos' usuario.idUsuario %}" id="asignarGruposForm{{usuario.idUsuario}}">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                {% for error in form.non_field_errors %}
+                    <p class="mb-0">{{ error }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
+        {% if form.grupos.errors %}
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <strong>Error en selección:</strong>
+                {% for error in form.grupos.errors %}
+                    <p class="mb-0">{{ error }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        {# === ADMINISTRADOR === #}
+        <div class="admin-permission-card">
+            {% if grupo_admin %}
+            <div class="card mb-4 border-danger shadow-sm">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0 text-white"><i class="ni ni-folder-17 text-white"></i> Permisos Administrativos</h5>
+                </div>
+                <div class="card-body bg-light-danger">
+                    <div class="form-check form-switch form-check-lg">
+                        <input type="checkbox" 
+                            name="grupos" 
+                            value="{{ grupo_admin_id }}" 
+                            id="grupo_admin_{{ grupo_admin_id }}" 
+                            class="form-check-input" 
+                            {% if grupo_admin in usuario.groups.all %}checked{% endif %}>
+                        <label class="form-check-label fw-bold ps-2" for="grupo_admin_{{ grupo_admin_id }}">
+                            {{ grupo_admin.name }} (¡Acceso Total!)
+                        </label>
+                    </div>
+                    <p class="text-danger small mt-2 mb-0">
+                        <i class="fas fa-exclamation-triangle me-1"></i> 
+                        <strong>Atención:</strong> Otorgar este permiso concede control total sobre los módulos Administrativos.
+                    </p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        {# === CONTABLE === #}
+        <div class="contable-permission-card">
+            {% if grupo_contable %}
+            <div class="card mb-4 border-primary shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0 text-white"><i class="ni ni-archive-2 text-white"></i> Permisos de Contabilidad</h5>
+                </div>
+                <div class="card-body bg-light-primary">
+                    <div class="form-check form-switch form-check-lg">
+                        <input type="checkbox" 
+                            name="grupos" 
+                            value="{{ grupo_contable_id }}" 
+                            id="grupo_contable_{{ grupo_contable_id }}" 
+                            class="form-check-input" 
+                            {% if grupo_contable in usuario.groups.all %}checked{% endif %}>
+                        <label class="form-check-label fw-bold ps-2" for="grupo_contable_{{ grupo_contable_id }}">
+                            {{ grupo_contable.name }} (¡Acceso Total!)
+                        </label>
+                    </div>
+                    <p class="text-primary small mt-2 mb-0">
+                        <i class="fas fa-exclamation-triangle me-1"></i> 
+                        <strong>Atención:</strong> Otorgar este permiso concede control total sobre los módulos de Contabilidad.
+                    </p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        {# === CATEGORÍAS === #}
+        {% for categoria, data in grupos_categorizados.items %}
+            {% if data.total or data.acciones|length > 0 %}
+                <div class="card mb-3 shadow-sm permission-category" data-category="{{ categoria|slugify }}">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0 text-dark">
+                            {% if categoria == "Asiento Contables" %}<i class="fas fa-university me-2 text-primary" style="padding: 0px 2px 0px 2px"></i>{% endif %}
+                            {% if categoria == "Bancos" %}<i class="fas fa-university me-2 text-primary" style="padding: 0px 2px 0px 2px"></i>{% endif %}
+                            {% if categoria == "Cargos" %}<i class="fas fa-user me-2 text-primary" style="padding: 0px 2px 0px 2px"></i>{% endif %}
+                            {% if categoria == "Clientes-Proveedores" %}<i class="fas fa-user me-2 text-primary" style="padding: 0px 2px 0px 2px"></i>{% endif %}
+                            {% if categoria == "Cohortes" %}<i class="fas fa-university me-2 text-info" style="padding: 0px 2px 0px 2px"></i>{% endif %}
+                            {% if categoria == "Configuracion" %}<i class="fas fa-chart-line me-2 text-success" style="padding: 0px 2px 0px 2px"></i>{% endif %}
+                            {% if categoria == "Cuenta Bancarias" %}<i class="fas fa-chart-line me-2 text-success" style="padding: 0px 2px 0px 2px"></i>{% endif %}
+                            {% if categoria == "Empresas" %}<i class="fas fa-user me-2 text-success" style="padding: 0px 2px 0px 2px"></i>{% endif %}
+                            {% if categoria == "Formaciones" %}<i class="fas fa-university me-2 text-info" style="padding: 0px 2px 0px 2px"></i>{% endif %}
+                            {% if categoria == "Honorarios" %}<i class="fas fa-university me-2 text-info" style="padding: 0px 2px 0px 2px"></i>{% endif %}
+                            {% if categoria == "Inscripciones" %}<i class="fas fa-user me-2 text-info" style="padding: 0px 2px 0px 2px"></i>{% endif %}
+                            {% if categoria == "Materias" %}<i class="fas fa-university me-2 text-success" style="padding: 0px 2px 0px 2px"></i>{% endif %}
+                            {% if categoria == "Monedas" %}<i class="fas fa-university me-2 text-success" style="padding: 0px 2px 0px 2px"></i>{% endif %}
+                            {% if categoria == "Periodo Contables" %}<i class="fas fa-university me-2 text-success" style="padding: 0px 2px 0px 2px"></i>{% endif %}
+                            {% if categoria == "Plan Cuentas" %}<i class="fas fa-university me-2 text-success" style="padding: 0px 2px 0px 2px"></i>{% endif %}
+                            {% if categoria == "Requisitos" %}<i class="fas fa-university me-2 text-success" style="padding: 0px 2px 0px 2px"></i>{% endif %}
+                            {% if categoria == "Servicios" %}<i class="fas fa-university me-2 text-success" style="padding: 0px 2px 0px 2px"></i>{% endif %}
+                            {% if categoria == "Solicitudes" %}<i class="fas fa-university me-2 text-success" style="padding: 0px 2px 0px 2px"></i>{% endif %}
+                            {% if categoria == "Tasas" %}<i class="fas fa-university me-2 text-success" style="padding: 0px 2px 0px 2px"></i>{% endif %}
+                            {% if categoria == "Tramites" %}<i class="fas fa-university me-2 text-success" style="padding: 0px 2px 0px 2px"></i>{% endif %}
+                            {% if categoria == "Tipo Formaciones" %}<i class="fas fa-university me-2 text-success" style="padding: 0px 2px 0px 2px"></i>{% endif %}
+                            {% if categoria == "Tipo Personas" %}<i class="fas fa-university me-2 text-success" style="padding: 0px 2px 0px 2px"></i>{% endif %}
+                            {% if categoria == "Asignacion Tipo Personas" %}<i class="fas fa-university me-2 text-success" style="padding: 0px 2px 0px 2px"></i>{% endif %}
+                            {% if categoria == "Usuarios" %}<i class="fas fa-users me-2 text-info" style="padding: 0px 2px 0px 2px"></i>{% endif %}
+                            {% if categoria == "Otros" %}<i class="fas fa-cogs me-2 text-secondary" style="padding: 0px 2px 0px 2px"></i>{% endif %}
+                            {{ categoria }}
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        {# TOTAL #}
+                        {% if data.total %}
+                            <div class="mb-3">
+                                <div class="mb-3 permission-item"> {# <--- CLASE AÑADIDA #}
+                                    <div class="form-check form-switch">
+                                        {% for ch in form.grupos %}
+                                            {% if ch.data.value|stringformat:"s" == data.total.grupo.pk|stringformat:"s" %}
+                                                {{ ch.tag }}
+                                                <label class="form-check-label fw-semibold" for="{{ ch.id_for_label }}">
+                                                    <i class="{{ data.total.icon }}"></i> {{ data.total.label }} (Gestión Total)
+                                                </label>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                        {% endif %}
+
+                        {# ACCIONES #}
+                        {% if data.acciones %}
+                            <div class="row gx-3 gy-2">
+                                {% for item_accion in data.acciones %}
+                                    {% for ch in form.grupos %}
+                                        {% if ch.data.value|stringformat:"s" == item_accion.grupo.pk|stringformat:"s" %}
+                                            <div class="col-md-6 col-lg-3 permission-item">
+                                                <div class="form-check">
+                                                    {{ ch.tag }}
+                                                    <label class="form-check-label small" for="{{ ch.id_for_label }}">
+                                                        <i class="{{ item_accion.icon }}"></i> {{ item_accion.label }}
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        {% endif %}
+                                    {% endfor %}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endif %}
+        {% endfor %}
+    
+        {# === BOTONES === #}
+        <div class="text-center mt-4 pt-3 border-top">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-warning px-4">
+                <i class="fas fa-save me-1"></i> Guardar
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock content %}
+
+{% block javascripts %}
+<script>
+// Asignar Grupos
+document.querySelectorAll('.btnAsignarGrupos').forEach(btn => {
+  btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const modalBody = document.getElementById('asignarGruposModalBody');
+      const usuarioId = btn.dataset.usuarioId;
+      const url = btn.dataset.url;
+
+      // Spinner
+      modalBody.innerHTML = `
+          <div class="text-center py-4">
+              <div class="spinner-border text-purple" role="status">
+                  <span class="visually-hidden">Cargando...</span>
+              </div>
+          </div>`;
+
+      try {
+          const response = await fetch(url, {
+              headers: { 'X-Requested-With': 'XMLHttpRequest' }
+          });
+          
+          if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+          
+          const html = await response.text();
+          modalBody.innerHTML = html;
+          new bootstrap.Modal(document.getElementById('asignarGruposModal')).show();
+          
+          // Inicializar validaciones después de cargar contenido
+          initAsignarGruposForm(usuarioId);
+          
+      } catch (error) {
+          modalBody.innerHTML = `
+              <div class="alert alert-danger">
+                  Error al cargar: ${error.message}
+              </div>`;
+      }
+  });
+});
+</script>
+{% endblock javascripts %}
