@@ -30,6 +30,14 @@ def saldos_existentes_api(request):
 
 @login_required(login_url='login')
 def saldo_contable_create(request):
+    # Obtener datos que se usan en ambos casos (GET y POST)
+    planes_cuenta = PlanCuenta.objects.filter(estadoPlanCuenta=True).order_by('codigoPlanCuenta')
+    periodos = periodoContable.objects.filter(estadoPeriodo=False).order_by('-fechaInicioPeriodo')
+    advertencia_text = (
+        "Nota: Los saldos para períodos activos se generan automáticamente al crear el período. "
+        "Solo puede crear saldos manualmente para períodos inactivos."
+    )
+
     if request.method == 'POST':
         form = SaldoContableForm(request.POST)
         is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
@@ -85,21 +93,13 @@ def saldo_contable_create(request):
     
     else:
         form = SaldoContableForm()
-        planes_cuenta = PlanCuenta.objects.filter(estadoPlanCuenta=True).order_by('codigoPlanCuenta')
-        periodos = periodoContable.objects.filter(estadoPeriodo=False).order_by('-fechaInicioPeriodo')
 
-    # Obtener solo períodos inactivos
-    periodos = periodoContable.objects.filter(estadoPeriodo=False).order_by('-fechaInicioPeriodo')
-    
     return render(request, 'saldoContable/saldoContable.html', {
         'form': form,
         'periodos': periodos,
         'planes_cuenta': planes_cuenta,
         'titulo': 'Nuevo Saldo Contable',
-        'advertencia': (
-            "Nota: Los saldos para períodos activos se generan automáticamente al crear el período. "
-            "Solo puede crear saldos manualmente para períodos inactivos."
-        )
+        'advertencia': advertencia_text
     })
 
 
