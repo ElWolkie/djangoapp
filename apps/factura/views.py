@@ -4,6 +4,7 @@ from django.http import JsonResponse
 from django.db import transaction
 from django.db.models import Max
 import uuid
+from django.urls import reverse
 from django.utils.timezone import now
 from django.core.exceptions import ValidationError
 from django.views.decorators.http import require_POST
@@ -157,6 +158,7 @@ def factura_create(request):
                 return JsonResponse({
                     'success': True,
                     'message': 'Factura creada exitosamente.',
+                    'redirect_url': f"{reverse('pago_create')}?factura={factura.idFactura}",
                     'detalle': {
                         'idFactura': factura.idFactura,
                         'tipoItem': detalle.tipoItem,

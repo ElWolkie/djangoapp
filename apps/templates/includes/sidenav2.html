@@ -287,29 +287,57 @@
           </ul>
         </div>
       </li>
-        <!-- Pagos -->
-        <li class="nav-item">
-          <a class="nav-link" href="#" id="pagoDropdown" data-toggle="collapse" data-target="#pagoMenu" aria-expanded="false" aria-controls="pagoMenu" style="padding-left: 15px;">
-            <i class="ni ni-credit-card text-orange"></i>
-            <span class="nav-link-text">Pagos</span>
-          </a>
-          <div id="pagoMenu" class="collapse ml-3">
-            <ul class="nav flex-column">
-              <li class="nav-item">
-                <a class="nav-link" href="{% url 'pago_list' %}" style="padding-left: 30px;">
-                  <i class="ni ni-bullet-list-67 text-orange"></i>
-                  <span class="nav-link-text">Consultar Pagos</span>
-                </a>
-              </li>
-              <li class="nav-item">
-                <a class="nav-link" href="{% url 'pago_create' %}" style="padding-left: 30px;">
-                  <i class="ni ni-fat-add text-orange"></i>
-                  <span class="nav-link-text">Registrar Pago</span>
-                </a>
-              </li>
-            </ul>
-          </div>
-        </li>
+       <!-- Pagos -->
+       <li class="nav-item">
+        <a class="nav-link" href="#" id="pagoDropdown" data-toggle="collapse" data-target="#pagoMenu" aria-expanded="false" aria-controls="pagoMenu">
+          <i class="ni ni-credit-card text-orange"></i>
+          <span class="nav-link-text">Pagos</span>
+        </a>
+        <div id="pagoMenu" class="collapse ml-3">
+          <ul class="nav flex-column">
+            <li class="nav-item">
+        <a class="nav-link" href="{% url 'pago_create' %}" style="padding-left: 15px;">
+          <i class="ni ni-fat-add text-orange"></i>
+          <span class="nav-link-text">Registrar Pago</span>
+        </a>
+            </li>
+            <li class="nav-item">
+        <a class="nav-link" href="{% url 'pago_list' %}" style="padding-left: 15px;">
+          <i class="ni ni-bullet-list-67 text-orange"></i>
+          <span class="nav-link-text">Consultar Pagos</span>
+        </a>
+            </li>
+          </ul>
+        </div>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="#" id="librosContablesDropdown" data-toggle="collapse" data-target="#librosContablesMenu" aria-expanded="false" aria-controls="librosContablesMenu">
+          <i class="ni ni-books text-orange"></i>
+          <span class="nav-link-text">Libros Contables</span>
+        </a>
+        <div id="librosContablesMenu" class="collapse ml-3">
+          <ul class="nav flex-column">
+            <li class="nav-item">
+              <a class="nav-link" href="{% url 'balance_cuentas' %}" style="padding-left: 15px;">
+                <i class="ni ni-chart-bar-32 text-orange"></i>
+                <span class="nav-link-text">Balance de Cuentas</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="{% url 'libro_mayor' %}" style="padding-left: 15px;">
+                <i class="ni ni-single-copy-04 text-orange"></i>
+                <span class="nav-link-text">Libro Mayor</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="{% url 'libro_diario' %}" style="padding-left: 15px;">
+                <i class="ni ni-calendar-grid-58 text-orange"></i>
+                <span class="nav-link-text">Diario Contable</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+      </li>
         <li class="nav-item">
           <a class="nav-link" href="#" id="parametroTributarioDropdown" data-toggle="collapse" data-target="#parametroTributarioMenu" aria-expanded="false" aria-controls="parametroTributarioMenu">
               <i class="ni ni-settings text-orange"></i>
