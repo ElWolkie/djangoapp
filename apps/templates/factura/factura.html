@@ -514,7 +514,8 @@ document.addEventListener('DOMContentLoaded', function() {
   const plazoCreditoInput = document.getElementById('plazoCredito');
   const toggleReadonlyButton = document.getElementById('toggleReadonly');
   const camposReadonly = ['iva', 'ivaRetenido', 'islrRetenido', 'numeroFactura','descuento', 'subtotalExento', 'subtotalGravado', 'totalVenta', 'fechaEmision', 'fechaVencimiento', 'formaPago', 'plazoCredito'];
-  
+  descuento.value = '0.00'; // Inicializar descuento en 0
+
 
   // Interceptar el envío del formulario
   facturaForm.addEventListener('submit', async function (event) {
@@ -549,6 +550,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 <p><strong>Total:</strong> ${result.detalle.totalItem}</p>
             `;
             $('#detalleFacturaModal').modal('show');
+             // Redirigir al enlace proporcionado en el JSON después de cerrar el modal
+        document.getElementById('okButton').addEventListener('click', function () {
+          window.location.href = result.redirect_url; // Usar la URL de redirección del JSON
+        });
+
         }  else {
         // Mostrar errores del servidor
         Swal.fire({

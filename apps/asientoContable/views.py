@@ -5,7 +5,7 @@ from django.contrib.auth.decorators import login_required
 from .models import AsientoContable, DetalleAsiento
 from .forms import AsientoContableForm, DetalleAsientoForm
 from django.db import transaction
-from apps.periodoContable.models import periodoContable  # Importa el modelo de Periodo Contable
+from apps.periodoContable.models import periodoContable  # Importa el modelo de Periodos Contables
 from apps.planCuenta.models import PlanCuenta  # Importa el modelo PlanCuenta
 from apps.home.models import Configuracion
 from reportlab.pdfgen import canvas

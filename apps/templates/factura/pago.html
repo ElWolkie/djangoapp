@@ -330,27 +330,45 @@
       });
     }
 
-    // Manejar la selección de filas en el modal de Facturas
-    const tablaFacturas = document.getElementById('tablaFacturas');
-    if (tablaFacturas) {
-      tablaFacturas.addEventListener('click', function (event) {
-        const fila = event.target.closest('tr');
-        if (fila) {
-          const idFactura = fila.getAttribute('data-id');
-          const nombreFactura = fila.getAttribute('data-nombre');
-          const deudaFactura = fila.getAttribute('data-deuda'); // Obtener la deuda de la factura
+// Manejar la selección de filas en el modal de Facturas
+const tablaFacturas = document.getElementById('tablaFacturas');
+if (tablaFacturas) {
+  tablaFacturas.addEventListener('click', function (event) {
+    const fila = event.target.closest('tr');
+    if (fila) {
+      const idFactura = fila.getAttribute('data-id');
+      const nombreFactura = fila.getAttribute('data-nombre');
+      const deudaFactura = fila.getAttribute('data-deuda'); // Obtener la deuda de la factura
 
-          document.getElementById('facturaInput').value = nombreFactura;
-          document.getElementById('idFactura').value = idFactura;
-          // Mostrar la deuda debajo del input de monto
-          const deudaElement = document.getElementById('deudaFactura');
-          if (deudaElement) {
-            deudaElement.textContent = `Deuda actual: ${deudaFactura}`;
-          }
-          $('#facturaModal').modal('hide'); // Cerrar el modal
-        }
-      });
+      document.getElementById('facturaInput').value = nombreFactura;
+      document.getElementById('idFactura').value = idFactura;
+      // Mostrar la deuda debajo del input de monto
+      const deudaElement = document.getElementById('deudaFactura');
+      if (deudaElement) {
+        deudaElement.textContent = `Deuda actual: ${deudaFactura}`;
+      }
+      $('#facturaModal').modal('hide'); // Cerrar el modal
     }
   });
+}
+
+// Autoseleccionar factura si se recibe el parámetro
+const urlParams = new URLSearchParams(window.location.search);
+const facturaParam = urlParams.get('factura');
+if (facturaParam) {
+  const filaFactura = document.querySelector(`#tablaFacturas tr[data-id="${facturaParam}"]`);
+  if (filaFactura) {
+    const nombreFactura = filaFactura.getAttribute('data-nombre');
+    const deudaFactura = filaFactura.getAttribute('data-deuda');
+
+    document.getElementById('facturaInput').value = nombreFactura;
+    document.getElementById('idFactura').value = facturaParam;
+    const deudaElement = document.getElementById('deudaFactura');
+    if (deudaElement) {
+      deudaElement.textContent = `Deuda actual: ${deudaFactura}`;
+    }
+  }
+}
+});
 </script>
 {% endblock javascripts %}

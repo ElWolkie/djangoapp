@@ -66,6 +66,7 @@ INSTALLED_APPS = [
     "apps.factura",  # Habilita la aplicación para gestionar factura contable
     "apps.saldoContable",  # Habilita la aplicación para gestionar saldo contable
     'apps.requisitoCliente',  # Habilita la aplicación para gestionar requisitos de cliente
+    'apps.librosContables',  # Habilita la aplicación para gestionar requisitos de cliente
 
 ]
 
