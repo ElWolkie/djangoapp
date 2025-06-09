@@ -91,7 +91,7 @@
             <td>{{ parametro.get_aplica_a_display }}</td>
             <td>{{ parametro.porcentaje }}%</td>
             <td>{{ parametro.valor_fijo|default:"-" }}</td>
-            <td>{{ parametro.fecha_inicio }}</td>
+            <td>{{ parametro.fecha_inicio|date:"d/m/Y" }}</td>
             <td>{{ parametro.fecha_fin|default:"-" }}</td>
             <td>
               {% if parametro.activo %}
@@ -109,9 +109,27 @@
                 <a href="{% url 'parametro_tributario_edit' parametro.idPT %}" class="btn btn-primary btn-sm">
                   <i class="fas fa-edit"></i>
                 </a>
-                <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteModal" data-id="{{ parametro.idPT }}">
+               
+                <!-- Botón Eliminar -->
+                <!--
+                <button type="button" class="btn btn-danger btn-sm"
+                        data-bs-toggle="modal"
+                        data-bs-target="#deleteModal"
+                        data-id="{{ parametro.idPT }}">
                   <i class="fas fa-trash-alt"></i>
                 </button>
+                -->
+                <!-- Botón Reactivar (solo si está inactivo) -->
+                {% if not parametro.activo %}
+                <!--
+                <button type="button" class="btn btn-success btn-sm"
+                          data-bs-toggle="modal"
+                          data-bs-target="#reactivarModal"
+                          data-id="{{ parametro.idPT }}">
+                    <i class="fas fa-redo"></i>
+                  </button>
+                  -->  
+                {% endif %}
               </div>
             </td>
           </tr>
@@ -130,27 +148,57 @@
   </div>
 </div>
 
-<!-- Modal de confirmación -->
+<!-- Modal de confirmación de eliminación -->
+<!-- POR ALGUN MOTIVO NO FUNCIONA, DEJADO COMENTADO PARA FUTURAS PRUEBAS -->
+<!--
 <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header bg-danger text-white">
         <h5 class="modal-title" id="deleteModalLabel">Confirmar Eliminación</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
         ¿Estás seguro de que deseas eliminar este parámetro tributario?
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <button id="confirmDeleteButton" class="btn btn-danger">Eliminar</button>
+        <button type="button" class="btn btn-danger" id="confirmDeleteButton">Eliminar</button>
       </div>
     </div>
   </div>
 </div>
+-->
+
+<!-- Modal de confirmación de reactivación -->
+<!-- POR ALGUN MOTIVO NO FUNCIONA, DEJADO COMENTADO PARA FUTURAS PRUEBAS -->
+<!--
+<div class="modal fade" id="reactivarModal" tabindex="-1" aria-labelledby="reactivarModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <i class="fas fa-redo me-1"></i>
+        <h5 class="modal-title" id="reactivarModalLabel">Reactivar Parámetro Tributario</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        ¿Estás seguro de que deseas reactivar este parámetro tributario?
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-success" id="confirmReactivarButton">Reactivar</button>
+      </div>
+    </div>
+  </div>
+</div> 
+-->
 {% endblock content %}
 
 {% block scripts %}
+
+<!-- Asegúrate de cargar jQuery antes de tu script -->
+<script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
+<script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
 <script>
   document.addEventListener('DOMContentLoaded', function () {
     const rowsPerPage = 5; // Número de filas por página
@@ -183,7 +231,9 @@
         });
         pagination.appendChild(li);
       }
-      pagination.firstChild.classList.add('active');
+      if (pagination.firstChild) {
+        pagination.firstChild.classList.add('active');
+      }
     }
 
     // Inicializar tabla y paginación
@@ -199,5 +249,99 @@
       });
     });
   });
+</script>
+<script>
+  $(document).ready(function () {
+  let parametroIdToDelete = null;
+  let parametroIdToReactivar = null;
+
+  // Captura el ID al abrir el modal de eliminar
+  $('#deleteModal').on('show.bs.modal', function (event) {
+    const button = $(event.relatedTarget);
+    parametroIdToDelete = button.data('id');
+  });
+
+  // Captura el ID al abrir el modal de reactivar
+  $('#reactivarModal').on('show.bs.modal', function (event) {
+    const button = $(event.relatedTarget);
+    parametroIdToReactivar = button.data('id');
+  });
+
+  // Eliminar (desactivar)
+  $(document).on('click', '#confirmDeleteButton', function () {
+    console.log('Click eliminar', parametroIdToDelete);
+    if (!parametroIdToDelete) return;
+    $.ajax({
+      url: `/factura/parametros/eliminar/${parametroIdToDelete}/`,
+      type: 'POST',
+      headers: { 'X-CSRFToken': getCookie('csrftoken') },
+      success: function (resp) {
+        if (resp.success) {
+          $('#deleteModal').modal('hide');
+          showGlobalMessage(resp.message, 'success');
+          setTimeout(() => location.reload(), 1000);
+        } else {
+          showGlobalMessage(resp.message || 'Error al eliminar', 'error');
+        }
+      },
+      error: function (xhr) {
+        showGlobalMessage('Error: ' + xhr.status + ' - ' + xhr.statusText, 'error');
+      }
+    });
+  });
+
+  // Reactivar
+  $('#confirmReactivarButton').on('click', function () {
+    if (!parametroIdToReactivar) return;
+    $.ajax({
+      url: `/factura/parametros/reactivar/${parametroIdToReactivar}/`,
+      type: 'POST',
+      headers: { 'X-CSRFToken': getCookie('csrftoken') },
+      success: function (resp) {
+        if (resp.success) {
+          $('#reactivarModal').modal('hide');
+          showGlobalMessage(resp.message, 'success');
+          setTimeout(() => location.reload(), 1000);
+        } else {
+          showGlobalMessage(resp.message || 'Error al reactivar', 'error');
+        }
+      },
+      error: function (xhr) {
+        showGlobalMessage('Error: ' + xhr.status + ' - ' + xhr.statusText, 'error');
+      }
+    });
+  });
+
+  // Función para obtener el CSRF token
+  function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+      const cookies = document.cookie.split(';');
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
+      }
+    }
+    return cookieValue;
+  }
+
+  // Mensaje global (puedes personalizar esto)
+  function showGlobalMessage(msg, type) {
+    const alertType = type === 'success' ? 'alert-success' : 'alert-danger';
+    const messageDiv = `
+      <div class="alert ${alertType} alert-dismissible fixed-top mx-auto mt-2" style="max-width: 500px; z-index: 2000;">
+        ${msg}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    `;
+    $('body').prepend(messageDiv);
+    setTimeout(() => $('.alert').alert('close'), 3000);
+  }
+
+  console.log('JS de parámetros tributarios cargado');
+});
 </script>
 {% endblock scripts %}

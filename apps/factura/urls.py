@@ -27,6 +27,7 @@ urlpatterns = [
     path('parametros/<int:pk>/', views.parametro_tributario_detail, name='parametro_tributario_detail'),
     path('parametros/nuevo/', views.parametro_tributario_create, name='parametro_tributario_create'),
     path('parametros/editar/<int:pk>/', views.parametro_tributario_edit, name='parametro_tributario_edit'),
-    path('parametros/eliminar/<int:pk>/', views.parametro_tributario_delete, name='parametro_tributario_delete'),
-        path('obtener-parametros-tributarios/', views.obtener_parametros_tributarios, name='obtener_parametros_tributarios'),
+    path('parametros/eliminar/<int:pk>/', views.parametro_tributario_eliminar, name='parametro_tributario_eliminar'),
+    path('parametros/reactivar/<int:pk>/', views.parametro_tributario_reactivar, name='parametro_tributario_reactivar'),
+    path('obtener-parametros-tributarios/', views.obtener_parametros_tributarios, name='obtener_parametros_tributarios'),
 ]
