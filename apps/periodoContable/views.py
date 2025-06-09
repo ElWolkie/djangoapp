@@ -71,7 +71,6 @@ def periodo_contable_edit(request, id):
 
 @login_required(login_url='login')
 @permission_required("periodoContable.change_periodocontable", raise_exception=True)
-@login_required(login_url='login')
 def desactivar_periodo_contable(request, id):
     periodo = get_object_or_404(periodoContable, idPeriodo=id)
     if request.method == 'POST':
@@ -82,7 +81,6 @@ def desactivar_periodo_contable(request, id):
 
 @login_required(login_url='login')
 @permission_required("periodoContable.change_periodocontable", raise_exception=True)
-@login_required(login_url='login')
 def reactivar_periodo_contable(request, id):
     periodo = get_object_or_404(periodoContable, idPeriodo=id)
     if request.method == 'POST':

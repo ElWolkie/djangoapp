@@ -1,13 +1,16 @@
 import os
+import sys
 import platform
 from decouple import config
 from unipath import Path
-# Configuración de JWT (opcional pero recomendado)
 from datetime import timedelta
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = Path(__file__).parent
 CORE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# Agrega esta línea:
+sys.path.insert(0, os.path.join(BASE_DIR, 'apps'))
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = config("SECRET_KEY", default="S#perS3crEt_1122")
@@ -56,7 +59,7 @@ INSTALLED_APPS = [
     "apps.solicitud",  # Habilita la aplicación para gestionar solicitud
 ########CONTABILIDAD##########
     "apps.planCuenta",  # Habilita la aplicación para gestionar plan de cuenta  
-    "apps.periodoContable",  # Habilita la aplicación para gestionar periodo contable  
+    "apps.periodoContable.apps.PeriodocontableConfig",  # Importante usar la clase Config
     "apps.empresa",  # Habilita la aplicación para gestionar empresa
     "apps.cuentaBanco",  # Habilita la aplicación para gestionar cuenta bancaria
     "apps.asientoContable",  # Habilita la aplicación para gestionar asiento contable
