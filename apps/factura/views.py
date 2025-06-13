@@ -1,25 +1,52 @@
+from decimal import Decimal
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse
 from django.db import transaction
 from django.db.models import Max
+import uuid
+from django.urls import reverse
+from django.utils.timezone import now
+from django.core.exceptions import ValidationError
+from django.views.decorators.http import require_POST
 
+
+from apps.cuentaBanco.models import CuentaBanco
 from apps.periodoContable.models import periodoContable
 from .models import Factura, FacturaDetalle, Pago, ParametroTributario
 from .forms import FacturaForm, FacturaDetalleForm, PagoForm, ParametroTributarioForm
 from apps.asientoContable.models import AsientoContable, DetalleAsiento
-from apps.home.models import Moneda, Tasa
+from apps.home.models import Configuracion, Moneda, Tasa
 from apps.persona.models import Personas
 from apps.empresa.models import empresa
 from apps.planCuenta.models import PlanCuenta
 
-# Facturas
 def factura_list(request):
     """
-    Vista para listar todas las facturas.
+    Vista para listar todas las facturas junto con sus detalles.
     """
-    facturas = Factura.objects.all()
-    return render(request, 'factura/tablaFactura.html', {'facturas': facturas})
-
+    facturas = Factura.objects.prefetch_related('detalles').all()  # 'detalles' es el related_name definido en el modelo
+    facturas_data = [
+        {
+            'pk': factura.pk,
+            'numeroFactura': factura.numeroFactura,
+            'fechaEmision': factura.fechaEmision.strftime('%d/%m/%Y'),
+            'idPersonaCedula': factura.idPersona.cedula if factura.idPersona else "N/A",
+            'idEmpresa': factura.idEmpresa.nombreEmpresa if factura.idEmpresa else "N/A",
+            'totalVenta': float(factura.totalVenta),
+            'estado': factura.estado,
+            'detalles': [
+                {
+                    'descripcion': detalle.descripcion,
+                    'cantidad': float(detalle.cantidad),
+                    'precioUnitario': float(detalle.precioUnitario),
+                    'subtotal': float(detalle.subtotal),
+                }
+                for detalle in factura.detalles.all()
+            ],
+        }
+        for factura in facturas
+    ]
+    return render(request, 'factura/tablaFactura.html', {'facturas': facturas_data})
 def factura_detail(request, pk):
     """
     Vista para mostrar los detalles de una factura específica.
@@ -27,6 +54,11 @@ def factura_detail(request, pk):
     factura = get_object_or_404(Factura, pk=pk)
     detalles = FacturaDetalle.objects.filter(idFactura=factura)
     return render(request, 'factura/detalleFactura.html', {'factura': factura, 'detalles': detalles})
+def generar_numero_factura():
+    # Generar un número único basado en la fecha y un UUID
+    fecha_actual = now().strftime('%Y%m%d')  # Formato: YYYYMMDD
+    numero_unico = uuid.uuid4().hex[:6].upper()  # Tomar los primeros 6 caracteres del UUID
+    return f"FAC-{fecha_actual}-{numero_unico}"
 
 @transaction.atomic
 def factura_create(request):
@@ -36,67 +68,121 @@ def factura_create(request):
         .values('idMoneda__idMoneda', 'idMoneda__nombreMoneda') \
         .annotate(ultima_idTasa=Max('idTasa'), ultima_tasa=Max('montoTasa'))
     cuentas_plan = PlanCuenta.objects.filter(estadoPlanCuenta=True).order_by('codigoPlanCuenta')
+    numero_factura = generar_numero_factura()  # Generar el número de factura
 
     if request.method == 'POST':
         form = FacturaForm(request.POST)
         if form.is_valid():
             try:
                 factura = form.save(commit=False)
+
+                # Verificar si hay un periodo contable activo
                 periodo_activo = periodoContable.objects.filter(estadoPeriodo=True).first()
                 if not periodo_activo:
                     periodo_activo = periodoContable.objects.order_by('-idPeriodo').first()
                 if not periodo_activo:
                     return JsonResponse({
                         'success': False,
-                        'message': 'No hay ningún periodo contable registrado en el sistema.'
+                        'message': 'No hay ningún periodo contable registrado o activo en el sistema. '
+                                   'Por favor, registre o active un periodo contable antes de continuar.'
                     }, status=400)
 
+                # Verificar que las cuentas contables estén presentes en la solicitud
                 if 'idPlanCuentaDebe' not in request.POST or 'idPlanCuentaHaber' not in request.POST:
                     return JsonResponse({
                         'success': False,
-                        'message': 'Debe seleccionar las cuentas contables para el debe y el haber.'
+                        'message': 'Debe seleccionar las cuentas contables para el debe y el haber. '
+                                   'Asegúrese de que los campos "idPlanCuentaDebe" y "idPlanCuentaHaber" estén presentes.'
                     }, status=400)
 
                 # Crear el asiento contable
-                asiento = AsientoContable.objects.create(
-                    numeroAsiento=f"FAC-{factura.numeroFactura}",
-                    fechaAsiento=factura.fechaEmision,
-                    conceptoAsiento=f"Asiento para la factura {factura.numeroFactura}",
-                    idPeriodo=periodo_activo
-                )
-                DetalleAsiento.objects.create(
-                    idAsiento=asiento,
-                    idPlanCuenta_id=request.POST['idPlanCuentaDebe'],
-                    debe=factura.totalVenta,
-                    haber=0.00
-                )
-                DetalleAsiento.objects.create(
-                    idAsiento=asiento,
-                    idPlanCuenta_id=request.POST['idPlanCuentaHaber'],
-                    debe=0.00,
-                    haber=factura.totalVenta
-                )
+                try:
+                    asiento = AsientoContable.objects.create(
+                        numeroAsiento=f"FAC-{factura.numeroFactura}",
+                        fechaAsiento=factura.fechaEmision,
+                        conceptoAsiento=f"Asiento para la factura {factura.numeroFactura}",
+                        idPeriodo=periodo_activo
+                    )
+                except Exception as e:
+                    return JsonResponse({
+                        'success': False,
+                        'message': f'Error al crear el asiento contable: {str(e)}. '
+                                   'Por favor, revise los datos ingresados e inténtelo nuevamente.'
+                    }, status=500)
 
+                # Crear los detalles del asiento contable
+                try:
+                    DetalleAsiento.objects.create(
+                        idAsiento=asiento,
+                        idPlanCuenta_id=request.POST['idPlanCuentaDebe'],
+                        debe=factura.totalVenta,
+                        haber=0.00
+                    )
+                    DetalleAsiento.objects.create(
+                        idAsiento=asiento,
+                        idPlanCuenta_id=request.POST['idPlanCuentaHaber'],
+                        debe=0.00,
+                        haber=factura.totalVenta
+                    )
+                except Exception as e:
+                    return JsonResponse({
+                        'success': False,
+                        'message': f'Error al crear los detalles del asiento contable: {str(e)}. '
+                                   'Por favor, revise las cuentas contables seleccionadas.'
+                    }, status=500)
+
+                # Asociar el asiento contable a la factura
                 factura.idAsiento = asiento
                 factura.save()
+
+                # Crear un detalle de factura predeterminado
+                try:
+                    detalle = FacturaDetalle.objects.create(
+                        idFactura=factura,
+                        tipoItem=factura.tipoFactura,
+                        descripcion=f"Detalle predeterminado para {factura.tipoFactura}",
+                        cantidad=1,
+                        precioUnitario=factura.totalVenta,
+                        exento=True,
+                        subtotal=factura.totalVenta,
+                        ivaItem=0.00,
+                        totalItem=factura.totalVenta
+                    )
+                except Exception as e:
+                    return JsonResponse({
+                        'success': False,
+                        'message': f'Error al crear el detalle de la factura: {str(e)}. '
+                                   'Por favor, revise los datos de la factura e inténtelo nuevamente.'
+                    }, status=500)
 
                 return JsonResponse({
                     'success': True,
                     'message': 'Factura creada exitosamente.',
-                    'redirect_url': '/factura/list/'  # Cambia esto por la URL correcta
+                    'redirect_url': f"{reverse('pago_create')}?factura={factura.idFactura}",
+                    'detalle': {
+                        'idFactura': factura.idFactura,
+                        'tipoItem': detalle.tipoItem,
+                        'descripcion': detalle.descripcion,
+                        'cantidad': detalle.cantidad,
+                        'precioUnitario': detalle.precioUnitario,
+                        'subtotal': detalle.subtotal,
+                        'ivaItem': detalle.ivaItem,
+                        'totalItem': detalle.totalItem
+                    }
                 })
             except Exception as e:
                 import traceback
-                print(f"Error al crear la factura o el asiento contable: {e}")
+                print(f"Error inesperado al crear la factura o el asiento contable: {e}")
                 print(traceback.format_exc())
                 return JsonResponse({
                     'success': False,
-                    'message': 'Ocurrió un error al intentar guardar la factura. Por favor, inténtelo de nuevo.'
+                    'message': f'Ocurrió un error inesperado: {str(e)}. '
+                               'Por favor, contacte al administrador del sistema si el problema persiste.'
                 }, status=500)
         else:
             return JsonResponse({
                 'success': False,
-                'message': 'El formulario contiene errores. Por favor, corríjalos e inténtelo de nuevo.',
+                'message': 'El formulario contiene errores. Por favor, corríjalos e inténtelo nuevamente.',
                 'errors': form.errors
             }, status=400)
     else:
@@ -106,9 +192,9 @@ def factura_create(request):
         'personas': personas,
         'empresas': empresas,
         'monedas': tasas,
-        'cuentas_plan': cuentas_plan
+        'cuentas_plan': cuentas_plan,
+        'numero_factura': numero_factura
     })
-
 @transaction.atomic
 def factura_edit(request, pk):
     """
@@ -136,12 +222,12 @@ def factura_edit(request, pk):
 @transaction.atomic
 def factura_delete(request, pk):
     """
-    Vista para eliminar una factura existente.
+    Vista para realizar una eliminación lógica de una factura.
     """
     factura = get_object_or_404(Factura, pk=pk)
-    factura.delete()
-    return redirect('factura_list')
-
+    factura.estadoFactura = 'ELIMINADA'  # Cambia el estado a "ELIMINADA"
+    factura.save()
+    return JsonResponse({'success': True, 'message': 'Factura marcada como eliminada.'})
 # Detalles de Factura
 def factura_detalle_list(request, factura_id):
     """
@@ -211,7 +297,7 @@ def pago_list(request):
     Vista para listar todos los pagos.
     """
     pagos = Pago.objects.all()
-    return render(request, 'factura/pago_list.html', {'pagos': pagos})
+    return render(request, 'factura/tablaPago.html', {'pagos': pagos})
 
 def pago_detail(request, pk):
     """
@@ -223,21 +309,208 @@ def pago_detail(request, pk):
 @transaction.atomic
 def pago_create(request):
     """
-    Vista para crear un nuevo pago.
+    Vista para crear un nuevo pago y generar un asiento contable asociado.
     """
-    facturas = Factura.objects.all()
+    facturas = Factura.objects.exclude(estado='PAGADO').order_by('numeroFactura')  # Excluir facturas pagadas
+    cuentas_banco = CuentaBanco.objects.filter(estado=True).order_by('idCuentaBanco')  # Filtrar cuentas bancarias activas
+    tasas = Tasa.objects.select_related('idMoneda') \
+            .values('idMoneda__idMoneda', 'idMoneda__nombreMoneda') \
+            .annotate(ultima_idTasa=Max('idTasa'), ultima_tasa=Max('montoTasa'))
+    cuentas_plan = PlanCuenta.objects.filter(estadoPlanCuenta=True).order_by('codigoPlanCuenta')
+
+    # Obtener la moneda de configuración
+    configuracion = Configuracion.objects.first()
+    if not configuracion:
+        return JsonResponse({
+            'success': False,
+            'message': 'No se encontró una configuración activa en el sistema.'
+        }, status=400)
+    moneda_configuracion = configuracion.moneda
+    tasa_configuracion = Tasa.objects.filter(idMoneda=moneda_configuracion).order_by('-idTasa').first()
+
+    if not tasa_configuracion:
+        return JsonResponse({
+            'success': False,
+            'message': f'No se encontró una tasa registrada para la moneda de configuración ({moneda_configuracion.nombreMoneda}).'
+        }, status=400)
+
+    tasa_configuracion_valor = Decimal(tasa_configuracion.montoTasa)  # Convertir a Decimal
+    print(f"Tasa de configuración ({moneda_configuracion.nombreMoneda}): {tasa_configuracion_valor}")
+
+    # Calcular el saldo pendiente de cada factura
+    facturas_data = []
+    for factura in facturas:
+        pagos_relacionados = Pago.objects.filter(idFactura=factura)
+        total_pagado = sum(
+            Decimal(pago.monto) * Decimal(pago.idTasa.montoTasa) / tasa_configuracion_valor
+            if pago.idTasa.idMoneda != moneda_configuracion else Decimal(pago.monto)
+            for pago in pagos_relacionados
+        )
+        saldo_pendiente = Decimal(factura.totalVenta) - total_pagado
+        print(f"Factura {factura.numeroFactura}: Total Venta: {factura.totalVenta}, Total Pagado: {total_pagado}, Saldo Pendiente: {saldo_pendiente}")
+        facturas_data.append({
+            'idFactura': factura.idFactura,
+            'numeroFactura': factura.numeroFactura,
+            'totalVenta': factura.totalVenta,
+            'saldoPendiente': saldo_pendiente,  # Ya está en la moneda de configuración
+            'estado': factura.estado
+        })
+
     if request.method == 'POST':
         form = PagoForm(request.POST)
         if form.is_valid():
-            form.save()
-            return redirect('pago_list')
+            try:
+                # Iniciar una transacción atómica
+                with transaction.atomic():
+                    pago = form.save(commit=False)
+
+                    # Verificar si hay un periodo contable activo
+                    periodo_activo = periodoContable.objects.filter(estadoPeriodo=True).first()
+                    if not periodo_activo:
+                        periodo_activo = periodoContable.objects.order_by('-idPeriodo').first()
+                    if not periodo_activo:
+                        return JsonResponse({
+                            'success': False,
+                            'message': 'No hay ningún periodo contable registrado o activo en el sistema. '
+                                       'Por favor, registre o active un periodo contable antes de continuar.'
+                        }, status=400)
+
+                    # Verificar los pagos relacionados a la factura
+                    pagos_relacionados = Pago.objects.filter(idFactura=pago.idFactura)
+                    total_pagado = sum(
+                        Decimal(pago_relacionado.monto) * Decimal(pago_relacionado.idTasa.montoTasa) / tasa_configuracion_valor
+                        if pago_relacionado.idTasa.idMoneda != moneda_configuracion else Decimal(pago_relacionado.monto)
+                        for pago_relacionado in pagos_relacionados
+                    )
+                    saldo_factura = Decimal(pago.idFactura.totalVenta) - total_pagado
+                    print(f"Saldo Factura {pago.idFactura.numeroFactura}: {saldo_factura}")
+
+                    # Convertir el monto del pago a la moneda de configuración
+                    tasa_pago = Tasa.objects.filter(idMoneda=pago.idTasa.idMoneda).order_by('-idTasa').first()
+                    if not tasa_pago:
+                        return JsonResponse({
+                            'success': False,
+                            'message': f'No se encontró una tasa registrada para la moneda del pago ({pago.idTasa.idMoneda.nombreMoneda}).'
+                        }, status=400)
+
+                    monto_pago_convertido = Decimal(pago.monto) * Decimal(tasa_pago.montoTasa) / tasa_configuracion_valor \
+                        if pago.idTasa.idMoneda != moneda_configuracion else Decimal(pago.monto)
+                    print(f"Monto Pago Convertido: {monto_pago_convertido}")
+
+                    if saldo_factura == 0:
+                        return JsonResponse({
+                            'success': False,
+                            'message': 'El pago no se registró porque la factura ya está solvente.'
+                        }, status=400)
+
+                    if monto_pago_convertido > saldo_factura:
+                        return JsonResponse({
+                            'success': False,
+                            'message': f'El monto del pago excede el saldo pendiente de la factura. '
+                                       f'Saldo pendiente: {saldo_factura:.2f}.'
+                        }, status=400)
+
+                    # Obtener la cuenta del Plan de Cuenta usada en el Debe del asiento principal de la factura
+                    try:
+                        asiento_principal = pago.idFactura.idAsiento  # Obtener el asiento principal de la factura
+                        detalle_debe = DetalleAsiento.objects.filter(idAsiento=asiento_principal, debe__gt=0).first()
+                        if not detalle_debe:
+                            return JsonResponse({
+                                'success': False,
+                                'message': 'No se encontró una cuenta asociada al Debe en el asiento principal de la factura.'
+                            }, status=400)
+                        plan_cuenta_haber = detalle_debe.idPlanCuenta  # Usar esta cuenta como el Haber para el pago
+                    except Exception as e:
+                        raise ValueError(f'Error al obtener la cuenta del Debe del asiento principal: {str(e)}')
+
+                    # Crear el asiento contable para el pago
+                    try:
+                        # Verificar si ya existe un asiento para pagos relacionados a la factura
+                        pagos_existentes = Pago.objects.filter(idFactura=pago.idFactura).count()
+                        numero_asiento_pago = f"PAGO-{pago.idFactura.numeroFactura}"
+                        if pagos_existentes > 0:
+                            numero_asiento_pago += f"-{pagos_existentes + 1}"  # Agregar un sufijo para identificar el pago adicional
+
+                        asiento_pago = AsientoContable.objects.create(
+                            numeroAsiento=numero_asiento_pago,
+                            fechaAsiento=pago.fechaPago,
+                            conceptoAsiento=f"Asiento para el pago de la factura {pago.idFactura.numeroFactura}",
+                            idPeriodo=periodo_activo
+                        )
+                    except Exception as e:
+                        raise ValueError(f'Error al crear el asiento contable: {str(e)}')
+
+                    # Crear los detalles del asiento contable
+                    try:
+                        DetalleAsiento.objects.create(
+                            idAsiento=asiento_pago,
+                            idPlanCuenta_id=request.POST['idPlanCuentaDebe'],  # Cuenta de ingresos seleccionada por el usuario
+                            debe=pago.monto,
+                            haber=0.00
+                        )
+                        DetalleAsiento.objects.create(
+                            idAsiento=asiento_pago,
+                            idPlanCuenta=plan_cuenta_haber,  # Cuenta asociada al Debe del asiento principal
+                            debe=0.00,
+                            haber=pago.monto
+                        )
+                    except Exception as e:
+                        raise ValueError(f'Error al crear los detalles del asiento contable: {str(e)}')
+
+                    # Asociar el asiento contable al pago
+                    pago.idAsiento = asiento_pago
+                    pago.save()
+
+                    # Construir el mensaje de éxito
+                    success_message = 'Pago creado exitosamente y asiento contable generado.'
+                    if saldo_factura - monto_pago_convertido == 0:
+                        pago.idFactura.estado = 'PAGADO'
+                        pago.idFactura.save()
+                        success_message += ' La factura ha sido pagada en su totalidad.'
+
+                    return JsonResponse({
+                        'success': True,
+                        'message': success_message,
+                        'pago': {
+                            'idPago': pago.idPago,
+                            'idFactura': pago.idFactura.numeroFactura,
+                            'monto': float(pago.monto),
+                            'fechaPago': pago.fechaPago.strftime('%d/%m/%Y'),
+                            'formaPago': pago.formaPago,
+                            'referencia': pago.referencia
+                        }
+                    })
+            except ValueError as e:
+                print(f"Error de valor: {e}")
+                return JsonResponse({
+                    'success': False,
+                    'message': str(e)
+                }, status=500)
+            except Exception as e:
+                import traceback
+                print(f"Error inesperado: {e}")
+                print(traceback.format_exc())
+                return JsonResponse({
+                    'success': False,
+                    'message': f'Ocurrió un error inesperado: {str(e)}. '
+                               'Por favor, contacte al administrador del sistema si el problema persiste.'
+                }, status=500)
+        else:
+            print(f"Errores en el formulario: {form.errors}")
+            return JsonResponse({
+                'success': False,
+                'message': 'El formulario contiene errores. Por favor, corríjalos e inténtelo nuevamente.',
+                'errors': form.errors
+            }, status=400)
     else:
         form = PagoForm()
     return render(request, 'factura/pago.html', {
         'form': form,
-        'facturas': facturas
+        'facturas': facturas_data,  # Pasar las facturas con saldo pendiente al contexto
+        'cuentas_banco': cuentas_banco,  # Pasar las cuentas bancarias al contexto
+        'cuentas_plan': cuentas_plan,
+        'monedas': tasas
     })
-
 @transaction.atomic
 def pago_edit(request, pk):
     """
@@ -312,6 +585,10 @@ def parametro_tributario_edit(request, pk):
     Vista para editar un parámetro tributario existente.
     """
     parametro = get_object_or_404(ParametroTributario, pk=pk)
+    # Obtener las opciones de tipos y aplicables del modelo para el formulario
+    tipo_parametro = ParametroTributario.TIPO_PARAMETRO
+    tipos_aplicables = ParametroTributario.TIPOS_APLICABLES
+
     if request.method == 'POST':
         form = ParametroTributarioForm(request.POST, instance=parametro)
         if form.is_valid():
@@ -319,16 +596,36 @@ def parametro_tributario_edit(request, pk):
             return redirect('parametro_tributario_list')
     else:
         form = ParametroTributarioForm(instance=parametro)
-    return render(request, 'factura/editParametroTributario.html', {'form': form})
-
+    return render(request, 'factura/editParametroTributario.html', {
+        'form': form,
+        'TIPO_PARAMETRO': tipo_parametro,
+        'TIPOS_APLICABLES': tipos_aplicables,
+        'parametro': parametro
+    })
+@require_POST
 @transaction.atomic
-def parametro_tributario_delete(request, pk):
-    """
-    Vista para eliminar un parámetro tributario existente.
-    """
+def parametro_tributario_eliminar(request, pk):
     parametro = get_object_or_404(ParametroTributario, pk=pk)
-    parametro.delete()
-    return redirect('tablaParametrosTributarios.html')
+    # Actualizamos el estado sin modificar el nombre u otros campos únicos
+    parametro.activo = False  # Desactivamos el parámetro tributario
+    # Intentamos guardar el objeto, lo que disparará la validación única
+    try:
+        parametro.save()  # Aquí se ejecuta la validación en save()
+        return JsonResponse({'success': True, 'message': 'Parámetro tributario desactivado correctamente. ⛔'})
+    except ValidationError as e:
+        # Regresamos el mensaje de error; esto ocurriría si se dispara la validación única
+        return JsonResponse({'success': False, 'message': e.messages})
+    
+@require_POST
+@transaction.atomic
+def parametro_tributario_reactivar(request, pk):
+    parametro = get_object_or_404(ParametroTributario, pk=pk)
+    parametro.activo = True
+    try:
+        parametro.save()
+        return JsonResponse({'success': True, 'message': 'Parámetro tributario reactivado correctamente. ✅'})
+    except ValidationError as e:
+        return JsonResponse({'success': False, 'message': e.messages})    
 
 def obtener_parametros_tributarios(request):
     # Agrupar parámetros por tipo para facilitar el acceso en el frontend

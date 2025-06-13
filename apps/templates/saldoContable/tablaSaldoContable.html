@@ -1,0 +1,194 @@
+{% extends 'layouts/base2.html' %}
+{% load static %}
+
+{% block title %}Listado de Saldos Contables{% endblock title %}
+
+{% block stylesheets %}
+<link rel="stylesheet" href="{% static 'assets/css/styleForms.css' %}" />
+<link rel="stylesheet" href="{% static 'assets/css/argon.css' %}" />
+<style>
+  .table-responsive {
+    overflow-x: auto;
+  }
+  .card-shadow {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+  }
+  .text-success {
+    color: #28a745 !important;
+  }
+  .text-primary {
+    color: #007bff !important;
+  }
+  .fw-bold {
+    font-weight: 700 !important;
+  }
+</style>
+{% endblock stylesheets %}
+
+{% block content %}
+<div class="container mt-4">
+  <h2 class="text-center mb-4">Lista de Saldos Contables</h2>
+
+  <div class="row mb-3">
+    <div class="col-md-4">
+      <div class="input-group">
+        <span class="input-group-text"><i class="fas fa-search"></i></span>
+        <input class="form-control" id="searchInput" type="text" placeholder="Buscar por Plan de Cuenta o Periodo...">
+      </div>
+    </div>
+    <div class="col-md-4 text-end">
+      {% if perms.home.add_saldocontable %}
+        <a href="{% url 'saldo_contable_create' %}" class="btn btn-warning px-4">
+          <i class="fas fa-plus-circle me-1"></i> Registrar Saldo
+        </a>
+      {% endif %}
+    </div>
+    <div class="col-md-4 text-end">
+      <a href="{% url 'reporte_saldos_pdf' %}" class="btn btn-outline-danger btn-sm" target="_blank">
+        <i class="fas fa-file-pdf"></i> Descargar PDF
+      </a>
+    </div>
+  </div>
+
+  <div id="globalMessages">
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+      {% endfor %}
+    {% endif %}
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="table-responsive">
+      <table class="table table-striped table-hover align-middle text-gray-dark" id="saldosTable">
+        <thead class="table-light">
+          <tr>
+            <th>ID</th>
+            <th>Plan de Cuenta</th>
+            <th>Periodo</th>
+            <th>Saldo Inicial</th>
+            <th>Saldo Final</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for saldo in saldos %}
+          <tr>
+            <td>{{ saldo.idSaldo }}</td>
+            <td>
+              <strong>{{ saldo.id_plan_cuenta.codigoPlanCuenta }}</strong> - 
+              {{ saldo.id_plan_cuenta.nombrePlanCuenta }}
+            </td>
+            <td>
+              {{ saldo.id_periodo.nombrePeriodo }}<br>
+              <small class="text-muted">
+                {{ saldo.id_periodo.fechaInicioPeriodo|date:"d/m/Y" }} - 
+                {{ saldo.id_periodo.fechaFinPeriodo|date:"d/m/Y" }}
+              </small>
+            </td>
+            <td class="text-success fw-bold">${{ saldo.saldo_inicial }}</td>
+            <td class="text-primary fw-bold">${{ saldo.saldo_final }}</td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="5" class="text-center py-4">No hay saldos contables registrados.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock content %}
+
+{% block javascripts %}
+<script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
+<script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // Función de búsqueda en la tabla
+  $('#searchInput').on('keyup', function() {
+    const filter = this.value.toUpperCase();
+    $('#saldosTable tbody tr').each(function() {
+      $(this).toggle($(this).text().toUpperCase().includes(filter));
+    });
+  });
+  
+  // Paginación para la tabla
+  const table = document.getElementById('saldosTable');
+  const pagination = document.createElement('ul');
+  pagination.className = 'pagination justify-content-center mt-3';
+  table.parentNode.parentNode.parentNode.appendChild(pagination);
+
+  const rowsPerPage = 10;
+  let currentPage = 1;
+
+  function displayRows() {
+    const rows = table.querySelectorAll('tbody tr');
+    const start = (currentPage - 1) * rowsPerPage;
+    const end = start + rowsPerPage;
+
+    rows.forEach((row, index) => {
+      row.style.display = (index >= start && index < end) ? '' : 'none';
+    });
+  }
+
+  function setupPagination() {
+    const rows = table.querySelectorAll('tbody tr');
+    const totalPages = Math.ceil(rows.length / rowsPerPage);
+
+    pagination.innerHTML = '';
+
+    // Botón "Anterior"
+    const prevLi = document.createElement('li');
+    prevLi.className = 'page-item' + (currentPage === 1 ? ' disabled' : '');
+    prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Anterior"><span aria-hidden="true">&laquo;</span></a>`;
+    prevLi.addEventListener('click', function(e) {
+      e.preventDefault();
+      if (currentPage > 1) {
+        currentPage--;
+        displayRows();
+        setupPagination();
+      }
+    });
+    pagination.appendChild(prevLi);
+
+    // Botones de páginas
+    for (let i = 1; i <= totalPages; i++) {
+      const li = document.createElement('li');
+      li.className = 'page-item' + (i === currentPage ? ' active' : '');
+      li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+      li.addEventListener('click', function(e) {
+        e.preventDefault();
+        currentPage = i;
+        displayRows();
+        setupPagination();
+      });
+      pagination.appendChild(li);
+    }
+
+    // Botón "Siguiente"
+    const nextLi = document.createElement('li');
+    nextLi.className = 'page-item' + (currentPage === totalPages ? ' disabled' : '');
+    nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Siguiente"><span aria-hidden="true">&raquo;</span></a>`;
+    nextLi.addEventListener('click', function(e) {
+      e.preventDefault();
+      if (currentPage < totalPages) {
+        currentPage++;
+        displayRows();
+        setupPagination();
+      }
+    });
+    pagination.appendChild(nextLi);
+  }
+
+  // Inicializar
+  displayRows();
+  setupPagination();
+});
+</script>
+{% endblock javascripts %}

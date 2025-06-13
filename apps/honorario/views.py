@@ -5,9 +5,6 @@ from django.template import loader
 from django.urls import reverse
 from django.contrib import messages
 
-from django.db import transaction
-from datetime import date
-from apps.asientoContable.models import AsientoContable, DetalleAsiento, periodoContable
 from .forms import HonorarioForm
 from .models import Honorario
 from apps.persona.models import Personas
@@ -18,79 +15,59 @@ from reportlab.lib.pagesizes import letter
 from reportlab.platypus import Table, TableStyle
 from reportlab.lib import colors
 import os
+from django.db import IntegrityError
 
 #HONORARIO
 @login_required(login_url='login')
-@permission_required("home.add_honorario", raise_exception=True)
+@permission_required("honorario.add_honorario", raise_exception=True)
 def honorario_modal(request):
-    # POST: procesar AJAX de registro…
     if request.method == 'POST':
         form = HonorarioForm(request.POST)
         if form.is_valid():
-            with transaction.atomic():
-                # Guardar el honorario
+            try:
                 honorario = form.save()
-
-                # Crear el asiento contable asociado
-                try:
-                    # Obtener el periodo contable activo
-                    periodo_activo = periodoContable.objects.filter(estadoPeriodo=True).first()
-                    if not periodo_activo:
-                        periodo_activo = periodoContable.objects.order_by('-idPeriodo').first()
-                    if not periodo_activo:
-                        return JsonResponse({
-                            'success': False,
-                            'message': 'No hay ningún periodo contable registrado en el sistema.'
-                        }, status=400)
-
-                    # Crear el asiento contable
-                    asiento = AsientoContable.objects.create(
-                        numeroAsiento=f"HON-{honorario.idHonorario}-{date.today().strftime('%Y%m%d')}",
-                        fechaAsiento=date.today(),
-                        conceptoAsiento=f"Registro de honorario {honorario.idHonorario} para {honorario.idPersona.nombres} {honorario.idPersona.apellidos}",
-                        idPeriodo=periodo_activo
-                    )
-
-                    # # Registrar el detalle del asiento (Debe y Haber)
-                    # DetalleAsiento.objects.create(
-                    #     idAsiento=asiento,
-                    #     idPlanCuenta=honorario.idCargo.planCuentaDebe,  # Plan de cuenta para el debe
-                    #     debe=honorario.monto,  # Monto del honorario
-                    #     haber=0.00
-                    # )
-                    # DetalleAsiento.objects.create(
-                    #     idAsiento=asiento,
-                    #     idPlanCuenta=honorario.idCargo.planCuentaHaber,  # Plan de cuenta para el haber
-                    #     debe=0.00,
-                    #     haber=honorario.monto
-                    # )
-                except Exception as e:
-                    return JsonResponse({
-                        'success': False,
-                        'message': f'Error al crear el asiento contable: {e}'
-                    }, status=500)
-
-                return JsonResponse({'success': True, 'message': 'Honorario registrado y asiento contable creado.'})
-        else:
+            except IntegrityError:
+                return JsonResponse({
+                    'success': False,
+                    'errors': {'__all__': ['Ya existe un honorario idéntico en la base de datos.']}
+                })
+            monto = honorario.monto
             return JsonResponse({
-                'success': False,
-                'errors': {'__all__': ['Ya existe un registro idéntico.']}
+                'success': True,
+                'message': 'Registro exitoso.',
+                'redirect_url': f"{reverse('factura_create')}?honorario={monto}&id={honorario.idPersona.idPersona}"
             })
-            
-    # GET: mostrar el formulario
-    form = HonorarioForm()
-    # Aquí cargas TODOS los dropdowns que necesitas
-    cargos     = Cargo.objects.filter(estadoCargo='ACTIVO')
-    materias   = Materia.objects.filter(estadoMateria='ACTIVO')
-    cohortes   = Cohorte.objects.filter(estadoCohorte='ACTIVO')
-    personas   = Personas.objects.all()
-    return render(request, 'honorario/honorario.html', {
-        'form'      : form,
-        'cargos'    : cargos,
-        'materias'  : materias,
-        'cohortes'  : cohortes,
-        'personas'  : personas,
+        else:
+            # Empaquetar errores de campo y non-field
+            errors = {}
+            for f, errs in form.errors.items():
+                errors[f] = errs.get_json_data(escape_html=True) if hasattr(errs, 'get_json_data') else errs
+            non_field = form.non_field_errors()
+            if non_field:
+                errors['__all__'] = non_field
+            return JsonResponse({'success': False, 'errors': errors})
+
+    # GET: solo personas con idTipoPersona = 3
+    personas = Personas.objects.filter(
+        personatp__idTP=3,  # Relación con TipoPersona idTP=2
+        estadoPersona='ACTIVO'  # Estado activo
+    ).distinct()
+    cargos    = Cargo.objects.filter(estadoCargo='ACTIVO')
+    materias  = Materia.objects.filter(estadoMateria='ACTIVO')
+    cohortes  = Cohorte.objects.filter(estadoCohorte='ACTIVO')
+    form      = HonorarioForm()
+
+    return render(request, 'honorario/honorario2.html', {
+        'form': form,
+        'personas': personas,
+        'cargos': cargos,
+        'materias': materias,
+        'cohortes': cohortes,
     })
+
+
+
+
 
 
 @login_required(login_url='login')
@@ -131,7 +108,7 @@ def delete_honorario(request, pk):
     return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
 
 @login_required
-@permission_required('home.change_honorario', raise_exception=True)
+@permission_required('honorario.change_honorario', raise_exception=True)
 def desactivar_honorario(request, pk):
     honorarios = get_object_or_404(Honorario, pk=pk)
     if request.method == 'POST':
@@ -168,7 +145,7 @@ def tabla_honorarios(request):
 @login_required(login_url='login')
 def reporte_honorarios_pdf(request):
     response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = 'attachment; filename="reporte_inscripciones.pdf"'
+    response['Content-Disposition'] = 'attachment; filename="reporte_honorarios.pdf"'
     p = canvas.Canvas(response, pagesize=letter)
     width, height = letter
     logo_width, logo_height, logo_margin = 100, 100, 15
@@ -198,7 +175,7 @@ def reporte_honorarios_pdf(request):
     p.setFont("Helvetica-Bold", 12)
     p.drawCentredString(safe_center, text_top, nombre_institucion)
     p.drawCentredString(safe_center, text_top - 20, f"RIF: {rif_institucion}")
-    p.drawCentredString(safe_center, text_top - 40, "REPORTE DE INSCRIPCIONES")
+    p.drawCentredString(safe_center, text_top - 40, "REPORTE DE HONORARIOS")
 
     if firma_path and os.path.exists(firma_path):
         p.drawImage(firma_path, width/2 - 60, 60, width=120, height=60, preserveAspectRatio=True, mask='auto')

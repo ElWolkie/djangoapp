@@ -11,12 +11,12 @@
     {% endfor %}
   {% endif %}
 <div class=" mt-5">
-  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Registrar Trámite Expedito</h2>
+  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Registrar Trámite</h2>
   <form method="POST" class="mt-3 text-dark" autocomplete="off" style="font-weight: bold; max-width: 600px; margin: 0 auto;" id="tramiteForm" action="{% url 'tramite_modal' %}">  
     {% csrf_token %}  
     
     <div class="form-row">  
-      <div class="form-group col-md-6">  
+      <div class="form-group col-md-12">  
         <label for="nombreTramite">Nombre:</label>  
         <input type="text" id="nombreTramite" name="nombreTramite" class="form-control text-dark" placeholder="Ingrese un nombre" tabindex="3" maxlength="100" data-required="true" />          
         <div class="invalid-feedback">

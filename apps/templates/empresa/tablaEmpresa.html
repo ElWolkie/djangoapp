@@ -150,7 +150,7 @@
                   {% endif %}
                 {% endif %}
                 {% if empresa.estadoEmpresa %}
-                  {% if perms.empresa.change_empresa %}
+                      {% if perms.empresa.change_empresa %}
                       <button class="btn btn-outline-warning btn-sm"
                               data-bs-toggle="modal"
                               data-bs-target="#deleteEmpresaModal"
@@ -158,7 +158,9 @@
                               title="Inhabilitar">
                         <i class="fas fa-user-slash"></i>
                       </button>
+                      {% endif %}
                     {% else %}
+                      {% if perms.empresa.change_empresa %}
                       <button class="btn btn-success btn-sm"
                               data-bs-toggle="modal"
                               data-bs-target="#reactivateEmpresaModal"
@@ -166,7 +168,7 @@
                               title="Reactivar">
                         <i class="fas fa-redo"></i>
                       </button>
-                  {% endif %}
+                      {% endif %}
                 {% endif %}
               </div>
             </td>
@@ -326,15 +328,15 @@ document.addEventListener('DOMContentLoaded', () => {
             showGlobalMessage(response.message, 'success');
             setTimeout(() => {
               $('#globalMessages .alert').alert('close');
-            }, 10000);
+            }, 2000);
             setTimeout(() => {
               location.reload();
-            }, 2500);
+            }, 1000);
           } else {
             showGlobalMessage(response.message || 'Ocurrió un error.', 'error');
             setTimeout(() => {
               $('#globalMessages .alert').alert('close');
-            }, 10000);
+            }, 2000);
           }
         },
         error: function() {
@@ -342,7 +344,7 @@ document.addEventListener('DOMContentLoaded', () => {
           showGlobalMessage('Ocurrió un error en el servidor.', 'error');
           setTimeout(() => {
             $('#globalMessages .alert').alert('close');
-          }, 10000);
+          }, 2000);
         }
       });
     });
@@ -421,7 +423,6 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 </script>
-
 
 <script>
   document.addEventListener('DOMContentLoaded', function () {

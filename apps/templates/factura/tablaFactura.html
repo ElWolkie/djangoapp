@@ -1,0 +1,166 @@
+{% extends 'layouts/base2.html' %}
+
+{% block title %}Listado de Facturas{% endblock title %}
+
+{% block stylesheets %}
+<link rel="stylesheet" href="/static/assets/css/styleForms.css" />
+<link rel="stylesheet" href="/static/assets/css/argon.css" />
+{% endblock stylesheets %}
+
+{% block content %}
+<div class="container mt-5">
+  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Lista de Facturas</h2>
+
+  {% if messages %}
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        {{ message }}
+      </div>
+    {% endfor %}
+  {% endif %}
+
+  <div class="row">
+    <div class="col-md-4">
+      <div class="input-group">
+        <div class="input-group-prepend">
+          <span class="input-group-text" style="background-color: #bcbcbc; border: none;">
+            <i class="fas fa-search text-warning"></i>
+          </span>
+        </div>
+        <input class="form-control" id="searchInput" type="text" placeholder="Buscar..." onkeyup="filterTable()">
+      </div>
+    </div>
+    <div class="col-md-4">
+      <a href="{% url 'factura_create' %}" class="btn btn-warning btn-square btn-sm my-2" title="Registrar Factura">+</a>
+    </div>
+  </div>
+
+  <br>
+  <table class="table table-striped text-gray-dark" id="facturasTable">
+    <thead class="text-darker">
+      <tr>
+        <th scope="col">Número</th>
+        <th scope="col">Cliente</th>
+        <th scope="col">Empresa</th>
+        <th scope="col">Total</th>
+        <th scope="col">Fecha</th>
+        <th scope="col">Estado</th>
+        <th scope="col">Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for factura in facturas %}
+      <tr>
+        <td>{{ factura.numeroFactura }}</td>
+        <td>{{ factura.idPersonaCedula|default:"N/A" }}</td>
+        <td>{{ factura.idEmpresa.nombreEmpresa|default:"N/A" }}</td>
+        <td>{{ factura.totalVenta }}</td>        
+        <td>{{ factura.fechaEmision }}</td>
+
+        <td>{{ factura.estado }}</td>
+        <td>
+          <button type="button" class="btn btn-info btn-sm" title="Ver Detalle" data-toggle="modal" data-target="#detalleFacturaModal" onclick="loadDetalleFactura({{ factura.pk }})">
+            <i class="fas fa-eye"></i>
+          </button>
+          <a href="{% url 'factura_edit' factura.pk %}" class="btn btn-primary btn-sm" title="Editar">
+            <i class="fas fa-edit"></i>
+          </a>
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="7" class="text-center">No hay facturas registradas.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Modal para mostrar los detalles de la factura -->
+<div class="modal fade" id="detalleFacturaModal" tabindex="-1" role="dialog" aria-labelledby="detalleFacturaModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="detalleFacturaModalLabel">Detalle de la Factura</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="table-responsive">
+          <table class="table table-sm table-striped table-hover" id="detalleFacturaTable">
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th>Cantidad</th>
+                <th>Precio Unitario</th>
+                <th>Subtotal</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Los datos se cargarán dinámicamente -->
+            </tbody>
+          </table>
+        </div>
+        <p id="detalleFacturaEmptyMessage" class="text-center text-muted" style="display: none;">No hay detalles disponibles para esta factura.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}
+
+{% block javascripts %}
+<script>
+  function filterTable() {
+    var input, filter, table, tr, td, i, j, txtValue;
+    input = document.getElementById("searchInput");
+    filter = input.value.toUpperCase();
+    table = document.getElementById("facturasTable");
+    tr = table.getElementsByTagName("tr");
+    for (i = 1; i < tr.length; i++) {
+      tr[i].style.display = "none";
+      td = tr[i].getElementsByTagName("td");
+      for (j = 0; j < td.length; j++) {
+        if (td[j]) {
+          txtValue = td[j].textContent || td[j].innerText;
+          if (txtValue.toUpperCase().indexOf(filter) > -1) {
+            tr[i].style.display = "";
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  function loadDetalleFactura(facturaId) {
+    const tableBody = document.querySelector('#detalleFacturaTable tbody');
+    const emptyMessage = document.getElementById('detalleFacturaEmptyMessage');
+
+    // Limpiar la tabla antes de cargar nuevos datos
+    tableBody.innerHTML = '';
+    emptyMessage.style.display = 'none';
+
+    // Obtener los detalles de la factura desde el contexto
+    const facturaDetalles = {{ facturas|safe }};
+    const detalles = facturaDetalles.find(factura => factura.pk === facturaId).detalles;
+
+    if (detalles && detalles.length > 0) {
+      detalles.forEach(detalle => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${detalle.descripcion}</td>
+          <td>${detalle.cantidad}</td>
+          <td>${detalle.precioUnitario}</td>
+          <td>${detalle.subtotal}</td>
+        `;
+        tableBody.appendChild(row);
+      });
+    } else {
+      emptyMessage.style.display = 'block';
+    }
+  }
+</script>
+{% endblock javascripts %}

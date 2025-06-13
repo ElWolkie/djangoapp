@@ -25,11 +25,6 @@
     font-size: 0.85em;
     padding: 0.5em 0.75em;
   }
-  .modal-dialog { max-width: 800px; }
-  .modal.fade.show {
-    display: block !important;
-    background-color: rgba(0,0,0,0.5);
-  }
   .table-hover tbody tr:hover {
     background-color: #f8f9fa;
   }
@@ -39,44 +34,34 @@
     scrollbar-width: thin;
     scrollbar-color: rgb(107,143,250) #f1f1f1;
   }
-  .table-responsive {
-  scrollbar-width: thin;
-  scrollbar-color:rgb(107, 143, 250) #f1f1f1;
-  }
-
   .table-responsive::-webkit-scrollbar {
     height: 8px;
   }
-
   .table-responsive::-webkit-scrollbar-track {
     background: #f1f1f1;
   }
-
   .table-responsive::-webkit-scrollbar-thumb {
-    background-color:rgb(81, 141, 245);
+    background-color: rgb(81, 141, 245);
     border-radius: 4px;
     border: 2px solid #f1f1f1;
   }
-   .pagination-container {
+  .pagination-container {
     margin-top: 1rem !important;
-}
-
-.pagination {
+  }
+  .pagination {
     --bs-pagination-padding-x: 0.75rem;
     --bs-pagination-padding-y: 0.375rem;
     --bs-pagination-font-size: 0.875rem;
-}
-
-.page-link {
+  }
+  .page-link {
     min-width: 32px;
     text-align: center;
     border-radius: 4px !important;
-}
-
-.page-item.active .page-link {
+  }
+  .page-item.active .page-link {
     background-color: #fb6340;
     border-color: #fb6340;
-}
+  }
 </style>
 {% endblock stylesheets %}
 
@@ -92,15 +77,15 @@
         <input class="form-control" id="searchInput" type="text" placeholder="Buscar por cargos, cédula, materia...">
       </div>
     </div>
-    <!-- Botón Nuevo -->
-    <div class="col-md-4 text-center">
-      {% if perms.home.add_honorario %}
-      <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#honorarioModal">
+    <!-- Botón Nuevo (redirección en lugar de modal) -->
+    <div class="col-md-4 text-end">
+      {% if perms.honorario.add_honorario %}
+      <a href="{% url 'honorario_modal' %}" class="btn btn-warning">
         <i class="fas fa-plus-circle me-1"></i> Nuevo Honorario
-      </button>
+      </a>
       {% endif %}
     </div>
-
+    <!-- Descargar PDF -->
     <div class="col-md-4 text-end">
       <a href="{% url 'reporte_honorarios_pdf' %}" class="btn btn-outline-danger btn-sm" target="_blank">
         <i class="fas fa-file-pdf"></i> Descargar PDF
@@ -146,8 +131,8 @@
             <th>Nombres</th>
             <th>Apellidos</th>
             <th>Materia</th>
-            <th>Horas</th>  
-            <th>MOnto</th>
+            <th>Horas</th>
+            <th>Monto</th>
             <th>Cohorte</th>
             <th>Estado</th>
             <th>Fecha</th>
@@ -188,7 +173,7 @@
                     <i class="fas fa-edit"></i>
                   </button>
                 {% endif %}
-                {% if honorario.estadoHonorario == "ACTIVO" and perms.home.delete_honorario %}
+                {% if honorario.estadoHonorario == "ACTIVO" and perms.honorario.delete_honorario %}
                   <button class="btn btn-outline-warning btn-sm"
                           data-bs-toggle="modal"
                           data-bs-target="#deleteHonorarioModal"
@@ -196,7 +181,7 @@
                     <i class="fas fa-user-slash"></i>
                   </button>
                 {% endif %}
-                {% if honorario.estadoHonorario == "INACTIVO" and perms.home.change_honorario %}
+                {% if honorario.estadoHonorario == "INACTIVO" and perms.honorario.change_honorario %}
                   <button class="btn btn-success btn-sm"
                           data-bs-toggle="modal"
                           data-bs-target="#reactivateHonorarioModal"
@@ -220,31 +205,10 @@
   </div>
 </div>
 
-{# ─── Modales ─── #}
+{# ─── Modales restantes ─── #}
 
-<!-- Registrar Honorario -->
-{% if perms.home.add_honorario %}
-<div class="modal fade" id="honorarioModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content">
-      <div class="modal-header bg-primary text-white">
-        <h5 class="modal-title text-white"><i class="fas fa-plus-circle me-2"></i> Nuevo Honorario</h5>
-        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
-          <i class="fas fa-times"></i>
-        </button>
-      </div>
-      <div class="modal-body" id="honorarioModalContent">
-        <div class="text-center py-4 text-muted">
-          Cargando formulario…
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-{% endif %}
-
-<!-- Editar Honorario -->
 {% if perms.home.change_honorario %}
+<!-- Editar Honorario -->
 <div class="modal fade" id="editHonorarioModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
@@ -264,8 +228,8 @@
 </div>
 {% endif %}
 
-<!-- Desactivar Honorario -->
 {% if perms.home.delete_honorario %}
+<!-- Desactivar Honorario -->
 <div class="modal fade" id="deleteHonorarioModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -288,8 +252,8 @@
 </div>
 {% endif %}
 
-<!-- Reactivar Honorario -->
 {% if perms.home.change_honorario %}
+<!-- Reactivar Honorario -->
 <div class="modal fade" id="reactivateHonorarioModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -320,15 +284,7 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-  // Helper para cargar modales
-  const loadModal = (modalId, urlFn, contentSel) => {
-    $(modalId).on('show.bs.modal', e => {
-      $(contentSel).html('<div class="text-center py-4"><div class="spinner-border text-primary"></div></div>');
-      $.get(urlFn(e)).done(html => $(contentSel).html(html));
-    });
-  };
-
-  // Configurar acciones de desactivación/reactivación
+  // Configurar modales de editar, desactivar y reactivar
   $('#deleteHonorarioModal').on('show.bs.modal', function(e) {
     const button = $(e.relatedTarget);
     $('#deleteHonorarioForm').attr('action', button.data('url'));
@@ -339,54 +295,52 @@ document.addEventListener('DOMContentLoaded', () => {
     $('#reactivateHonorarioForm').attr('action', button.data('url'));
   });
 
-  // Cargar modales principales
-  {% if perms.home.add_honorario %}
-  loadModal('#honorarioModal', () => "{% url 'honorario_modal' %}", '#honorarioModalContent');
-  {% endif %}
+  $('#editHonorarioModal').on('show.bs.modal', e => {
+    $('#editHonorarioContent').html('<div class="text-center py-4"><div class="spinner-border text-primary"></div></div>');
+    $.get($(e.relatedTarget).data('url')).done(html => $('#editHonorarioContent').html(html));
+  });
 
-  {% if perms.home.change_honorario %}
-  loadModal('#editHonorarioModal', e => $(e.relatedTarget).data('url'), '#editHonorarioContent');
-  {% endif %}
-
-  // Manejar submits
-  const handleFormSubmit = (formSelector, modalId) => {
-    $(document).on('submit', formSelector, function(e) {
-      e.preventDefault();
-      const $form = $(this);
-      
-      if (!highlightInvalidInputs(formSelector)) return false;
-
-      $.ajax({
-        url: $form.attr('action'),
-        method: 'POST',
-        data: $form.serialize(),
-        success: (response) => {
-          if(response.success) {
-            $(modalId).modal('hide');
-            showGlobalMessage(response.message, 'success');
-            setTimeout(() => location.reload(), 1500);
-          } else {
-            handleFormErrors(response.errors, modalId);
-          }
-        },
-        error: () => Swal.fire('Error', 'Error de conexión', 'error')
-      });
+  // Manejar submit de edición
+  $(document).on('submit', '#editHonorarioForm', function(e) {
+    e.preventDefault();
+    const $form = $(this);
+    $.ajax({
+      url: $form.attr('action'),
+      method: 'POST',
+      data: $form.serialize(),
+      success: (response) => {
+        if(response.success) {
+          $('#editHonorarioModal').modal('hide');
+          showGlobalMessage(response.message, 'success');
+          setTimeout(() => location.reload(), 1500);
+        } else {
+          handleFormErrors(response.errors, '#editHonorarioModal');
+        }
+      },
+      error: () => Swal.fire('Error', 'Error de conexión', 'error')
     });
-  };
+  });
 
-  // Registrar handlers
-  handleFormSubmit('#honorarioForm', '#honorarioModal');
-  handleFormSubmit('#editHonorarioForm', '#editHonorarioModal');
-
-  // Función de validación
+  // Función de validación (puedes reutilizar tu implementación)
   const highlightInvalidInputs = (formSelector) => {
-    const form = document.querySelector(formSelector);
-    let valid = true;
-    // ... (misma implementación que antes)
-    return valid;
+    // ...
+    return true;
   };
 
-  // Manejar acciones CRUD
+  // Función para mostrar mensajes globales
+  window.showGlobalMessage = (msg, type) => {
+    const $div = $(`<div class="alert alert-${type} alert-dismissible fade show" role="alert">${msg}
+      <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;"><i class="fas fa-times"></i></button>
+    </div>`);
+    $('#globalMessages').append($div);
+  };
+
+  // Función de errores
+  window.handleFormErrors = (errors, modalId) => {
+    // tu lógica para resaltar errores en inputs
+  };
+
+  // Manejar acciones CRUD con SweetAlert
   window.manageHonorario = (id, action) => {
     const isDelete = action === 'delete';
     const url = isDelete 
@@ -404,19 +358,15 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }).then((result) => {
       if (result.isConfirmed) {
-        $.ajax({
-          url: url,
-          method: 'POST',
-          data: { csrfmiddlewaretoken: '{{ csrf_token }}' },
-          success: (response) => {
+        $.post(url, { csrfmiddlewaretoken: '{{ csrf_token }}' })
+          .done(response => {
             if(response.success) {
               showGlobalMessage(response.message, 'success');
               setTimeout(() => location.reload(), 1500);
             } else {
               Swal.fire('Error', response.message, 'error');
             }
-          }
-        });
+          });
       }
     });
   };
@@ -430,90 +380,87 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
-// Scroll horizontal con la rueda del ratón (shift no necesario)
+// Scroll horizontal con la rueda del ratón
 const tableWrapper = document.querySelector('.table-responsive');
-
 if (tableWrapper) {
   tableWrapper.addEventListener('wheel', function (e) {
     if (e.deltaY !== 0) {
-      e.preventDefault(); // evita scroll vertical
-      tableWrapper.scrollLeft += e.deltaY; // desplaza horizontalmente
+      e.preventDefault();
+      tableWrapper.scrollLeft += e.deltaY;
     }
   });
 }
 </script>
 
 <script>
-  document.addEventListener('DOMContentLoaded', function () {
-    const table = document.getElementById('honorariosTable');
-    const paginationContainer = document.createElement('div');
-    paginationContainer.className = 'pagination-container mt-3';
-    table.parentNode.insertBefore(paginationContainer, table.nextSibling);
+document.addEventListener('DOMContentLoaded', function () {
+  const table = document.getElementById('honorariosTable');
+  const paginationContainer = document.createElement('div');
+  paginationContainer.className = 'pagination-container mt-3';
+  table.parentNode.insertBefore(paginationContainer, table.nextSibling);
 
-    const pagination = document.createElement('ul');
-    pagination.className = 'pagination justify-content-center';
-    paginationContainer.appendChild(pagination);
+  const pagination = document.createElement('ul');
+  pagination.className = 'pagination justify-content-center';
+  paginationContainer.appendChild(pagination);
 
-    const rowsPerPage = 10;
-    let currentPage = 1;
+  const rowsPerPage = 10;
+  let currentPage = 1;
 
-    function displayRows() {
-        const rows = table.getElementsByTagName('tr');
-        const start = (currentPage - 1) * rowsPerPage + 1;
-        const end = start + rowsPerPage;
+  function displayRows() {
+    const rows = table.getElementsByTagName('tr');
+    const start = (currentPage - 1) * rowsPerPage + 1;
+    const end = start + rowsPerPage;
+    for (let i = 1; i < rows.length; i++) {
+      rows[i].style.display = i >= start && i < end ? '' : 'none';
+    }
+  }
 
-        for (let i = 1; i < rows.length; i++) {
-            rows[i].style.display = i >= start && i < end ? '' : 'none';
-        }
+  function setupPagination() {
+    const rows = table.getElementsByTagName('tr');
+    const totalPages = Math.ceil((rows.length - 1) / rowsPerPage);
+    pagination.innerHTML = '';
+
+    // Anterior
+    const prevLi = document.createElement('li');
+    prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+    prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Anterior">&laquo;</a>`;
+    prevLi.addEventListener('click', e => {
+      e.preventDefault();
+      if (currentPage > 1) currentPage--;
+      displayRows();
+      setupPagination();
+    });
+    pagination.appendChild(prevLi);
+
+    // Páginas
+    for (let i = 1; i <= totalPages; i++) {
+      const li = document.createElement('li');
+      li.className = `page-item ${i === currentPage ? 'active' : ''}`;
+      li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+      li.addEventListener('click', e => {
+        e.preventDefault();
+        currentPage = i;
+        displayRows();
+        setupPagination();
+      });
+      pagination.appendChild(li);
     }
 
-    function setupPagination() {
-        const rows = table.getElementsByTagName('tr');
-        const totalPages = Math.ceil((rows.length - 1) / rowsPerPage);
+    // Siguiente
+    const nextLi = document.createElement('li');
+    nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+    nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Siguiente">&raquo;</a>`;
+    nextLi.addEventListener('click', e => {
+      e.preventDefault();
+      if (currentPage < totalPages) currentPage++;
+      displayRows();
+      setupPagination();
+    });
+    pagination.appendChild(nextLi);
+  }
 
-        pagination.innerHTML = '';
-
-        // Botón Anterior
-        const prevLi = document.createElement('li');
-        prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
-        prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Anterior">&laquo;</a>`;
-        prevLi.addEventListener('click', (e) => {
-            e.preventDefault();
-            if (currentPage > 1) currentPage--;
-            displayRows();
-            setupPagination();
-        });
-        pagination.appendChild(prevLi);
-
-        // Botones de Páginas
-        for (let i = 1; i <= totalPages; i++) {
-            const li = document.createElement('li');
-            li.className = `page-item ${i === currentPage ? 'active' : ''}`;
-            li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
-            li.addEventListener('click', (e) => {
-                e.preventDefault();
-                currentPage = i;
-                displayRows();
-                setupPagination();
-            });
-            pagination.appendChild(li);
-        }
-
-        // Botón Siguiente
-        const nextLi = document.createElement('li');
-        nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
-        nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Siguiente">&raquo;</a>`;
-        nextLi.addEventListener('click', (e) => {
-            e.preventDefault();
-            if (currentPage < totalPages) currentPage++;
-            displayRows();
-            setupPagination();
-        });
-        pagination.appendChild(nextLi);
-    }
-
-    displayRows();
-    setupPagination();
+  displayRows();
+  setupPagination();
 });
 </script>
 {% endblock javascripts %}

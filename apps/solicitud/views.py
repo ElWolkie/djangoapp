@@ -11,13 +11,14 @@ from apps.persona.models import Personas
 from apps.home.models import Tramite, Servicio
 from apps.home.models import Configuracion
 from apps.solicitud.models import Solicitud  # Usamos Solicitud en vez de Honorario
+from apps.requisitoCliente.models import RequisitoCliente 
+from apps.home.models import Requisito
 #Libreria para generar PDF
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import Table, TableStyle
 from reportlab.lib import colors
 import os
-
 #SOLICITUD
 @login_required(login_url='login')
 @permission_required("solicitud.add_solicitud", raise_exception=True)
@@ -25,11 +26,13 @@ def solicitud_modal(request):
     if request.method == 'POST':
         form = SolicitudForm(request.POST)
         if form.is_valid():
-            form.save()
+            solicitud = form.save()  # Guardar la solicitud y obtener la instancia
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
-            messages.success(request, 'Registro exitoso.')
-            return redirect('tabla_solicitud')
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Registro exitoso.',
+                    'redirect_url': reverse('factura_create') + f"?solicitud={solicitud.montoTotal}&id={solicitud.idPersona.idPersona}"
+                })
         else:
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 errors = {field: error[0] for field, error in form.errors.items()}
@@ -200,6 +203,37 @@ def reporte_solicitudes_pdf(request):
     p.save()
     return response
 
+@login_required
+def requisitos_solicitud_modal(request, pk):
+    solicitud = get_object_or_404(Solicitud, pk=pk)
+    requisitos = Requisito.objects.all()
+    entregados = RequisitoCliente.objects.filter(idSolicitud=solicitud, entregado=True).values_list('idRequisito_id', flat=True)
+    context = {
+        'solicitud': solicitud,
+        'requisitos': requisitos,
+        'requisitos_entregados': list(entregados),
+    }
+    return render(request, 'requisitoCliente/requisitoCliente.html', context)
+
+@login_required
+def guardar_requisitos_solicitud(request, pk):
+    solicitud = get_object_or_404(Solicitud, pk=pk)
+    if request.method == 'POST':
+        entregados = request.POST.getlist('requisitos_entregados')
+        # Marca todos como no entregados
+        RequisitoCliente.objects.filter(idSolicitud=solicitud).update(entregado=False)
+        # Marca como entregados los seleccionados
+        for id_req in entregados:
+            rc, created = RequisitoCliente.objects.get_or_create(
+                idSolicitud=solicitud,
+                idRequisito_id=id_req,
+                defaults={'entregado': True}
+            )
+            if not created:
+                rc.entregado = True
+                rc.save()
+        return JsonResponse({'success': True, 'message': 'Requisitos actualizados correctamente.'})
+    return JsonResponse({'success': False, 'message': 'Método no permitido.'}, status=405)
 
 @login_required(login_url="/login/")
 def pages(request):
