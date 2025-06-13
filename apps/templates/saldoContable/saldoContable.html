@@ -286,6 +286,51 @@
     const saldoFinalInput = document.getElementById('saldo_final');
     let saldosExistentes = {};
 
+    // --- Filtro de búsqueda para selects ---
+    function addSelectSearch(selectId, placeholder) {
+      const select = document.getElementById(selectId);
+      if (!select) return;
+      // Crear input de búsqueda
+      const searchInput = document.createElement('input');
+      searchInput.type = 'text';
+      searchInput.className = 'form-control mb-2';
+      searchInput.placeholder = placeholder;
+      select.parentNode.insertBefore(searchInput, select);
+
+      // Guardar opciones originales
+      const originalOptions = Array.from(select.options).map(opt => ({
+        value: opt.value,
+        text: opt.text,
+        disabled: opt.disabled,
+        selected: opt.selected
+      }));
+
+      searchInput.addEventListener('input', function () {
+        const filter = this.value.toLowerCase();
+        // Limpiar opciones
+        select.innerHTML = '';
+        // Filtrar y volver a agregar opciones
+        originalOptions.forEach(opt => {
+          if (
+            !filter ||
+            opt.text.toLowerCase().includes(filter)
+          ) {
+            const option = document.createElement('option');
+            option.value = opt.value;
+            option.text = opt.text;
+            option.disabled = opt.disabled;
+            option.selected = opt.selected;
+            select.appendChild(option);
+          }
+        });
+      });
+    }
+
+    addSelectSearch('id_id_periodo', 'Buscar periodo...');
+    addSelectSearch('id_plan_cuenta', 'Buscar cuenta...');
+
+    // --- Fin filtro de búsqueda para selects ---
+
     periodoSelect.addEventListener('change', function() {
       const periodoId = this.value;
       if (!periodoId) return;
@@ -311,7 +356,9 @@
         if (option.value && saldosExistentes[option.value]) {
           option.disabled = true;
           option.classList.add('text-muted');
-          option.textContent += ' (Ya registrado)';
+          if (!option.textContent.includes('Ya registrado')) {
+            option.textContent += ' (Ya registrado)';
+          }
         }
       });
       if (planCuentaSelect.value &&
