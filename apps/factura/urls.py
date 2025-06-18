@@ -8,7 +8,10 @@ urlpatterns = [
     path('facturas/nueva/', views.factura_create, name='factura_create'),
     path('facturas/editar/<int:pk>/', views.factura_edit, name='factura_edit'),
     path('facturas/eliminar/<int:pk>/', views.factura_delete, name='factura_delete'),
-
+    #Reporte facturas generales
+    path('facturas/reporteFacturas', views.reporte_facturas_pdf, name='reporte_facturas_pdf'),
+    #Reporte factura individual
+    path('facturas/reporteFactura/<int:pk>/', views.reporte_factura_pdf, name='reporte_factura_pdf'),
     # Detalles de Factura
     path('factura/<int:factura_id>/detalles/', views.factura_detalle_list, name='factura_detalle_list'),
     path('facturas/<int:factura_id>/detalles/nuevo/', views.factura_detalle_create, name='factura_detalle_create'),
