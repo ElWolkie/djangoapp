@@ -328,10 +328,6 @@ class Configuracion(models.Model):
     moneda = models.ForeignKey(Moneda, on_delete=models.PROTECT, verbose_name="Moneda Principal")
     fechaConfiguracion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Configuración")
 
-    def clean(self):
-        if Configuracion.objects.filter(nombreInstitucion__iexact=self.nombreInstitucion).exists():
-            raise ValidationError("El nombre de la Institución ya existe.")
-
     class Meta:
         verbose_name = "Configuración Institucional"
         verbose_name_plural = "Configuraciones Institucionales"

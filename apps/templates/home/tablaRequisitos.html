@@ -73,7 +73,7 @@
     </div>
 
     <div class="col-md-4 text-end">
-      <a href="{% url 'reporte_requisitos_pdf' %}" class="btn btn-outline-danger btn-sm" target="_blank">
+      <a href="{% url 'reporte_requisitos_pdf' %}" class="btn btn-outline-danger" target="_blank">
         <i class="fas fa-file-pdf"></i> Descargar PDF
       </a>    
     </div>
@@ -299,7 +299,9 @@ document.addEventListener("DOMContentLoaded", function() {
     $('#globalMessages').prepend(`
       <div class="alert alert-${type} alert-dismissible fade show" role="alert">
         ${text}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+            <i class="fas fa-times"></i>
+          </button>
       </div>`);
   }
 

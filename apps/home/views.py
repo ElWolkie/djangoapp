@@ -1,3 +1,4 @@
+from datetime import datetime
 import os
 import requests
 from django import forms
@@ -688,71 +689,191 @@ def tabla_formaciones(request):
 
 @login_required(login_url='login')
 def reporte_formaciones_pdf(request):
+    # Manejo de parámetros de paginación
+    start = int(request.GET.get('start', 1))
+    end = int(request.GET.get('end', 0))
+    formaciones = list(Formacion.objects.select_related('idTF').all())
+    
+    if end == 0 or end > len(formaciones):
+        end = len(formaciones)
+    formaciones = formaciones[start-1:end]
+
+    # Configuración inicial del PDF
     response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = 'attachment; filename="reporte_formaciones.pdf"'
+    response['Content-Disposition'] = 'inline; filename="reporte_formaciones.pdf"'
     p = canvas.Canvas(response, pagesize=letter)
     width, height = letter
-    logo_width, logo_height, logo_margin = 100, 100, 15
+    logo_width, logo_height, logo_margin = 80, 80, 15  # Reducir tamaño del logo
 
+    # Obtener configuración institucional
     config = Configuracion.objects.order_by('-fechaConfiguracion').first()
     logo_path = config.logo.path if config and config.logo else None
     firma_path = config.firma.path if config and config.firma else None
     nombre_institucion = config.nombreInstitucion if config else "Institución"
     rif_institucion = config.rif if config else ""
+    direccion1 = "AV. ALBERTO RAVELL CON AV. INTERCOMUNAL JOSE ANTONIO PAEZ"  # Dirección fija
+    direccion2 = "LOCAL UPTYAB, INDEPENDENCIA – EDO YARACUY"  # Dirección fija
 
-    safe_left = logo_margin + logo_width
-    safe_right = width - logo_margin - logo_width
+    # Definir márgenes seguros
+    min_margin = 30
+    safe_left = min_margin
+    safe_right = width - min_margin
     safe_width = safe_right - safe_left
-    safe_center = safe_left + safe_width / 2
+    safe_center = width / 2
 
-    if logo_path and os.path.exists(logo_path):
-        p.drawImage(logo_path, width - logo_width - logo_margin, height - logo_height - logo_margin, width=logo_width, height=logo_height, preserveAspectRatio=True, mask='auto')
+    # Funciones para encabezado y pie de página
+    def draw_header():
+        # Logo a la derecha
+        if logo_path and os.path.exists(logo_path):
+            p.drawImage(
+                logo_path,
+                width - logo_width - logo_margin,
+                height - logo_height - logo_margin,
+                width=logo_width,
+                height=logo_height,
+                preserveAspectRatio=True,
+                mask='auto'
+            )
+        
+        # Texto institucional a la izquierda
+        text_top = height - logo_margin - 15
+        p.setFont("Helvetica-Bold", 10)
+        p.drawString(min_margin, text_top, nombre_institucion)
+        p.drawString(min_margin, text_top - 15, f"RIF: {rif_institucion}")
+        p.drawString(min_margin, text_top - 30, direccion1)
+        p.drawString(min_margin, text_top - 45, direccion2)
+        
+        # Título centrado
+        p.setFont("Helvetica-Bold", 11)
+        p.drawCentredString(safe_center, text_top - 85, "REPORTE DE FORMACIONES")
 
-    text_top = height - logo_margin - 22
-    p.setFont("Helvetica-Bold", 12)
-    p.drawCentredString(safe_center, text_top, nombre_institucion)
-    p.drawCentredString(safe_center, text_top - 20, f"RIF: {rif_institucion}")
-    p.drawCentredString(safe_center, text_top - 40, "REPORTE DE FORMACIONES")
+    def draw_footer():
+        # Firma centrada en el pie de página
+        if firma_path and os.path.exists(firma_path):
+            p.drawImage(
+                firma_path,
+                width/2 - 50,
+                60,
+                width=100,
+                height=50,
+                preserveAspectRatio=True,
+                mask='auto'
+            )
+            p.setFont("Helvetica-Oblique", 9)
+            p.drawCentredString(width/2, 35, "Firma autorizada")
+        
+        # Fecha de generación
+        p.setFont("Helvetica", 8)
+        fecha_generacion = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        p.drawString(min_margin, 20, f"Generado el: {fecha_generacion}")
 
-    if firma_path and os.path.exists(firma_path):
-        p.drawImage(firma_path, width/2 - 60, 60, width=120, height=60, preserveAspectRatio=True, mask='auto')
-        p.setFont("Helvetica-Oblique", 10)
-        p.drawCentredString(width/2, 25, "Firma autorizada")
-
-    formaciones = Formacion.objects.select_related('idTF').all()
-    data = [["ID", "Tipo", "Nombre", "Duración", "Valor", "Estado", "Fecha"]]
+    # Preparar datos de la tabla
+    headers = ["ID", "TIPO", "NOMBRE", "DURACIÓN", "VALOR", "ESTADO", "FECHA"]
+    data = [headers]
+    
     for f in formaciones:
         data.append([
             str(f.idFormacion),
-            f.idTF.nombreTipoFormacion if f.idTF else "",
+            f.idTF.nombreTipoFormacion if f.idTF else "Sin tipo",
             f.nombreFormacion,
             f.duracion,
-            f.valorFormacion, 
+            f"${f.valorFormacion:,.2f}" if f.valorFormacion else "-",
             f.estadoFormacion,
             f.fechaFormacion.strftime("%d/%m/%Y")
         ])
-    col_widths = [40, 100, 120, 60, 60, 60, 60]
+    
+    # Configuración de la tabla con espacios aumentados
+    col_widths = [35, 90, 180, 70, 60, 50, 60]  # Anchos ajustados
     table_width = sum(col_widths)
-    x = safe_left + (safe_width - table_width) / 2
-    y = height - logo_margin - 100
+    
+    # Espaciado vertical aumentado
+    header_height = 150  # Más espacio para encabezado
+    footer_height = 100  # Más espacio para pie de página
+    row_height = 25  # Aumentar altura de filas
+    cell_padding = 5  # Padding interno en celdas
+    
+    # Calcular espacio disponible
+    available_height = height - header_height - footer_height
+    max_rows_per_page = max(1, int(available_height // row_height))
+    total_rows = len(data) - 1
+    page = 0
 
-    table = Table(data, colWidths=col_widths)
-    table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
-        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0,0), (-1,0), 12),
-        ('BOTTOMPADDING', (0,0), (-1,0), 10),
-        ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
-        ('GRID', (0,0), (-1,-1), 1, colors.black),
-    ]))
-    table.wrapOn(p, width, height)
-    table.drawOn(p, x, y - 25 * len(data))
-    p.showPage()
+    # Generar páginas
+    for start_row in range(0, total_rows, max_rows_per_page):
+        end_row = min(start_row + max_rows_per_page, total_rows)
+        page_data = [data[0]] + data[start_row + 1:end_row + 1]
+        
+        if page > 0:
+            p.showPage()
+        
+        draw_header()
+        y_position = height - header_height
+        
+        # Centrar tabla horizontalmente
+        table_x = safe_left + (safe_width - table_width) / 2
+        table = Table(page_data, colWidths=col_widths, rowHeights=[row_height]*len(page_data))
+        
+        # Estilo de la tabla con más espacio
+        table_style = TableStyle([
+            # Encabezado
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0,0), (-1,0), 9),  # Tamaño reducido
+            ('ALIGN', (0,0), (-1,0), 'CENTER'),
+            ('VALIGN', (0,0), (-1,0), 'MIDDLE'),
+            ('BOTTOMPADDING', (0,0), (-1,0), cell_padding),
+            
+            # Cuerpo de la tabla
+            ('FONTSIZE', (0,1), (-1,-1), 8),  # Tamaño reducido
+            ('ALIGN', (0,1), (-1,-1), 'CENTER'),
+            ('ALIGN', (1,1), (2,-1), 'LEFT'),  # Alinear texto a izquierda
+            ('VALIGN', (0,1), (-1,-1), 'MIDDLE'),
+            ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.lightgrey),
+            ('BOX', (0,0), (-1,-1), 0.5, colors.black),
+            ('TOPPADDING', (0,1), (-1,-1), cell_padding),
+            ('BOTTOMPADDING', (0,1), (-1,-1), cell_padding),
+        ])
+        
+        # Resaltar valores monetarios
+        for i in range(1, len(page_data)):
+            table_style.add('TEXTCOLOR', (4,i), (4,i), colors.HexColor("#007bff"))  # Azul para valores
+        
+         # RESALTAR ESTADOS
+        for i in range(1, len(page_data)):
+            # Obtener valor del estado (columna 5)
+            estado_valor = page_data[i][5].strip().lower()
+            
+            # Determinar color según estado
+            if estado_valor == "activo":
+                color = colors.HexColor("#28a745")  # Verde
+            elif estado_valor == "inactivo":
+                color = colors.HexColor("#dc3545")  # Rojo
+            else:
+                color = colors.black  # Negro para otros valores
+            
+            # Aplicar color a la celda de estado (columna 3)
+            table_style.add('TEXTCOLOR', (5, i), (5, i), color)
+        
+        table.setStyle(table_style)
+        table.wrapOn(p, width, height)
+        table.drawOn(p, table_x, y_position - row_height * len(page_data) - 10)
+        
+        # Información de paginación
+        p.setFont("Helvetica", 8)
+        pagination_text = f"Página {page + 1} - Registros {start_row + 1} a {end_row} de {total_rows}"
+        p.drawCentredString(
+            safe_center, 
+            y_position - row_height * len(page_data) - 25,
+            pagination_text
+        )
+        
+        draw_footer()
+        page += 1
+
     p.save()
     return response
-
 
 # Tipo de formación
 @login_required(login_url='login')
@@ -832,39 +953,88 @@ def tabla_tipoFormacion(request):
 
 @login_required(login_url='login')
 def reporte_tipo_formacion_pdf(request):
+    # Manejo de parámetros de paginación
+    start = int(request.GET.get('start', 1))
+    end = int(request.GET.get('end', 0))
+    tipos = list(TipoFormacion.objects.all())
+    
+    if end == 0 or end > len(tipos):
+        end = len(tipos)
+    tipos = tipos[start-1:end]
+
+    # Configuración inicial del PDF
     response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = 'attachment; filename="reporte_tipo_formacion.pdf"'
+    response['Content-Disposition'] = 'inline; filename="reporte_tipos_formacion.pdf"'
     p = canvas.Canvas(response, pagesize=letter)
     width, height = letter
-    logo_width, logo_height, logo_margin = 100, 100, 15
+    logo_width, logo_height, logo_margin = 80, 80, 15  # Tamaño reducido del logo
 
+    # Obtener configuración institucional
     config = Configuracion.objects.order_by('-fechaConfiguracion').first()
     logo_path = config.logo.path if config and config.logo else None
     firma_path = config.firma.path if config and config.firma else None
     nombre_institucion = config.nombreInstitucion if config else "Institución"
     rif_institucion = config.rif if config else ""
+    direccion1 = "AV. ALBERTO RAVELL CON AV. INTERCOMUNAL JOSE ANTONIO PAEZ"  # Dirección fija
+    direccion2 = "LOCAL UPTYAB, INDEPENDENCIA – EDO YARACUY"  # Dirección fija
 
-    safe_left = logo_margin + logo_width
-    safe_right = width - logo_margin - logo_width
+    # Definir márgenes seguros
+    min_margin = 30
+    safe_left = min_margin
+    safe_right = width - min_margin
     safe_width = safe_right - safe_left
-    safe_center = safe_left + safe_width / 2
+    safe_center = width / 2
 
-    if logo_path and os.path.exists(logo_path):
-        p.drawImage(logo_path, width - logo_width - logo_margin, height - logo_height - logo_margin, width=logo_width, height=logo_height, preserveAspectRatio=True, mask='auto')
+    # Funciones para encabezado y pie de página
+    def draw_header():
+        # Logo a la derecha
+        if logo_path and os.path.exists(logo_path):
+            p.drawImage(
+                logo_path,
+                width - logo_width - logo_margin,
+                height - logo_height - logo_margin,
+                width=logo_width,
+                height=logo_height,
+                preserveAspectRatio=True,
+                mask='auto'
+            )
+        
+        # Texto institucional a la izquierda
+        text_top = height - logo_margin - 15
+        p.setFont("Helvetica-Bold", 10)
+        p.drawString(min_margin, text_top, nombre_institucion)
+        p.drawString(min_margin, text_top - 15, f"RIF: {rif_institucion}")
+        p.drawString(min_margin, text_top - 30, direccion1)
+        p.drawString(min_margin, text_top - 45, direccion2)
+        
+        # Título centrado
+        p.setFont("Helvetica-Bold", 11)
+        p.drawCentredString(safe_center, text_top - 85, "REPORTE DE TIPOS DE FORMACIÓN")
 
-    text_top = height - logo_margin - 22
-    p.setFont("Helvetica-Bold", 12)
-    p.drawCentredString(safe_center, text_top, nombre_institucion)
-    p.drawCentredString(safe_center, text_top - 20, f"RIF: {rif_institucion}")
-    p.drawCentredString(safe_center, text_top - 40, "REPORTE DE TIPOS DE FORMACIÓN")
+    def draw_footer():
+        # Firma centrada en el pie de página
+        if firma_path and os.path.exists(firma_path):
+            p.drawImage(
+                firma_path,
+                width/2 - 50,
+                60,
+                width=100,
+                height=50,
+                preserveAspectRatio=True,
+                mask='auto'
+            )
+            p.setFont("Helvetica-Oblique", 9)
+            p.drawCentredString(width/2, 35, "Firma autorizada")
+        
+        # Fecha de generación
+        p.setFont("Helvetica", 8)
+        fecha_generacion = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        p.drawString(min_margin, 20, f"Generado el: {fecha_generacion}")
 
-    if firma_path and os.path.exists(firma_path):
-        p.drawImage(firma_path, width/2 - 60, 60, width=120, height=60, preserveAspectRatio=True, mask='auto')
-        p.setFont("Helvetica-Oblique", 10)
-        p.drawCentredString(width/2, 25, "Firma autorizada")
-
-    tipos = TipoFormacion.objects.all()
-    data = [["ID", "Nombre", "Estado", "Fecha"]]
+    # Preparar datos de la tabla
+    headers = ["ID", "NOMBRE", "ESTADO", "FECHA"]
+    data = [headers]
+    
     for t in tipos:
         data.append([
             str(t.idTF),
@@ -872,27 +1042,95 @@ def reporte_tipo_formacion_pdf(request):
             t.estadoTipoFormacion,
             t.fechaTipoFormacion.strftime("%d/%m/%Y")
         ])
-    col_widths = [40, 120, 60, 60]
+    
+    # Configuración de la tabla con espacios aumentados
+    col_widths = [40, 280, 80, 80]  # Anchos ajustados (más espacio para nombres)
     table_width = sum(col_widths)
-    x = safe_left + (safe_width - table_width) / 2
-    y = height - logo_margin - 100
+    
+    # Espaciado vertical aumentado
+    header_height = 150  # Más espacio para encabezado
+    footer_height = 100  # Más espacio para pie de página
+    row_height = 25  # Aumentar altura de filas
+    cell_padding = 5  # Padding interno en celdas
+    
+    # Calcular espacio disponible
+    available_height = height - header_height - footer_height
+    max_rows_per_page = max(1, int(available_height // row_height))
+    total_rows = len(data) - 1
+    page = 0
 
-    table = Table(data, colWidths=col_widths)
-    table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
-        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0,0), (-1,0), 12),
-        ('BOTTOMPADDING', (0,0), (-1,0), 10),
-        ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
-        ('GRID', (0,0), (-1,-1), 1, colors.black),
-    ]))
-    table.wrapOn(p, width, height)
-    table.drawOn(p, x, y - 25 * len(data))
-    p.showPage()
+    # Generar páginas
+    for start_row in range(0, total_rows, max_rows_per_page):
+        end_row = min(start_row + max_rows_per_page, total_rows)
+        page_data = [data[0]] + data[start_row + 1:end_row + 1]
+        
+        if page > 0:
+            p.showPage()
+        
+        draw_header()
+        y_position = height - header_height
+        
+        # Centrar tabla horizontalmente
+        table_x = safe_left + (safe_width - table_width) / 2
+        table = Table(page_data, colWidths=col_widths, rowHeights=[row_height]*len(page_data))
+        
+        # Estilo de la tabla con más espacio
+        table_style = TableStyle([
+            # Encabezado
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0,0), (-1,0), 9),  # Tamaño reducido
+            ('ALIGN', (0,0), (-1,0), 'CENTER'),
+            ('VALIGN', (0,0), (-1,0), 'MIDDLE'),
+            ('BOTTOMPADDING', (0,0), (-1,0), cell_padding),
+            
+            # Cuerpo de la tabla
+            ('FONTSIZE', (0,1), (-1,-1), 8),  # Tamaño reducido
+            ('ALIGN', (0,1), (-1,-1), 'CENTER'),
+            ('ALIGN', (1,1), (1,-1), 'CENTER'),  # Alinear nombre a izquierda
+            ('VALIGN', (0,1), (-1,-1), 'MIDDLE'),
+            ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.lightgrey),
+            ('BOX', (0,0), (-1,-1), 0.5, colors.black),
+            ('TOPPADDING', (0,1), (-1,-1), cell_padding),
+            ('BOTTOMPADDING', (0,1), (-1,-1), cell_padding),
+        ])
+        
+         # RESALTAR ESTADOS
+        for i in range(1, len(page_data)):
+            # Obtener valor del estado (columna 2)
+            estado_valor = page_data[i][2].strip().lower()
+            
+            # Determinar color según estado
+            if estado_valor == "activo":
+                color = colors.HexColor("#28a745")  # Verde
+            elif estado_valor == "inactivo":
+                color = colors.HexColor("#dc3545")  # Rojo
+            else:
+                color = colors.black  # Negro para otros valores
+            
+            # Aplicar color a la celda de estado (columna 3)
+            table_style.add('TEXTCOLOR', (2, i), (2, i), color)
+        
+        table.setStyle(table_style)
+        table.wrapOn(p, width, height)
+        table.drawOn(p, table_x, y_position - row_height * len(page_data) - 10)
+        
+        # Información de paginación
+        p.setFont("Helvetica", 8)
+        pagination_text = f"Página {page + 1} - Registros {start_row + 1} a {end_row} de {total_rows}"
+        p.drawCentredString(
+            safe_center, 
+            y_position - row_height * len(page_data) - 25,
+            pagination_text
+        )
+        
+        draw_footer()
+        page += 1
+
     p.save()
-    return response    
+    return response   
 
 
 #MATERIA
@@ -985,67 +1223,183 @@ def tabla_materias(request):
 
 @login_required(login_url='login')
 def reporte_materias_pdf(request):
+    # Manejo de parámetros de paginación
+    start = int(request.GET.get('start', 1))
+    end = int(request.GET.get('end', 0))
+    materias = list(Materia.objects.select_related('idFormacion').all())
+    
+    if end == 0 or end > len(materias):
+        end = len(materias)
+    materias = materias[start-1:end]
+
+    # Configuración inicial del PDF
     response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = 'attachment; filename="reporte_materias.pdf"'
+    response['Content-Disposition'] = 'inline; filename="reporte_materias.pdf"'
     p = canvas.Canvas(response, pagesize=letter)
     width, height = letter
-    logo_width, logo_height, logo_margin = 100, 100, 15
+    logo_width, logo_height, logo_margin = 80, 80, 15  # Tamaño reducido del logo
 
+    # Obtener configuración institucional
     config = Configuracion.objects.order_by('-fechaConfiguracion').first()
     logo_path = config.logo.path if config and config.logo else None
     firma_path = config.firma.path if config and config.firma else None
     nombre_institucion = config.nombreInstitucion if config else "Institución"
     rif_institucion = config.rif if config else ""
+    direccion1 = "AV. ALBERTO RAVELL CON AV. INTERCOMUNAL JOSE ANTONIO PAEZ"
+    direccion2 = "LOCAL UPTYAB, INDEPENDENCIA – EDO YARACUY"
 
-    # Área útil para centrar
-    safe_left = logo_margin + logo_width
-    safe_right = width - logo_margin - logo_width
+    # Definir márgenes seguros
+    min_margin = 30
+    safe_left = min_margin
+    safe_right = width - min_margin
     safe_width = safe_right - safe_left
-    safe_center = safe_left + safe_width / 2
+    safe_center = width / 2
 
-    if logo_path and os.path.exists(logo_path):
-        p.drawImage(logo_path, width - logo_width - logo_margin, height - logo_height - logo_margin, width=logo_width, height=logo_height, preserveAspectRatio=True, mask='auto')
+    # Funciones para encabezado y pie de página
+    def draw_header():
+        # Logo a la derecha
+        if logo_path and os.path.exists(logo_path):
+            p.drawImage(
+                logo_path,
+                width - logo_width - logo_margin,
+                height - logo_height - logo_margin,
+                width=logo_width,
+                height=logo_height,
+                preserveAspectRatio=True,
+                mask='auto'
+            )
+        
+        # Texto institucional a la izquierda
+        text_top = height - logo_margin - 15
+        p.setFont("Helvetica-Bold", 10)
+        p.drawString(min_margin, text_top, nombre_institucion)
+        p.drawString(min_margin, text_top - 15, f"RIF: {rif_institucion}")
+        p.drawString(min_margin, text_top - 30, direccion1)
+        p.drawString(min_margin, text_top - 45, direccion2)
+        
+        # Título centrado
+        p.setFont("Helvetica-Bold", 11)
+        p.drawCentredString(safe_center, text_top - 85, "REPORTE DE MATERIAS")
 
-    text_top = height - logo_margin - 22
-    p.setFont("Helvetica-Bold", 12)
-    p.drawCentredString(safe_center, text_top, nombre_institucion)
-    p.drawCentredString(safe_center, text_top - 20, f"RIF: {rif_institucion}")
-    p.drawCentredString(safe_center, text_top - 40, "REPORTE DE MATERIAS")
+    def draw_footer():
+        # Firma centrada en el pie de página
+        if firma_path and os.path.exists(firma_path):
+            p.drawImage(
+                firma_path,
+                width/2 - 50,
+                60,
+                width=100,
+                height=50,
+                preserveAspectRatio=True,
+                mask='auto'
+            )
+            p.setFont("Helvetica-Oblique", 9)
+            p.drawCentredString(width/2, 35, "Firma autorizada")
+        
+        # Fecha de generación
+        p.setFont("Helvetica", 8)
+        fecha_generacion = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        p.drawString(min_margin, 20, f"Generado el: {fecha_generacion}")
 
-    if firma_path and os.path.exists(firma_path):
-        p.drawImage(firma_path, width/2 - 60, 60, width=120, height=60, preserveAspectRatio=True, mask='auto')
-        p.setFont("Helvetica-Oblique", 10)
-        p.drawCentredString(width/2, 25, "Firma autorizada")
-
-    materias = Materia.objects.select_related('idFormacion').all()
-    data = [["ID", "Formación", "Nombre", "Estado", "Fecha"]]
+    # Preparar datos de la tabla
+    headers = ["ID", "FORMACIÓN", "NOMBRE", "ESTADO", "FECHA"]
+    data = [headers]
+    
     for m in materias:
         data.append([
             str(m.idMateria),
-            m.idFormacion.nombreFormacion if m.idFormacion else "",
+            m.idFormacion.nombreFormacion if m.idFormacion else "Sin formación",
             m.nombreMateria,
             m.estadoMateria,
             m.fechaMateria.strftime("%d/%m/%Y")
         ])
-    col_widths = [40, 120, 120, 60, 60]
+    
+    # Configuración de la tabla con espacios aumentados
+    col_widths = [40, 180, 180, 70, 70]  # Anchos ajustados
     table_width = sum(col_widths)
-    x = safe_left + (safe_width - table_width) / 2
-    y = height - logo_margin - 100
+    
+    # Espaciado vertical aumentado
+    header_height = 150
+    footer_height = 100
+    row_height = 25
+    cell_padding = 5
+    
+    # Calcular espacio disponible
+    available_height = height - header_height - footer_height
+    max_rows_per_page = max(1, int(available_height // row_height))
+    total_rows = len(data) - 1
+    page = 0
 
-    table = Table(data, colWidths=col_widths)
-    table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
-        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0,0), (-1,0), 12),
-        ('BOTTOMPADDING', (0,0), (-1,0), 10),
-        ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
-        ('GRID', (0,0), (-1,-1), 1, colors.black),
-    ]))
-    table.wrapOn(p, width, height)
-    table.drawOn(p, x, y - 25 * len(data))
-    p.showPage()
+    # Generar páginas
+    for start_row in range(0, total_rows, max_rows_per_page):
+        end_row = min(start_row + max_rows_per_page, total_rows)
+        page_data = [data[0]] + data[start_row + 1:end_row + 1]
+        
+        if page > 0:
+            p.showPage()
+        
+        draw_header()
+        y_position = height - header_height
+        
+        # Centrar tabla horizontalmente
+        table_x = safe_left + (safe_width - table_width) / 2
+        table = Table(page_data, colWidths=col_widths, rowHeights=[row_height]*len(page_data))
+        
+        # Estilo de la tabla con más espacio
+        table_style = TableStyle([
+            # Encabezado
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0,0), (-1,0), 9),
+            ('ALIGN', (0,0), (-1,0), 'CENTER'),
+            ('VALIGN', (0,0), (-1,0), 'MIDDLE'),
+            ('BOTTOMPADDING', (0,0), (-1,0), cell_padding),
+            
+            # Cuerpo de la tabla
+            ('FONTSIZE', (0,1), (-1,-1), 8),
+            ('ALIGN', (0,1), (-1,-1), 'CENTER'),
+            ('ALIGN', (1,1), (2,-1), 'LEFT'),  # Alinear nombres a izquierda
+            ('VALIGN', (0,1), (-1,-1), 'MIDDLE'),
+            ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.lightgrey),
+            ('BOX', (0,0), (-1,-1), 0.5, colors.black),
+            ('TOPPADDING', (0,1), (-1,-1), cell_padding),
+            ('BOTTOMPADDING', (0,1), (-1,-1), cell_padding),
+        ])
+        
+         # RESALTAR ESTADOS
+        for i in range(1, len(page_data)):
+            # Obtener valor del estado (columna 3)
+            estado_valor = page_data[i][3].strip().lower()
+            
+            # Determinar color según estado
+            if estado_valor == "activo":
+                color = colors.HexColor("#28a745")  # Verde
+            elif estado_valor == "inactivo":
+                color = colors.HexColor("#dc3545")  # Rojo
+            else:
+                color = colors.black  # Negro para otros valores
+            
+            # Aplicar color a la celda de estado (columna 3)
+            table_style.add('TEXTCOLOR', (3, i), (3, i), color)
+
+        table.setStyle(table_style)
+        table.wrapOn(p, width, height)
+        table.drawOn(p, table_x, y_position - row_height * len(page_data) - 10)
+        
+        # Información de paginación
+        p.setFont("Helvetica", 8)
+        pagination_text = f"Página {page + 1} - Registros {start_row + 1} a {end_row} de {total_rows}"
+        p.drawCentredString(
+            safe_center, 
+            y_position - row_height * len(page_data) - 25,
+            pagination_text
+        )
+        
+        draw_footer()
+        page += 1
+
     p.save()
     return response
 
@@ -1129,39 +1483,88 @@ def tabla_cohortes(request):
 
 @login_required(login_url='login')
 def reporte_cohortes_pdf(request):
+    # Manejo de parámetros de paginación
+    start = int(request.GET.get('start', 1))
+    end = int(request.GET.get('end', 0))
+    cohortes = list(Cohorte.objects.all())
+    
+    if end == 0 or end > len(cohortes):
+        end = len(cohortes)
+    cohortes = cohortes[start-1:end]
+
+    # Configuración inicial del PDF
     response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = 'attachment; filename="reporte_cohortes.pdf"'
+    response['Content-Disposition'] = 'inline; filename="reporte_cohortes.pdf"'
     p = canvas.Canvas(response, pagesize=letter)
     width, height = letter
-    logo_width, logo_height, logo_margin = 100, 100, 15
+    logo_width, logo_height, logo_margin = 80, 80, 15  # Tamaño reducido del logo
 
+    # Obtener configuración institucional
     config = Configuracion.objects.order_by('-fechaConfiguracion').first()
     logo_path = config.logo.path if config and config.logo else None
     firma_path = config.firma.path if config and config.firma else None
     nombre_institucion = config.nombreInstitucion if config else "Institución"
     rif_institucion = config.rif if config else ""
+    direccion1 = "AV. ALBERTO RAVELL CON AV. INTERCOMUNAL JOSE ANTONIO PAEZ"
+    direccion2 = "LOCAL UPTYAB, INDEPENDENCIA – EDO YARACUY"
 
-    safe_left = logo_margin + logo_width
-    safe_right = width - logo_margin - logo_width
+    # Definir márgenes seguros
+    min_margin = 30
+    safe_left = min_margin
+    safe_right = width - min_margin
     safe_width = safe_right - safe_left
-    safe_center = safe_left + safe_width / 2
+    safe_center = width / 2
 
-    if logo_path and os.path.exists(logo_path):
-        p.drawImage(logo_path, width - logo_width - logo_margin, height - logo_height - logo_margin, width=logo_width, height=logo_height, preserveAspectRatio=True, mask='auto')
+    # Funciones para encabezado y pie de página
+    def draw_header():
+        # Logo a la derecha
+        if logo_path and os.path.exists(logo_path):
+            p.drawImage(
+                logo_path,
+                width - logo_width - logo_margin,
+                height - logo_height - logo_margin,
+                width=logo_width,
+                height=logo_height,
+                preserveAspectRatio=True,
+                mask='auto'
+            )
+        
+        # Texto institucional a la izquierda
+        text_top = height - logo_margin - 15
+        p.setFont("Helvetica-Bold", 10)
+        p.drawString(min_margin, text_top, nombre_institucion)
+        p.drawString(min_margin, text_top - 15, f"RIF: {rif_institucion}")
+        p.drawString(min_margin, text_top - 30, direccion1)
+        p.drawString(min_margin, text_top - 45, direccion2)
+        
+        # Título centrado
+        p.setFont("Helvetica-Bold", 11)
+        p.drawCentredString(safe_center, text_top - 85, "REPORTE DE COHORTES")
 
-    text_top = height - logo_margin - 22
-    p.setFont("Helvetica-Bold", 12)
-    p.drawCentredString(safe_center, text_top, nombre_institucion)
-    p.drawCentredString(safe_center, text_top - 20, f"RIF: {rif_institucion}")
-    p.drawCentredString(safe_center, text_top - 40, "REPORTE DE COHORTES")
+    def draw_footer():
+        # Firma centrada en el pie de página
+        if firma_path and os.path.exists(firma_path):
+            p.drawImage(
+                firma_path,
+                width/2 - 50,
+                60,
+                width=100,
+                height=50,
+                preserveAspectRatio=True,
+                mask='auto'
+            )
+            p.setFont("Helvetica-Oblique", 9)
+            p.drawCentredString(width/2, 35, "Firma autorizada")
+        
+        # Fecha de generación
+        p.setFont("Helvetica", 8)
+        fecha_generacion = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        p.drawString(min_margin, 20, f"Generado el: {fecha_generacion}")
 
-    if firma_path and os.path.exists(firma_path):
-        p.drawImage(firma_path, width/2 - 60, 60, width=120, height=60, preserveAspectRatio=True, mask='auto')
-        p.setFont("Helvetica-Oblique", 10)
-        p.drawCentredString(width/2, 25, "Firma autorizada")
-
-    cohortes = Cohorte.objects.all()
-    data = [["ID", "Nombre", "Estado", "Fecha"]]
+    # Preparar datos de la tabla
+    headers = ["ID", "NOMBRE", "ESTADO", "FECHA"]
+    data = [headers]
+    
     for c in cohortes:
         data.append([
             str(c.idCohorte),
@@ -1169,25 +1572,88 @@ def reporte_cohortes_pdf(request):
             c.estadoCohorte,
             c.fechaCohorte.strftime("%d/%m/%Y")
         ])
-    col_widths = [40, 120, 60, 60]
+    
+    # Configuración de la tabla con espacios aumentados
+    col_widths = [40, 280, 80, 80]  # Anchos ajustados (más espacio para nombres)
     table_width = sum(col_widths)
-    x = safe_left + (safe_width - table_width) / 2
-    y = height - logo_margin - 100
+    
+    # Espaciado vertical aumentado
+    header_height = 150
+    footer_height = 100
+    row_height = 25
+    cell_padding = 5
+    
+    # Calcular espacio disponible
+    available_height = height - header_height - footer_height
+    max_rows_per_page = max(1, int(available_height // row_height))
+    total_rows = len(data) - 1
+    page = 0
 
-    table = Table(data, colWidths=col_widths)
-    table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
-        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0,0), (-1,0), 12),
-        ('BOTTOMPADDING', (0,0), (-1,0), 10),
-        ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
-        ('GRID', (0,0), (-1,-1), 1, colors.black),
-    ]))
-    table.wrapOn(p, width, height)
-    table.drawOn(p, x, y - 25 * len(data))
-    p.showPage()
+    # Generar páginas
+    for start_row in range(0, total_rows, max_rows_per_page):
+        end_row = min(start_row + max_rows_per_page, total_rows)
+        page_data = [data[0]] + data[start_row + 1:end_row + 1]
+        
+        if page > 0:
+            p.showPage()
+        
+        draw_header()
+        y_position = height - header_height
+        
+        # Centrar tabla horizontalmente
+        table_x = safe_left + (safe_width - table_width) / 2
+        table = Table(page_data, colWidths=col_widths, rowHeights=[row_height]*len(page_data))
+        
+        # Estilo de la tabla con más espacio
+        table_style = TableStyle([
+            # Encabezado
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0,0), (-1,0), 9),
+            ('ALIGN', (0,0), (-1,0), 'CENTER'),
+            ('VALIGN', (0,0), (-1,0), 'MIDDLE'),
+            ('BOTTOMPADDING', (0,0), (-1,0), cell_padding),
+            
+            # Cuerpo de la tabla
+            ('FONTSIZE', (0,1), (-1,-1), 8),
+            ('ALIGN', (0,1), (-1,-1), 'CENTER'),
+            ('ALIGN', (1,1), (1,-1), 'CENTER'),  # Alinear nombre al centro
+            ('VALIGN', (0,1), (-1,-1), 'MIDDLE'),
+            ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.lightgrey),
+            ('BOX', (0,0), (-1,-1), 0.5, colors.black),
+            ('TOPPADDING', (0,1), (-1,-1), cell_padding),
+            ('BOTTOMPADDING', (0,1), (-1,-1), cell_padding),
+        ])
+        
+        # Resaltar estados
+        for i in range(1, len(page_data)):
+            estado_valor = page_data[i][2].strip().lower()
+            if estado_valor == "activo":
+                color = colors.HexColor("#28a745")  # Verde
+            elif estado_valor == "inactivo":
+                color = colors.HexColor("#dc3545")  # Rojo
+            else:
+                color = colors.black  # Negro para otros estados
+            table_style.add('TEXTCOLOR', (2,i), (2,i), color)
+        
+        table.setStyle(table_style)
+        table.wrapOn(p, width, height)
+        table.drawOn(p, table_x, y_position - row_height * len(page_data) - 10)
+        
+        # Información de paginación
+        p.setFont("Helvetica", 8)
+        pagination_text = f"Página {page + 1} - Registros {start_row + 1} a {end_row} de {total_rows}"
+        p.drawCentredString(
+            safe_center, 
+            y_position - row_height * len(page_data) - 25,
+            pagination_text
+        )
+        
+        draw_footer()
+        page += 1
+
     p.save()
     return response
 
@@ -1265,20 +1731,24 @@ def tabla_cargos(request):
         'cargos': cargos,
         'mostrar_inactivos': mostrar,
     })
-    cargos = Cargo.objects.all()
-    return render(request, 'home/tablaCargos.html', {'cargos': cargos})
 
 @login_required(login_url='login')
 def reporte_cargos_pdf(request):
-    response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = 'attachment; filename="reporte_cargos.pdf"'
+    # Manejo de parámetros de paginación
+    start = int(request.GET.get('start', 1))
+    end = int(request.GET.get('end', 0))
+    cargos = list(Cargo.objects.all())
+    
+    if end == 0 or end > len(cargos):
+        end = len(cargos)
+    cargos = cargos[start-1:end]
 
+    # Configuración inicial del PDF
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'inline; filename="reporte_cargos.pdf"'
     p = canvas.Canvas(response, pagesize=letter)
     width, height = letter
-    logo_width = 100
-    logo_height = 170
-    logo_margin = 15
-    
+    logo_width, logo_height, logo_margin = 80, 80, 15  # Tamaño reducido del logo
 
     # Obtener configuración institucional
     config = Configuracion.objects.order_by('-fechaConfiguracion').first()
@@ -1286,41 +1756,66 @@ def reporte_cargos_pdf(request):
     firma_path = config.firma.path if config and config.firma else None
     nombre_institucion = config.nombreInstitucion if config else "Institución"
     rif_institucion = config.rif if config else ""
+    direccion1 = "AV. ALBERTO RAVELL CON AV. INTERCOMUNAL JOSE ANTONIO PAEZ"
+    direccion2 = "LOCAL UPTYAB, INDEPENDENCIA – EDO YARACUY"
 
-    # --- Encabezado: Logo y nombre ---
-    if logo_path and os.path.exists(logo_path):
-        # Ajusta ancho/alto según tu logo
-     p.drawImage(logo_path, width - logo_width - logo_margin,  # X: margen derecho
-        height - logo_height - logo_margin,  # Y: margen superior
-        width=logo_width,
-        height=logo_height, 
-        preserveAspectRatio=True, mask='auto')
-     
-     safe_right = width - logo_width - logo_margin - 10  # 10px extra de separación
-     safe_left = logo_margin + logo_margin
-     safe_width = safe_right - safe_left
-     safe_center = safe_left + safe_width / 2
-       
-    text_top = height - logo_margin - 60
+    # Definir márgenes seguros
+    min_margin = 30
+    safe_left = min_margin
+    safe_right = width - min_margin
+    safe_width = safe_right - safe_left
+    safe_center = width / 2
 
-    p.setFont("Helvetica-Bold", 12)
-    p.drawCentredString( safe_center, text_top , nombre_institucion)
-    p.drawCentredString( safe_center, text_top - 20, f"RIF: {rif_institucion}")
-    p.drawCentredString( safe_center, text_top - 40, "AV. ALBERTO RAVELL CON AV. INTERCOMUNAL JOSE ANTONIO PAEZ,")
-    p.drawCentredString( safe_center, text_top - 60, "LOCAL UPTYAB, INDEPENDENCIA – EDO YARACUY")
-    p.setFont("Helvetica", 12) 
-    p.drawCentredString( safe_center, text_top - 80, "Reporte de Cargos")
+    # Funciones para encabezado y pie de página
+    def draw_header():
+        # Logo a la derecha
+        if logo_path and os.path.exists(logo_path):
+            p.drawImage(
+                logo_path,
+                width - logo_width - logo_margin,
+                height - logo_height - logo_margin,
+                width=logo_width,
+                height=logo_height,
+                preserveAspectRatio=True,
+                mask='auto'
+            )
+        
+        # Texto institucional a la izquierda
+        text_top = height - logo_margin - 15
+        p.setFont("Helvetica-Bold", 10)
+        p.drawString(min_margin, text_top, nombre_institucion)
+        p.drawString(min_margin, text_top - 15, f"RIF: {rif_institucion}")
+        p.drawString(min_margin, text_top - 30, direccion1)
+        p.drawString(min_margin, text_top - 45, direccion2)
+        
+        # Título centrado
+        p.setFont("Helvetica-Bold", 11)
+        p.drawCentredString(safe_center, text_top - 85, "REPORTE DE CARGOS")
 
-    # --- Pie de página: Firma ---
-    if firma_path and os.path.exists(firma_path):
-        # Ajusta ancho/alto según tu firma
-        p.drawImage(firma_path, width/2 - 60, 60, width=120, height=100, preserveAspectRatio=True, mask='auto')
-        p.setFont("Helvetica-Oblique", 10)
-        p.drawCentredString(width/2, 25, "Firma autorizada")
+    def draw_footer():
+        # Firma centrada en el pie de página
+        if firma_path and os.path.exists(firma_path):
+            p.drawImage(
+                firma_path,
+                width/2 - 50,
+                60,
+                width=100,
+                height=50,
+                preserveAspectRatio=True,
+                mask='auto'
+            )
+            p.setFont("Helvetica-Oblique", 9)
+            p.drawCentredString(width/2, 35, "Firma autorizada")
+        
+        # Fecha de generación
+        p.setFont("Helvetica", 8)
+        fecha_generacion = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        p.drawString(min_margin, 20, f"Generado el: {fecha_generacion}")
 
-    # --- Tabla de cargos ---
-    cargos = Cargo.objects.all()
-    data = [["ID", "Nombre", "Estado", "Fecha"]]
+    # Preparar datos de la tabla
+    headers = ["ID", "NOMBRE", "ESTADO", "FECHA"]
+    data = [headers]
+    
     for cargo in cargos:
         data.append([
             str(cargo.idCargo),
@@ -1328,27 +1823,88 @@ def reporte_cargos_pdf(request):
             cargo.estadoCargo,
             cargo.fechaCargo.strftime("%d/%m/%Y")
         ])
-
-    col_widths = [60, 180, 80, 80]
+    
+    # Configuración de la tabla con espacios aumentados
+    col_widths = [40, 280, 80, 80]  # Anchos ajustados (más espacio para nombres)
     table_width = sum(col_widths)
-    x = (width - table_width) / 2
-    y = height - 160  # Debajo del encabezado
+    
+    # Espaciado vertical aumentado
+    header_height = 150
+    footer_height = 100
+    row_height = 25
+    cell_padding = 5
+    
+    # Calcular espacio disponible
+    available_height = height - header_height - footer_height
+    max_rows_per_page = max(1, int(available_height // row_height))
+    total_rows = len(data) - 1
+    page = 0
 
-    table = Table(data, colWidths=col_widths)
-    table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
-        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0,0), (-1,0), 12),
-        ('BOTTOMPADDING', (0,0), (-1,0), 10),
-        ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
-        ('GRID', (0,0), (-1,-1), 1, colors.black),
-    ]))
-    table.wrapOn(p, width, height)
-    table.drawOn(p, x, y - 25 * len(data))
+    # Generar páginas
+    for start_row in range(0, total_rows, max_rows_per_page):
+        end_row = min(start_row + max_rows_per_page, total_rows)
+        page_data = [data[0]] + data[start_row + 1:end_row + 1]
+        
+        if page > 0:
+            p.showPage()
+        
+        draw_header()
+        y_position = height - header_height
+        
+        # Centrar tabla horizontalmente
+        table_x = safe_left + (safe_width - table_width) / 2
+        table = Table(page_data, colWidths=col_widths, rowHeights=[row_height]*len(page_data))
+        
+        # Estilo de la tabla con más espacio
+        table_style = TableStyle([
+            # Encabezado
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0,0), (-1,0), 9),
+            ('ALIGN', (0,0), (-1,0), 'CENTER'),
+            ('VALIGN', (0,0), (-1,0), 'MIDDLE'),
+            ('BOTTOMPADDING', (0,0), (-1,0), cell_padding),
+            
+            # Cuerpo de la tabla
+            ('FONTSIZE', (0,1), (-1,-1), 8),
+            ('ALIGN', (0,1), (-1,-1), 'CENTER'),
+            ('ALIGN', (1,1), (1,-1), 'LEFT'),  # Alinear nombre a izquierda
+            ('VALIGN', (0,1), (-1,-1), 'MIDDLE'),
+            ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.lightgrey),
+            ('BOX', (0,0), (-1,-1), 0.5, colors.black),
+            ('TOPPADDING', (0,1), (-1,-1), cell_padding),
+            ('BOTTOMPADDING', (0,1), (-1,-1), cell_padding),
+        ])
+        
+        # Resaltar estados
+        for i in range(1, len(page_data)):
+            estado_valor = page_data[i][2].strip().lower()
+            if estado_valor == "activo":
+                color = colors.HexColor("#28a745")  # Verde
+            elif estado_valor == "inactivo":
+                color = colors.HexColor("#dc3545")  # Rojo
+            else:
+                color = colors.black  # Negro para otros estados
+            table_style.add('TEXTCOLOR', (2,i), (2,i), color)
+        
+        table.setStyle(table_style)
+        table.wrapOn(p, width, height)
+        table.drawOn(p, table_x, y_position - row_height * len(page_data) - 10)
+        
+        # Información de paginación
+        p.setFont("Helvetica", 8)
+        pagination_text = f"Página {page + 1} - Registros {start_row + 1} a {end_row} de {total_rows}"
+        p.drawCentredString(
+            safe_center, 
+            y_position - row_height * len(page_data) - 25,
+            pagination_text
+        )
+        
+        draw_footer()
+        page += 1
 
-    p.showPage()
     p.save()
     return response
 
@@ -1431,69 +1987,179 @@ def tabla_requisitos(request):
 
 @login_required(login_url='login')
 def reporte_requisitos_pdf(request):
+    # Manejo de parámetros de paginación
+    start = int(request.GET.get('start', 1))
+    end = int(request.GET.get('end', 0))
+    requisitos = list(Requisito.objects.all())
+    
+    if end == 0 or end > len(requisitos):
+        end = len(requisitos)
+    requisitos = requisitos[start-1:end]
+
+    # Configuración inicial del PDF
     response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = 'attachment; filename="reporte_requisitos.pdf"'
+    response['Content-Disposition'] = 'inline; filename="reporte_requisitos.pdf"'
     p = canvas.Canvas(response, pagesize=letter)
     width, height = letter
-    logo_width, logo_height, logo_margin = 100, 100, 15
+    logo_width, logo_height, logo_margin = 80, 80, 15  # Tamaño reducido del logo
 
+    # Obtener configuración institucional
     config = Configuracion.objects.order_by('-fechaConfiguracion').first()
     logo_path = config.logo.path if config and config.logo else None
     firma_path = config.firma.path if config and config.firma else None
     nombre_institucion = config.nombreInstitucion if config else "Institución"
     rif_institucion = config.rif if config else ""
+    direccion1 = "AV. ALBERTO RAVELL CON AV. INTERCOMUNAL JOSE ANTONIO PAEZ"
+    direccion2 = "LOCAL UPTYAB, INDEPENDENCIA – EDO YARACUY"
 
-    safe_left = logo_margin + logo_width
-    safe_right = width - logo_margin - logo_width
+    # Definir márgenes seguros
+    min_margin = 30
+    safe_left = min_margin
+    safe_right = width - min_margin
     safe_width = safe_right - safe_left
-    safe_center = safe_left + safe_width / 2
+    safe_center = width / 2
 
-    if logo_path and os.path.exists(logo_path):
-        p.drawImage(logo_path, width - logo_width - logo_margin, height - logo_height - logo_margin, width=logo_width, height=logo_height, preserveAspectRatio=True, mask='auto')
+    # Funciones para encabezado y pie de página
+    def draw_header():
+        # Logo a la derecha
+        if logo_path and os.path.exists(logo_path):
+            p.drawImage(
+                logo_path,
+                width - logo_width - logo_margin,
+                height - logo_height - logo_margin,
+                width=logo_width,
+                height=logo_height,
+                preserveAspectRatio=True,
+                mask='auto'
+            )
+        
+        # Texto institucional a la izquierda
+        text_top = height - logo_margin - 15
+        p.setFont("Helvetica-Bold", 10)
+        p.drawString(min_margin, text_top, nombre_institucion)
+        p.drawString(min_margin, text_top - 15, f"RIF: {rif_institucion}")
+        p.drawString(min_margin, text_top - 30, direccion1)
+        p.drawString(min_margin, text_top - 45, direccion2)
+        
+        # Título centrado
+        p.setFont("Helvetica-Bold", 11)
+        p.drawCentredString(safe_center, text_top - 85, "REPORTE DE REQUISITOS")
 
-    text_top = height - logo_margin - 22
-    p.setFont("Helvetica-Bold", 12)
-    p.drawCentredString(safe_center, text_top, nombre_institucion)
-    p.drawCentredString(safe_center, text_top - 20, f"RIF: {rif_institucion}")
-    p.drawCentredString(safe_center, text_top - 40, "REPORTE DE REQUISITOS")
+    def draw_footer():
+        # Firma centrada en el pie de página
+        if firma_path and os.path.exists(firma_path):
+            p.drawImage(
+                firma_path,
+                width/2 - 50,
+                60,
+                width=100,
+                height=50,
+                preserveAspectRatio=True,
+                mask='auto'
+            )
+            p.setFont("Helvetica-Oblique", 9)
+            p.drawCentredString(width/2, 35, "Firma autorizada")
+        
+        # Fecha de generación
+        p.setFont("Helvetica", 8)
+        fecha_generacion = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        p.drawString(min_margin, 20, f"Generado el: {fecha_generacion}")
 
-    if firma_path and os.path.exists(firma_path):
-        p.drawImage(firma_path, width/2 - 60, 60, width=120, height=60, preserveAspectRatio=True, mask='auto')
-        p.setFont("Helvetica-Oblique", 10)
-        p.drawCentredString(width/2, 25, "Firma autorizada")
-
-    requisitos = Requisito.objects.all()
-    data = [["ID", "Nombre", "Estado", "Fecha"]]
+    # Preparar datos de la tabla
+    headers = ["ID", "NOMBRE", "ESTADO", "FECHA"]
+    data = [headers]
+    
     for r in requisitos:
         data.append([
             str(r.idRequisito),
             r.nombreRequisito,
             r.estadoRequisito,
-            r.fechaRequisito.strftime("%d/%m/%Y")
+            r.fechaRequisito.strftime("%d/%m/%Y") if r.fechaRequisito else ""
         ])
-
-    col_widths = [40, 120, 60, 60]
+    
+    # Configuración de la tabla con espacios aumentados
+    col_widths = [40, 300, 80, 80]  # Anchos ajustados (más espacio para nombres)
     table_width = sum(col_widths)
-    x = safe_left + (safe_width - table_width) / 2
-    y = height - logo_margin - 100
+    
+    # Espaciado vertical aumentado
+    header_height = 150
+    footer_height = 100
+    row_height = 25
+    cell_padding = 5
+    
+    # Calcular espacio disponible
+    available_height = height - header_height - footer_height
+    max_rows_per_page = max(1, int(available_height // row_height))
+    total_rows = len(data) - 1
+    page = 0
 
-    table = Table(data, colWidths=col_widths)
-    table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
-        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0,0), (-1,0), 12),
-        ('BOTTOMPADDING', (0,0), (-1,0), 10),
-        ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
-        ('GRID', (0,0), (-1,-1), 1, colors.black),
-    ]))
-    table.wrapOn(p, width, height)
-    table.drawOn(p, x, y - 25 * len(data))
-    p.showPage()
+    # Generar páginas
+    for start_row in range(0, total_rows, max_rows_per_page):
+        end_row = min(start_row + max_rows_per_page, total_rows)
+        page_data = [data[0]] + data[start_row + 1:end_row + 1]
+        
+        if page > 0:
+            p.showPage()
+        
+        draw_header()
+        y_position = height - header_height
+        
+        # Centrar tabla horizontalmente
+        table_x = safe_left + (safe_width - table_width) / 2
+        table = Table(page_data, colWidths=col_widths, rowHeights=[row_height]*len(page_data))
+        
+        # Estilo de la tabla con más espacio
+        table_style = TableStyle([
+            # Encabezado
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0,0), (-1,0), 9),
+            ('ALIGN', (0,0), (-1,0), 'CENTER'),
+            ('VALIGN', (0,0), (-1,0), 'MIDDLE'),
+            ('BOTTOMPADDING', (0,0), (-1,0), cell_padding),
+            
+            # Cuerpo de la tabla
+            ('FONTSIZE', (0,1), (-1,-1), 8),
+            ('ALIGN', (0,1), (-1,-1), 'CENTER'),
+            ('ALIGN', (1,1), (1,-1), 'LEFT'),  # Alinear nombre a izquierda
+            ('VALIGN', (0,1), (-1,-1), 'MIDDLE'),
+            ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.lightgrey),
+            ('BOX', (0,0), (-1,-1), 0.5, colors.black),
+            ('TOPPADDING', (0,1), (-1,-1), cell_padding),
+            ('BOTTOMPADDING', (0,1), (-1,-1), cell_padding),
+        ])
+        
+        # Resaltar estados
+        for i in range(1, len(page_data)):
+            estado_valor = page_data[i][2].strip().lower()
+            if estado_valor == "activo":
+                color = colors.HexColor("#28a745")  # Verde
+            elif estado_valor == "inactivo":
+                color = colors.HexColor("#dc3545")  # Rojo
+            else:
+                color = colors.black  # Negro para otros estados
+            table_style.add('TEXTCOLOR', (2,i), (2,i), color)
+        
+        table.setStyle(table_style)
+        table.wrapOn(p, width, height)
+        table.drawOn(p, table_x, y_position - row_height * len(page_data) - 10)
+        
+        # Información de paginación
+        p.setFont("Helvetica", 8)
+        pagination_text = f"Página {page + 1} - Registros {start_row + 1} a {end_row} de {total_rows}"
+        p.drawCentredString(
+            safe_center, 
+            y_position - row_height * len(page_data) - 25,
+            pagination_text
+        )
+        
+        draw_footer()
+        page += 1
+
     p.save()
     return response
-
 
 #SERVICIO
 @login_required(login_url='login')
@@ -1572,67 +2238,191 @@ def tabla_servicios(request):
 
 @login_required(login_url='login')
 def reporte_servicios_pdf(request):
+    # Manejo de parámetros de paginación
+    start = int(request.GET.get('start', 1))
+    end = int(request.GET.get('end', 0))
+    servicios = list(Servicio.objects.all())
+    
+    if end == 0 or end > len(servicios):
+        end = len(servicios)
+    servicios = servicios[start-1:end]
+
+    # Configuración inicial del PDF
     response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = 'attachment; filename="reporte_servicios.pdf"'
+    response['Content-Disposition'] = 'inline; filename="reporte_servicios.pdf"'
     p = canvas.Canvas(response, pagesize=letter)
     width, height = letter
-    logo_width, logo_height, logo_margin = 100, 100, 15
+    logo_width, logo_height, logo_margin = 80, 80, 15  # Tamaño reducido del logo
 
+    # Obtener configuración institucional
     config = Configuracion.objects.order_by('-fechaConfiguracion').first()
     logo_path = config.logo.path if config and config.logo else None
     firma_path = config.firma.path if config and config.firma else None
     nombre_institucion = config.nombreInstitucion if config else "Institución"
     rif_institucion = config.rif if config else ""
+    direccion1 = "AV. ALBERTO RAVELL CON AV. INTERCOMUNAL JOSE ANTONIO PAEZ"
+    direccion2 = "LOCAL UPTYAB, INDEPENDENCIA – EDO YARACUY"
 
-    safe_left = logo_margin + logo_width
-    safe_right = width - logo_margin - logo_width
+    # Definir márgenes seguros
+    min_margin = 30
+    safe_left = min_margin
+    safe_right = width - min_margin
     safe_width = safe_right - safe_left
-    safe_center = safe_left + safe_width / 2
+    safe_center = width / 2
 
-    if logo_path and os.path.exists(logo_path):
-        p.drawImage(logo_path, width - logo_width - logo_margin, height - logo_height - logo_margin, width=logo_width, height=logo_height, preserveAspectRatio=True, mask='auto')
+    # Funciones para encabezado y pie de página
+    def draw_header():
+        # Logo a la derecha
+        if logo_path and os.path.exists(logo_path):
+            p.drawImage(
+                logo_path,
+                width - logo_width - logo_margin,
+                height - logo_height - logo_margin,
+                width=logo_width,
+                height=logo_height,
+                preserveAspectRatio=True,
+                mask='auto'
+            )
+        
+        # Texto institucional a la izquierda
+        text_top = height - logo_margin - 15
+        p.setFont("Helvetica-Bold", 10)
+        p.drawString(min_margin, text_top, nombre_institucion)
+        p.drawString(min_margin, text_top - 15, f"RIF: {rif_institucion}")
+        p.drawString(min_margin, text_top - 30, direccion1)
+        p.drawString(min_margin, text_top - 45, direccion2)
+        
+        # Título centrado
+        p.setFont("Helvetica-Bold", 11)
+        p.drawCentredString(safe_center, text_top - 85, "REPORTE DE SERVICIOS")
 
-    text_top = height - logo_margin - 22
-    p.setFont("Helvetica-Bold", 12)
-    p.drawCentredString(safe_center, text_top, nombre_institucion)
-    p.drawCentredString(safe_center, text_top - 20, f"RIF: {rif_institucion}")
-    p.drawCentredString(safe_center, text_top - 40, "REPORTE DE SERVICIOS")
+    def draw_footer():
+        # Firma centrada en el pie de página
+        if firma_path and os.path.exists(firma_path):
+            p.drawImage(
+                firma_path,
+                width/2 - 50,
+                60,
+                width=100,
+                height=50,
+                preserveAspectRatio=True,
+                mask='auto'
+            )
+            p.setFont("Helvetica-Oblique", 9)
+            p.drawCentredString(width/2, 35, "Firma autorizada")
+        
+        # Fecha de generación
+        p.setFont("Helvetica", 8)
+        fecha_generacion = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        p.drawString(min_margin, 20, f"Generado el: {fecha_generacion}")
 
-    if firma_path and os.path.exists(firma_path):
-        p.drawImage(firma_path, width/2 - 60, 60, width=120, height=60, preserveAspectRatio=True, mask='auto')
-        p.setFont("Helvetica-Oblique", 10)
-        p.drawCentredString(width/2, 25, "Firma autorizada")
-
-    servicios = Servicio.objects.all()
-    data = [["ID", "Nombre", "Tiempo", "Precio", "Estado", "Fecha"]]
+    # Preparar datos de la tabla
+    headers = ["ID", "NOMBRE", "TIEMPO", "PRECIO", "ESTADO", "FECHA"]
+    data = [headers]
+    
     for s in servicios:
+        # Manejar el precio de forma segura
+        try:
+            precio_num = float(s.precioServicio)
+            precio_str = f"${precio_num:,.2f}"
+        except (TypeError, ValueError):
+            precio_str = str(s.precioServicio)
+        
         data.append([
             str(s.idServicio),
             s.nombreServicio,
             s.tiempoServicio,
-            s.precioServicio,
+            precio_str,
             s.estadoServicio,
-            s.fechaServicio.strftime("%d/%m/%Y")
+            s.fechaServicio.strftime("%d/%m/%Y") if s.fechaServicio else ""
         ])
-    col_widths = [40, 120, 80, 80, 60, 60]
+    
+    # Configuración de la tabla con espacios aumentados
+    col_widths = [40, 180, 80, 90, 60, 60]  # Anchos ajustados
     table_width = sum(col_widths)
-    x = safe_left + (safe_width - table_width) / 2
-    y = height - logo_margin - 100
+    
+    # Espaciado vertical aumentado
+    header_height = 150
+    footer_height = 100
+    row_height = 25
+    cell_padding = 5
+    
+    # Calcular espacio disponible
+    available_height = height - header_height - footer_height
+    max_rows_per_page = max(1, int(available_height // row_height))
+    total_rows = len(data) - 1
+    page = 0
 
-    table = Table(data, colWidths=col_widths)
-    table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
-        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0,0), (-1,0), 12),
-        ('BOTTOMPADDING', (0,0), (-1,0), 10),
-        ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
-        ('GRID', (0,0), (-1,-1), 1, colors.black),
-    ]))
-    table.wrapOn(p, width, height)
-    table.drawOn(p, x, y - 25 * len(data))
-    p.showPage()
+    # Generar páginas
+    for start_row in range(0, total_rows, max_rows_per_page):
+        end_row = min(start_row + max_rows_per_page, total_rows)
+        page_data = [data[0]] + data[start_row + 1:end_row + 1]
+        
+        if page > 0:
+            p.showPage()
+        
+        draw_header()
+        y_position = height - header_height
+        
+        # Centrar tabla horizontalmente
+        table_x = safe_left + (safe_width - table_width) / 2
+        table = Table(page_data, colWidths=col_widths, rowHeights=[row_height]*len(page_data))
+        
+        # Estilo de la tabla con más espacio
+        table_style = TableStyle([
+            # Encabezado
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0,0), (-1,0), 9),
+            ('ALIGN', (0,0), (-1,0), 'CENTER'),
+            ('VALIGN', (0,0), (-1,0), 'MIDDLE'),
+            ('BOTTOMPADDING', (0,0), (-1,0), cell_padding),
+            
+            # Cuerpo de la tabla
+            ('FONTSIZE', (0,1), (-1,-1), 8),
+            ('ALIGN', (0,1), (-1,-1), 'CENTER'),
+            ('ALIGN', (1,1), (1,-1), 'LEFT'),  # Alinear nombre a izquierda
+            ('VALIGN', (0,1), (-1,-1), 'MIDDLE'),
+            ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.lightgrey),
+            ('BOX', (0,0), (-1,-1), 0.5, colors.black),
+            ('TOPPADDING', (0,1), (-1,-1), cell_padding),
+            ('BOTTOMPADDING', (0,1), (-1,-1), cell_padding),
+        ])
+        
+        # Resaltar estados y precios
+        for i in range(1, len(page_data)):
+            # Estado
+            estado_valor = page_data[i][4].strip().lower()
+            if estado_valor == "activo":
+                color_estado = colors.HexColor("#28a745")  # Verde
+            elif estado_valor == "inactivo":
+                color_estado = colors.HexColor("#dc3545")  # Rojo
+            else:
+                color_estado = colors.black
+            table_style.add('TEXTCOLOR', (4,i), (4,i), color_estado)
+            
+            # Precio (columna 3) en azul si es numérico
+            if str(page_data[i][3]).startswith('$'):
+                table_style.add('TEXTCOLOR', (3,i), (3,i), colors.HexColor("#007bff"))
+        
+        table.setStyle(table_style)
+        table.wrapOn(p, width, height)
+        table.drawOn(p, table_x, y_position - row_height * len(page_data) - 10)
+        
+        # Información de paginación
+        p.setFont("Helvetica", 8)
+        pagination_text = f"Página {page + 1} - Registros {start_row + 1} a {end_row} de {total_rows}"
+        p.drawCentredString(
+            safe_center, 
+            y_position - row_height * len(page_data) - 25,
+            pagination_text
+        )
+        
+        draw_footer()
+        page += 1
+
     p.save()
     return response
 
@@ -1714,67 +2504,194 @@ def tabla_tramites(request):
 
 @login_required(login_url='login')
 def reporte_tramites_pdf(request):
+    # Manejo de parámetros de paginación
+    start = int(request.GET.get('start', 1))
+    end = int(request.GET.get('end', 0))
+    tramites = list(Tramite.objects.all())
+    
+    if end == 0 or end > len(tramites):
+        end = len(tramites)
+    tramites = tramites[start-1:end]
+
+    # Configuración inicial del PDF
     response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = 'attachment; filename="reporte_tramites.pdf"'
+    response['Content-Disposition'] = 'inline; filename="reporte_tramites.pdf"'
     p = canvas.Canvas(response, pagesize=letter)
     width, height = letter
-    logo_width, logo_height, logo_margin = 100, 100, 15
+    logo_width, logo_height, logo_margin = 80, 80, 15  # Tamaño reducido del logo
 
+    # Obtener configuración institucional
     config = Configuracion.objects.order_by('-fechaConfiguracion').first()
     logo_path = config.logo.path if config and config.logo else None
     firma_path = config.firma.path if config and config.firma else None
     nombre_institucion = config.nombreInstitucion if config else "Institución"
     rif_institucion = config.rif if config else ""
+    direccion1 = "AV. ALBERTO RAVELL CON AV. INTERCOMUNAL JOSE ANTONIO PAEZ"
+    direccion2 = "LOCAL UPTYAB, INDEPENDENCIA – EDO YARACUY"
 
-    safe_left = logo_margin + logo_width
-    safe_right = width - logo_margin - logo_width
+    # Definir márgenes seguros
+    min_margin = 30
+    safe_left = min_margin
+    safe_right = width - min_margin
     safe_width = safe_right - safe_left
-    safe_center = safe_left + safe_width / 2
+    safe_center = width / 2
 
-    if logo_path and os.path.exists(logo_path):
-        p.drawImage(logo_path, width - logo_width - logo_margin, height - logo_height - logo_margin, width=logo_width, height=logo_height, preserveAspectRatio=True, mask='auto')
+    # Funciones para encabezado y pie de página
+    def draw_header():
+        # Logo a la derecha
+        if logo_path and os.path.exists(logo_path):
+            p.drawImage(
+                logo_path,
+                width - logo_width - logo_margin,
+                height - logo_height - logo_margin,
+                width=logo_width,
+                height=logo_height,
+                preserveAspectRatio=True,
+                mask='auto'
+            )
+        
+        # Texto institucional a la izquierda
+        text_top = height - logo_margin - 15
+        p.setFont("Helvetica-Bold", 10)
+        p.drawString(min_margin, text_top, nombre_institucion)
+        p.drawString(min_margin, text_top - 15, f"RIF: {rif_institucion}")
+        p.drawString(min_margin, text_top - 30, direccion1)
+        p.drawString(min_margin, text_top - 45, direccion2)
+        
+        # Título centrado
+        p.setFont("Helvetica-Bold", 11)
+        p.drawCentredString(safe_center, text_top - 85, "REPORTE DE TRÁMITES")
 
-    text_top = height - logo_margin - 22
-    p.setFont("Helvetica-Bold", 12)
-    p.drawCentredString(safe_center, text_top, nombre_institucion)
-    p.drawCentredString(safe_center, text_top - 20, f"RIF: {rif_institucion}")
-    p.drawCentredString(safe_center, text_top - 40, "REPORTE DE TRÁMITES")
+    def draw_footer():
+        # Firma centrada en el pie de página
+        if firma_path and os.path.exists(firma_path):
+            p.drawImage(
+                firma_path,
+                width/2 - 50,
+                60,
+                width=100,
+                height=50,
+                preserveAspectRatio=True,
+                mask='auto'
+            )
+            p.setFont("Helvetica-Oblique", 9)
+            p.drawCentredString(width/2, 35, "Firma autorizada")
+        
+        # Fecha de generación
+        p.setFont("Helvetica", 8)
+        fecha_generacion = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        p.drawString(min_margin, 20, f"Generado el: {fecha_generacion}")
 
-    if firma_path and os.path.exists(firma_path):
-        p.drawImage(firma_path, width/2 - 60, 60, width=120, height=60, preserveAspectRatio=True, mask='auto')
-        p.setFont("Helvetica-Oblique", 10)
-        p.drawCentredString(width/2, 25, "Firma autorizada")
-
-    tramites = Tramite.objects.all()
-    data = [["ID", "Nombre", "Tiempo", "Precio", "Estado", "Fecha"]]
+    # Preparar datos de la tabla
+    headers = ["ID", "NOMBRE", "TIEMPO", "PRECIO", "ESTADO", "FECHA"]
+    data = [headers]
+    
     for t in tramites:
+        # Manejar el precio de forma segura
+        try:
+            # Intentar convertir a número
+            precio_num = float(t.precioTramite)
+            precio_str = f"${precio_num:,.2f}"
+        except (TypeError, ValueError):
+            # Si falla la conversión, usar el valor original
+            precio_str = str(t.precioTramite)
+        
         data.append([
             str(t.idTramite),
             t.nombreTramite,
             t.diasTramite,
-            t.precioTramite,
+            precio_str,  # Usar el precio formateado o el valor original
             t.estadoTramite,
-            t.fechaTramite.strftime("%d/%m/%Y")
+            t.fechaTramite.strftime("%d/%m/%Y") if t.fechaTramite else ""
         ])
-    col_widths = [40, 120, 80, 80, 60, 60]
+    
+    # Configuración de la tabla con espacios aumentados
+    col_widths = [40, 180, 70, 90, 60, 60]  # Anchos ajustados
     table_width = sum(col_widths)
-    x = safe_left + (safe_width - table_width) / 2
-    y = height - logo_margin - 100
+    
+    # Espaciado vertical aumentado
+    header_height = 150
+    footer_height = 100
+    row_height = 25
+    cell_padding = 5
+    
+    # Calcular espacio disponible
+    available_height = height - header_height - footer_height
+    max_rows_per_page = max(1, int(available_height // row_height))
+    total_rows = len(data) - 1
+    page = 0
 
-    table = Table(data, colWidths=col_widths)
-    table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
-        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0,0), (-1,0), 12),
-        ('BOTTOMPADDING', (0,0), (-1,0), 10),
-        ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
-        ('GRID', (0,0), (-1,-1), 1, colors.black),
-    ]))
-    table.wrapOn(p, width, height)
-    table.drawOn(p, x, y - 25 * len(data))
-    p.showPage()
+    # Generar páginas
+    for start_row in range(0, total_rows, max_rows_per_page):
+        end_row = min(start_row + max_rows_per_page, total_rows)
+        page_data = [data[0]] + data[start_row + 1:end_row + 1]
+        
+        if page > 0:
+            p.showPage()
+        
+        draw_header()
+        y_position = height - header_height
+        
+        # Centrar tabla horizontalmente
+        table_x = safe_left + (safe_width - table_width) / 2
+        table = Table(page_data, colWidths=col_widths, rowHeights=[row_height]*len(page_data))
+        
+        # Estilo de la tabla con más espacio
+        table_style = TableStyle([
+            # Encabezado
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0,0), (-1,0), 9),
+            ('ALIGN', (0,0), (-1,0), 'CENTER'),
+            ('VALIGN', (0,0), (-1,0), 'MIDDLE'),
+            ('BOTTOMPADDING', (0,0), (-1,0), cell_padding),
+            
+            # Cuerpo de la tabla
+            ('FONTSIZE', (0,1), (-1,-1), 8),
+            ('ALIGN', (0,1), (-1,-1), 'CENTER'),
+            ('ALIGN', (1,1), (1,-1), 'LEFT'),  # Alinear nombre a izquierda
+            ('VALIGN', (0,1), (-1,-1), 'MIDDLE'),
+            ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.lightgrey),
+            ('BOX', (0,0), (-1,-1), 0.5, colors.black),
+            ('TOPPADDING', (0,1), (-1,-1), cell_padding),
+            ('BOTTOMPADDING', (0,1), (-1,-1), cell_padding),
+        ])
+        
+        # Resaltar estados y precios
+        for i in range(1, len(page_data)):
+            # Estado
+            estado_valor = page_data[i][4].strip().lower()
+            if estado_valor == "activo":
+                color_estado = colors.HexColor("#28a745")  # Verde
+            elif estado_valor == "inactivo":
+                color_estado = colors.HexColor("#dc3545")  # Rojo
+            else:
+                color_estado = colors.black
+            table_style.add('TEXTCOLOR', (4,i), (4,i), color_estado)
+            
+            # Precio (columna 3) en azul
+            # Solo si parece un valor numérico (contiene $ o es convertible)
+            if str(page_data[i][3]).startswith('$'):
+                table_style.add('TEXTCOLOR', (3,i), (3,i), colors.HexColor("#007bff"))
+        
+        table.setStyle(table_style)
+        table.wrapOn(p, width, height)
+        table.drawOn(p, table_x, y_position - row_height * len(page_data) - 10)
+        
+        # Información de paginación
+        p.setFont("Helvetica", 8)
+        pagination_text = f"Página {page + 1} - Registros {start_row + 1} a {end_row} de {total_rows}"
+        p.drawCentredString(
+            safe_center, 
+            y_position - row_height * len(page_data) - 25,
+            pagination_text
+        )
+        
+        draw_footer()
+        page += 1
+
     p.save()
     return response
 
@@ -2196,49 +3113,178 @@ def tabla_monedas(request):
 
 @login_required(login_url='login')
 def reporte_monedas_pdf(request):
+    # Manejo de parámetros de paginación
+    start = int(request.GET.get('start', 1))
+    end = int(request.GET.get('end', 0))
+    monedas = list(Moneda.objects.all())
+    
+    if end == 0 or end > len(monedas):
+        end = len(monedas)
+    monedas = monedas[start-1:end]
+
+    # Configuración inicial del PDF
     response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = 'attachment; filename="reporte_monedas.pdf"'
+    response['Content-Disposition'] = 'inline; filename="reporte_monedas.pdf"'
     p = canvas.Canvas(response, pagesize=letter)
     width, height = letter
-    logo_width, logo_height, logo_margin = 100, 100, 15
+    logo_width, logo_height, logo_margin = 80, 80, 15  # Tamaño reducido del logo
 
+    # Obtener configuración institucional
     config = Configuracion.objects.order_by('-fechaConfiguracion').first()
     logo_path = config.logo.path if config and config.logo else None
+    firma_path = config.firma.path if config and config.firma else None
     nombre_institucion = config.nombreInstitucion if config else "Institución"
     rif_institucion = config.rif if config else ""
+    direccion1 = "AV. ALBERTO RAVELL CON AV. INTERCOMUNAL JOSE ANTONIO PAEZ"
+    direccion2 = "LOCAL UPTYAB, INDEPENDENCIA – EDO YARACUY"
 
-    # Encabezado alineado a la izquierda (más de 4 campos)
-    x_title = 40
-    p.setFont("Helvetica-Bold", 12)
-    p.drawString(x_title, height - 40, nombre_institucion)
-    p.drawString(x_title, height - 60, f"RIF: {rif_institucion}")
-    p.drawString(x_title, height - 80, "REPORTE DE MONEDAS")
+    # Definir márgenes seguros
+    min_margin = 30
+    safe_left = min_margin
+    safe_right = width - min_margin
+    safe_width = safe_right - safe_left
+    safe_center = width / 2
 
-    monedas = Moneda.objects.all()
-    data = [["ID", "Nombre", "Símbolo", "Estado", "Fecha"]]
+    # Funciones para encabezado y pie de página
+    def draw_header():
+        # Logo a la derecha
+        if logo_path and os.path.exists(logo_path):
+            p.drawImage(
+                logo_path,
+                width - logo_width - logo_margin,
+                height - logo_height - logo_margin,
+                width=logo_width,
+                height=logo_height,
+                preserveAspectRatio=True,
+                mask='auto'
+            )
+        
+        # Texto institucional a la izquierda
+        text_top = height - logo_margin - 15
+        p.setFont("Helvetica-Bold", 10)
+        p.drawString(min_margin, text_top, nombre_institucion)
+        p.drawString(min_margin, text_top - 15, f"RIF: {rif_institucion}")
+        p.drawString(min_margin, text_top - 30, direccion1)
+        p.drawString(min_margin, text_top - 45, direccion2)
+        
+        # Título centrado
+        p.setFont("Helvetica-Bold", 11)
+        p.drawCentredString(safe_center, text_top - 85, "REPORTE DE MONEDAS")
+
+    def draw_footer():
+        # Firma centrada en el pie de página
+        if firma_path and os.path.exists(firma_path):
+            p.drawImage(
+                firma_path,
+                width/2 - 50,
+                60,
+                width=100,
+                height=50,
+                preserveAspectRatio=True,
+                mask='auto'
+            )
+            p.setFont("Helvetica-Oblique", 9)
+            p.drawCentredString(width/2, 35, "Firma autorizada")
+        
+        # Fecha de generación
+        p.setFont("Helvetica", 8)
+        fecha_generacion = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        p.drawString(min_margin, 20, f"Generado el: {fecha_generacion}")
+
+    # Preparar datos de la tabla
+    headers = ["ID", "NOMBRE", "SÍMBOLO", "ESTADO", "FECHA"]
+    data = [headers]
+    
     for m in monedas:
         data.append([
             str(m.idMoneda),
             m.nombreMoneda,
             m.simboloMoneda,
             m.estadoMoneda,
-            m.fechaMoneda.strftime("%d/%m/%Y")
+            m.fechaMoneda.strftime("%d/%m/%Y") if m.fechaMoneda else ""
         ])
-    col_widths = [40, 120, 60, 60, 60]
-    table = Table(data, colWidths=col_widths)
-    table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
-        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0,0), (-1,0), 12),
-        ('BOTTOMPADDING', (0,0), (-1,0), 10),
-        ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
-        ('GRID', (0,0), (-1,-1), 1, colors.black),
-    ]))
-    table.wrapOn(p, width, height)
-    table.drawOn(p, x_title, height - 120 - 25 * len(data))
-    p.showPage()
+    
+    # Configuración de la tabla con espacios aumentados
+    col_widths = [40, 180, 70, 90, 90]  # Anchos ajustados para las columnas
+    table_width = sum(col_widths)
+    
+    # Espaciado vertical aumentado
+    header_height = 150
+    footer_height = 100
+    row_height = 25
+    cell_padding = 5
+    
+    # Calcular espacio disponible
+    available_height = height - header_height - footer_height
+    max_rows_per_page = max(1, int(available_height // row_height))
+    total_rows = len(data) - 1
+    page = 0
+
+    # Generar páginas
+    for start_row in range(0, total_rows, max_rows_per_page):
+        end_row = min(start_row + max_rows_per_page, total_rows)
+        page_data = [data[0]] + data[start_row + 1:end_row + 1]
+        
+        if page > 0:
+            p.showPage()
+        
+        draw_header()
+        y_position = height - header_height
+        
+        # Centrar tabla horizontalmente
+        table_x = safe_left + (safe_width - table_width) / 2
+        table = Table(page_data, colWidths=col_widths, rowHeights=[row_height]*len(page_data))
+        
+        # Estilo de la tabla con más espacio
+        table_style = TableStyle([
+            # Encabezado
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0,0), (-1,0), 9),
+            ('ALIGN', (0,0), (-1,0), 'CENTER'),
+            ('VALIGN', (0,0), (-1,0), 'MIDDLE'),
+            ('BOTTOMPADDING', (0,0), (-1,0), cell_padding),
+            
+            # Cuerpo de la tabla
+            ('FONTSIZE', (0,1), (-1,-1), 8),
+            ('ALIGN', (0,1), (-1,-1), 'CENTER'),
+            ('ALIGN', (1,1), (1,-1), 'LEFT'),  # Alinear nombre a izquierda
+            ('VALIGN', (0,1), (-1,-1), 'MIDDLE'),
+            ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.lightgrey),
+            ('BOX', (0,0), (-1,-1), 0.5, colors.black),
+            ('TOPPADDING', (0,1), (-1,-1), cell_padding),
+            ('BOTTOMPADDING', (0,1), (-1,-1), cell_padding),
+        ])
+        
+        # Resaltar estados
+        for i in range(1, len(page_data)):
+            estado_valor = page_data[i][3].strip().lower()
+            if estado_valor == "activo":
+                color_estado = colors.HexColor("#28a745")  # Verde
+            elif estado_valor == "inactivo":
+                color_estado = colors.HexColor("#dc3545")  # Rojo
+            else:
+                color_estado = colors.black
+            table_style.add('TEXTCOLOR', (3,i), (3,i), color_estado)
+        
+        table.setStyle(table_style)
+        table.wrapOn(p, width, height)
+        table.drawOn(p, table_x, y_position - row_height * len(page_data) - 10)
+        
+        # Información de paginación
+        p.setFont("Helvetica", 8)
+        pagination_text = f"Página {page + 1} - Registros {start_row + 1} a {end_row} de {total_rows}"
+        p.drawCentredString(
+            safe_center, 
+            y_position - row_height * len(page_data) - 25,
+            pagination_text
+        )
+        
+        draw_footer()
+        page += 1
+
     p.save()
     return response
 
@@ -3077,27 +4123,33 @@ def configuracion(request):
     monedas = Moneda.objects.filter(estadoMoneda='ACTIVO')
 
     if request.method == 'POST':
-        # Si hay config_existente, pasamos 'instance' para actualizarla, sino, se crea una nueva.
         form = ConfiguracionForm(request.POST, request.FILES, instance=config_existente)
+        
         if form.is_valid():
             try:
                 configuracion_guardada = form.save()
-                messages.success(request, f'Configuración institucional {"actualizada" if config_existente else "guardada"} exitosamente.')
-                return redirect('configuracion') # Redirige a la misma página para ver los cambios
+                messages.success(
+                    request, 
+                    f'Configuración institucional {"actualizada" if config_existente else "guardada"} exitosamente.'
+                )
+                return redirect('configuracion')
             except Exception as e:
-                 messages.error(request, f'Ocurrió un error al guardar la configuración: {e}. Por favor, intente de nuevo.')
-
+                messages.error(
+                    request, 
+                    f'Ocurrió un error al guardar la configuración: {e}. Por favor, intente de nuevo.'
+                )
         else:
-            messages.error(request, 'Por favor corrige los errores indicados en el formulario.')
+            # Mostrar errores específicos
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f"{field}: {error}")
     else:
         form = ConfiguracionForm(instance=config_existente)
 
-    # Prepara el contexto para el template
     context = {
         'form': form,
-        'monedas': monedas, # La lista de monedas activas para el select
-        'configuracion_actual': config_existente # El objeto de configuración actual (o None)
-        
+        'monedas': monedas,
+        'configuracion_actual': config_existente
     }
     return render(request, 'home/configuracion.html', context)
 
@@ -3109,7 +4161,7 @@ def actualizar_monedas_api(request):
     # Solo permitir método POST para esta acción que modifica datos
     if request.method != 'POST':
         messages.error(request, "Método no permitido.")
-        return redirect('configuracion') # O a donde quieras redirigir
+        return redirect('tabla_monedas') # O a donde quieras redirigir
 
     # URL de la API (puedes ponerla en settings.py si prefieres)
     CURRENCY_API_URL = 'https://openexchangerates.org/api/currencies.json'

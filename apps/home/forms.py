@@ -295,28 +295,72 @@ class MovimientoForm(forms.ModelForm):
 
 
 class ConfiguracionForm(forms.ModelForm):
-    # Opcional: Personalizar widgets para añadir clases de Bootstrap, etc.
-    nombreInstitucion = forms.CharField(widget=forms.TextInput(attrs={'class': 'form-control text-dark', 'placeholder': 'Ingrese el nombre de la institución', 'maxlength': 150}))
-    rif = forms.CharField(widget=forms.TextInput(attrs={'class': 'form-control text-dark', 'placeholder': 'Ej: J-12345678-9', 'maxlength': 15}))
-    correoInstitucion = forms.EmailField(widget=forms.EmailInput(attrs={'class': 'form-control text-dark', 'placeholder': 'contacto@institucion.com', 'maxlength': 254}))
-    # El widget para Moneda se renderizará como un select por defecto
+    nombreInstitucion = forms.CharField(
+        widget=forms.TextInput(attrs={
+            'class': 'form-control text-dark', 
+            'placeholder': 'Ingrese el nombre de la institución', 
+            'maxlength': 150
+        })
+    )
+    rif = forms.CharField(
+        widget=forms.TextInput(attrs={
+            'class': 'form-control text-dark', 
+            'placeholder': 'Ej: J-12345678-9', 
+            'maxlength': 15
+        })
+    )
+    correoInstitucion = forms.EmailField(
+        widget=forms.EmailInput(attrs={
+            'class': 'form-control text-dark', 
+            'placeholder': 'contacto@institucion.com', 
+            'maxlength': 254
+        })
+    )
     moneda = forms.ModelChoiceField(
-        queryset=Moneda.objects.filter(estadoMoneda='ACTIVO'), # Asegura que solo monedas activas aparezcan aquí también
+        queryset=Moneda.objects.filter(estadoMoneda='ACTIVO'),
         widget=forms.Select(attrs={'class': 'form-control text-dark'}),
         empty_label="Seleccione una moneda..."
     )
-    logo = forms.ImageField(widget=forms.FileInput(attrs={'class': 'form-control-file text-dark', 'accept': 'image/*'}), required=False) # Hacemos 'required=False' por defecto
-    firma = forms.ImageField(widget=forms.FileInput(attrs={'class': 'form-control-file text-dark', 'accept': 'image/*'}), required=False) # Hacemos 'required=False' por defecto
+    logo = forms.ImageField(
+        widget=forms.FileInput(attrs={
+            'class': 'form-control-file text-dark', 
+            'accept': 'image/*'
+        }), 
+        required=False
+    )
+    firma = forms.ImageField(
+        widget=forms.FileInput(attrs={
+            'class': 'form-control-file text-dark', 
+            'accept': 'image/*'
+        }), 
+        required=False
+    )
 
     class Meta:
         model = Configuracion
-        # Excluimos fechaConfiguracion que es auto_now_add
         fields = ['nombreInstitucion', 'rif', 'correoInstitucion', 'moneda', 'logo', 'firma']
 
     def __init__(self, *args, **kwargs):
         super(ConfiguracionForm, self).__init__(*args, **kwargs)
-
-        if not self.instance or not self.instance.pk:
+        self.fields['moneda'].queryset = Moneda.objects.filter(estadoMoneda='ACTIVO')
+        
+        # Solo requerir archivos para nuevas configuraciones
+        if self.instance and self.instance.pk:
+            self.fields['logo'].required = False
+            self.fields['firma'].required = False
+        else:
             self.fields['logo'].required = True
             self.fields['firma'].required = True
-        self.fields['moneda'].queryset = Moneda.objects.filter(estadoMoneda='ACTIVO')
+
+    def clean(self):
+        cleaned_data = super().clean()
+        instance = getattr(self, 'instance', None)
+        
+        # Mantener archivos existentes si no se suben nuevos
+        if instance and instance.pk:
+            if not cleaned_data.get('logo'):
+                cleaned_data['logo'] = instance.logo
+            if not cleaned_data.get('firma'):
+                cleaned_data['firma'] = instance.firma
+                
+        return cleaned_data

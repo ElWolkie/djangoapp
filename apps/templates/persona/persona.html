@@ -73,7 +73,7 @@
   }
   
   textarea.form-control {
-      min-height: 120px;
+      min-height: 150px;  /* Aumentado de 120px a 150px */
       resize: vertical;
   }
   
@@ -90,7 +90,8 @@
       align-items: center;
       justify-content: center;
       margin: 0 auto;
-      width: 200px;
+      width: 200px;  /* Tamaño normalizado */
+      font-size: 1rem; /* Tamaño de fuente adecuado */
   }
   
   .btn-submit:hover {
@@ -185,6 +186,20 @@
       margin-right: 5px;
       color: #fd7e14;
   }
+  
+  /* Nuevos estilos para mejorar la distribución */
+  .form-section {
+      margin-bottom: 2rem;
+  }
+  
+  .form-footer {
+      margin-top: 2rem;
+      text-align: center;
+  }
+  /* Oculta la descripción de la cédula sin eliminarla del DOM */
+  .cedula-type-info {
+      display: none !important;
+  }
 </style>
 {% endblock stylesheets %}
 
@@ -195,7 +210,7 @@
       <h2><i class="fas fa-user-plus text-warning"></i> Registro de {{tipo_texto}}</h2>
       <p class="text-muted">Complete todos los campos para registrar una nueva persona</p>
     </div>
-    
+
     {% if messages %}
       {% for message in messages %}
         <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
@@ -207,129 +222,136 @@
         </div>
       {% endfor %}
     {% endif %}
-    
+
     <form method="POST" autocomplete="off" id="registroPersona" action="{% url 'persona_modal' %}">
       {% csrf_token %}
+
       <!-- Checkboxes ocultos -->
       <div style="display: none;">
-          <input type="checkbox" name="tipoPersona" id="tipoUsuario" value="1">
-          <input type="checkbox" name="tipoPersona" id="tipoCliente" value="2">
-          <input type="checkbox" name="tipoPersona" id="tipoProveedor" value="3">
+        <input type="checkbox" name="tipoPersona" id="tipoUsuario" value="1">
+        <input type="checkbox" name="tipoPersona" id="tipoCliente" value="2">
+        <input type="checkbox" name="tipoPersona" id="tipoProveedor" value="3">
       </div>
 
       <div class="row">
-          <!-- Columna izquierda -->
-          <div class="col-md-6">
-              <div class="form-group">
-                  <label for="tipo_cedula" class="form-label">
-                    <i class="fas fa-id-card form-icon"></i> Cédula
-                  </label>
-                  
-                  <div class="input-group">
-                    <select id="tipo_cedula" name="tipo_cedula" class="form-select cedula-select" required>
-                      <option value="V" selected>Venezolano</option>
-                      <option value="J">Jurídico</option>
-                      <option value="G">Gubernamental</option>
-                      <option value="E">Extranjero</option>
-                      <option value="P">Pasaporte</option>
-                    </select>
-                    <input type="text" id="numero_cedula" name="numero_cedula"
-                           class="form-control cedula-input" 
-                           placeholder="12345678" maxlength="8" 
-                           oninput="this.value = this.value.replace(/[^0-9]/g, '')"
-                           required>
-                  </div>
-                  
-                  <div class="cedula-type-info">
-                    <i class="fas fa-info-circle"></i>
-                    <span id="cedula-type-description">Venezolano (V-)</span>
-                  </div>
-                  
-                  <!-- Campo oculto para el valor combinado -->
-                  <input type="hidden" id="cedula" name="cedula">
-              </div>
-              
-              <div class="form-group">
-                  <label for="nombres" class="form-label">
-                    <i class="fas fa-signature form-icon"></i> Nombres
-                  </label>
-                  <div class="input-group">
-                    <i class="fas fa-user input-icon"></i>
-                    <input type="text" id="nombres" name="nombres" class="form-control input-with-icon" 
-                           placeholder="Ingrese su nombre" maxlength="100" required>
-                  </div>
-              </div>
-              
-              <div class="form-group">
-                  <label for="apellidos" class="form-label">
-                    <i class="fas fa-signature form-icon"></i> Apellidos
-                  </label>
-                  <div class="input-group">
-                    <i class="fas fa-user input-icon"></i>
-                    <input type="text" id="apellidos" name="apellidos" class="form-control input-with-icon" 
-                           placeholder="Ingrese su apellido" maxlength="100" required>
-                  </div>
-              </div>
+        <div class="col-md-6">
+          <!-- CÉDULA -->
+          <div class="form-group">
+            <label for="tipo_cedula" class="form-label">
+              <i class="fas fa-id-card form-icon"></i> Cédula
+            </label>
+            <div class="input-group">
+              <select id="tipo_cedula" name="tipo_cedula" class="form-select cedula-select" required>
+                <option value="V" selected>Venezolano</option>
+                <option value="J">Jurídico</option>
+                <option value="G">Gubernamental</option>
+                <option value="E">Extranjero</option>
+                <option value="P">Pasaporte</option>
+              </select>
+              <input type="text" id="numero_cedula" name="numero_cedula"
+                     class="form-control cedula-input"
+                     placeholder="12345678" maxlength="8"
+                     oninput="this.value = this.value.replace(/[^0-9]/g, '')"
+                     required>
+            </div>
+
+            <!-- Descripción oculta para que JS pueda actualizarla -->
+            <div class="cedula-type-info">
+              <i class="fas fa-info-circle"></i>
+              <span id="cedula-type-description">Venezolano (V-)</span>
+            </div>
+
+            <!-- Campo oculto para el valor combinado -->
+            <input type="hidden" id="cedula" name="cedula">
           </div>
 
-          <!-- Columna derecha -->
-          <div class="col-md-6">
-              <div class="form-group">
-                  <label for="telefono" class="form-label">
-                    <i class="fas fa-phone-alt form-icon"></i> Teléfono
-                  </label>
-                  <div class="input-group">
-                    <i class="fas fa-mobile-alt input-icon"></i>
-                    <input type="text" id="telefono" name="telefono" class="form-control input-with-icon" 
-                           placeholder="Ej: 0412-1234567" maxlength="15" required>
-                  </div>
-              </div>
-              
-              <div class="form-group">
-                  <label for="correo" class="form-label">
-                    <i class="fas fa-envelope form-icon"></i> Correo Electrónico
-                  </label>
-                  <div class="input-group">
-                    <i class="fas fa-at input-icon"></i>
-                    <input type="email" id="correo" name="correo" class="form-control input-with-icon" 
-                           placeholder="example@tudominio.com" required>
-                  </div>
-              </div>
-
-              <div class="form-group">
-                  <label for="rif" class="form-label">
-                    <i class="fas fa-building form-icon"></i> RIF
-                  </label>
-                  <div class="input-group">
-                    <i class="fas fa-file-invoice-dollar input-icon"></i>
-                    <input type="text" id="rif" name="rif" class="form-control input-with-icon" 
-                           placeholder="J-12345678-9" maxlength="20" required>
-                  </div>
-                  <div class="rif-format mt-2">
-                    <i class="fas fa-info-circle"></i> Formato: J-XXXXXXXX-X
-                  </div>
-              </div>
+          <!-- NOMBRES -->
+          <div class="form-group">
+            <label for="nombres" class="form-label">
+              <i class="fas fa-signature form-icon"></i> Nombres
+            </label>
+            <div class="input-group">
+              <i class="fas fa-user input-icon"></i>
+              <input type="text" id="nombres" name="nombres" class="form-control input-with-icon"
+                     placeholder="Ingrese su nombre" maxlength="100" required>
+            </div>
           </div>
+
+          <!-- APELLIDOS -->
+          <div class="form-group">
+            <label for="apellidos" class="form-label">
+              <i class="fas fa-signature form-icon"></i> Apellidos
+            </label>
+            <div class="input-group">
+              <i class="fas fa-user input-icon"></i>
+              <input type="text" id="apellidos" name="apellidos" class="form-control input-with-icon"
+                     placeholder="Ingrese su apellido" maxlength="100" required>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-md-6">
+          <!-- TELÉFONO -->
+          <div class="form-group">
+            <label for="telefono" class="form-label">
+              <i class="fas fa-phone-alt form-icon"></i> Teléfono
+            </label>
+            <div class="input-group">
+              <i class="fas fa-mobile-alt input-icon"></i>
+              <input type="text" id="telefono" name="telefono" class="form-control input-with-icon"
+                     placeholder="Ej: 0412-1234567" maxlength="15" required>
+            </div>
+          </div>
+
+          <!-- CORREO -->
+          <div class="form-group">
+            <label for="correo" class="form-label">
+              <i class="fas fa-envelope form-icon"></i> Correo Electrónico
+            </label>
+            <div class="input-group">
+              <i class="fas fa-at input-icon"></i>
+              <input type="email" id="correo" name="correo" class="form-control input-with-icon"
+                     placeholder="example@tudominio.com" required>
+            </div>
+          </div>
+
+          <!-- RIF -->
+          <div class="form-group">
+            <label for="rif" class="form-label">
+              <i class="fas fa-building form-icon"></i> RIF
+            </label>
+            <div class="input-group">
+              <i class="fas fa-file-invoice-dollar input-icon"></i>
+              <input type="text" id="rif" name="rif" class="form-control input-with-icon"
+                     placeholder="J-12345678-9" maxlength="20" required>
+            </div>
+            <div class="rif-format mt-2">
+              <i class="fas fa-info-circle"></i> Formato: J-XXXXXXXX-X (6-8 dígitos permitidos)
+            </div>
+          </div>
+        </div>
       </div>
 
+      <!-- DIRECCIÓN -->
       <div class="form-divider">
         <span><i class="fas fa-map-marker-alt me-2"></i> Dirección</span>
       </div>
-
       <div class="form-group">
         <div class="input-group">
           <i class="fas fa-home input-icon"></i>
-          <textarea id="direccion" name="direccion" class="form-control input-with-icon" 
+          <textarea id="direccion" name="direccion" class="form-control input-with-icon"
                     placeholder="Ingrese la dirección completa" rows="4"></textarea>
         </div>
       </div>
 
-      <!-- Campo oculto -->
+      <!-- ESTADO (oculto) -->
       <input type="hidden" id="estadoPersona" name="estadoPersona" value="ACTIVO">
 
-      <button type="submit" class="btn-submit">
-        <i class="fas fa-save me-2"></i> Guardar
-      </button>
+      <div class="form-footer">
+        <button type="submit" class="btn-submit">
+          <i class="fas fa-save me-2"></i> Guardar
+        </button>
+      </div>
     </form>
   </div>
 </div>
@@ -367,7 +389,20 @@
 <script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
 <script>
   document.addEventListener("DOMContentLoaded", function() {
-    // ————— 1) Lógica de tipo de cédula, combineCedula(), validación RIF mejorada, animación —————
+    // ————— 1) Elementos clave —————
+    const tipoCedulaSelect = document.getElementById('tipo_cedula');
+    const numeroCedulaInput = document.getElementById('numero_cedula');
+    const rifInput = document.getElementById('rif');
+    const cedulaDescription = document.getElementById('cedula-type-description');
+
+    // ————— 2) Mapeos —————
+    const rifPrefixMap = {
+      'V': 'V-',
+      'J': 'J-',
+      'G': 'G-',
+      'E': 'E-',
+      'P': 'P-'
+    };
 
     const cedulaTypes = {
       'V': 'Venezolano (V-)',
@@ -376,35 +411,87 @@
       'E': 'Extranjero (E-)',
       'P': 'Pasaporte (P-)'
     };
-    const tipoCedulaSelect = document.getElementById('tipo_cedula');
-    const cedulaDescription = document.getElementById('cedula-type-description');
 
+    // ————— 3) Funciones principales —————
     function updateCedulaDescription() {
       const selectedType = tipoCedulaSelect.value;
       cedulaDescription.textContent = cedulaTypes[selectedType];
     }
-    tipoCedulaSelect.addEventListener('change', updateCedulaDescription);
-    updateCedulaDescription();
 
-    function combineCedula() {
-      const tipo = tipoCedulaSelect.value;
-      const numero = document.getElementById('numero_cedula').value;
-      return `${tipo}-${numero}`;
+    function syncRIF() {
+      const cedulaValue = numeroCedulaInput.value;
+      const prefix = rifPrefixMap[tipoCedulaSelect.value] || 'J-';
+      
+      // Obtener solo la parte numérica del RIF actual
+      let rifValue = rifInput.value.replace(/^[VJGE]-/, '');
+      
+      // Si el RIF está vacío o coincide con la cédula anterior
+      if (!rifValue || rifValue.startsWith(cedulaValue.substring(0, rifValue.length))) {
+        rifInput.value = prefix + cedulaValue;
+      }
     }
 
-    // Validación mejorada de RIF: ahora acepta V-, J-, G- o E- al inicio
-    const rifInput = document.getElementById('rif');
-    rifInput.addEventListener('input', function() {
-      // Acepta: V-XXXXXXXX-X, J-XXXXXXXX-X, G-XXXXXXXX-X, E-XXXXXXXX-X
-      const rifRegex = /^[VvJjGgEePp]-[0-9]{8}-[0-9]{1}$/;
-      if (this.value && !rifRegex.test(this.value)) {
-        this.setCustomValidity('Formato inválido. Use V/J/G/E/P-XXXXXXXX-X');
-      } else {
-        this.setCustomValidity('');
+    function formatRIF() {
+      let rifValue = rifInput.value;
+      const prefix = rifPrefixMap[tipoCedulaSelect.value] || 'J-';
+      
+      // Si no tiene prefijo, agregarlo
+      if (!/^[VJGE]-/.test(rifValue)) {
+        rifValue = prefix + rifValue;
       }
+      
+      // Eliminar caracteres no válidos
+      rifValue = rifValue.replace(/[^VJGE\d-]/gi, '');
+      
+      // Insertar guión antes del último dígito
+      if (rifValue.length > prefix.length + 1) {
+        const mainPart = rifValue.substring(0, rifValue.length - 1);
+        const lastDigit = rifValue.substring(rifValue.length - 1);
+        
+        // Solo agregar guión si no existe
+        if (!mainPart.includes('-')) {
+          rifInput.value = mainPart + '-' + lastDigit;
+        }
+      } else {
+        rifInput.value = rifValue;
+      }
+    }
+
+    function validateRIF() {
+      const rifValue = rifInput.value;
+      const rifRegex = /^[VJGE]-\d{6,8}-\d$/;
+      
+      if (rifValue && !rifRegex.test(rifValue)) {
+        rifInput.setCustomValidity('Formato inválido. Ejemplo: J-12345678-9');
+        return false;
+      } else {
+        rifInput.setCustomValidity('');
+        return true;
+      }
+    }
+
+    // ————— 4) Event Listeners —————
+    tipoCedulaSelect.addEventListener('change', function() {
+      updateCedulaDescription();
+      syncRIF();
+    });
+    
+    numeroCedulaInput.addEventListener('input', syncRIF);
+    
+    rifInput.addEventListener('input', function() {
+      formatRIF();
+    });
+    
+    rifInput.addEventListener('blur', function() {
+      validateRIF();
+      this.reportValidity();
     });
 
-    // Pequeña animación en los inputs al enfocar/blur
+    // ————— 5) Inicialización —————
+    updateCedulaDescription();
+    syncRIF();
+
+    // ————— 6) Animaciones y mejoras UX —————
     document.querySelectorAll('.form-control').forEach(input => {
       input.addEventListener('focus', function() {
         this.parentElement.parentElement.style.transform = 'translateY(-3px)';
@@ -415,7 +502,7 @@
       });
     });
 
-    // Carga del modal “Registrar Tipo de Persona”
+    // ————— 7) Carga del modal “Registrar Tipo de Persona” —————
     $('#tipoPersonaModal').on('show.bs.modal', function(e) {
       var modal = $(this);
       $.ajax({
@@ -427,7 +514,7 @@
       });
     });
 
-    // Procesar formulario de TipoPersona dentro del modal
+    // ————— 8) Procesar formulario de TipoPersona dentro del modal —————
     $(document).on('submit', '#registroForm', function(e) {
       e.preventDefault();
       var form = $(this);
@@ -479,10 +566,9 @@
       });
     });
 
-
-    // ————— 2) Marcar el checkbox “tipoPersona” oculto según idTP —————
+    // ————— 9) Marcar el checkbox “tipoPersona” oculto según idTP —————
     const params = new URLSearchParams(window.location.search);
-    const idTP = params.get("idTP");  // “1”, “2” o “3”
+    const idTP = params.get("idTP");
     if (idTP) {
       const checkbox = document.querySelector(`input[name="tipoPersona"][value="${idTP}"]`);
       if (checkbox) {
@@ -490,14 +576,20 @@
       }
     }
 
+    // ————— 10) Combinar cédula para enviar —————
+    function combineCedula() {
+      const tipo = tipoCedulaSelect.value;
+      const numero = numeroCedulaInput.value;
+      return `${tipo}-${numero}`;
+    }
 
-    // ————— 3) Listener de envío del formulario principal —————
+    // ————— 11) Listener de envío del formulario principal —————
     const form = document.getElementById("registroPersona");
     form.addEventListener("submit", function(e) {
       e.preventDefault();
 
-      // Validar que la cédula (número) no esté vacía
-      const numeroCedula = document.getElementById('numero_cedula').value;
+      // Validación de cédula
+      const numeroCedula = numeroCedulaInput.value;
       if (!numeroCedula) {
         Swal.fire({
           icon: "error",
@@ -508,7 +600,18 @@
         return;
       }
 
-      // Crear FormData y agregar la cédula combinada
+      // Validación de RIF
+      if (!validateRIF()) {
+        Swal.fire({
+          icon: "error",
+          title: "RIF inválido",
+          text: "Formato correcto: Letra-12345678-9 (6-8 dígitos)",
+          confirmButtonColor: "#ffc107",
+        });
+        return;
+      }
+
+      // Crear FormData
       const formData = new FormData(form);
       formData.set('cedula', combineCedula());
 
@@ -527,7 +630,7 @@
               document.querySelectorAll('input[name="tipoPersona"]:checked')
             ).map(checkbox => checkbox.value);
 
-            // Construir las opciones de redirección según el tipo de persona
+            // Construir opciones de redirección
             const opciones = [];
             if (tipoPersonaSeleccionados.includes("2")) {
               opciones.push({ text: "Solicitud", value: `/solicitud/solicitud.html?cedula=${cedulaCompleta}` });
@@ -543,13 +646,13 @@
               });
             }
 
-            // Si solo hay un tipo seleccionado, redirigir directamente
+            // Redirección directa si solo hay una opción
             if (opciones.length === 1) {
               window.location.href = opciones[0].value;
               return;
             }
 
-            // Mostrar SweetAlert con las opciones de redirección
+            // Mostrar selector de opciones
             Swal.fire({
               title: "Registro exitoso",
               text: "¿Qué quieres hacer ahora?",
@@ -572,12 +675,11 @@
               if (result.isConfirmed && result.value) {
                 window.location.href = result.value;
               } else {
-                // Si el usuario cancela, redirigir a la lista de personas
                 window.location.href = "{% url 'seleccionar_tipo_consulta' %}?tipo=" + (idTP || '');
               }
             });
           } else {
-            // Si hubo errores de validación en el servidor, muestra el SweetAlert
+            // Manejo de errores
             Swal.fire({
               icon: "error",
               title: "Error en el registro",
@@ -600,7 +702,6 @@
           });
         });
     });
-
-  }); // Fin de DOMContentLoaded
+  });
 </script>
 {% endblock javascripts %}
