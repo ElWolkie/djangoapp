@@ -1,6 +1,6 @@
 from decimal import Decimal
 from django.shortcuts import render, get_object_or_404, redirect
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.db import transaction
 from django.db.models import Max
 import uuid
@@ -9,6 +9,12 @@ from django.utils.timezone import now
 from django.core.exceptions import ValidationError
 from django.views.decorators.http import require_POST
 
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import landscape, letter
+from reportlab.platypus import Table, TableStyle
+from reportlab.lib import colors
+from reportlab.lib.units import inch
+import os
 
 from apps.cuentaBanco.models import CuentaBanco
 from apps.periodoContable.models import periodoContable
@@ -644,3 +650,192 @@ def obtener_parametros_tributarios(request):
         })
     
     return JsonResponse(parametros_agrupados)
+
+def reporte_facturas_pdf(request):
+    # Selección de cantidad de registros
+    start = int(request.GET.get('start', 1))
+    end = int(request.GET.get('end', 0))
+    facturas = list(Factura.objects.all().order_by('fechaEmision', 'numeroFactura'))
+    if end == 0 or end > len(facturas):
+        end = len(facturas)
+    facturas = facturas[start-1:end]
+
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="reporte_notasdecobro.pdf"'
+
+    # Para aumentar el tamaño de la hoja, define un tamaño personalizado (por ejemplo, más grande que letter)
+    custom_width = 14 * inch  # ancho personalizado (por ejemplo, 14 pulgadas)
+    custom_height = 9 * inch  # alto personalizado (por ejemplo, 9 pulgadas)
+    page_size = (custom_width, custom_height)
+
+    # Aquí se pone la hoja en horizontal usando landscape y el tamaño personalizado
+    p = canvas.Canvas(response, pagesize=landscape(page_size))
+    width, height = landscape(page_size)
+    logo_width, logo_height, logo_margin = 100, 100, 15
+
+    # Configuración institucional
+    config = None
+    try:
+        config = Configuracion.objects.order_by('-fechaConfiguracion').first()
+    except Exception:
+        pass
+    logo_path = config.logo.path if config and config.logo else None
+    firma_path = config.firma.path if config and config.firma else None
+    nombre_institucion = config.nombreInstitucion if config else "Institución"
+    rif_institucion = config.rif if config else ""
+
+    safe_left = logo_margin
+    safe_right = width - logo_margin
+    safe_width = safe_right - safe_left
+
+    # --- Define encabezado y pie ---
+    def draw_header():
+        if logo_path and os.path.exists(logo_path):
+            p.drawImage(
+                logo_path,
+                width - logo_width - logo_margin,
+                height - logo_height - logo_margin,
+                width=logo_width,
+                height=logo_height,
+                preserveAspectRatio=True,
+                mask='auto'
+            )
+        text_top = height - logo_margin - 15
+
+        p.setFont("Helvetica-Bold", 10)
+        p.drawString(logo_margin, text_top, nombre_institucion)
+        p.drawString(logo_margin, text_top - 20, f"RIF: {rif_institucion}")
+        p.drawString(logo_margin, text_top - 40, "AV. ALBERTO RAVELL CON AV. INTERCOMUNAL JOSE ANTONIO PAEZ,")
+        p.drawString(logo_margin, text_top - 60, "LOCAL UPTYAB, INDEPENDENCIA – EDO YARACUY")
+        p.setFont("Helvetica-Bold", 13)
+        p.drawCentredString(width / 2, text_top - 100, "Reporte de notas de Cobro")
+
+    def draw_footer():
+        if firma_path and os.path.exists(firma_path):
+            p.drawImage(firma_path, width/2 - 60, 60, width=120, height=60, preserveAspectRatio=True, mask='auto')
+            p.setFont("Helvetica-Oblique", 10)
+            p.drawCentredString(width/2, 40, "Firma autorizada")
+
+    # --- Datos de la tabla ---
+    data = [
+        [
+            "ID",
+            "N° Factura",
+            "Fecha Emisión",
+            "Cliente",
+            "Tipo",
+            "Subtotal Exento",
+            "Subtotal Gravado",
+            "IVA",
+            "Total Venta",
+            "Estado"
+        ]
+    ]
+    for fac in facturas:
+        data.append([
+            str(getattr(fac, 'idFactura', '')),
+            getattr(fac, 'numeroFactura', ''),
+            fac.fechaEmision.strftime("%d/%m/%Y") if hasattr(fac, 'fechaEmision') and fac.fechaEmision else '',
+            str(fac.idPersona) if fac.idPersona else '',
+            dict(Factura.TIPOS_FACTURA).get(fac.tipoFactura, fac.tipoFactura),
+            f"{fac.subtotalExento:.2f}",
+            f"{fac.subtotalGravado:.2f}",
+            f"{fac.iva:.2f}",
+            f"{fac.totalVenta:.2f}",
+            fac.estado,
+        ])
+    col_widths = [40, 120, 90, 120, 180, 100, 100, 60, 80, 60]
+    table_width = sum(col_widths)
+
+    # --- Cálculo de espacio ---
+    header_height = 140
+    footer_height = 160
+    row_height = 22
+    available_height = height - header_height - footer_height
+
+    max_rows_per_page = int(available_height // row_height)
+    if max_rows_per_page < 1:
+        max_rows_per_page = 1
+
+    total_rows = len(data) - 1
+    page = 0
+
+    for start_row in range(0, total_rows, max_rows_per_page):
+        end_row = start_row + max_rows_per_page
+        page_data = [data[0]] + data[start_row + 1:end_row + 1]
+        if page > 0:
+            p.showPage()
+        draw_header()
+        y = height - header_height
+        # Centrar la tabla horizontalmente
+        table_x = safe_left + (safe_width - table_width) / 2
+        table = Table(page_data, colWidths=col_widths)
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0,0), (-1,0), 12),
+            ('BOTTOMPADDING', (0,0), (-1,0), 10),
+            ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
+            ('GRID', (0,0), (-1,-1), 1, colors.black),
+        ]))
+        table.wrapOn(p, width, height)
+        table.drawOn(p, table_x, y - row_height * len(page_data))
+        draw_footer()
+        page += 1
+
+    p.save()
+    return response
+
+
+def reporte_factura_pdf(request, pk):
+    factura = get_object_or_404(Factura, pk=pk)
+    detalles = FacturaDetalle.objects.filter(idFactura=factura)
+
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="factura_{factura.numeroFactura}.pdf"'
+
+    p = canvas.Canvas(response, pagesize=letter)
+    width, height = letter
+
+    # Encabezado
+    p.setFont("Helvetica-Bold", 14)
+    p.drawCentredString(width / 2, height - 50, "Nota de cobro")
+    p.setFont("Helvetica", 10)
+    p.drawString(50, height - 80, f"N°: {factura.numeroFactura}")
+    p.drawString(50, height - 100, f"Fecha: {factura.fechaEmision.strftime('%d/%m/%Y')}")
+    p.drawString(50, height - 120, f"Cliente: {factura.idPersona if factura.idPersona else ''}")
+    p.drawString(50, height - 140, f"Empresa: {factura.idEmpresa if factura.idEmpresa else ''}")
+
+    # Tabla de detalles
+    data = [["Descripción", "Cantidad", "Precio Unitario", "Subtotal"]]
+    for det in detalles:
+        data.append([
+            det.descripcion,
+            str(det.cantidad),
+            f"{det.precioUnitario:.2f}",
+            f"{det.subtotal:.2f}"
+        ])
+    table = Table(data, colWidths=[200, 80, 100, 100])
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0,0), (-1,0), 11),
+        ('BOTTOMPADDING', (0,0), (-1,0), 10),
+        ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
+        ('GRID', (0,0), (-1,-1), 1, colors.black),
+    ]))
+    table.wrapOn(p, width, height)
+    table.drawOn(p, 50, height - 200 - 22 * len(data))
+
+    # Totales
+    p.setFont("Helvetica-Bold", 11)
+    p.drawString(350, 100, f"Total Venta: {factura.totalVenta:.2f}")
+    p.drawString(350, 80, f"Estado: {factura.estado}")
+
+    p.showPage()
+    p.save()
+    return response

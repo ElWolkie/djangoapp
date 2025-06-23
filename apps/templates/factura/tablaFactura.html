@@ -9,7 +9,7 @@
 
 {% block content %}
 <div class="container mt-5">
-  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Lista de Facturas</h2>
+  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Lista de Notas de Cobro</h2>
 
   {% if messages %}
     {% for message in messages %}
@@ -32,6 +32,11 @@
     </div>
     <div class="col-md-4">
       <a href="{% url 'factura_create' %}" class="btn btn-warning btn-square btn-sm my-2" title="Registrar Factura">+</a>
+    </div>
+        <div class="col-md-4 text-end">
+      <a href="{% url 'reporte_facturas_pdf' %}" class="btn btn-outline-danger btn-sm" target="_blank">
+        <i class="fas fa-file-pdf"></i> Descargar PDF
+      </a>
     </div>
   </div>
 
@@ -64,6 +69,9 @@
           </button>
           <a href="{% url 'factura_edit' factura.pk %}" class="btn btn-primary btn-sm" title="Editar">
             <i class="fas fa-edit"></i>
+          </a>
+          <a href="{% url 'reporte_factura_pdf' factura.pk %}" class="btn btn-danger btn-sm" title="Descargar PDF" target="_blank">
+            <i class="fas fa-file-pdf"></i>
           </a>
         </td>
       </tr>
