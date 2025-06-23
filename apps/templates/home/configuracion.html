@@ -1,313 +1,468 @@
 {% extends 'layouts/base.html' %}
+{% load static %}
 
 {% block title %}Configuración Institucional{% endblock title %}
 
 {% block stylesheets %}
-<link rel="stylesheet" href="/static/assets/css/styleForms.css" />
-<link rel="stylesheet" href="/static/assets/css/argon.css" />
+<link rel="stylesheet" href="{% static 'assets/css/styleForms.css' %}" />
+<link rel="stylesheet" href="{% static 'assets/css/argon.css' %}" />
 <style>
-    /* Estilo opcional para indicar campos deshabilitados */
-    #configuracionInstitucion :disabled {
-        background-color: #e9ecef; /* Un gris claro para indicar que está inactivo */
-        cursor: not-allowed;
-    }
-    #configuracionInstitucion input[type="file"]:disabled + small {
-         color: #adb5bd; /* Atenuar texto de ayuda para archivos */
-    }
-
-    /* Dentro del bloque <style> o en tu archivo CSS */
-      .img-preview {
-          max-height: 150px; /* Altura máxima de la vista previa */
-          max-width: 100%;   /* Ancho máximo, se ajusta manteniendo proporción */
-          display: block;    /* Para que el margen automático funcione */
-          margin-left: auto;
-          margin-right: auto;
-      }
-
+  .config-container {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 1rem;
+    box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.1);
+    padding: 2rem;
+    margin: 2rem auto;
+  }
+  .config-header {
+    text-align: center;
+    margin-bottom: 2rem;
+    position: relative;
+    padding-bottom: 1rem;
+  }
+  .config-header h2 {
+    color: #343a40;
+    font-weight: 700;
+  }
+  .config-header::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100px;
+    height: 4px;
+    background: linear-gradient(90deg, #ffc107, #fd7e14);
+    border-radius: 2px;
+  }
+  .form-group {
+    margin-bottom: 1.5rem;
+  }
+  .form-label {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.5rem;
+  }
+  .form-control {
+    border-radius: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    border: 1px solid #ced4da;
+    background-color: #fff;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.075);
+    transition: all 0.3s;
+  }
+  .form-control:focus {
+    border-color: #ffc107;
+    box-shadow: 0 0 0 0.25rem rgba(255,193,7,0.25);
+  }
+  .btn-edit {
+    background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+    border: none;
+    color: #fff;
+    font-weight: 600;
+    padding: 0.5rem 1.5rem;
+    border-radius: 0.5rem;
+    transition: all 0.3s;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+  .btn-edit:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+  }
+  .btn-save {
+    background: linear-gradient(135deg, #28a745 0%, #218838 100%);
+    border: none;
+    color: #fff;
+    font-weight: 600;
+    padding: 0.5rem 1.5rem;
+    border-radius: 0.5rem;
+    transition: all 0.3s;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+  .btn-save:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+  }
+  .btn-cancel {
+    background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+    border: none;
+    color: #fff;
+    font-weight: 600;
+    padding: 0.5rem 1.5rem;
+    border-radius: 0.5rem;
+    transition: all 0.3s;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+  .btn-cancel:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+  }
+  .img-preview {
+    max-height: 150px;
+    max-width: 100%;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 0.5rem;
+    padding: 5px;
+    background: white;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  }
+  .image-section {
+    background: white;
+    border-radius: 0.5rem;
+    padding: 15px;
+    margin-bottom: 20px;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  }
+  .image-title {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 10px;
+    text-align: center;
+  }
+  .file-info {
+    text-align: center;
+    font-size: 0.9rem;
+    color: #6c757d;
+    margin-top: 5px;
+  }
 </style>
 {% endblock stylesheets %}
 
 {% block content %}
-<div class="container mt-5">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h2 class="text-dark" style="margin: 0;">Configuración Institucional</h2>
-        <button id="editConfigBtn" type="button" class="btn btn-warning">
-            <i class="fas fa-pencil-alt"></i> Editar
-        </button>
+<div class="container">
+  <div class="config-container">
+    <div class="config-header">
+      <h2><i class="fas fa-cog text-warning"></i> Configuración Institucional</h2>
+    </div>
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <div></div> <!-- Espacio vacío para alinear el botón a la derecha -->
+      <button id="editConfigBtn" type="button" class="btn-edit">
+        <i class="fas fa-pencil-alt me-2"></i> Editar Configuración
+      </button>
     </div>
 
     {% if messages %}
-        {% for message in messages %}
-            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert" style="margin:5px;">
-                {{ message }}
-                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-        {% endfor %}
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+          <i class="fas {% if message.tags == 'success' %}fa-check-circle{% else %}fa-exclamation-circle{% endif %} me-2"></i>
+          {{ message }}
+          <button type="button" class="btn btn-sm btn-icon-only text-dark" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+      {% endfor %}
     {% endif %}
 
-    <form method="POST" enctype="multipart/form-data" class="mt-4 text-dark" autocomplete="off" style="font-weight: bold;" id="configuracionInstitucion">
-        {% csrf_token %}
-        <div class="row">
-            <div class="col-md-6">
-                <div class="form-group">
-                    <label for="id_nombreInstitucion">Nombre de la Institución:</label>
-                    {{ form.nombreInstitucion }}
-                    {% if form.nombreInstitucion.errors %}
-                        <div class="invalid-feedback d-block">
-                            {{ form.nombreInstitucion.errors|first }}
-                        </div>
-                    {% endif %}
-                </div>
-
-                <div class="form-group">
-                    <label for="id_rif">RIF:</label>
-                    {{ form.rif }}
-                     {% if form.rif.errors %}
-                        <div class="invalid-feedback d-block">
-                            {{ form.rif.errors|first }}
-                        </div>
-                    {% endif %}
-                </div>
-            </div>
-
-            <div class="col-md-6">
-                <div class="form-group">
-                    <label for="id_moneda">Moneda del sistema:</label>
-                    <div class="input-group"> {{ form.moneda }}
-                        <div class="input-group-append">
-                        </div>
-                    </div>
-                     {% if form.moneda.errors %}
-                        <div class="invalid-feedback d-block">
-                            {{ form.moneda.errors|first }}
-                        </div>
-                    {% endif %}
-                </div>
-
-                <div class="form-group">
-                    <label for="id_correoInstitucion">Correo Electrónico:</label>
-                    {{ form.correoInstitucion }}
-                     {% if form.correoInstitucion.errors %}
-                        <div class="invalid-feedback d-block">
-                            {{ form.correoInstitucion.errors|first }}
-                        </div>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-
-        <hr class="my-4" />
-    <h4 class="text-center text-dark">Imágenes Institucionales</h4>
-
-    <div class="row mb-3">
-        <div class="col-md-6 text-center">
-            <h6 class="text-dark">Logo Actual</h6>
-            {% if configuracion_actual and configuracion_actual.logo %}
-                <img src="{{ configuracion_actual.logo.url }}" alt="Logo Actual" class="img-thumbnail img-preview mb-2">
-                <p class="text-muted small">
-                    Archivo: <a href="{{ configuracion_actual.logo.url }}" target="_blank">{{ configuracion_actual.logo.name|cut:"configuracion/logos/" }}</a>
-                </p>
-            {% else %}
-                <p class="text-muted small">No hay logo cargado.</p>
-            {% endif %}
-        </div>
-        <div class="col-md-6 text-center">
-            <h6 class="text-dark">Firma Actual</h6>
-            {% if configuracion_actual and configuracion_actual.firma %}
-                <img src="{{ configuracion_actual.firma.url }}" alt="Firma Actual" class="img-thumbnail img-preview mb-2">
-                 <p class="text-muted small">
-                    Archivo: <a href="{{ configuracion_actual.firma.url }}" target="_blank">{{ configuracion_actual.firma.name|cut:"configuracion/firmas/" }}</a>
-                </p>
-            {% else %}
-                <p class="text-muted small">No hay firma cargada.</p>
-            {% endif %}
-        </div>
-    </div>
-
-    <div class="row">
+    <form method="POST" enctype="multipart/form-data" autocomplete="off" id="configuracionInstitucion">
+      {% csrf_token %}
+      <div class="row">
         <div class="col-md-6">
-            <div class="form-group">
-                 <label for="id_logo">Cambiar Logotipo:</label>
-                 {{ form.logo }} <small class="text-muted d-block">Formatos aceptados: JPG, PNG, GIF, SVG. Dejar vacío para no cambiar.</small>
-                  {% if form.logo.errors %}
-                    <div class="invalid-feedback d-block">
-                        {{ form.logo.errors|first }}
-                    </div>
-                {% endif %}
-            </div>
-        </div>
-        <div class="col-md-6">
-            <div class="form-group">
-                 <label for="id_firma">Cambiar Firma Autorizada:</label>
-                  {{ form.firma }} <small class="text-muted d-block">Firma digital para documentos oficiales. Dejar vacío para no cambiar.</small>
-                  {% if form.firma.errors %}
-                    <div class="invalid-feedback d-block">
-                        {{ form.firma.errors|first }}
-                    </div>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-
-        <div class="text-center">
-            <input id="saveConfigBtn" type="submit" class="btn btn-warning mt-4" value="Guardar Cambios" style="display: none;" />
-             <button id="cancelConfigBtn" type="button" class="btn btn-secondary mt-4" style="display: none;" onclick="window.location.reload();">Cancelar</button>
-        </div>
-    </form>
-</div>
-
-<div class="modal fade" id="monedaModal" tabindex="-1" role="dialog" aria-labelledby="monedaModalLabel" aria-hidden="true">
-    <div class="modal-dialog" role="document">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title" id="monedaModalLabel">Registro de Moneda</h5>
-            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-              <span aria-hidden="true">&times;</span>
-            </button>
+          <div class="form-group">
+            <label for="id_nombreInstitucion" class="form-label">
+              <i class="fas fa-building me-2"></i> Nombre de la Institución
+            </label>
+            {{ form.nombreInstitucion }}
+            {% if form.nombreInstitucion.errors %}
+              <div class="invalid-feedback d-block">
+                {{ form.nombreInstitucion.errors|first }}
+              </div>
+            {% endif %}
           </div>
-          <div class="modal-body">
-             <div id="modalMessages"></div>
-             </div>
+
+          <div class="form-group">
+            <label for="id_rif" class="form-label">
+              <i class="fas fa-id-card me-2"></i> RIF
+            </label>
+            {{ form.rif }}
+            {% if form.rif.errors %}
+              <div class="invalid-feedback d-block">
+                {{ form.rif.errors|first }}
+              </div>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="col-md-6">
+          <div class="form-group">
+            <label for="id_moneda" class="form-label">
+              <i class="fas fa-coins me-2"></i> Moneda del sistema
+            </label>
+            <div class="input-group">
+              {{ form.moneda }}
+              <button type="button" class="btn btn-outline-secondary" id="addMonedaBtn" data-bs-toggle="modal" data-bs-target="#monedaModal">
+                <i class="fas fa-plus"></i>
+              </button>
+            </div>
+            {% if form.moneda.errors %}
+              <div class="invalid-feedback d-block">
+                {{ form.moneda.errors|first }}
+              </div>
+            {% endif %}
+          </div>
+
+          <div class="form-group">
+            <label for="id_correoInstitucion" class="form-label">
+              <i class="fas fa-envelope me-2"></i> Correo Electrónico
+            </label>
+            {{ form.correoInstitucion }}
+            {% if form.correoInstitucion.errors %}
+              <div class="invalid-feedback d-block">
+                {{ form.correoInstitucion.errors|first }}
+              </div>
+            {% endif %}
+          </div>
         </div>
       </div>
+
+      <hr class="my-4" />
+      
+      <h4 class="text-center mb-4">
+        <i class="fas fa-images me-2"></i> Imágenes Institucionales
+      </h4>
+
+      <div class="row">
+        <div class="col-md-6">
+          <div class="image-section">
+            <h6 class="image-title">
+              <i class="fas fa-image me-2"></i> Logo Actual
+            </h6>
+            {% if configuracion_actual and configuracion_actual.logo %}
+              <img src="{{ configuracion_actual.logo.url }}" alt="Logo Actual" class="img-preview mb-2">
+              <p class="file-info">
+                Archivo: <a href="{{ configuracion_actual.logo.url }}" target="_blank">{{ configuracion_actual.logo.name|cut:"configuracion/logos/" }}</a>
+              </p>
+            {% else %}
+              <p class="text-muted text-center">No hay logo cargado.</p>
+            {% endif %}
+            
+            <div class="form-group mt-3">
+              <label for="id_logo" class="form-label">
+                <i class="fas fa-upload me-2"></i> Cambiar Logotipo
+              </label>
+              {{ form.logo }}
+              <small class="text-muted d-block mt-1">
+                Formatos: JPG, PNG, GIF, SVG. Dejar vacío para no cambiar.
+              </small>
+              {% if form.logo.errors %}
+                <div class="invalid-feedback d-block">
+                  {{ form.logo.errors|first }}
+                </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        
+        <div class="col-md-6">
+          <div class="image-section">
+            <h6 class="image-title">
+              <i class="fas fa-signature me-2"></i> Firma Actual
+            </h6>
+            {% if configuracion_actual and configuracion_actual.firma %}
+              <img src="{{ configuracion_actual.firma.url }}" alt="Firma Actual" class="img-preview mb-2">
+              <p class="file-info">
+                Archivo: <a href="{{ configuracion_actual.firma.url }}" target="_blank">{{ configuracion_actual.firma.name|cut:"configuracion/firmas/" }}</a>
+              </p>
+            {% else %}
+              <p class="text-muted text-center">No hay firma cargada.</p>
+            {% endif %}
+            
+            <div class="form-group mt-3">
+              <label for="id_firma" class="form-label">
+                <i class="fas fa-upload me-2"></i> Cambiar Firma Autorizada
+              </label>
+              {{ form.firma }}
+              <small class="text-muted d-block mt-1">
+                Firma digital para documentos oficiales. Dejar vacío para no cambiar.
+              </small>
+              {% if form.firma.errors %}
+                <div class="invalid-feedback d-block">
+                  {{ form.firma.errors|first }}
+                </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="text-center mt-5">
+        <button id="saveConfigBtn" type="submit" class="btn-save me-2" style="display: none;">
+          <i class="fas fa-save me-2"></i> Guardar Cambios
+        </button>
+        <button id="cancelConfigBtn" type="button" class="btn-cancel" style="display: none;">
+          <i class="fas fa-times me-2"></i> Cancelar
+        </button>
+      </div>
+    </form>
+  </div>
 </div>
 
+<!-- Modal para agregar moneda -->
+<div class="modal fade" id="monedaModal" tabindex="-1" role="dialog" aria-labelledby="monedaModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="monedaModalLabel">
+          <i class="fas fa-coins me-2"></i> Registrar Moneda
+        </h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-dark" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+            <i class="fas fa-times"></i>
+          </button>
+      </div>
+      <div class="modal-body">
+        <div id="modalMessages"></div>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock content %}
 
 {% block javascripts %}
-{{ block.super }} <script>
+{{ block.super }}
+<script>
 document.addEventListener("DOMContentLoaded", function() {
     const form = document.getElementById('configuracionInstitucion');
     const editBtn = document.getElementById('editConfigBtn');
     const saveBtn = document.getElementById('saveConfigBtn');
-    const cancelBtn = document.getElementById('cancelConfigBtn'); // Botón Cancelar
+    const cancelBtn = document.getElementById('cancelConfigBtn');
     const addMonedaBtn = document.getElementById('addMonedaBtn');
-    // Selecciona todos los campos relevantes dentro del formulario
     const formFields = form.querySelectorAll('input:not([type="hidden"]):not([type="submit"]), select, textarea');
+    
+    // Guardar estado inicial de los campos (excepto archivos)
+    let initialFormState = {};
+    
+    function saveInitialState() {
+        formFields.forEach(field => {
+            // Solo guardar el estado de campos no de archivo
+            if (field.type !== 'file') {
+                initialFormState[field.name] = field.value;
+            }
+        });
+    }
+    
+    function restoreInitialState() {
+        formFields.forEach(field => {
+            if (field.type !== 'file' && initialFormState[field.name] !== undefined) {
+                field.value = initialFormState[field.name];
+            }
+        });
+    }
+    
+    // Al cargar la página, guardar estado inicial
+    saveInitialState();
 
     function setViewState() {
         formFields.forEach(field => {
             field.disabled = true;
         });
-        if (addMonedaBtn) addMonedaBtn.disabled = true; // Deshabilita el botón +
-        if (saveBtn) saveBtn.style.display = 'none'; // Oculta Guardar
-        if (cancelBtn) cancelBtn.style.display = 'none'; // Oculta Cancelar
-        if (editBtn) editBtn.style.display = 'inline-block'; // Muestra Editar
-        // Podrías añadir una clase al form para estilizar el modo vista
-        form.classList.add('view-mode');
-        form.classList.remove('edit-mode');
+        if (addMonedaBtn) addMonedaBtn.disabled = true;
+        saveBtn.style.display = 'none';
+        cancelBtn.style.display = 'none';
+        editBtn.style.display = 'inline-block';
     }
 
     function setEditState() {
         formFields.forEach(field => {
             field.disabled = false;
         });
-        if (addMonedaBtn) addMonedaBtn.disabled = false; // Habilita el botón +
-        if (saveBtn) saveBtn.style.display = 'inline-block'; // Muestra Guardar
-        if (cancelBtn) cancelBtn.style.display = 'inline-block'; // Muestra Cancelar
-        if (editBtn) editBtn.style.display = 'none'; // Oculta Editar
-        // Podrías añadir una clase al form para estilizar el modo edición
-        form.classList.remove('view-mode');
-        form.classList.add('edit-mode');
+        if (addMonedaBtn) addMonedaBtn.disabled = false;
+        saveBtn.style.display = 'inline-block';
+        cancelBtn.style.display = 'inline-block';
+        editBtn.style.display = 'none';
     }
 
-    // Evento para el botón Editar
     if (editBtn) {
         editBtn.addEventListener('click', setEditState);
     }
+    
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', function() {
+            restoreInitialState();
+            setViewState();
+        });
+    }
 
-    // Estado inicial al cargar la página
     setViewState();
 
-    // --- Código AJAX para el modal de Moneda (Adaptado) ---
-    // Cargar contenido del modal
+    // AJAX para el modal de Moneda
     $('#monedaModal').on('show.bs.modal', function (e) {
       var modal = $(this);
-      // Limpia el contenido anterior y los mensajes
-      modal.find('.modal-body').html('<p>Cargando formulario...</p>');
-      $('#modalMessages').html(''); // Limpia mensajes previos al abrir
+      modal.find('.modal-body').html('<p class="text-center"><i class="fas fa-spinner fa-spin me-2"></i> Cargando formulario...</p>');
+      $('#modalMessages').html('');
 
       $.ajax({
-          // Asegúrate que esta URL apunta a la vista que renderiza el *formulario* de moneda
-          url: '{% url "moneda_modal" %}', // La vista debe manejar GET para devolver el form HTML
+          url: '{% url "moneda_modal" %}',
           method: 'GET',
           success: function(data) {
-              // Asume que 'data' es el HTML del formulario renderizado por Django
               modal.find('.modal-body').html(data);
           },
           error: function() {
               modal.find('.modal-body').html(
-                  '<div class="alert alert-danger">Error al cargar el formulario de moneda. Intente de nuevo.</div>'
+                  '<div class="alert alert-danger">Error al cargar el formulario. Intente de nuevo.</div>'
               );
           }
       });
     });
 
-    // Envío del formulario DENTRO del modal (usando delegación de eventos)
-    $(document).on('submit', '#monedaForm', function(e) { // Asumiendo que tu form en moneda_modal_content.html tiene id="monedaForm"
+    $(document).on('submit', '#monedaForm', function(e) {
       e.preventDefault();
       var form = $(this);
-      var messagesContainer = $('#modalMessages'); // Div para mensajes dentro del modal
-      messagesContainer.html(''); // Limpiar mensajes anteriores
+      var messagesContainer = $('#modalMessages');
+      messagesContainer.html('');
 
       $.ajax({
-          url: form.attr('action') || '{% url "moneda_modal" %}', // Usa la acción del form o la URL de la vista
+          url: form.attr('action') || '{% url "moneda_modal" %}',
           method: 'POST',
           data: form.serialize(),
-          dataType: 'json', // Esperamos una respuesta JSON de la vista
+          dataType: 'json',
           success: function(response) {
               if (response.success) {
                   messagesContainer.html(
-                      '<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message +
-                      '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button></div>'
+                      '<div class="alert alert-success alert-dismissible fade show" role="alert">' + 
+                      '<i class="fas fa-check-circle me-2"></i>' + response.message +
+                      '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div>'
                   );
-                  // Añadir la nueva moneda al select principal y seleccionarla
-                  var select = $('#id_moneda'); // Usa el ID que Django asigna al select: id_moneda
+                  
+                  var select = $('#id_moneda');
                   select.append($('<option>', {
                       value: response.idMoneda,
                       text: response.nombreMoneda + (response.simboloMoneda ? ' (' + response.simboloMoneda + ')' : '')
                   }));
-                  // Selecciona la opción recién añadida
+                  
                   select.val(response.idMoneda);
 
-                  // Opcional: cerrar modal después de un breve retraso
                   setTimeout(function() {
-                      $('#monedaModal').modal('hide');
-                  }, 1500); // Cierra después de 1.5 segundos
+                    window.location.reload();
+                }, 1000);
               } else {
-                  // Mostrar errores de validación devueltos por la vista
-                  var errorsHtml = '<div class="alert alert-danger"><strong>Por favor corrige los errores:</strong><ul>';
+                  var errorsHtml = '<div class="alert alert-danger"><strong>Errores:</strong><ul>';
                   if (typeof response.errors === 'object' && response.errors !== null) {
                     $.each(response.errors, function(field, errors) {
                          errors.forEach(function(error) {
-                             errorsHtml += '<li>' + (field !== '__all__' ? field + ': ' : '') + error + '</li>';
+                             errorsHtml += '<li>' + error + '</li>';
                          });
                     });
                   } else {
-                      errorsHtml += '<li>Ocurrió un error inesperado.</li>';
+                      errorsHtml += '<li>Error desconocido. Intente nuevamente.</li>';
                   }
                   errorsHtml += '</ul></div>';
                   messagesContainer.html(errorsHtml);
               }
           },
-          error: function(xhr, errmsg, err) {
+          error: function(xhr) {
               messagesContainer.html(
-                  '<div class="alert alert-danger">Error en la comunicación con el servidor. Por favor, inténtalo de nuevo.</div>'
+                  '<div class="alert alert-danger"><i class="fas fa-exclamation-circle me-2"></i>Error en la comunicación con el servidor.</div>'
               );
-              console.error("Error AJAX:", xhr.status + ": " + xhr.responseText);
           }
       });
     });
 
-     // Limpiar formulario y mensajes cuando el modal se oculte
-     $('#monedaModal').on('hidden.bs.modal', function () {
-         // Puedes decidir si limpiar el form aquí o dejar que se recargue la próxima vez
-         // $(this).find('form').trigger('reset'); // Descomenta para limpiar el form
-         $('#modalMessages').html(''); // Siempre limpia los mensajes
-     });
-
+    $('#monedaModal').on('hidden.bs.modal', function () {
+        $('#modalMessages').html('');
+    });
 });
 </script>
 {% endblock javascripts %}
