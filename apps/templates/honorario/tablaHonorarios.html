@@ -62,6 +62,29 @@
     background-color: #fb6340;
     border-color: #fb6340;
   }
+  .details-modal .modal-content {
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  }
+  .details-modal .modal-header {
+    background: linear-gradient(135deg, #5e72e4 0%, #825ee4 100%);
+    color: white;
+    border-radius: 15px 15px 0 0;
+  }
+  .detail-item {
+    padding: 10px 0;
+    border-bottom: 1px solid #eee;
+    display: flex;
+  }
+  .detail-label {
+    font-weight: 600;
+    color: #525f7f;
+    min-width: 140px;
+  }
+  .detail-value {
+    color: #8898aa;
+    flex-grow: 1;
+  }
 </style>
 {% endblock stylesheets %}
 
@@ -77,7 +100,7 @@
         <input class="form-control" id="searchInput" type="text" placeholder="Buscar por cargos, cédula, materia...">
       </div>
     </div>
-    <!-- Botón Nuevo (redirección en lugar de modal) -->
+    <!-- Botón Nuevo -->
     <div class="col-md-4 text-end">
       {% if perms.honorario.add_honorario %}
       <a href="{% url 'honorario_modal' %}" class="btn btn-warning">
@@ -119,23 +142,19 @@
     {% endif %}
   </div>
 
-  <!-- Tabla -->
+  <!-- Tabla simplificada -->
   <div class="card shadow-sm">
     <div class="table-responsive">
       <table class="table table-striped table-hover align-middle text-gray-dark" id="honorariosTable">
         <thead class="table-light">
           <tr>
             <th>#</th>
-            <th>Cargo</th>
             <th>Cédula</th>
-            <th>Nombres</th>
-            <th>Apellidos</th>
+            <th>Cargo</th>
             <th>Materia</th>
             <th>Horas</th>
-            <th>Monto</th>
             <th>Cohorte</th>
             <th>Estado</th>
-            <th>Fecha</th>
             <th class="actions-column">Acciones</th>
           </tr>
         </thead>
@@ -143,13 +162,10 @@
           {% for honorario in honorarios %}
           <tr>
             <td>{{ forloop.counter }}</td>
-            <td>{{ honorario.idCargo.nombreCargo }}</td>
             <td>{{ honorario.idPersona.cedula }}</td>
-            <td>{{ honorario.idPersona.nombres }}</td>
-            <td>{{ honorario.idPersona.apellidos }}</td>
+            <td>{{ honorario.idCargo.nombreCargo }}</td>
             <td>{{ honorario.idMateria.nombreMateria }}</td>
             <td>{{ honorario.horas }}</td>
-            <td>{{ honorario.monto }}</td>
             <td>{{ honorario.idCohorte.nombreCohorte }}</td>
             <td>
               {% if honorario.estadoHonorario == "ACTIVO" %}
@@ -162,9 +178,29 @@
                 </span>
               {% endif %}
             </td>
-            <td>{{ honorario.fechaHonorario|date:"d/m/Y" }}</td>
             <td class="actions-column">
               <div class="d-flex gap-2">
+                <!-- Botón Ver más -->
+                {% if perms.home.view_honorario %}
+                  <button class="btn btn-info btn-sm view-details-btn"
+                          data-bs-toggle="modal"
+                          data-bs-target="#detailsModal"
+                          data-id="{{ honorario.idHonorario }}"
+                          data-cargo="{{ honorario.idCargo.nombreCargo }}"
+                          data-cedula="{{ honorario.idPersona.cedula }}"
+                          data-nombres="{{ honorario.idPersona.nombres }}"
+                          data-apellidos="{{ honorario.idPersona.apellidos }}"
+                          data-materia="{{ honorario.idMateria.nombreMateria }}"
+                          data-horas="{{ honorario.horas }}"
+                          data-monto="{{ honorario.monto }}"
+                          data-cohorte="{{ honorario.idCohorte.nombreCohorte }}"
+                          data-estado="{{ honorario.estadoHonorario }}"
+                          data-fecha="{{ honorario.fechaHonorario|date:'d/m/Y' }}"
+                          title="Ver más">
+                    <i class="fas fa-eye"></i>
+                  </button>
+                {% endif %}
+                
                 {% if perms.home.change_honorario %}
                   <button class="btn btn-primary btn-sm"
                           data-bs-toggle="modal"
@@ -173,6 +209,7 @@
                     <i class="fas fa-edit"></i>
                   </button>
                 {% endif %}
+                
                 {% if honorario.estadoHonorario == "ACTIVO" and perms.honorario.delete_honorario %}
                   <button class="btn btn-outline-warning btn-sm"
                           data-bs-toggle="modal"
@@ -181,6 +218,7 @@
                     <i class="fas fa-user-slash"></i>
                   </button>
                 {% endif %}
+                
                 {% if honorario.estadoHonorario == "INACTIVO" and perms.honorario.change_honorario %}
                   <button class="btn btn-success btn-sm"
                           data-bs-toggle="modal"
@@ -194,7 +232,7 @@
           </tr>
           {% empty %}
           <tr>
-            <td colspan="11" class="text-center py-4">
+            <td colspan="8" class="text-center py-4">
               <i class="fas fa-info-circle me-2"></i> No hay honorarios registrados.
             </td>
           </tr>
@@ -205,7 +243,65 @@
   </div>
 </div>
 
-{# ─── Modales restantes ─── #}
+{# ─── MODALES ─── #}
+<!-- Modal de Detalles -->
+<div class="modal fade details-modal" id="detailsModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title text-white">Detalles del Honorario</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="detail-item">
+          <div class="detail-label">Cargo:</div>
+          <div class="detail-value" id="detail-cargo"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Cédula:</div>
+          <div class="detail-value" id="detail-cedula"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Nombres:</div>
+          <div class="detail-value" id="detail-nombres"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Apellidos:</div>
+          <div class="detail-value" id="detail-apellidos"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Materia:</div>
+          <div class="detail-value" id="detail-materia"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Horas:</div>
+          <div class="detail-value" id="detail-horas"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Monto:</div>
+          <div class="detail-value" id="detail-monto"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Cohorte:</div>
+          <div class="detail-value" id="detail-cohorte"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Estado:</div>
+          <div class="detail-value" id="detail-estado"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Fecha:</div>
+          <div class="detail-value" id="detail-fecha"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 {% if perms.home.change_honorario %}
 <!-- Editar Honorario -->
@@ -284,7 +380,42 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-  // Configurar modales de editar, desactivar y reactivar
+  // Modal de detalles
+  $('#detailsModal').on('show.bs.modal', function(event) {
+    const button = $(event.relatedTarget);
+    const modal = $(this);
+    
+    // Obtener datos
+    const cargo = button.data('cargo');
+    const cedula = button.data('cedula');
+    const nombres = button.data('nombres');
+    const apellidos = button.data('apellidos');
+    const materia = button.data('materia');
+    const horas = button.data('horas');
+    const monto = button.data('monto');
+    const cohorte = button.data('cohorte');
+    const estado = button.data('estado');
+    const fecha = button.data('fecha');
+    
+    // Insertar datos en el modal
+    modal.find('#detail-cargo').text(cargo);
+    modal.find('#detail-cedula').text(cedula);
+    modal.find('#detail-nombres').text(nombres);
+    modal.find('#detail-apellidos').text(apellidos);
+    modal.find('#detail-materia').text(materia);
+    modal.find('#detail-horas').text(horas);
+    modal.find('#detail-monto').text(monto);
+    modal.find('#detail-cohorte').text(cohorte);
+    modal.find('#detail-fecha').text(fecha);
+    
+    // Estado con badge
+    const estadoHtml = estado === "ACTIVO" 
+      ? '<span class="badge bg-success text-white"><i class="fas fa-check-circle me-1"></i> Activo</span>'
+      : '<span class="badge bg-danger text-white"><i class="fas fa-times-circle me-1"></i> Inactivo</span>';
+    modal.find('#detail-estado').html(estadoHtml);
+  });
+
+  // Configurar modales
   $('#deleteHonorarioModal').on('show.bs.modal', function(e) {
     const button = $(e.relatedTarget);
     $('#deleteHonorarioForm').attr('action', button.data('url'));
@@ -300,77 +431,6 @@ document.addEventListener('DOMContentLoaded', () => {
     $.get($(e.relatedTarget).data('url')).done(html => $('#editHonorarioContent').html(html));
   });
 
-  // Manejar submit de edición
-  $(document).on('submit', '#editHonorarioForm', function(e) {
-    e.preventDefault();
-    const $form = $(this);
-    $.ajax({
-      url: $form.attr('action'),
-      method: 'POST',
-      data: $form.serialize(),
-      success: (response) => {
-        if(response.success) {
-          $('#editHonorarioModal').modal('hide');
-          showGlobalMessage(response.message, 'success');
-          setTimeout(() => location.reload(), 1500);
-        } else {
-          handleFormErrors(response.errors, '#editHonorarioModal');
-        }
-      },
-      error: () => Swal.fire('Error', 'Error de conexión', 'error')
-    });
-  });
-
-  // Función de validación (puedes reutilizar tu implementación)
-  const highlightInvalidInputs = (formSelector) => {
-    // ...
-    return true;
-  };
-
-  // Función para mostrar mensajes globales
-  window.showGlobalMessage = (msg, type) => {
-    const $div = $(`<div class="alert alert-${type} alert-dismissible fade show" role="alert">${msg}
-      <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;"><i class="fas fa-times"></i></button>
-    </div>`);
-    $('#globalMessages').append($div);
-  };
-
-  // Función de errores
-  window.handleFormErrors = (errors, modalId) => {
-    // tu lógica para resaltar errores en inputs
-  };
-
-  // Manejar acciones CRUD con SweetAlert
-  window.manageHonorario = (id, action) => {
-    const isDelete = action === 'delete';
-    const url = isDelete 
-      ? "{% url 'desactivar_honorario' 0 %}".replace('0', id)
-      : "{% url 'reactivate_honorario' 0 %}".replace('0', id);
-
-    Swal.fire({
-      title: isDelete ? '¿Desactivar honorario?' : '¿Reactivar honorario?',
-      icon: isDelete ? 'warning' : 'question',
-      showCancelButton: true,
-      confirmButtonText: isDelete ? 'Desactivar' : 'Reactivar',
-      customClass: {
-        confirmButton: isDelete ? 'btn btn-warning' : 'btn btn-success',
-        cancelButton: 'btn btn-secondary'
-      }
-    }).then((result) => {
-      if (result.isConfirmed) {
-        $.post(url, { csrfmiddlewaretoken: '{{ csrf_token }}' })
-          .done(response => {
-            if(response.success) {
-              showGlobalMessage(response.message, 'success');
-              setTimeout(() => location.reload(), 1500);
-            } else {
-              Swal.fire('Error', response.message, 'error');
-            }
-          });
-      }
-    });
-  };
-
   // Filtrado de tabla
   $('#searchInput').on('keyup', function() {
     const filter = this.value.toUpperCase();
@@ -378,22 +438,8 @@ document.addEventListener('DOMContentLoaded', () => {
       $(this).toggle($(this).text().toUpperCase().includes(filter));
     });
   });
-});
-
-// Scroll horizontal con la rueda del ratón
-const tableWrapper = document.querySelector('.table-responsive');
-if (tableWrapper) {
-  tableWrapper.addEventListener('wheel', function (e) {
-    if (e.deltaY !== 0) {
-      e.preventDefault();
-      tableWrapper.scrollLeft += e.deltaY;
-    }
-  });
-}
-</script>
-
-<script>
-document.addEventListener('DOMContentLoaded', function () {
+  
+  // Paginación
   const table = document.getElementById('honorariosTable');
   const paginationContainer = document.createElement('div');
   paginationContainer.className = 'pagination-container mt-3';
@@ -420,7 +466,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const totalPages = Math.ceil((rows.length - 1) / rowsPerPage);
     pagination.innerHTML = '';
 
-    // Anterior
+    // Botón Anterior
     const prevLi = document.createElement('li');
     prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
     prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Anterior">&laquo;</a>`;
@@ -432,7 +478,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
     pagination.appendChild(prevLi);
 
-    // Páginas
+    // Botones de Páginas
     for (let i = 1; i <= totalPages; i++) {
       const li = document.createElement('li');
       li.className = `page-item ${i === currentPage ? 'active' : ''}`;
@@ -446,7 +492,7 @@ document.addEventListener('DOMContentLoaded', function () {
       pagination.appendChild(li);
     }
 
-    // Siguiente
+    // Botón Siguiente
     const nextLi = document.createElement('li');
     nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
     nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Siguiente">&raquo;</a>`;
@@ -462,5 +508,16 @@ document.addEventListener('DOMContentLoaded', function () {
   displayRows();
   setupPagination();
 });
+
+// Scroll horizontal con rueda
+const tableWrapper = document.querySelector('.table-responsive');
+if (tableWrapper) {
+  tableWrapper.addEventListener('wheel', function(e) {
+    if (e.deltaY !== 0) {
+      e.preventDefault();
+      tableWrapper.scrollLeft += e.deltaY;
+    }
+  });
+}
 </script>
 {% endblock javascripts %}

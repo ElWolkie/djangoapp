@@ -51,26 +51,51 @@
     border: 2px solid #f1f1f1;
   }
 
-   .pagination-container {
+  .pagination-container {
     margin-top: 1rem !important;
-}
+  }
 
-.pagination {
+  .pagination {
     --bs-pagination-padding-x: 0.75rem;
     --bs-pagination-padding-y: 0.375rem;
     --bs-pagination-font-size: 0.875rem;
-}
+  }
 
-.page-link {
+  .page-link {
     min-width: 32px;
     text-align: center;
     border-radius: 4px !important;
-}
+  }
 
-.page-item.active .page-link {
+  .page-item.active .page-link {
     background-color: #fb6340;
     border-color: #fb6340;
-}
+  }
+  
+  /* Estilos para el modal de detalles */
+  .details-modal .modal-content {
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  }
+  .details-modal .modal-header {
+    background: linear-gradient(135deg, #5e72e4 0%, #825ee4 100%);
+    color: white;
+    border-radius: 15px 15px 0 0;
+  }
+  .detail-item {
+    padding: 10px 0;
+    border-bottom: 1px solid #eee;
+    display: flex;
+  }
+  .detail-label {
+    font-weight: 600;
+    color: #525f7f;
+    min-width: 140px;
+  }
+  .detail-value {
+    color: #8898aa;
+    flex-grow: 1;
+  }
 </style>
 {% endblock %}
 
@@ -93,8 +118,8 @@
             <i class="fas fa-plus-circle me-1"></i> Registrar Solicitud
           </a>
         {% endif %}
-        </div>
     </div>
+  </div>
 
   <div class="mb-3">
     <a href="?mostrar_inactivos={% if mostrar_inactivos %}false{% else %}true{% endif %}"
@@ -129,21 +154,17 @@
             <th>Solicitante</th>
             <th>Trámite</th>
             <th>Servicio</th>
-            <th>Monto Total</th>
             <th>Estado</th>
-            <th>Entrega</th>
-            <th>Solicitud</th>
             <th class="actions-column">Acciones</th>
           </tr>
         </thead>
         <tbody>
           {% for solicitud in solicitudes %}
-          <tr class="actions-column">
+          <tr>
             <td>{{ solicitud.idSoli }}</td>
             <td>{{ solicitud.idPersona.nombres }} {{ solicitud.idPersona.apellidos }}</td>
             <td>{{ solicitud.idTramite.nombreTramite }}</td>
             <td>{{ solicitud.idServicio.nombreServicio }}</td>
-            <td>{{ solicitud.montoTotal }}</td>
             <td>
               {% if solicitud.estadoSolicitud|upper == "ACTIVO" %}
               <span class="badge bg-success text-white"><i class="fas fa-check-circle me-1"></i>Activo</span>
@@ -151,10 +172,28 @@
               <span class="badge bg-danger text-white"><i class="fas fa-times-circle me-1"></i>Inactivo</span>
               {% endif %}
             </td>
-            <td>{{ solicitud.fechaEntrega|date:"d/m/Y" }}</td>
-            <td>{{ solicitud.fechaSolicitud|date:"d/m/Y" }}</td>
             <td>
               <div class="d-flex gap-2">
+                <!-- Botón Ver más -->
+                {% if perms.home.view_solicitud %}
+                  <button class="btn btn-info btn-sm view-details-btn"
+                          data-bs-toggle="modal"
+                          data-bs-target="#detailsModal"
+                          data-id="{{ solicitud.idSoli }}"
+                          data-nombres="{{ solicitud.idPersona.nombres }}"
+                          data-apellidos="{{ solicitud.idPersona.apellidos }}"
+                          data-cedula="{{ solicitud.idPersona.cedula }}"
+                          data-tramite="{{ solicitud.idTramite.nombreTramite }}"
+                          data-servicio="{{ solicitud.idServicio.nombreServicio }}"
+                          data-monto="{{ solicitud.montoTotal }}"
+                          data-estado="{{ solicitud.estadoSolicitud }}"
+                          data-entrega="{{ solicitud.fechaEntrega|date:'d/m/Y' }}"
+                          data-solicitud="{{ solicitud.fechaSolicitud|date:'d/m/Y' }}"
+                          title="Ver más">
+                    <i class="fas fa-eye"></i>
+                  </button>
+                {% endif %}
+                
                 {% if perms.home.change_solicitud %}
                 <button class="btn btn-primary btn-sm"
                         data-bs-toggle="modal"
@@ -185,17 +224,19 @@
                 </button>
                 {% endif %}
 
-                <button class="btn btn-info btn-sm"
-                        data-bs-toggle="modal"
-                        data-bs-target="#requisitosSolicitudModal"
-                        data-url="{% url 'guardar_requisitos_solicitud' solicitud.idSoli %}">
-                  <i class="fas fa-clipboard-check"></i>
-                </button>
+                {% if perms.home.view_solicitud or perms.home.change_solicitud %}
+                  <button class="btn btn-light btn-sm"
+                          data-bs-toggle="modal"
+                          data-bs-target="#requisitosSolicitudModal"
+                          data-url="{% url 'guardar_requisitos_solicitud' solicitud.idSoli %}">
+                  <i class="fas fa-clipboard-check text-dark"></i>
+                  </button>
+                {% endif %}
               </div>
             </td>
           </tr>
           {% empty %}
-          <tr><td colspan="9" class="text-center py-4">No hay solicitudes registradas.</td></tr>
+          <tr><td colspan="6" class="text-center py-4">No hay solicitudes registradas.</td></tr>
           {% endfor %}
         </tbody>
       </table>
@@ -205,6 +246,61 @@
 
 
 {# ─── Modales ─── #}
+<!-- Modal de Detalles -->
+<div class="modal fade details-modal" id="detailsModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title text-white">Detalles de la Solicitud</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="detail-item">
+          <div class="detail-label">ID:</div>
+          <div class="detail-value" id="detail-id"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Solicitante:</div>
+          <div class="detail-value" id="detail-solicitante"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Cédula:</div>
+          <div class="detail-value" id="detail-cedula"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Trámite:</div>
+          <div class="detail-value" id="detail-tramite"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Servicio:</div>
+          <div class="detail-value" id="detail-servicio"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Monto Total:</div>
+          <div class="detail-value" id="detail-monto"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Estado:</div>
+          <div class="detail-value" id="detail-estado"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Fecha Entrega:</div>
+          <div class="detail-value" id="detail-entrega"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Fecha Solicitud:</div>
+          <div class="detail-value" id="detail-solicitud"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Modal Editar -->
 <div class="modal fade" id="editSolicitudModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
@@ -293,8 +389,43 @@
 {% block javascripts %}
 <script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
 <script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
+<script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+  // Modal de Detalles
+  $('#detailsModal').on('show.bs.modal', function(event) {
+    const button = $(event.relatedTarget);
+    const modal = $(this);
+    
+    // Obtener datos
+    const id = button.data('id');
+    const nombres = button.data('nombres');
+    const apellidos = button.data('apellidos');
+    const cedula = button.data('cedula');
+    const tramite = button.data('tramite');
+    const servicio = button.data('servicio');
+    const monto = button.data('monto');
+    const estado = button.data('estado');
+    const entrega = button.data('entrega');
+    const solicitud = button.data('solicitud');
+    
+    // Insertar datos en el modal
+    modal.find('#detail-id').text(id);
+    modal.find('#detail-solicitante').text(`${nombres} ${apellidos}`);
+    modal.find('#detail-cedula').text(cedula);
+    modal.find('#detail-tramite').text(tramite);
+    modal.find('#detail-servicio').text(servicio);
+    modal.find('#detail-monto').text(monto);
+    modal.find('#detail-entrega').text(entrega);
+    modal.find('#detail-solicitud').text(solicitud);
+    
+    // Estado con badge
+    const estadoHtml = estado.toUpperCase() === "ACTIVO" 
+      ? '<span class="badge bg-success text-white"><i class="fas fa-check-circle me-1"></i>Activo</span>'
+      : '<span class="badge bg-danger text-white"><i class="fas fa-times-circle me-1"></i>Inactivo</span>';
+    modal.find('#detail-estado').html(estadoHtml);
+  });
+
   // Solo AJAX para EDITAR
   $('#editSolicitudModal').on('show.bs.modal', e => {
     const url = $(e.relatedTarget).data('url');
@@ -333,7 +464,6 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Inhabilitar
-  // Sólo configuras la URL y next, sin interceptar el submit
   $('#deleteSolicitudModal').on('show.bs.modal', function(e) {
     const trigger = $(e.relatedTarget);
     const url     = trigger.data('url');
@@ -345,9 +475,7 @@ document.addEventListener('DOMContentLoaded', () => {
       .append(`<input type="hidden" name="next" value="${nextUrl}">`);
   });
 
-
   // Reactivar
-  // Sólo configuras la URL y next, sin interceptar el submit
   $('#reactivateSolicitudModal').on('show.bs.modal', function(e) {
     const trigger = $(e.relatedTarget);
     const url     = trigger.data('url');
@@ -359,7 +487,6 @@ document.addEventListener('DOMContentLoaded', () => {
       .append(`<input type="hidden" name="next" value="${nextUrl}">`);
   });
 
-
   // MODAL DE REQUISITOS DE SOLICITUD
   $('#requisitosSolicitudModal').on('show.bs.modal', function(event) {
     const button = $(event.relatedTarget);
@@ -368,7 +495,6 @@ document.addEventListener('DOMContentLoaded', () => {
     $modalBody.html('<div class="text-center py-4"><div class="spinner-border text-primary"></div></div>');
     $.get(urlForm, function(html) {
       $modalBody.html(html);
-      // Setea el action del form para el submit
       $('#requisitosClienteForm').attr('action', button.data('url'));
     });
   });
@@ -387,14 +513,32 @@ document.addEventListener('DOMContentLoaded', () => {
     .done(function(resp) {
       if (resp.success) {
         $modal.modal('hide');
-        showGlobalMessage(resp.message, 'success');
-        setTimeout(() => location.reload(), 1000);
+        Swal.fire({
+          title: '¡Éxito!',
+          text: resp.message,
+          icon: 'success',
+          confirmButtonText: 'OK',
+          customClass: {
+            confirmButton: 'btn btn-success'
+          }
+        }).then(() => {
+          location.reload();
+        });
       } else {
-        showGlobalMessage(resp.message || 'Error al guardar requisitos', 'error');
+        Swal.fire({
+          title: 'Error',
+          text: resp.message || 'Error al guardar requisitos',
+          icon: 'error',
+          confirmButtonText: 'Entendido'
+        });
       }
     })
     .fail(function() {
-      showGlobalMessage('Error de conexión con el servidor', 'error');
+      Swal.fire({
+        title: 'Error de conexión',
+        text: 'No se pudo conectar con el servidor',
+        icon: 'error'
+      });
     });
   });
 
@@ -410,28 +554,13 @@ document.addEventListener('DOMContentLoaded', () => {
     $('#requisitosEntregadosView').show();
   });
 
-
   // Filtrado rápido
   $('#searchInput').on('keyup', function(){
     const f = this.value.toUpperCase();
     $('#solicitudesTable tbody tr').each(function(){
       $(this).toggle( $(this).text().toUpperCase().includes(f) );
-  document.getElementById('searchInput').addEventListener('keyup', function() {
-    var input = this.value.toLowerCase();
-    var rows = document.querySelectorAll('#personasTable tbody tr');
-    rows.forEach(function(row) {
-      var cells = row.querySelectorAll('td');
-      var match = false;
-      cells.forEach(function(cell) {
-        if (cell.textContent.toLowerCase().indexOf(input) > -1) {
-          match = true;
-        }
-      });
-      row.style.display = match ? '' : 'none';
     });
   });
-});
-});
 
   // Scroll horizontal con rueda
   const tableWrapper = document.querySelector('.table-responsive');
