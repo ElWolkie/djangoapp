@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, permission_required
 from django.urls import reverse
 from django.contrib import messages
 from django.db import transaction, IntegrityError
@@ -29,6 +29,7 @@ def saldos_existentes_api(request):
 
 
 @login_required(login_url='login')
+@permission_required("saldoContable.add_saldocontable", raise_exception=True)
 def saldo_contable_create(request):
     # Obtener datos que se usan en ambos casos (GET y POST)
     planes_cuenta = PlanCuenta.objects.filter(estadoPlanCuenta=True).order_by('codigoPlanCuenta')
@@ -104,10 +105,12 @@ def saldo_contable_create(request):
 
 
 @login_required(login_url='login')
+@permission_required("saldoContable.view_saldocontable", raise_exception=True)
 def saldo_contable_list(request):
     saldos = SaldoContable.objects.all().order_by('saldo_inicial', 'saldo_final')
     return render(request, 'saldoContable/tablaSaldoContable.html', {'saldos': saldos})
 
+@login_required(login_url='login')
 def reporte_saldos_pdf(request):
     # Selección de cantidad de registros
     start = int(request.GET.get('start', 1))

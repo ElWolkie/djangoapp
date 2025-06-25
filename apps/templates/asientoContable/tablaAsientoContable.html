@@ -29,9 +29,55 @@
     display: block !important;
     background-color: rgba(0,0,0,0.5);
   }
-  .is-invalid {
-    border-color: #dc3545 !important;
-    box-shadow: 0 0 0 0.2rem rgba(220,53,69,.25);
+
+  .pagination-container {
+    margin-top: 1rem !important;
+  }
+
+  .pagination {
+    --bs-pagination-padding-x: 0.75rem;
+    --bs-pagination-padding-y: 0.375rem;
+    --bs-pagination-font-size: 0.875rem;
+  }
+
+  .page-link {
+    min-width: 32px;
+    text-align: center;
+    border-radius: 4px !important;
+  }
+
+  .page-item.active .page-link {
+    background-color: #fb6340;
+    border-color: #fb6340;
+  }
+  
+  /* Estilos para el modal de detalles */
+  .details-modal .modal-content {
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  }
+  .details-modal .modal-header {
+    background: linear-gradient(135deg, #5e72e4 0%, #825ee4 100%);
+    color: white;
+    border-radius: 15px 15px 0 0;
+  }
+  .detail-item {
+    padding: 10px 0;
+    border-bottom: 1px solid #eee;
+    display: flex;
+  }
+  .detail-label {
+    font-weight: 600;
+    color: #525f7f;
+    min-width: 120px;
+  }
+  .detail-value {
+    color: #8898aa;
+    flex-grow: 1;
+  }
+  .detail-value.bold {
+    font-weight: 600;
+    color: #333;
   }
 </style>
 {% endblock stylesheets %}
@@ -45,9 +91,7 @@
       {% for message in messages %}
         <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
           {{ message }}
-          <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
-            <i class="fas fa-times"></i>
-          </button>
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
       {% endfor %}
     {% endif %}
@@ -56,117 +100,141 @@
   <div class="row mb-3">
     <div class="col-md-4">
       <div class="input-group">
-        <span class="input-group-text"><i class="fas fa-search"></i></span>
+        <div class="input-group-prepend">
+          <span class="input-group-text bg-light"><i class="fas fa-search text-warning"></i></span>
+        </div>
         <input class="form-control" id="searchInput" type="text" placeholder="Buscar...">
       </div>
     </div>
     <div class="col-md-4 text-center">
-      <a href="{% url 'asiento_contable_create' %}" class="btn btn-warning">
-        <i class="fas fa-plus-circle me-1"></i> Registrar Asiento Contable
-      </a>
+      <!-- Botón de registro con estilo naranja como en formaciones -->
+      {% if perms.asientoContable.add_asientocontable %}
+        <a href="{% url 'asiento_contable_create' %}" class="btn btn-warning">
+          <i class="fas fa-plus-circle me-1"></i> Registrar Asiento
+        </a>
+      {% endif %}
+
     </div>
     <div class="col-md-4 text-end">
-      <a href="{% url 'reporte_asientos_pdf' %}" class="btn btn-outline-danger btn-sm" target="_blank">
-        <i class="fas fa-file-pdf"></i> Descargar PDF
+      <a href="{% url 'reporte_asientos_pdf' %}" class="btn btn-outline-danger" target="_blank">
+        <i class="fas fa-file-pdf me-1"></i> Descargar PDF
       </a>
     </div>
   </div>
-  <!--
-  <div class="mb-3">
-    <a href="?mostrar_inactivos={% if mostrar_inactivos %}false{% else %}true{% endif %}"
-       class="btn btn-outline-secondary btn-sm">
-      {% if mostrar_inactivos %}
-        <i class="fas fa-eye-slash me-1"></i> Ocultar inactivos
-      {% else %}
-        <i class="fas fa-eye me-1"></i> Mostrar inactivos
-      {% endif %}
-    </a>
-  </div>-->
+
+  <!-- Tarjeta con sombra como en formaciones -->
   <div class="card shadow-sm">
     <div class="table-responsive">
-      <table class="table table-striped text-gray-dark align-middle" id="planesTable">
+      <!-- Tabla con estilo gris oscuro y cabecera clara -->
+      <table class="table table-striped table-hover align-middle text-gray-dark" id="asientosTable">
         <thead class="table-light">
           <tr>
-                    <th scope="col">Número</th>
-        <th scope="col">Fecha</th>
-        <th scope="col">Concepto</th>
-        <th scope="col">Periodo</th>
-        <th class="actions-column">Acciones</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for asiento in asientos %}
-      <tr>
-        <td>{{ asiento.numeroAsiento }}</td>
-        <td>{{ asiento.fechaAsiento|date:"d/m/Y" }}</td>
-        <td>{{ asiento.conceptoAsiento }}</td>
-        <td>{{ asiento.idPeriodo }}</td>
-        <td>
-          {% if asiento.estadoAsiento %}
-            <span class="badge bg-success text-white">Activo</span>
-          {% else %}
-            <span class="badge bg-danger text-white">Inactivo</span>
-          {% endif %}
-        </td>
-        <td>{{ asiento.fechaAsiento|date:"d/m/Y" }}</td>
-        <td class="actions-column">
-          <div class="d-flex gap-2">
-            <button type="button" class="btn btn-info btn-sm" title="Ver Detalle" data-toggle="modal" data-target="#detalleAsientoModal" onclick="loadDetalleAsiento('{{ asiento.idAsiento }}')">
-                <i class="fas fa-eye"></i>
-            </button>
-            {% if asiento.idAsiento %}
+            <th scope="col">Número</th>
+            <th scope="col">Periodo</th>
+            <th scope="col">Concepto</th>
+            <th scope="col">Estado</th>
+            <th class="actions-column">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for asiento in asientos %}
+          <tr>
+            <td>{{ asiento.numeroAsiento }}</td>
+            <td>{{ asiento.idPeriodo }}</td>
+            <td>{{ asiento.conceptoAsiento }}</td>
+            <td>
+              {% if asiento.estadoAsiento %}
+                <span class="badge bg-success text-white">Activo</span>
+              {% else %}
+                <span class="badge bg-danger text-white">Inactivo</span>
+              {% endif %}
+            </td>
+            <td class="actions-column">
+              <div class="d-flex gap-2">
+                <!-- Botón para ver detalles -->
+                {% if perms.asientoContable.add_asientocontable %}
+                  <button class="btn btn-info btn-sm"
+                          data-bs-toggle="modal"
+                          data-bs-target="#detailsModal"
+                          data-id="{{ asiento.idAsiento }}"
+                          data-numero="{{ asiento.numeroAsiento }}"
+                          data-fecha="{{ asiento.fechaAsiento|date:'d/m/Y' }}"
+                          data-periodo="{{ asiento.idPeriodo }}"
+                          data-concepto="{{ asiento.conceptoAsiento }}"
+                          data-estado="{{ asiento.estadoAsiento }}"
+                          title="Ver detalles">
+                    <i class="fas fa-eye"></i>
+                  </button>
+                {% endif %}
+
+                {% if perms.asientoContable.add_asientocontable %}
+                  {% if asiento.idAsiento %}
                   <a href="{% url 'editar_asiento' asiento.idAsiento %}" class="btn btn-primary btn-sm" title="Editar">
                     <i class="fas fa-edit"></i>
                   </a>
+                  {% endif %}
                 {% endif %}
-                <!--ASIENTOCONTABLE NO TIENE ESTADO-->
-                 <!--{% if asiento.estadoAsiento %}
-                 <button class="btn btn-outline-warning btn-sm"
-                    data-bs-toggle="modal"
-                    data-bs-target="#deleteAsientoModal"
-                    data-url="{% url 'desactivar_asiento' asiento.idAsiento %}"
-                    title="Inhabilitar">
-                    <i class="fas fa-user-slash"></i>
-                  </button>
-                {% else %}
-                  <button class="btn btn-success btn-sm"
-                          data-bs-toggle="modal"
-                          data-bs-target="#reactivateAsientoModal"
-                          data-url="{% url 'reactivar_asiento' asiento.idAsiento %}"
-                          title="Reactivar">
-                    <i class="fas fa-redo"></i>
-                </button>
-                {% endif %}-->
+                
               </div>
             </td>
           </tr>
           {% empty %}
           <tr>
-            <td colspan="7" class="text-center py-4">No hay planes de cuenta disponibles</td>
+            <td colspan="6" class="text-center py-4">No hay asientos contables disponibles</td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
   </div>
+  
+  <!-- Paginación -->
+  <div class="pagination-container mt-4">
+    <ul class="pagination justify-content-center" id="pagination"></ul>
+  </div>
 </div>
-<!-- Modal para mostrar los detalles del asiento contable -->
-<div class="modal fade" id="detalleAsientoModal" tabindex="-1" role="dialog" aria-labelledby="detalleAsientoModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" id="detalleAsientoModalLabel">Detalle del Asiento Contable</h5>
-          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-            <span aria-hidden="true">&times;</span>
-          </button>
+
+<!-- Modal: Ver Detalles (estilo naranja) -->
+<div class="modal fade details-modal" id="detailsModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title text-white">Detalles del Asiento Contable <span id="detail-numero"></span></h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="detail-item">
+          <div class="detail-label">Número:</div>
+          <div class="detail-value bold" id="detail-numero-value"></div>
         </div>
-        <div class="modal-body">
+        <div class="detail-item">
+          <div class="detail-label">Fecha:</div>
+          <div class="detail-value" id="detail-fecha"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Periodo:</div>
+          <div class="detail-value" id="detail-periodo"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Concepto:</div>
+          <div class="detail-value" id="detail-concepto"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Estado:</div>
+          <div class="detail-value" id="detail-estado"></div>
+        </div>
+        
+        <!-- Detalle de transacciones -->
+        <div class="mt-4">
+          <h6 class="text-center mb-3" style="color: #fd7e14;"><i class="fas fa-receipt me-2"></i> Detalle de Transacciones</h6>
           <div class="table-responsive">
-            <table class="table table-sm table-striped table-hover" id="detalleAsientoTable">
-              <thead>
+            <table class="table table-sm table-striped" id="detalleAsientoTable">
+              <thead class="bg-light">
                 <tr>
-                  <th>Código Plan</th>
-                  <th>Nombre Plan</th>
+                  <th>Código</th>
+                  <th>Cuenta</th>
                   <th>Debe</th>
                   <th>Haber</th>
                 </tr>
@@ -176,235 +244,59 @@
               </tbody>
             </table>
           </div>
-          <p id="detalleAsientoEmptyMessage" class="text-center text-muted" style="display: none;">No hay detalles disponibles para este asiento.</p>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+          <p id="detalleAsientoEmptyMessage" class="text-center text-muted mt-3" style="display: none;">
+            <i class="fas fa-info-circle me-2"></i> No hay detalles de transacciones disponibles
+          </p>
         </div>
       </div>
-    </div>
-  </div>
-
-  <!-- Modal: Editar Asiento Contable -->
-<div class="modal fade" id="editAsientoModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-md">
-    <div class="modal-content">
-      <div class="modal-header bg-primary text-white">
-        <h5 class="modal-title text-white"><i class="fas fa-edit me-2"></i> Editar Asiento Contable</h5>
-        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
-          <i class="fas fa-times"></i>
-        </button>
-      </div>
-      <div class="modal-body" id="editAsientoContent">
-        <div class="text-center py-4 text-muted">Cargando formulario…</div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
       </div>
     </div>
   </div>
 </div>
-
-  <!-- Modal: Inhabilitar Asiento Contable -->
-<!--<div class="modal fade" id="deleteAsientoModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header bg-warning text-dark">
-              <h5 class="modal-title text-dark"><i class="fas fa-book me-2"></i> Confirmar Inhabilitación</h5>
-              <button type="button" class="btn btn-sm btn-icon-only text-dark" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
-                <i class="fas fa-times"></i>
-              </button>
-            </div>
-      <div class="modal-body">
-        ¿Seguro que deseas inhabilitar este asiento contable?
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <form id="deleteAsientoForm" method="post">
-          {% csrf_token %}
-          <button type="submit" class="btn btn-warning">Inhabilitar</button>
-        </form>
-      </div>
-    </div>
-  </div>
-</div>-->
-
-<!-- Modal: Reactivar Asiento Contable -->
-<!--<div class="modal fade" id="reactivateAsientoModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header bg-success text-white">
-        <h5 class="modal-title text-white"><i class="fas fa-book me-2"></i> Confirmar Reactivación</h5>
-        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
-          <i class="fas fa-times"></i>
-        </button>
-      </div>
-      <div class="modal-body">
-        ¿Deseas reactivar este Asiento Contable?
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <form id="reactivateAsientoForm" method="post">
-          {% csrf_token %}
-          <button type="submit" class="btn btn-success">Reactivar</button>
-        </form>
-      </div>
-    </div>
-  </div>
-</div>-->
 {% endblock content %}
 
 {% block javascripts %}
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
 <script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
 <script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-  // Helper para cargar formularios en modales
-  const loadInModal = (modalId, urlGetter, contentId) => {
-    $(modalId)
-      .on('show.bs.modal', e => {
-        const $content = $(contentId);
-        $content.html('<div class="text-center py-4"><div class="spinner-border text-primary"></div></div>');
-        $.get(urlGetter(e)).done(html => $content.html(html));
-      })
-      .on('hidden.bs.modal', () => $(contentId).empty());
-  };
-
-  // Cargar modales principales
-  loadInModal('#editAsientoContable', e => $(e.relatedTarget).data('url'), '#editAsientoContableContent');
-
-  // Manejar envío de formularios
-  const handleFormSubmit = (formSelector, modalId) => {
-    $(document).on('submit', formSelector, function(e) {
-      e.preventDefault();
-      const $form = $(this);
-      $.ajax({
-        url: $form.attr('action'),
-        method: $form.attr('method'),
-        data: $form.serialize(),
-        success: (response) => handleFormResponse(response, modalId),
-        error: () => Swal.fire('Error', 'Error al procesar la solicitud', 'error')
-      });
-    });
-  };
-
-  // Registrar handlers para formularios
-  handleFormSubmit('#editAsientoForm', '#editAsientoModal');
-
-  // Setear la URL del formulario al abrir el modal
-  ['delete','reactivate'].forEach(action => {
-    const modalId = `#${action}AsientoModal`;
-    const formId  = `#${action}AsientoForm`;
-    $(modalId).on('show.bs.modal', e => {
-      $(formId).attr('action', $(e.relatedTarget).data('url'));
-    });
-    // Manejar el submit y mostrar alerta en globalMessages según respuesta JSON
-    $(document).on('submit', formId, function(e) {
-      e.preventDefault();
-      const $form = $(this);
-      $.ajax({
-        url: $form.attr('action'),
-        method: $form.attr('method'),
-        data: $form.serialize(),
-        success: function(response) {
-          $(modalId).modal('hide');
-          if (response.success) {
-            showGlobalMessage(response.message, 'success');
-            setTimeout(() => {
-              $('#globalMessages .alert').alert('close');
-            }, 10000);
-            setTimeout(() => {
-              location.reload();
-            }, 2500);
-          } else {
-            showGlobalMessage(response.message || 'Ocurrió un error.', 'error');
-            setTimeout(() => {
-              $('#globalMessages .alert').alert('close');
-            }, 10000);
-          }
-        },
-        error: function() {
-          $(modalId).modal('hide');
-          showGlobalMessage('Ocurrió un error en el servidor.', 'error');
-          setTimeout(() => {
-            $('#globalMessages .alert').alert('close');
-          }, 10000);
-        }
-      });
-    });
-  });
-
-  // Manejar respuestas del servidor
-  const handleFormResponse = (response, modalId) => {
-    const modal = $(modalId);
-    const messagesContainer = modal.find('.modal-body');
-    messagesContainer.find('.alert').remove();
-    if (response.success) {
-      modal.modal('hide');
-      showGlobalMessage(response.message, 'success');
-      setTimeout(() => location.reload(), 1000);
+document.addEventListener('DOMContentLoaded', function () {
+  // Configurar el modal de detalles
+  $('#detailsModal').on('show.bs.modal', function(event) {
+    const button = $(event.relatedTarget);
+    const modal = $(this);
+    
+    // Obtener datos de los atributos data-*
+    const id = button.data('id');
+    const numero = button.data('numero');
+    const fecha = button.data('fecha');
+    const periodo = button.data('periodo');
+    const concepto = button.data('concepto');
+    const estado = button.data('estado');
+    
+    // Insertar datos en el modal
+    modal.find('#detail-numero').text(numero);
+    modal.find('#detail-numero-value').text(numero);
+    modal.find('#detail-fecha').text(fecha);
+    modal.find('#detail-periodo').text(periodo);
+    modal.find('#detail-concepto').text(concepto);
+    
+    // Formatear estado
+    let estadoHtml;
+    if (estado) {
+      estadoHtml = '<span class="badge bg-success text-white">Activo</span>';
     } else {
-      if (response.errors?.__all__) {
-        Swal.fire({
-          title: 'Error de registro',
-          text: response.errors.__all__.join('\n'),
-          icon: 'error',
-          confirmButtonText: 'OK'
-        });
-      }
-      $.each(response.errors, (field, errors) => {
-        if (field !== "__all__") {
-          messagesContainer.prepend(
-            `<div class="alert alert-danger alert-dismissible fade show" role="alert">
-              ${errors.join(', ')}
-              <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
-                <i class="fas fa-times"></i>
-              </button>
-            </div>`
-          );
-        }
-      });
+      estadoHtml = '<span class="badge bg-danger text-white">Inactivo</span>';
     }
-  };
-
-  // Mostrar mensajes globales
-  const showGlobalMessage = (message, type) => {
-    const container = $('#globalMessages');
-    const alertClass = {
-      success: 'alert-success',
-      error: 'alert-danger',
-      warning: 'alert-warning'
-    }[type] || 'alert-info';
-    container.html(`
-      <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
-        ${message}
-        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
-          <i class="fas fa-times"></i>
-        </button>
-      </div>
-    `);
-  };
-
-  // Filtrado de tabla por texto
-  $('#searchInput').on('keyup', function() {
-    const filter = this.value.toUpperCase();
-    $('#asientosTable tbody tr').each(function() {
-      $(this).toggle($(this).text().toUpperCase().includes(filter));
-    });
+    modal.find('#detail-estado').html(estadoHtml);
+    
+    // Cargar detalles de transacciones
+    loadDetalleAsiento(id);
   });
-});
-// Filtrado por estado
-$('#estadoFilter').on('change', function() {
-  const estado = $(this).val();
-  $('#asientosTable tbody tr').each(function() {
-    const badge = $(this).find('td:eq(4) .badge').text().trim();
-    if (!estado || badge === estado) {
-        $(this).show();
-      } else {
-        $(this).hide();
-      }
-    });
-  });
-</script>
-<script>
+
+  // Función para cargar detalles de transacciones
   function loadDetalleAsiento(asientoId) {
     const tableBody = document.querySelector('#detalleAsientoTable tbody');
     const emptyMessage = document.getElementById('detalleAsientoEmptyMessage');
@@ -417,14 +309,14 @@ $('#estadoFilter').on('change', function() {
     fetch(`asiento-contable/${asientoId}/detalles/`)
       .then(response => response.json())
       .then(data => {
-        if (data.detalles.length > 0) {
+        if (data.detalles && data.detalles.length > 0) {
           data.detalles.forEach(detalle => {
             const row = document.createElement('tr');
             row.innerHTML = `
-              <td>${detalle.codigoPlanCuenta}</td>
-              <td>${detalle.nombrePlanCuenta}</td>
-              <td>${detalle.debe}</td>
-              <td>${detalle.haber}</td>
+              <td>${detalle.codigoPlanCuenta || ''}</td>
+              <td>${detalle.nombrePlanCuenta || ''}</td>
+              <td class="text-end">${detalle.debe ? parseFloat(detalle.debe).toFixed(2) : '0.00'}</td>
+              <td class="text-end">${detalle.haber ? parseFloat(detalle.haber).toFixed(2) : '0.00'}</td>
             `;
             tableBody.appendChild(row);
           });
@@ -438,82 +330,85 @@ $('#estadoFilter').on('change', function() {
         emptyMessage.textContent = 'Ocurrió un error al cargar los detalles.';
       });
   }
-</script>
-<script>
-  document.addEventListener('DOMContentLoaded', function () {
-    const table = document.getElementById('asientosTable');
-    const pagination = document.createElement('ul');
-    pagination.className = 'pagination justify-content-center';
-    table.parentNode.appendChild(pagination);
 
-    const rowsPerPage = 10; // Número de filas por página
-    let currentPage = 1;
-
-    // Función para mostrar las filas de la página actual
-    function displayRows() {
-      const rows = table.getElementsByTagName('tr');
-      const start = (currentPage - 1) * rowsPerPage + 1; // Ignorar encabezado
-      const end = start + rowsPerPage;
-
-      for (let i = 1; i < rows.length; i++) {
-        rows[i].style.display = i >= start && i < end ? '' : 'none';
-      }
-    }
-
-    // Función para configurar la paginación
-    function setupPagination() {
-      const rows = table.getElementsByTagName('tr');
-      const totalPages = Math.ceil((rows.length - 1) / rowsPerPage);
-
-      pagination.innerHTML = '';
-
-      // Botón "Anterior"
-      const prevLi = document.createElement('li');
-      prevLi.className = 'page-item' + (currentPage === 1 ? ' disabled' : '');
-      prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Anterior"><span aria-hidden="true">&laquo;</span></a>`;
-      prevLi.addEventListener('click', function (e) {
-        e.preventDefault();
-        if (currentPage > 1) {
-          currentPage--;
-          displayRows();
-          setupPagination();
-        }
-      });
-      pagination.appendChild(prevLi);
-
-      // Botones de páginas
-      for (let i = 1; i <= totalPages; i++) {
-        const li = document.createElement('li');
-        li.className = 'page-item' + (i === currentPage ? ' active' : '');
-        li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
-        li.addEventListener('click', function (e) {
-          e.preventDefault();
-          currentPage = i;
-          displayRows();
-          setupPagination();
-        });
-        pagination.appendChild(li);
-      }
-
-      // Botón "Siguiente"
-      const nextLi = document.createElement('li');
-      nextLi.className = 'page-item' + (currentPage === totalPages ? ' disabled' : '');
-      nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Siguiente"><span aria-hidden="true">&raquo;</span></a>`;
-      nextLi.addEventListener('click', function (e) {
-        e.preventDefault();
-        if (currentPage < totalPages) {
-          currentPage++;
-          displayRows();
-          setupPagination();
-        }
-      });
-      pagination.appendChild(nextLi);
-    }
-
-    // Inicializar la tabla y la paginación
-    displayRows();
-    setupPagination();
+  // Filtrado de tabla por texto
+  $('#searchInput').on('keyup', function() {
+    const filter = this.value.toUpperCase();
+    $('#asientosTable tbody tr').each(function() {
+      $(this).toggle($(this).text().toUpperCase().includes(filter));
+    });
   });
-</script>
 
+  // Configuración de paginación
+  const table = document.getElementById('asientosTable');
+  const pagination = document.getElementById('pagination');
+  const rowsPerPage = 10;
+  let currentPage = 1;
+
+  // Función para mostrar las filas de la página actual
+  function displayRows() {
+    const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+    const start = (currentPage - 1) * rowsPerPage;
+    const end = start + rowsPerPage;
+
+    for (let i = 0; i < rows.length; i++) {
+      rows[i].style.display = i >= start && i < end ? '' : 'none';
+    }
+  }
+
+  // Función para configurar la paginación
+  function setupPagination() {
+    const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+    const totalPages = Math.ceil(rows.length / rowsPerPage);
+
+    pagination.innerHTML = '';
+
+    // Botón "Anterior"
+    const prevLi = document.createElement('li');
+    prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+    prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Anterior">&laquo;</a>`;
+    prevLi.addEventListener('click', function(e) {
+      e.preventDefault();
+      if (currentPage > 1) {
+        currentPage--;
+        displayRows();
+        setupPagination();
+      }
+    });
+    pagination.appendChild(prevLi);
+
+    // Botones de páginas
+    for (let i = 1; i <= totalPages; i++) {
+      const li = document.createElement('li');
+      li.className = `page-item ${i === currentPage ? 'active' : ''}`;
+      li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+      li.addEventListener('click', function(e) {
+        e.preventDefault();
+        currentPage = i;
+        displayRows();
+        setupPagination();
+      });
+      pagination.appendChild(li);
+    }
+
+    // Botón "Siguiente"
+    const nextLi = document.createElement('li');
+    nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+    nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Siguiente">&raquo;</a>`;
+    nextLi.addEventListener('click', function(e) {
+      e.preventDefault();
+      if (currentPage < totalPages) {
+        currentPage++;
+        displayRows();
+        setupPagination();
+      }
+    });
+    pagination.appendChild(nextLi);
+  }
+
+  // Inicializar la tabla y la paginación
+  displayRows();
+  setupPagination();
+});
+</script>
 {% endblock javascripts %}

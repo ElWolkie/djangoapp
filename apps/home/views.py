@@ -414,6 +414,7 @@ def asignar_grupos(request, idUsuario):
         'Periodo Contables': 'Periodo Contable',
         'Plan Cuentas': 'Plan Cuenta',
         'Requisitos': 'Requisito',
+        'Saldos Contable': 'Saldo Contable',
         'Servicios': 'Servicio',
         'Solicitudes': 'Solicitud',
         'Tasas': 'Tasa',
