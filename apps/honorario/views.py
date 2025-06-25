@@ -35,7 +35,7 @@ def honorario_modal(request):
             return JsonResponse({
                 'success': True,
                 'message': 'Registro exitoso.',
-                'redirect_url': f"{reverse('factura_create')}?honorario={monto}&id={honorario.idPersona.idPersona}"
+                'redirect_url': f"{reverse('nota_create')}?honorario={monto}&id={honorario.idPersona.idPersona}"
             })
         else:
             # Empaquetar errores de campo y non-field

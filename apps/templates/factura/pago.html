@@ -7,12 +7,12 @@
 <link rel="stylesheet" href="/static/assets/css/argon.css" />
 
 <style>
-  #tablaFacturas th, #tablaFacturas td, #tablaCuentas th, #tablaCuentas td {
+  #tablaNotas th, #tablaNotas td, #tablaCuentas th, #tablaCuentas td {
     text-align: center;
     white-space: nowrap;
   }
 
-  #tablaFacturas th, #tablaCuentas th {
+  #tablaNotas th, #tablaCuentas th {
     font-weight: bold;
   }
 </style>
@@ -33,18 +33,18 @@
   <form method="POST" class="mt-3 text-dark needs-validation" autocomplete="off" style="font-weight: bold; max-width: 800px; margin: 0 auto;" id="pagoForm" action="{% url 'pago_create' %}" novalidate>
     {% csrf_token %}
 
-    <!-- Factura y Cuenta Bancaria -->
+    <!-- Nota y Cuenta Bancaria -->
     <div class="form-row">
       <div class="form-group col-md-6">
-        <label for="facturaInput">Factura:</label>
+        <label for="notaInput">Nota:</label>
         <div class="input-group">
-          <input type="text" id="facturaInput" class="form-control text-dark" placeholder="Seleccione una factura" readonly required />
-          <button type="button" id="buscarFactura" class="btn btn-warning" data-toggle="modal" data-target="#facturaModal">
+          <input type="text" id="notaInput" class="form-control text-dark" placeholder="Seleccione una nota" readonly required />
+          <button type="button" id="buscarNota" class="btn btn-warning" data-toggle="modal" data-target="#notaModal">
             <i class="fas fa-search"></i>
           </button>
         </div>
-        <input type="hidden" id="idFactura" name="idFactura" required />
-        <div class="invalid-feedback">Por favor seleccione una factura.</div>
+        <input type="hidden" id="idNota" name="idNota" required />
+        <div class="invalid-feedback">Por favor seleccione una nota.</div>
       </div>
       <div class="form-group col-md-6">
         <label for="cuentaBancoInput">Cuenta Bancaria:</label>
@@ -64,9 +64,9 @@
     <div class="form-row">
       <div class="form-group col-md-6">
         <label for="monto">Monto:</label>
-        <input type="number" id="monto" name="monto" class="form-control text-dark" placeholder="Ingrese el monto del pago" step="0.01" min="0" required />
+        <input type="number" id="monto" name="monto" class="form-control text-dark" placeholder="Ingrese el monto del pago" step="0.0001" min="0" required />
         <div class="invalid-feedback">Por favor ingrese un monto válido.</div>
-        <small id="deudaFactura" class="form-text text-muted">Seleccione una factura para ver la deuda.</small>
+        <small id="deudaNota" class="form-text text-muted">Seleccione una nota para ver la deuda.</small>
 
       </div>
       <div class="form-group col-md-6">
@@ -114,6 +114,7 @@
         <label for="observaciones">Observaciones:</label>
         <textarea id="observaciones" name="observaciones" class="form-control text-dark" placeholder="Ingrese observaciones adicionales (opcional)" rows="3"></textarea>
       </div>
+      <input type="hidden" id="tasaConfiguracion" value="{{ tasa_configuracion_valor }}" />
     </div>
 
     <div class="text-center">
@@ -122,18 +123,18 @@
   </form>
 </div>
 
-<!-- Modal para seleccionar Factura -->
-<div class="modal fade" id="facturaModal" tabindex="-1" role="dialog" aria-labelledby="facturaModalLabel" aria-hidden="true">
+<!-- Modal para seleccionar Nota -->
+<div class="modal fade" id="notaModal" tabindex="-1" role="dialog" aria-labelledby="notaModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered" role="document">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="facturaModalLabel">Seleccionar Factura</h5>
+        <h5 class="modal-title" id="notaModalLabel">Seleccionar Nota</h5>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
       </div>
       <div class="modal-body">
-        <table class="table table-sm table-responsive table-striped table-hover" id="tablaFacturas">
+        <table class="table table-sm table-responsive table-striped table-hover" id="tablaNotas">
           <thead>
             <tr>
               <th>ID</th>
@@ -144,13 +145,21 @@
             </tr>
           </thead>
           <tbody>
-            {% for factura in facturas %}
-              <tr data-id="{{ factura.idFactura }}" data-nombre="{{ factura.numeroFactura }}" data-deuda="{{ factura.saldoPendiente }}">
-                <td>{{ factura.idFactura }}</td>
-                <td>{{ factura.numeroFactura }}</td>
-                <td>{{ factura.idPersona.cedula|default:"N/A" }}</td>
-                <td>{{ factura.totalVenta|default:"0.00" }}</td>
-                <td>{{ factura.saldoPendiente|default:"0.00" }}</td> <!-- Mostrar la deuda -->
+            {% for nota in notas %}
+              <tr data-id="{{ nota.idNota }}" data-nombre="{{ nota.numeroNota }}" data-deuda="{{ nota.saldoPendiente }}">
+                <td>{{ nota.idNota }}</td>
+                <td>{{ nota.numeroNota }}</td>
+                <td>
+                  {% if nota.idPersona != "N/A" %}
+                  {{ nota.idPersona }}
+                  {% elif nota.idEmpresa != "N/A" %}
+                  {{ nota.idEmpresa }}
+                  {% else %}
+                  N/A
+                  {% endif %}
+                </td>
+                <td>{{ nota.totalNota|default:"0.00" }}</td>
+                <td>{{ nota.saldoPendiente|default:"0.00" }}</td> <!-- Mostrar la deuda -->
               </tr>
             {% endfor %}
           </tbody>
@@ -206,6 +215,8 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
   document.addEventListener('DOMContentLoaded', function () {
+    validarMontoContraDeuda();
+
     const pagoForm = document.getElementById('pagoForm');
 
     // Establecer la fecha de pago por defecto con la fecha de hoy
@@ -217,21 +228,22 @@
       const anio = hoy.getFullYear();
       fechaPagoInput.value = `${anio}-${mes}-${dia}`; // Formato YYYY-MM-DD
     }
-        // Activar validaciones de Bootstrap
-        pagoForm.addEventListener('submit', function (event) {
-      if (!pagoForm.checkValidity()) {
-        event.preventDefault();
-        event.stopPropagation();
-        pagoForm.classList.add('was-validated');
-      }
- // Validar Factura
- const facturaInput = document.getElementById('facturaInput');
-      const idFactura = document.getElementById('idFactura').value;
-      if (!idFactura) {
-        facturaInput.classList.add('is-invalid');
+
+    // Activar validaciones de Bootstrap y manejar el envío del formulario
+    pagoForm.addEventListener('submit', function (event) {
+      event.preventDefault(); // Evitar el envío por defecto
+      event.stopPropagation(); // Detener la propagación del evento
+
+      let isValid = true;
+
+      // Validar Nota
+      const notaInput = document.getElementById('notaInput');
+      const idNota = document.getElementById('idNota').value;
+      if (!idNota) {
+        notaInput.classList.add('is-invalid');
         isValid = false;
       } else {
-        facturaInput.classList.remove('is-invalid');
+        notaInput.classList.remove('is-invalid');
       }
 
       // Validar Cuenta Bancaria
@@ -244,11 +256,13 @@
         cuentaBancoInput.classList.remove('is-invalid');
       }
 
+      // Validar el formulario completo
       if (!isValid || !pagoForm.checkValidity()) {
-        event.preventDefault();
-        event.stopPropagation();
         pagoForm.classList.add('was-validated');
+        return; // Detener el envío si hay errores
       }
+
+      // Crear FormData y enviar la solicitud AJAX
       const formData = new FormData(pagoForm);
 
       fetch(pagoForm.action, {
@@ -258,30 +272,62 @@
           'X-Requested-With': 'XMLHttpRequest',
         },
       })
-        .then((response) => response.json())
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error('Error en la respuesta del servidor');
+          }
+          return response.json();
+        })
         .then((data) => {
           if (data.success) {
-            // Mostrar alerta de éxito
-            Swal.fire({
-              icon: 'success',
-              title: 'Pago registrado exitosamente',
-              html: `
-                <p><strong>ID Pago:</strong> ${data.pago.idPago}</p>
-                <p><strong>Factura:</strong> ${data.pago.idFactura}</p>
-                <p><strong>Monto:</strong> ${data.pago.monto}</p>
-                <p><strong>Fecha de Pago:</strong> ${data.pago.fechaPago}</p>
-                <p><strong>Forma de Pago:</strong> ${data.pago.formaPago}</p>
-                <p><strong>Referencia:</strong> ${data.pago.referencia || 'N/A'}</p>
-              `,
-              confirmButtonText: 'Aceptar',
-              customClass: {
-                confirmButton: 'btn btn-warning',
-              },
-              buttonsStyling: false,
-            }).then(() => {
-              // Redirigir a la lista de pagos
-              window.location.href = "{% url 'pago_list' %}";
-            });
+            // Caso 1: El pago fue exitoso, pero aún hay deuda
+            if (data.message.includes('aun posee deuda')) {
+              Swal.fire({
+                icon: 'warning',
+                title: 'Pago registrado exitosamente',
+                html: `
+                  <p><strong>ID Pago:</strong> ${data.pago.idPago}</p>
+                  <p><strong>Nota:</strong> ${data.pago.idNota}</p>
+                  <p><strong>Monto:</strong> ${data.pago.monto}</p>
+                  <p><strong>Fecha de Pago:</strong> ${data.pago.fechaPago}</p>
+                  <p><strong>Forma de Pago:</strong> ${data.pago.formaPago}</p>
+                  <p><strong>Referencia:</strong> ${data.pago.referencia || 'N/A'}</p>
+                  <p class="text-danger">${data.message}</p>
+                `,
+                confirmButtonText: 'Realizar otro pago',
+                customClass: {
+                  confirmButton: 'btn btn-warning',
+                },
+                buttonsStyling: false,
+              }).then(() => {
+                // Redirigir a la vista de creación de pagos con el ID de la nota como parámetro
+                window.location.href = data.redirect_url;
+              });
+            }
+            // Caso 2: El pago fue exitoso, la deuda fue saldada y se cerró la nota
+            else {
+              Swal.fire({
+                icon: 'success',
+                title: 'Pago registrado exitosamente',
+                html: `
+                  <p><strong>ID Pago:</strong> ${data.pago.idPago}</p>
+                  <p><strong>Nota:</strong> ${data.pago.idNota}</p>
+                  <p><strong>Monto:</strong> ${data.pago.monto}</p>
+                  <p><strong>Fecha de Pago:</strong> ${data.pago.fechaPago}</p>
+                  <p><strong>Forma de Pago:</strong> ${data.pago.formaPago}</p>
+                  <p><strong>Referencia:</strong> ${data.pago.referencia || 'N/A'}</p>
+                  <p class="text-success">${data.message}</p>
+                `,
+                confirmButtonText: 'Aceptar',
+                customClass: {
+                  confirmButton: 'btn btn-warning',
+                },
+                buttonsStyling: false,
+              }).then(() => {
+                // Redirigir a la lista de notas
+                window.location.href = data.redirect_url;
+              });
+            }
           } else {
             // Mostrar errores si el registro falla
             Swal.fire({
@@ -330,45 +376,80 @@
       });
     }
 
-// Manejar la selección de filas en el modal de Facturas
-const tablaFacturas = document.getElementById('tablaFacturas');
-if (tablaFacturas) {
-  tablaFacturas.addEventListener('click', function (event) {
-    const fila = event.target.closest('tr');
-    if (fila) {
-      const idFactura = fila.getAttribute('data-id');
-      const nombreFactura = fila.getAttribute('data-nombre');
-      const deudaFactura = fila.getAttribute('data-deuda'); // Obtener la deuda de la factura
+    // Manejar la selección de filas en el modal de Notas
+    const tablaNotas = document.getElementById('tablaNotas');
+    if (tablaNotas) {
+      tablaNotas.addEventListener('click', function (event) {
+        const fila = event.target.closest('tr');
+        if (fila) {
+          const idNota = fila.getAttribute('data-id');
+          const nombreNota = fila.getAttribute('data-nombre');
+          const deudaNota = fila.getAttribute('data-deuda'); // Obtener la deuda de la nota
 
-      document.getElementById('facturaInput').value = nombreFactura;
-      document.getElementById('idFactura').value = idFactura;
-      // Mostrar la deuda debajo del input de monto
-      const deudaElement = document.getElementById('deudaFactura');
-      if (deudaElement) {
-        deudaElement.textContent = `Deuda actual: ${deudaFactura}`;
-      }
-      $('#facturaModal').modal('hide'); // Cerrar el modal
+          document.getElementById('notaInput').value = nombreNota;
+          document.getElementById('idNota').value = idNota;
+          // Mostrar la deuda debajo del input de monto
+          const deudaElement = document.getElementById('deudaNota');
+          if (deudaElement) {
+            deudaElement.textContent = `Deuda actual: ${deudaNota}`;
+          }
+          $('#notaModal').modal('hide'); // Cerrar el modal
+        }
+      });
     }
-  });
-}
 
-// Autoseleccionar factura si se recibe el parámetro
-const urlParams = new URLSearchParams(window.location.search);
-const facturaParam = urlParams.get('factura');
-if (facturaParam) {
-  const filaFactura = document.querySelector(`#tablaFacturas tr[data-id="${facturaParam}"]`);
-  if (filaFactura) {
-    const nombreFactura = filaFactura.getAttribute('data-nombre');
-    const deudaFactura = filaFactura.getAttribute('data-deuda');
+    function validarMontoContraDeuda() {
+  const montoInput = document.getElementById('monto'); // Campo de monto ingresado
+  const tasaSelect = document.getElementById('idTasa'); // Selector de moneda
+  const deudaElement = document.getElementById('deudaNota'); // Elemento que muestra la deuda actual
+  const tasaConfiguracion = parseFloat(document.getElementById('tasaConfiguracion').value) || 1; // Tasa de configuración (moneda de la deuda)
 
-    document.getElementById('facturaInput').value = nombreFactura;
-    document.getElementById('idFactura').value = facturaParam;
-    const deudaElement = document.getElementById('deudaFactura');
-    if (deudaElement) {
-      deudaElement.textContent = `Deuda actual: ${deudaFactura}`;
+  // Función para realizar la validación
+  function validar() {
+    const monto = parseFloat(montoInput.value) || 0; // Monto ingresado
+    const deuda = parseFloat(deudaElement.textContent.replace('Deuda actual: ', '').trim()) || 0; // Deuda en la moneda de configuración
+
+    // Obtener la tasa seleccionada
+    const tasaOption = tasaSelect.options[tasaSelect.selectedIndex];
+    const tasaPago = parseFloat(tasaOption.textContent.split('Tasa: ')[1]) || 1; // Tasa de la moneda seleccionada
+
+    // Convertir el monto del pago a la moneda de configuración
+    const montoConvertido = (monto * tasaPago) / tasaConfiguracion;
+
+    // Validar que el monto convertido no supere la deuda
+    if (montoConvertido > deuda) {
+      montoInput.classList.add('is-invalid');
+      montoInput.setCustomValidity('El monto no puede superar la deuda actual.');
+    } else {
+      montoInput.classList.remove('is-invalid');
+      montoInput.setCustomValidity('');
     }
   }
+
+  // Escuchar el evento de cambio en el campo de monto
+  montoInput.addEventListener('input', validar);
+
+  // Escuchar el evento de cambio en el selector de moneda
+  tasaSelect.addEventListener('change', validar);
 }
-});
+
+    // Autoseleccionar nota si se recibe el parámetro
+    const urlParams = new URLSearchParams(window.location.search);
+    const notaParam = urlParams.get('nota');
+    if (notaParam) {
+      const filaNota = document.querySelector(`#tablaNotas tr[data-id="${notaParam}"]`);
+      if (filaNota) {
+        const nombreNota = filaNota.getAttribute('data-nombre');
+        const deudaNota = filaNota.getAttribute('data-deuda');
+
+        document.getElementById('notaInput').value = nombreNota;
+        document.getElementById('idNota').value = notaParam;
+        const deudaElement = document.getElementById('deudaNota');
+        if (deudaElement) {
+          deudaElement.textContent = `Deuda actual: ${deudaNota}`;
+        }
+      }
+    }
+  });
 </script>
 {% endblock javascripts %}

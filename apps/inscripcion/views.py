@@ -39,7 +39,7 @@ def inscripcion_modal(request):
             return JsonResponse({
             'success': True,
             'message': 'Registro exitoso.',
-            'redirect_url': f"{reverse('factura_create')}?inscripcion={valor_formacion}&id={inscripcion.idInscripcion}"
+            'redirect_url': f"{reverse('nota_create')}?inscripcion={valor_formacion}&id={inscripcion.idPersona.idPersona}"
             })
         else:
             errors = {field: error for field, error in form.errors.items()}
