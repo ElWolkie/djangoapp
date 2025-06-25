@@ -1,0 +1,173 @@
+{% extends 'layouts/base2.html' %}
+
+{% block title %}Registrar Factura{% endblock title %}
+{% block stylesheets %}
+<link rel="stylesheet" href="/static/assets/css/styleForms.css" />
+<link rel="stylesheet" href="/static/assets/css/argon.css" />
+<style>
+    .loading-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    }
+  
+    .loading-content {
+      text-align: center;
+      background: #fff;
+      padding: 2rem;
+      border-radius: 1rem;
+      box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.1);
+    }
+  
+    .loading-icon {
+      position: relative;
+      width: 120px;
+      height: 150px;
+      margin: 0 auto;
+    }
+  
+    .invoice {
+      position: absolute;
+      width: 100px;
+      height: 120px;
+      background: #fff;
+      border: 2px solid #343a40;
+      border-radius: 5px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+      animation: bounce 1.5s infinite;
+    }
+  
+    .invoice-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 5px;
+      border-bottom: 2px solid #343a40;
+    }
+  
+    .invoice-logo {
+      width: 20px;
+      height: 20px;
+      background: #ff7207;
+      border-radius: 50%;
+    }
+  
+    .invoice-title {
+      font-size: 12px;
+      font-weight: bold;
+      color: #343a40;
+    }
+  
+    .invoice-body {
+      padding: 10px;
+    }
+  
+    .invoice-line {
+      width: 80%;
+      height: 10px;
+      background: #e9ecef;
+      margin: 5px auto;
+      border-radius: 2px;
+    }
+  
+    .invoice-footer {
+      height: 20px;
+      background: #343a40;
+      border-radius: 0 0 5px 5px;
+    }
+  
+    .pen {
+      position: absolute;
+      width: 10px;
+      height: 60px;
+      top: 50%;
+      left: 110px;
+      transform: translateY(-50%);
+      animation: write 1.5s infinite;
+    }
+  
+    .pen-body {
+      width: 10px;
+      height: 40px;
+      background: linear-gradient(to bottom, #c0c0c0, #808080); /* Cuerpo metálico */
+      border-radius: 5px;
+      position: absolute;
+      bottom: 10px;
+    }
+  
+    .pen-tip {
+      width: 0;
+      height: 0;
+      border-left: 5px solid transparent;
+      border-right: 5px solid transparent;
+      border-top: 10px solid #000; /* Punta negra */
+      position: absolute;
+      bottom: 0;
+      left: 0;
+    }
+  
+    .pen-clip {
+      width: 2px;
+      height: 15px;
+      background: #808080; /* Clip metálico */
+      position: absolute;
+      top: 5px;
+      right: -3px;
+      border-radius: 1px;
+    }
+  
+    @keyframes bounce {
+      0%, 100% {
+        transform: translateY(0);
+      }
+      50% {
+        transform: translateY(-10px);
+      }
+    }
+  
+    @keyframes write {
+      0%, 100% {
+        transform: translateY(-50%) rotate(0deg);
+      }
+      50% {
+        transform: translateY(-50%) rotate(-15deg);
+      }
+    }
+  
+    .loading-text {
+      margin-top: 1rem;
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #343a40;
+    }
+  </style>
+{% endblock stylesheets %}
+{% block content %}
+<div class="container mt-5">
+    <div class="loading-content">
+      <div class="loading-icon">
+        <div class="invoice">
+          <div class="invoice-header">
+            <div class="invoice-logo"></div>
+            <div class="invoice-title">FACTURA</div>
+          </div>
+          <div class="invoice-body">
+            <div class="invoice-line"></div>
+            <div class="invoice-line"></div>
+            <div class="invoice-line"></div>
+          </div>
+          <div class="invoice-footer"></div>
+        </div>
+        <div class="pen">
+          <div class="pen-body"></div>
+          <div class="pen-tip"></div>
+          <div class="pen-clip"></div>
+        </div>
+      </div>
+      <p class="loading-text">Tu Factura se está generando...</p>
+    </div>
+  </div>
+  
+{% endblock content %}
