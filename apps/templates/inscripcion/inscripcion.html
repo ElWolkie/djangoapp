@@ -257,12 +257,18 @@
             <label for="idFormacion" class="form-label">
               <i class="fas fa-book me-2"></i> Formación Académica
             </label>
-            <select id="idFormacion" name="idFormacion" class="form-select styled-select" style="width: 100%;">
+            <select id="idFormacion" name="idFormacion" class="form-select styled-select">
               <option value="" disabled selected>Seleccione...</option>
               {% for formacion in formaciones %}
-                <option value="{{ formacion.idFormacion }}" data-tf="{{ formacion.idTF.idTF }}">
-                  {{ formacion.nombreFormacion }}
-                </option>
+              <option value="{{ formacion.idFormacion }}" 
+                      data-tf="{{ formacion.idTF.idTF }}"
+                      data-valorInscripcion="{{ formacion.valorInscripcion }}" 
+                      data-tieneCuotas="{{ formacion.tieneCuotas }}" 
+                      data-cuotasActivas="{{ formacion.cuotas_activas }}" 
+                      data-cantidadCuotas="{{ formacion.cantidad_cuotas }}" 
+                      data-cuotas="{{ formacion.cuotas_json }}">
+                {{ formacion.nombreFormacion }}
+              </option>
               {% endfor %}
             </select>
               <div class="invalid-feedback">Por favor, seleccione una formación académica.</div>
@@ -271,7 +277,35 @@
       </div>
             
       <div id="alert-container"></div> <!-- Contenedor para las alertas -->
-
+      <div class="form-group mb-4">
+        <label for="resumenCostos" class="form-label">
+          <i class="fas fa-money-bill-wave me-2"></i> Resumen de Costos
+        </label>
+        <div id="resumenCostos" class="table-responsive">
+            <table class="table table-bordered table-responsive w-100 d-block d-md-table">
+            <thead class="table-light">
+              <tr>
+                <th>Concepto</th>
+                <th>Detalle</th>
+              </tr>
+            </thead>
+            <tbody id="resumenCostosBody">
+              <tr>
+                <td><strong>Valor de Inscripción</strong></td>
+                <td id="valorInscripcion">-</td>
+              </tr>
+              <tr>
+                <td><strong>Total Cuotas</strong></td>
+                <td id="valorCuotas">-</td>
+              </tr>
+              <tr>
+                <td><strong>Total</strong></td>
+                <td id="valorTotal">-</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
       <button type="submit" class="btn-submit">
         <i class="fas fa-save me-2"></i> Registrar
       </button>
@@ -283,12 +317,13 @@
 {% block javascripts %}
 <script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
 <script>
-document.addEventListener("DOMContentLoaded", function() {
-  // 1) Definición de datos de contexto: cohortes y personas
+document.addEventListener("DOMContentLoaded", function () {
+  // ============================
+  // 1) Definición de datos de contexto
+  // ============================
   const cohortes = [
     {% for cohorte in cohortes %}
-      { idCohorte: "{{ cohorte.idCohorte|escapejs }}",
-        nombreCohorte: "{{ cohorte.nombreCohorte|escapejs }}" },
+      { idCohorte: "{{ cohorte.idCohorte|escapejs }}", nombreCohorte: "{{ cohorte.nombreCohorte|escapejs }}" },
     {% endfor %}
   ];
 
@@ -296,16 +331,19 @@ document.addEventListener("DOMContentLoaded", function() {
     {% for persona in personas %}
       {
         idPersona: "{{ persona.idPersona|escapejs }}",
-        cedula:   "{{ persona.cedula|escapejs }}",
-        nombres:  "{{ persona.nombres|escapejs }}",
-        apellidos:"{{ persona.apellidos|escapejs }}"
+        cedula: "{{ persona.cedula|escapejs }}",
+        nombres: "{{ persona.nombres|escapejs }}",
+        apellidos: "{{ persona.apellidos|escapejs }}"
       },
     {% endfor %}
   ];
 
-  // 2) Función para mostrar alertas dentro del modal
+  // ============================
+  // 2) Función para mostrar alertas
+  // ============================
   function showAlert(msg, type) {
-    document.getElementById("alert-container").innerHTML = `
+    const alertContainer = document.getElementById("alert-container");
+    alertContainer.innerHTML = `
       <div class="alert alert-${type} alert-dismissible fade show" role="alert">
         ${msg}
         <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
@@ -314,25 +352,29 @@ document.addEventListener("DOMContentLoaded", function() {
       </div>`;
   }
 
-  // Función para combinar tipo y número de cédula
+  // ============================
+  // 3) Función para combinar tipo y número de cédula
+  // ============================
   function getCedulaCompleta() {
-    const tipo = document.getElementById('tipo_cedula').value;
-    const numero = document.getElementById('numero_cedula').value;
+    const tipo = document.getElementById("tipo_cedula").value;
+    const numero = document.getElementById("numero_cedula").value;
     return `${tipo}-${numero}`;
   }
 
-  // 3) checkPersona: buscar por cédula en el array
+  // ============================
+  // 4) Validar persona por cédula
+  // ============================
   function checkPersona() {
     const cedulaCompleta = getCedulaCompleta();
     const icon = document.getElementById("check-icon");
     const hid = document.getElementById("idPersona");
 
-    const p = personas.find(x => x.cedula === cedulaCompleta);
-    if (p) {
+    const persona = personas.find((p) => p.cedula === cedulaCompleta);
+    if (persona) {
       icon.innerHTML = "✔️";
       icon.style.color = "green";
-      hid.value = p.idPersona;
-      showAlert(`Persona encontrada: ${p.nombres} ${p.apellidos}`, "success");
+      hid.value = persona.idPersona;
+      showAlert(`Persona encontrada: ${persona.nombres} ${persona.apellidos}`, "success");
     } else {
       icon.innerHTML = "❌";
       icon.style.color = "red";
@@ -341,16 +383,19 @@ document.addEventListener("DOMContentLoaded", function() {
     }
   }
 
-  // 4) checkCohorte
+  // ============================
+  // 5) Validar cohorte por nombre
+  // ============================
   function checkCohorte() {
-    const val  = document.getElementById("nombreCohorte").value.trim();
+    const nombreCohorte = document.getElementById("nombreCohorte").value.trim();
     const icon = document.getElementById("check-cohorte-icon");
-    const hid  = document.getElementById("idCohorte");
-    const c    = cohortes.find(x => x.nombreCohorte === val);
-    if (c) {
+    const hid = document.getElementById("idCohorte");
+
+    const cohorte = cohortes.find((c) => c.nombreCohorte === nombreCohorte);
+    if (cohorte) {
       icon.innerHTML = "✔️";
       icon.style.color = "green";
-      hid.value = c.idCohorte;
+      hid.value = cohorte.idCohorte;
     } else {
       icon.innerHTML = "❌";
       icon.style.color = "red";
@@ -358,40 +403,14 @@ document.addEventListener("DOMContentLoaded", function() {
     }
   }
 
-  // 5) Enlazar eventos
-  document.getElementById("tipo_cedula")
-          .addEventListener("change", () => checkPersona());
-  document.getElementById("numero_cedula")
-          .addEventListener("input", () => checkPersona());
-  document.getElementById("nombreCohorte")
-          .addEventListener("input", () => checkCohorte());
-
-  // 6) Si viene con cedula por GET, bótalo al iniciar
-  const urlParams = new URLSearchParams(window.location.search);
-  const initialCed = urlParams.get('cedula');
-  if (initialCed) {
-    // Separar la cédula en tipo y número
-    const cedParts = initialCed.split('-');
-    if (cedParts.length >= 2) {
-      const tipo = cedParts[0];
-      const numero = cedParts.slice(1).join(''); // Unir las partes restantes
-      
-      // Seleccionar automáticamente el tipo de cédula
-      document.getElementById('tipo_cedula').value = tipo;
-      document.getElementById('numero_cedula').value = numero;
-      
-      setTimeout(() => checkPersona(), 300);
-    }
-  }
-
-  // 7) Relación entre tipo de formación y formación académica
-  document.getElementById("idTF")
-          .addEventListener("change", function() {
-    const selectedTipoFormacion = this.value;
+  // ============================
+  // 6) Filtrar formaciones por tipo de formación
+  // ============================
+  function filterFormaciones() {
+    const selectedTipoFormacion = document.getElementById("idTF").value;
     const formacionSelect = document.getElementById("idFormacion");
-    
-    // Mostrar solo las opciones que coincidan con el tipo de formación seleccionado
-    Array.from(formacionSelect.options).forEach(option => {
+
+    Array.from(formacionSelect.options).forEach((option) => {
       if (option.dataset.tf === selectedTipoFormacion || option.value === "") {
         option.style.display = "block";
         option.disabled = false;
@@ -400,46 +419,91 @@ document.addEventListener("DOMContentLoaded", function() {
         option.disabled = true;
       }
     });
-    
+
     // Reiniciar el valor seleccionado en el campo de formación
     formacionSelect.value = "";
-  });
+  }
 
-  // 8) Envío AJAX del formulario
-  document.getElementById("inscripcionForm")
-    .addEventListener("submit", function(e) {
-      e.preventDefault();
-      
-      // Validar campos requeridos
-      const tipoFormacion = document.getElementById("idTF").value;
-      const formacion = document.getElementById("idFormacion").value;
-      
-      if (!tipoFormacion || !formacion) {
-        Swal.fire({
-          icon: "warning",
-          title: "Campos requeridos",
-          text: "Por favor seleccione un tipo de formación y una formación académica",
-          confirmButtonText: "OK",
-          customClass: { confirmButton: "btn btn-warning" },
-          buttonsStyling: false
-        });
-        return;
-      }
-      
-      // Combinar la cédula antes de enviar
-      const cedulaCompleta = getCedulaCompleta();
-      
-      // Crear FormData y agregar la cédula combinada
-      const formData = new FormData(this);
-      formData.append('cedulaPersona', cedulaCompleta);
-      
-      fetch(this.action, {
-        method: "POST",
-        body: formData,
-        headers: { "X-Requested-With": "XMLHttpRequest" }
-      })
-      .then(r => r.json())
-      .then(json => {
+  // ============================
+  // 7) Actualizar resumen de costos
+  // ============================
+  function updateResumenCostos() {
+    const selectedOption = document.getElementById("idFormacion").options[document.getElementById("idFormacion").selectedIndex];
+    const valorInscripcion = parseFloat(selectedOption.dataset.valorinscripcion) || 0;
+    const tieneCuotas = selectedOption.dataset.tienecuotas === "True";
+    const cuotasActivas = selectedOption.dataset.cuotasactivas === "True";
+    const cuotas = JSON.parse(selectedOption.dataset.cuotas || "[]");
+
+    let valorCuotas = 0;
+    const resumenCostosBody = document.getElementById("resumenCostosBody");
+
+    // Limpiar las filas existentes de cuotas
+    resumenCostosBody.innerHTML = `
+      <tr>
+        <td><strong>Valor de Inscripción</strong></td>
+        <td id="valorInscripcion" style="background-color: #cce5ff;"><strong>-</strong></td>
+      </tr>
+      <tr>
+        <td><strong>Total Cuotas</strong></td>
+        <td id="valorCuotas" style="background-color: #e2d4f0;"><strong>-</strong></td>
+      </tr>
+      <tr style="background-color: #d4edda;">
+        <td><strong>Total</strong></td>
+        <td id="valorTotal"><strong>-</strong></td>
+      </tr>
+    `;
+
+    if (tieneCuotas && cuotasActivas && cuotas.length > 0) {
+      cuotas.forEach((cuota) => {
+        valorCuotas += parseFloat(cuota.valorCuota);
+        const fila = document.createElement("tr");
+        fila.innerHTML = `
+          <td><strong>${cuota.nombreCuota || "Cuota"}</strong></td>
+          <td>$${parseFloat(cuota.valorCuota).toFixed(2)}</td>
+        `;
+        resumenCostosBody.insertBefore(fila, resumenCostosBody.querySelector("#valorCuotas").parentElement);
+      });
+    }
+
+    const valorTotal = valorInscripcion + valorCuotas;
+
+    document.getElementById("valorInscripcion").textContent = `$${valorInscripcion.toFixed(2)}`;
+    document.getElementById("valorCuotas").textContent = `$${valorCuotas.toFixed(2)}`;
+    document.getElementById("valorTotal").textContent = `$${valorTotal.toFixed(2)}`;
+  }
+
+  // ============================
+  // 8) Enviar formulario por AJAX
+  // ============================
+  function submitForm(e) {
+    e.preventDefault();
+
+    const tipoFormacion = document.getElementById("idTF").value;
+    const formacion = document.getElementById("idFormacion").value;
+
+    if (!tipoFormacion || !formacion) {
+      Swal.fire({
+        icon: "warning",
+        title: "Campos requeridos",
+        text: "Por favor seleccione un tipo de formación y una formación académica",
+        confirmButtonText: "OK",
+        customClass: { confirmButton: "btn btn-warning" },
+        buttonsStyling: false,
+      });
+      return;
+    }
+
+    const cedulaCompleta = getCedulaCompleta();
+    const formData = new FormData(document.getElementById("inscripcionForm"));
+    formData.append("cedulaPersona", cedulaCompleta);
+
+    fetch(document.getElementById("inscripcionForm").action, {
+      method: "POST",
+      body: formData,
+      headers: { "X-Requested-With": "XMLHttpRequest" },
+    })
+      .then((r) => r.json())
+      .then((json) => {
         if (json.success) {
           Swal.fire({
             icon: "success",
@@ -447,7 +511,7 @@ document.addEventListener("DOMContentLoaded", function() {
             text: json.message,
             confirmButtonText: "Facturar",
             customClass: { confirmButton: "btn btn-warning" },
-            buttonsStyling: false
+            buttonsStyling: false,
           }).then(() => {
             window.location.href = json.redirect_url;
           });
@@ -458,18 +522,42 @@ document.addEventListener("DOMContentLoaded", function() {
             text: json.message,
             confirmButtonText: "OK",
             customClass: { confirmButton: "btn btn-warning" },
-            buttonsStyling: false
-          }); 
+            buttonsStyling: false,
+          });
         } else {
           Swal.fire({
             icon: "error",
             title: "Errores",
-            html: Object.values(json.errors).map(m => `<p>${m}</p>`).join("")
+            html: Object.values(json.errors).map((m) => `<p>${m}</p>`).join(""),
           });
         }
       })
-      .catch(() => Swal.fire("Error","Error al comunicarse con el servidor","error"));
-    });
+      .catch(() => Swal.fire("Error", "Error al comunicarse con el servidor", "error"));
+  }
+
+  // ============================
+  // 9) Enlazar eventos
+  // ============================
+  document.getElementById("tipo_cedula").addEventListener("change", checkPersona);
+  document.getElementById("numero_cedula").addEventListener("input", checkPersona);
+  document.getElementById("nombreCohorte").addEventListener("input", checkCohorte);
+  document.getElementById("idTF").addEventListener("change", filterFormaciones);
+  document.getElementById("idFormacion").addEventListener("change", updateResumenCostos);
+  document.getElementById("inscripcionForm").addEventListener("submit", submitForm);
+
+  // ============================
+  // 10) Inicializar valores si vienen por GET
+  // ============================
+  const urlParams = new URLSearchParams(window.location.search);
+  const initialCed = urlParams.get("cedula");
+  if (initialCed) {
+    const cedParts = initialCed.split("-");
+    if (cedParts.length >= 2) {
+      document.getElementById("tipo_cedula").value = cedParts[0];
+      document.getElementById("numero_cedula").value = cedParts.slice(1).join("");
+      setTimeout(() => checkPersona(), 300);
+    }
+  }
 });
-</script>
+  </script>
 {% endblock javascripts %}

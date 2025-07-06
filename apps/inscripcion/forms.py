@@ -1,5 +1,5 @@
 from django import forms  
-from .models import  Inscripcion
+from .models import Inscripcion, CuotaFormacion
 from django.core.exceptions import ValidationError
 
 
@@ -30,3 +30,28 @@ class InscripcionForm(forms.ModelForm):
 
         if qs.exists():
             raise ValidationError('Esta combinación Persona/Cohorte/Formación ya existe')
+
+        # Validar que la formación tenga cuotas activas si se requiere
+        if idFormacion.tieneCuotas:
+            cuotas_activas = CuotaFormacion.objects.filter(idFormacion=idFormacion, is_active=True)
+            if not cuotas_activas.exists():
+                raise ValidationError('La formación seleccionada requiere cuotas, pero no tiene ninguna activa.')
+
+        return cleaned_data
+
+
+# class PagoCuotaForm(forms.ModelForm):
+#     class Meta:
+#         model = PagoCuota
+#         fields = ['idInscripcion', 'idCuota', 'monto', 'estado', 'idNota']
+
+#     def clean(self):
+#         cleaned_data = super().clean()
+#         idCuota = cleaned_data.get('idCuota')
+#         monto = cleaned_data.get('monto')
+
+#         if idCuota and monto:
+#             if monto > idCuota.valorCuota:
+#                 raise ValidationError('El monto no puede ser mayor al valor de la cuota.')
+
+#         return cleaned_data

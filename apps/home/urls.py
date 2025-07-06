@@ -37,6 +37,17 @@ urlpatterns = [
     path('reporte-tipo-formacion/', views.reporte_tipo_formacion_pdf, name='reporte_tipo_formacion_pdf'),
 
   
+
+    # Specific route for cuotas Formacion ###########################################
+
+   # Specific route for formacion modal
+    path('cuotaFormacion/<int:idFormacion>/', views.registrar_cuota_formacion, name='registrar_cuota_formacion'),
+    path('cuotaFormacion/', views.registrar_cuota_formacion, name='registrar_cuota_formacion'),
+
+   path('tablaCuotaFormacion/', views.consultar_cuota_formacion, name='consultar_cuota_formacion'),
+
+    ##########################################################3333
+
     # Specific route for formacion modal
     path('formacionModal/', views.formacion_modal, name='formacion_modal'),
     path('editFormacion/<int:pk>/', views.edit_formacion, name='edit_formacion'),

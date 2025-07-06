@@ -1,10 +1,14 @@
 from django.db import models
+from django.forms import ValidationError
+from apps.honorario.models import Honorario
+from apps.inscripcion.models import Inscripcion
 from apps.persona.models import Personas
 from apps.empresa.models import empresa
 from apps.periodoContable.models import periodoContable
 from apps.asientoContable.models import AsientoContable
 from apps.home.models import Moneda, Tasa
 from apps.cuentaBanco.models import CuentaBanco
+from apps.solicitud.models import Solicitud
 
 class Nota(models.Model):
     TIPOS_NOTA = [
@@ -63,6 +67,27 @@ class Nota(models.Model):
 
     def __str__(self):
         return f"Nota {self.numeroNota} - {self.tipoNota}"
+
+class NotaRelacionada(models.Model):
+    idNota = models.ForeignKey(Nota, on_delete=models.CASCADE, related_name='relaciones')
+    idInscripcion = models.ForeignKey(Inscripcion, on_delete=models.SET_NULL, null=True, blank=True, related_name='notas')
+    idHonorario = models.ForeignKey(Honorario, on_delete=models.SET_NULL, null=True, blank=True, related_name='notas')
+    idSolicitud = models.ForeignKey(Solicitud, on_delete=models.SET_NULL, null=True, blank=True, related_name='notas')
+
+    def clean(self):
+        if not (self.idInscripcion or self.idHonorario or self.idSolicitud):
+            raise ValidationError("Debe especificar al menos una relación: Inscripción, Honorario o Solicitud.")
+
+    def __str__(self):
+        relaciones = []
+        if self.idInscripcion:
+            relaciones.append(f"Inscripción {self.idInscripcion.idInscripcion}")
+        if self.idHonorario:
+            relaciones.append(f"Honorario {self.idHonorario.idHonorario}")
+        if self.idSolicitud:
+            relaciones.append(f"Solicitud {self.idSolicitud.idSoli}")
+        return f"Nota {self.idNota.idNota} relacionada con: {', '.join(relaciones)}"
+
 
 class Factura(models.Model):
     TIPOS_FACTURA = [

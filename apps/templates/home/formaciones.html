@@ -1,3 +1,5 @@
+{% extends 'layouts/base.html' %}
+
 {% load static %}
 
 {% block stylesheets %}
@@ -149,12 +151,12 @@
       <!-- Valor -->
       <div class="col-md-6">
         <div class="form-group">
-          <label for="valorFormacion" class="form-label">
-            <i class="fas fa-dollar-sign"></i> Valor
+          <label for="valorInscripcion" class="form-label">
+            <i class="fas fa-dollar-sign"></i> Valor de Inscripción
           </label>
           <div class="input-group">
             <i class="fas fa-coins input-icon"></i>
-            <input type="text" id="valorFormacion" name="valorFormacion"
+            <input type="text" id="valorInscripcion" name="valorInscripcion"
                    class="form-control input-with-icon"
                    placeholder="Ingrese el valor"
                    maxlength="20" data-required="true" required>
@@ -179,6 +181,26 @@
         </div>
       </div>
     </div>
+      
+  <!-- Cuota -->
+  <div class="col-md-6 mx-auto">
+    <div class="form-group">
+      <label for="duracion" class="form-label">
+        <i class="fas fa-clock"></i> ¿Tiene Pagos en Cuotas?
+      </label>
+      <div class="d-flex justify-content-center">
+        <div class="form-check form-check-inline me-3">
+          <input class="form-check-input" type="radio" id="pagosCuotasSi" name="tieneCuotas" value="True" checked>
+          <label class="form-check-label" for="pagosCuotasSi">Sí</label>
+        </div>
+        <div class="form-check form-check-inline ms-3">
+          <input class="form-check-input" type="radio" id="pagosCuotasNo" name="tieneCuotas" value="False" >
+          <label class="form-check-label" for="pagosCuotasNo">No</label>
+        </div>
+      </div>
+      <div class="invalid-feedback">Por favor, ingrese una duración válida.</div>
+    </div>
+  </div>
 
     <input type="hidden" id="estadoFormacion" name="estadoFormacion" value="ACTIVO">
 
@@ -188,6 +210,7 @@
       </button>
     </div>
   </form>
+</div>
 </div>
 {% endblock content %}
 
@@ -204,11 +227,8 @@
   activarMayusculasInputs();
 
   document.addEventListener("DOMContentLoaded", function() {
-    // Validaciones de solo letras, números y Bootstrap
-    document.getElementById("nombreFormacion").addEventListener("input", function() {
-      this.value = this.value.replace(/[^A-Z\s]/g, '').slice(0,40);
-    });
-    document.getElementById("valorFormacion").addEventListener("input", function() {
+
+    document.getElementById("valorInscripcion").addEventListener("input", function() {
       this.value = this.value.replace(/[^0-9.]/g, '').slice(0,20);
     });
     document.getElementById("duracion").addEventListener("input", function() {
