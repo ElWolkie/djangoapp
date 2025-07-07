@@ -18,6 +18,9 @@ SECRET_KEY = config("SECRET_KEY", default="S#perS3crEt_1122")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config("DEBUG", default=True, cast=bool)
 
+# 365 días de retención (ajustable)
+BITACORA_RETENCION_DIAS = 365
+
 # load production server from .env
 ALLOWED_HOSTS = ["localhost", "127.0.0.1", config("SERVER", default="127.0.0.1")]
 
@@ -53,6 +56,7 @@ INSTALLED_APPS = [
     "apps.authentication",
     "apps.home",  # Enable the inner home (home)
     'django_extensions',
+    "apps.bitacora.apps.BitacoraConfig",  # Habilita la aplicación para gestionar bitacora
     "apps.persona",  # Habilita la aplicación para gestionar personas
     "apps.honorario",  # Habilita la aplicación para gestionar honorario
     "apps.inscripcion",  # Habilita la aplicación para gestionar honorario
@@ -80,6 +84,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "corsheaders.middleware.CorsMiddleware",
+    "apps.bitacora.middleware.AuditMiddleware",
     # 'debug_toolbar.middleware.DebugToolbarMiddleware',
 ]
 

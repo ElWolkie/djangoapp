@@ -1,0 +1,224 @@
+{% extends 'layouts/base.html' %}
+{% load static %}
+
+{% block title %}Registros de Bitácora{% endblock %}
+
+{% block stylesheets %}
+  <link rel="stylesheet" href="{% static 'assets/css/styleForms.css' %}" />
+  <link rel="stylesheet" href="{% static 'assets/css/argon.css' %}" />
+  <style>
+    /* Copiado de tu plantilla de bancos */
+    .details-modal .modal-content {
+      border-radius: 15px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    }
+    .details-modal .modal-header {
+      background: linear-gradient(135deg, #5e72e4 0%, #825ee4 100%);
+      color: white;
+      border-radius: 15px 15px 0 0;
+    }
+    /* Quitar cualquier override de .modal.fade.show que tenías */
+  </style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <h2 class="mb-4">Registros de Bitácora</h2>
+
+  <!-- Filtros -->
+    <form method="get" action="{% url 'bitacora_list' %}" class="mb-4 card p-3">
+        <div class="row g-2">
+            <div class="col-md-3">
+            <input type="text" name="usuario" class="form-control text-dark"
+                    placeholder="Usuario" value="{{ filtro_usuario }}">
+            </div>
+            <div class="col-md-3">
+            <select name="accion" class="form-control text-dark">
+                <option value="">Todas las acciones</option>
+                <option value="C" {% if filtro_accion == "C" %}selected{% endif %}>Creación</option>
+                <option value="A" {% if filtro_accion == "A" %}selected{% endif %}>Actualización</option>
+                <option value="E" {% if filtro_accion == "E" %}selected{% endif %}>Eliminación</option>
+                <option value="I" {% if filtro_accion == "I" %}selected{% endif %}>Inicio de sesión</option>
+                <option value="O" {% if filtro_accion == "O" %}selected{% endif %}>Cierre de sesión</option>
+                <option value="B" {% if filtro_accion == "B" %}selected{% endif %}>Copia de seguridad</option>
+                <option value="R" {% if filtro_accion == "R" %}selected{% endif %}>Restauración</option>
+            </select>
+            </div>
+            <div class="col-md-3">
+            <input type="date" name="fecha" class="form-control text-dark" value="{{ filtro_fecha }}">
+            </div>
+            <div class="col-md-3">
+            <input type="text" name="q" class="form-control text-dark"
+                    placeholder="Buscar descripción, modelo, IP…" value="{{ filtro_q }}">
+            </div>
+            
+            <div class="col-md-3 text-end mt-2">
+                <button type="submit" class="btn btn-primary">Filtrar</button>
+
+                <button class="btn btn-danger dropdown-toggle" type="button" 
+                    id="exportDropdown" data-bs-toggle="dropdown">Exportar
+                </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" 
+                            href="{% url 'bitacora_exportar' %}?{{ request.GET.urlencode }}&formato=csv">
+                            CSV
+                        </a></li>
+                        <li><a class="dropdown-item" 
+                            href="{% url 'bitacora_exportar' %}?{{ request.GET.urlencode }}&formato=excel">
+                            Excel
+                        </a></li>
+                        <li><a class="dropdown-item" 
+                            href="{% url 'bitacora_exportar' %}?{{ request.GET.urlencode }}&formato=json">
+                            JSON
+                        </a></li>
+                    </ul>
+            </div>
+        </div>
+    </form>
+
+
+    <div class="table-responsive">
+        <table class="table table-striped">
+        <thead class="table-light">
+            <tr>
+            <th>Fecha/Hora</th><th>Severidad</th><th>Usuario</th>
+            <th>Acción</th><th>Modelo</th><th>Descripción</th><th>IP</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for registro in registros %}
+            <tr>
+            <td>{{ registro.fecha_hora|date:"d/m/Y H:i" }}</td>
+            <td>
+                <span class="badge 
+                {% if registro.severidad == 'CRITICAL' or registro.severidad == 'ERROR' %}bg-danger
+                {% elif registro.severidad == 'WARNING' %}bg-warning
+                {% else %}bg-info{% endif %}">
+                {{ registro.get_severidad_display }}
+                </span>
+            </td>
+            <td>
+                {% if registro.usuario and registro.usuario.idPersona %}
+                {{ registro.usuario.idPersona.nombres }} {{ registro.usuario.idPersona.apellidos }}
+                {% else %}
+                Sistema
+                {% endif %}
+            </td>
+            <td>{{ registro.get_accion_display }}</td>
+            <td>{{ registro.modelo_afectado }}</td>
+            <td>
+                {{ registro.descripcion }}
+                {% if registro.cambios %}
+                    <button
+                        type="button"
+                        class="btn btn-sm btn-info"
+                        data-bs-toggle="modal"
+                        data-bs-target="#cambiosModal{{ registro.id }}"
+                        style="margin:0px 2px 0px 2px;"
+                        title="Ver detalles">
+                  <i class="fas fa-eye"></i>
+                    </button>
+                {% endif %}
+            </td>
+            <td>{{ registro.ip|default:"-" }}</td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="7" class="text-center">No hay registros</td></tr>
+        {% endfor %}
+        </tbody>
+        </table>
+    </div>
+</div>
+
+{# ======= MODALES INDIVIDUALES ======= #}
+{% for registro in registros %}
+{% if registro.cambios %}
+<div
+  class="modal fade details-modal"
+  id="cambiosModal{{ registro.id }}"
+  tabindex="-1"
+  aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <h5 class="modal-title text-white">Detalles de Cambios</h5>
+        <button
+          type="button"
+          class="btn-close btn-close-white"
+          data-bs-dismiss="modal"
+          aria-label="Cerrar">
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Campo</th>
+              <th>Valor Anterior</th>
+              <th>Valor Nuevo</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for campo, datos in registro.cambios.items %}
+            <tr>
+              <td>{{ campo }}</td>
+              <td>{{ datos.anterior|default:"-" }}</td>
+              <td>{{ datos.nuevo|default:"-" }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="modal-footer">
+        <button
+          type="button"
+          class="btn btn-secondary"
+          data-bs-dismiss="modal">
+          Cerrar
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endfor %}
+
+<!-- Paginación -->
+    {% if is_paginated %}
+    <nav aria-label="Paginación">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page=1&usuario={{ filtro_usuario }}&accion={{ filtro_accion }}&fecha={{ filtro_fecha }}">Primera</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}&usuario={{ filtro_usuario }}&accion={{ filtro_accion }}&fecha={{ filtro_fecha }}">Anterior</a>
+            </li>
+            {% endif %}
+            
+            <li class="page-item disabled">
+                <span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+            </li>
+            
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}&usuario={{ filtro_usuario }}&accion={{ filtro_accion }}&fecha={{ filtro_fecha }}">Siguiente</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}&usuario={{ filtro_usuario }}&accion={{ filtro_accion }}&fecha={{ filtro_fecha }}">Última</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block javascripts %}
+<script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
+{% endblock javascripts %}
+

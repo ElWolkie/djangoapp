@@ -504,6 +504,18 @@
                       </a>
                     </li>
                   {% endif %}
+
+                    {% if user.is_superuser %}
+                      <li class="nav-item">
+                          <a class="nav-link" 
+                            href="{% url 'bitacora_list' %}" 
+                            style="padding-left: 15px;">
+                            <i class="ni ni-bag-17 text-orange"></i>
+                            <span class="nav-link-text">Bitacora
+                          </a>
+                        </li>
+                    {% endif %}
+                  
                 </ul>
               </div>
             </li>

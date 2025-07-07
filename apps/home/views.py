@@ -36,6 +36,8 @@ from apps.empresa.models import empresa
 from apps.persona.models import PersonaTP
 from apps.periodoContable.models import periodoContable
 
+from apps.bitacora.signals import registrar_login_fallido
+
 @login_required(login_url='login')
 def contabilidad(request):
     # 1. Última cuenta bancaria
@@ -156,7 +158,7 @@ def login_view(request):
         next_param = request.POST.get('next', 'home')
 
         # Extraer solo los dígitos de la cédula usando regex
-        cedula_numerica = re.sub(r'\D', '', cedula_input)  # elimina todo lo que no es número
+        cedula_numerica = re.sub(r'\D', '', cedula_input)
 
         try:
             persona = Personas.objects.get(cedula__regex=r'[A-Z]-?' + cedula_numerica)
@@ -164,6 +166,8 @@ def login_view(request):
 
             if user is not None:
                 login(request, user)
+                # La señal user_logged_in se dispara automáticamente aquí
+                
                 if user.is_superuser:
                     return redirect('home')
                 elif user.groups.filter(name='Contable').exists():
@@ -171,8 +175,18 @@ def login_view(request):
                 else:
                     return redirect('home')
             else:
+                # REGISTRAR INTENTO FALLIDO (CONTRASEÑA INCORRECTA)
+                registrar_login_fallido(
+                    username=cedula_input,
+                    ip=request.META.get('REMOTE_ADDR')
+                )
                 messages.error(request, "Contraseña incorrecta")
         except Personas.DoesNotExist:
+            # REGISTRAR INTENTO FALLIDO (USUARIO NO EXISTE)
+            registrar_login_fallido(
+                username=cedula_input,
+                ip=request.META.get('REMOTE_ADDR')
+            )
             messages.error(request, "No existe un usuario con esta cédula")
         except Exception as e:
             messages.error(request, f"Error al iniciar sesión: {str(e)}")
@@ -2918,119 +2932,6 @@ def tabla_bancos(request):
         'bancos': bancos,
         'mostrar_inactivos': mostrar,
     })
-
-@login_required(login_url='login')
-@permission_required("home.view_banco", raise_exception=True)
-def reporte_bancos_pdf(request):
-    # Rango de registros
-    start = int(request.GET.get('start', 1))
-    end   = int(request.GET.get('end',   0))
-    todos  = list(Banco.objects.all().order_by('nombreBanco'))
-    if end == 0 or end > len(todos):
-        end = len(todos)
-    bancos = todos[start-1:end]
-
-    # Preparar PDF
-    response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = 'inline; filename="reporte_bancos.pdf"'
-    p = canvas.Canvas(response, pagesize=letter)
-    width, height = letter
-
-    # Cargar logo/firma
-    config     = Configuracion.objects.order_by('-fechaConfiguracion').first()
-    logo_path  = config.logo.path   if config and config.logo   else None
-    firma_path = config.firma.path  if config and config.firma  else None
-    nombre_ins = config.nombreInstitucion if config else "Institución"
-    rif_ins    = config.rif if config else ""
-
-    # Márgenes y espacios
-    logo_w, logo_h, mgn = 80, 80, 20
-    left_safe  = mgn + logo_w
-    right_safe = width - mgn - logo_w
-    safe_w     = right_safe - left_safe
-
-    def draw_header():
-        if logo_path and os.path.exists(logo_path):
-            p.drawImage(logo_path,
-                        width - logo_w - mgn, height - logo_h - mgn,
-                        width=logo_w, height=logo_h,
-                        preserveAspectRatio=True, mask='auto')
-        p.setFont("Helvetica-Bold", 12)
-        y = height - mgn - 10
-        p.drawString(mgn, y,    nombre_ins)
-        p.drawString(mgn, y-15, f"RIF: {rif_ins}")
-        p.drawString(mgn, y-35, "REPORTE DE BANCOS")
-        p.line(mgn, y-40, width-mgn, y-40)
-
-    def draw_footer():
-        if firma_path and os.path.exists(firma_path):
-            p.drawImage(firma_path,
-                        width/2 - 50,  35,
-                        width=100, height=40,
-                        preserveAspectRatio=True, mask='auto')
-        p.setFont("Helvetica-Oblique", 9)
-        p.drawCentredString(width/2, 20, "Firma autorizada")
-
-    # Construir datos
-    headers = ["Código Local", "Código SWIFT", "Código Contable", "Nombre", "Estado", "Fecha"]
-    data = [headers]
-    for b in bancos:
-        cod_cont = b.codigoPlanCuenta.codigoPlanCuenta if b.codigoPlanCuenta else ""
-        estado   = "Activo" if b.estadoBanco else "Inactivo"
-        data.append([
-            b.codLocalBanco,
-            b.codSwiftBanco,
-            cod_cont,
-            b.nombreBanco,
-            estado,
-            b.fechaBanco.strftime("%d/%m/%Y"),
-        ])
-
-    # Anchos, alturas y cálculo de filas por página
-    col_widths  = [70, 70, 80, 150, 60, 60]
-    row_h       = 20
-    header_h    = 100  # aumentado para más espacio
-    footer_h    = 70
-    avail_h     = height - header_h - footer_h
-    max_rows    = max(1, int(avail_h // row_h))
-
-    # Dibujar páginas
-    for i in range(0, len(data)-1, max_rows):
-        if i > 0:
-            p.showPage()
-        draw_header()
-
-        chunk = [data[0]] + data[i+1 : i+1+max_rows]
-        table = Table(chunk, colWidths=col_widths, rowHeights=row_h)
-        table.setStyle(TableStyle([
-            # Cabecera
-            ('BACKGROUND',       (0,0), (-1,0), colors.HexColor("#fe8330")),
-            ('TEXTCOLOR',        (0,0), (-1,0), colors.white),
-            ('FONTNAME',         (0,0), (-1,0), 'Helvetica-Bold'),
-            ('FONTSIZE',         (0,0), (-1,0), 10),
-            ('ALIGN',            (0,0), (-1,0), 'CENTER'),
-            ('BOTTOMPADDING',    (0,0), (-1,0), 6),
-
-            # Celdas de datos
-            ('FONTNAME',         (0,1), (-1,-1), 'Helvetica'),
-            ('FONTSIZE',         (0,1), (-1,-1), 9),
-            ('ALIGN',            (0,1), (-1,-1), 'CENTER'),
-            ('VALIGN',           (0,1), (-1,-1), 'MIDDLE'),
-            ('INNERGRID',        (0,0), (-1,-1), 0.5, colors.grey),
-            ('BOX',              (0,0), (-1,-1), 0.5, colors.grey),
-            ('BACKGROUND',       (0,1), (-1,-1), colors.whitesmoke),
-        ]))
-
-        # Posición de la tabla (bajamos un poco más)
-        x = left_safe + (safe_w - sum(col_widths)) / 2
-        y = height - header_h - 10 - row_h * len(chunk)
-        table.wrapOn(p, width, height)
-        table.drawOn(p, x, y)
-
-        draw_footer()
-
-    p.save()
-    return response
 
 #MONEDA
 @login_required(login_url='login')

@@ -2,6 +2,7 @@ from django.urls import path, re_path
 from django.contrib import admin
 from . import views
 from .views import registrar_usuario
+from apps.bitacora.views import BitacoraListView, exportar_bitacora
 
 urlpatterns = [
     # Ruta principal (Home)
@@ -9,6 +10,9 @@ urlpatterns = [
     path('contabilidad/', views.contabilidad, name='contabilidad'),
     path('login/', views.login_view, name='login'),
     path('logout/', views.logout_view, name='logout'),
+
+    path('bitacora/', BitacoraListView.as_view(), name='bitacora_list'),
+    path('bitacora/exportar/', exportar_bitacora, name='bitacora_exportar'),
 
     # Rutas específicas para usuarios
     path('usuarios/', views.lista_usuarios, name='lista_usuarios'),
@@ -118,8 +122,6 @@ urlpatterns = [
     path('desactivar_banco/<int:pk>/', views.desactivar_banco, name='desactivar_banco'),
     path('reactivateBanco/<int:pk>/', views.reactivate_banco, name='reactivate_banco'),
     path('tablaBancos/', views.tabla_bancos, name='tabla_bancos'),
-    path('reporte-bancos/', views.reporte_bancos_pdf, name='reporte_bancos_pdf'),
-
 
     # Specific route for moneda modal
     path('monedaModal/', views.moneda_modal, name='moneda_modal'),
