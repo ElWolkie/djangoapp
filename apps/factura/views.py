@@ -19,7 +19,7 @@ import os
 
 from apps.cuentaBanco.models import CuentaBanco
 from apps.periodoContable.models import periodoContable
-from .models import Factura, FacturaDetalle, Pago, ParametroTributario, Nota
+from .models import Factura, FacturaDetalle, NotaRelacionada, Pago, ParametroTributario, Nota
 from .forms import FacturaForm, FacturaDetalleForm, PagoForm, ParametroTributarioForm, NotaForm
 from apps.asientoContable.models import AsientoContable, DetalleAsiento
 from apps.home.models import Configuracion, Moneda, Tasa
@@ -185,6 +185,9 @@ def notas_create(request):
                 nota.numeroNota = numero_nota
                 nota.save()
 
+                # Crear la relación en NotaRelacionada solo si alguno de los IDs está presente
+                crear_relacion_nota(nota, request)
+                # Si todo es exitoso, retornar una respuesta JSON
                 return JsonResponse({
                     'success': True,
                     'message': 'Nota creada exitosamente.',
@@ -223,6 +226,23 @@ def notas_create(request):
         'cuentas_plan': cuentas_plan,
         'numero_nota': numero_nota
     })
+
+def crear_relacion_nota(nota, request):
+    """
+    Crea un registro en la tabla NotaRelacionada si alguno de los IDs está presente en el formulario.
+    """
+    id_inscripcion = request.POST.get('idInscripcion')
+    id_honorario = request.POST.get('idHonorario')
+    id_solicitud = request.POST.get('idSolicitud')
+
+    # Solo crea el registro si alguno de los IDs está presente
+    if id_inscripcion or id_honorario or id_solicitud:
+        NotaRelacionada.objects.create(
+            idNota=nota,
+            idInscripcion_id=id_inscripcion if id_inscripcion else None,
+            idHonorario_id=id_honorario if id_honorario else None,
+            idSolicitud_id=id_solicitud if id_solicitud else None
+        )
 @transaction.atomic
 def factura_edit(request, pk):
     """

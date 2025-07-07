@@ -26,8 +26,8 @@ from reportlab.lib import colors
 from reportlab.platypus import Table, TableStyle
 from django.db.models.functions import ExtractMonth
 
-from .forms import AsignarGrupoForm, UsuarioForm, TipoFormacionForm, FormacionForm, MateriaForm, CohorteForm, CargoForm, RequisitoForm, ServicioForm, TramiteForm, DenominacionForm, BancoForm, MonedaForm, TasaForm, TipoMovimientoForm, MovimientoForm, ConfiguracionForm
-from .models import Personas, Usuarios, TipoFormacion, Formacion, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Denominacion, Banco, Moneda, Tasa, Movimiento, TipoMovimiento, Configuracion
+from .forms import AsignarGrupoForm, UsuarioForm, TipoFormacionForm, FormacionForm, MateriaForm, CohorteForm, CargoForm, RequisitoForm, ServicioForm, TramiteForm, DenominacionForm, BancoForm, MonedaForm, TasaForm, TipoMovimientoForm, MovimientoForm, ConfiguracionForm, CuotaFormacionForm
+from .models import Personas, Usuarios, TipoFormacion, Formacion, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Denominacion, Banco, Moneda, Tasa, Movimiento, TipoMovimiento, Configuracion, CuotaFormacion
 
 from apps.honorario.models import Honorario
 from apps.solicitud.models import Solicitud
@@ -613,6 +613,68 @@ def recover_password(request):
         context['show_recover_form'] = True
         return render(request, 'home/login.html', context)
 
+
+#CUOTA FORMACION @¡########################################################
+##################################################################
+
+@login_required(login_url='login')
+@permission_required("home.add_cuotaformacion", raise_exception=True)
+def registrar_cuota_formacion(request, idFormacion=None):
+    if idFormacion:
+        formaciones = Formacion.objects.filter(idFormacion=idFormacion, estadoFormacion='ACTIVO')  # Filtrar por ID si se proporciona
+    else:
+        formaciones = Formacion.objects.filter(estadoFormacion='ACTIVO')  # Filtrar formaciones activas
+    
+    if request.method == 'POST':
+        form = CuotaFormacionForm(request.POST)
+        if form.is_valid():
+            try:
+                form.save()
+                return JsonResponse({
+                    'success': True,
+                    'message': "Cuota de formación registrada exitosamente.",
+                    'redirect_url': reverse('consultar_cuota_formacion')  # URL para redirigir
+                })
+            except ValidationError as e:
+                return JsonResponse({
+                    'success': False,
+                    'message': f"Error: {e.messages}"
+                })
+        else:
+            return JsonResponse({
+                'success': False,
+                'message': "Por favor, corrija los errores en el formulario."
+            })
+    else:
+        form = CuotaFormacionForm()
+    
+    return render(request, 'home/cuotaformacion.html', {
+        'form': form,
+        'formaciones': formaciones,
+        'tipos_cuota': CuotaFormacion.TIPOS_CUOTA,  # Pasar TIPOS_CUOTA al contexto
+    })
+from django.core.paginator import Paginator
+
+@login_required(login_url='login')
+@permission_required("home.view_cuotaformacion", raise_exception=True)
+def consultar_cuota_formacion(request):
+    mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+    if mostrar:
+        cuotaFormaciones = CuotaFormacion.objects.select_related('idFormacion').all()
+    else:
+        cuotaFormaciones = CuotaFormacion.objects.select_related('idFormacion').filter(is_active=True)
+
+    # Paginación 
+    paginator = Paginator(cuotaFormaciones, 10)  # 10 cuotas por página
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    return render(request, 'home/tablaCuotasFormaciones.html', {
+        'cuotas': page_obj,  # Pasar el objeto de la página al template
+        'mostrar_inactivos': mostrar,
+    })
+
+
 # FORMACION
 @login_required(login_url='login')
 @permission_required("home.add_formacion", raise_exception=True)
@@ -621,20 +683,22 @@ def formacion_modal(request):
         form = FormacionForm(request.POST)
         if form.is_valid():
             try:
-                form.save()
-                return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
+                formacion = form.save()
+                messages.success(request, "Formación registrada exitosamente.")
+                
+                # Redirigir según el valor de tieneCuotas
+                if formacion.tieneCuotas:
+                    return redirect('registrar_cuota_formacion', idFormacion=formacion.idFormacion)  # Redirige al registro de cuotas con el ID de la formación
+                else:
+                    return redirect('tabla_formaciones')  # Redirige a la tabla de formaciones
             except ValidationError as e:
-                # Capturar errores del método clean y devolverlos como JSON
-                return JsonResponse({'success': False, 'errors': {'non_field_errors': e.messages}})
+                messages.error(request, f"Error: {e.messages}")
         else:
-            print(form.errors)
-            errors = {field: error for field, error in form.errors.items()}
-            return JsonResponse({'success': False, 'errors': errors})
+            messages.error(request, "Por favor, corrija los errores en el formulario.")
     else:
         form = FormacionForm()
-        tipos_formacion = TipoFormacion.objects.all()  # Obtener los tipos de formación
-    return render(request, 'home/formaciones.html', {'form': form, 'tipos_formacion': tipos_formacion})
-
+        tipos_formacion = TipoFormacion.objects.filter(estadoTipoFormacion='ACTIVO')
+        return render(request, 'home/formaciones.html', {'form': form, 'tipos_formacion': tipos_formacion})
 @login_required(login_url='login')
 @permission_required("home.change_formacion", raise_exception=True)
 def edit_formacion(request, pk):

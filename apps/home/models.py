@@ -93,13 +93,14 @@ class TipoFormacion(models.Model):
 
     class Meta:  
         verbose_name = "TipoFormación"  
-        verbose_name_plural = "TiposFormacion"  
+        verbose_name_plural = "TiposFormacion"
 
 class Formacion(models.Model):  
     idFormacion = models.AutoField(primary_key=True)
     idTF = models.ForeignKey(TipoFormacion, on_delete=models.CASCADE, related_name='formaciones')
     nombreFormacion = models.CharField(max_length=100, unique=True)
-    valorFormacion = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Valor de la Formación")
+    valorInscripcion = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Valor de Inscripción", default=0)
+    tieneCuotas = models.BooleanField(default=False, verbose_name="Tiene sistema de cuotas?")
     duracion = models.CharField(max_length=100)
     estadoFormacion = models.CharField(max_length=10)
     fechaFormacion = models.DateField(auto_now_add=True)
@@ -107,6 +108,46 @@ class Formacion(models.Model):
     class Meta:  
         verbose_name = "Formacion"  
         verbose_name_plural = "Formaciones"
+
+
+class CuotaFormacion(models.Model):
+    TIPOS_CUOTA = [
+        ('MENSUAL', 'Mensual'),
+        ('BIMESTRAL', 'Bimestral'),
+        ('TRIMESTRAL', 'Trimestral'),
+        ('SEMESTRAL', 'Semestral'),
+        ('ANUAL', 'Anual'),
+        ('UNICA', 'Única'),
+    ]
+    
+    idCuota = models.AutoField(primary_key=True)
+    idFormacion = models.ForeignKey(Formacion, on_delete=models.CASCADE, related_name='cuotas')
+    nombreCuota = models.CharField(max_length=100)
+    tipoCuota = models.CharField(max_length=20, choices=TIPOS_CUOTA)
+    valorCuota = models.DecimalField(max_digits=10, decimal_places=2)
+    orden = models.PositiveIntegerField(help_text="Orden en que se deben pagar las cuotas")
+    fechaCuota = models.DateField(null=True, blank=True, auto_now_add=True)
+
+    def clean(self):
+        qs = CuotaFormacion.objects.filter(
+            idFormacion=self.idFormacion,
+            nombreCuota__iexact=self.nombreCuota,
+            tipoCuota=self.tipoCuota,
+            orden=self.orden
+        )
+        if self.pk:
+            qs = qs.exclude(pk=self.pk)
+        if qs.exists():
+            raise ValidationError("Ya existe una cuota con el mismo idFormacion, nombreCuota, tipoCuota y orden.")
+    is_active = models.BooleanField(default=True )
+    
+    class Meta:
+        verbose_name = "Cuota de Formación"
+        verbose_name_plural = "Cuotas de Formación"
+        ordering = ['idFormacion', 'orden']
+    
+    def __str__(self):
+        return f"{self.nombreCuota} - {self.get_tipoCuota_display()} - ${self.valorCuota}"
 
 
 class Materia(models.Model):  

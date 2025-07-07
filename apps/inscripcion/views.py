@@ -1,15 +1,18 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from django.http import JsonResponse, HttpResponse, HttpResponseRedirect
 from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test, permission_required
 from django.template import loader
+from django.db.models import Exists, OuterRef
+from django.db.models import Count
+from django.db import models
 from django.db.models import OuterRef, Subquery, Max
 from django.urls import reverse
 from django.contrib import messages
 from django.template.loader import render_to_string
 from .forms import InscripcionForm
-from .models import Inscripcion
+from .models import Inscripcion, CuotaFormacion
 from apps.persona.models import Personas
 from apps.home.models import Cargo, Cohorte, Materia, TipoFormacion, Formacion, Configuracion
 from apps.requisitoCliente.models import RequisitoCliente
@@ -19,8 +22,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.platypus import Table, TableStyle
 from reportlab.lib import colors
 import os
-
-
+import json
 @login_required(login_url='login')
 @permission_required("inscripcion.add_inscripcion", raise_exception=True)
 def inscripcion_modal(request):
@@ -28,42 +30,65 @@ def inscripcion_modal(request):
         form = InscripcionForm(request.POST)
         if form.is_valid():
             inscripcion = form.save(commit=False)
-            inscripcion.is_active = True  # ⬅️ Establecer como activo
+            inscripcion.is_active = True  # Establecer como activo
             inscripcion.save()
 
             # Obtener el valor de la formación seleccionada
             formacion = inscripcion.idFormacion
-            valor_formacion = getattr(formacion, 'valorFormacion', 0)  # 'valor'
-            print(f"Valor de la formación: {valor_formacion}")
+            valor_inscripcion = getattr(formacion, 'valorInscripcion', 0)  # Obtener valor de inscripción
             
-            # Redirigir a la vista de factura con el valor de la formación y la ID de inscripción
+            # # Generar pagos de cuotas si la formación tiene cuotas activas
+            # if inscripcion.idFormacion.tieneCuotas:
+            #     generar_pagos_cuotas(inscripcion)
+
             return JsonResponse({
-            'success': True,
-            'message': 'Registro exitoso.',
-            'redirect_url': f"{reverse('nota_create')}?inscripcion={valor_formacion}&id={inscripcion.idPersona.idPersona}"
+                'success': True,
+                'message': 'Inscripción registrada exitosamente.',
+            'redirect_url': f"{reverse('nota_create')}?inscripcion={valor_inscripcion}&id={inscripcion.idPersona.idPersona}"
             })
         else:
             errors = {field: error for field, error in form.errors.items()}
             return JsonResponse({'success': False, 'errors': errors})
 
-    # GET: cargar datos para el modal...
-    formaciones      = Formacion.objects.filter(estadoFormacion='ACTIVO')
-    tipos_formacion  = TipoFormacion.objects.filter(estadoTipoFormacion='ACTIVO')
-    cohortes         = Cohorte.objects.filter(estadoCohorte='ACTIVO')
-    materias         = Materia.objects.filter(estadoMateria='ACTIVO')
+    # Si es una solicitud GET, preparar datos para el formulario
+    formaciones = Formacion.objects.filter(estadoFormacion='ACTIVO').annotate(
+        cuotas_activas=Exists(
+            CuotaFormacion.objects.filter(
+                idFormacion=OuterRef('pk'),
+                is_active=True
+            )
+        ),
+        cantidad_cuotas=Count('cuotas', filter=models.Q(cuotas__is_active=True))  # Contar cuotas activas
+    ).prefetch_related('cuotas')  # Prefetch cuotas activas
+
+    # Generar datos para el template
+    for formacion in formaciones:
+        if formacion.cuotas_activas:  # Solo generar cuotas si están activas
+            formacion.cuotas_json = json.dumps([
+                {
+                    'nombreCuota': cuota.nombreCuota,  # Agregar el nombre de la cuota
+                    'valorCuota': float(cuota.valorCuota)  # Convertir Decimal a float
+                }
+                for cuota in formacion.cuotas.filter(is_active=True)
+            ])
+        else:
+            formacion.cuotas_json = json.dumps([])  # Si no hay cuotas activas, pasar un array vacío
+
+    tipos_formacion = TipoFormacion.objects.filter(estadoTipoFormacion='ACTIVO')
+    cohortes = Cohorte.objects.filter(estadoCohorte='ACTIVO')
+    materias = Materia.objects.filter(estadoMateria='ACTIVO')
     personas = Personas.objects.filter(
         personatp__idTP=2,  # Relación con TipoPersona idTP=2
         estadoPersona='ACTIVO'  # Estado activo
     ).distinct()
+
     return render(request, 'inscripcion/inscripcion.html', {
-        'formaciones'     : formaciones,
-        'tipos_formacion' : tipos_formacion,
-        'cohortes'        : cohortes,
-        'materias'        : materias,
-        'personas'        : personas,
+        'formaciones': formaciones,
+        'tipos_formacion': tipos_formacion,
+        'cohortes': cohortes,
+        'materias': materias,
+        'personas': personas,
     })
-
-
 @login_required(login_url='login')
 @permission_required("inscripcion.change_inscripcion", raise_exception=True)
 def edit_inscripcion(request, pk):
@@ -165,6 +190,39 @@ def tabla_inscripciones(request):
         'requisitos_entregados_dict': requisitos_entregados_dict,
         'mostrar_inactivos': mostrar,
     })
+
+# @login_required(login_url='login')
+# @permission_required("inscripcion.add_pagocuota", raise_exception=True)
+# def registrar_pago_cuota(request, pk):
+#     cuota = get_object_or_404(PagoCuota, pk=pk)
+#     if request.method == 'POST':
+#         form = PagoCuotaForm(request.POST, instance=cuota)
+#         if form.is_valid():
+#             pago = form.save(commit=False)
+#             if pago.estado == 'PAGADO' and not pago.fecha:
+#                 pago.fechaPago = timezone.now().date()
+#             pago.save()
+#             return JsonResponse({'success': True, 'message': 'Pago registrado correctamente.'})
+#         else:
+#             errors = {field: error for field, error in form.errors.items()}
+#             return JsonResponse({'success': False, 'errors': errors}, status=400)
+#     form = PagoCuotaForm(instance=cuota)
+#     return render(request, 'inscripcion/registrarPagoCuota.html', {'form': form})
+
+
+# def generar_pagos_cuotas(inscripcion):
+#     """Genera los registros de PagoCuota para una inscripción."""
+#     cuotas = inscripcion.idFormacion.cuotas.filter(is_active=True).order_by('orden')
+#     for cuota in cuotas:
+#         PagoCuota.objects.create(
+#             idInscripcion=inscripcion,
+#             idCuota=cuota,
+#             monto=cuota.valorCuota,
+#             estado='PENDIENTE'
+#         )
+
+
+
 
 @login_required(login_url='login')
 def reporte_inscripcion_pdf(request):

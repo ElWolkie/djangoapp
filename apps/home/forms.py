@@ -1,5 +1,5 @@
 from django import forms  
-from .models import  Usuarios, Formacion, TipoFormacion, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Denominacion, Banco, Moneda, Tasa, TipoMovimiento, Movimiento, Configuracion
+from .models import  Usuarios, Formacion, TipoFormacion, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Denominacion, Banco, Moneda, Tasa, TipoMovimiento, Movimiento, Configuracion, CuotaFormacion
 from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
 
@@ -93,13 +93,15 @@ class TipoFormacionForm(forms.ModelForm):
         model = TipoFormacion  
         fields = ['nombreTipoFormacion','estadoTipoFormacion']  
 
+class FormacionForm(forms.ModelForm):
+    estadoFormacion = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')
 
-class FormacionForm(forms.ModelForm):  
-    estadoFormacion = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
-
-    class Meta:  
-        model = Formacion  
-        fields = ['idTF', 'nombreFormacion','valorFormacion', 'duracion', 'estadoFormacion']
+    class Meta:
+        model = Formacion
+        fields = ['idTF', 'nombreFormacion', 'valorInscripcion', 'tieneCuotas', 'duracion', 'estadoFormacion']
+        widgets = {
+            'tieneCuotas': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
 
     def clean_nombreFormacion(self):
         nombre = self.cleaned_data['nombreFormacion'].strip()
@@ -111,7 +113,56 @@ class FormacionForm(forms.ModelForm):
             raise ValidationError("Ya existe una formación con ese nombre.")
         return nombre
 
+    def clean_valorInscripcion(self):
+        valor = self.cleaned_data['valorInscripcion']
+        if valor < 0:
+            raise ValidationError("El valor de inscripción no puede ser negativo.")
+        return valor
 
+class CuotaFormacionForm(forms.ModelForm):
+    class Meta:
+        model = CuotaFormacion
+        fields = [
+            'idFormacion', 
+            'nombreCuota', 
+            'tipoCuota', 
+            'valorCuota', 
+            'orden', 
+            'is_active'
+        ]
+        widgets = {
+            'idFormacion': forms.Select(attrs={'class': 'form-control'}),
+            'nombreCuota': forms.TextInput(attrs={
+                'class': 'form-control', 
+                'placeholder': 'Ingrese el nombre de la cuota'
+            }),
+            'tipoCuota': forms.Select(attrs={'class': 'form-control'}),
+            'valorCuota': forms.NumberInput(attrs={
+                'class': 'form-control', 
+                'placeholder': 'Ingrese el valor de la cuota'
+            }),
+            'orden': forms.NumberInput(attrs={
+                'class': 'form-control', 
+                'placeholder': 'Ingrese el orden de la cuota'
+            }),
+            'fechaCuota': forms.DateInput(attrs={
+                'class': 'form-control', 
+                'type': 'date'
+            }),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+    def clean_valorCuota(self):
+        valor = self.cleaned_data['valorCuota']
+        if valor <= 0:
+            raise forms.ValidationError("El valor de la cuota debe ser mayor a cero.")
+        return valor
+
+    def clean_orden(self):
+        orden = self.cleaned_data['orden']
+        if orden <= 0:
+            raise forms.ValidationError("El orden debe ser un número positivo.")
+        return orden
 class MateriaForm(forms.ModelForm):  
     estadoMateria = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
 
