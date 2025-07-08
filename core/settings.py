@@ -19,6 +19,14 @@ SECRET_KEY = config("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config("DEBUG", default=False, cast=bool)
 
+# 365 días de retención (ajustable)
+BITACORA_RETENCION_DIAS = 365
+
+TIME_ZONE = 'America/Caracas'  # Ajusta a tu zona
+USE_TZ = True
+
+# load production server from .env
+
 # SECURE_SSL_REDIRECT = True  # Redirige HTTP → HTTPS
 # SESSION_COOKIE_SECURE = True  # Cookies solo por HTTPS
 
@@ -78,6 +86,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     'django_extensions',
     "apps.home",  # Enable the inner home (home)
+    "apps.bitacora.apps.BitacoraConfig",  # Habilita la aplicación para gestionar bitacora
     "apps.persona",  # Habilita la aplicación para gestionar personas
     "apps.honorario",  # Habilita la aplicación para gestionar honorario
     "apps.inscripcion",  # Habilita la aplicación para gestionar honorario
@@ -112,6 +121,8 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     'whitenoise.middleware.WhiteNoiseMiddleware',
+    "apps.bitacora.middleware.AuditMiddleware",
+    # 'debug_toolbar.middleware.DebugToolbarMiddleware',
 ]
 
 STATIC_URL = '/static/'

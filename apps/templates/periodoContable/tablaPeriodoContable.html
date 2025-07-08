@@ -49,14 +49,14 @@
       </div>
     </div>
     <div class="col-md-4 text-center">
-      {% if perms.home.add_periodocontable %}
+      {% if perms.periodoContable.add_periodocontable %}
         <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#periodoContableModal">
           <i class="fas fa-plus-circle me-1"></i> Registrar Período Contable
         </button>
       {% endif %}
     </div>
     <div class="col-md-4 text-end">
-      <a href="{% url 'reporte_periodos_pdf' %}" class="btn btn-outline-danger btn-sm" target="_blank">
+      <a href="{% url 'reporte_periodos_pdf' %}" class="btn btn-outline-danger" target="_blank">
         <i class="fas fa-file-pdf"></i> Descargar PDF
       </a>
     </div>
@@ -115,7 +115,7 @@
             <td>{{ periodo.fechaPeriodoDigital|date:"d/m/Y" }}</td>
             <td class="actions-column">
               <div class="d-flex gap-2">
-                {% if perms.home.change_periodocontable %}
+                {% if perms.periodoContable.change_periodocontable %}
                   <button class="btn btn-primary btn-sm"
                           data-bs-toggle="modal"
                           data-bs-target="#editPeriodoModal"
@@ -124,7 +124,7 @@
                     <i class="fas fa-edit"></i>
                   </button>
                 {% endif %}
-                {% if periodo.estadoPeriodo and perms.home.change_periodocontable %}
+                {% if periodo.estadoPeriodo and perms.periodoContable.change_periodocontable %}
                   <button class="btn btn-outline-warning btn-sm"
                           data-bs-toggle="modal"
                           data-bs-target="#deletePeriodoModal"
@@ -133,7 +133,7 @@
                     <i class="fas fa-user-slash"></i>
                   </button>
                 {% endif %}
-                {% if not periodo.estadoPeriodo and perms.home.change_periodocontable %}
+                {% if not periodo.estadoPeriodo and perms.periodoContable.change_periodocontable %}
                   <button class="btn btn-success btn-sm"
                           data-bs-toggle="modal"
                           data-bs-target="#reactivatePeriodoModal"

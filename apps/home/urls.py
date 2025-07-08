@@ -2,6 +2,7 @@ from django.urls import path, re_path
 from django.contrib import admin
 from . import views
 from .views import registrar_usuario
+from apps.bitacora.views import BitacoraListView, ejecutar_limpieza_bitacora, exportar_bitacora, configurar_retencion
 
 urlpatterns = [
     # Ruta principal (Home)
@@ -9,6 +10,11 @@ urlpatterns = [
     path('contabilidad/', views.contabilidad, name='contabilidad'),
     path('login/', views.login_view, name='login'),
     path('logout/', views.logout_view, name='logout'),
+
+    path('bitacora/', BitacoraListView.as_view(), name='bitacora_list'),
+    path('bitacora/exportar/', exportar_bitacora, name='bitacora_exportar'),
+    path('ejecutar_limpieza_bitacora/', ejecutar_limpieza_bitacora, name='ejecutar_limpieza_bitacora'),
+    path('configurar_retencion/', configurar_retencion, name='bitacora_configurar_retencion'),
 
     # Rutas específicas para usuarios
     path('usuarios/', views.lista_usuarios, name='lista_usuarios'),
@@ -37,6 +43,17 @@ urlpatterns = [
     path('reporte-tipo-formacion/', views.reporte_tipo_formacion_pdf, name='reporte_tipo_formacion_pdf'),
 
   
+
+    # Specific route for cuotas Formacion ###########################################
+
+   # Specific route for formacion modal
+    path('cuotaFormacion/<int:idFormacion>/', views.registrar_cuota_formacion, name='registrar_cuota_formacion'),
+    path('cuotaFormacion/', views.registrar_cuota_formacion, name='registrar_cuota_formacion'),
+
+   path('tablaCuotaFormacion/', views.consultar_cuota_formacion, name='consultar_cuota_formacion'),
+
+    ##########################################################3333
+
     # Specific route for formacion modal
     path('formacionModal/', views.formacion_modal, name='formacion_modal'),
     path('editFormacion/<int:pk>/', views.edit_formacion, name='edit_formacion'),
@@ -118,8 +135,6 @@ urlpatterns = [
     path('desactivar_banco/<int:pk>/', views.desactivar_banco, name='desactivar_banco'),
     path('reactivateBanco/<int:pk>/', views.reactivate_banco, name='reactivate_banco'),
     path('tablaBancos/', views.tabla_bancos, name='tabla_bancos'),
-    path('reporte-bancos/', views.reporte_bancos_pdf, name='reporte_bancos_pdf'),
-
 
     # Specific route for moneda modal
     path('monedaModal/', views.moneda_modal, name='moneda_modal'),

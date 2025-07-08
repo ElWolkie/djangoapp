@@ -1,0 +1,293 @@
+{% extends 'layouts/base.html' %}
+{% load static %}
+
+{% block title %}Listado de Cuotas de Formación{% endblock title %}
+
+{% block stylesheets %}
+<link rel="stylesheet" href="{% static 'assets/css/styleForms.css' %}" />
+<link rel="stylesheet" href="{% static 'assets/css/argon.css' %}" />
+<style>
+  .btn-purple {
+    background-color: #6f42c1 !important;
+    color: white !important;
+    border-color: #6f42c1 !important;
+  }
+  .btn-purple:hover {
+    background-color: #5a32a3 !important;
+    border-color: #5a32a3 !important;
+  }
+  .actions-column .btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+    transition: all 0.3s ease;
+  }
+  .badge {
+    font-size: 0.85em;
+    padding: 0.5em 0.75em;
+  }
+  .pagination-container {
+    margin-top: 1rem !important;
+  }
+  .pagination {
+    --bs-pagination-padding-x: 0.75rem;
+    --bs-pagination-padding-y: 0.375rem;
+    --bs-pagination-font-size: 0.875rem;
+  }
+  .page-link {
+    min-width: 32px;
+    text-align: center;
+    border-radius: 4px !important;
+  }
+  .page-item.active .page-link {
+    background-color: #fb6340;
+    border-color: #fb6340;
+  }
+</style>
+{% endblock stylesheets %}
+
+{% block content %}
+<div class="container mt-4">
+  <h2 class="text-center mb-4">Lista de Cuotas de Formación</h2>
+
+  <div class="row mb-3">
+    <div class="col-md-4">
+      <div class="input-group">
+        <span class="input-group-text"><i class="fas fa-search"></i></span>
+        <input class="form-control" id="searchInput" type="text" placeholder="Buscar por Nombre...">
+      </div>
+    </div>
+    <div class="col-md-4 text-center">
+      {% if perms.home.add_cuotaformacion %}
+      <a href="{% url 'registrar_cuota_formacion' %}" class="btn btn-warning">
+        <i class="fas fa-plus-circle me-1"></i> Nueva Cuota
+      </a>
+      {% endif %}
+    </div>
+    <div class="col-md-4 text-end">
+      <a href="" class="btn btn-outline-danger" target="_blank">
+        <i class="fas fa-file-pdf"></i> Descargar PDF
+      </a>
+    </div>
+  </div>
+
+  <div id="globalMessages">
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+      {% endfor %}
+    {% endif %}
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="table-responsive">
+      <table class="table table-striped table-hover align-middle text-gray-dark" id="cuotasTable">
+        <thead class="table-light">
+          <tr>
+            <th>ID</th>
+            <th>Formación</th>
+            <th>Nombre</th>
+            <th>Tipo</th>
+            <th>Valor</th>
+            <th>Orden</th>
+            <th>Estado</th>
+            <th class="actions-column">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for cuota in cuotas %}
+          <tr>
+            <td>{{ cuota.idCuota }}</td>
+            <td>{{ cuota.idFormacion.nombreFormacion }}</td>
+            <td>{{ cuota.nombreCuota }}</td>
+            <td>{{ cuota.get_tipoCuota_display }}</td>
+            <td>{{ cuota.valorCuota }}</td>
+            <td>{{ cuota.orden }}</td>
+            <td>
+              {% if cuota.is_active %}
+              <span class="badge bg-success text-white">
+                <i class="fas fa-check-circle me-1"></i> Activo
+              </span>
+              {% else %}
+              <span class="badge bg-danger text-white">
+                <i class="fas fa-times-circle me-1"></i> Inactivo
+              </span>
+              {% endif %}
+            </td>
+            <td class="actions-column">
+              <div class="d-flex gap-2">
+                {% if perms.home.view_cuotaformacion %}
+                  <button class="btn btn-info btn-sm view-details-btn"
+                          data-bs-toggle="modal"
+                          data-bs-target="#detailsModal"
+                          data-id="{{ cuota.idCuota }}"
+                          data-formacion="{{ cuota.idFormacion.nombreFormacion }}"
+                          data-nombre="{{ cuota.nombreCuota }}"
+                          data-tipo="{{ cuota.get_tipoCuota_display }}"
+                          data-valor="{{ cuota.valorCuota }}"
+                          data-orden="{{ cuota.orden }}"
+                          data-fecha="{{ cuota.fechaCuota|date:'d/m/Y' }}"
+                          data-estado="{{ cuota.is_active }}"
+                          title="Ver más">
+                    <i class="fas fa-eye"></i>
+                  </button>
+                {% endif %}
+
+                {% if perms.home.change_cuotaformacion %}
+                  <a href="" class="btn btn-primary btn-sm" title="Editar">
+                    <i class="fas fa-edit"></i>
+                  </a>
+                {% endif %}
+
+                {% if cuota.is_active and perms.home.delete_cuotaformacion %}
+                  <button class="btn btn-outline-warning btn-sm"
+                          data-bs-toggle="modal"
+                          data-bs-target="#deleteCuotaModal"
+                          data-url=""
+                          title="Inhabilitar">
+                    <i class="fas fa-user-slash"></i>
+                  </button>
+                {% endif %}
+                {% if not cuota.is_active and perms.home.change_cuotaformacion %}
+                  <button class="btn btn-success btn-sm"
+                          data-bs-toggle="modal"
+                          data-bs-target="#reactivateCuotaModal"
+                          data-url=""
+                          title="Reactivar">
+                    <i class="fas fa-redo"></i>
+                  </button>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="9" class="text-center py-4">No hay cuotas registradas.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <!-- Controles de paginación -->
+<div class="pagination-container text-center mt-4">
+    <nav aria-label="Page navigation">
+      <ul class="pagination justify-content-center">
+        {% if cuotas.has_previous %}
+          <li class="page-item">
+            <a class="page-link" href="?page={{ cuotas.previous_page_number }}" aria-label="Anterior">
+              <span aria-hidden="true">&laquo;</span>
+            </a>
+          </li>
+        {% endif %}
+        {% for num in cuotas.paginator.page_range %}
+          <li class="page-item {% if cuotas.number == num %}active{% endif %}">
+            <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+          </li>
+        {% endfor %}
+        {% if cuotas.has_next %}
+          <li class="page-item">
+            <a class="page-link" href="?page={{ cuotas.next_page_number }}" aria-label="Siguiente">
+              <span aria-hidden="true">&raquo;</span>
+            </a>
+          </li>
+        {% endif %}
+      </ul>
+    </nav>
+  </div>
+</div>
+
+
+<!-- Modal: Ver Detalles -->
+<div class="modal fade details-modal" id="detailsModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title text-white">Ver más de <span id="detail-nombre"></span></h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="detail-item">
+          <div class="detail-label">ID:</div>
+          <div class="detail-value" id="detail-id"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Formación:</div>
+          <div class="detail-value" id="detail-formacion"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Nombre:</div>
+          <div class="detail-value" id="detail-nombre"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Tipo:</div>
+          <div class="detail-value" id="detail-tipo"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Valor:</div>
+          <div class="detail-value bold" id="detail-valor"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Orden:</div>
+          <div class="detail-value" id="detail-orden"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Fecha de Vencimiento:</div>
+          <div class="detail-value" id="detail-fecha"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Estado:</div>
+          <div class="detail-value" id="detail-estado"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock content %}
+
+{% block javascripts %}
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  const searchInput = document.getElementById("searchInput");
+  const table = document.getElementById("cuotasTable");
+
+  searchInput.addEventListener("keyup", function() {
+    const filter = this.value.toUpperCase();
+    const rows = table.getElementsByTagName("tr");
+
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      const text = row.textContent || row.innerText;
+      row.style.display = text.toUpperCase().includes(filter) ? "" : "none";
+    }
+  });
+
+  const detailsModal = document.getElementById("detailsModal");
+  detailsModal.addEventListener("show.bs.modal", function(event) {
+    const button = event.relatedTarget;
+    const modal = this;
+
+    modal.querySelector("#detail-id").textContent = button.getAttribute("data-id");
+    modal.querySelector("#detail-formacion").textContent = button.getAttribute("data-formacion");
+    modal.querySelector("#detail-nombre").textContent = button.getAttribute("data-nombre");
+    modal.querySelector("#detail-tipo").textContent = button.getAttribute("data-tipo");
+    modal.querySelector("#detail-valor").textContent = button.getAttribute("data-valor");
+    modal.querySelector("#detail-orden").textContent = button.getAttribute("data-orden");
+    modal.querySelector("#detail-fecha").textContent = button.getAttribute("data-fecha");
+    modal.querySelector("#detail-estado").innerHTML = button.getAttribute("data-estado") === "True"
+      ? '<span class="badge bg-success text-white">Activo</span>'
+      : '<span class="badge bg-danger text-white">Inactivo</span>';
+  });
+});
+</script>
+{% endblock javascripts %}

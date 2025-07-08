@@ -1,0 +1,312 @@
+{% extends 'layouts/base.html' %}
+{% load static %}
+
+{% block title %}Registros de Bitácora{% endblock %}
+
+{% block stylesheets %}
+  <link rel="stylesheet" href="{% static 'assets/css/styleForms.css' %}" />
+  <link rel="stylesheet" href="{% static 'assets/css/argon.css' %}" />
+  <style>
+    /* Copiado de tu plantilla de bancos */
+    .details-modal .modal-content {
+      border-radius: 15px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    }
+    .details-modal .modal-header {
+      background: linear-gradient(135deg, #5e72e4 0%, #825ee4 100%);
+      color: white;
+      border-radius: 15px 15px 0 0;
+    }
+    /* Quitar cualquier override de .modal.fade.show que tenías */
+  </style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <h2 class="mb-4">Registros de Bitácora</h2>
+
+  <!-- Filtros -->
+    <form method="get" action="{% url 'bitacora_list' %}" class="mb-4 card p-3">
+        <div class="row g-2">
+            <div class="col-md-3">
+            <input type="text" name="usuario" class="form-control text-dark"
+                    placeholder="Usuario" value="{{ filtro_usuario }}">
+            </div>
+            <div class="col-md-3">
+            <select name="accion" class="form-control text-dark">
+                <option value="">Todas las acciones</option>
+                <option value="C" {% if filtro_accion == "C" %}selected{% endif %}>Creación</option>
+                <option value="A" {% if filtro_accion == "A" %}selected{% endif %}>Actualización</option>
+                <option value="E" {% if filtro_accion == "E" %}selected{% endif %}>Eliminación</option>
+                <option value="I" {% if filtro_accion == "I" %}selected{% endif %}>Inicio de sesión</option>
+                <option value="O" {% if filtro_accion == "O" %}selected{% endif %}>Cierre de sesión</option>
+                <option value="B" {% if filtro_accion == "B" %}selected{% endif %}>Copia de seguridad</option>
+                <option value="R" {% if filtro_accion == "R" %}selected{% endif %}>Restauración</option>
+            </select>
+            </div>
+            <div class="col-md-3">
+            <input type="date" name="fecha" class="form-control text-dark" value="{{ filtro_fecha }}">
+            </div>
+            <div class="col-md-3">
+            <input type="text" name="q" class="form-control text-dark"
+                    placeholder="Buscar descripción, modelo, IP…" value="{{ filtro_q }}">
+            </div>
+            
+            <div class="col-md-3 text-end mt-2">
+                <button type="submit" class="btn btn-primary">Filtrar</button>
+
+                <button class="btn btn-danger dropdown-toggle" type="button" 
+                    id="exportDropdown" data-bs-toggle="dropdown">Exportar
+                </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" 
+                            href="{% url 'bitacora_exportar' %}?{{ request.GET.urlencode }}&formato=csv">
+                            CSV
+                        </a></li>
+                        <li><a class="dropdown-item" 
+                            href="{% url 'bitacora_exportar' %}?{{ request.GET.urlencode }}&formato=excel">
+                            Excel
+                        </a></li>
+                        <li><a class="dropdown-item" 
+                            href="{% url 'bitacora_exportar' %}?{{ request.GET.urlencode }}&formato=json">
+                            JSON
+                        </a></li>
+                    </ul>
+            </div>
+        </div>
+    </form>
+
+<!-- Formulario de Configuración de Retención -->
+<div class="card mb-4">
+    <div class="card-header" style="background: linear-gradient(135deg, #5e72e4 0%, #825ee4 100%);">
+        <h5 class="mb-0 text-white">Configuración de Retención</h5>
+    </div>
+    <div class="card-body">
+        <form method="post" action="{% url 'bitacora_configurar_retencion' %}">
+            {% csrf_token %}
+            <div class="row align-items-center g-2">
+                <!-- Select de Retención -->
+                <div class="col-md-3">
+                    <label class="form-label mb-1">Período:</label>
+                    <select name="retencion" class="form-control-sm text-dark">
+                        <option value="diario" {% if configuracion.retencion == 'diario' %}selected{% endif %}>Diario (1 día)</option>
+                        <option value="semanal" {% if configuracion.retencion == 'semanal' %}selected{% endif %}>Semanal (7 días)</option>
+                        <option value="mensual" {% if configuracion.retencion == 'mensual' %}selected{% endif %}>Mensual (30 días)</option>
+                        <option value="anual" {% if configuracion.retencion == 'anual' %}selected{% endif %}>Anual (365 días)</option>
+                        <option value="personalizado" {% if configuracion.retencion == 'personalizado' %}selected{% endif %}>Personalizado</option>
+                    </select>
+                </div>
+                
+                <!-- Días Personalizados -->
+                <div class="col-md-2" id="dias_personalizados_div" 
+                     style="display: {% if configuracion.retencion == 'personalizado' %}block{% else %}none{% endif %};">
+                    <label class="form-control-sm text-dark">Días:</label>
+                    <input type="number" name="dias_personalizados" class="form-control form-control-sm" 
+                           value="{{ configuracion.dias_personalizados|default:'' }}" min="1">
+                </div>
+                
+                <!-- Checkbox Exportar -->
+                <div class="col-md-3 ps-4">
+                    <div class="form-check form-switch my-1">
+                        <input type="checkbox" name="exportar_antes_limpieza" 
+                               class="form-check-input" id="exportarCheck"
+                               {% if configuracion.exportar_antes_limpieza %}checked{% endif %}>
+                        <label class="form-check-label small" for="exportarCheck">
+                            Exportar antes de eliminar
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Botones -->
+                <div class="col-md-4 text-end">
+                    <button type="submit" class="btn btn-sm btn-primary">
+                        <i class="fas fa-save me-1"></i> Guardar
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-danger ms-2" id="btn-ejecutar-limpieza">
+                        <i class="fas fa-broom me-1"></i> Limpiar ahora
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+    <div class="table-responsive">
+        <table class="table table-striped">
+        <thead class="table-light">
+            <tr>
+            <th>Fecha/Hora</th><th>Severidad</th><th>Usuario</th>
+            <th>Acción</th><th>Modelo</th><th>Descripción</th><th>IP</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for registro in registros %}
+            <tr>
+            <td>{{ registro.fecha_hora|date:"d/m/Y H:i" }}</td>
+            <td>
+                <span class="badge 
+                {% if registro.severidad == 'CRITICAL' or registro.severidad == 'ERROR' %}bg-danger
+                {% elif registro.severidad == 'WARNING' %}bg-warning
+                {% else %}bg-info{% endif %}">
+                {{ registro.get_severidad_display }}
+                </span>
+            </td>
+            <td>
+                {% if registro.usuario and registro.usuario.idPersona %}
+                {{ registro.usuario.idPersona.nombres }} {{ registro.usuario.idPersona.apellidos }}
+                {% else %}
+                Sistema
+                {% endif %}
+            </td>
+            <td>{{ registro.get_accion_display }}</td>
+            <td>{{ registro.modelo_afectado }}</td>
+            <td>
+                {{ registro.descripcion }}
+                {% if registro.cambios %}
+                    <button
+                        type="button"
+                        class="btn btn-sm btn-info"
+                        data-bs-toggle="modal"
+                        data-bs-target="#cambiosModal{{ registro.id }}"
+                        style="margin:0px 2px 0px 2px;"
+                        title="Ver detalles">
+                  <i class="fas fa-eye"></i>
+                    </button>
+                {% endif %}
+            </td>
+            <td>{{ registro.ip|default:"-" }}</td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="7" class="text-center">No hay registros</td></tr>
+        {% endfor %}
+        </tbody>
+        </table>
+    </div>
+</div>
+
+{# ======= MODALES INDIVIDUALES ======= #}
+{% for registro in registros %}
+{% if registro.cambios %}
+<div
+  class="modal fade details-modal"
+  id="cambiosModal{{ registro.id }}"
+  tabindex="-1"
+  aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <h5 class="modal-title text-white">Detalles de Cambios</h5>
+        <button
+          type="button"
+          class="btn-close btn-close-white"
+          data-bs-dismiss="modal"
+          aria-label="Cerrar">
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Campo</th>
+              <th>Valor Anterior</th>
+              <th>Valor Nuevo</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for campo, datos in registro.cambios.items %}
+            <tr>
+              <td>{{ campo }}</td>
+              <td>{{ datos.anterior|default:"-" }}</td>
+              <td>{{ datos.nuevo|default:"-" }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="modal-footer">
+        <button
+          type="button"
+          class="btn btn-secondary"
+          data-bs-dismiss="modal">
+          Cerrar
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endfor %}
+
+<!-- Paginación -->
+    {% if is_paginated %}
+    <nav aria-label="Paginación">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page=1&usuario={{ filtro_usuario }}&accion={{ filtro_accion }}&fecha={{ filtro_fecha }}">Primera</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}&usuario={{ filtro_usuario }}&accion={{ filtro_accion }}&fecha={{ filtro_fecha }}">Anterior</a>
+            </li>
+            {% endif %}
+            
+            <li class="page-item disabled">
+                <span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+            </li>
+            
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}&usuario={{ filtro_usuario }}&accion={{ filtro_accion }}&fecha={{ filtro_fecha }}">Siguiente</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}&usuario={{ filtro_usuario }}&accion={{ filtro_accion }}&fecha={{ filtro_fecha }}">Última</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block javascripts %}
+<script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+  const btnLimpieza = document.getElementById('btn-ejecutar-limpieza');
+  if (!btnLimpieza) return;
+
+  btnLimpieza.addEventListener('click', function() {
+    if (!confirm('¿Seguro que deseas ejecutar la limpieza ahora?')) return;
+
+    fetch("{% url 'ejecutar_limpieza_bitacora' %}", {
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(res => res.json())
+    .then(data => {
+      // Crear alerta Bootstrap al tope de la página
+      const container = document.querySelector('.container');
+      const alertDiv = document.createElement('div');
+      alertDiv.className = `alert ${data.success ? 'alert-success' : 'alert-danger'} alert-dismissible fade show`;
+      alertDiv.role = 'alert';
+      alertDiv.innerHTML = `
+        ${data.message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+      `;
+      container.prepend(alertDiv);
+      // Recarga suave tras 1.5s para que el usuario lea el mensaje
+      setTimeout(() => location.reload(), 1500);
+    })
+    .catch(err => {
+      console.error(err);
+      alert('Ocurrió un error inesperado.');
+    });
+  });
+});
+</script>
+{% endblock javascripts %}
+

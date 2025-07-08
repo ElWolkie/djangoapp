@@ -2,18 +2,30 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+    # Notas
+    # path('notas/', views.nota_list, name='nota_list'),
+    path('notas/nueva/', views.notas_create, name='nota_create'),
+    # path('notas/editar/<int:pk>/', views.nota_edit, name='nota_edit'),
+    # path('notas/eliminar/<int:pk>/', views.nota_delete, name='nota_delete'),
+
     # Facturas
     path('facturas/', views.factura_list, name='factura_list'),
     path('facturas/<int:pk>/', views.factura_detail, name='factura_detail'),
-    path('facturas/nueva/', views.factura_create, name='factura_create'),
+    path('facturas/nueva/', views.factura_create_notas, name='factura_create'),
+    path('facturas/nueva/<int:nota_id>/', views.factura_create_notas, name='factura_create'),
     path('facturas/editar/<int:pk>/', views.factura_edit, name='factura_edit'),
     path('facturas/eliminar/<int:pk>/', views.factura_delete, name='factura_delete'),
+    path('facturas/cargando/', views.factura_cargando, name='factura_cargando'),
+
+    # Reportes
+    path('facturas/reporteFacturas', views.reporte_facturas_pdf, name='reporte_facturas_pdf'),
+    path('facturas/reporteFactura/<int:pk>/', views.reporte_factura_pdf, name='reporte_factura_pdf'),
 
     # Detalles de Factura
     path('factura/<int:factura_id>/detalles/', views.factura_detalle_list, name='factura_detalle_list'),
     path('facturas/<int:factura_id>/detalles/nuevo/', views.factura_detalle_create, name='factura_detalle_create'),
-    # path('facturas/detalles/editar/<int:pk>/', views.factura_detalle_edit, name='factura_detalle_edit'),
-    # path('facturas/detalles/eliminar/<int:pk>/', views.factura_detalle_delete, name='factura_detalle_delete'),
+    path('facturas/detalles/editar/<int:pk>/', views.factura_detalle_edit, name='factura_detalle_edit'),
+    path('facturas/detalles/eliminar/<int:pk>/', views.factura_detalle_delete, name='factura_detalle_delete'),
 
     # Pagos
     path('pagos/', views.pago_list, name='pago_list'),

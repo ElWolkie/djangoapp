@@ -72,6 +72,31 @@
     background-color: #fb6340;
     border-color: #fb6340;
 }
+
+/* Estilos para el modal de detalles */
+.details-modal .modal-content {
+  border-radius: 15px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+.details-modal .modal-header {
+  background: linear-gradient(135deg, #5e72e4 0%, #825ee4 100%);
+  color: white;
+  border-radius: 15px 15px 0 0;
+}
+.detail-item {
+  padding: 10px 0;
+  border-bottom: 1px solid #eee;
+  display: flex;
+}
+.detail-label {
+  font-weight: 600;
+  color: #525f7f;
+  min-width: 140px;
+}
+.detail-value {
+  color: #8898aa;
+  flex-grow: 1;
+}
 </style>
 {% endblock stylesheets %}
 
@@ -131,11 +156,9 @@
           <tr>
             <th>ID</th>
             <th>Cédula</th>
-            <th>Cohorte</th>
-            <th>Tipo Formación</th>
             <th>Formación</th>
+            <th>Cohorte</th>
             <th>Estado</th>
-            <th>Fecha</th>
             <th class="actions-column">Acciones</th>
           </tr>
         </thead>
@@ -144,9 +167,8 @@
           <tr>
             <td>{{ inscripcion.idInscripcion }}</td>
             <td>{{ inscripcion.idPersona.cedula }}</td>
-            <td>{{ inscripcion.idCohorte.nombreCohorte }}</td>
-            <td>{{ inscripcion.idTF.nombreTipoFormacion }}</td>
             <td>{{ inscripcion.idFormacion.nombreFormacion }}</td>
+            <td>{{ inscripcion.idCohorte.nombreCohorte }}</td>
             <td>
               {% if inscripcion.is_active %}
                 <span class="badge bg-success text-white"><i class="fas fa-check-circle me-1"></i> Activo</span>
@@ -154,48 +176,75 @@
                 <span class="badge bg-danger text-white"><i class="fas fa-times-circle me-1"></i> Inactivo</span>
               {% endif %}
             </td>
-            <td>{{ inscripcion.fechaInscripcion|date:"d/m/Y" }}</td>
 
             <td class="actions-column">
               <div class="d-flex gap-2">
+                <!-- Botón Ver más -->
+                {% if perms.home.view_inscripcion %}
+                  <button class="btn btn-info btn-sm view-details-btn"
+                          data-bs-toggle="modal"
+                          data-bs-target="#detailsModal"
+                          data-id="{{ inscripcion.idInscripcion }}"
+                          data-cedula="{{ inscripcion.idPersona.cedula }}"
+                          data-nombres="{{ inscripcion.idPersona.nombres }}"
+                          data-apellidos="{{ inscripcion.idPersona.apellidos }}"
+                          data-cohorte="{{ inscripcion.idCohorte.nombreCohorte }}"
+                          data-tipo-formacion="{{ inscripcion.idTF.nombreTipoFormacion }}"
+                          data-formacion="{{ inscripcion.idFormacion.nombreFormacion }}"
+                          data-estado="{% if inscripcion.is_active %}Activo{% else %}Inactivo{% endif %}"
+                          data-fecha="{{ inscripcion.fechaInscripcion|date:'d/m/Y' }}"
+                          title="Ver más">
+                    <i class="fas fa-eye"></i>
+                  </button>
+                {% endif %}
+                
                 {% if perms.home.change_inscripcion %}
                 <button class="btn btn-primary btn-sm"
                         data-bs-toggle="modal"
                         data-bs-target="#editInscripcionModal"
-                        data-url="{% url 'edit_inscripcion' inscripcion.idInscripcion %}">
+                        data-url="{% url 'edit_inscripcion' inscripcion.idInscripcion %}"
+                        title="Editar">
                   <i class="fas fa-edit"></i>
                 </button>
                 {% endif %}
+                
                 {% if inscripcion.is_active and perms.home.change_inscripcion %}
                 <button class="btn btn-outline-warning btn-sm"
                         data-bs-toggle="modal"
                         data-bs-target="#deleteInscripcionModal"
-                        data-url="{% url 'desactivar_inscripcion' inscripcion.idInscripcion %}">
+                        data-url="{% url 'desactivar_inscripcion' inscripcion.idInscripcion %}"
+                        title="Desactivar">
                   <i class="fas fa-user-slash"></i>
                 </button>
                 {% endif %}
+                
                 {% if not inscripcion.is_active and perms.home.change_inscripcion %}
                 <button class="btn btn-success btn-sm"
                         data-bs-toggle="modal"
                         data-bs-target="#reactivateInscripcionModal"
-                        data-url="{% url 'reactivate_inscripcion' inscripcion.idInscripcion %}">
+                        data-url="{% url 'reactivate_inscripcion' inscripcion.idInscripcion %}"
+                        title="Reactivar">
                   <i class="fas fa-redo"></i>
                 </button>
                 {% endif %}
+                
                 {% if inscripcion.idInscripcion %}
-                <button class="btn btn-info btn-sm"
-                        data-bs-toggle="modal"
-                        data-bs-target="#requisitosInscripcionModal"
-                        data-url="{% url 'guardar_requisitos_inscripcion' inscripcion.idInscripcion %}">
-                  <i class="fas fa-clipboard-check"></i>
-                </button>
+                  {% if perms.home.change_inscripcion or perms.home.view_inscripcion %}
+                    <button class="btn btn-light btn-sm"
+                            data-bs-toggle="modal"
+                            data-bs-target="#requisitosInscripcionModal"
+                            data-url="{% url 'guardar_requisitos_inscripcion' inscripcion.idInscripcion %}"
+                            title="Ver Requisitos">
+                      <i class="fas fa-clipboard-check text-dark"></i>
+                    </button>
+                  {% endif %}
                 {% endif %}
               </div>
             </td>
           </tr>
         {% empty %}
           <tr>
-            <td colspan="9" class="text-center py-4">No hay inscripciones registradas.</td>
+            <td colspan="6" class="text-center py-4">No hay inscripciones registradas.</td>
           </tr>
         {% endfor %}
         </tbody>
@@ -204,7 +253,62 @@
   </div>
 </div>
 
-{# ─── Modales ─── #}
+{# ─── MODALES ─── #}
+<!-- Modal de Detalles -->
+<div class="modal fade details-modal" id="detailsModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title text-white">Detalles de la Inscripción</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="detail-item">
+          <div class="detail-label">ID:</div>
+          <div class="detail-value" id="detail-id"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Cédula:</div>
+          <div class="detail-value" id="detail-cedula"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Nombre:</div>
+          <div class="detail-value" id="detail-nombres"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Apellido:</div>
+          <div class="detail-value" id="detail-apellidos"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Cohorte:</div>
+          <div class="detail-value" id="detail-cohorte"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Tipo Formación:</div>
+          <div class="detail-value" id="detail-tipo-formacion"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Formación:</div>
+          <div class="detail-value" id="detail-formacion"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Estado:</div>
+          <div class="detail-value" id="detail-estado"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Fecha:</div>
+          <div class="detail-value" id="detail-fecha"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 {% if perms.inscripcion.change_inscripcion %}
 <div class="modal fade" id="editInscripcionModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
@@ -318,6 +422,39 @@ $(function(){
     
     globalMessagesContainer.html(messageHtml);
   }
+
+  // MODAL DE DETALLES
+  $('#detailsModal').on('show.bs.modal', function(event) {
+    const button = $(event.relatedTarget);
+    const modal = $(this);
+    
+    // Obtener datos
+    const id = button.data('id');
+    const cedula = button.data('cedula');
+    const nombres = button.data('nombres');
+    const apellidos = button.data('apellidos');
+    const cohorte = button.data('cohorte');
+    const tipoFormacion = button.data('tipo-formacion');
+    const formacion = button.data('formacion');
+    const estado = button.data('estado');
+    const fecha = button.data('fecha');
+    
+    // Insertar datos en el modal
+    modal.find('#detail-id').text(id);
+    modal.find('#detail-cedula').text(cedula);
+    modal.find('#detail-nombres').text(nombres);
+    modal.find('#detail-apellidos').text(apellidos);
+    modal.find('#detail-cohorte').text(cohorte);
+    modal.find('#detail-tipo-formacion').text(tipoFormacion);
+    modal.find('#detail-formacion').text(formacion);
+    modal.find('#detail-fecha').text(fecha);
+    
+    // Estado con badge
+    const estadoHtml = estado === "Activo" 
+      ? '<span class="badge bg-success text-white"><i class="fas fa-check-circle me-1"></i> Activo</span>'
+      : '<span class="badge bg-danger text-white"><i class="fas fa-times-circle me-1"></i> Inactivo</span>';
+    modal.find('#detail-estado').html(estadoHtml);
+  });
 
   // MODAL DE EDICIÓN
   {% if perms.home.change_inscripcion %}
