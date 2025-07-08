@@ -10,77 +10,74 @@ UsuarioPersonalizado = get_user_model()
 
 @receiver(post_save)
 def log_guardado(sender, instance, created, **kwargs):
-    # Evitar registrar acciones sobre ciertos modelos
+    # No registrar la bitácora sobre sí misma ni sobre sesiones
     if sender == Bitacora or sender.__name__ == "Session":
         return
-    cambios = None
+
+    # Obtener usuario e IP
     usuario = get_current_user()
+    # Evitar AnonymousUser en la FK
+    if not getattr(usuario, 'is_authenticated', False):
+        usuario = None
     ip = get_current_ip()
-    
-    if usuario or ip:
-        accion = 'C' if created else 'A'
-        modelo = sender.__name__
-        
-        # Manejo de diferentes tipos de identificadores
-        objeto_id = None
-        if hasattr(instance, 'id'):
-            objeto_id = instance.id
-        elif hasattr(instance, 'pk'):
-            objeto_id = instance.pk
-        elif hasattr(instance, 'uuid'):
-            objeto_id = instance.uuid
-        
-        # Construir descripción segura
-        try:
-            descripcion = f"{'Creó' if created else 'Actualizó'} {modelo}"
-            if objeto_id:
-                descripcion += f" con ID {objeto_id}"
-        except Exception:
-            descripcion = f"{'Creó' if created else 'Actualizó'} {modelo}"
-    
+
+    # Si ni usuario ni IP, salimos
+    if not (usuario or ip):
+        return
+
+    # Determinar tipo de acción y metadatos
+    accion = 'C' if created else 'A'
+    modelo = sender.__name__
+
+    # Obtener el ID del objeto
+    objeto_id = getattr(instance, 'id', None) or getattr(instance, 'pk', None) or getattr(instance, 'uuid', None)
+
+    # Montar descripción base
+    descripcion = f"{'Creó' if created else 'Actualizó'} {modelo}"
+    if objeto_id:
+        descripcion += f" con ID {objeto_id}"
+
+    # Severidad por defecto
     severidad = 'INFO'
-    if not created and cambios:
-        severidad = 'WARNING'
-    elif sender.__name__ in ['Pago', 'Transaccion']:
-        severidad = 'ERROR'
-    
+
+    # Si es actualización, calcular cambios y ajustar severidad
+    cambios = None
     if not created and hasattr(instance, '_estado_previo'):
         try:
-            # Obtener campos a monitorear (excluir campos sensibles)
             campos_excluidos = ['password', 'token', 'firma_digital']
-            campos = [f.name for f in sender._meta.fields 
-                     if f.name not in campos_excluidos and not f.auto_created]
-            
+            campos = [
+                f.name for f in sender._meta.fields 
+                if f.name not in campos_excluidos and not f.auto_created
+            ]
             cambios = get_field_changes(instance, instance._estado_previo, campos)
-            
-            # MODIFICACIÓN AQUÍ: Cambiamos el formato para mostrar solo valores
-            cambios_desc = []
-            for campo, datos in cambios.items():
-                # Solo mostramos los valores, no el nombre del campo
-                ant = datos['anterior'][:20] + '...' if datos['anterior'] and len(datos['anterior']) > 20 else datos['anterior']
-                nue = datos['nuevo'][:20] + '...' if datos['nuevo'] and len(datos['nuevo']) > 20 else datos['nuevo']
-                # Cambiamos para mostrar solo los valores sin el nombre del campo
-                cambios_desc.append(f"{ant}→{nue}")
-            
-            if cambios_desc:
-                # Unimos todos los cambios con espacios en lugar de comas
-                descripcion += " | " + " ".join(cambios_desc)
+            if cambios:
+                # Crear un resumen de valores anteriores→nuevos
+                resumen = []
+                for datos in cambios.values():
+                    ant = (datos['anterior'] or '')[:20]
+                    nue = (datos['nuevo'] or '')[:20]
+                    resumen.append(f"{ant}→{nue}")
+                descripcion += " | " + " ".join(resumen)
+                severidad = 'WARNING'
         except Exception as e:
-            print(f"Error detectando cambios: {str(e)}")
-        
-        try:
-            Bitacora.objects.create(
-                severidad=severidad,
-                accion=accion,
-                usuario=usuario,
-                modelo_afectado=modelo,
-                objeto_id=objeto_id,
-                cambios=cambios,
-                descripcion=descripcion,
-                ip=ip
-            )
-        except Exception as e:
-            print(f"Error registrando en bitácora: {str(e)}")
+            print(f"Error detectando cambios: {e}")
+
+    # Finalmente, crear el registro de bitácora para creación o modificación
+    try:
+        Bitacora.objects.create(
+            severidad=severidad,
+            accion=accion,
+            usuario=usuario,
+            modelo_afectado=modelo,
+            objeto_id=objeto_id,
+            cambios=cambios,
+            descripcion=descripcion,
+            ip=ip,
+            estado='S'
+        )
+    except Exception as e:
+        print(f"Error registrando en bitácora: {e}")
+
 
 @receiver(post_delete)
 def log_eliminacion(sender, instance, **kwargs):

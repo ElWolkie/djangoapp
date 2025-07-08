@@ -76,6 +76,61 @@
         </div>
     </form>
 
+<!-- Formulario de Configuración de Retención -->
+<div class="card mb-4">
+    <div class="card-header" style="background: linear-gradient(135deg, #5e72e4 0%, #825ee4 100%);">
+        <h5 class="mb-0 text-white">Configuración de Retención</h5>
+    </div>
+    <div class="card-body">
+        <form method="post" action="{% url 'bitacora_configurar_retencion' %}">
+            {% csrf_token %}
+            <div class="row align-items-center g-2">
+                <!-- Select de Retención -->
+                <div class="col-md-3">
+                    <label class="form-label mb-1">Período:</label>
+                    <select name="retencion" class="form-control-sm text-dark">
+                        <option value="diario" {% if configuracion.retencion == 'diario' %}selected{% endif %}>Diario (1 día)</option>
+                        <option value="semanal" {% if configuracion.retencion == 'semanal' %}selected{% endif %}>Semanal (7 días)</option>
+                        <option value="mensual" {% if configuracion.retencion == 'mensual' %}selected{% endif %}>Mensual (30 días)</option>
+                        <option value="anual" {% if configuracion.retencion == 'anual' %}selected{% endif %}>Anual (365 días)</option>
+                        <option value="personalizado" {% if configuracion.retencion == 'personalizado' %}selected{% endif %}>Personalizado</option>
+                    </select>
+                </div>
+                
+                <!-- Días Personalizados -->
+                <div class="col-md-2" id="dias_personalizados_div" 
+                     style="display: {% if configuracion.retencion == 'personalizado' %}block{% else %}none{% endif %};">
+                    <label class="form-control-sm text-dark">Días:</label>
+                    <input type="number" name="dias_personalizados" class="form-control form-control-sm" 
+                           value="{{ configuracion.dias_personalizados|default:'' }}" min="1">
+                </div>
+                
+                <!-- Checkbox Exportar -->
+                <div class="col-md-3 ps-4">
+                    <div class="form-check form-switch my-1">
+                        <input type="checkbox" name="exportar_antes_limpieza" 
+                               class="form-check-input" id="exportarCheck"
+                               {% if configuracion.exportar_antes_limpieza %}checked{% endif %}>
+                        <label class="form-check-label small" for="exportarCheck">
+                            Exportar antes de eliminar
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Botones -->
+                <div class="col-md-4 text-end">
+                    <button type="submit" class="btn btn-sm btn-primary">
+                        <i class="fas fa-save me-1"></i> Guardar
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-danger ms-2" id="btn-ejecutar-limpieza">
+                        <i class="fas fa-broom me-1"></i> Limpiar ahora
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
 
     <div class="table-responsive">
         <table class="table table-striped">
@@ -220,5 +275,38 @@
 
 {% block javascripts %}
 <script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+  const btnLimpieza = document.getElementById('btn-ejecutar-limpieza');
+  if (!btnLimpieza) return;
+
+  btnLimpieza.addEventListener('click', function() {
+    if (!confirm('¿Seguro que deseas ejecutar la limpieza ahora?')) return;
+
+    fetch("{% url 'ejecutar_limpieza_bitacora' %}", {
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(res => res.json())
+    .then(data => {
+      // Crear alerta Bootstrap al tope de la página
+      const container = document.querySelector('.container');
+      const alertDiv = document.createElement('div');
+      alertDiv.className = `alert ${data.success ? 'alert-success' : 'alert-danger'} alert-dismissible fade show`;
+      alertDiv.role = 'alert';
+      alertDiv.innerHTML = `
+        ${data.message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+      `;
+      container.prepend(alertDiv);
+      // Recarga suave tras 1.5s para que el usuario lea el mensaje
+      setTimeout(() => location.reload(), 1500);
+    })
+    .catch(err => {
+      console.error(err);
+      alert('Ocurrió un error inesperado.');
+    });
+  });
+});
+</script>
 {% endblock javascripts %}
 

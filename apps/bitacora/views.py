@@ -1,11 +1,56 @@
 from django.views.generic import ListView
-from .models import Bitacora
+from .models import Bitacora, ConfiguracionBitacora
 from django.db.models import Q
 import csv
 from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 from django.db.models import Value
 from django.db.models.functions import Concat
+
+from django.contrib.auth.decorators import user_passes_test
+from django.shortcuts import redirect
+from django.contrib import messages
+from .management.commands.limpiar_bitacora import Command as LimpiezaCommand
+
+def configurar_retencion(request):
+    if request.method == 'POST':
+        try:
+            config = ConfiguracionBitacora.objects.first()
+            if not config:
+                config = ConfiguracionBitacora()
+            
+            # Actualizar configuración
+            config.retencion = request.POST.get('retencion', 'anual')
+            
+            if config.retencion == 'personalizado':
+                dias = request.POST.get('dias_personalizados')
+                if dias and dias.isdigit():
+                    config.dias_personalizados = int(dias)
+            
+            config.exportar_antes_limpieza = 'exportar_antes_limpieza' in request.POST
+            config.save()
+            
+            messages.success(request, "Configuración guardada exitosamente")
+        except Exception as e:
+            messages.error(request, f"Error al guardar configuración: {str(e)}")
+    
+    return redirect('bitacora_list')
+
+@user_passes_test(lambda u: u.is_superuser)
+def ejecutar_limpieza_bitacora(request):
+    try:
+        LimpiezaCommand().handle()
+        msg = "Limpieza de bitácora ejecutada exitosamente"
+        status = True
+    except Exception as e:
+        msg = f"Error al ejecutar limpieza: {e}"
+        status = False
+
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return JsonResponse({'success': status, 'message': msg})
+    # Si no es AJAX, redirigimos normalmente
+    messages.success(request, msg) if status else messages.error(request, msg)
+    return redirect('bitacora_list')
 
 class BitacoraListView(ListView):
     model = Bitacora
@@ -59,7 +104,11 @@ class BitacoraListView(ListView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
+        configuracion = ConfiguracionBitacora.objects.first()
+        if not configuracion:
+            configuracion = ConfiguracionBitacora.objects.create()
         ctx.update({
+            'configuracion': configuracion,
             'filtro_usuario': self.request.GET.get('usuario', ''),
             'filtro_accion':  self.request.GET.get('accion', ''),
             'filtro_fecha':   self.request.GET.get('fecha', ''),

@@ -27,6 +27,7 @@ class Bitacora(models.Model):
         ('ERROR', 'Error'),
         ('CRITICAL', 'Crítico'),
     )
+    
     severidad = models.CharField(
         max_length=10, 
         choices=SEVERIDAD_CHOICES, 
@@ -99,3 +100,62 @@ class Bitacora(models.Model):
         verbose_name = "Registro de Bitácora"
         verbose_name_plural = "Registros de Bitácora"
         ordering = ['-fecha_hora']
+
+class ConfiguracionBitacora(models.Model):
+    OPCIONES_RETENCION = [
+        ('diario', 'Diario (1 día)'),
+        ('semanal', 'Semanal (7 días)'),
+        ('mensual', 'Mensual (30 días)'),
+        ('anual', 'Anual (365 días)'),
+        ('personalizado', 'Personalizado'),
+    ]
+    
+    retencion = models.CharField(
+        max_length=20,
+        choices=OPCIONES_RETENCION,
+        default='anual',
+        help_text="Período de retención para los registros de la bitácora"
+    )
+    
+    dias_personalizados = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Días de retención para la opción personalizada"
+    )
+    
+    exportar_antes_limpieza = models.BooleanField(
+        default=True,
+        help_text="Exportar registros antes de eliminarlos"
+    )
+    
+    directorio_exportacion = models.CharField(
+        max_length=255,
+        default='backups/bitacora/',
+        help_text="Directorio donde se guardarán los archivos exportados"
+    )
+    
+    ultima_limpieza = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Fecha y hora de la última limpieza automática"
+    )
+    
+    def __str__(self):
+        return f"Configuración Bitácora ({self.get_retencion_display()})"
+    
+    def get_dias_retencion(self):
+        if self.retencion == 'diario':
+            return 1
+        elif self.retencion == 'semanal':
+            return 7
+        elif self.retencion == 'mensual':
+            return 30
+        elif self.retencion == 'anual':
+            return 365
+        elif self.retencion == 'personalizado' and self.dias_personalizados:
+            return self.dias_personalizados
+        return 365  # Valor por defecto
+    
+    class Meta:
+        verbose_name = "Configuración de Bitácora"
+        verbose_name_plural = "Configuración de Bitácora"

@@ -21,6 +21,9 @@ DEBUG = config("DEBUG", default=True, cast=bool)
 # 365 días de retención (ajustable)
 BITACORA_RETENCION_DIAS = 365
 
+TIME_ZONE = 'America/Caracas'  # Ajusta a tu zona
+USE_TZ = True
+
 # load production server from .env
 ALLOWED_HOSTS = ["localhost", "127.0.0.1", config("SERVER", default="127.0.0.1")]
 

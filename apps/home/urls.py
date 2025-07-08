@@ -2,7 +2,7 @@ from django.urls import path, re_path
 from django.contrib import admin
 from . import views
 from .views import registrar_usuario
-from apps.bitacora.views import BitacoraListView, exportar_bitacora
+from apps.bitacora.views import BitacoraListView, ejecutar_limpieza_bitacora, exportar_bitacora, configurar_retencion
 
 urlpatterns = [
     # Ruta principal (Home)
@@ -13,6 +13,8 @@ urlpatterns = [
 
     path('bitacora/', BitacoraListView.as_view(), name='bitacora_list'),
     path('bitacora/exportar/', exportar_bitacora, name='bitacora_exportar'),
+    path('ejecutar_limpieza_bitacora/', ejecutar_limpieza_bitacora, name='ejecutar_limpieza_bitacora'),
+    path('configurar_retencion/', configurar_retencion, name='bitacora_configurar_retencion'),
 
     # Rutas específicas para usuarios
     path('usuarios/', views.lista_usuarios, name='lista_usuarios'),
