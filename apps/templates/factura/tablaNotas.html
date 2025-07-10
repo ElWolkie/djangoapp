@@ -1,0 +1,182 @@
+{% extends 'layouts/base2.html' %}
+{% load static %}
+
+{% block title %}Listado de Notas{% endblock title %}
+
+{% block stylesheets %}
+<link rel="stylesheet" href="{% static 'assets/css/styleForms.css' %}">
+<link rel="stylesheet" href="{% static 'assets/css/argon.css' %}">
+<style>
+  .actions-column .btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+  }
+  .badge {
+    font-size: 0.85em;
+    padding: 0.5em 0.75em;
+  }
+  .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: rgb(81,141,245) #f1f1f1;
+  }
+  .table-responsive::-webkit-scrollbar {
+    height: 8px;
+  }
+  .table-responsive::-webkit-scrollbar-track {
+    background: #f1f1f1;
+  }
+  .table-responsive::-webkit-scrollbar-thumb {
+    background-color: rgb(81,141,245);
+    border-radius: 4px;
+    border: 2px solid #f1f1f1;
+  }
+  .modal-dialog { max-width: 700px; }
+  .modal.fade.show { background-color: rgba(0,0,0,0.5); }
+</style>
+{% endblock stylesheets %}
+
+{% block content %}
+<div class="container mt-4">
+  <h2 class="text-center mb-4">Lista de Notas Registradas</h2>
+
+  <div class="row mb-3">
+    <div class="col-md-4">
+      <div class="input-group">
+        <span class="input-group-text"><i class="fas fa-search"></i></span>
+        <input id="searchInput" class="form-control" type="text" placeholder="Buscar notas…">
+      </div>
+    </div>
+    <div class="col-md-4 text-end">
+      {% if perms.factura.add_nota %}
+        <a href="{% url 'nota_create' %}" class="btn btn-warning">
+          <i class="fas fa-plus-circle me-1"></i> Registrar Nota
+        </a>
+      {% endif %}
+    </div>
+  </div>
+
+  <div id="globalMessages">
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+    {% endfor %}
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="table-responsive">
+      <table id="notasTable" class="table table-striped table-hover align-middle text-gray-dark">
+        <thead class="table-light">
+          <tr>
+            <th>ID Nota</th>
+            <th>Tipo Operación</th>
+            <th>Tipo Artículo</th>
+            <th>Número Nota</th>
+            <th>Fecha Emisión</th>
+            <th>Forma de Pago</th>
+            <th>Total Nota</th>
+            <th>Estado</th>
+            <th class="actions-column">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for nota in notas %}
+          <tr>
+            <td>{{ nota.idNota }}</td>
+            <td>{{ nota.tipoOperacion }}</td>
+            <td>{{ nota.tipoArticulo }}</td>
+            <td>{{ nota.numeroNota }}</td>
+            <td>{{ nota.fechaEmision|date:"d/m/Y" }}</td>
+            <td>{{ nota.formaPago }}</td>
+            <td>{{ nota.totalNota }}</td>
+            <td>{{ nota.estado }}</td>
+            <td class="actions-column">
+              <div class="d-flex gap-2">
+                {% if perms.factura.change_nota %}
+                  <a class="btn btn-primary btn-sm">
+                    <i class="fas fa-edit"></i>
+                  </a>
+                {% endif %}
+                {% if perms.factura.delete_nota %}
+                  <button class="btn btn-outline-danger btn-sm"
+                          data-bs-toggle="modal"
+                          data-bs-target="#deleteNotaModal"
+                         >
+                    <i class="fas fa-trash"></i>
+                  </button>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="9" class="text-center py-4">No hay notas registradas.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% if perms.factura.delete_nota %}
+<div class="modal fade" id="deleteNotaModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title"><i class="fas fa-trash me-2"></i> Confirmar Eliminación</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">¿Seguro que deseas eliminar esta nota?</div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button id="confirmDeleteNota" class="btn btn-danger">Eliminar</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock content %}
+
+{% block javascripts %}
+<script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
+<script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
+<script>
+$(function(){
+  $('#deleteNotaModal').on('show.bs.modal', e => {
+    const url = $(e.relatedTarget).data('url');
+    $('#confirmDeleteNota').off('click').on('click', function(){
+      $.ajax({
+        url: url,
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        data: { csrfmiddlewaretoken: '{{ csrf_token }}' }
+      })
+      .done(resp => {
+        $('#deleteNotaModal').modal('hide');
+        if (resp.success) {
+          location.reload();
+        } else {
+          alert(resp.message || 'Error inesperado');
+        }
+      })
+      .fail(() => alert('Error en el servidor'));
+    });
+  });
+
+  $('#searchInput').on('keyup', function(){
+    const v = this.value.toUpperCase();
+    $('#notasTable tbody tr').each(function(){
+      $(this).toggle($(this).text().toUpperCase().includes(v));
+    });
+  });
+});
+</script>
+{% endblock javascripts %}

@@ -1,3 +1,4 @@
+from datetime import timezone
 from decimal import Decimal
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse, HttpResponse
@@ -17,11 +18,14 @@ from reportlab.lib.units import inch
 import os
 
 from apps.cuentaBanco.models import CuentaBanco
+from apps.honorario.models import Honorario
+from apps.inscripcion.models import Inscripcion, InscripcionCuota
 from apps.periodoContable.models import periodoContable
+from apps.solicitud.models import Solicitud
 from .models import Factura, FacturaDetalle, NotaRelacionada, Pago, ParametroTributario, Nota
 from .forms import FacturaForm, FacturaDetalleForm, PagoForm, ParametroTributarioForm, NotaForm
 from apps.asientoContable.models import AsientoContable, DetalleAsiento
-from apps.home.models import Configuracion, Moneda, Tasa
+from apps.home.models import Configuracion, CuotaFormacion, Moneda, Tasa
 from apps.persona.models import Personas
 from apps.empresa.models import empresa
 from apps.planCuenta.models import PlanCuenta
@@ -61,33 +65,14 @@ def factura_list(request):
         for factura in facturas
     ]
     return render(request, 'factura/tablaFactura.html', {'facturas': facturas_data})
+# Notas
 def nota_list(request):
     """
-    Vista para listar todas las facturas junto con sus detalles.
+    Vista para listar todos los pagos.
     """
-    facturas = Nota.objects.prefetch_related('detalles').all()  # 'detalles' es el related_name definido en el modelo
-    facturas_data = [
-        {
-            'pk': factura.pk,
-            'numeroFactura': factura.numeroFactura,
-            'fechaEmision': factura.fechaEmision.strftime('%d/%m/%Y'),
-            'idPersonaCedula': factura.idPersona.cedula if factura.idPersona else "N/A",
-            'idEmpresa': factura.idEmpresa.nombreEmpresa if factura.idEmpresa else "N/A",
-            'totalVenta': float(factura.totalVenta),
-            'estado': factura.estado,
-            'detalles': [
-                {
-                    'descripcion': detalle.descripcion,
-                    'cantidad': float(detalle.cantidad),
-                    'precioUnitario': float(detalle.precioUnitario),
-                    'subtotal': float(detalle.subtotal),
-                }
-                for detalle in factura.detalles.all()
-            ],
-        }
-        for factura in facturas
-    ]
-    return render(request, 'factura/tablaFactura.html', {'facturas': facturas_data})
+    notas = Nota.objects.all()
+    return render(request, 'factura/tablaNotas.html', {'notas': notas})
+
 def factura_detail(request, pk):
     """
     Vista para mostrar los detalles de una factura específica.
@@ -117,6 +102,11 @@ def notas_create(request):
         .annotate(ultima_idTasa=Max('idTasa'), ultima_tasa=Max('montoTasa'))
     cuentas_plan = PlanCuenta.objects.filter(estadoPlanCuenta=True).order_by('codigoPlanCuenta')
     numero_nota = generar_numero_nota()  # Generar el número de nota
+    empresas = empresa.objects.all()
+    cuotas = CuotaFormacion.objects.filter(is_active=True).order_by('idCuota')
+    solicitudes = Solicitud.objects.filter(estadoSolicitud='ACTIVO').order_by('idSoli')
+    honorarios = Honorario.objects.filter(estadoHonorario='ACTIVO').order_by('idHonorario')
+    inscripciones = Inscripcion.objects.filter(is_active=True).order_by('idInscripcion')
 
     if request.method == 'POST':
         form = NotaForm(request.POST)
@@ -190,12 +180,13 @@ def notas_create(request):
                 return JsonResponse({
                     'success': True,
                     'message': 'Nota creada exitosamente.',
-                    'redirect_url': reverse('nota_list'),
+                    'lista': reverse('nota_list'),
+                    'pagar': f"{reverse('pago_create')}?nota={nota.idNota}",
                     'nota': {
                         'idNota': nota.idNota,
                         'numeroNota': nota.numeroNota,
-                        'tipoNota': nota.tipoNota,
-                        'tipoFactura': nota.tipoFactura,
+                        'tipoOperacion': nota.tipoOperacion,
+                        'tipoArticulo': nota.tipoArticulo,
                         'totalNota': float(nota.totalNota),
                         'estado': nota.estado
                     }
@@ -223,9 +214,42 @@ def notas_create(request):
         'empresas': empresas,
         'monedas': tasas,
         'cuentas_plan': cuentas_plan,
-        'numero_nota': numero_nota
+        'numero_nota': numero_nota,
+        'cuotas': cuotas,
+        'solicitudes': solicitudes,
+        'honorarios': honorarios,
+        'inscripciones': inscripciones
     })
 
+def obtener_cuotas(request):
+    id_persona = request.GET.get('idPersona')
+    if not id_persona:
+        return JsonResponse({'error': 'ID de persona no proporcionado'}, status=400)
+
+    # Filtrar cuotas asociadas a inscripciones de la persona seleccionada
+    cuotas = CuotaFormacion.objects.filter(
+        inscripciones__idPersona=id_persona,
+        is_active=True
+    ).distinct()
+
+    # Serializar los datos de las cuotas
+    cuotas_data = [
+        {
+            'idCuota': cuota.idCuota,
+            'inscripciones': [
+                {
+                    'idInscripcion': inscripcion.idInscripcion,
+                    'nombreFormacion': inscripcion.idFormacion.nombreFormacion,  # Ejemplo de campo adicional
+                }
+                for inscripcion in cuota.inscripciones.filter(idPersona=id_persona)
+            ],
+            'nombreCuota': cuota.nombreCuota,
+            'valorCuota': float(cuota.valorCuota),
+        }
+        for cuota in cuotas
+    ]
+
+    return JsonResponse({'cuotas': cuotas_data})
 def crear_relacion_nota(nota, request):
     """
     Crea un registro en la tabla NotaRelacionada si alguno de los IDs está presente en el formulario.
@@ -289,61 +313,135 @@ def factura_detalle_list(request, factura_id):
 
 
 @transaction.atomic
-def factura_create_notas(request, nota_id):
+def factura_create_notas(request, nota_id=None):
     """
-    Vista para crear una factura a partir de una o múltiples notas.
+    Vista para crear una factura basada en las notas relacionadas.
+    Permite crear una factura individualizada o una factura general.
     """
-    # Convertir nota_id en una lista si es un único ID
-    if isinstance(nota_id, int):
-        nota_ids = [nota_id]
-    elif isinstance(nota_id, list):
-        nota_ids = nota_id
+    if request.method == 'POST':
+        tipo_factura = request.POST.get('tipo_factura')  # 'individualizada' o 'general'
+        notas = Nota.objects.filter(idNota=nota_id) if nota_id else Nota.objects.filter(estado='PAGADO')
+
+        if not notas.exists():
+            return JsonResponse({
+                'success': False,
+                'message': 'No se encontraron notas para generar la factura.'
+            }, status=400)
+
+        try:
+            with transaction.atomic():
+                if tipo_factura == 'individualizada':
+                    # Lógica para factura individualizada
+                    return generar_facturas_individualizadas(notas)
+
+                elif tipo_factura == 'general':
+                    # Lógica para factura general
+                    return generar_factura_general(notas)
+
+                else:
+                    return JsonResponse({
+                        'success': False,
+                        'message': 'Tipo de factura no válido.'
+                    }, status=400)
+
+        except Exception as e:
+            import traceback
+            print(f"Error inesperado: {e}")
+            print(traceback.format_exc())
+            return JsonResponse({
+                'success': False,
+                'message': f'Ocurrió un error inesperado: {str(e)}. '
+                           'Por favor, contacte al administrador del sistema si el problema persiste.'
+            }, status=500)
+
     else:
-        return JsonResponse({'success': False, 'message': 'El parámetro nota_id debe ser un entero o una lista.'}, status=400)
+        return render(request, 'factura/factura_form.html', {
+            'notas': Nota.objects.filter(estado='PAGADO'),
+            'tipo_factura_opciones': ['individualizada', 'general']
+        })
 
-    # Filtrar las notas pagadas
-    notas = Nota.objects.filter(idNota__in=nota_ids, estado='PAGADO')
-    if not notas.exists():
-        return JsonResponse({'success': False, 'message': 'No hay notas pagadas para generar la factura.'}, status=400)
 
-    # Crear la factura
-    factura = Factura.objects.create(
-        numeroFactura=generar_numero_factura(),
-        tipoFactura=notas.first().tipoFactura,  # Asume que todas las notas tienen el mismo tipo
-        idPersona=notas.first().idPersona,
-        idEmpresa=notas.first().idEmpresa,
-        subtotalExento=sum(nota.subtotalExento for nota in notas),
-        subtotalGravado=sum(nota.subtotalGravado for nota in notas),
-        iva=sum(nota.iva for nota in notas),
-        ivaRetenido=sum(nota.ivaRetenido for nota in notas),
-        islrRetenido=sum(nota.islrRetenido for nota in notas),
-        descuento=sum(nota.descuento for nota in notas),
-        totalVenta=sum(nota.totalNota for nota in notas),
-        observaciones="Factura generada a partir de notas pagadas."
+def generar_facturas_individualizadas(notas):
+    """
+    Genera facturas individualizadas para cada nota.
+    """
+    facturas_creadas = []
+    for nota in notas:
+        factura = Factura.objects.create(
+            numeroFactura=f"FAC-{nota.numeroNota}",
+            tipoFactura=nota.tipoArticulo,
+            idPersona=nota.idPersona,
+            idEmpresa=nota.idEmpresa,
+            subtotalExento=nota.subtotalExento,
+            subtotalGravado=nota.subtotalGravado,
+            iva=nota.iva,
+            ivaRetenido=nota.ivaRetenido,
+            islrRetenido=nota.islrRetenido,
+            descuento=nota.descuento,
+            totalVenta=nota.totalNota,
+            estado='Generada',
+            observaciones=f"Factura generada para la nota {nota.numeroNota}"
+        )
+        factura.notas.add(nota)  # Relacionar la nota con la factura
+        facturas_creadas.append(factura)
+
+    return JsonResponse({
+        'success': True,
+        'message': 'Facturas individualizadas creadas exitosamente.',
+        'facturas': [factura.numeroFactura for factura in facturas_creadas]
+    })
+
+
+def generar_factura_general(notas):
+    """
+    Genera una factura general que resume todas las notas.
+    """
+    subtotal_exento = sum(nota.subtotalExento for nota in notas)
+    subtotal_gravado = sum(nota.subtotalGravado for nota in notas)
+    iva_total = sum(nota.iva for nota in notas)
+    iva_retenido_total = sum(nota.ivaRetenido or 0 for nota in notas)
+    islr_retenido_total = sum(nota.islrRetenido or 0 for nota in notas)
+    descuento_total = sum(nota.descuento for nota in notas)
+    total_venta = sum(nota.totalNota for nota in notas)
+
+    factura_general = Factura.objects.create(
+        numeroFactura=f"FAC-GENERAL-{timezone.now().strftime('%Y%m%d%H%M%S')}",
+        tipoFactura='GENERAL',
+        idPersona=None,  # Factura general no tiene cliente específico
+        idEmpresa=notas.first().idEmpresa,  # Usar la empresa de la primera nota
+        subtotalExento=subtotal_exento,
+        subtotalGravado=subtotal_gravado,
+        iva=iva_total,
+        ivaRetenido=iva_retenido_total,
+        islrRetenido=islr_retenido_total,
+        descuento=descuento_total,
+        totalVenta=total_venta,
+        estado='Generada',
+        observaciones='Factura general que resume todas las notas pagadas.'
     )
 
-    # Asociar las notas a la factura
-    factura.notas.set(notas)
+    # Relacionar todas las notas con la factura general
+    factura_general.notas.add(*notas)
 
-    # Crear los detalles de la factura para cada nota
+    # Crear detalles para cada nota en la factura general
     for nota in notas:
         FacturaDetalle.objects.create(
-            idFactura=factura,
-            tipoItem=f"Nota de Cobro - {nota.get_tipoFactura_display()}" if nota.tipoNota == "COBRO" else f"Nota de Pago - {nota.get_tipoFactura_display()}",
-            descripcion=f"Detalle generado a partir de la nota {nota.numeroNota}",
-            cantidad=1,  # Cada nota cuenta como una unidad
+            idFactura=factura_general,
+            tipoItem=nota.tipoArticulo,
+            descripcion=f"Detalle de la nota {nota.numeroNota}",
+            cantidad=1,  # Cada nota cuenta como un ítem único
             precioUnitario=nota.totalNota,
             exento=nota.subtotalExento > 0,
             descuentoItem=nota.descuento,
-            subtotal=nota.totalNota,
+            subtotal=nota.subtotalGravado + nota.subtotalExento,
             ivaItem=nota.iva,
             totalItem=nota.totalNota
         )
 
     return JsonResponse({
         'success': True,
-        'message': 'Factura generada exitosamente.',
-        'factura_id': factura.idFactura
+        'message': 'Factura general creada exitosamente.',
+        'factura': factura_general.numeroFactura
     })
 @transaction.atomic
 def factura_detalle_create(request, factura_id):
@@ -412,15 +510,20 @@ def pago_detail(request, pk):
     return render(request, 'factura/pago_detail.html', {'pago': pago})
 
 @transaction.atomic
-def pago_create(request):
+def pago_create(request, pk=None):
     """
     Vista para crear un nuevo pago y generar un asiento contable asociado.
     """
-    notas = Nota.objects.exclude(estado='PAGADO').order_by('numeroNota')  # Excluir Notas pagadas
+    # Filtrar notas según el estado y el ID proporcionado
+    if pk:
+        notas = Nota.objects.filter(idNota=pk, estado__in=['PENDIENTE', 'PARCIAL']).order_by('numeroNota')
+    else:
+        notas = Nota.objects.exclude(estado='PAGADO').order_by('numeroNota')  # Excluir Notas pagadas
+
     cuentas_banco = CuentaBanco.objects.filter(estado=True).order_by('idCuentaBanco')  # Filtrar cuentas bancarias activas
     tasas = Tasa.objects.select_related('idMoneda') \
-            .values('idMoneda__idMoneda', 'idMoneda__nombreMoneda') \
-            .annotate(ultima_idTasa=Max('idTasa'), ultima_tasa=Max('montoTasa'))
+        .values('idMoneda__idMoneda', 'idMoneda__nombreMoneda') \
+        .annotate(ultima_idTasa=Max('idTasa'), ultima_tasa=Max('montoTasa'))
     cuentas_plan = PlanCuenta.objects.filter(estadoPlanCuenta=True).order_by('codigoPlanCuenta')
 
     # Obtener la moneda de configuración
@@ -460,7 +563,6 @@ def pago_create(request):
             'saldoPendiente': saldo_pendiente,  # Ya está en la moneda de configuración
             'idPersona': nota.idPersona.cedula if nota.idPersona else "N/A",  # Incluye la cédula del cliente
             'idEmpresa': nota.idEmpresa.nombreEmpresa if nota.idEmpresa else "N/A",  # Incluye la nombre de la empresa
-
             'estado': nota.estado
         })
 
@@ -490,7 +592,7 @@ def pago_create(request):
                         if pago_relacionado.idTasa.idMoneda != moneda_configuracion else Decimal(pago_relacionado.monto)
                         for pago_relacionado in pagos_relacionados
                     )
-                    saldo_nota= Decimal(pago.idNota.totalNota) - total_pagado
+                    saldo_nota = Decimal(pago.idNota.totalNota) - total_pagado
                     print(f"Saldo Nota {pago.idNota.numeroNota}: {saldo_nota}")
 
                     # Convertir el monto del pago a la moneda de configuración
@@ -571,6 +673,34 @@ def pago_create(request):
 
                     # Caso 1: El pago fue exitoso, pero aún hay deuda
                     if saldo_nota - monto_pago_convertido > 0:
+                        pago.idNota.estado = 'PARCIAL'
+                        pago.idNota.save()
+
+                        # Verificar el tipo de asociación de la nota usando las relaciones
+                        nota_relacionada = NotaRelacionada.objects.filter(idNota=pago.idNota).first()
+                        if nota_relacionada:
+                            match nota_relacionada:
+                                case _ if nota_relacionada.idInscripcion:
+                                    inscripcion = nota_relacionada.idInscripcion
+                                    inscripcion.estadoPago = 'PARCIAL'
+                                    inscripcion.save()
+                                # case _ if nota_relacionada.idCuota:
+                                #     cuota = nota_relacionada.idCuota
+                                #     cuota.estadoPago = 'PARCIAL'
+                                #     cuota.save()
+                                case _ if nota_relacionada.idSolicitud:
+                                    solicitud = nota_relacionada.idSolicitud
+                                    solicitud.estadoPago = 'PARCIAL'
+                                    solicitud.save()
+                                case _ if nota_relacionada.idHonorario:
+                                    honorario = nota_relacionada.idHonorario
+                                    honorario.estadoPago = 'PARCIAL'
+                                    honorario.save()
+                                case _:
+                                    print("Tipo de asociación desconocido")
+                        else:
+                            print("No se encontró una relación para la nota.")
+
                         return JsonResponse({
                             'success': True,
                             'message': 'El pago fue exitoso, aun posee deuda ¿Desea realizar otro pago adicional?',
@@ -583,25 +713,101 @@ def pago_create(request):
                                 'formaPago': pago.formaPago,
                                 'referencia': pago.referencia
                             }
-                        })
-
-                    # Caso 2: El pago fue exitoso, la deuda fue saldada y se cerró la nota
+                        })      
+                            # Caso 2: El pago fue exitoso, la deuda fue saldada y se cerró la nota
                     if saldo_nota - monto_pago_convertido == 0:
                         pago.idNota.estado = 'PAGADO'
                         pago.idNota.save()
-                        return JsonResponse({
-                            'success': True,
-                            'message': 'Pago creado exitosamente y asiento contable generado. La nota ha sido pagada en su totalidad. Ya puede facturar.',
-                            'redirect_url': reverse('factura_create', args=[pago.idNota.idNota]),
-                            'pago': {
-                                'idPago': pago.idPago,
-                                'idNota': pago.idNota.numeroNota,
-                               'monto': f"{float(pago.monto):.2f} {pago.idTasa.idMoneda.simboloMoneda}",
-                                'fechaPago': pago.fechaPago.strftime('%d/%m/%Y'),
-                                'formaPago': pago.formaPago,
-                                'referencia': pago.referencia
-                            }
-                        })
+
+                        # Verificar el tipo de asociación de la nota usando las relaciones
+                        nota_relacionada = NotaRelacionada.objects.filter(idNota=pago.idNota).first()
+                        if nota_relacionada:
+                            match nota_relacionada:
+                                case _ if nota_relacionada.idInscripcion:
+                                    inscripcion = nota_relacionada.idInscripcion
+                                    inscripcion.estadoPago = 'PAGADO'
+                                    inscripcion.save()
+                                case _ if nota_relacionada.idCuota:
+                                    cuota = nota_relacionada.idCuota
+                                    cuota.estadoPago = 'PAGADO'
+                                    cuota.save()
+                                case _ if nota_relacionada.idSolicitud:
+                                    solicitud = nota_relacionada.idSolicitud
+                                    solicitud.estadoPago = 'PAGADO'
+                                    solicitud.save()
+                                case _ if nota_relacionada.idHonorario:
+                                    honorario = nota_relacionada.idHonorario
+                                    honorario.estadoPago = 'PAGADO'
+                                    honorario.save()
+                                case _:
+                                    print("Tipo de asociación desconocido")
+                        else:
+                            print("No se encontró una relación para la nota.")
+
+                      # Caso 2: El pago fue exitoso, la deuda fue saldada y se cerró la nota
+                        if saldo_nota - monto_pago_convertido == 0:
+                            pago.idNota.estado = 'PAGADO'
+                            pago.idNota.save()
+
+                            # Verificar el tipo de asociación de la nota usando las relaciones
+                            nota_relacionada = NotaRelacionada.objects.filter(idNota=pago.idNota).first()
+                            relaciones = {}  # Diccionario para almacenar las llaves relacionadas
+
+                            if nota_relacionada:
+                                match nota_relacionada:
+                                    case _ if nota_relacionada.idInscripcion:
+                                        inscripcion = nota_relacionada.idInscripcion
+                                        inscripcion.estadoPago = 'PAGADO'
+                                        inscripcion.save()
+
+                                        # Obtener las cuotas relacionadas y marcarlas como pagadas
+                                        cuotas_pagadas = InscripcionCuota.objects.filter(
+                                            idInscripcion=inscripcion, estadoPago='PENDIENTE'
+                                        )
+                                        for cuota in cuotas_pagadas:
+                                            cuota.estadoPago = 'PAGADO'
+                                            cuota.save()
+
+                                        relaciones['inscripcion'] = inscripcion.idInscripcion
+                                        relaciones['cuotas'] = [cuota.idCuota.idCuota for cuota in cuotas_pagadas]
+
+                                    case _ if nota_relacionada.idCuota:
+                                        cuota = nota_relacionada.idCuota
+                                        cuota.estadoPago = 'PAGADO'
+                                        cuota.save()
+                                        relaciones['cuota'] = cuota.idCuota
+
+                                    case _ if nota_relacionada.idSolicitud:
+                                        solicitud = nota_relacionada.idSolicitud
+                                        solicitud.estadoPago = 'PAGADO'
+                                        solicitud.save()
+                                        relaciones['solicitud'] = solicitud.idSolicitud
+
+                                    case _ if nota_relacionada.idHonorario:
+                                        honorario = nota_relacionada.idHonorario
+                                        honorario.estadoPago = 'PAGADO'
+                                        honorario.save()
+                                        relaciones['honorario'] = honorario.idHonorario
+
+                                    case _:
+                                        print("Tipo de asociación desconocido")
+                            else:
+                                print("No se encontró una relación para la nota.")
+
+                            return JsonResponse({
+                                'success': True,
+                                'message': 'Pago creado exitosamente y asiento contable generado. La nota ha sido pagada en su totalidad. Ya puede facturar.',
+                                'redirect_url': reverse('factura_create_notas', args=[pago.idNota.idNota]),
+                                'relaciones': relaciones,  # Enviar las llaves relacionadas
+                                'pago': {
+                                    'idPago': pago.idPago,
+                                    'idNota': pago.idNota.numeroNota,
+                                    'monto': f"{float(pago.monto):.2f} {pago.idTasa.idMoneda.simboloMoneda}",
+                                    'fechaPago': pago.fechaPago.strftime('%d/%m/%Y'),
+                                    'formaPago': pago.formaPago,
+                                    'referencia': pago.referencia
+                                }
+                            })
             except ValueError as e:
                 print(f"Error de valor: {e}")
                 return JsonResponse({
@@ -633,9 +839,7 @@ def pago_create(request):
         'cuentas_plan': cuentas_plan,
         'monedas': tasas,
         'tasa_configuracion_valor': tasa_configuracion_valor  # Tasa de configuración
-
     })
-
 @transaction.atomic
 def pago_edit(request, pk):
     """

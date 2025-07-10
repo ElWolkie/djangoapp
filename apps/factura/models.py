@@ -6,26 +6,27 @@ from apps.persona.models import Personas
 from apps.empresa.models import empresa
 from apps.periodoContable.models import periodoContable
 from apps.asientoContable.models import AsientoContable
-from apps.home.models import Moneda, Tasa
+from apps.home.models import CuotaFormacion, Moneda, Tasa
 from apps.cuentaBanco.models import CuentaBanco
 from apps.solicitud.models import Solicitud
 
 class Nota(models.Model):
-    TIPOS_NOTA = [
+    TIPO_OPERACION = [
         ('COBRO', 'Nota de Cobro'),
         ('PAGO', 'Nota de Pago'),
     ]
 
-    TIPOS_FACTURA = [
+    TIPOS_ARTICULO = [
         ('HONORARIO_PROFESOR', 'Pagos a Proveedores - Honorarios Profesionales'), # esto es un pago
         ('SERVICIO_GENERAL', 'Pagos a Proveedores - Servicios Generales (Internet, Luz, etc.)'), # esto es un pago
         ('COMPRA_BIENES', 'Pagos a Proveedores - Compra de Bienes/Materiales'), # esto es un pago
         ('INSCRIPCION', 'Ingresos de Estudiantes - Inscripción'), # esto es un cobro
+        ('CUOTA', 'Ingresos de Estudiantes - Cuota'), # esto es un cobro
         ('SOLICITUD', 'Ingresos de Estudiantes - Solicitud de Trámites'), # esto es un cobro
     ]
 
     idNota = models.AutoField(primary_key=True)
-    tipoNota = models.CharField(max_length=10, choices=TIPOS_NOTA, editable=False)  # Automático
+    tipoOperacion = models.CharField(max_length=10, choices=TIPO_OPERACION, editable=False)  # Automático
     idAsiento = models.ForeignKey(
         AsientoContable, 
         on_delete=models.SET_NULL, 
@@ -35,9 +36,8 @@ class Nota(models.Model):
     )
     idPersona = models.ForeignKey(Personas, on_delete=models.CASCADE, blank=True, null=True)
     idEmpresa = models.ForeignKey(empresa, on_delete=models.CASCADE, blank=True, null=True)
-    tipoFactura = models.CharField(max_length=50, choices=TIPOS_FACTURA)
+    tipoArticulo = models.CharField(max_length=50, choices=TIPOS_ARTICULO)
     numeroNota = models.CharField(max_length=50)  # Renombrado desde numeroFactura
-    codigoControl = models.CharField(max_length=50, blank=True, null=True)
     fechaEmision = models.DateField()
     fechaVencimiento = models.DateField(blank=True, null=True)
     formaPago = models.CharField(max_length=50)
@@ -50,44 +50,51 @@ class Nota(models.Model):
     descuento = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     totalNota = models.DecimalField(max_digits=10, decimal_places=2)  # Renombrado desde totalVenta
     idTasa = models.ForeignKey(Tasa, on_delete=models.CASCADE)
-    estado = models.CharField(max_length=20, default='Pendiente')
+    estado = models.CharField(max_length=20, default='PENDIENTE')
     observaciones = models.TextField(blank=True, null=True)
     fechaCreacion = models.DateTimeField(auto_now_add=True)
     fechaActualizacion = models.DateTimeField(auto_now=True)
 
     def save(self, *args, **kwargs):
-        # Automáticamente definir si es COBRO o PAGO basado en tipoFactura
-        if self.tipoFactura in ['INSCRIPCION', 'SOLICITUD']:
-            self.tipoNota = 'COBRO'
-        elif self.tipoFactura in ['HONORARIO_PROFESOR', 'SERVICIO_GENERAL', 'COMPRA_BIENES']:
-            self.tipoNota = 'PAGO'
-        else:
-            raise ValueError(f"El tipoFactura '{self.tipoFactura}' no es válido para determinar tipoNota.")
-        super().save(*args, **kwargs)
+            # Automáticamente definir si es COBRO o PAGO basado en tipoArticulo
+            if self.tipoArticulo in ['INSCRIPCION', 'SOLICITUD']:
+                self.tipoOperacion = 'COBRO'
+            elif self.tipoArticulo in ['HONORARIO_PROFESOR', 'SERVICIO_GENERAL', 'COMPRA_BIENES']:
+                self.tipoOperacion = 'PAGO'
+            else:
+                raise ValueError(f"El tipoArticulo '{self.tipoArticulo}' no es válido para determinar tipoOperacion.")
+            super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"Nota {self.numeroNota} - {self.tipoNota}"
-
+        return f"Nota {self.numeroNota} - {self.tipoOperacion}"
 class NotaRelacionada(models.Model):
     idNota = models.ForeignKey(Nota, on_delete=models.CASCADE, related_name='relaciones')
     idInscripcion = models.ForeignKey(Inscripcion, on_delete=models.SET_NULL, null=True, blank=True, related_name='notas')
+    idCuota = models.ForeignKey(CuotaFormacion, on_delete=models.SET_NULL, null=True, blank=True, related_name='notas')
     idHonorario = models.ForeignKey(Honorario, on_delete=models.SET_NULL, null=True, blank=True, related_name='notas')
     idSolicitud = models.ForeignKey(Solicitud, on_delete=models.SET_NULL, null=True, blank=True, related_name='notas')
 
     def clean(self):
-        if not (self.idInscripcion or self.idHonorario or self.idSolicitud):
-            raise ValidationError("Debe especificar al menos una relación: Inscripción, Honorario o Solicitud.")
+        """
+        Validación para asegurar que al menos una relación esté especificada.
+        """
+        if not (self.idInscripcion or self.idCuota or self.idHonorario or self.idSolicitud):
+            raise ValidationError("Debe especificar al menos una relación: Inscripción, Cuota, Honorario o Solicitud.")
 
     def __str__(self):
+        """
+        Representación en cadena de la instancia, mostrando las relaciones asociadas.
+        """
         relaciones = []
         if self.idInscripcion:
             relaciones.append(f"Inscripción {self.idInscripcion.idInscripcion}")
+        if self.idCuota:
+            relaciones.append(f"Cuota {self.idCuota.idCuota}")
         if self.idHonorario:
             relaciones.append(f"Honorario {self.idHonorario.idHonorario}")
         if self.idSolicitud:
-            relaciones.append(f"Solicitud {self.idSolicitud.idSoli}")
+            relaciones.append(f"Solicitud {self.idSolicitud.idSolicitud}")
         return f"Nota {self.idNota.idNota} relacionada con: {', '.join(relaciones)}"
-
 
 class Factura(models.Model):
     TIPOS_FACTURA = [

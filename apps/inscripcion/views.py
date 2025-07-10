@@ -12,7 +12,7 @@ from django.urls import reverse
 from django.contrib import messages
 from django.template.loader import render_to_string
 from .forms import InscripcionForm
-from .models import Inscripcion, CuotaFormacion
+from .models import Inscripcion, CuotaFormacion, InscripcionCuota
 from apps.persona.models import Personas
 from apps.home.models import Cargo, Cohorte, Materia, TipoFormacion, Formacion, Configuracion
 from apps.requisitoCliente.models import RequisitoCliente
@@ -36,10 +36,17 @@ def inscripcion_modal(request):
             # Obtener el valor de la formación seleccionada
             formacion = inscripcion.idFormacion
             valor_inscripcion = getattr(formacion, 'valorInscripcion', 0)  # Obtener valor de inscripción
-            
-            # # Generar pagos de cuotas si la formación tiene cuotas activas
-            # if inscripcion.idFormacion.tieneCuotas:
-            #     generar_pagos_cuotas(inscripcion)
+          
+
+            cuotas = inscripcion.idFormacion.cuotas.filter(is_active=True)
+            print(cuotas)  # Verifica las cuotas activas asociadas
+            for cuota in cuotas:
+                InscripcionCuota.objects.create(
+                    idInscripcion=inscripcion,
+                    idCuota=cuota,
+                    estadoPago='PENDIENTE',
+                    montoPagado=0
+                )
 
             return JsonResponse({
                 'success': True,

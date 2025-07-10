@@ -211,61 +211,84 @@
 </div>
 {% endblock content %}
 
+
 {% block javascripts %}
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
   document.addEventListener('DOMContentLoaded', function () {
+    // Inicializar funciones y eventos
+    establecerFechaPorDefecto();
+    activarValidacionesFormulario();
+    manejarSeleccionModalNotas();
+    manejarSeleccionModalCuentas();
     validarMontoContraDeuda();
+    autoseleccionarNota();
 
-    const pagoForm = document.getElementById('pagoForm');
-
-    // Establecer la fecha de pago por defecto con la fecha de hoy
-    const fechaPagoInput = document.getElementById('fechaPago');
-    if (fechaPagoInput) {
-      const hoy = new Date();
-      const dia = String(hoy.getDate()).padStart(2, '0');
-      const mes = String(hoy.getMonth() + 1).padStart(2, '0'); // Los meses empiezan desde 0
-      const anio = hoy.getFullYear();
-      fechaPagoInput.value = `${anio}-${mes}-${dia}`; // Formato YYYY-MM-DD
+    /**
+     * Establece la fecha de pago por defecto con la fecha de hoy.
+     */
+    function establecerFechaPorDefecto() {
+      const fechaPagoInput = document.getElementById('fechaPago');
+      if (fechaPagoInput) {
+        const hoy = new Date();
+        const dia = String(hoy.getDate()).padStart(2, '0');
+        const mes = String(hoy.getMonth() + 1).padStart(2, '0');
+        const anio = hoy.getFullYear();
+        fechaPagoInput.value = `${anio}-${mes}-${dia}`;
+      }
     }
 
-    // Activar validaciones de Bootstrap y manejar el envío del formulario
-    pagoForm.addEventListener('submit', function (event) {
-      event.preventDefault(); // Evitar el envío por defecto
-      event.stopPropagation(); // Detener la propagación del evento
+    /**
+     * Activa las validaciones de Bootstrap y maneja el envío del formulario.
+     */
+    function activarValidacionesFormulario() {
+      const pagoForm = document.getElementById('pagoForm');
 
-      let isValid = true;
+      pagoForm.addEventListener('submit', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
 
-      // Validar Nota
-      const notaInput = document.getElementById('notaInput');
-      const idNota = document.getElementById('idNota').value;
-      if (!idNota) {
-        notaInput.classList.add('is-invalid');
-        isValid = false;
-      } else {
-        notaInput.classList.remove('is-invalid');
-      }
+        let isValid = true;
 
-      // Validar Cuenta Bancaria
-      const cuentaBancoInput = document.getElementById('cuentaBancoInput');
-      const idCuentaBanco = document.getElementById('idCuentaBanco').value;
-      if (!idCuentaBanco) {
-        cuentaBancoInput.classList.add('is-invalid');
-        isValid = false;
-      } else {
-        cuentaBancoInput.classList.remove('is-invalid');
-      }
+        // Validar Nota
+        const notaInput = document.getElementById('notaInput');
+        const idNota = document.getElementById('idNota').value;
+        if (!idNota) {
+          notaInput.classList.add('is-invalid');
+          isValid = false;
+        } else {
+          notaInput.classList.remove('is-invalid');
+        }
 
-      // Validar el formulario completo
-      if (!isValid || !pagoForm.checkValidity()) {
-        pagoForm.classList.add('was-validated');
-        return; // Detener el envío si hay errores
-      }
+        // Validar Cuenta Bancaria
+        const cuentaBancoInput = document.getElementById('cuentaBancoInput');
+        const idCuentaBanco = document.getElementById('idCuentaBanco').value;
+        if (!idCuentaBanco) {
+          cuentaBancoInput.classList.add('is-invalid');
+          isValid = false;
+        } else {
+          cuentaBancoInput.classList.remove('is-invalid');
+        }
 
-      // Crear FormData y enviar la solicitud AJAX
-      const formData = new FormData(pagoForm);
+        // Validar el formulario completo
+        if (!isValid || !pagoForm.checkValidity()) {
+          pagoForm.classList.add('was-validated');
+          return;
+        }
 
-      fetch(pagoForm.action, {
+        // Enviar la solicitud AJAX
+        enviarFormulario(pagoForm);
+      });
+    }
+
+    /**
+     * Envía el formulario mediante una solicitud AJAX.
+     * @param {HTMLFormElement} form - El formulario a enviar.
+     */
+    function enviarFormulario(form) {
+      const formData = new FormData(form);
+
+      fetch(form.action, {
         method: 'POST',
         body: formData,
         headers: {
@@ -278,178 +301,251 @@
           }
           return response.json();
         })
-        .then((data) => {
-          if (data.success) {
-            // Caso 1: El pago fue exitoso, pero aún hay deuda
-            if (data.message.includes('aun posee deuda')) {
-              Swal.fire({
-                icon: 'warning',
-                title: 'Pago registrado exitosamente',
-                html: `
-                  <p><strong>ID Pago:</strong> ${data.pago.idPago}</p>
-                  <p><strong>Nota:</strong> ${data.pago.idNota}</p>
-                  <p><strong>Monto:</strong> ${data.pago.monto}</p>
-                  <p><strong>Fecha de Pago:</strong> ${data.pago.fechaPago}</p>
-                  <p><strong>Forma de Pago:</strong> ${data.pago.formaPago}</p>
-                  <p><strong>Referencia:</strong> ${data.pago.referencia || 'N/A'}</p>
-                  <p class="text-danger">${data.message}</p>
-                `,
-                confirmButtonText: 'Realizar otro pago',
-                customClass: {
-                  confirmButton: 'btn btn-warning',
-                },
-                buttonsStyling: false,
-              }).then(() => {
-                // Redirigir a la vista de creación de pagos con el ID de la nota como parámetro
-                window.location.href = data.redirect_url;
-              });
-            }
-            // Caso 2: El pago fue exitoso, la deuda fue saldada y se cerró la nota
-            else {
-              Swal.fire({
-                icon: 'success',
-                title: 'Pago registrado exitosamente',
-                html: `
-                  <p><strong>ID Pago:</strong> ${data.pago.idPago}</p>
-                  <p><strong>Nota:</strong> ${data.pago.idNota}</p>
-                  <p><strong>Monto:</strong> ${data.pago.monto}</p>
-                  <p><strong>Fecha de Pago:</strong> ${data.pago.fechaPago}</p>
-                  <p><strong>Forma de Pago:</strong> ${data.pago.formaPago}</p>
-                  <p><strong>Referencia:</strong> ${data.pago.referencia || 'N/A'}</p>
-                  <p class="text-success">${data.message}</p>
-                `,
-                confirmButtonText: 'Aceptar',
-                customClass: {
-                  confirmButton: 'btn btn-warning',
-                },
-                buttonsStyling: false,
-              }).then(() => {
-                // Redirigir a la lista de notas
-                window.location.href = data.redirect_url;
-              });
-            }
-          } else {
-            // Mostrar errores si el registro falla
-            Swal.fire({
-              icon: 'error',
-              title: 'Error al registrar el pago',
-              text: data.message || 'Ocurrió un error inesperado.',
-              confirmButtonText: 'Aceptar',
-              customClass: {
-                confirmButton: 'btn btn-warning',
-              },
-              buttonsStyling: false,
-            });
-          }
-        })
-        .catch((error) => {
-          console.error('Error:', error);
-          Swal.fire({
-            icon: 'error',
-            title: 'Error inesperado',
-            text: 'Ocurrió un error al procesar la solicitud.',
-            confirmButtonText: 'Aceptar',
-            customClass: {
-              confirmButton: 'btn btn-warning',
-            },
-            buttonsStyling: false,
-          });
+        .then((data) => manejarRespuestaServidor(data))
+        .catch((error) => mostrarErrorInesperado(error));
+    }
+
+    /**
+     * Maneja la respuesta del servidor después de enviar el formulario.
+     * @param {Object} data - Datos recibidos del servidor.
+     */
+    function manejarRespuestaServidor(data) {
+      if (data.success) {
+        mostrarMensajeExito(data);
+      } else {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error al registrar el pago',
+          text: data.message || 'Ocurrió un error inesperado.',
+          confirmButtonText: 'Aceptar',
+          confirmButtonColor: '#dc3545',
         });
-    });
+      }
+    }
 
-    // Manejar la selección de filas en el modal de Cuenta Bancaria
-    const tablaCuentas = document.getElementById('tablaCuentas');
-    if (tablaCuentas) {
-      tablaCuentas.addEventListener('click', function (event) {
-        const fila = event.target.closest('tr');
-        if (fila) {
-          const idCuentaBanco = fila.getAttribute('data-id');
-          const nombreCuentaBanco = fila.getAttribute('data-nombre');
-          const idPlanCuentaDebe = fila.getAttribute('data-plan'); // Obtener el idPlanCuenta asociado
-
-          document.getElementById('cuentaBancoInput').value = nombreCuentaBanco;
-          document.getElementById('idCuentaBanco').value = idCuentaBanco;
-          document.getElementById('idPlanCuentaDebe').value = idPlanCuentaDebe; // Asignar el idPlanCuenta al input oculto
-
-          $('#cuentaBancoModal').modal('hide'); // Cerrar el modal
-        }
+    /**
+     * Muestra un mensaje de error inesperado.
+     * @param {Error} error - Error capturado.
+     */
+    function mostrarErrorInesperado(error) {
+      console.error('Error:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error inesperado',
+        text: 'Ocurrió un error al procesar la solicitud.',
+        confirmButtonText: 'Aceptar',
+        confirmButtonColor: '#dc3545',
       });
     }
 
-    // Manejar la selección de filas en el modal de Notas
-    const tablaNotas = document.getElementById('tablaNotas');
-    if (tablaNotas) {
-      tablaNotas.addEventListener('click', function (event) {
-        const fila = event.target.closest('tr');
-        if (fila) {
-          const idNota = fila.getAttribute('data-id');
-          const nombreNota = fila.getAttribute('data-nombre');
-          const deudaNota = fila.getAttribute('data-deuda'); // Obtener la deuda de la nota
+    /**
+     * Maneja la selección de filas en el modal de Notas.
+     */
+    function manejarSeleccionModalNotas() {
+      const tablaNotas = document.getElementById('tablaNotas');
+      if (tablaNotas) {
+        tablaNotas.addEventListener('click', function (event) {
+          const fila = event.target.closest('tr');
+          if (fila) {
+            const idNota = fila.getAttribute('data-id');
+            const nombreNota = fila.getAttribute('data-nombre');
+            const deudaNota = fila.getAttribute('data-deuda');
+
+            document.getElementById('notaInput').value = nombreNota;
+            document.getElementById('idNota').value = idNota;
+
+            const deudaElement = document.getElementById('deudaNota');
+            if (deudaElement) {
+              deudaElement.textContent = `Deuda actual: ${deudaNota}`;
+            }
+
+            $('#notaModal').modal('hide');
+          }
+        });
+      }
+    }
+
+    /**
+     * Maneja la selección de filas en el modal de Cuentas Bancarias.
+     */
+    function manejarSeleccionModalCuentas() {
+      const tablaCuentas = document.getElementById('tablaCuentas');
+      if (tablaCuentas) {
+        tablaCuentas.addEventListener('click', function (event) {
+          const fila = event.target.closest('tr');
+          if (fila) {
+            const idCuentaBanco = fila.getAttribute('data-id');
+            const nombreCuentaBanco = fila.getAttribute('data-nombre');
+            const idPlanCuentaDebe = fila.getAttribute('data-plan');
+
+            document.getElementById('cuentaBancoInput').value = nombreCuentaBanco;
+            document.getElementById('idCuentaBanco').value = idCuentaBanco;
+            document.getElementById('idPlanCuentaDebe').value = idPlanCuentaDebe;
+
+            $('#cuentaBancoModal').modal('hide');
+          }
+        });
+      }
+    }
+
+    /**
+     * Valida que el monto ingresado no supere la deuda actual.
+     */
+    function validarMontoContraDeuda() {
+      const montoInput = document.getElementById('monto');
+      const tasaSelect = document.getElementById('idTasa');
+      const deudaElement = document.getElementById('deudaNota');
+      const tasaConfiguracion = parseFloat(document.getElementById('tasaConfiguracion').value) || 1;
+
+      function validar() {
+        const monto = parseFloat(montoInput.value) || 0;
+        const deuda = parseFloat(deudaElement.textContent.replace('Deuda actual: ', '').trim()) || 0;
+
+        const tasaOption = tasaSelect.options[tasaSelect.selectedIndex];
+        const tasaPago = parseFloat(tasaOption.textContent.split('Tasa: ')[1]) || 1;
+
+        const montoConvertido = (monto * tasaPago) / tasaConfiguracion;
+
+        if (montoConvertido > deuda) {
+          montoInput.classList.add('is-invalid');
+          montoInput.setCustomValidity('El monto no puede superar la deuda actual.');
+        } else {
+          montoInput.classList.remove('is-invalid');
+          montoInput.setCustomValidity('');
+        }
+      }
+
+      montoInput.addEventListener('input', validar);
+      tasaSelect.addEventListener('change', validar);
+    }
+
+    /**
+     * Autoselecciona una nota si se recibe el parámetro en la URL.
+     */
+    function autoseleccionarNota() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const notaParam = urlParams.get('nota');
+      if (notaParam) {
+        const filaNota = document.querySelector(`#tablaNotas tr[data-id="${notaParam}"]`);
+        if (filaNota) {
+          const nombreNota = filaNota.getAttribute('data-nombre');
+          const deudaNota = filaNota.getAttribute('data-deuda');
 
           document.getElementById('notaInput').value = nombreNota;
-          document.getElementById('idNota').value = idNota;
-          // Mostrar la deuda debajo del input de monto
+          document.getElementById('idNota').value = notaParam;
+
           const deudaElement = document.getElementById('deudaNota');
           if (deudaElement) {
             deudaElement.textContent = `Deuda actual: ${deudaNota}`;
           }
-          $('#notaModal').modal('hide'); // Cerrar el modal
-        }
-      });
-    }
-
-    function validarMontoContraDeuda() {
-  const montoInput = document.getElementById('monto'); // Campo de monto ingresado
-  const tasaSelect = document.getElementById('idTasa'); // Selector de moneda
-  const deudaElement = document.getElementById('deudaNota'); // Elemento que muestra la deuda actual
-  const tasaConfiguracion = parseFloat(document.getElementById('tasaConfiguracion').value) || 1; // Tasa de configuración (moneda de la deuda)
-
-  // Función para realizar la validación
-  function validar() {
-    const monto = parseFloat(montoInput.value) || 0; // Monto ingresado
-    const deuda = parseFloat(deudaElement.textContent.replace('Deuda actual: ', '').trim()) || 0; // Deuda en la moneda de configuración
-
-    // Obtener la tasa seleccionada
-    const tasaOption = tasaSelect.options[tasaSelect.selectedIndex];
-    const tasaPago = parseFloat(tasaOption.textContent.split('Tasa: ')[1]) || 1; // Tasa de la moneda seleccionada
-
-    // Convertir el monto del pago a la moneda de configuración
-    const montoConvertido = (monto * tasaPago) / tasaConfiguracion;
-
-    // Validar que el monto convertido no supere la deuda
-    if (montoConvertido > deuda) {
-      montoInput.classList.add('is-invalid');
-      montoInput.setCustomValidity('El monto no puede superar la deuda actual.');
-    } else {
-      montoInput.classList.remove('is-invalid');
-      montoInput.setCustomValidity('');
-    }
-  }
-
-  // Escuchar el evento de cambio en el campo de monto
-  montoInput.addEventListener('input', validar);
-
-  // Escuchar el evento de cambio en el selector de moneda
-  tasaSelect.addEventListener('change', validar);
-}
-
-    // Autoseleccionar nota si se recibe el parámetro
-    const urlParams = new URLSearchParams(window.location.search);
-    const notaParam = urlParams.get('nota');
-    if (notaParam) {
-      const filaNota = document.querySelector(`#tablaNotas tr[data-id="${notaParam}"]`);
-      if (filaNota) {
-        const nombreNota = filaNota.getAttribute('data-nombre');
-        const deudaNota = filaNota.getAttribute('data-deuda');
-
-        document.getElementById('notaInput').value = nombreNota;
-        document.getElementById('idNota').value = notaParam;
-        const deudaElement = document.getElementById('deudaNota');
-        if (deudaElement) {
-          deudaElement.textContent = `Deuda actual: ${deudaNota}`;
         }
       }
     }
-  });
+    /**
+/**
+ * Obtiene el token CSRF del formulario o del DOM.
+ * @returns {string} Token CSRF.
+ */
+ function getCSRFToken() {
+  const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+  return csrfToken;
+}
+
+/**
+ * Muestra un mensaje de éxito cuando el pago es registrado correctamente.
+ * @param {Object} data - Datos recibidos del servidor.
+ */
+function mostrarMensajeExito(data) {
+  // Caso 2: El pago fue exitoso, la deuda fue saldada y se cerró la nota
+  if (data.message.includes('La nota ha sido pagada en su totalidad')) {
+    Swal.fire({
+      icon: 'success',
+      title: 'Pago registrado exitosamente',
+      html: `
+        <p><strong>ID Pago:</strong> ${data.pago.idPago}</p>
+        <p><strong>Nota:</strong> ${data.pago.idNota}</p>
+        <p><strong>Monto:</strong> ${data.pago.monto}</p>
+        <p><strong>Fecha de Pago:</strong> ${data.pago.fechaPago}</p>
+        <p><strong>Forma de Pago:</strong> ${data.pago.formaPago}</p>
+        <p><strong>Referencia:</strong> ${data.pago.referencia || 'N/A'}</p>
+        <p class="text-success">${data.message}</p>
+      `,
+      showCancelButton: true,
+      confirmButtonText: 'Factura General',
+      cancelButtonText: 'Factura Individualizada',
+      confirmButtonColor: '#28a745',
+      cancelButtonColor: '#ffc107',
+    }).then((result) => {
+      if (result.isConfirmed) {
+        // Emitir factura general automáticamente
+        fetch(`/factura/create/general/${data.pago.idNota}`, {
+          method: 'POST',
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCSRFToken(), // Agregar el token CSRF
+          },
+        })
+          .then((response) => {
+            if (!response.ok) {
+              throw new Error('Error al generar la factura general');
+            }
+            return response.json();
+          })
+          .then((facturaData) => {
+            Swal.fire({
+              icon: 'success',
+              title: 'Factura General creada exitosamente',
+              html: `
+                <p><strong>Número de Factura:</strong> ${facturaData.factura.numeroFactura}</p>
+                <p><strong>Total:</strong> ${facturaData.factura.totalVenta}</p>
+              `,
+              confirmButtonText: 'Aceptar',
+              confirmButtonColor: '#28a745',
+            }).then(() => {
+              window.location.href = '/factura/list'; // Redirigir a la lista de facturas
+            });
+          })
+          .catch((error) => {
+            console.error('Error:', error);
+            Swal.fire({
+              icon: 'error',
+              title: 'Error inesperado',
+              text: 'Ocurrió un error al generar la factura general.',
+              confirmButtonText: 'Aceptar',
+              confirmButtonColor: '#dc3545',
+            });
+          });
+      } else if (result.dismiss === Swal.DismissReason.cancel) {
+        // Redirigir a la vista de factura individualizada
+        window.location.href = `/factura/create/individualizada/${data.pago.idNota}`;
+      }
+    });
+  } else {
+    // Caso 1: El pago fue exitoso, pero aún hay deuda
+    Swal.fire({
+      icon: 'warning',
+      title: 'Pago registrado exitosamente',
+      html: `
+        <p><strong>ID Pago:</strong> ${data.pago.idPago}</p>
+        <p><strong>Nota:</strong> ${data.pago.idNota}</p>
+        <p><strong>Monto:</strong> ${data.pago.monto}</p>
+        <p><strong>Fecha de Pago:</strong> ${data.pago.fechaPago}</p>
+        <p><strong>Forma de Pago:</strong> ${data.pago.formaPago}</p>
+        <p><strong>Referencia:</strong> ${data.pago.referencia || 'N/A'}</p>
+        <p class="text-danger">${data.message}</p>
+      `,
+      confirmButtonText: 'Realizar otro pago',
+      customClass: {
+        confirmButton: 'btn btn-warning',
+      },
+      buttonsStyling: false,
+    }).then(() => {
+      // Redirigir a la vista de creación de pagos con el ID de la nota como parámetro
+      window.location.href = data.redirect_url;
+    });
+  }
+}    });
+
 </script>
 {% endblock javascripts %}
