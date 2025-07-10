@@ -39,19 +39,3 @@ class InscripcionForm(forms.ModelForm):
 
         return cleaned_data
 
-
-# class PagoCuotaForm(forms.ModelForm):
-#     class Meta:
-#         model = PagoCuota
-#         fields = ['idInscripcion', 'idCuota', 'monto', 'estado', 'idNota']
-
-#     def clean(self):
-#         cleaned_data = super().clean()
-#         idCuota = cleaned_data.get('idCuota')
-#         monto = cleaned_data.get('monto')
-
-#         if idCuota and monto:
-#             if monto > idCuota.valorCuota:
-#                 raise ValidationError('El monto no puede ser mayor al valor de la cuota.')
-
-#         return cleaned_data

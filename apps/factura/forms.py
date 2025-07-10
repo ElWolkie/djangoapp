@@ -12,9 +12,8 @@ class NotaForm(forms.ModelForm):
         widgets = {
             'idPersona': forms.Select(attrs={'class': 'form-control'}),
             'idEmpresa': forms.Select(attrs={'class': 'form-control'}),
-            'tipoFactura': forms.Select(attrs={'class': 'form-control'}),
+            'tipoArticulo': forms.Select(attrs={'class': 'form-control'}),
             'numeroNota': forms.TextInput(attrs={'class': 'form-control'}),
-            'codigoControl': forms.TextInput(attrs={'class': 'form-control'}),
             'fechaEmision': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'fechaVencimiento': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'formaPago': forms.TextInput(attrs={'class': 'form-control'}),

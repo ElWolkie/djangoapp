@@ -39,97 +39,152 @@
     {% csrf_token %}
 
     <div class="form-row">
-      <div class="form-row">
-        <div class="form-group col-md-4">
-            <label for="tipoFacturaCheckbox" class="form-label small">Tipo de Operación:</label>
-            <div class="form-check ml-3">
+      <div class="form-row align-items-center">
+        <div class="form-group col-md-2">
+          <label for="tipoOperacionCheckbox" class="form-label small">Tipo de Operación:</label>
+          <div class="form-check ml-2">
             <input class="form-check-input" type="radio" name="tipoOperacion" id="ingresoCheckbox" value="ingreso" required>
             <label class="form-check-label small" for="ingresoCheckbox">Cobro</label>
-            </div>
-            <div class="form-check ml-3">
+          </div>
+          <div class="form-check ml-2">
             <input class="form-check-input" type="radio" name="tipoOperacion" id="egresoCheckbox" value="egreso" required>
             <label class="form-check-label small" for="egresoCheckbox">Pago</label>
-            </div>
-            <div class="invalid-feedback small">Por favor seleccione el tipo de operación.</div>
+          </div>
+          <div class="invalid-feedback small">Por favor seleccione el tipo de operación.</div>
         </div>
-      
-        <div class="form-group col-md-7 ml-3">
-          <label for="tipoNota">Tipo de Nota:</label>
-          <select id="tipoFactura" name="tipoFactura" class="form-control text-dark" required disabled>
-            <option value="" disabled selected>Seleccione el tipo de factura...</option>
-            
+
+        <div class="form-group col-md-4">
+          <label for="tipoArticulo">Tipo de Nota:</label>
+          <select id="tipoArticulo" name="tipoArticulo" class="form-control text-dark" required disabled>
+            <option value=""  selected>Seleccione el tipo de factura...</option>
             <!-- Facturas de Egresos (Pagos) -->
             <optgroup label="Pagos a Proveedores" class="egreso-options" style="display: none;">
               <option value="HONORARIO_PROFESOR">Honorarios Profesionales</option>
               <option value="SERVICIO_GENERAL">Servicios Generales (Internet, Luz, etc.)</option>
               <option value="COMPRA_BIENES">Compra de Bienes/Materiales</option>
             </optgroup>
-            
             <!-- Facturas de Ingresos -->
             <optgroup label="Ingresos de Estudiantes" class="ingreso-options" style="display: none;">
               <option value="INSCRIPCION">Inscripción</option>
+              <option value="CUOTA">Cuota</option>
               <option value="SOLICITUD">Solicitud de Trámites</option>
             </optgroup>
           </select>
           <div class="invalid-feedback">Por favor seleccione un tipo de factura.</div>
         </div>
-      </div>
-        <div class="form-group col-md-6 ml-5 d-flex align-items-center">
-          <div class="mr-3">
-            <label for="tipoEntidadCheckbox"  class="form-label small">Tipo de Entidad:</label>
-            <div class="form-check ml-3">
-              <input class="form-check-input" type="radio" name="tipoEntidad" id="personaCheckbox" value="persona"  checked required>
-              <label class="form-check-label small" for="personaCheckbox">Persona</label>
+        <div class="form-group col-md-6">
+          <label for="numeroNota">Número de Nota:</label>
+          <input type="text" id="numeroNota" name="numeroNota" class="form-control text-dark"
+             value="{{ numero_nota }}" {% if not numero_nota %}required{% else %}readonly{% endif %} />
+          <div class="invalid-feedback">Por favor ingrese un número de factura válido.</div>
+        </div>
+
+        <div class="form-group col-md-2">
+          <label for="tipoEntidadCheckbox" class="form-label small">Tipo de Entidad:</label>
+          <div class="form-check ml-2">
+            <input class="form-check-input" type="radio" name="tipoEntidad" id="personaCheckbox" value="persona" checked required>
+            <label class="form-check-label small" for="personaCheckbox">Persona</label>
+          </div>
+          <div class="form-check ml-2">
+            <input class="form-check-input" type="radio" name="tipoEntidad" id="empresaCheckbox" value="empresa" required>
+            <label class="form-check-label small" for="empresaCheckbox">Empresa</label>
+          </div>
+          <div class="invalid-feedback">Por favor seleccione el tipo de entidad.</div>
+        </div>
+
+        <div class="form-group col-md-4">
+          <div id="personaGroup" style="display: none;">
+            <label for="personaInput">Persona:</label>
+            <div class="input-group">
+              <input type="text" id="personaInput" class="form-control text-dark" placeholder="Seleccione una persona" readonly />
+              <button type="button" id="buscarPersona" class="btn btn-warning" data-toggle="modal" data-target="#personaModal">
+                <i class="fas fa-search"></i>
+              </button>           
+               <div class="invalid-feedback">Por favor seleccione una persona.</div>
+
             </div>
-            <div class="form-check ml-3">
-              <input class="form-check-input" type="radio" name="tipoEntidad" id="empresaCheckbox" value="empresa" required>
-              <label class="form-check-label small" for="empresaCheckbox">Empresa</label>
-            </div>
-            <div class="invalid-feedback">Por favor seleccione el tipo de entidad.</div>
+            <input type="hidden" id="idPersona" name="idPersona" />
           </div>
 
-          <div class="flex-grow-1 ml-2">
-            <div id="personaGroup" style="display: none;">
-              <label for="personaInput">Persona:</label>
-              <div class="input-group">
-                <input type="text" id="personaInput" class="form-control text-dark" placeholder="Seleccione una persona" readonly />
-                <button type="button" id="buscarPersona" class="btn btn-warning" data-toggle="modal" data-target="#personaModal">
-                  <i class="fas fa-search"></i>
-                </button>
-              </div>
-              <input type="hidden" id="idPersona" name="idPersona" />
-              <div class="invalid-feedback">Por favor seleccione una persona.</div>
-            </div>
-
-            <div id="empresaGroup" style="display: none;">
-              <label for="empresaInput">Empresa:</label>
-              <div class="input-group">
-                <input type="text" id="empresaInput" class="form-control text-dark" placeholder="Seleccione una empresa" readonly />
-                <button type="button" id="buscarEmpresa" class="btn btn-warning" data-toggle="modal" data-target="#empresaModal">
-                  <i class="fas fa-search"></i>
-                </button>
-              </div>
-              <input type="hidden" id="idEmpresa" name="idEmpresa" />
+          <div id="empresaGroup" style="display: none;">
+            <label for="empresaInput">Empresa:</label>
+            <div class="input-group">
+              <input type="text" id="empresaInput" class="form-control text-dark" placeholder="Seleccione una empresa" readonly />
+              <button type="button" id="buscarEmpresa" class="btn btn-warning" data-toggle="modal" data-target="#empresaModal">
+                <i class="fas fa-search"></i>
+              </button>            
               <div class="invalid-feedback">Por favor seleccione una empresa.</div>
+
             </div>
+            <input type="hidden" id="idEmpresa" name="idEmpresa" />
           </div>
         </div>
-    </div>
-    <div class="form-row">
-      <div class="form-group col-md-6">
-        <label for="numeroNota">Número de Nota:</label>
-        <input type="text" id="numeroNota" name="numeroNota" class="form-control text-dark" 
-           value="{{ numero_nota }}" {% if not numero_nota %}required{% else %}readonly{% endif %} />
-        <div class="invalid-feedback">Por favor ingrese un número de factura válido.</div>
-      </div>
-      <div class="form-group col-md-6">
-        <label for="codigoControl">Código de Control:</label>
-        <input type="text" id="codigoControl" name="codigoControl" class="form-control text-dark" placeholder="Ingrese el código de control" maxlength="50" />
-      </div>
-    
-    </div>
-    <div class="form-row">
-     
+
+        <div  id="articulos" class="form-group col-md-6">
+        <!-- NO APLICA-->
+        <div id="noAplicaGroup" >
+          <label for="cuota">Articulo:</label>
+            <div class="input-group">
+              <input type="text" id="noAplica" class="form-control text-dark" placeholder="Seleccione" value="No requiere articulo" readonly required />
+              <button type="button"  class="btn btn-success" data-toggle="modal">
+                <i class="fas fa-check"></i>
+              </button>
+            </div>
+         </div>
+          <!-- CUOTA -->
+           <div id="cuotaGroup" style="display: none;">
+            <label for="cuota">Cuota:</label>
+              <div class="input-group">
+                <input type="text" id="cuota" class="form-control text-dark" placeholder="Seleccione un plan de cuenta para el Haber" readonly required />
+                <button type="button" id="buscarCuota" class="btn btn-warning" data-toggle="modal" data-target="#cuotaModal">
+                  <i class="fas fa-search"></i>
+                </button>
+              </div>
+              <input type="hidden" id="idCuota" name="idCuota" required />
+              <div class="invalid-feedback">Por favor seleccione una cuota.</div>
+           </div>
+
+          <div id="inscripcionGroup" style="display: none;">
+            <!-- INSCRIPCION -->
+            <label for="inscripcion">Inscripcion:</label>
+            <div class="input-group">
+              <input type="text" id="inscripcion" class="form-control text-dark" placeholder="Seleccione una inscripcion" readonly required />
+              <button type="button" id="buscarInscripcion" class="btn btn-warning" data-toggle="modal" data-target="#inscripcionModal">
+                <i class="fas fa-search"></i>
+              </button>
+            </div>
+            <input type="hidden" id="idInscripcion" name="idInscripcion" required />
+            <div class="invalid-feedback">Por favor seleccione una cuota.</div>
+          </div>
+
+          <div id="honorarioGroup" style="display: none;">
+          <!-- HONORARIO -->
+          <label for="honorario">Honorario:</label>
+            <div class="input-group">
+              <input type="text" id="honorario" class="form-control text-dark" placeholder="Seleccione un honorario" readonly required />
+              <button type="button" id="buscarHonorario" class="btn btn-warning" data-toggle="modal" data-target="#honorarioModal">
+                <i class="fas fa-search"></i>
+              </button>
+            </div>
+            <input type="hidden" id="idHonorario" name="idHonorario" required />
+            <div class="invalid-feedback">Por favor seleccione un Honorario.</div>
+          </div>
+
+          <div id="solicitudGroup" style="display: none;">
+            <!-- SOLICITUD -->
+            <label for="inscripcion">Solicitud:</label>
+            <div class="input-group">
+              <input type="text" id="solicitud" class="form-control text-dark" placeholder="Seleccione una solicitud" readonly required />
+              <button type="button" id="buscarSolicitud" class="btn btn-warning" data-toggle="modal" data-target="#solicitudModal">
+                <i class="fas fa-search"></i>
+              </button>
+            </div>
+            <input type="hidden" id="idSolicitud" name="idSolicitud" required />
+            <div class="invalid-feedback">Por favor seleccione una cuota.</div>
+          </div>
+        </div>
+
+
       <div class="form-group col-md-6">
         <label for="fechaEmision">Fecha de Emisión:</label>
         <input type="date" id="fechaEmision" name="fechaEmision" class="form-control text-dark" max="{{ today_date }}" required />
@@ -159,22 +214,22 @@
       <div class="form-group col-md-6">
         <label for="idTasa">Moneda:</label>
         <select id="idTasa" name="idTasa" class="form-control text-dark" required>
-          
+
           <option value="" disabled selected>Seleccione una moneda...</option>
           {% for moneda in monedas %}
-          
+
             <option value="{{ moneda.ultima_idTasa }}">{{ moneda.idMoneda__nombreMoneda }}{% if moneda.ultima_tasa %} | Tasa: {{ moneda.ultima_tasa }}{% else %} - Sin tasa{% endif %}</option>
           {% endfor %}
         </select>
         <div class="invalid-feedback">Por favor seleccione una moneda.</div>
       </div>
-          
+
       <div class="form-group col-md-6">
         <label for="subtotalExento">Subtotal Exento:</label>
         <input type="number" id="subtotalExento" name="subtotalExento" class="form-control text-dark" placeholder="Ingrese el subtotal exento" step="0.01" min="0" required />
         <div class="invalid-feedback">Por favor ingrese un subtotal exento válido.</div>
       </div>
-  
+
       <div class="form-group col-md-6">
         <label for="subtotalGravado">Subtotal Gravado:</label>
         <input type="number" id="subtotalGravado" name="subtotalGravado" class="form-control text-dark" placeholder="Ingrese el subtotal gravado" step="0.01" min="0" required />
@@ -187,8 +242,8 @@
       <input type="number" id="iva" name="iva" class="form-control text-dark" placeholder="Ingrese el IVA" step="0.01" min="0" readonly required />
       <div class="invalid-feedback">Por favor ingrese un IVA válido.</div>
     </div>
-  
-    
+
+
   <div class="form-group col-md-6">
     <label for="ivaRetenido">IVA Retenido:</label>
     <input type="number" id="ivaRetenido" name="ivaRetenido" class="form-control text-dark" placeholder="Ingrese el IVA retenido" step="0.01" min="0" readonly />
@@ -212,25 +267,6 @@
         <div class="invalid-feedback">Por favor ingrese un total de venta válido.</div>
       </div>
 
-      <div class="form-group col-md-6">
-        <label for="idInscripcion">ID Inscripción:</label>
-        <input type="text" id="idInscripcion" name="idInscripcion" class="form-control text-dark" placeholder="Ingrese el ID de inscripción" />
-        <div class="invalid-feedback">Por favor ingrese un ID de inscripción válido.</div>
-      </div>
-
-      <div class="form-group col-md-6">
-        <label for="idHonorario">ID Honorario:</label>
-        <input type="text" id="idHonorario" name="idHonorario" class="form-control text-dark" placeholder="Ingrese el ID de honorario" />
-        <div class="invalid-feedback">Por favor ingrese un ID de honorario válido.</div>
-      </div>
-
-      <div class="form-group col-md-6">
-        <label for="idSolicitud">ID Solicitud:</label>
-        <input type="text" id="idSolicitud" name="idSolicitud" class="form-control text-dark" placeholder="Ingrese el ID de solicitud" />
-        <div class="invalid-feedback">Por favor ingrese un ID de solicitud válido.</div>
-      </div>
-
-     
 
       <input type="hidden" id="estado" name="estado" value="PENDIENTE" />
       <div class="form-group col-md-6">
@@ -248,7 +284,7 @@
           <input type="hidden" id="idPlanCuentaDebe" name="idPlanCuentaDebe" required />
           <div class="invalid-feedback">Por favor seleccione un plan de cuenta para el Debe.</div>
         </div>
-      
+
         <div class="form-group col-md-6">
           <label for="planCuentaHaber">Plan de Cuenta (Haber):</label>
           <div class="input-group">
@@ -272,6 +308,7 @@
   </form>
 </div>
 
+</div>
 <!-- Modal para seleccionar Persona -->
 <div class="modal fade" id="personaModal" tabindex="-1" role="dialog" aria-labelledby="personaModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered" role="document">
@@ -295,7 +332,7 @@
             </div>
           </div>
         </div>
-        <table class="table table-sm table-responsive table-striped table-hover mx-auto justify-content-center" id="tablaPersonas">
+        <table class="table table-lg table-responsive table-striped table-hover mx-auto justify-content-center" id="tablaPersonas">
           <thead>
             <tr>
               <th>ID</th>
@@ -371,6 +408,224 @@
     </div>
   </div>
 </div>
+
+
+<!-- Modal para seleccionar Cuota -->
+<div class="modal fade" id="cuotaModal" tabindex="-1" role="dialog" aria-labelledby="cuotaModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered"   1 qqqqqqqqqqqqqqqqqqqqqqqqqqqqq role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="cuotaModalLabel">Seleccionar Cuota</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="row mb-3">
+          <div class="col-md-8">
+            <div class="input-group">
+              <div class="input-group-prepend">
+                <span class="input-group-text" style="background-color: #bcbcbc; border: none;">
+                  <i class="fas fa-search text-warning"></i>
+                </span>
+              </div>
+              <input class="form-control" id="searchCuotaInput" type="text" placeholder="Buscar..." onkeyup="filterTable('tablaCuotas', 'searchCuotaInput')">
+            </div>
+          </div>
+        </div>
+        <table class="table table-sm table-striped table-hover table-responsive" id="tablaCuotas">
+          <thead>
+            <tr>
+              <th>ID Cuota</th>
+              <th>Nombre Cuota</th>
+              <th>Monto</th>
+              <th>ID Inscripción</th>
+              <th>Formación</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for cuota in cuotas %}
+              {% for inscripcion in cuota.inscripciones.all %}
+                <tr data-id="{{ cuota.idCuota }}" data-nombre="{{ cuota.nombreCuota }}" data-valor="{{ cuota.valorCuota }}" data-inscripcion-id="{{ inscripcion.idInscripcion }}">
+                  <td>{{ cuota.idCuota }}</td>
+                  <td>{{ cuota.nombreCuota }}</td>
+                  <td>{{ cuota.valorCuota }}</td>
+                  <td>{{ inscripcion.idInscripcion }}</td>
+                  <td>{{ inscripcion.idFormacion.nombreFormacion }}</td>
+                </tr>
+              {% endfor %}
+            {% endfor %}
+          </tbody>
+        </table>
+        <p id="mensajeSinRegistrosCuota" class="text-center text-muted" style="display: none;">No hay registros disponibles</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal para seleccionar Inscripción -->
+<div class="modal fade" id="inscripcionModal" tabindex="-1" role="dialog" aria-labelledby="inscripcionModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width: 550px;"role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="inscripcionModalLabel">Seleccionar Inscripción</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="row mb-3">
+          <div class="col-md-8">
+            <div class="input-group">
+              <div class="input-group-prepend">
+                <span class="input-group-text" style="background-color: #bcbcbc; border: none;">
+                  <i class="fas fa-search text-warning"></i>
+                </span>
+              </div>
+              <input class="form-control" id="searchInscripcionInput" type="text" placeholder="Buscar..." onkeyup="filterTable('tablaInscripciones', 'searchInscripcionInput')">
+            </div>
+          </div>
+        </div>
+        <table class="table table-sm table-responsive table-striped table-hover" id="tablaInscripciones">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Tipo Formación</th>
+              <th>Formación</th>
+              <th>Cohorte</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for inscripcion in inscripciones %}
+              <tr data-id="{{ inscripcion.idInscripcion }}" data-nombre="{{ inscripcion.idTF.nombreTipoFormacion }} {{ inscripcion.idFormacion.nombreFormacion }}" data-persona-id="{{ inscripcion.idPersona.idPersona }}">
+                <td>{{ inscripcion.idInscripcion }}</td>
+                <td>{{ inscripcion.idTF.nombreTipoFormacion }}</td>
+                <td>{{ inscripcion.idFormacion.nombreFormacion }}</td>
+                <td>{{ inscripcion.idCohorte.nombreCohorte }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <p id="mensajeSinRegistrosInscripcion" class="text-center text-muted" style="display: none;">No hay registros disponibles</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal para seleccionar Honorario -->
+<div class="modal fade" id="honorarioModal" tabindex="-1" role="dialog" aria-labelledby="honorarioModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="honorarioModalLabel">Seleccionar Honorario</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="row mb-3">
+          <div class="col-md-8">
+            <div class="input-group">
+              <div class="input-group-prepend">
+                <span class="input-group-text" style="background-color: #bcbcbc; border: none;">
+                  <i class="fas fa-search text-warning"></i>
+                </span>
+              </div>
+              <input class="form-control" id="searchHonorarioInput" type="text" placeholder="Buscar..." onkeyup="filterTable('tablaHonorarios', 'searchHonorarioInput')">
+            </div>
+          </div>
+        </div>
+        <table class="table table-sm table-responsive table-striped table-hover" id="tablaHonorarios">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Cargo</th>
+              <th>Cohorte</th>
+              <th>Materia</th>
+              <th>Horas</th>
+              <th>Monto</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for honorario in honorarios %}
+              <tr data-id="{{ honorario.idHonorario }}" data-nombre="{{ honorario.idCargo.nombreCargo }}" data-persona-id="honorario.idPersona.idPersona" >
+                <td>{{ honorario.idHonorario }}</td>
+                <td>{{ honorario.idCargo.nombreCargo }}</td>
+                <td>{{ honorario.idCohorte.nombreCohorte }}</td>
+                <td>{{ honorario.idMateria.nombreMateria }}</td>
+                <td>{{ honorario.horas }}</td>
+                <td>{{ honorario.monto }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <p id="mensajeSinRegistrosHonorario" class="text-center text-muted" style="display: none;">No hay registros disponibles</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal para seleccionar Solicitud -->
+<div class="modal fade" id="solicitudModal" tabindex="-1" role="dialog" aria-labelledby="solicitudModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width: 550px;" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="solicitudModalLabel">Seleccionar Solicitud</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="row mb-3">
+          <div class="col-md-8">
+            <div class="input-group">
+              <div class="input-group-prepend">
+                <span class="input-group-text" style="background-color: #bcbcbc; border: none;">
+                  <i class="fas fa-search text-warning"></i>
+                </span>
+              </div>
+              <input class="form-control" id="searchSolicitudInput" type="text" placeholder="Buscar..." onkeyup="filterTable('tablaSolicitudes', 'searchSolicitudInput')">
+            </div>
+          </div>
+        </div>
+        <table class="table table-sm table-responsive table-striped table-hover" id="tablaSolicitudes">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Tramite</th>
+              <th>Servicio</th>
+              <th>Monto Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for solicitud in solicitudes %}
+              <tr data-id="{{ solicitud.idSoli }}" data-nombre="{{ solicitud.idTramite.nombreTramite }} {{ solicitud.idServicio.nombreServicio }}" data-monto="{{ solicitud.montoTotal }}" data-persona-id="{{ solicitud.idPersona.idPersona }}">
+                <td>{{ solicitud.idSoli }}</td>
+                <td>{{ solicitud.idTramite.nombreTramite }}</td>
+                <td>{{ solicitud.idServicio.nombreServicio }}</td>
+                <td>{{ solicitud.montoTotal }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <p id="mensajeSinRegistrosSolicitud" class="text-center text-muted" style="display: none;">No hay registros disponibles</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 
 <!-- Modal para seleccionar Plan de Cuenta (Debe) -->
 <div class="modal fade" id="planCuentaDebeModal" tabindex="-1" role="dialog" aria-labelledby="planCuentaDebeModalLabel" aria-hidden="true">
@@ -489,20 +744,7 @@
   </div>
 </div>
 
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-  // Botón "OK" redirige a factura_list
-  document.getElementById('okButton').addEventListener('click', function () {
-    window.location.href = "{% url 'factura_list' %}";
-  });
 
-  // Botón "Modificar" redirige a factura_detalle_edit
-  document.getElementById('modificarButton').addEventListener('click', function () {
-    const facturaId = "{{ result.detalle.idFactura }}"; // Asegúrate de que este ID esté disponible en el contexto
-    window.location.href = `/facturas/detalles/editar/${facturaId}/`;
-  });
-});
-</script>
 {% endblock content %}
 {% block javascripts %}
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -519,7 +761,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const ivaRetenido = document.getElementById('ivaRetenido');
   const islrRetenido = document.getElementById('islrRetenido');
   const totalNota = document.getElementById('totalNota');
-  const tipoFacturaSelect = document.getElementById('tipoFactura');
+  const tipoArticuloSelect = document.getElementById('tipoArticulo');
   const ingresoCheckbox = document.getElementById('ingresoCheckbox');
   const egresoCheckbox = document.getElementById('egresoCheckbox');
   const fechaEmision = document.getElementById('fechaEmision');
@@ -529,9 +771,11 @@ document.addEventListener('DOMContentLoaded', function() {
   const toggleReadonlyButton = document.getElementById('toggleReadonly');
   const camposReadonly = ['iva', 'ivaRetenido', 'islrRetenido', 'numeroNota','descuento', 'subtotalExento', 'subtotalGravado', 'totalNota', 'fechaEmision', 'fechaVencimiento', 'formaPago', 'plazoCredito'];
   descuento.value = '0.00'; // Inicializar descuento en 0
+  subtotalExento.value = '0.00'; // Inicializar descuento en 0
+  subtotalGravado.value = '0.00'; // Inicializar descuento en 0
+  tipoArticuloSelect.addEventListener('change', actualizarVisibilidadArticulos);
 
 
-  // Interceptar el envío del formulario
   notaForm.addEventListener('submit', async function (event) {
     event.preventDefault(); // Evitar el redireccionamiento por defecto
 
@@ -550,43 +794,35 @@ document.addEventListener('DOMContentLoaded', function() {
 
       const result = await response.json(); // Parsear la respuesta como JSON
 
-      if (response.ok && result.success) {
-            // Mostrar el modal con los detalles de la factura
-            const modalBody = document.getElementById('detalleFacturaModalBody');
-            modalBody.innerHTML = `
-                <p><strong>ID Factura:</strong> ${result.detalle.idFactura}</p>
-                <p><strong>Tipo de Item:</strong> ${result.detalle.tipoItem}</p>
-                <p><strong>Descripción:</strong> ${result.detalle.descripcion}</p>
-                <p><strong>Cantidad:</strong> ${result.detalle.cantidad}</p>
-                <p><strong>Precio Unitario:</strong> ${result.detalle.precioUnitario}</p>
-                <p><strong>Subtotal:</strong> ${result.detalle.subtotal}</p>
-                <p><strong>IVA:</strong> ${result.detalle.ivaItem}</p>
-                <p><strong>Total:</strong> ${result.detalle.totalItem}</p>
-            `;
-            $('#detalleFacturaModal').modal('show');
-             // Redirigir al enlace proporcionado en el JSON después de cerrar el modal
-        document.getElementById('okButton').addEventListener('click', function () {
-          window.location.href = result.redirect_url; // Usar la URL de redirección del JSON
-        });
-
-        }  else {
-        // Mostrar errores del servidor
+      if (result.success) {
+        // Mostrar alerta de éxito con dos botones
         Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: result.message || 'Ocurrió un error al procesar la solicitud.',
+          icon: 'success',
+          title: 'Nota creada exitosamente',
+          text: result.message,
+          showCancelButton: true,
+          confirmButtonText: 'Ver lista de notas',
+          cancelButtonText: 'Pagar',
+          confirmButtonColor: '#28a745',
+          cancelButtonColor: '#ffc107',
+        }).then((action) => {
+          if (action.isConfirmed) {
+            // Redirigir a la lista de notas
+            window.location.href = result.lista;
+          } else if (action.dismiss === Swal.DismissReason.cancel) {
+            // Redirigir a la página de pago
+            window.location.href = result.pagar;
+          }
         });
-    
+      } else if (result.errors) {
         // Mostrar errores específicos del formulario (si existen)
-        if (result.errors) {
-          for (const [field, messages] of Object.entries(result.errors)) {
-            const input = document.querySelector(`[name="${field}"]`);
-            if (input) {
-              const feedback = input.nextElementSibling;
-              if (feedback && feedback.classList.contains('invalid-feedback')) {
-                feedback.textContent = messages.join(', ');
-                input.classList.add('is-invalid');
-              }
+        for (const [field, messages] of Object.entries(result.errors)) {
+          const input = document.querySelector(`[name="${field}"]`);
+          if (input) {
+            const feedback = input.nextElementSibling;
+            if (feedback && feedback.classList.contains('invalid-feedback')) {
+              feedback.textContent = messages.join(', ');
+              input.classList.add('is-invalid');
             }
           }
         }
@@ -602,7 +838,6 @@ document.addEventListener('DOMContentLoaded', function() {
       submitButton.disabled = false; // Habilitar el botón nuevamente
     }
   });
-
   // Limpiar mensajes de error al modificar los campos
   notaForm.querySelectorAll('input, select, textarea').forEach((input) => {
     input.addEventListener('input', () => {
@@ -629,128 +864,138 @@ const inscripcionValue = urlParams.get('inscripcion');
 const solicitudValue = urlParams.get('solicitud');
 const honorarioValue = urlParams.get('honorario');
 
-// Si el parámetro 'inscripcion' existe
-if (inscripcionValue) {
-  // Asignar el valor al campo 'subtotalExento'
-  subtotalExento.value = parseFloat(inscripcionValue).toFixed(2);
-  subtotalExento.setAttribute('readonly', true); // Establecer en readonly
 
-  // Marcar la opción "Ingreso" en los checkboxes
-  ingresoCheckbox.checked = true;
+//  FUNCION PARA LA VISIBILIDAD DE ARTICULOS
+function actualizarVisibilidadArticulos() {
+  const tipoArticuloSelect = document.getElementById('tipoArticulo');
+  const noAplicaGroup = document.getElementById('noAplicaGroup');
+  const cuotaGroup = document.getElementById('cuotaGroup');
+  const inscripcionGroup = document.getElementById('inscripcionGroup');
+  const honorarioGroup = document.getElementById('honorarioGroup');
+  const solicitudGroup = document.getElementById('solicitudGroup');
 
-  // Habilitar el select de tipo de factura
-  tipoFacturaSelect.disabled = false;
+  const tipoArticulo = tipoArticuloSelect.value;
 
-  // Mostrar las opciones de ingreso y ocultar las de egreso
-  document.querySelector('.ingreso-options').style.display = 'block';
-  document.querySelector('.egreso-options').style.display = 'none';
+  // Ocultar todos los grupos inicialmente
+  noAplicaGroup.style.display = 'none';
+  cuotaGroup.style.display = 'none';
+  inscripcionGroup.style.display = 'none';
+  honorarioGroup.style.display = 'none';
+  solicitudGroup.style.display = 'none';
 
-  // Seleccionar la opción "Inscripción" en el select
-  setTimeout(() => {
-    tipoFacturaSelect.value = "INSCRIPCION"; // Seleccionar la opción "Inscripción"
-    tipoFacturaSelect.setAttribute('readonly', true); // Establecer en readonly
-  }, 0);
+  // Mostrar el grupo correspondiente según el valor seleccionado
+  switch (tipoArticulo) {
+    case 'INSCRIPCION':
+      inscripcionGroup.style.display = 'block';
+      break;
+    case 'SOLICITUD':
+      solicitudGroup.style.display = 'block';
+      break;
+    case 'HONORARIO_PROFESOR':
+      honorarioGroup.style.display = 'block';
+      break;
+    case 'CUOTA':
+      cuotaGroup.style.display = 'block';
+      break;
+    default:
+      noAplicaGroup.style.display = 'block'; // Mostrar "No aplica" si no hay coincidencia
+      break;
+  }
+}
 
-  // Establecer valores por defecto
-  subtotalGravado.value = '0.00'; // Inicializar subtotal gravado en 0
-  subtotalGravado.setAttribute('readonly', true); // Establecer en readonly
-  descuento.value = '0.00'; // Inicializar descuento en 0
-  descuento.setAttribute('readonly', true); // Establecer en readonly
+// Función para manejar los parámetros
+function manejarParametro(tipo, valor) {
+  if (!valor) return;
 
-  // Ejecutar los cálculos necesarios
+  switch (tipo) {
+    case 'INSCRIPCION':
+      subtotalExento.value = parseFloat(valor).toFixed(2);
+      subtotalExento.setAttribute('readonly', true);
+      ingresoCheckbox.checked = true;
+      tipoArticuloSelect.disabled = false;
+      document.querySelector('.ingreso-options').style.display = 'block';
+      document.querySelector('.egreso-options').style.display = 'none';
+      setTimeout(() => {
+        tipoArticuloSelect.value = tipo;
+        tipoArticuloSelect.setAttribute('readonly', true);
+        actualizarVisibilidadArticulos();
+      }, 0);
+      subtotalGravado.value = '0.00';
+      subtotalGravado.setAttribute('readonly', true);
+      descuento.value = '0.00';
+      descuento.setAttribute('readonly', true);
+      break;
+
+    case 'SOLICITUD':
+      subtotalExento.value = parseFloat(valor).toFixed(2);
+      subtotalExento.setAttribute('readonly', true);
+      ingresoCheckbox.checked = true;
+      tipoArticuloSelect.disabled = false;
+      document.querySelector('.ingreso-options').style.display = 'block';
+      document.querySelector('.egreso-options').style.display = 'none';
+      setTimeout(() => {
+        tipoArticuloSelect.value = tipo;
+        tipoArticuloSelect.setAttribute('readonly', true);
+        actualizarVisibilidadArticulos();
+      }, 0);
+      subtotalGravado.value = '0.00';
+      subtotalGravado.setAttribute('readonly', true);
+      descuento.value = '0.00';
+      descuento.removeAttribute('readonly');
+      descuento.readOnly = false;
+      break;
+
+    case 'HONORARIO_PROFESOR':
+      subtotalGravado.value = parseFloat(valor).toFixed(2);
+      subtotalGravado.setAttribute('readonly', true);
+      egresoCheckbox.checked = true;
+      tipoArticuloSelect.disabled = false;
+      document.querySelector('.ingreso-options').style.display = 'block';
+      document.querySelector('.egreso-options').style.display = 'none';
+      setTimeout(() => {
+        tipoArticuloSelect.value = tipo;
+        tipoArticuloSelect.setAttribute('readonly', true);
+        actualizarVisibilidadArticulos();
+      }, 0);
+      subtotalExento.value = '0.00';
+      subtotalExento.setAttribute('readonly', true);
+      descuento.value = '0.00';
+      descuento.setAttribute('readonly', true);
+      ivaRetenido.removeAttribute('readonly');
+      ivaRetenido.readOnly = false;
+      break;
+
+    default:
+      console.warn(`Tipo de parámetro desconocido: ${tipo}`);
+      break;
+  }
+
+  // Ejecutar cálculos necesarios
   calcularMontos();
 }
 
-// Si el parámetro 'solicitud' existe
-if (solicitudValue) {
-  // Asignar el valor al campo 'subtotalExento'
-  subtotalExento.value = parseFloat(solicitudValue).toFixed(2);
-  subtotalExento.setAttribute('readonly', true); // Establecer en readonly
+// Manejar los parámetros
+manejarParametro('INSCRIPCION', inscripcionValue);
+manejarParametro('SOLICITUD', solicitudValue);
+manejarParametro('HONORARIO_PROFESOR', honorarioValue);
 
-  // Marcar la opción "Ingreso" en los checkboxes
-  ingresoCheckbox.checked = true;
-
-  // Habilitar el select de tipo de factura
-  tipoFacturaSelect.disabled = false;
-
-  // Mostrar las opciones de ingreso y ocultar las de egreso
-  document.querySelector('.ingreso-options').style.display = 'block';
-  document.querySelector('.egreso-options').style.display = 'none';
-
-  // Seleccionar la opción "Inscripción" en el select
-  setTimeout(() => {
-    tipoFacturaSelect.value = "SOLICITUD"; // Seleccionar la opción "Solicitud"
-    tipoFacturaSelect.setAttribute('readonly', true); // Establecer en readonly
-  }, 0);
-
-  // Establecer valores por defecto
-  subtotalGravado.value = '0.00'; // Inicializar subtotal gravado en 0
-  subtotalGravado.setAttribute('readonly', true); // Establecer en readonly
-  descuento.value = '0.00'; // Inicializar descuento en 0
-  descuento.setAttribute('readonly', false); // Establecer en readonly
-  // Hacer editable el campo de IVA retenido
-  descuento.removeAttribute('readonly'); // Eliminar el atributo readonly
-  descuento.readOnly = false; // Asegurarse de que no esté bloqueado
-  // Ejecutar los cálculos necesarios
-  calcularMontos();
-}
-
-// Si el parámetro 'Honorario' existe
-if (honorarioValue) {
-  // Asignar el valor al campo 'subtotalGravado'
-  subtotalGravado.value = parseFloat(honorarioValue).toFixed(2);
-  subtotalGravado.setAttribute('readonly', true); // Establecer en readonly
-
-  // Marcar la opción "Ingreso" en los checkboxes
-  egresoCheckbox.checked = true;
-
-  // Habilitar el select de tipo de factura
-  tipoFacturaSelect.disabled = false;
-
-  // Mostrar las opciones de ingreso y ocultar las de egreso
-  document.querySelector('.ingreso-options').style.display = 'block';
-  document.querySelector('.egreso-options').style.display = 'none';
-
-  // Seleccionar la opción "Inscripción" en el select
-  setTimeout(() => {
-    tipoFacturaSelect.value = "HONORARIO_PROFESOR"; // Seleccionar la opción "Honorario"
-    tipoFacturaSelect.setAttribute('readonly', true); // Establecer en readonly
-  }, 0);
-
-  // Establecer valores por defecto
-  subtotalExento.value = '0.00'; // Inicializar subtotal gravado en 0
-  subtotalExento.setAttribute('readonly', true); // Establecer en readonly
-  descuento.value = '0.00'; // Inicializar descuento en 0
-  descuento.setAttribute('readonly', true); // Establecer en readonly
-
-  // Hacer editable el campo de IVA retenido
-  ivaRetenido.removeAttribute('readonly'); // Eliminar el atributo readonly
-  ivaRetenido.readOnly = false; // Asegurarse de que no esté bloqueado
-  // Ejecutar los cálculos necesarios
-  calcularMontos();
-}
-
-
-
-
-
-// Obtener el parámetro 'id' de la URL
+// Manejar el parámetro 'id' de la URL
 const idParam = urlParams.get('id');
-
-// Si el parámetro 'id' existe
 if (idParam) {
   const filaPersona = document.querySelector(`#tablaPersonas tr[data-id="${idParam}"]`);
   if (filaPersona) {
     const nombrePersona = filaPersona.getAttribute('data-nombre');
-    document.getElementById('personaInput').value = nombrePersona; // Asignar el nombre al input
-    document.getElementById('idPersona').value = idParam; // Asignar el ID al input oculto
+    document.getElementById('personaInput').value = nombrePersona;
+    document.getElementById('idPersona').value = idParam;
   }
 }
 
  // Manejar la selección de filas en el modal de Personas
  const tablaPersonas = document.getElementById('tablaPersonas');
+  const tablaCuotas = document.getElementById('tablaCuotas');
+
   if (tablaPersonas) {
-    tablaPersonas.addEventListener('click', function(event) {
+    tablaPersonas.addEventListener('click', function (event) {
       const fila = event.target.closest('tr');
       if (fila) {
         const idPersona = fila.getAttribute('data-id');
@@ -758,10 +1003,42 @@ if (idParam) {
         document.getElementById('personaInput').value = nombrePersona;
         document.getElementById('idPersona').value = idPersona;
         $('#personaModal').modal('hide'); // Cerrar el modal
+
+        // Realizar una solicitud AJAX para actualizar las cuotas
+        fetch(`/factura/obtener-cuotas/?idPersona=${idPersona}`)
+          .then(response => response.json())
+          .then(data => {
+            const tbody = tablaCuotas.querySelector('tbody');
+            tbody.innerHTML = ''; // Limpiar la tabla de cuotas
+
+            if (data.cuotas.length > 0) {
+              data.cuotas.forEach(cuota => {
+                cuota.inscripciones.forEach(inscripcion => {
+                  const row = document.createElement('tr');
+                  row.setAttribute('data-id', cuota.idCuota);
+                  row.setAttribute('data-nombre', cuota.nombreCuota);
+                  row.setAttribute('data-valor', cuota.valorCuota);
+                  row.setAttribute('data-inscripcion-id', inscripcion.idInscripcion);
+
+                  row.innerHTML = `
+                    <td>${cuota.idCuota}</td>
+                    <td>${cuota.nombreCuota}</td>
+                    <td>${cuota.valorCuota}</td>
+                    <td>${inscripcion.idInscripcion}</td>
+                    <td>${inscripcion.nombreFormacion}</td>
+                  `;
+                  tbody.appendChild(row);
+                });
+              });
+            } else {
+              const mensajeSinRegistros = document.getElementById('mensajeSinRegistrosCuota');
+              mensajeSinRegistros.style.display = 'block';
+            }
+          })
+          .catch(error => console.error('Error al cargar cuotas:', error));
       }
     });
   }
-
   // Manejar la selección de filas en el modal de Empresas
   const tablaEmpresas = document.getElementById('tablaEmpresas');
   if (tablaEmpresas) {
@@ -822,7 +1099,7 @@ if (idParam) {
       empresaGroup.style.display = 'block';
     }
   }
-  
+
 
   // Eventos para cambiar la visibilidad según la selección
   personaCheckbox.addEventListener('change', actualizarVisibilidadEntidad);
@@ -856,12 +1133,12 @@ if (idParam) {
     const gravado = parseFloat(subtotalGravado.value) || 0;
     const exento = parseFloat(subtotalExento.value) || 0;
     const descuentoValor = parseFloat(descuento.value) || 0;
-    const tipoFactura = tipoFacturaSelect.value;
+    const tipoArticulo = tipoArticuloSelect.value;
 
-    const parametroIva = obtenerParametro('IVA_GENERAL', tipoFactura);
-    const parametroRetencionIva = obtenerParametro('IVA_RETENIDO_SERVICIOS', tipoFactura);
-    const parametroRetencionIslr = egresoCheckbox.checked 
-      ? obtenerParametro(tipoFactura === 'HONORARIO_PROFESOR' ? 'ISLR_HONORARIOS' : 'ISLR_SERVICIOS', tipoFactura) 
+    const parametroIva = obtenerParametro('IVA_GENERAL', tipoArticulo);
+    const parametroRetencionIva = obtenerParametro('IVA_RETENIDO_SERVICIOS', tipoArticulo);
+    const parametroRetencionIslr = egresoCheckbox.checked
+      ? obtenerParametro(tipoArticulo === 'HONORARIO_PROFESOR' ? 'ISLR_HONORARIOS' : 'ISLR_SERVICIOS', tipoArticulo)
       : null;
 
     const porcentajeIva = parametroIva?.porcentaje || 16;
@@ -893,6 +1170,66 @@ if (idParam) {
     fecha.setDate(fecha.getDate() + dias);
     fechaVencimiento.value = fecha.toISOString().split('T')[0];
   }
+
+
+  
+  const articulosDiv = document.getElementById('articulos');
+
+  // Validar el campo activo dentro del div "articulos"
+  notaForm.addEventListener('submit', function (event) {
+    const activeGroup = articulosDiv.querySelector('div[style*="display: block"]'); // Obtener el grupo activo
+    if (activeGroup) {
+      const input = activeGroup.querySelector('input[type="text"]'); // Buscar el campo de texto dentro del grupo activo
+      const hiddenInput = activeGroup.querySelector('input[type="hidden"]'); // Buscar el campo oculto dentro del grupo activo
+
+      if (!hiddenInput.value) { // Validar si el campo oculto está vacío
+        event.preventDefault(); // Evitar el envío del formulario
+        input.classList.add('is-invalid'); // Agregar la clase de error
+        const feedback = activeGroup.querySelector('.invalid-feedback');
+        if (feedback) {
+          feedback.style.display = 'block'; // Mostrar el mensaje de error
+        }
+        
+      } else {
+        input.classList.remove('is-invalid'); // Remover la clase de error si el campo tiene valor
+        const feedback = activeGroup.querySelector('.invalid-feedback');
+        if (feedback) {
+          feedback.style.display = 'none'; // Ocultar el mensaje de error
+        }
+      }
+    }
+  });
+  const personaInput = document.getElementById('personaInput');
+  const idPersonaInput = document.getElementById('idPersona');
+
+  // Validar el campo de persona al enviar el formulario
+  notaForm.addEventListener('submit', function (event) {
+    if (!idPersonaInput.value) { // Validar si el campo oculto está vacío
+      event.preventDefault(); // Evitar el envío del formulario
+      personaInput.classList.add('is-invalid'); // Agregar la clase de error
+      const feedback = personaInput.nextElementSibling;
+      if (feedback && feedback.classList.contains('invalid-feedback')) {
+        feedback.style.display = 'block'; // Mostrar el mensaje de error
+      }
+    
+    } else {
+      personaInput.classList.remove('is-invalid'); // Remover la clase de error si el campo tiene valor
+      const feedback = personaInput.nextElementSibling;
+      if (feedback && feedback.classList.contains('invalid-feedback')) {
+        feedback.style.display = 'none'; // Ocultar el mensaje de error
+      }
+    }
+  });
+  // Limpiar mensajes de error al modificar los campos
+  articulosDiv.querySelectorAll('input').forEach((input) => {
+    input.addEventListener('input', () => {
+      input.classList.remove('is-invalid');
+      const feedback = input.nextElementSibling;
+      if (feedback && feedback.classList.contains('invalid-feedback')) {
+        feedback.style.display = 'none';
+      }
+    });
+  });
 
   // Validar que la fecha de vencimiento no sea anterior a la fecha de emisión
   fechaVencimiento.addEventListener('change', () => {
@@ -946,20 +1283,20 @@ toggleReadonlyButton.addEventListener('click', () => {
   // Actualizar opciones de tipo de factura según el tipo de operación
   function actualizarOpciones() {
     const isIngreso = ingresoCheckbox.checked;
-    tipoFacturaSelect.disabled = !isIngreso && !egresoCheckbox.checked;
+    tipoArticuloSelect.disabled = !isIngreso && !egresoCheckbox.checked;
     document.querySelector('.ingreso-options').style.display = isIngreso ? 'block' : 'none';
     document.querySelector('.egreso-options').style.display = isIngreso ? 'none' : 'block';
-    tipoFacturaSelect.value = '';
+    tipoArticuloSelect.value = '';
     calcularMontos();
   }
 
   // Eventos para actualizar cálculos y fechas
-  [subtotalExento, subtotalGravado, descuento, tipoFacturaSelect].forEach(el => {
+  [subtotalExento, subtotalGravado, descuento, tipoArticuloSelect].forEach(el => {
     el.addEventListener('input', calcularMontos);
     el.addEventListener('change', calcularMontos);
   });
 
-  
+
   // Función para actualizar la visibilidad del campo de plazo de crédito
   function actualizarVisibilidadPlazoCredito() {
     if (formaPago.value === 'credito') {
@@ -991,4 +1328,69 @@ toggleReadonlyButton.addEventListener('click', () => {
   establecerFechaHoy();
 });
 </script>
+<!-- TABLAS HONORARIO Y CUOTA -->
+<script>
+
+  document.addEventListener('DOMContentLoaded', function () {
+  // Manejar la selección de filas en el modal de Cuotas
+  const tablaCuotas = document.getElementById('tablaCuotas');
+  if (tablaCuotas) {
+    tablaCuotas.addEventListener('click', function (event) {
+      const fila = event.target.closest('tr');
+      if (fila) {
+        const idCuota = fila.getAttribute('data-id');
+        const nombreCuota = fila.getAttribute('data-nombre');
+        document.getElementById('cuota').value = nombreCuota;
+        document.getElementById('idCuota').value = idCuota;
+        $('#cuotaModal').modal('hide'); // Cerrar el modal
+      }
+    });
+  }
+
+  // Manejar la selección de filas en el modal de Inscripciones
+  const tablaInscripciones = document.getElementById('tablaInscripciones');
+  if (tablaInscripciones) {
+    tablaInscripciones.addEventListener('click', function (event) {
+      const fila = event.target.closest('tr');
+      if (fila) {
+        const idInscripcion = fila.getAttribute('data-id');
+        const nombreInscripcion = fila.getAttribute('data-nombre');
+        document.getElementById('inscripcion').value = nombreInscripcion;
+        document.getElementById('idInscripcion').value = idInscripcion;
+        $('#inscripcionModal').modal('hide'); // Cerrar el modal
+      }
+    });
+  }
+
+  // Manejar la selección de filas en el modal de Honorarios
+  const tablaHonorarios = document.getElementById('tablaHonorarios');
+  if (tablaHonorarios) {
+    tablaHonorarios.addEventListener('click', function (event) {
+      const fila = event.target.closest('tr');
+      if (fila) {
+        const idHonorario = fila.getAttribute('data-id');
+        const nombreHonorario = fila.getAttribute('data-nombre');
+        document.getElementById('honorario').value = nombreHonorario;
+        document.getElementById('idHonorario').value = idHonorario;
+        $('#honorarioModal').modal('hide'); // Cerrar el modal
+      }
+    });
+  }
+
+  // Manejar la selección de filas en el modal de Solicitudes
+  const tablaSolicitudes = document.getElementById('tablaSolicitudes');
+  if (tablaSolicitudes) {
+    tablaSolicitudes.addEventListener('click', function (event) {
+      const fila = event.target.closest('tr');
+      if (fila) {
+        const idSolicitud = fila.getAttribute('data-id');
+        const nombreSolicitud = fila.getAttribute('data-nombre');
+        document.getElementById('solicitud').value = nombreSolicitud;
+        document.getElementById('idSolicitud').value = idSolicitud;
+        $('#solicitudModal').modal('hide'); // Cerrar el modal
+      }
+    });
+  }
+});
+  </script>
 {% endblock javascripts %}

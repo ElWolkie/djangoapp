@@ -3,19 +3,22 @@ from . import views
 
 urlpatterns = [
     # Notas
-    # path('notas/', views.nota_list, name='nota_list'),
+    path('notas/', views.nota_list, name='nota_list'),
     path('notas/nueva/', views.notas_create, name='nota_create'),
     # path('notas/editar/<int:pk>/', views.nota_edit, name='nota_edit'),
     # path('notas/eliminar/<int:pk>/', views.nota_delete, name='nota_delete'),
 
     # Facturas
+    # Facturas
     path('facturas/', views.factura_list, name='factura_list'),
     path('facturas/<int:pk>/', views.factura_detail, name='factura_detail'),
-    path('facturas/nueva/', views.factura_create_notas, name='factura_create'),
+    path('facturas/nueva/', views.factura_create_notas, name='factura_create_notas'),
     path('facturas/nueva/<int:nota_id>/', views.factura_create_notas, name='factura_create'),
+
     path('facturas/editar/<int:pk>/', views.factura_edit, name='factura_edit'),
     path('facturas/eliminar/<int:pk>/', views.factura_delete, name='factura_delete'),
     path('facturas/cargando/', views.factura_cargando, name='factura_cargando'),
+    path('obtener-cuotas/', views.obtener_cuotas, name='obtener_cuotas'),
 
     # Reportes
     path('facturas/reporteFacturas', views.reporte_facturas_pdf, name='reporte_facturas_pdf'),
@@ -31,6 +34,7 @@ urlpatterns = [
     path('pagos/', views.pago_list, name='pago_list'),
     path('pagos/<int:pk>/', views.pago_detail, name='pago_detail'),
     path('pagos/nuevo/', views.pago_create, name='pago_create'),
+    path('pagos/nuevo/<int:pk>/', views.pago_create, name='pago_create'),
     path('pagos/editar/<int:pk>/', views.pago_edit, name='pago_edit'),
     path('pagos/eliminar/<int:pk>/', views.pago_delete, name='pago_delete'),
 
