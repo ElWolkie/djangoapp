@@ -15,6 +15,14 @@
   #tablaNotas th, #tablaCuentas th {
     font-weight: bold;
   }
+  #bancos {
+  transition: opacity 0.3s ease;
+}
+
+.hidden {
+  opacity: 0;
+  pointer-events: none; /* Evita la interacción mientras se oculta */
+}
 </style>
 {% endblock stylesheets %}
 
@@ -47,6 +55,42 @@
         <div class="invalid-feedback">Por favor seleccione una nota.</div>
       </div>
       <div class="form-group col-md-6">
+        <label for="formaPago">Forma de Pago:</label>
+        <select id="formaPago" name="formaPago" class="form-control text-dark" required>
+          <option value="" disabled selected>Seleccione la forma de pago...</option>
+          <option value="EFECTIVO">Efectivo</option>
+          <option value="TRANSFERENCIA">Transferencia</option>
+          <option value="TARJETA">Tarjeta</option>
+          <option value="CHEQUE">Cheque</option>
+        </select>
+        <div class="invalid-feedback">Por favor seleccione una forma de pago.</div>
+      </div>
+     
+    </div>
+
+    <!-- Monto y Fecha de Pago -->
+    <div class="form-row">
+      <div class="form-group col-md-6">
+        <label for="idTasa">Moneda:</label>
+        <select id="idTasa" name="idTasa" class="form-control text-dark" required>
+          <option value="" disabled selected>Seleccione una moneda...</option>
+          {% for moneda in monedas %}
+            <option value="{{ moneda.ultima_idTasa }}">{{ moneda.idMoneda__nombreMoneda }}{% if moneda.ultima_tasa %} | Tasa: {{ moneda.ultima_tasa }}{% else %} - Sin tasa{% endif %}</option>
+          {% endfor %}
+        </select>
+        <div class="invalid-feedback">Por favor seleccione una moneda.</div>
+      </div>
+      <div class="form-group col-md-6">
+        <label for="monto">Monto:</label>
+        <input type="number" id="monto" name="monto" class="form-control text-dark" placeholder="Ingrese el monto del pago" step="0.0001" min="0" required />
+        <div class="invalid-feedback">Por favor ingrese un monto válido.</div>
+        <small id="deudaNota" class="form-text text-muted">Seleccione una nota para ver la deuda.</small>
+      </div>
+    </div>
+
+    <!-- Forma de Pago y Moneda -->
+    <div  class="form-row">
+      <div id="bancos" class="form-group col-md-6">
         <label for="cuentaBancoInput">Cuenta Bancaria:</label>
         <div class="input-group">
           <input type="text" id="cuentaBancoInput" class="form-control text-dark" placeholder="Seleccione una cuenta bancaria" readonly required />
@@ -58,63 +102,27 @@
         <input type="hidden" id="idPlanCuentaDebe" name="idPlanCuentaDebe" required /> <!-- Input oculto para el idPlanCuenta -->
         <div class="invalid-feedback">Por favor seleccione una cuenta bancaria.</div>
       </div>
-    </div>
-
-    <!-- Monto y Fecha de Pago -->
-    <div class="form-row">
-      <div class="form-group col-md-6">
-        <label for="monto">Monto:</label>
-        <input type="number" id="monto" name="monto" class="form-control text-dark" placeholder="Ingrese el monto del pago" step="0.0001" min="0" required />
-        <div class="invalid-feedback">Por favor ingrese un monto válido.</div>
-        <small id="deudaNota" class="form-text text-muted">Seleccione una nota para ver la deuda.</small>
-
-      </div>
-      <div class="form-group col-md-6">
-        <label for="idTasa">Moneda:</label>
-        <select id="idTasa" name="idTasa" class="form-control text-dark" required>
-          <option value="" disabled selected>Seleccione una moneda...</option>
-          {% for moneda in monedas %}
-            <option value="{{ moneda.ultima_idTasa }}">{{ moneda.idMoneda__nombreMoneda }}{% if moneda.ultima_tasa %} | Tasa: {{ moneda.ultima_tasa }}{% else %} - Sin tasa{% endif %}</option>
-          {% endfor %}
-        </select>
-        <div class="invalid-feedback">Por favor seleccione una moneda.</div>
-      </div>
-     
-    </div>
-
-    <!-- Forma de Pago y Moneda -->
-    <div class="form-row">
-      <div class="form-group col-md-6">
-        <label for="formaPago">Forma de Pago:</label>
-        <select id="formaPago" name="formaPago" class="form-control text-dark" required>
-          <option value="" disabled selected>Seleccione la forma de pago...</option>
-          <option value="efectivo">Efectivo</option>
-          <option value="transferencia">Transferencia</option>
-          <option value="tarjeta">Tarjeta</option>
-          <option value="cheque">Cheque</option>
-        </select>
-        <div class="invalid-feedback">Por favor seleccione una forma de pago.</div>
-      </div>
-      <div class="form-group col-md-6">
-        <label for="fechaPago">Fecha de Pago:</label>
-        <input type="date" id="fechaPago" name="fechaPago" class="form-control text-dark" max="{{ today_date }}" required />
-        <div class="invalid-feedback">Por favor ingrese una fecha de pago válida.</div>
-      </div>
-    </div>
-
-    <!-- Referencia y Observaciones -->
-    <div class="form-row">
-      <div class="form-group col-md-12">
+      <div id="bancos2" class="form-group col-md-6">
         <label for="referencia">Referencia:</label>
         <input type="text" id="referencia" name="referencia" class="form-control text-dark" placeholder="Ingrese la referencia del pago (opcional)" maxlength="100" />
       </div>
+
     </div>
+
+    <!-- Referencia y Observaciones -->
     <div class="form-row">
       <div class="form-group col-md-12">
         <label for="observaciones">Observaciones:</label>
         <textarea id="observaciones" name="observaciones" class="form-control text-dark" placeholder="Ingrese observaciones adicionales (opcional)" rows="3"></textarea>
       </div>
       <input type="hidden" id="tasaConfiguracion" value="{{ tasa_configuracion_valor }}" />
+    </div>
+    <div class="form-row">
+      <div class="form-group col-md-6 mx-auto">
+        <label for="fechaPago">Fecha de Pago:</label>
+        <input type="date" id="fechaPago" name="fechaPago" class="form-control text-dark" max="{{ today_date }}" required />
+        <div class="invalid-feedback">Por favor ingrese una fecha de pago válida.</div>
+      </div> 
     </div>
 
     <div class="text-center">
@@ -223,6 +231,7 @@
     manejarSeleccionModalCuentas();
     validarMontoContraDeuda();
     autoseleccionarNota();
+    manejarFormaPago(); // Llamar a la función para manejar la forma de pago
 
     /**
      * Establece la fecha de pago por defecto con la fecha de hoy.
@@ -260,15 +269,23 @@
           notaInput.classList.remove('is-invalid');
         }
 
-        // Validar Cuenta Bancaria
+
+        // Validar Cuenta Bancaria solo si la forma de pago no es "Efectivo"
         const cuentaBancoInput = document.getElementById('cuentaBancoInput');
         const idCuentaBanco = document.getElementById('idCuentaBanco').value;
-        if (!idCuentaBanco) {
-          cuentaBancoInput.classList.add('is-invalid');
-          isValid = false;
+        const formaPagoSelect = document.getElementById('formaPago');
+
+        if (formaPagoSelect.value !== 'EFECTIVO') {
+          if (!idCuentaBanco) {
+            cuentaBancoInput.classList.add('is-invalid');
+            isValid = false;
+          } else {
+            cuentaBancoInput.classList.remove('is-invalid');
+          }
         } else {
-          cuentaBancoInput.classList.remove('is-invalid');
+          cuentaBancoInput.classList.remove('is-invalid'); // Asegurarse de que no esté marcado como inválido
         }
+
 
         // Validar el formulario completo
         if (!isValid || !pagoForm.checkValidity()) {
@@ -404,8 +421,7 @@
         const tasaOption = tasaSelect.options[tasaSelect.selectedIndex];
         const tasaPago = parseFloat(tasaOption.textContent.split('Tasa: ')[1]) || 1;
 
-        const montoConvertido = (monto * tasaPago) / tasaConfiguracion;
-
+        const montoConvertido = ((monto * tasaPago) / tasaConfiguracion).toFixed(2);
         if (montoConvertido > deuda) {
           montoInput.classList.add('is-invalid');
           montoInput.setCustomValidity('El monto no puede superar la deuda actual.');
@@ -442,21 +458,57 @@
       }
     }
     /**
+     * 
+     *   /**
+     * Muestra u oculta el div de bancos dependiendo de la forma de pago seleccionada.
+     */
+     function manejarFormaPago() {
+  const formaPagoSelect = document.getElementById('formaPago');
+  const bancosDiv = document.getElementById('bancos');
+  const bancosDiv2 = document.getElementById('bancos2');
+
+  formaPagoSelect.addEventListener('change', function () {
+    if (formaPagoSelect.value === 'EFECTIVO') {
+      bancosDiv.style.opacity = '0'; // Inicia la transición de opacidad
+      bancosDiv2.style.opacity = '0'; // Inicia la transición de opacidad
+      setTimeout(() => {
+        bancosDiv.style.display = 'none'; // Cambia el display después de la transición
+        bancosDiv2.style.display = 'none'; // Cambia el display después de la transición
+      }, 300); // Tiempo igual al de la transición CSS
+    } else {
+      bancosDiv.style.display = 'block'; // Muestra el div
+      bancosDiv2.style.display = 'block'; // Muestra el div
+      setTimeout(() => {
+        bancosDiv.style.opacity = '1'; // Restaura la opacidad
+        bancosDiv2.style.opacity = '1'; // Restaura la opacidad
+      }, 10); // Pequeño retraso para asegurar que el display se aplique antes de la opacidad
+    }
+  });
+
+  // Inicializar el estado al cargar la página
+  if (formaPagoSelect.value === 'EFECTIVO') {
+    bancosDiv.style.opacity = '0';
+    bancosDiv.style.display = 'none';
+    bancosDiv2.style.opacity = '0';
+    bancosDiv2.style.display = 'none';
+  } else {
+    bancosDiv2.style.display = 'block';
+    bancosDiv2.style.opacity = '1';
+  }
+}
 /**
- * Obtiene el token CSRF del formulario o del DOM.
- * @returns {string} Token CSRF.
+ * Obtiene el token CSRF desde las cookies.
+ * @returns {string} El token CSRF.
  */
  function getCSRFToken() {
-  const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-  return csrfToken;
+  const csrfCookie = document.cookie.split('; ').find(row => row.startsWith('csrftoken='));
+  return csrfCookie ? csrfCookie.split('=')[1] : '';
 }
-
 /**
  * Muestra un mensaje de éxito cuando el pago es registrado correctamente.
  * @param {Object} data - Datos recibidos del servidor.
  */
-function mostrarMensajeExito(data) {
-  // Caso 2: El pago fue exitoso, la deuda fue saldada y se cerró la nota
+ function mostrarMensajeExito(data) {
   if (data.message.includes('La nota ha sido pagada en su totalidad')) {
     Swal.fire({
       icon: 'success',
@@ -470,59 +522,69 @@ function mostrarMensajeExito(data) {
         <p><strong>Referencia:</strong> ${data.pago.referencia || 'N/A'}</p>
         <p class="text-success">${data.message}</p>
       `,
-      showCancelButton: true,
-      confirmButtonText: 'Factura General',
-      cancelButtonText: 'Factura Individualizada',
+      showConfirmButton: true,
+      confirmButtonText: 'Generar Factura',
       confirmButtonColor: '#28a745',
-      cancelButtonColor: '#ffc107',
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      allowEnterKey: false
     }).then((result) => {
       if (result.isConfirmed) {
-        // Emitir factura general automáticamente
-        fetch(`/factura/create/general/${data.pago.idNota}`, {
+        fetch(data.redirect_url, {
           method: 'POST',
           headers: {
             'X-Requested-With': 'XMLHttpRequest',
             'Content-Type': 'application/json',
-            'X-CSRFToken': getCSRFToken(), // Agregar el token CSRF
+            'X-CSRFToken': getCSRFToken(),
           },
         })
           .then((response) => {
             if (!response.ok) {
-              throw new Error('Error al generar la factura general');
+              return response.json().then((errorData) => {
+                throw new Error(errorData.message || 'Error al generar la factura');
+              });
             }
             return response.json();
           })
           .then((facturaData) => {
             Swal.fire({
               icon: 'success',
-              title: 'Factura General creada exitosamente',
+              title: 'Factura creada exitosamente',
               html: `
-                <p><strong>Número de Factura:</strong> ${facturaData.factura.numeroFactura}</p>
-                <p><strong>Total:</strong> ${facturaData.factura.totalVenta}</p>
+                <p><strong>Número de Factura:</strong> ${facturaData.facturas.join(', ')}</p>
+                <p><strong>Mensaje:</strong> ${facturaData.message}</p>
               `,
               confirmButtonText: 'Aceptar',
               confirmButtonColor: '#28a745',
             }).then(() => {
-              window.location.href = '/factura/list'; // Redirigir a la lista de facturas
+              window.location.href = '/factura/cargando'; // Redirigir a factura_cargando
             });
           })
           .catch((error) => {
             console.error('Error:', error);
             Swal.fire({
               icon: 'error',
-              title: 'Error inesperado',
-              text: 'Ocurrió un error al generar la factura general.',
-              confirmButtonText: 'Aceptar',
-              confirmButtonColor: '#dc3545',
+              title: 'Error al generar la factura',
+              text: error.message || 'Ocurrió un error inesperado.',
+              showCancelButton: true,
+              confirmButtonText: 'Intentar de nuevo',
+              cancelButtonText: 'Ir a la lista de facturas',
+              confirmButtonColor: '#28a745',
+              cancelButtonColor: '#dc3545',
+              allowOutsideClick: false,
+              allowEscapeKey: false,
+              allowEnterKey: false
+            }).then((result) => {
+              if (result.isConfirmed) {
+                mostrarMensajeExito(data);
+              } else if (result.dismiss === Swal.DismissReason.cancel) {
+                window.location.href = '/factura/list';
+              }
             });
           });
-      } else if (result.dismiss === Swal.DismissReason.cancel) {
-        // Redirigir a la vista de factura individualizada
-        window.location.href = `/factura/create/individualizada/${data.pago.idNota}`;
       }
     });
   } else {
-    // Caso 1: El pago fue exitoso, pero aún hay deuda
     Swal.fire({
       icon: 'warning',
       title: 'Pago registrado exitosamente',
@@ -541,11 +603,11 @@ function mostrarMensajeExito(data) {
       },
       buttonsStyling: false,
     }).then(() => {
-      // Redirigir a la vista de creación de pagos con el ID de la nota como parámetro
       window.location.href = data.redirect_url;
     });
   }
-}    });
+}
+    });
 
 </script>
 {% endblock javascripts %}

@@ -9,7 +9,7 @@
 
 {% block content %}
 <div class="container mt-5">
-  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Lista de Notas de Cobro</h2>
+  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Lista de Facturas</h2>
 
   {% if messages %}
     {% for message in messages %}
@@ -29,9 +29,6 @@
         </div>
         <input class="form-control" id="searchInput" type="text" placeholder="Buscar..." onkeyup="filterTable()">
       </div>
-    </div>
-    <div class="col-md-4">
-      <a href="{% url 'factura_create' %}" class="btn btn-warning btn-square btn-sm my-2" title="Registrar Factura">+</a>
     </div>
         <div class="col-md-4 text-end">
       <a href="{% url 'reporte_facturas_pdf' %}" class="btn btn-outline-danger btn-sm" target="_blank">
@@ -170,5 +167,55 @@
       emptyMessage.style.display = 'block';
     }
   }
+
+  $(function(){
+    // Crear factura desde una nota
+    $('.create-factura-btn').on('click', function(e) {
+        e.preventDefault();
+        const url = $(this).data('url');
+        
+        // Verificar si es una solicitud AJAX
+        $.ajax({
+            url: url,
+            method: 'GET',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            success: function(resp) {
+                if (resp.success) {
+                    Swal.fire({
+                        title: 'Éxito',
+                        text: resp.message,
+                        icon: 'success',
+                        confirmButtonText: 'Entendido'
+                    }).then(() => {
+                        if (resp.redirect_url) {
+                            window.location.href = resp.redirect_url;
+                        } else {
+                            location.reload();
+                        }
+                    });
+                } else {
+                    Swal.fire({
+                        title: 'Error',
+                        text: resp.message,
+                        icon: 'error',
+                        confirmButtonText: 'Entendido'
+                    });
+                }
+            },
+            error: function(xhr) {
+                let errorMessage = "Error inesperado en el servidor. Por favor, inténtelo nuevamente.";
+                if (xhr.responseJSON && xhr.responseJSON.message) {
+                    errorMessage = xhr.responseJSON.message;
+                }
+                Swal.fire({
+                    title: "Error",
+                    text: errorMessage,
+                    icon: "error",
+                    confirmButtonText: "Entendido"
+                });
+            }
+        });
+    });
+});
 </script>
 {% endblock javascripts %}

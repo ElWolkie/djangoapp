@@ -184,27 +184,27 @@
           </div>
         </div>
 
-
+        <div class="form-group col-md-6">
+          <label for="formaPago">Forma de Pago:</label>
+          <select id="formaPago" name="formaPago" class="form-control text-dark" required>
+            <option value="" disabled selected>Seleccione la forma de pago...</option>
+            <option value="contado">Contado</option>
+            <option value="credito">Crédito</option>
+          </select>
+          <div class="invalid-feedback">Por favor seleccione una forma de pago.</div>
+        </div>
       <div class="form-group col-md-6">
         <label for="fechaEmision">Fecha de Emisión:</label>
         <input type="date" id="fechaEmision" name="fechaEmision" class="form-control text-dark" max="{{ today_date }}" required />
         <div class="invalid-feedback">Por favor ingrese una fecha de emisión válida.</div>
       </div>
-      <div class="form-group col-md-6">
-        <label for="fechaVencimiento">Fecha de Vencimiento:</label>
-        <input type="date" id="fechaVencimiento" name="fechaVencimiento" class="form-control text-dark" />
-      </div>
     </div>
 
     <div class="form-row">
+     
       <div class="form-group col-md-6">
-        <label for="formaPago">Forma de Pago:</label>
-        <select id="formaPago" name="formaPago" class="form-control text-dark" required>
-          <option value="" disabled selected>Seleccione la forma de pago...</option>
-          <option value="contado">Contado</option>
-          <option value="credito">Crédito</option>
-        </select>
-        <div class="invalid-feedback">Por favor seleccione una forma de pago.</div>
+        <label for="fechaVencimiento">Fecha de Vencimiento:</label>
+        <input type="date" id="fechaVencimiento" name="fechaVencimiento" class="form-control text-dark" />
       </div>
       <div class="form-group col-md-6" id="plazoCreditoGroup" style="display: none;">
         <label for="plazoCredito">Plazo de Crédito (días):</label>
@@ -213,12 +213,13 @@
       </div>
       <div class="form-group col-md-6">
         <label for="idTasa">Moneda:</label>
-        <select id="idTasa" name="idTasa" class="form-control text-dark" required>
+        <select id="idTasa" name="idTasa" class="form-control text-dark" required readonlys>
 
-          <option value="" disabled selected>Seleccione una moneda...</option>
+          <!-- <option value="" disabled selected>Seleccione una moneda...</option> -->
           {% for moneda in monedas %}
-
-            <option value="{{ moneda.ultima_idTasa }}">{{ moneda.idMoneda__nombreMoneda }}{% if moneda.ultima_tasa %} | Tasa: {{ moneda.ultima_tasa }}{% else %} - Sin tasa{% endif %}</option>
+            <option value="{{ moneda.ultima_idTasa }}" {% if moneda.idMoneda__nombreMoneda == "DOLAR" %}selected{% endif %}>
+            {{ moneda.idMoneda__nombreMoneda }}{% if moneda.ultima_tasa %} | Tasa: {{ moneda.ultima_tasa }}{% else %} - Sin tasa{% endif %}
+            </option>
           {% endfor %}
         </select>
         <div class="invalid-feedback">Por favor seleccione una moneda.</div>
@@ -226,7 +227,7 @@
 
       <div class="form-group col-md-6">
         <label for="subtotalExento">Subtotal Exento:</label>
-        <input type="number" id="subtotalExento" name="subtotalExento" class="form-control text-dark" placeholder="Ingrese el subtotal exento" step="0.01" min="0" required />
+        <input type="text" id="subtotalExento" name="subtotalExento" class="form-control text-dark" placeholder="Ingrese el subtotal exento" step="0.01" min="0" required />
         <div class="invalid-feedback">Por favor ingrese un subtotal exento válido.</div>
       </div>
 
@@ -412,7 +413,7 @@
 
 <!-- Modal para seleccionar Cuota -->
 <div class="modal fade" id="cuotaModal" tabindex="-1" role="dialog" aria-labelledby="cuotaModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered"   1 qqqqqqqqqqqqqqqqqqqqqqqqqqqqq role="document">
+  <div class="modal-dialog modal-dialog-centered" style="max-width: 550px;" role="document">
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title" id="cuotaModalLabel">Seleccionar Cuota</h5>
@@ -437,20 +438,20 @@
           <thead>
             <tr>
               <th>ID Cuota</th>
+              <th>ID Inscripción</th>
               <th>Nombre Cuota</th>
               <th>Monto</th>
-              <th>ID Inscripción</th>
               <th>Formación</th>
             </tr>
           </thead>
           <tbody>
             {% for cuota in cuotas %}
               {% for inscripcion in cuota.inscripciones.all %}
-                <tr data-id="{{ cuota.idCuota }}" data-nombre="{{ cuota.nombreCuota }}" data-valor="{{ cuota.valorCuota }}" data-inscripcion-id="{{ inscripcion.idInscripcion }}">
+                <tr data-id="{{ cuota.idCuota }}" data-nombre="{{ cuota.nombreCuota }}" data-valor="{{ cuota.valorCuota }}" data-idIn= "{{ inscripcion.idInscripcion }}">
                   <td>{{ cuota.idCuota }}</td>
+                  <td>{{ inscripcion.idInscripcion }}</td>
                   <td>{{ cuota.nombreCuota }}</td>
                   <td>{{ cuota.valorCuota }}</td>
-                  <td>{{ inscripcion.idInscripcion }}</td>
                   <td>{{ inscripcion.idFormacion.nombreFormacion }}</td>
                 </tr>
               {% endfor %}
@@ -495,15 +496,17 @@
               <th>ID</th>
               <th>Tipo Formación</th>
               <th>Formación</th>
+              <th>Valor</th>
               <th>Cohorte</th>
             </tr>
           </thead>
           <tbody>
             {% for inscripcion in inscripciones %}
-              <tr data-id="{{ inscripcion.idInscripcion }}" data-nombre="{{ inscripcion.idTF.nombreTipoFormacion }} {{ inscripcion.idFormacion.nombreFormacion }}" data-persona-id="{{ inscripcion.idPersona.idPersona }}">
+              <tr data-id="{{ inscripcion.idInscripcion }}" data-valor="{{ inscripcion.idFormacion.valorInscripcion }}" data-nombre="{{ inscripcion.idTF.nombreTipoFormacion }} {{ inscripcion.idFormacion.nombreFormacion }}" data-persona-id="{{ inscripcion.idPersona.idPersona }}">
                 <td>{{ inscripcion.idInscripcion }}</td>
                 <td>{{ inscripcion.idTF.nombreTipoFormacion }}</td>
                 <td>{{ inscripcion.idFormacion.nombreFormacion }}</td>
+                <td>{{ inscripcion.idFormacion.valorInscripcion }}</td>
                 <td>{{ inscripcion.idCohorte.nombreCohorte }}</td>
               </tr>
             {% endfor %}
@@ -554,7 +557,7 @@
           </thead>
           <tbody>
             {% for honorario in honorarios %}
-              <tr data-id="{{ honorario.idHonorario }}" data-nombre="{{ honorario.idCargo.nombreCargo }}" data-persona-id="honorario.idPersona.idPersona" >
+              <tr data-id="{{ honorario.idHonorario }}" data-valor="{{ honorario.monto }}" data-nombre="{{ honorario.idCargo.nombreCargo }}" data-persona-id="honorario.idPersona.idPersona" >
                 <td>{{ honorario.idHonorario }}</td>
                 <td>{{ honorario.idCargo.nombreCargo }}</td>
                 <td>{{ honorario.idCohorte.nombreCohorte }}</td>
@@ -608,7 +611,7 @@
           </thead>
           <tbody>
             {% for solicitud in solicitudes %}
-              <tr data-id="{{ solicitud.idSoli }}" data-nombre="{{ solicitud.idTramite.nombreTramite }} {{ solicitud.idServicio.nombreServicio }}" data-monto="{{ solicitud.montoTotal }}" data-persona-id="{{ solicitud.idPersona.idPersona }}">
+              <tr data-id="{{ solicitud.idSoli }}" data-valor="{{ solicitud.montoTotal }}" data-nombre="{{ solicitud.idTramite.nombreTramite }} {{ solicitud.idServicio.nombreServicio }}" data-monto="{{ solicitud.montoTotal }}" data-persona-id="{{ solicitud.idPersona.idPersona }}">
                 <td>{{ solicitud.idSoli }}</td>
                 <td>{{ solicitud.idTramite.nombreTramite }}</td>
                 <td>{{ solicitud.idServicio.nombreServicio }}</td>
@@ -853,16 +856,13 @@ document.addEventListener('DOMContentLoaded', function() {
         window.location.href = "{% url 'factura_list' %}";
       });
 
-      // // Botón "Modificar" redirige a factura_detalle_edit
-      // document.getElementById('modificarButton').addEventListener('click', function () {
-      //   const facturaId = "{{ result.detalle.idFactura }}"; // Asegúrate de que este ID esté disponible en el contexto
-      //   window.location.href = `/facturas/detalles/editar/${facturaId}/`;
-      // });
+     
 // Obtener el parámetro 'inscripcion' de la URL
 const urlParams = new URLSearchParams(window.location.search);
 const inscripcionValue = urlParams.get('inscripcion');
 const solicitudValue = urlParams.get('solicitud');
 const honorarioValue = urlParams.get('honorario');
+const cuotaValue = urlParams.get('cuota');
 
 
 //  FUNCION PARA LA VISIBILIDAD DE ARTICULOS
@@ -944,7 +944,19 @@ function manejarParametro(tipo, valor) {
       descuento.removeAttribute('readonly');
       descuento.readOnly = false;
       break;
-
+      case 'CUOTA': // Agregar lógica para CUOTA
+      subtotalGravado.value = parseFloat(valor).toFixed(2);
+      subtotalGravado.setAttribute('readonly', true);
+      ingresoCheckbox.checked = true;
+      tipoArticuloSelect.disabled = false;
+      document.querySelector('.ingreso-options').style.display = 'block';
+      document.querySelector('.egreso-options').style.display = 'none';
+      setTimeout(() => {
+        tipoArticuloSelect.value = tipo;
+        tipoArticuloSelect.setAttribute('readonly', true);
+        actualizarVisibilidadArticulos();
+      }, 0);
+      
     case 'HONORARIO_PROFESOR':
       subtotalGravado.value = parseFloat(valor).toFixed(2);
       subtotalGravado.setAttribute('readonly', true);
@@ -978,18 +990,144 @@ function manejarParametro(tipo, valor) {
 manejarParametro('INSCRIPCION', inscripcionValue);
 manejarParametro('SOLICITUD', solicitudValue);
 manejarParametro('HONORARIO_PROFESOR', honorarioValue);
+manejarParametro('CUOTA', cuotaValue);
 
-// Manejar el parámetro 'id' de la URL
-const idParam = urlParams.get('id');
+const idParam = urlParams.get('idP');
+const idInscripcionParam = urlParams.get('id');
+const iHonorarioParam = urlParams.get('idH');
+const iSolicitudfParam = urlParams.get('idS');
+const iCuotaParam = urlParams.get('idC');
+
 if (idParam) {
   const filaPersona = document.querySelector(`#tablaPersonas tr[data-id="${idParam}"]`);
   if (filaPersona) {
     const nombrePersona = filaPersona.getAttribute('data-nombre');
     document.getElementById('personaInput').value = nombrePersona;
     document.getElementById('idPersona').value = idParam;
+
+    // Realizar la solicitud AJAX para actualizar las cuotas automáticamente
+    const url = idInscripcionParam && parseInt(idInscripcionParam) > 0 
+      ? `/factura/obtener-cuotas/?idPersona=${idParam}&idInscripcion=${idInscripcionParam}` 
+      : `/factura/obtener-cuotas/?idPersona=${idParam}`;
+    fetch(url)
+    .then(response => {
+      const tipoArticulo = document.getElementById('tipoArticulo').value; // Obtener el valor actualizado de tipoArticulo
+
+      if (tipoArticulo === 'CUOTA') { // Verificar si el artículo seleccionado es "CUOTA"
+      if (!response.ok) {
+        return response.json().then(data => {
+          if (data.error) {
+            lastError = data.error; // Almacenar el error en la variable global
+            Swal.fire({
+              icon: 'error',
+              title: 'Error',
+              text: data.error,
+            });
+          }
+          throw new Error(data.error || 'Error desconocido');
+        });
+      }
+    } else if (!response.ok) {
+      // Si el artículo no es "CUOTA", almacenar el error pero no mostrarlo
+      return response.json().then(data => {
+        if (data.error) {
+          lastError = data.error; // Almacenar el error en la variable global
+        }
+        throw new Error(data.error || 'Error desconocido');
+      });
+    }
+    return response.json();
+  })
+        .then(data => {
+        console.log("Datos recibidos:", data); // Verifica los datos aquí
+        const tablaCuotas = document.getElementById('tablaCuotas');
+        const tbody = tablaCuotas.querySelector('tbody');
+        tbody.innerHTML = ''; // Limpiar la tabla de cuotas
+
+        if (data.cuotas.length > 0) {
+          data.cuotas.forEach(cuota => {
+            cuota.inscripciones.forEach(inscripcion => {
+              const row = document.createElement('tr');
+              row.setAttribute('data-id', cuota.idCuota);
+              row.setAttribute('data-nombre', cuota.nombreCuota);
+              row.setAttribute('data-valor', cuota.valorCuota);
+              row.setAttribute('data-inscripcion-id', inscripcion.idInscripcion);
+
+              row.innerHTML = `
+                <td>${cuota.idCuota}</td>
+                <td>${cuota.nombreCuota}</td>
+                <td>${cuota.valorCuota}</td>
+                <td>${inscripcion.idInscripcion}</td>
+                <td>${inscripcion.nombreFormacion}</td>
+              `;
+              tbody.appendChild(row);
+            });
+          });
+        } else {
+          const mensajeSinRegistros = document.getElementById('mensajeSinRegistrosCuota');
+          mensajeSinRegistros.style.display = 'block';
+        }
+      })
+      .catch(error => console.error('Error al cargar cuotas:', error));
+
+      document.getElementById('tipoArticulo').addEventListener('change', function () {
+  const tipoArticulo = this.value; // Obtener el valor actualizado del select
+  if (tipoArticulo === 'CUOTA' && lastError) {
+    // Mostrar el error almacenado si el artículo ahora es "CUOTA"
+    Swal.fire({
+      icon: 'error',
+      title: 'Error',
+      text: lastError,
+    }).then(() => {
+      // Cambiar automáticamente el artículo a "INSCRIPCIÓN"
+      this.value = 'INSCRIPCION';
+      actualizarVisibilidadArticulos(); // Actualizar la visibilidad de los grupos
+    });
+    lastError = null; // Limpiar el error después de mostrarlo
+  }
+});
+  }
+}
+// Manejar el parámetro 'id' de la URL
+if (idInscripcionParam) {
+  const filaInscripcion = document.querySelector(`#tablaInscripciones tr[data-id="${idInscripcionParam}"]`);
+  if (filaInscripcion) {
+    const nombreInscripcion = filaInscripcion.getAttribute('data-nombre');
+    document.getElementById('inscripcion').value = nombreInscripcion;
+    document.getElementById('idInscripcion').value = idInscripcionParam;
+  }
+}
+// Manejar el parámetro 'idH' de la URL
+if (iHonorarioParam) {
+  const filaHonorario = document.querySelector(`#tablaHonorarios tr[data-id="${iHonorarioParam}"]`);
+  if (filaHonorario) {
+    const nombreHonorario = filaHonorario.getAttribute('data-nombre');
+    document.getElementById('honorario').value = nombreHonorario;
+    document.getElementById('idHonorario').value = iHonorarioParam;
   }
 }
 
+// Manejar el parámetro 'idS' de la URL
+if (iSolicitudfParam) {
+  const filaSolicitud = document.querySelector(`#tablaSolicitudes tr[data-id="${iSolicitudfParam}"]`);
+  if (filaSolicitud) {
+    const nombreSolicitud = filaSolicitud.getAttribute('data-nombre');
+    document.getElementById('solicitud').value = nombreSolicitud;
+    document.getElementById('idSolicitud').value = iSolicitudfParam;
+  }
+}
+
+// Manejar el parámetro 'idC' de la URL
+if (iCuotaParam) {
+  const filaCuota = document.querySelector(`#tablaCuotas tr[data-id="${iCuotaParam}"]`);
+  if (filaCuota) {
+    const nombreCuota = filaCuota.getAttribute('data-nombre');
+    document.getElementById('cuota').value = nombreCuota;
+    document.getElementById('idCuota').value = iCuotaParam;
+  } else {
+    console.warn(`No se encontró una fila en la tabla de cuotas con data-id="${iCuotaParam}"`);
+  }
+}
  // Manejar la selección de filas en el modal de Personas
  const tablaPersonas = document.getElementById('tablaPersonas');
   const tablaCuotas = document.getElementById('tablaCuotas');
@@ -1005,37 +1143,38 @@ if (idParam) {
         $('#personaModal').modal('hide'); // Cerrar el modal
 
         // Realizar una solicitud AJAX para actualizar las cuotas
-        fetch(`/factura/obtener-cuotas/?idPersona=${idPersona}`)
-          .then(response => response.json())
-          .then(data => {
-            const tbody = tablaCuotas.querySelector('tbody');
-            tbody.innerHTML = ''; // Limpiar la tabla de cuotas
+fetch(`/factura/obtener-cuotas/?idPersona=${idPersona}&idInscripcion=${idInscripcionParam}`)
+  .then(response => response.json())
+  .then(data => {
+    console.log("Datos recibidos:", data); // Verifica los datos aquí
+    const tbody = tablaCuotas.querySelector('tbody');
+    tbody.innerHTML = ''; // Limpiar la tabla de cuotas
 
-            if (data.cuotas.length > 0) {
-              data.cuotas.forEach(cuota => {
-                cuota.inscripciones.forEach(inscripcion => {
-                  const row = document.createElement('tr');
-                  row.setAttribute('data-id', cuota.idCuota);
-                  row.setAttribute('data-nombre', cuota.nombreCuota);
-                  row.setAttribute('data-valor', cuota.valorCuota);
-                  row.setAttribute('data-inscripcion-id', inscripcion.idInscripcion);
+    if (data.cuotas.length > 0) {
+      data.cuotas.forEach(cuota => {
+        cuota.inscripciones.forEach(inscripcion => {
+          const row = document.createElement('tr');
+          row.setAttribute('data-id', cuota.idCuota);
+          row.setAttribute('data-nombre', cuota.nombreCuota);
+          row.setAttribute('data-valor', cuota.valorCuota);
+          row.setAttribute('data-inscripcion-id', inscripcion.idInscripcion);
 
-                  row.innerHTML = `
-                    <td>${cuota.idCuota}</td>
-                    <td>${cuota.nombreCuota}</td>
-                    <td>${cuota.valorCuota}</td>
-                    <td>${inscripcion.idInscripcion}</td>
-                    <td>${inscripcion.nombreFormacion}</td>
-                  `;
-                  tbody.appendChild(row);
-                });
-              });
-            } else {
-              const mensajeSinRegistros = document.getElementById('mensajeSinRegistrosCuota');
-              mensajeSinRegistros.style.display = 'block';
-            }
-          })
-          .catch(error => console.error('Error al cargar cuotas:', error));
+          row.innerHTML = `
+            <td>${cuota.idCuota}</td>
+            <td>${cuota.nombreCuota}</td>
+            <td>${cuota.valorCuota}</td>
+            <td>${inscripcion.idInscripcion}</td>
+            <td>${inscripcion.nombreFormacion}</td>
+          `;
+          tbody.appendChild(row);
+        });
+      });
+    } else {
+      const mensajeSinRegistros = document.getElementById('mensajeSinRegistrosCuota');
+      mensajeSinRegistros.style.display = 'block';
+    }
+  })
+  .catch(error => console.error('Error al cargar cuotas:', error));
       }
     });
   }
@@ -1391,6 +1530,66 @@ toggleReadonlyButton.addEventListener('click', () => {
       }
     });
   }
+});
+
+
+
+
+document.addEventListener('DOMContentLoaded', function () {
+  const subtotalExento = document.getElementById('subtotalExento');
+  const subtotalGravado = document.getElementById('subtotalGravado');
+  const tipoArticuloSelect = document.getElementById('tipoArticulo');
+
+  // Función para actualizar el monto según el modal activo
+  function actualizarMontoDesdeModal(modalId, inputId, hiddenInputId, isGravado) {
+    const modalTable = document.getElementById(modalId);
+    if (modalTable) {
+      modalTable.addEventListener('click', function (event) {
+        const fila = event.target.closest('tr');
+        if (fila) {
+          const monto = parseFloat(fila.getAttribute('data-valor')) || 0;
+          const nombre = fila.getAttribute('data-nombre');
+          const id = fila.getAttribute('data-id');
+
+          document.getElementById(inputId).value = nombre;
+          document.getElementById(hiddenInputId).value = id;
+
+          if (isGravado) {
+            subtotalGravado.value = monto.toFixed(2);
+          } else {
+            subtotalExento.value = monto.toFixed(2);
+          }
+
+          calcularMontos(); // Recalcular los montos de la factura
+          $(`#${modalId}`).modal('hide'); // Cerrar el modal
+        }
+      });
+    }
+  }
+
+  // Asociar los modales con sus respectivos campos
+  actualizarMontoDesdeModal('tablaCuotas', 'cuota', 'idCuota', true); // Cuota -> Gravado
+  actualizarMontoDesdeModal('tablaInscripciones', 'inscripcion', 'idInscripcion', false); // Inscripción -> Exento
+  actualizarMontoDesdeModal('tablaHonorarios', 'honorario', 'idHonorario', true); // Honorario -> Gravado
+  actualizarMontoDesdeModal('tablaSolicitudes', 'solicitud', 'idSolicitud', false); // Solicitud -> Exento
+
+  // Función para recalcular los montos de la factura
+  function calcularMontos() {
+    const gravado = parseFloat(subtotalGravado.value) || 0;
+    const exento = parseFloat(subtotalExento.value) || 0;
+    const descuentoValor = parseFloat(document.getElementById('descuento').value) || 0;
+
+    const iva = gravado * 0.16; // IVA del 16%
+    document.getElementById('iva').value = iva.toFixed(2);
+
+    const total = exento + gravado + iva - descuentoValor;
+    document.getElementById('totalNota').value = total.toFixed(2);
+  }
+
+  // Recalcular montos al cambiar valores manualmente
+  [subtotalExento, subtotalGravado, document.getElementById('descuento')].forEach(el => {
+    el.addEventListener('input', calcularMontos);
+  });
 });
   </script>
 {% endblock javascripts %}
