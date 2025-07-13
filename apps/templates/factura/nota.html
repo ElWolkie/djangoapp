@@ -1,6 +1,6 @@
 {% extends 'layouts/base2.html' %}
 
-{% block title %}Registrar Factura{% endblock title %}
+{% block title %}Registrar Nota{% endblock title %}
 
 {% block stylesheets %}
 <link rel="stylesheet" href="/static/assets/css/styleForms.css" />
@@ -56,7 +56,7 @@
         <div class="form-group col-md-4">
           <label for="tipoArticulo">Tipo de Nota:</label>
           <select id="tipoArticulo" name="tipoArticulo" class="form-control text-dark" required disabled>
-            <option value=""  selected>Seleccione el tipo de factura...</option>
+            <option value=""  selected>Seleccione el tipo de articulo...</option>
             <!-- Facturas de Egresos (Pagos) -->
             <optgroup label="Pagos a Proveedores" class="egreso-options" style="display: none;">
               <option value="HONORARIO_PROFESOR">Honorarios Profesionales</option>
@@ -70,13 +70,13 @@
               <option value="SOLICITUD">Solicitud de Trámites</option>
             </optgroup>
           </select>
-          <div class="invalid-feedback">Por favor seleccione un tipo de factura.</div>
+          <div class="invalid-feedback">Por favor seleccione un tipo de articulo.</div>
         </div>
         <div class="form-group col-md-6">
           <label for="numeroNota">Número de Nota:</label>
           <input type="text" id="numeroNota" name="numeroNota" class="form-control text-dark"
              value="{{ numero_nota }}" {% if not numero_nota %}required{% else %}readonly{% endif %} />
-          <div class="invalid-feedback">Por favor ingrese un número de factura válido.</div>
+          <div class="invalid-feedback">Por favor ingrese un número de nota válido.</div>
         </div>
 
         <div class="form-group col-md-2">
@@ -297,15 +297,10 @@
           <input type="hidden" id="idPlanCuentaHaber" name="idPlanCuentaHaber" required />
           <div class="invalid-feedback">Por favor seleccione un plan de cuenta para el Haber.</div>
         </div>
+        <div class="text-center mx-auto">
+          <input type="submit" class="btn btn-warning mt-4 mx-auto" value="Guardar" />
+        </div>
       </div>
-      <div class="text-center mt-4">
-        <a href="{% url 'factura_cargando' %}" class="btn btn-warning">
-          <i class="fas fa-spinner"></i> Generar Factura
-        </a>
-      </div>
-    <div class="text-center">
-      <input type="submit" class="btn btn-warning mt-4" value="Guardar" />
-    </div>
   </form>
 </div>
 
@@ -726,26 +721,7 @@
   </div>
 </div>
 
-<!-- Modal para Detalles de la Factura -->
-<div class="modal fade" id="detalleFacturaModal" tabindex="-1" role="dialog" aria-labelledby="detalleFacturaModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered" role="document">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="detalleFacturaModalLabel">Detalles de la Factura</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
-      <div class="modal-body" id="detalleFacturaModalBody">
-        <!-- Los detalles de la factura se llenarán dinámicamente -->
-      </div>
-      <div class="modal-footer">
-        <button type="button" id="okButton" class="btn btn-secondary" data-dismiss="modal">OK</button>
-        <!-- <button type="button" id="modificarButton" class="btn btn-warning">Modificar Detalles</button> -->
-      </div>
-    </div>
-  </div>
-</div>
+
 
 
 {% endblock content %}
