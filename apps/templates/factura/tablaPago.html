@@ -55,6 +55,11 @@
         </a>
       {% endif %}
     </div>
+    <div class="col-md-4 text-end">
+        <a href="{% url 'reporte_pagos_pdf' %}" class="btn btn-outline-danger" target="_blank">
+          <i class="fas fa-file-pdf"></i> Descargar PDF
+        </a>
+    </div>
   </div>
 
   <div id="globalMessages">
@@ -107,7 +112,11 @@
                           data-url="{% url 'pago_delete' pago.idPago %}">
                     <i class="fas fa-trash"></i>
                   </button>
+
                 {% endif %}
+                  <a href="{% url 'pago_pdf' pago.idPago %}" class="btn btn-danger btn-sm" title="Descargar PDF" target="_blank">
+                    <i class="fas fa-file-pdf"></i>
+                  </a>
               </div>
             </td>
           </tr>

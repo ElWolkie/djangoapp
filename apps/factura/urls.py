@@ -23,6 +23,8 @@ urlpatterns = [
     # Reportes
     path('facturas/reporteFacturas', views.reporte_facturas_pdf, name='reporte_facturas_pdf'),
     path('facturas/reporteFacturas', views.nota_pago_pdf, name='reporte_facturas_pdf'),
+    path('pagos/reportePagos/', views.reporte_pagos_pdf, name='reporte_pagos_pdf'),
+    path('pagos/pdf/<int:pk>/', views.pago_pdf, name='pago_pdf'),
     path('facturas/generar/<int:pk>/', views.factura_generar_pdf, name='factura_generar_pdf'),
     path('facturas/descargar/<int:pk>/', views.factura_cargando, name='factura_cargando'),
     

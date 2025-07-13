@@ -1,4 +1,5 @@
 from datetime import timezone
+from datetime import datetime
 from decimal import Decimal
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse, HttpResponse
@@ -1032,7 +1033,7 @@ def nota_pago_pdf(request, pk):
 
     # --- Datos de la factura/nota ---
     p.setFont("Helvetica-Bold", 11)
-    p.drawString(40, y, f"Factura N°: {nota.numeroNota}")
+    p.drawString(40, y, f"N°: {nota.numeroNota}")
     y -= 16
     p.setFont("Helvetica", 10)
     p.drawString(40, y, f"Fecha de Emisión: {nota.fechaEmision.strftime('%d/%m/%Y')}")
@@ -1097,7 +1098,9 @@ def nota_pago_pdf(request, pk):
         # Si no hay relaciones, por defecto 1
         cantidad = 1
     p.drawRightString(295, 485, f"{cantidad:.2f}")
-    p.drawRightString(385, 485, f"{nota.totalNota:.2f}")
+    # Obtener el símbolo de la moneda desde la configuración
+    simbolo_moneda = config.moneda.simboloMoneda if config and hasattr(config, 'moneda') and hasattr(config.moneda, 'simboloMoneda') else ""
+    p.drawRightString(385, 485, f"{nota.totalNota:.2f} {simbolo_moneda}")
     p.drawRightString(485, 485, f"{nota.subtotalExento:.2f}")
     y -= 18
     if y < 120:
@@ -1123,7 +1126,8 @@ def nota_pago_pdf(request, pk):
     p.line(250, y, width - 30, y)
     y -= 18
     p.setFont("Helvetica-Bold", 11)
-    p.drawRightString(510, y, f"TOTAL:                {nota.totalNota:.2f}")
+    simbolo_moneda = config.moneda.simboloMoneda if config and hasattr(config, 'moneda') and hasattr(config.moneda, 'simboloMoneda') else ""
+    p.drawRightString(510, y, f"TOTAL:                {nota.totalNota:.2f} {simbolo_moneda}")
     y -= 20
     p.line(30, y, width - 30, y)
     y -= 20
@@ -1389,7 +1393,8 @@ def factura_generar_pdf(request, pk):
     p.setFont("Helvetica", 10)
     if pagos.exists():
         for pago in pagos:
-            p.drawString(50, y, f"Fecha: {pago.fechaPago.strftime('%d/%m/%Y')} | Monto: {pago.monto:.2f} | Forma: {pago.formaPago} |Moneda: {pago.idTasa}  | Referencia: {pago.referencia or ''}")
+            moneda_simbolo = pago.idTasa.idMoneda.simboloMoneda if pago.idTasa and pago.idTasa.idMoneda else ""
+            p.drawString(50, y, f"Fecha: {pago.fechaPago.strftime('%d/%m/%Y')} | Monto: {pago.monto:.2f} {moneda_simbolo} | Forma: {pago.formaPago} | Referencia: {pago.referencia or ''}")
             y -= 14
             if y < 80:
                 p.showPage()
@@ -1407,6 +1412,226 @@ def factura_generar_pdf(request, pk):
     y -= 20
     p.line(30, y, width - 30, y)
 
+    p.showPage()
+    p.save()
+    return response
+
+def reporte_pagos_pdf(request):
+    # Trae todos los pagos
+    pagos = list(Pago.objects.select_related('idNota', 'idTasa', 'idCuentaBanco__banco').order_by('-fechaPago'))
+
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'inline; filename="reporte_pagos.pdf"'
+    page_size = landscape(letter)
+    p = canvas.Canvas(response, pagesize=page_size)
+    width, height = page_size
+
+    # Encabezado institucional a la izquierda
+    config = Configuracion.objects.order_by('-fechaConfiguracion').first()
+    logo_path = config.logo.path if config and config.logo else None
+    nombre_institucion = config.nombreInstitucion if config else "Institución"
+    rif_institucion = config.rif if config else ""
+    direccion1 = "AV. ALBERTO RAVELL CON AV. INTERCOMUNAL JOSE ANTONIO PAEZ"
+    direccion2 = "LOCAL UPTYAB, INDEPENDENCIA – EDO YARACUY"
+
+    def draw_header():
+        y = height - 40
+        if logo_path and os.path.exists(logo_path):
+            p.drawImage(logo_path, width - 120, y - 60, width=80, height=65, preserveAspectRatio=True, mask='auto')
+        p.setFont("Helvetica-Bold", 13)
+        p.drawString(140, y, nombre_institucion)
+        y -= 18
+        p.setFont("Helvetica", 11)
+        p.drawString(140, y, f"RIF: {rif_institucion}")
+        y -= 16
+        p.setFont("Helvetica", 10)
+        p.drawString(140, y, direccion1)
+        y -= 14
+        p.drawString(140, y, direccion2)
+        y -= 18
+        p.setFont("Helvetica-Bold", 13)
+        p.drawString(140, y, "REPORTE DE PAGOS")
+        y -= 10
+        p.line(30, y, width - 30, y)
+        return y - 18
+
+    def draw_footer(y):
+        p.setFont("Helvetica", 8)
+        fecha_generacion = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        p.drawString(40, 20, f"Generado el: {fecha_generacion}")
+        p.setFont("Helvetica-Bold", 10)
+        p.drawString(width - 200, 20, "Firma autorizada")
+
+    # Datos de la tabla
+    headers = [
+        "ID Pago", "N° Nota", "Fecha Pago", "Monto", "Moneda", "Forma de Pago",
+        "Referencia", "Banco", "Observaciones"
+    ]
+    data = [headers]
+    for pago in pagos:
+        banco_nombre = pago.idCuentaBanco.banco.nombreBanco if pago.idCuentaBanco and hasattr(pago.idCuentaBanco, 'banco') else "—"
+        data.append([
+            str(pago.idPago),
+            pago.idNota.numeroNota if pago.idNota else "",
+            pago.fechaPago.strftime("%d/%m/%Y"),
+            f"{pago.monto:.2f}",
+            pago.idTasa.idMoneda.simboloMoneda if pago.idTasa and pago.idTasa.idMoneda and hasattr(pago.idTasa.idMoneda, 'simboloMoneda') else "",
+            pago.formaPago,
+            pago.referencia or "—",
+            banco_nombre,
+            pago.observaciones or "—"
+        ])
+    col_widths = [50, 105, 70, 70, 60, 80, 80, 80, 130]
+    table_width = sum(col_widths)
+
+    header_height = 160
+    footer_height = 60
+    row_height = 25
+
+    available_height = height - header_height - footer_height
+    max_rows_per_page = max(1, int(available_height // row_height))
+    total_rows = len(data) - 1
+    page = 0
+
+    for start_row in range(0, total_rows, max_rows_per_page):
+        end_row = min(start_row + max_rows_per_page, total_rows)
+        page_data = [data[0]] + data[start_row + 1:end_row + 1]
+        if page > 0:
+            p.showPage()
+        y = draw_header()
+        table_x = 40
+        table = Table(page_data, colWidths=col_widths, rowHeights=[row_height]*len(page_data))
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0,0), (-1,0), 9),
+            ('ALIGN', (0,0), (-1,0), 'CENTER'),
+            ('VALIGN', (0,0), (-1,0), 'MIDDLE'),
+            ('BOTTOMPADDING', (0,0), (-1,0), 6),
+            ('FONTSIZE', (0,1), (-1,-1), 8),
+            ('ALIGN', (0,1), (-1,-1), 'CENTER'),
+            ('ALIGN', (8,1), (8,-1), 'LEFT'),
+            ('VALIGN', (0,1), (-1,-1), 'MIDDLE'),
+            ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.lightgrey),
+            ('BOX', (0,0), (-1,-1), 0.5, colors.black),
+        ]))
+        table.wrapOn(p, width, height)
+        table.drawOn(p, table_x, y - row_height * len(page_data) - 10)
+        draw_footer(y)
+        page += 1
+
+    p.save()
+    return response
+
+def pago_pdf(request, pk):
+    """
+    PDF individual de pago, horizontal, cabezal a la izquierda.
+    """
+    pago = get_object_or_404(Pago.objects.select_related('idNota', 'idTasa', 'idCuentaBanco__banco'), pk=pk)
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="pago_{pk}.pdf"'
+    page_size = landscape(letter)
+    p = canvas.Canvas(response, pagesize=page_size)
+    width, height = page_size
+
+    config = Configuracion.objects.order_by('-fechaConfiguracion').first()
+    logo_path = config.logo.path if config and config.logo else None
+    nombre_institucion = config.nombreInstitucion if config else "Institución"
+    rif_institucion = config.rif if config else ""
+    direccion1 = "AV. ALBERTO RAVELL CON AV. INTERCOMUNAL JOSE ANTONIO PAEZ"
+    direccion2 = "LOCAL UPTYAB, INDEPENDENCIA – EDO YARACUY"
+
+    def draw_header():
+        y = height - 40
+        if logo_path and os.path.exists(logo_path):
+            p.drawImage(logo_path, width - 120, y - 60, width=80, height=65, preserveAspectRatio=True, mask='auto')
+        p.setFont("Helvetica-Bold", 13)
+        p.drawString(140, y, nombre_institucion)
+        y -= 18
+        p.setFont("Helvetica", 11)
+        p.drawString(140, y, f"RIF: {rif_institucion}")
+        y -= 16
+        p.setFont("Helvetica", 10)
+        p.drawString(140, y, direccion1)
+        y -= 14
+        p.drawString(140, y, direccion2)
+        y -= 18
+        p.setFont("Helvetica-Bold", 13)
+        p.drawString(140, y, "COMPROBANTE DE PAGO")
+        y -= 10
+        p.line(30, y, width - 30, y)
+        return y - 18
+
+    def draw_footer(y):
+        p.setFont("Helvetica", 8)
+        fecha_generacion = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        p.drawString(40, 20, f"Generado el: {fecha_generacion}")
+        p.setFont("Helvetica-Bold", 10)
+        p.drawString(width - 200, 20, "Firma autorizada")
+
+    y = draw_header()
+    left_col_x = 60
+    line_height = 22
+
+    p.setFont("Helvetica-Bold", 11)
+    p.drawString(left_col_x, y, f"ID Pago:")
+    p.setFont("Helvetica", 10)
+    p.drawString(left_col_x + 120, y, str(pago.idPago))
+    y -= line_height
+
+    p.setFont("Helvetica-Bold", 11)
+    p.drawString(left_col_x, y, f"Nota asociada:")
+    p.setFont("Helvetica", 10)
+    p.drawString(left_col_x + 120, y, f"{pago.idNota.numeroNota if pago.idNota else ''}")
+    y -= line_height
+
+    p.setFont("Helvetica-Bold", 11)
+    p.drawString(left_col_x, y, f"Fecha de Pago:")
+    p.setFont("Helvetica", 10)
+    p.drawString(left_col_x + 120, y, pago.fechaPago.strftime('%d/%m/%Y'))
+    y -= line_height
+
+    p.setFont("Helvetica-Bold", 11)
+    p.drawString(left_col_x, y, f"Monto:")
+    p.setFont("Helvetica", 10)
+    p.drawString(left_col_x + 120, y, f"{pago.monto:.2f} {pago.idTasa.idMoneda.simboloMoneda if pago.idTasa and pago.idTasa.idMoneda else ''}")
+    y -= line_height
+
+    p.setFont("Helvetica-Bold", 11)
+    p.drawString(left_col_x, y, f"Forma de Pago:")
+    p.setFont("Helvetica", 10)
+    p.drawString(left_col_x + 120, y, pago.formaPago)
+    y -= line_height
+
+    p.setFont("Helvetica-Bold", 11)
+    p.drawString(left_col_x, y, f"Referencia:")
+    p.setFont("Helvetica", 10)
+    p.drawString(left_col_x + 120, y, pago.referencia or "—")
+    y -= line_height
+
+    p.setFont("Helvetica-Bold", 11)
+    p.drawString(left_col_x, y, f"Banco:")
+    p.setFont("Helvetica", 10)
+    banco_nombre = pago.idCuentaBanco.banco.nombreBanco if pago.idCuentaBanco and hasattr(pago.idCuentaBanco, 'banco') else "—"
+    p.drawString(left_col_x + 120, y, banco_nombre)
+    y -= line_height
+
+    p.setFont("Helvetica-Bold", 11)
+    p.drawString(left_col_x, y, f"Observaciones:")
+    p.setFont("Helvetica", 10)
+    obs = pago.observaciones or "—"
+    obs_lines = [obs[i:i+70] for i in range(0, len(obs), 70)]
+    for line in obs_lines:
+        p.drawString(left_col_x + 120, y, line)
+        y -= 16
+
+    y -= 10
+    p.line(30, y, width - 30, y)
+    y -= 20
+
+    draw_footer(y)
     p.showPage()
     p.save()
     return response

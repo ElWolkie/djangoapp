@@ -30,11 +30,7 @@
         <input class="form-control" id="searchInput" type="text" placeholder="Buscar..." onkeyup="filterTable()">
       </div>
     </div>
-        <div class="col-md-4 text-end">
-      <a href="{% url 'reporte_facturas_pdf' %}" class="btn btn-outline-danger btn-sm" target="_blank">
-        <i class="fas fa-file-pdf"></i> Descargar PDF
-      </a>
-    </div>
+
   </div>
 
   <br>
@@ -64,9 +60,10 @@
           <button type="button" class="btn btn-info btn-sm" title="Ver Detalle" data-toggle="modal" data-target="#detalleFacturaModal" onclick="loadDetalleFactura({{ factura.pk }})">
             <i class="fas fa-eye"></i>
           </button>
-          <a href="{% url 'factura_edit' factura.pk %}" class="btn btn-primary btn-sm" title="Editar">
+        <!--<a href="{% url 'factura_edit' factura.pk %}" class="btn btn-primary btn-sm" title="Editar">
             <i class="fas fa-edit"></i>
           </a>
+        -->  
           <a href="{% url 'factura_cargando' factura.pk %}" class="btn btn-danger btn-sm" title="Descargar PDF" target="_blank">
             <i class="fas fa-file-pdf"></i>
           </a>
