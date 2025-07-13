@@ -1,6 +1,6 @@
 {% extends 'layouts/base2.html' %}
 
-{% block title %}Registrar Nota{% endblock title %}
+{% block title %}Registrar Factura{% endblock title %}
 
 {% block stylesheets %}
 <link rel="stylesheet" href="/static/assets/css/styleForms.css" />
@@ -297,10 +297,11 @@
           <input type="hidden" id="idPlanCuentaHaber" name="idPlanCuentaHaber" required />
           <div class="invalid-feedback">Por favor seleccione un plan de cuenta para el Haber.</div>
         </div>
-        <div class="text-center mx-auto">
-          <input type="submit" class="btn btn-warning mt-4 mx-auto" value="Guardar" />
-        </div>
       </div>
+   
+    <div class="text-center">
+      <input type="submit" class="btn btn-warning mt-4" value="Guardar" />
+    </div>
   </form>
 </div>
 
@@ -721,7 +722,26 @@
   </div>
 </div>
 
-
+<!-- Modal para Detalles de la Factura -->
+<div class="modal fade" id="detalleFacturaModal" tabindex="-1" role="dialog" aria-labelledby="detalleFacturaModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="detalleFacturaModalLabel">Detalles de la Nota</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body" id="detalleFacturaModalBody">
+        <!-- Los detalles de la factura se llenarán dinámicamente -->
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="okButton" class="btn btn-secondary" data-dismiss="modal">OK</button>
+        <!-- <button type="button" id="modificarButton" class="btn btn-warning">Modificar Detalles</button> -->
+      </div>
+    </div>
+  </div>
+</div>
 
 
 {% endblock content %}
