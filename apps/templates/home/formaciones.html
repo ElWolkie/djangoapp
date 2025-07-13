@@ -175,7 +175,7 @@
             <input type="text" id="duracion" name="duracion"
                    class="form-control input-with-icon"
                    placeholder="Ingrese la duración"
-                   maxlength="6" data-required="true" required>
+                   maxlength="14" data-required="true" required>
           </div>
           <div class="invalid-feedback">Por favor, ingrese una duración válida.</div>
         </div>
@@ -232,7 +232,6 @@
       this.value = this.value.replace(/[^0-9.]/g, '').slice(0,20);
     });
     document.getElementById("duracion").addEventListener("input", function() {
-      this.value = this.value.replace(/[^A-Z0-9]/g, '').slice(0,6);
     });
 
     (function() {

@@ -7,8 +7,7 @@ urlpatterns = [
     path('notas/nueva/', views.notas_create, name='nota_create'),
     # path('notas/editar/<int:pk>/', views.nota_edit, name='nota_edit'),
     # path('notas/eliminar/<int:pk>/', views.nota_delete, name='nota_delete'),
-
-    # Facturas
+    path('notas/reporteNotaPago/<int:pk>/', views.nota_pago_pdf, name='nota_pago_pdf'),    
     # Facturas
     path('facturas/', views.factura_list, name='factura_list'),
     path('facturas/<int:pk>/', views.factura_detail, name='factura_detail'),
@@ -17,13 +16,16 @@ urlpatterns = [
 
     path('facturas/editar/<int:pk>/', views.factura_edit, name='factura_edit'),
     path('facturas/eliminar/<int:pk>/', views.factura_delete, name='factura_delete'),
-    path('facturas/cargando/', views.factura_cargando, name='factura_cargando'),
+    path('facturas/cargando/<int:pk>', views.factura_cargando, name='factura_cargando'),
     path('obtener-cuotas/', views.obtener_cuotas, name='obtener_cuotas'),
+    
 
     # Reportes
     path('facturas/reporteFacturas', views.reporte_facturas_pdf, name='reporte_facturas_pdf'),
-    path('facturas/reporteFactura/<int:pk>/', views.reporte_factura_pdf, name='reporte_factura_pdf'),
-
+    path('facturas/reporteFacturas', views.nota_pago_pdf, name='reporte_facturas_pdf'),
+    path('facturas/generar/<int:pk>/', views.factura_generar_pdf, name='factura_generar_pdf'),
+    path('facturas/descargar/<int:pk>/', views.factura_cargando, name='factura_cargando'),
+    
     # Detalles de Factura
     path('factura/<int:factura_id>/detalles/', views.factura_detalle_list, name='factura_detalle_list'),
     path('facturas/<int:factura_id>/detalles/nuevo/', views.factura_detalle_create, name='factura_detalle_create'),

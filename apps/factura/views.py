@@ -32,12 +32,11 @@ from apps.planCuenta.models import PlanCuenta
 
 
 
-def factura_cargando(request):
-    """
-    Vista para mostrar la ventana de carga mientras se genera la factura.
-    """
-    return render(request, 'factura/cargando.html')
 
+
+def factura_cargando(request, pk):
+    # Redirige primero a la animación, luego al PDF
+    return render(request, 'factura/cargando.html', {'factura_pk': pk})
 def factura_list(request):
     """
     Vista para listar todas las facturas junto con sus detalles.
@@ -451,7 +450,7 @@ def factura_create_notas(request, nota_id=None):
             'message': f'Ocurrió un error inesperado: {str(e)}. '
                        'Por favor, contacte al administrador del sistema si el problema persiste.'
         }, status=500)
-
+    
 @transaction.atomic
 def factura_detalle_create(request, factura_id):
     """
@@ -1001,6 +1000,150 @@ def obtener_parametros_tributarios(request):
     
     return JsonResponse(parametros_agrupados)
 
+def nota_pago_pdf(request, pk):
+    nota = get_object_or_404(Nota, pk=pk)
+    detalles = FacturaDetalle.objects.filter(idNota=nota)
+    config = Configuracion.objects.order_by('-fechaConfiguracion').first()
+
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="nota_pago_{nota.numeroNota}.pdf"'
+    p = canvas.Canvas(response, pagesize=letter)
+    width, height = letter
+
+    # --- Encabezado institucional ---
+    y = height - 40
+    p.setFont("Helvetica-Bold", 14)
+    p.drawCentredString(width / 2, y, config.nombreInstitucion if config else "NOMBRE DE LA FUNDACIÓN")
+    y -= 18
+    p.setFont("Helvetica", 11)
+    p.drawCentredString(width / 2, y, f"RIF: {config.rif if config else 'J-XXXXXXXX-X'}")
+    y -= 16
+    p.setFont("Helvetica", 10)
+    p.drawCentredString(width / 2, y, "Dirección Fiscal:")
+    y -= 14
+    p.drawCentredString(width / 2, y, "AV. ALBERTO RAVELL CON AV. INTERCOMUNAL")
+    y -= 14
+    p.drawCentredString(width / 2, y, "JOSE ANTONIO PAEZ, LOCAL UPTYAB,")
+    y -= 14
+    p.drawCentredString(width / 2, y, "INDEPENDENCIA – EDO YARACUY")
+    y -= 20
+    p.line(30, y, width - 30, y)
+    y -= 20
+
+    # --- Datos de la factura/nota ---
+    p.setFont("Helvetica-Bold", 11)
+    p.drawString(40, y, f"Factura N°: {nota.numeroNota}")
+    y -= 16
+    p.setFont("Helvetica", 10)
+    p.drawString(40, y, f"Fecha de Emisión: {nota.fechaEmision.strftime('%d/%m/%Y')}")
+    y -= 16
+    # Determinar el cliente y sus datos correctamente
+    if nota.idPersona:
+        nombre_cliente = nota.idPersona.nombreCompleto if hasattr(nota.idPersona, 'nombreCompleto') else str(nota.idPersona)
+        rif_cliente = nota.idPersona.cedula if hasattr(nota.idPersona, 'cedula') else ''
+        direccion_cliente = nota.idPersona.direccion if hasattr(nota.idPersona, 'direccion') else ''
+    elif nota.idEmpresa:
+        nombre_cliente = nota.idEmpresa.nombreEmpresa if hasattr(nota.idEmpresa, 'nombreEmpresa') else str(nota.idEmpresa)
+        rif_cliente = nota.idEmpresa.rif if hasattr(nota.idEmpresa, 'rif') else ''
+        direccion_cliente = nota.idEmpresa.direccionEmpresa if hasattr(nota.idEmpresa, 'direccionEmpresa') else ''
+    else:
+        nombre_cliente = ''
+        rif_cliente = ''
+        direccion_cliente = ''
+
+    p.drawString(40, y, f"Cliente: {nombre_cliente}")
+    y -= 16
+    p.drawString(40, y, f"RIF/Cédula: {rif_cliente}")
+    y -= 16
+    p.drawString(40, y, f"Dirección: {direccion_cliente}")
+    y -= 20
+    p.line(30, y, width - 30, y)
+    y -= 20
+
+    # --- Tabla de detalles ---
+    p.setFont("Helvetica-Bold", 10)
+    p.drawString(40, y, "Descripción")
+    p.drawString(260, y, "Cantidad")
+    p.drawString(330, y, "Precio Unitario")
+    p.drawString(430, y, "Subtotal Exento")
+    y -= 10
+    p.line(30, y, width - 30, y)
+    y -= 18
+    p.setFont("Helvetica", 10)
+    # Descripción principal
+    p.drawString(40, y, nota.tipoOperacion[:40])
+    y -= 14
+    # Tipo de artículo debajo de la descripción
+    p.setFont("Helvetica-Oblique", 9)
+    tipo_articulo_display = dict(Nota.TIPOS_ARTICULO).get(nota.tipoArticulo, nota.tipoArticulo)
+    # Mostrar el tipo de artículo, haciendo salto de línea si es mayor de 30 caracteres
+    if len(tipo_articulo_display) > 50:
+        # Dividir el texto en partes de máximo 30 caracteres
+        for i in range(0, len(tipo_articulo_display), 30):
+            p.drawString(50, y, tipo_articulo_display[i:i+30])
+            y -= 12  # Ajusta el salto de línea para cada parte
+    else:
+        p.drawString(50, y, tipo_articulo_display)
+        y -= 12
+    p.setFont("Helvetica", 10)
+    # Cantidad, precio unitario y subtotal exento
+    # Mostrar la cantidad como 1 por cada objeto relacionado en NotaRelacionada
+    cantidad = 0
+    nota_relacionadas = NotaRelacionada.objects.filter(idNota=nota)
+    if nota_relacionadas.exists():
+        # Si hay relaciones, cuenta cada una como cantidad 1
+        cantidad = nota_relacionadas.count()
+    else:
+        # Si no hay relaciones, por defecto 1
+        cantidad = 1
+    p.drawRightString(295, 485, f"{cantidad:.2f}")
+    p.drawRightString(385, 485, f"{nota.totalNota:.2f}")
+    p.drawRightString(485, 485, f"{nota.subtotalExento:.2f}")
+    y -= 18
+    if y < 120:
+        p.showPage()
+        y = height - 80
+    p.line(30, y, width - 30, y)
+    y -= 20
+
+    # --- Totales y resumen ---
+    p.setFont("Helvetica", 10)
+    p.drawRightString(510, y, f"Subtotal Exento:      {nota.subtotalExento:.2f}")
+    y -= 16
+    p.drawRightString(510, y, f"Subtotal Gravado:     {nota.subtotalGravado:.2f}")
+    y -= 16
+    p.drawRightString(510, y, f"IVA (16%):            {nota.iva:.2f}")
+    y -= 16
+    p.drawRightString(510, y, f"IVA Retenido (75%):   {nota.ivaRetenido if nota.ivaRetenido else 0:.2f}")
+    y -= 16
+    p.drawRightString(510, y, f"ISLR Retenido (3%):   {nota.islrRetenido if nota.islrRetenido else 0:.2f}")
+    y -= 16
+    p.drawRightString(510, y, f"Descuento:            {nota.descuento:.2f}")
+    y -= 16
+    p.line(250, y, width - 30, y)
+    y -= 18
+    p.setFont("Helvetica-Bold", 11)
+    p.drawRightString(510, y, f"TOTAL:                {nota.totalNota:.2f}")
+    y -= 20
+    p.line(30, y, width - 30, y)
+    y -= 20
+
+    # --- Forma de pago ---
+    p.setFont("Helvetica", 10)
+    p.drawString(40, y, f"Forma de Pago: {nota.formaPago}")
+    y -= 20
+    p.line(30, y, width - 30, y)
+    y -= 40
+
+    # --- Firma autorizada ---
+    p.setFont("Helvetica-Bold", 11)
+    p.drawCentredString(width / 2, y, f"FIRMA AUTORIZADA: ")
+    y -= 20
+    p.line(30, y, width - 30, y)
+
+    p.showPage()
+    p.save()
+    return response
 def reporte_facturas_pdf(request):
     # Selección de cantidad de registros
     start = int(request.GET.get('start', 1))
@@ -1139,52 +1282,130 @@ def reporte_facturas_pdf(request):
     return response
 
 
-def reporte_factura_pdf(request, pk):
+def factura_generar_pdf(request, pk):
     factura = get_object_or_404(Factura, pk=pk)
+    nota = factura.nota
     detalles = FacturaDetalle.objects.filter(idFactura=factura)
+    pagos = Pago.objects.filter(idNota=nota)
+    config = Configuracion.objects.order_by('-fechaConfiguracion').first()
 
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="factura_{factura.numeroFactura}.pdf"'
-
     p = canvas.Canvas(response, pagesize=letter)
     width, height = letter
 
-    # Encabezado
+    # --- Encabezado institucional ---
+    y = height - 40
     p.setFont("Helvetica-Bold", 14)
-    p.drawCentredString(width / 2, height - 50, "Nota de cobro")
+    p.drawCentredString(width / 2, y, config.nombreInstitucion if config else "NOMBRE DE LA FUNDACIÓN")
+    y -= 18
+    p.setFont("Helvetica", 11)
+    p.drawCentredString(width / 2, y, f"RIF: {config.rif if config else 'J-XXXXXXXX-X'}")
+    y -= 16
     p.setFont("Helvetica", 10)
-    p.drawString(50, height - 80, f"N°: {factura.numeroFactura}")
-    p.drawString(50, height - 100, f"Fecha: {factura.fechaEmision.strftime('%d/%m/%Y')}")
-    p.drawString(50, height - 120, f"Cliente: {factura.idPersona if factura.idPersona else ''}")
-    p.drawString(50, height - 140, f"Empresa: {factura.idEmpresa if factura.idEmpresa else ''}")
+    p.drawCentredString(width / 2, y, "Dirección Fiscal:")
+    y -= 14
+    p.drawCentredString(width / 2, y, "AV. ALBERTO RAVELL CON AV. INTERCOMUNAL")
+    y -= 14
+    p.drawCentredString(width / 2, y, "JOSE ANTONIO PAEZ, LOCAL UPTYAB,")
+    y -= 14
+    p.drawCentredString(width / 2, y, "INDEPENDENCIA – EDO YARACUY")
+    y -= 20
+    p.line(30, y, width - 30, y)
+    y -= 20
 
-    # Tabla de detalles
-    data = [["Descripción", "Cantidad", "Precio Unitario", "Subtotal"]]
-    for det in detalles:
-        data.append([
-            det.descripcion,
-            str(det.cantidad),
-            f"{det.precioUnitario:.2f}",
-            f"{det.subtotal:.2f}"
-        ])
-    table = Table(data, colWidths=[200, 80, 100, 100])
-    table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
-        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0,0), (-1,0), 11),
-        ('BOTTOMPADDING', (0,0), (-1,0), 10),
-        ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
-        ('GRID', (0,0), (-1,-1), 1, colors.black),
-    ]))
-    table.wrapOn(p, width, height)
-    table.drawOn(p, 50, height - 200 - 22 * len(data))
-
-    # Totales
+    # --- Datos de la factura ---
     p.setFont("Helvetica-Bold", 11)
-    p.drawString(350, 100, f"Total Venta: {factura.totalVenta:.2f}")
-    p.drawString(350, 80, f"Estado: {factura.estado}")
+    p.drawString(40, y, f"Factura N°: {factura.numeroFactura}")
+    y -= 16
+    p.setFont("Helvetica", 10)
+    p.drawString(40, y, f"Fecha de Emisión: {factura.fechaEmision.strftime('%d/%m/%Y')}")
+    y -= 16
+    cliente = factura.idPersona if factura.idPersona else factura.idEmpresa
+    nombre_cliente = getattr(cliente, 'nombreCompleto', getattr(cliente, 'nombreEmpresa', ''))
+    rif_cliente = getattr(cliente, 'cedula', getattr(cliente, 'rif', ''))
+    direccion_cliente = getattr(cliente, 'direccion', getattr(cliente, 'direccionEmpresa', ''))
+    p.drawString(40, y, f"Cliente: {nombre_cliente}")
+    y -= 16
+    p.drawString(40, y, f"RIF/Cédula: {rif_cliente}")
+    y -= 16
+    p.drawString(40, y, f"Dirección: {direccion_cliente}")
+    y -= 20
+    p.line(30, y, width - 30, y)
+    y -= 20
+
+    # --- Tabla de detalles de la factura ---
+    p.setFont("Helvetica-Bold", 10)
+    p.drawString(40, y, "Descripción")
+    p.drawString(260, y, "Cantidad")
+    p.drawString(330, y, "Precio Unitario")
+    p.drawString(430, y, "Subtotal Exento")
+    y -= 10
+    p.line(30, y, width - 30, y)
+    y -= 18
+    p.setFont("Helvetica", 10)
+    for det in detalles:
+        p.drawString(40, y, det.descripcion[:40])
+        y -= 14
+        p.setFont("Helvetica-Oblique", 9)
+        p.drawString(50, y, f"Artículo: {det.tipoItem}")
+        p.setFont("Helvetica", 10)
+        p.drawRightString(300, y, f"{det.cantidad:.2f}")
+        p.drawRightString(400, y, f"{det.precioUnitario:.2f}")
+        p.drawRightString(510, y, f"{det.subtotal:.2f}")
+        y -= 18
+        if y < 120:
+            p.showPage()
+            y = height - 80
+    p.line(30, y, width - 30, y)
+    y -= 20
+
+    # --- Totales y resumen ---
+    p.setFont("Helvetica", 10)
+    p.drawRightString(510, y, f"Subtotal Exento:      {factura.subtotalExento:.2f}")
+    y -= 16
+    p.drawRightString(510, y, f"Subtotal Gravado:     {factura.subtotalGravado:.2f}")
+    y -= 16
+    p.drawRightString(510, y, f"IVA (16%):            {factura.iva:.2f}")
+    y -= 16
+    p.drawRightString(510, y, f"IVA Retenido (75%):   {factura.ivaRetenido if factura.ivaRetenido else 0:.2f}")
+    y -= 16
+    p.drawRightString(510, y, f"ISLR Retenido (3%):   {factura.islrRetenido if factura.islrRetenido else 0:.2f}")
+    y -= 16
+    p.drawRightString(510, y, f"Descuento:            {factura.descuento:.2f}")
+    y -= 16
+    p.line(250, y, width - 30, y)
+    y -= 18
+    p.setFont("Helvetica-Bold", 11)
+    p.drawRightString(510, y, f"TOTAL:                {factura.totalVenta:.2f}")
+    y -= 20
+    p.line(30, y, width - 30, y)
+    y -= 20
+
+    # --- Pagos realizados ---
+    p.setFont("Helvetica-Bold", 10)
+    p.drawString(40, y, "Pagos realizados:")
+    y -= 16
+    p.setFont("Helvetica", 10)
+    if pagos.exists():
+        for pago in pagos:
+            p.drawString(50, y, f"Fecha: {pago.fechaPago.strftime('%d/%m/%Y')} | Monto: {pago.monto:.2f} | Forma: {pago.formaPago} |Moneda: {pago.idTasa}  | Referencia: {pago.referencia or ''}")
+            y -= 14
+            if y < 80:
+                p.showPage()
+                y = height - 80
+    else:
+        p.drawString(50, y, "No se han registrado pagos para esta factura.")
+        y -= 14
+
+    p.line(30, y, width - 30, y)
+    y -= 20
+
+    # --- Firma autorizada ---
+    p.setFont("Helvetica-Bold", 11)
+    p.drawCentredString(width / 2, y, f"FIRMA AUTORIZADA: ")
+    y -= 20
+    p.line(30, y, width - 30, y)
 
     p.showPage()
     p.save()

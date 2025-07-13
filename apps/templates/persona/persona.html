@@ -693,5 +693,30 @@ document.addEventListener("DOMContentLoaded", function() {
       });
   });
 });
+// Validación personalizada para el teléfono
+  document.addEventListener('input', function(e) {
+    const input = e.target;
+    if (input.id === 'telefono') {
+      // Permitir solo números y guión
+      input.value = input.value.replace(/[^0-9\-]/g, '');
+
+      // Formatear como xxxx-xxxxxxx
+      let digits = input.value.replace(/\D/g, '');
+      if (digits.length > 4) {
+        input.value = digits.substring(0, 4) + '-' + digits.substring(4, 11);
+      } else {
+        input.value = digits;
+      }
+
+      // Validar formato xxxx-xxxxxxx
+      const telefonoRegex = /^\d{4}-\d{7}$/;
+      if (!telefonoRegex.test(input.value)) {
+        input.setCustomValidity('El teléfono debe tener el formato xxxx-xxxxxxx.');
+      } else {
+        input.setCustomValidity('');
+      }
+    }
+  });
+  
 </script>
 {% endblock javascripts %}
