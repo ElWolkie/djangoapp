@@ -1,38 +1,42 @@
 from rest_framework import serializers
-from apps.home.models import Personas, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Denominacion, Banco, Moneda, Tasa, TipoIngreso
-from apps.persona.models import PersonaTP, TipoPersona
+from apps.home.models import Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Denominacion, Banco, Moneda, Tasa, TipoIngreso
+from apps.persona.models import Personas, PersonaTP, TipoPersona
 from apps.honorario.models import Honorario
 from apps.solicitud.models import Solicitud
 
-class PersonaSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Personas  # Usa el modelo de home
-        fields = ['idPersona', 'cedula', 'nombres', 'apellidos', 'telefono', 'correo', 'estadoPersona', 'fechaPersona']
-
+        
 class TipoPersonaSerializer(serializers.ModelSerializer):
     class Meta:
         model = TipoPersona  # Usa el modelo de home
         fields = ['idTP', 'nombreTP', 'estadoTP', 'fechaTP']
 
+class PersonaSerializer(serializers.ModelSerializer):
+    tipos = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Personas
+        fields = [
+            'idPersona',
+            'cedula',
+            'nombres',
+            'apellidos',
+            'telefono',
+            'correo',
+            'rif',
+            'estadoPersona',
+            'fechaPersona',
+            'tipos',
+        ]
+
+    def get_tipos(self, obj):
+        # obj.personatp_set all devuelve los enlaces, de cada uno tomamos idTP
+        tipos_qs = [rel.idTP for rel in obj.personatp_set.all()]
+        return TipoPersonaSerializer(tipos_qs, many=True).data
+
 class PersonaTPSerializer(serializers.ModelSerializer):
     class Meta:
         model = PersonaTP  # Usa el modelo de home
         fields = ['idPersona', 'idTP', 'fechaAsignacion']
-
-# class CuotaSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = Cuota  # Usa el modelo de home
-#         fields = ['idCuota', 'nombreCuota', 'estadoCuota', 'fechaCuota']
-
-# class OfertasSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = Ofertas  # Usa el modelo de home
-#         fields = ['idOferta', 'idTipoOferta', 'nombreOferta', 'duracion', 'estadoOferta', 'fechaOferta']
-
-# class TipoOfertaSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = TipoOferta  # Usa el modelo de home
-#         fields = ['idTipoOferta', 'idCuota', 'nombreTipoOferta', 'estadoTipoOferta', 'fechaTipoOferta']
 
 class MateriaSerializer(serializers.ModelSerializer):
     class Meta:
@@ -48,11 +52,6 @@ class CargoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Cargo  # Usa el modelo de home
         fields = ['idCargo', 'nombreCargo', 'estadoCargo', 'fechaCargo']
-
-# class ContratoSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = Contrato  # Usa el modelo de home
-#         fields = ['idContrato', 'idPersona', 'idCargo', 'idCohorte', 'idMateria', 'estadoContrato', 'fechaContrato']
 
 class HonorarioSerializer(serializers.ModelSerializer):
     class Meta:
@@ -103,8 +102,3 @@ class TipoIngresoSerializer(serializers.ModelSerializer):
     class Meta:
         model = TipoIngreso  # Usa el modelo de home
         fields = ['idTipoIngreso', 'nombreTipoIngreso', 'estadoTipoIngreso', 'fechaTipoIngreso']
-
-# class TipoEgresoSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = TipoEgreso  # Usa el modelo de home
-#         fields = ['idTipoEgreso', 'nombreTipoEgreso', 'estadoTipoEgreso', 'fechaTipoEgreso']

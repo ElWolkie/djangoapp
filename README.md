@@ -31,6 +31,7 @@ $ python manage.py migrate
 $
 $ # Start the application (development mode)
 $ python manage.py runserver # default port 8000
+$ python manage.py runserver 0.0.0.0:8000 #Para la app movil
 $
 $ # Start the app - custom port
 $ # python manage.py runserver 0.0.0.0:<your_port>

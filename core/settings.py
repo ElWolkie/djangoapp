@@ -25,7 +25,7 @@ TIME_ZONE = 'America/Caracas'  # Ajusta a tu zona
 USE_TZ = True
 
 # load production server from .env
-ALLOWED_HOSTS = ["localhost", "127.0.0.1", config("SERVER", default="127.0.0.1")]
+ALLOWED_HOSTS = ["localhost", "127.0.0.1", "192.168.0.103", '192.168.0.1', '192.168.0.106', '0.0.0.0', config("SERVER", default="127.0.0.1")]
 
 # SECURE_SSL_REDIRECT = True  # Redirige HTTP → HTTPS
 # SESSION_COOKIE_SECURE = True  # Cookies solo por HTTPS
@@ -91,6 +91,13 @@ MIDDLEWARE = [
     # 'debug_toolbar.middleware.DebugToolbarMiddleware',
 ]
 
+CORS_ALLOW_ALL_ORIGINS = True
+
+CORS_ALLOWED_ORIGINS = [
+    "http://127.0.0.1:8000",  # IP local del PC donde corre Django
+]
+
+
 # Direcciones IP donde se mostrará la toolbar (normalmente localhost)
 INTERNAL_IPS = [
     '127.0.0.1',
@@ -152,8 +159,14 @@ REST_FRAMEWORK = {
 }
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    # duraciones opcionales:
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+
+    # aquí indicamos a SimpleJWT que el campo PK de tu usuario es idUsuario
+    'USER_ID_FIELD': 'idUsuario',
+    # y cómo lo nombrará dentro del payload del token
+    'USER_ID_CLAIM': 'user_id',
 }
 
 CORS_ALLOWED_ORIGINS = [
