@@ -876,7 +876,12 @@ def pago_edit(request, pk):
     Vista para editar un pago existente.
     """
     pago = get_object_or_404(Pago, pk=pk)
-    facturas = Factura.objects.all()
+    notas = Nota.objects.all()
+    cuentas_banco = CuentaBanco.objects.filter(estado=True)
+    tasas = Tasa.objects.select_related('idMoneda') \
+        .values('idTasa', 'idMoneda__nombreMoneda', 'montoTasa')
+    cuentas_plan = PlanCuenta.objects.filter(estadoPlanCuenta=True)
+    today_date = datetime.now().strftime('%Y-%m-%d')
 
     if request.method == 'POST':
         form = PagoForm(request.POST, instance=pago)
@@ -885,9 +890,15 @@ def pago_edit(request, pk):
             return redirect('pago_list')
     else:
         form = PagoForm(instance=pago)
-    return render(request, 'factura/pago.html', {
+
+    return render(request, 'factura/pago_edit.html', {
         'form': form,
-        'facturas': facturas
+        'pago': pago,
+        'notas': notas,
+        'cuentas_banco': cuentas_banco,
+        'tasas': tasas,
+        'cuentas_plan': cuentas_plan,
+        'today_date': today_date,
     })
 
 @transaction.atomic

@@ -609,5 +609,10 @@
 }
     });
 
+    // Validar solo números y máximo 9 dígitos para Código Contable
+  document.getElementById("referencia").addEventListener("input", function() {
+    this.value = this.value.replace(/\D/g, '').slice(0, 14);
+  });
+  
 </script>
 {% endblock javascripts %}

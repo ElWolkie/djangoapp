@@ -534,5 +534,14 @@
         });
     });
   });
+  // Activar mayúsculas en inputs
+function activarMayusculasInputs() {
+    document.addEventListener('input', function(e) {
+      if (e.target.tagName === 'INPUT' && !e.target.type.match(/password|hidden|email/)) {
+        e.target.value = e.target.value.toUpperCase();
+      }
+    });
+  }
+  activarMayusculasInputs();  
 </script>
 {% endblock javascripts %}
