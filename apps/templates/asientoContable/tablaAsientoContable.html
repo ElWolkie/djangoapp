@@ -131,8 +131,6 @@
           <tr>
             <th scope="col">Número</th>
             <th scope="col">Periodo</th>
-            <th scope="col">Concepto</th>
-            <th scope="col">Estado</th>
             <th class="actions-column">Acciones</th>
           </tr>
         </thead>
@@ -141,14 +139,13 @@
           <tr>
             <td>{{ asiento.numeroAsiento }}</td>
             <td>{{ asiento.idPeriodo }}</td>
-            <td>{{ asiento.conceptoAsiento }}</td>
-            <td>
+            <!-- <td>
               {% if asiento.estadoAsiento %}
                 <span class="badge bg-success text-white">Activo</span>
               {% else %}
                 <span class="badge bg-danger text-white">Inactivo</span>
               {% endif %}
-            </td>
+            </td> -->
             <td class="actions-column">
               <div class="d-flex gap-2">
                 <!-- Botón para ver detalles -->

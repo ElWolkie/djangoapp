@@ -45,7 +45,7 @@
     <div class="col-md-4">
       <div class="input-group">
         <span class="input-group-text"><i class="fas fa-search"></i></span>
-        <input id="searchInput" class="form-control" type="text" placeholder="Buscar notas…">
+        <input id="searchInput" class="form-control" type="text" placeholder="Buscar...">
       </div>
     </div>
     <div class="col-md-4 text-end">
@@ -98,18 +98,18 @@
             
             <td class="actions-column">
               <div class="d-flex gap-2">
-                {% if perms.factura.change_nota %}
+                <!-- {% if perms.factura.change_nota %}
                   <a class="btn btn-primary btn-sm">
                     <i class="fas fa-edit"></i>
                   </a>
-                {% endif %}
-                {% if perms.factura.delete_nota %}
+                {% endif %} -->
+                <!-- {% if perms.factura.delete_nota %}
                   <button class="btn btn-outline-danger btn-sm"
                           data-bs-toggle="modal"
                           data-bs-target="#deleteNotaModal">
                     <i class="fas fa-trash"></i>
                   </button>
-                {% endif %}
+                {% endif %} -->
                 {% if nota.estado == 'PAGADO' %}
                   <!-- Botón para abrir el acordeón -->
                   <button class="btn btn-warning btn-sm mt-2" 
@@ -120,16 +120,16 @@
 
                 {% elif nota.estado == 'FACTURADO' %}
                   <button class="btn btn-secondary btn-sm" disabled>
-                    <i class="fas fa-check-circle"></i> Facturado
+                    <i class="fas fa-check-circle"></i>
                   </button>
                 {% endif %}
                 {% if nota.estado == 'PENDIENTE' or nota.estado == 'PARCIAL' %}
                   <a href="{% url 'pago_create' %}?nota={{ nota.idNota }}" title="Pagar" class="btn btn-info btn-sm">
-                    <i class="fas fa-money-bill-wave"></i> Pagar
+                    <i class="fas fa-money-bill-wave"></i>
                   </a>
                 {% endif %}
                   <a href="{% url 'nota_pago_pdf' nota.pk %}" class="btn btn-danger btn-sm" target="_blank">
-                    <i class="fas fa-file-pdf"></i> PDF
+                    <i class="fas fa-file-pdf"></i>
                   </a>
               </div>
             </td>

@@ -90,21 +90,21 @@
 
 {% block content %}
 <div class="container mt-4">
-  <h2 class="text-center mb-4">Lista de Honorarios Registrados</h2>
+  <h2 class="text-center mb-4">Lista de Honorarios</h2>
 
   <div class="row mb-3">
     <!-- Buscador -->
     <div class="col-md-4">
       <div class="input-group">
         <span class="input-group-text"><i class="fas fa-search"></i></span>
-        <input class="form-control" id="searchInput" type="text" placeholder="Buscar por cargos, cédula, materia...">
+        <input class="form-control" id="searchInput" type="text" placeholder="Buscar...">
       </div>
     </div>
     <!-- Botón Nuevo -->
     <div class="col-md-4 text-end">
       {% if perms.honorario.add_honorario %}
       <a href="{% url 'honorario_modal' %}" class="btn btn-warning">
-        <i class="fas fa-plus-circle me-1"></i> Nuevo Honorario
+        <i class="fas fa-plus-circle me-1"></i> Registrar Honorario
       </a>
       {% endif %}
     </div>

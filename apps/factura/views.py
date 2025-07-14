@@ -1,6 +1,7 @@
 from datetime import timezone
 from datetime import datetime
 from decimal import Decimal
+import random
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse, HttpResponse
 from django.db import transaction
@@ -374,18 +375,20 @@ def factura_detalle_list(request, factura_id):
         'detalles': detalles
     })
 def generar_numero_factura_unico(nota):
-    """
-    Genera un número de factura único siguiendo el formato SENIAT.
-    """
-    prefijo = "FAC"
-    numero_secuencial = str(nota.numeroNota).zfill(8)  # Asegura que el número tenga 8 dígitos
-    numero_factura = f"{prefijo}-{numero_secuencial}"
 
-    # Verificar si el número de factura ya existe
-    while Factura.objects.filter(numeroFactura=numero_factura).exists():
-        # Si existe, agregar un sufijo único basado en un UUID
-        sufijo_unico = uuid.uuid4().hex[:4].upper()
-        numero_factura = f"{prefijo}-{numero_secuencial}-{sufijo_unico}"
+    prefijo = "FAC"
+    
+    # Obtener el último número secuencial basado en el campo numeroFactura
+    ultimo = Factura.objects.aggregate(Max('numeroFactura'))['numeroFactura__max'] or 0
+    nuevo = int(ultimo) + 1 if str(ultimo).isdigit() else 1
+    numero_secuencial = f"{nuevo:08d}"
+
+    # Simulación de número de control (debe ser provisto por imprenta autorizada)
+    fecha_hora = datetime.now().strftime("%d%m%y%H%M")
+    numero_control = f"CNT-{fecha_hora}-{random.randint(100, 999)}"
+
+    # Crear número de factura
+    numero_factura = f"{numero_secuencial}"
 
     return numero_factura
 

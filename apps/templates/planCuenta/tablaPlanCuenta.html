@@ -78,13 +78,13 @@
     <div class="col-md-4">
       <div class="input-group">
         <span class="input-group-text"><i class="fas fa-search"></i></span>
-        <input class="form-control" id="searchInput" type="text" placeholder="Buscar por cualquier campo">
+        <input class="form-control" id="searchInput" type="text" placeholder="Buscar...">
       </div>
     </div>
     {% if perms.planCuenta.add_plancuenta %}
     <div class="col-md-4 text-end">
       <a href="{% url 'plan_cuenta_create' %}" class="btn btn-warning px-4">
-        <i class="fas fa-plus-circle me-1"></i> Registrar nuevo Plan de Cuenta
+        <i class="fas fa-plus-circle me-1"></i> Registrar Plan de Cuenta
       </a>
     </div>
     {% endif %}
