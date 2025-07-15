@@ -1,0 +1,264 @@
+{% extends 'layouts/base2.html' %}
+{% load static %}
+
+{% block title %}Editar Plan de Artículo{% endblock title %}
+
+{% block stylesheets %}
+<link rel="stylesheet" href="{% static 'assets/css/styleForms.css' %}">
+<link rel="stylesheet" href="{% static 'assets/css/argon.css' %}">
+<style>
+  .form-control {
+    font-size: 0.9rem;
+  }
+  .form-group label {
+    font-weight: bold;
+  }
+</style>
+{% endblock stylesheets %}
+
+{% block content %}
+<div class="container mt-4">
+  <h2 class="text-center mb-4">Editar Plan de Artículo ({{ tipo_texto }})</h2>
+
+  <form method="post" id="planArticuloEditForm">
+    {% csrf_token %}
+    <input type="hidden" name="tipoArticulo" value="{{ plan_articulo.tipoArticulo }}">
+
+    <div class="form-group mb-3">
+      <label for="tipoArticulo">Tipo de Artículo</label>
+      <input type="text" id="tipoArticulo" class="form-control" value="{{ plan_articulo.get_tipoArticulo_display }}" readonly>
+    </div>
+
+    <div class="form-group">
+      <label for="planCuenta">Plan de Cuenta ({{ tipo_texto }}):</label>
+      <div class="input-group">
+        <input type="text" id="planCuenta" class="form-control text-dark" placeholder="Seleccione un plan de cuenta para {{ tipo_texto }}" 
+               value="{{ nombre_cuenta_actual }}" readonly required />
+        <button type="button" id="buscarPlanCuenta" class="btn btn-warning" data-toggle="modal" data-target="#planCuentaModal">
+          <i class="fas fa-search"></i>
+        </button>
+      </div>
+      <input type="hidden" id="idPlanCuenta" name="idPlanCuenta" value="{{ id_plan_cuenta_actual }}" required />
+      <div class="invalid-feedback">Por favor seleccione un plan de cuenta para {{ tipo_texto }}.</div>
+    </div>
+  
+    <div class="text-center">
+      <a href="{% url 'plan_articulo_list' %}" class="btn btn-secondary mt-4">
+        <i class="fas fa-arrow-left me-1"></i> Cancelar
+      </a>
+      <button type="submit" class="btn btn-warning mt-4">
+        <i class="fas fa-save me-1"></i> Guardar
+      </button>
+    </div>
+  </form>
+</div>
+
+<!-- Modal para seleccionar Plan de Cuenta -->
+<div class="modal fade" id="planCuentaModal" tabindex="-1" role="dialog" aria-labelledby="planCuentaModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="planCuentaModalLabel">Seleccionar Plan de Cuenta ({{ tipo_texto }})</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row mb-3">
+          <div class="col-md-8">
+            <div class="input-group">
+              <div class="input-group-prepend">
+                <span class="input-group-text" style="background-color: #bcbcbc; border: none;">
+                  <i class="fas fa-search text-warning"></i>
+                </span>
+              </div>
+              <input class="form-control" id="searchPlanCuentaInput" type="text" placeholder="Buscar..." onkeyup="filterTable('tablaPlanCuenta', 'searchPlanCuentaInput')">
+            </div>
+          </div>
+        </div>
+        <table class="table table-sm  table-striped table-hover" id="tablaPlanCuenta">
+          <thead>
+            <tr>
+              <th>Código</th>
+              <th>Nombre</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for cuenta in cuentas_plan %}
+              <tr data-id="{{ cuenta.idPlanCuenta }}" data-nombre="{{ cuenta.codigoPlanCuenta }} - {{ cuenta.nombrePlanCuenta }}" style="cursor:pointer;">
+                <td>{{ cuenta.codigoPlanCuenta }}</td>
+                <td>{{ cuenta.nombrePlanCuenta }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <p id="mensajeSinRegistros" class="text-center text-muted" style="display: none;">No hay registros disponibles</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}
+
+{% block javascripts %}
+<script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
+<script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // Función para paginar la tabla
+  const paginateTable = (tableId, rowsPerPage) => {
+    const table = document.getElementById(tableId);
+    const rows = table.querySelectorAll('tbody tr');
+    const paginationContainer = document.createElement('div');
+    paginationContainer.className = 'pagination-container mt-3';
+    table.parentNode.insertBefore(paginationContainer, table.nextSibling);
+
+    const pagination = document.createElement('ul');
+    pagination.className = 'pagination justify-content-center';
+    paginationContainer.appendChild(pagination);
+
+    let currentPage = 1;
+
+    const displayRows = () => {
+      const start = (currentPage - 1) * rowsPerPage;
+      const end = start + rowsPerPage;
+      rows.forEach((row, index) => {
+        row.style.display = index >= start && index < end ? '' : 'none';
+      });
+    };
+
+    const setupPagination = () => {
+      const totalPages = Math.ceil(rows.length / rowsPerPage);
+      pagination.innerHTML = '';
+
+      const prevLi = document.createElement('li');
+      prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+      prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Anterior">&laquo;</a>`;
+      prevLi.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (currentPage > 1) currentPage--;
+        displayRows();
+        setupPagination();
+      });
+      pagination.appendChild(prevLi);
+
+      for (let i = 1; i <= totalPages; i++) {
+        const li = document.createElement('li');
+        li.className = `page-item ${i === currentPage ? 'active' : ''}`;
+        li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+        li.addEventListener('click', (e) => {
+          e.preventDefault();
+          currentPage = i;
+          displayRows();
+          setupPagination();
+        });
+        pagination.appendChild(li);
+      }
+
+      const nextLi = document.createElement('li');
+      nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+      nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Siguiente">&raquo;</a>`;
+      nextLi.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (currentPage < totalPages) currentPage++;
+        displayRows();
+        setupPagination();
+      });
+      pagination.appendChild(nextLi);
+    };
+
+    displayRows();
+    setupPagination();
+  };
+
+  // Función para filtrar la tabla
+  const filterTable = (tableId, inputId) => {
+    const input = document.getElementById(inputId);
+    const table = document.getElementById(tableId);
+    const rows = table.querySelectorAll('tbody tr');
+
+    input.addEventListener('keyup', () => {
+      const filter = input.value.toUpperCase();
+      rows.forEach((row) => {
+        const text = row.textContent || row.innerText;
+        row.style.display = text.toUpperCase().includes(filter) ? '' : 'none';
+      });
+    });
+  };
+
+  // Activar búsqueda y paginación para la tabla del modal
+  filterTable('tablaPlanCuenta', 'searchPlanCuentaInput');
+  paginateTable('tablaPlanCuenta', 5);
+
+  // Manejar selección en la tabla
+  const tabla = document.getElementById('tablaPlanCuenta');
+  if (tabla) {
+    tabla.addEventListener('click', (event) => {
+      const fila = event.target.closest('tr');
+      if (fila && fila.hasAttribute('data-id')) {
+        const id = fila.getAttribute('data-id');
+        const nombre = fila.getAttribute('data-nombre');
+        document.getElementById('planCuenta').value = nombre;
+        document.getElementById('idPlanCuenta').value = id;
+        bootstrap.Modal.getInstance(document.getElementById('planCuentaModal')).hide();
+      }
+    });
+  }
+
+  // Manejar envío del formulario con alertas SweetAlert
+  const form = document.querySelector('#planArticuloEditForm');
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+
+    const formData = new FormData(form);
+    const url = form.action;
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'X-CSRFToken': formData.get('csrfmiddlewaretoken'),
+        },
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          Swal.fire({
+            title: 'Éxito',
+            text: result.message,
+            icon: 'success',
+            confirmButtonText: 'OK',
+          }).then(() => {
+            if (result.url) {
+              window.location.href = result.url;
+            }
+          });
+        } else {
+          Swal.fire({
+            title: 'Error',
+            text: result.message,
+            icon: 'error',
+            confirmButtonText: 'OK',
+          });
+        }
+      } else {
+        const errorText = await response.text();
+        throw new Error(`Error en la respuesta del servidor: ${response.status} ${response.statusText}\n${errorText}`);
+      }
+    } catch (error) {
+      Swal.fire({
+        title: 'Error',
+        text: 'Error de conexión con el servidor.',
+        icon: 'error',
+        confirmButtonText: 'OK',
+      });
+      console.error('Error:', error);
+    }
+  });
+});
+</script>
+{% endblock javascripts %}
