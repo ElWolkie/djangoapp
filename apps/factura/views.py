@@ -90,28 +90,58 @@ def create_plan_articulo(request):
     else:
         form = PlanArticuloForm()
     return render(request, 'factura/planArticulo.html', {'form': form, 'cuentas_plan': cuentas_plan})
+
 def edit_plan_articulo(request, pk):
     """
     Vista para editar un PlanArticulo existente.
     """
-    cuentas_plan = PlanCuenta.objects.filter(estadoPlanCuenta=True).order_by('codigoPlanCuenta')
-
     plan_articulo = get_object_or_404(PlanArticulo, pk=pk)
+    cuentas_plan = PlanCuenta.objects.filter(estadoPlanCuenta=True).order_by('codigoPlanCuenta')
+    
+    # Determinar si es debe o haber
+    es_debe = plan_articulo.tipo
+    tipo_texto = "Debe" if es_debe else "Haber"
+    
+    # Obtener cuenta actual para mostrar
+    cuenta_actual = plan_articulo.idPlanCuenta
+    nombre_cuenta_actual = f"{cuenta_actual.codigoPlanCuenta} - {cuenta_actual.nombrePlanCuenta}" if cuenta_actual else ""
+
     if request.method == 'POST':
         form = PlanArticuloForm(request.POST, instance=plan_articulo)
         if form.is_valid():
             try:
-                form.save()
-                messages.success(request, "Plan de Artículo actualizado exitosamente.")
-                return redirect('plan_articulo_list')  # Cambiar por el nombre de la URL de la lista
+                # Solo actualizamos la cuenta contable
+                plan_articulo.idPlanCuenta_id = request.POST.get('idPlanCuenta')
+                plan_articulo.save()
+                
+                return JsonResponse({
+                    'success': True,
+                    'message': "Plan de Artículo actualizado exitosamente.",
+                    'url': reverse('plan_articulo_list')
+                })
             except Exception as e:
-                messages.error(request, f"Error al actualizar el Plan de Artículo: {str(e)}")
+                return JsonResponse({
+                    'success': False,
+                    'message': f"Error al actualizar el Plan de Artículo: {str(e)}"
+                }, status=500)
         else:
-            messages.error(request, "Error en el formulario. Por favor, revise los datos ingresados.")
+            return JsonResponse({
+                'success': False,
+                'message': "Error en el formulario. Por favor, revise los datos ingresados.",
+                'errors': form.errors
+            }, status=400)
     else:
         form = PlanArticuloForm(instance=plan_articulo)
-    return render(request, 'factura/planArticuloEdit.html', {'form': form, 'plan_articulo': plan_articulo, 'cuentas_plan': cuentas_plan})
-
+    
+    return render(request, 'factura/planArticuloEdit.html', {
+        'form': form,
+        'plan_articulo': plan_articulo,
+        'cuentas_plan': cuentas_plan,
+        'es_debe': es_debe,
+        'tipo_texto': tipo_texto,
+        'nombre_cuenta_actual': nombre_cuenta_actual,
+        'id_plan_cuenta_actual': cuenta_actual.idPlanCuenta if cuenta_actual else None
+    })
 
 def plan_articulo_list(request):
     """
