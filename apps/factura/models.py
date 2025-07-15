@@ -10,20 +10,24 @@ from apps.home.models import CuotaFormacion, Moneda, Tasa
 from apps.cuentaBanco.models import CuentaBanco
 from apps.solicitud.models import Solicitud
 from django.utils.timezone import now
+from apps.planCuenta.models import PlanCuenta
 
-class Nota(models.Model):
-    TIPO_OPERACION = [
-        ('COBRO', 'Nota de Cobro'),
-        ('PAGO', 'Nota de Pago'),
-    ]
 
-    TIPOS_ARTICULO = [
+
+TIPOS_ARTICULO = [
         ('HONORARIO_PROFESOR', 'Pagos a Proveedores - Honorarios Profesionales'), # esto es un pago
         ('SERVICIO_GENERAL', 'Pagos a Proveedores - Servicios Generales (Internet, Luz, etc.)'), # esto es un pago
         ('COMPRA_BIENES', 'Pagos a Proveedores - Compra de Bienes/Materiales'), # esto es un pago
         ('INSCRIPCION', 'Ingresos de Estudiantes - Inscripción'), # esto es un cobro
         ('CUOTA', 'Ingresos de Estudiantes - Cuota'), # esto es un cobro
         ('SOLICITUD', 'Ingresos de Estudiantes - Solicitud de Trámites'), # esto es un cobro
+    ]
+
+
+class Nota(models.Model):
+    TIPO_OPERACION = [
+        ('COBRO', 'Nota de Cobro'),
+        ('PAGO', 'Nota de Pago'),
     ]
 
     idNota = models.AutoField(primary_key=True)
@@ -258,3 +262,18 @@ class ParametroTributario(models.Model):
     
     def __str__(self):
         return f"{self.get_tipo_display()} ({self.get_aplica_a_display()}) - {self.porcentaje}%"
+    
+
+class PlanArticulo(models.Model):
+        
+    """
+    Modelo para definir los planes a los que aplica un artículo.
+    """
+    idPlanArti = models.AutoField(primary_key=True)
+    tipoArticulo = models.CharField(max_length=50, choices=TIPOS_ARTICULO)
+    idPlanCuenta = models.ForeignKey(PlanCuenta, on_delete=models.CASCADE, verbose_name="Plan de Cuenta")
+    tipo = models.BooleanField(default=False)
+    fecha = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de inicio")
+
+    def __str__(self):
+        return f"Plan {self.idPlan} - {self.get_articulo_display()}"

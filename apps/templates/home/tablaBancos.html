@@ -547,7 +547,7 @@ document.addEventListener('DOMContentLoaded', () => {
         success: function(response) {
           if (response.success) {
             // Cierra el modal y recarga la página
-            $('#editBancoModal').modal('hide');
+            $('#editBancoModal').modal('hide.bs.modal');
             location.reload();
           } else {
             // Muestra errores de validación

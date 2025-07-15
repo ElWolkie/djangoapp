@@ -12,13 +12,15 @@ urlpatterns = [
     path('facturas/', views.factura_list, name='factura_list'),
     path('facturas/<int:pk>/', views.factura_detail, name='factura_detail'),
     path('facturas/nueva/<int:nota_id>/', views.factura_create_notas, name='factura_create'),
-    
-
     path('facturas/editar/<int:pk>/', views.factura_edit, name='factura_edit'),
     path('facturas/eliminar/<int:pk>/', views.factura_delete, name='factura_delete'),
     path('facturas/cargando/<int:pk>', views.factura_cargando, name='factura_cargando'),
     path('obtener-cuotas/', views.obtener_cuotas, name='obtener_cuotas'),
     
+     # PlanArticulo
+    path('plan-articulo/', views.plan_articulo_list, name='plan_articulo_list'),
+    path('plan-articulo/nuevo/', views.create_plan_articulo, name='plan_articulo_create'),
+    path('plan-articulo/editar/<int:pk>/', views.edit_plan_articulo, name='plan_articulo_edit'),
 
     # Reportes
     path('facturas/reporteFacturas', views.reporte_facturas_pdf, name='reporte_facturas_pdf'),

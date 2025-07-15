@@ -146,36 +146,38 @@
               {% endif %}
             </td>
             <td>{{ plan.fechaPlanCuenta|date:"d/m/Y" }}</td>
-            <td class="actions-column">
-              <div class="d-flex gap-2">
-                {% if plan.idPlanCuenta %}
-                  {% if perms.planCuenta.change_plancuenta %}
-                  <a href="{% url 'editar_plan' plan.idPlanCuenta %}" class="btn btn-primary btn-sm" title="Editar">
-                    <i class="fas fa-edit"></i>
-                  </a>
-                  {% endif %}
-                {% endif %}
-                {% if plan.estadoPlanCuenta %}
-                  {% if perms.planCuenta.change_plancuenta %}
-                      <button class="btn btn-outline-warning btn-sm"
-                              data-bs-toggle="modal"
-                              data-bs-target="#deletePlanCuentaModal"
-                              data-url="{% url 'desactivar_plan' plan.idPlanCuenta %}"
-                              title="Inhabilitar">
-                        <i class="fas fa-user-slash"></i>
-                      </button>
-                    {% else %}
-                      <button class="btn btn-success btn-sm"
-                              data-bs-toggle="modal"
-                              data-bs-target="#reactivatePlanCuentaModal"
-                              data-url="{% url 'reactivar_plan' plan.idPlanCuenta %}"
-                              title="Reactivar">
-                        <i class="fas fa-redo"></i>
-                      </button>
-                  {% endif %}
-                {% endif %}
-              </div>
-            </td>
+<td class="actions-column">
+  <div class="d-flex gap-2">
+    {% if plan.idPlanCuenta %}
+      {% if perms.planCuenta.change_plancuenta %}
+        <a href="{% url 'editar_plan' plan.idPlanCuenta %}" class="btn btn-primary btn-sm" title="Editar">
+          <i class="fas fa-edit"></i>
+        </a>
+      {% endif %}
+    {% endif %}
+    {% if plan.estadoPlanCuenta %}
+      {% if perms.planCuenta.change_plancuenta %}
+        <button class="btn btn-outline-warning btn-sm"
+                data-bs-toggle="modal"
+                data-bs-target="#deletePlanCuentaModal"
+                data-url="{% url 'desactivar_plan' plan.idPlanCuenta %}"
+                title="Inhabilitar">
+          <i class="fas fa-user-slash"></i>
+        </button>
+      {% endif %}
+    {% else %}
+      {% if perms.planCuenta.change_plancuenta %}
+        <button class="btn btn-success btn-sm"
+                data-bs-toggle="modal"
+                data-bs-target="#reactivatePlanCuentaModal"
+                data-url="{% url 'reactivar_plan' plan.idPlanCuenta %}"
+                title="Reactivar">
+          <i class="fas fa-redo"></i>
+        </button>
+      {% endif %}
+    {% endif %}
+  </div>
+</td>
           </tr>
           {% empty %}
           <tr>

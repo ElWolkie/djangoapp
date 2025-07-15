@@ -2,6 +2,7 @@ from datetime import datetime
 from datetime import timezone
 from datetime import datetime
 from decimal import Decimal
+from pyexpat.errors import messages
 import random
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse, HttpResponse
@@ -25,8 +26,8 @@ from apps.honorario.models import Honorario
 from apps.inscripcion.models import Inscripcion, InscripcionCuota
 from apps.periodoContable.models import periodoContable
 from apps.solicitud.models import Solicitud
-from .models import Factura, FacturaDetalle, NotaRelacionada, Pago, ParametroTributario, Nota
-from .forms import FacturaForm, FacturaDetalleForm, PagoForm, ParametroTributarioForm, NotaForm
+from .models import Factura, FacturaDetalle, NotaRelacionada, Pago, ParametroTributario, Nota, PlanArticulo
+from .forms import FacturaForm, FacturaDetalleForm, PagoForm, ParametroTributarioForm, NotaForm, PlanArticuloForm
 from apps.asientoContable.models import AsientoContable, DetalleAsiento
 from apps.home.models import Configuracion, CuotaFormacion, Moneda, Tasa
 from apps.persona.models import Personas
@@ -34,6 +35,91 @@ from apps.empresa.models import empresa
 from apps.planCuenta.models import PlanCuenta
 
 
+def create_plan_articulo(request):
+    """
+    Vista para crear dos registros de PlanArticulo: uno para Debe (tipo=1) y otro para Haber (tipo=0).
+    """
+    cuentas_plan = PlanCuenta.objects.filter(estadoPlanCuenta=True).order_by('codigoPlanCuenta')
+    if request.method == 'POST':
+        form = PlanArticuloForm(request.POST)
+        if form.is_valid():
+            try:
+                plan_articulo_data = form.save(commit=False)
+                
+                # Obtener los valores de idPlanCuentaDebe y idPlanCuentaHaber desde request.POST
+                id_plan_cuenta_debe = request.POST.get('idPlanCuentaDebe')
+                id_plan_cuenta_haber = request.POST.get('idPlanCuentaHaber')
+
+                if not id_plan_cuenta_debe or not id_plan_cuenta_haber:
+                    return JsonResponse({
+                        'success': False,
+                        'message': "Debe seleccionar las cuentas contables para el Debe y el Haber."
+                    }, status=400)
+
+                # Crear registro para tipo=1 (Debe)
+                plan_articulo_debe = PlanArticulo(
+                    tipoArticulo=plan_articulo_data.tipoArticulo,
+                    idPlanCuenta_id=id_plan_cuenta_debe,  # Usar el ID directamente
+                    tipo=1  # Debe
+                )
+                plan_articulo_debe.save()
+
+                # Crear registro para tipo=0 (Haber)
+                plan_articulo_haber = PlanArticulo(
+                    tipoArticulo=plan_articulo_data.tipoArticulo,
+                    idPlanCuenta_id=id_plan_cuenta_haber,  # Usar el ID directamente
+                    tipo=0  # Haber
+                )
+                plan_articulo_haber.save()
+
+                return JsonResponse({
+                    'success': True,
+                    'message': "Planes de Artículo creados exitosamente.",
+                    'url': reverse('plan_articulo_list')
+                })
+            except Exception as e:
+                return JsonResponse({
+                    'success': False,
+                    'message': f"Error al crear los Planes de Artículo: {str(e)}"
+                }, status=500)
+        else:
+            return JsonResponse({
+                'success': False,
+                'message': "Error en el formulario. Por favor, revise los datos ingresados.",
+                'errors': form.errors
+            }, status=400)
+    else:
+        form = PlanArticuloForm()
+    return render(request, 'factura/planArticulo.html', {'form': form, 'cuentas_plan': cuentas_plan})
+def edit_plan_articulo(request, pk):
+    """
+    Vista para editar un PlanArticulo existente.
+    """
+    cuentas_plan = PlanCuenta.objects.filter(estadoPlanCuenta=True).order_by('codigoPlanCuenta')
+
+    plan_articulo = get_object_or_404(PlanArticulo, pk=pk)
+    if request.method == 'POST':
+        form = PlanArticuloForm(request.POST, instance=plan_articulo)
+        if form.is_valid():
+            try:
+                form.save()
+                messages.success(request, "Plan de Artículo actualizado exitosamente.")
+                return redirect('plan_articulo_list')  # Cambiar por el nombre de la URL de la lista
+            except Exception as e:
+                messages.error(request, f"Error al actualizar el Plan de Artículo: {str(e)}")
+        else:
+            messages.error(request, "Error en el formulario. Por favor, revise los datos ingresados.")
+    else:
+        form = PlanArticuloForm(instance=plan_articulo)
+    return render(request, 'factura/planArticuloEdit.html', {'form': form, 'plan_articulo': plan_articulo, 'cuentas_plan': cuentas_plan})
+
+
+def plan_articulo_list(request):
+    """
+    Vista para listar todos los PlanArticulo.
+    """
+    plan_articulos = PlanArticulo.objects.all().order_by('idPlanArti')
+    return render(request, 'factura/tablaPlanArticulo.html', {'planes': plan_articulos})
 
 
 
@@ -145,13 +231,13 @@ def notas_create(request):
                                    'Por favor, registre o active un periodo contable antes de continuar.'
                     }, status=400)
 
-                # Verificar que las cuentas contables estén presentes en la solicitud
-                if 'idPlanCuentaDebe' not in request.POST or 'idPlanCuentaHaber' not in request.POST:
-                    return JsonResponse({
-                        'success': False,
-                        'message': 'Debe seleccionar las cuentas contables para el debe y el haber. '
-                                   'Asegúrese de que los campos "idPlanCuentaDebe" y "idPlanCuentaHaber" estén presentes.'
-                    }, status=400)
+                # # Verificar que las cuentas contables estén presentes en la solicitud
+                # if 'idPlanCuentaDebe' not in request.POST or 'idPlanCuentaHaber' not in request.POST:
+                #     return JsonResponse({
+                #         'success': False,
+                #         'message': 'Debe seleccionar las cuentas contables para el debe y el haber. '
+                #                    'Asegúrese de que los campos "idPlanCuentaDebe" y "idPlanCuentaHaber" estén presentes.'
+                #     }, status=400)
 
                 # Crear el asiento contable
                 try:
@@ -170,15 +256,31 @@ def notas_create(request):
 
                 # Crear los detalles del asiento contable
                 try:
+                    # Consultar los registros más recientes de PlanArticulo para el tipo de artículo seleccionado
+                    plan_articulos = PlanArticulo.objects.filter(tipoArticulo=nota.tipoArticulo).order_by('-fecha')
+
+                    # Filtrar para obtener un registro para el debe (tipo=1) y otro para el haber (tipo=0)
+                    plan_articulo_debe = plan_articulos.filter(tipo=1).first()
+                    plan_articulo_haber = plan_articulos.filter(tipo=0).first()
+
+                    # Validar que se hayan encontrado ambos registros
+                    if not plan_articulo_debe or not plan_articulo_haber:
+                        return JsonResponse({
+                            'success': False,
+                            'message': 'No se encontraron cuentas contables válidas para el tipo de artículo seleccionado. '
+                                    'Por favor, revise la configuración de los planes de artículo.'
+                        }, status=400)
+
+                    # Crear los detalles del asiento contable usando los registros encontrados
                     DetalleAsiento.objects.create(
                         idAsiento=asiento,
-                        idPlanCuenta_id=request.POST['idPlanCuentaDebe'],
+                        idPlanCuenta=plan_articulo_debe.idPlanCuenta,
                         debe=nota.totalNota,
                         haber=0.00
                     )
                     DetalleAsiento.objects.create(
                         idAsiento=asiento,
-                        idPlanCuenta_id=request.POST['idPlanCuentaHaber'],
+                        idPlanCuenta=plan_articulo_haber.idPlanCuenta,
                         debe=0.00,
                         haber=nota.totalNota
                     )
@@ -186,7 +288,7 @@ def notas_create(request):
                     return JsonResponse({
                         'success': False,
                         'message': f'Error al crear los detalles del asiento contable: {str(e)}. '
-                                   'Por favor, revise las cuentas contables seleccionadas.'
+                                'Por favor, revise las cuentas contables seleccionadas.'
                     }, status=500)
 
                 # Asociar el asiento contable a la nota
@@ -877,7 +979,12 @@ def pago_edit(request, pk):
     Vista para editar un pago existente.
     """
     pago = get_object_or_404(Pago, pk=pk)
-    facturas = Factura.objects.all()
+    notas = Nota.objects.all()
+    cuentas_banco = CuentaBanco.objects.filter(estado=True)
+    tasas = Tasa.objects.select_related('idMoneda') \
+        .values('idTasa', 'idMoneda__nombreMoneda', 'montoTasa')
+    cuentas_plan = PlanCuenta.objects.filter(estadoPlanCuenta=True)
+    today_date = datetime.now().strftime('%Y-%m-%d')
 
     if request.method == 'POST':
         form = PagoForm(request.POST, instance=pago)
@@ -886,9 +993,15 @@ def pago_edit(request, pk):
             return redirect('pago_list')
     else:
         form = PagoForm(instance=pago)
-    return render(request, 'factura/pago.html', {
+
+    return render(request, 'factura/pago_edit.html', {
         'form': form,
-        'facturas': facturas
+        'pago': pago,
+        'notas': notas,
+        'cuentas_banco': cuentas_banco,
+        'tasas': tasas,
+        'cuentas_plan': cuentas_plan,
+        'today_date': today_date,
     })
 
 @transaction.atomic
