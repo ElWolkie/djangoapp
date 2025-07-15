@@ -56,19 +56,19 @@
 
 {% block content %}
 <div class="container mt-4">
-  <h2 class="text-center mb-4">Lista de Monedas Registradas</h2>
+  <h2 class="text-center mb-4">Lista de Monedas</h2>
 
   <div class="row mb-3">
     <div class="col-md-4">
       <div class="input-group">
         <span class="input-group-text"><i class="fas fa-search"></i></span>
-        <input class="form-control" id="searchInput" type="text" placeholder="Buscar por Nombre o Símbolo">
+        <input class="form-control" id="searchInput" type="text" placeholder="Buscar...">
       </div>
     </div>
     <div class="col-md-4 text-end">
       {% if perms.home.add_moneda %}
           <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#monedaModal">
-            <i class="fas fa-plus-circle me-1"></i> Registrar
+            <i class="fas fa-plus-circle me-1"></i> Registrar Moneda
           </button>
 
         <button class="btn btn-warning ms-2"

@@ -44,14 +44,14 @@ def inscripcion_modal(request):
                 InscripcionCuota.objects.create(
                     idInscripcion=inscripcion,
                     idCuota=cuota,
-                    estadoPago='PENDIENTE',
+                    estadoPago='EN ESPERA',
                     montoPagado=0
                 )
 
             return JsonResponse({
                 'success': True,
                 'message': 'Inscripción registrada exitosamente.',
-            'redirect_url': f"{reverse('nota_create')}?inscripcion={valor_inscripcion}&id={inscripcion.idPersona.idPersona}"
+            'redirect_url': f"{reverse('nota_create')}?inscripcion={valor_inscripcion}&idP={inscripcion.idPersona.idPersona}&id={inscripcion.idInscripcion}"
             })
         else:
             errors = {field: error for field, error in form.errors.items()}

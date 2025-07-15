@@ -115,28 +115,47 @@
           <!-- Saldo Contable -->
           <div class="col-xl-3 col-md-6">
             <div class="card card-stats">
-              <div class="card-body">
-                <div class="row">
-                  <div class="col">
-                    <h5 class="card-title text-uppercase text-muted mb-0">Saldo Actual</h5>
-                    <span class="h2 font-weight-bold mb-0">
-                      {{ saldo_contable }}
-                    </span>
-                  </div>
-                  <div class="col-auto">
-                    <div class="icon icon-shape bg-gradient-info text-white rounded-circle shadow">
-                      <i class="ni ni-money-coins"></i>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col">
+                            <h5 class="card-title text-uppercase text-muted mb-0">Período Actual</h5>
+                            <span class="h2 font-weight-bold mb-0">
+                                {% if periodo_actual %}
+                                    {{ periodo_actual.nombrePeriodo|truncatechars:12 }}
+                                {% else %}
+                                    Sin período
+                                {% endif %}
+                            </span>
+                        </div>
+                        <div class="col-auto">
+                            <div class="icon icon-shape bg-gradient-info text-white rounded-circle shadow">
+                                <i class="ni ni-calendar-grid-58"></i>
+                            </div>
+                        </div>
                     </div>
-                  </div>
+                    <p class="mt-3 mb-0 text-sm">
+                        <span class="{% if periodo_actual %}text-success{% else %}text-warning{% endif %} mr-2">
+                            <i class="fa {% if periodo_actual %}fa-check-circle{% else %}fa-exclamation-circle{% endif %}"></i>
+                            {% if periodo_actual %}
+                                {{ periodo_actual.fechaInicioPeriodo|date:"M/Y" }} - {{ periodo_actual.fechaFinPeriodo|date:"M/Y" }}
+                            {% else %}
+                                Definir período
+                            {% endif %}
+                        </span>
+                        <br>
+                        <span class="text-muted">
+                            {% if periodo_actual %}
+                                {% if periodo_actual.estadoPeriodo %}
+                                    <i class="fa fa-circle text-success"></i> Activo
+                                {% else %}
+                                    <i class="fa fa-circle text-danger"></i> Cerrado
+                                {% endif %}
+                            {% endif %}
+                        </span>
+                    </p>
                 </div>
-                <p class="mt-3 mb-0 text-sm">
-                  <span class="text-success mr-2">
-                    <i class="fa fa-arrow-up"></i> Actualizado
-                  </span>
-                </p>
-              </div>
             </div>
-          </div>
+        </div>
         </div>
       </div>
     </div>

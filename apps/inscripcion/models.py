@@ -7,9 +7,11 @@ from apps.home.models import Cohorte, CuotaFormacion, TipoFormacion, Formacion
 
 class Inscripcion(models.Model):
     ESTADOS_PAGO = [
+        ('SIN CONFIRMAR', 'Sin Confirmar '), #estado que define una cuota depeniente de una inscripcion sin confirmar
         ('PENDIENTE', 'Pendiente'),
         ('PARCIAL', 'Pago Parcial'),
-        ('COMPLETO', 'Pago Completo'),
+        ('PAGADO', 'Pago Completo'),
+        ('FACTURADO', 'Factura creada'),
     ]
     
     idInscripcion = models.AutoField(primary_key=True)
@@ -46,9 +48,13 @@ class InscripcionCuota(models.Model):
     idInscripcion = models.ForeignKey(Inscripcion, on_delete=models.CASCADE)
     idCuota = models.ForeignKey(CuotaFormacion, on_delete=models.CASCADE)
     estadoPago = models.CharField(max_length=20, choices=[
-        ('PENDIENTE', 'Pendiente'),
-        ('PAGADO', 'Pagado'),
-        ('PARCIAL', 'Pago Parcial'),
+        ('SIN CONFIRMAR', 'Sin Confirmar '), #estado que define una cuota depeniente de una inscripcion sin confirmar
+        ('EN ESPERA', 'En Espera'), #estado que define una cuota depeniente de una inscripcion confirmada, sin nota de cobro
+        ('PENDIENTE', 'Pendiente'), #estado que define una cuota dependiente de una inscripcion confirmada, con nota de cobro
+        ('PARCIAL', 'Pago Parcial'), #estado que define una cuota con un pago parcial de su valor
+        ('PAGADO', 'Pagado'), # estado que define una cuota pagada en su totalidad
+        ('FACTURADO', 'Factura Creada'), #estado  que define una cuota pagada y facturada
+
     ], default='PENDIENTE')
     montoPagado = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     fechaPago = models.DateField(null=True, blank=True)

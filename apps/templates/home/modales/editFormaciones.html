@@ -90,8 +90,8 @@
 
     document.getElementById("duracion").addEventListener("input", function() {
       this.value = this.value.replace(/[^a-zA-Z0-9ñÑ ^]+$/, '');
-      if (this.value.length > 6) {
-        this.value = this.value.slice(0, 6);
+      if (this.value.length > 12) {
+        this.value = this.value.slice(0, 12);
       }
     });
 

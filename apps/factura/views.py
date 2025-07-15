@@ -1,6 +1,8 @@
 from datetime import datetime
 from datetime import timezone
+from datetime import datetime
 from decimal import Decimal
+import random
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse, HttpResponse
 from django.db import transaction
@@ -33,17 +35,16 @@ from apps.planCuenta.models import PlanCuenta
 
 
 
-def factura_cargando(request):
-    """
-    Vista para mostrar la ventana de carga mientras se genera la factura.
-    """
-    return render(request, 'factura/cargando.html')
 
+
+def factura_cargando(request, pk):
+    # Redirige primero a la animación, luego al PDF
+    return render(request, 'factura/cargando.html', {'factura_pk': pk})
 def factura_list(request):
     """
     Vista para listar todas las facturas junto con sus detalles.
     """
-    facturas = Factura.objects.prefetch_related('detalles').all()  # 'detalles' es el related_name definido en el modelo
+    facturas = Factura.objects.prefetch_related('detalles').all()
     facturas_data = [
         {
             'pk': factura.pk,
@@ -104,10 +105,28 @@ def notas_create(request):
     cuentas_plan = PlanCuenta.objects.filter(estadoPlanCuenta=True).order_by('codigoPlanCuenta')
     numero_nota = generar_numero_nota()  # Generar el número de nota
     empresas = empresa.objects.all()
-    cuotas = CuotaFormacion.objects.filter(is_active=True).order_by('idCuota')
+    cuotas = InscripcionCuota.objects.filter(estadoPago='EN ESPERA').order_by('idCuota')
     solicitudes = Solicitud.objects.filter(estadoSolicitud='ACTIVO').order_by('idSoli')
     honorarios = Honorario.objects.filter(estadoHonorario='ACTIVO').order_by('idHonorario')
     inscripciones = Inscripcion.objects.filter(is_active=True).order_by('idInscripcion')
+    # Obtener la moneda de configuración
+    configuracion = Configuracion.objects.first()
+    if not configuracion:
+        return JsonResponse({
+            'success': False,
+            'message': 'No se encontró una configuración activa en el sistema.'
+        }, status=400)
+    moneda_configuracion = configuracion.moneda
+    tasa_configuracion = Tasa.objects.filter(idMoneda=moneda_configuracion).order_by('-idTasa').first()
+
+    if not tasa_configuracion:
+        return JsonResponse({
+            'success': False,
+            'message': f'No se encontró una tasa registrada para la moneda de configuración ({moneda_configuracion.nombreMoneda}).'
+        }, status=400)
+
+    tasa_configuracion_valor = Decimal(tasa_configuracion.montoTasa)  # Convertir a Decimal
+    print(f"Tasa de configuración ({moneda_configuracion.nombreMoneda}): {tasa_configuracion_valor}")
 
     if request.method == 'POST':
         form = NotaForm(request.POST)
@@ -177,6 +196,22 @@ def notas_create(request):
 
                 # Crear la relación en NotaRelacionada solo si alguno de los IDs está presente
                 crear_relacion_nota(nota, request)
+
+                id_inscripcion = request.POST.get('idInscripcion')
+                print(f"ID Inscripcion recibido: {id_inscripcion}")
+
+                if id_inscripcion:
+                    inscripcion = Inscripcion.objects.filter(idInscripcion=id_inscripcion).first()
+                    if inscripcion:
+                        nota.idInscripcion = inscripcion
+                        nota.save()
+                        inscripcion.estadoPago = 'PENDIENTE'
+                        inscripcion.save()
+                    else:
+                        print("No se encontró una inscripción con el ID proporcionado.")
+                else:
+                    print("ID Inscripcion no proporcionado en el formulario.")
+                                
                 # Si todo es exitoso, retornar una respuesta JSON
                 return JsonResponse({
                     'success': True,
@@ -222,34 +257,63 @@ def notas_create(request):
         'inscripciones': inscripciones
     })
 
+
 def obtener_cuotas(request):
     id_persona = request.GET.get('idPersona')
+    id_inscripcion = request.GET.get('idInscripcion')
+
+    print(f"ID Persona recibido: {id_persona}")
+    print(f"ID Inscripción recibido: {id_inscripcion}")
+
     if not id_persona:
+        print("Error: ID de persona no proporcionado")
         return JsonResponse({'error': 'ID de persona no proporcionado'}, status=400)
 
     # Filtrar cuotas asociadas a inscripciones de la persona seleccionada
-    cuotas = CuotaFormacion.objects.filter(
-        inscripciones__idPersona=id_persona,
-        is_active=True
-    ).distinct()
+    cuotas = InscripcionCuota.objects.filter(estadoPago='EN ESPERA')
+    print(f"Cuotas activas iniciales: {cuotas.count()}")
+
+    if id_inscripcion and id_inscripcion != 'null':
+        # Verificar que la inscripción esté asociada a la persona
+        inscripcion = Inscripcion.objects.filter(idInscripcion=id_inscripcion, idPersona=id_persona).first()
+        print(f"Inscripción encontrada: {inscripcion}")
+
+        if not inscripcion:
+            print("Error: La inscripción no está asociada a la persona proporcionada")
+            return JsonResponse({'error': 'La inscripción no está asociada a la persona proporcionada'}, status=400)
+
+        # Filtrar cuotas relacionadas directamente con la inscripción
+        cuotas = cuotas.filter(idInscripcion=inscripcion)
+        print(f"Cuotas relacionadas con la inscripción: {cuotas.count()}")
+    else:
+        # Filtrar cuotas asociadas a cualquier inscripción de la persona
+        cuotas = cuotas.filter(idInscripcion__idPersona=id_persona).distinct()
+        print(f"Cuotas relacionadas con la persona: {cuotas.count()}")
+
+    # Si no hay cuotas con estado "EN ESPERA", verificar si hay cuotas con estado "SIN CONFIRMAR"
+    if not cuotas.exists():
+        cuotas_sin_confirmar = InscripcionCuota.objects.filter(estadoPago='SIN CONFIRMAR', idInscripcion__idPersona=id_persona)
+        if cuotas_sin_confirmar.exists():
+            print("Error: La inscripción no ha sido pagada")
+            return JsonResponse({'error': 'La inscripción no ha sido pagada, por lo tanto no puede proceder con las cuotas.'}, status=400)
 
     # Serializar los datos de las cuotas
     cuotas_data = [
         {
-            'idCuota': cuota.idCuota,
+            'idCuota': cuota.idCuota.idCuota,  # Acceder al ID de la cuota
             'inscripciones': [
                 {
-                    'idInscripcion': inscripcion.idInscripcion,
-                    'nombreFormacion': inscripcion.idFormacion.nombreFormacion,  # Ejemplo de campo adicional
+                    'idInscripcion': cuota.idInscripcion.idInscripcion,
+                    'nombreFormacion': cuota.idInscripcion.idFormacion.nombreFormacion,  # Ejemplo de campo adicional
                 }
-                for inscripcion in cuota.inscripciones.filter(idPersona=id_persona)
             ],
-            'nombreCuota': cuota.nombreCuota,
-            'valorCuota': float(cuota.valorCuota),
+            'nombreCuota': cuota.idCuota.nombreCuota,  # Acceder al nombre de la cuota
+            'valorCuota': float(cuota.idCuota.valorCuota),  # Acceder al valor de la cuota
         }
         for cuota in cuotas
     ]
 
+    print(f"Datos serializados de cuotas: {cuotas_data}")
     return JsonResponse({'cuotas': cuotas_data})
 def crear_relacion_nota(nota, request):
     """
@@ -311,16 +375,31 @@ def factura_detalle_list(request, factura_id):
         'factura': factura,
         'detalles': detalles
     })
+def generar_numero_factura_unico(nota):
 
+    prefijo = "FAC"
+    
+    # Obtener el último número secuencial basado en el campo numeroFactura
+    ultimo = Factura.objects.aggregate(Max('numeroFactura'))['numeroFactura__max'] or 0
+    nuevo = int(ultimo) + 1 if str(ultimo).isdigit() else 1
+    numero_secuencial = f"{nuevo:08d}"
+
+    # Simulación de número de control (debe ser provisto por imprenta autorizada)
+    fecha_hora = datetime.now().strftime("%d%m%y%H%M")
+    numero_control = f"CNT-{fecha_hora}-{random.randint(100, 999)}"
+
+    # Crear número de factura
+    numero_factura = f"{numero_secuencial}"
+
+    return numero_factura
 
 @transaction.atomic
 def factura_create_notas(request, nota_id=None):
     """
     Vista para crear una factura basada en las notas relacionadas.
-    Permite crear una factura individualizada o una factura general.
     """
-    if request.method == 'POST':
-        tipo_factura = request.POST.get('tipo_factura')  # 'individualizada' o 'general'
+    try:
+        # Filtrar las notas según el ID proporcionado o estado 'PAGADO'
         notas = Nota.objects.filter(idNota=nota_id) if nota_id else Nota.objects.filter(estado='PAGADO')
 
         if not notas.exists():
@@ -329,121 +408,54 @@ def factura_create_notas(request, nota_id=None):
                 'message': 'No se encontraron notas para generar la factura.'
             }, status=400)
 
-        try:
-            with transaction.atomic():
-                if tipo_factura == 'individualizada':
-                    # Lógica para factura individualizada
-                    return generar_facturas_individualizadas(notas)
+        # Procesar según tipo de factura
+        facturas_creadas = []
+        with transaction.atomic():
+            for nota in notas:
+                # Crear la factura
+                factura = Factura.objects.create(
+                    numeroFactura=generar_numero_factura_unico(nota),
+                    nota=nota,
+                    estado='GENERADA'
+                )
 
-                elif tipo_factura == 'general':
-                    # Lógica para factura general
-                    return generar_factura_general(notas)
+                # Crear el detalle de la factura
+                FacturaDetalle.objects.create(
+                    idFactura=factura,
+                    idNota=nota,
+                    tipoItem=nota.tipoArticulo,
+                    descripcion=f"Nota {nota.numeroNota}",
+                    cantidad=1,
+                    precioUnitario=nota.totalNota,
+                    exento=nota.subtotalExento > 0,
+                    descuentoItem=nota.descuento,
+                    subtotal=nota.subtotalGravado + nota.subtotalExento,
+                    ivaItem=nota.iva,
+                    totalItem=nota.totalNota
+                )
 
-                else:
-                    return JsonResponse({
-                        'success': False,
-                        'message': 'Tipo de factura no válido.'
-                    }, status=400)
+                # Actualizar estado de la nota
+                nota.estado = 'FACTURADO'
+                nota.save()
 
-        except Exception as e:
-            import traceback
-            print(f"Error inesperado: {e}")
-            print(traceback.format_exc())
-            return JsonResponse({
-                'success': False,
-                'message': f'Ocurrió un error inesperado: {str(e)}. '
-                           'Por favor, contacte al administrador del sistema si el problema persiste.'
-            }, status=500)
+                facturas_creadas.append(factura)
 
-    else:
-        return render(request, 'factura/factura_form.html', {
-            'notas': Nota.objects.filter(estado='PAGADO'),
-            'tipo_factura_opciones': ['individualizada', 'general']
+        return JsonResponse({
+            'success': True,
+            'message': 'Facturas creadas exitosamente.',
+            'facturas': [factura.numeroFactura for factura in facturas_creadas]
         })
 
-
-def generar_facturas_individualizadas(notas):
-    """
-    Genera facturas individualizadas para cada nota.
-    """
-    facturas_creadas = []
-    for nota in notas:
-        factura = Factura.objects.create(
-            numeroFactura=f"FAC-{nota.numeroNota}",
-            tipoFactura=nota.tipoArticulo,
-            idPersona=nota.idPersona,
-            idEmpresa=nota.idEmpresa,
-            subtotalExento=nota.subtotalExento,
-            subtotalGravado=nota.subtotalGravado,
-            iva=nota.iva,
-            ivaRetenido=nota.ivaRetenido,
-            islrRetenido=nota.islrRetenido,
-            descuento=nota.descuento,
-            totalVenta=nota.totalNota,
-            estado='Generada',
-            observaciones=f"Factura generada para la nota {nota.numeroNota}"
-        )
-        factura.notas.add(nota)  # Relacionar la nota con la factura
-        facturas_creadas.append(factura)
-
-    return JsonResponse({
-        'success': True,
-        'message': 'Facturas individualizadas creadas exitosamente.',
-        'facturas': [factura.numeroFactura for factura in facturas_creadas]
-    })
-
-
-def generar_factura_general(notas):
-    """
-    Genera una factura general que resume todas las notas.
-    """
-    subtotal_exento = sum(nota.subtotalExento for nota in notas)
-    subtotal_gravado = sum(nota.subtotalGravado for nota in notas)
-    iva_total = sum(nota.iva for nota in notas)
-    iva_retenido_total = sum(nota.ivaRetenido or 0 for nota in notas)
-    islr_retenido_total = sum(nota.islrRetenido or 0 for nota in notas)
-    descuento_total = sum(nota.descuento for nota in notas)
-    total_venta = sum(nota.totalNota for nota in notas)
-
-    factura_general = Factura.objects.create(
-        numeroFactura=f"FAC-GENERAL-{timezone.now().strftime('%Y%m%d%H%M%S')}",
-        tipoFactura='GENERAL',
-        idPersona=None,  # Factura general no tiene cliente específico
-        idEmpresa=notas.first().idEmpresa,  # Usar la empresa de la primera nota
-        subtotalExento=subtotal_exento,
-        subtotalGravado=subtotal_gravado,
-        iva=iva_total,
-        ivaRetenido=iva_retenido_total,
-        islrRetenido=islr_retenido_total,
-        descuento=descuento_total,
-        totalVenta=total_venta,
-        estado='Generada',
-        observaciones='Factura general que resume todas las notas pagadas.'
-    )
-
-    # Relacionar todas las notas con la factura general
-    factura_general.notas.add(*notas)
-
-    # Crear detalles para cada nota en la factura general
-    for nota in notas:
-        FacturaDetalle.objects.create(
-            idFactura=factura_general,
-            tipoItem=nota.tipoArticulo,
-            descripcion=f"Detalle de la nota {nota.numeroNota}",
-            cantidad=1,  # Cada nota cuenta como un ítem único
-            precioUnitario=nota.totalNota,
-            exento=nota.subtotalExento > 0,
-            descuentoItem=nota.descuento,
-            subtotal=nota.subtotalGravado + nota.subtotalExento,
-            ivaItem=nota.iva,
-            totalItem=nota.totalNota
-        )
-
-    return JsonResponse({
-        'success': True,
-        'message': 'Factura general creada exitosamente.',
-        'factura': factura_general.numeroFactura
-    })
+    except Exception as e:
+        import traceback
+        print(f"Error inesperado: {e}")
+        print(traceback.format_exc())
+        return JsonResponse({
+            'success': False,
+            'message': f'Ocurrió un error inesperado: {str(e)}. '
+                       'Por favor, contacte al administrador del sistema si el problema persiste.'
+        }, status=500)
+    
 @transaction.atomic
 def factura_detalle_create(request, factura_id):
     """
@@ -510,7 +522,8 @@ def pago_detail(request, pk):
     pago = get_object_or_404(Pago, pk=pk)
     return render(request, 'factura/pago_detail.html', {'pago': pago})
 
-@transaction.atomic
+
+
 def pago_create(request, pk=None):
     """
     Vista para crear un nuevo pago y generar un asiento contable asociado.
@@ -651,11 +664,28 @@ def pago_create(request, pk=None):
                     except Exception as e:
                         raise ValueError(f'Error al crear el asiento contable: {str(e)}')
 
+                    # Obtener el plan de cuenta según la forma de pago
+                    if pago.formaPago == 'EFECTIVO':
+                        plan_cuenta_debe = PlanCuenta.objects.filter(codigoPlanCuenta='1101').first()
+                        print(f"Plan de cuenta para pagos en efectivo: {plan_cuenta_debe}")
+                        if not plan_cuenta_debe:
+                            return JsonResponse({
+                                'success': False,
+                                'message': 'No se encontró un plan de cuenta con el código 1101 para pagos en efectivo.'
+                            }, status=400)
+                    else:
+                        plan_cuenta_debe = PlanCuenta.objects.get(pk=request.POST['idPlanCuentaDebe'])
+                        if not plan_cuenta_debe:
+                            return JsonResponse({
+                                'success': False,
+                                'message': 'No se encontró un plan de cuenta válido para la forma de pago seleccionada.'
+                            }, status=400)
+
                     # Crear los detalles del asiento contable
                     try:
                         DetalleAsiento.objects.create(
                             idAsiento=asiento_pago,
-                            idPlanCuenta_id=request.POST['idPlanCuentaDebe'],  # Cuenta de ingresos seleccionada por el usuario
+                            idPlanCuenta=plan_cuenta_debe,  # Cuenta de ingresos seleccionada por el usuario
                             debe=pago.monto,
                             haber=0.00
                         )
@@ -685,10 +715,10 @@ def pago_create(request, pk=None):
                                     inscripcion = nota_relacionada.idInscripcion
                                     inscripcion.estadoPago = 'PARCIAL'
                                     inscripcion.save()
-                                # case _ if nota_relacionada.idCuota:
-                                #     cuota = nota_relacionada.idCuota
-                                #     cuota.estadoPago = 'PARCIAL'
-                                #     cuota.save()
+                                case _ if nota_relacionada.idCuota:
+                                     cuota = nota_relacionada.idCuota
+                                     cuota.estadoPago = 'PARCIAL'
+                                     cuota.save()
                                 case _ if nota_relacionada.idSolicitud:
                                     solicitud = nota_relacionada.idSolicitud
                                     solicitud.estadoPago = 'PARCIAL'
@@ -782,7 +812,7 @@ def pago_create(request, pk=None):
                                         solicitud = nota_relacionada.idSolicitud
                                         solicitud.estadoPago = 'PAGADO'
                                         solicitud.save()
-                                        relaciones['solicitud'] = solicitud.idSolicitud
+                                        relaciones['solicitud'] = solicitud.idSoli
 
                                     case _ if nota_relacionada.idHonorario:
                                         honorario = nota_relacionada.idHonorario
@@ -798,7 +828,7 @@ def pago_create(request, pk=None):
                             return JsonResponse({
                                 'success': True,
                                 'message': 'Pago creado exitosamente y asiento contable generado. La nota ha sido pagada en su totalidad. Ya puede facturar.',
-                                'redirect_url': reverse('factura_create_notas', args=[pago.idNota.idNota]),
+                                'redirect_url': reverse('factura_create', args=[pago.idNota.idNota]),
                                 'relaciones': relaciones,  # Enviar las llaves relacionadas
                                 'pago': {
                                     'idPago': pago.idPago,
@@ -975,6 +1005,153 @@ def obtener_parametros_tributarios(request):
     
     return JsonResponse(parametros_agrupados)
 
+def nota_pago_pdf(request, pk):
+    nota = get_object_or_404(Nota, pk=pk)
+    detalles = FacturaDetalle.objects.filter(idNota=nota)
+    config = Configuracion.objects.order_by('-fechaConfiguracion').first()
+
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="nota_pago_{nota.numeroNota}.pdf"'
+    p = canvas.Canvas(response, pagesize=letter)
+    width, height = letter
+
+    # --- Encabezado institucional ---
+    y = height - 40
+    p.setFont("Helvetica-Bold", 14)
+    p.drawCentredString(width / 2, y, config.nombreInstitucion if config else "NOMBRE DE LA FUNDACIÓN")
+    y -= 18
+    p.setFont("Helvetica", 11)
+    p.drawCentredString(width / 2, y, f"RIF: {config.rif if config else 'J-XXXXXXXX-X'}")
+    y -= 16
+    p.setFont("Helvetica", 10)
+    p.drawCentredString(width / 2, y, "Dirección Fiscal:")
+    y -= 14
+    p.drawCentredString(width / 2, y, "AV. ALBERTO RAVELL CON AV. INTERCOMUNAL")
+    y -= 14
+    p.drawCentredString(width / 2, y, "JOSE ANTONIO PAEZ, LOCAL UPTYAB,")
+    y -= 14
+    p.drawCentredString(width / 2, y, "INDEPENDENCIA – EDO YARACUY")
+    y -= 20
+    p.line(30, y, width - 30, y)
+    y -= 20
+
+    # --- Datos de la factura/nota ---
+    p.setFont("Helvetica-Bold", 11)
+    p.drawString(40, y, f"N°: {nota.numeroNota}")
+    y -= 16
+    p.setFont("Helvetica", 10)
+    p.drawString(40, y, f"Fecha de Emisión: {nota.fechaEmision.strftime('%d/%m/%Y')}")
+    y -= 16
+    # Determinar el cliente y sus datos correctamente
+    if nota.idPersona:
+        nombre_cliente = nota.idPersona.nombreCompleto if hasattr(nota.idPersona, 'nombreCompleto') else str(nota.idPersona)
+        rif_cliente = nota.idPersona.cedula if hasattr(nota.idPersona, 'cedula') else ''
+        direccion_cliente = nota.idPersona.direccion if hasattr(nota.idPersona, 'direccion') else ''
+    elif nota.idEmpresa:
+        nombre_cliente = nota.idEmpresa.nombreEmpresa if hasattr(nota.idEmpresa, 'nombreEmpresa') else str(nota.idEmpresa)
+        rif_cliente = nota.idEmpresa.rif if hasattr(nota.idEmpresa, 'rif') else ''
+        direccion_cliente = nota.idEmpresa.direccionEmpresa if hasattr(nota.idEmpresa, 'direccionEmpresa') else ''
+    else:
+        nombre_cliente = ''
+        rif_cliente = ''
+        direccion_cliente = ''
+
+    p.drawString(40, y, f"Cliente: {nombre_cliente}")
+    y -= 16
+    p.drawString(40, y, f"RIF/Cédula: {rif_cliente}")
+    y -= 16
+    p.drawString(40, y, f"Dirección: {direccion_cliente}")
+    y -= 20
+    p.line(30, y, width - 30, y)
+    y -= 20
+
+    # --- Tabla de detalles ---
+    p.setFont("Helvetica-Bold", 10)
+    p.drawString(40, y, "Descripción")
+    p.drawString(260, y, "Cantidad")
+    p.drawString(330, y, "Precio Unitario")
+    p.drawString(430, y, "Subtotal Exento")
+    y -= 10
+    p.line(30, y, width - 30, y)
+    y -= 18
+    p.setFont("Helvetica", 10)
+    # Descripción principal
+    p.drawString(40, y, nota.tipoOperacion[:40])
+    y -= 14
+    # Tipo de artículo debajo de la descripción
+    p.setFont("Helvetica-Oblique", 9)
+    tipo_articulo_display = dict(Nota.TIPOS_ARTICULO).get(nota.tipoArticulo, nota.tipoArticulo)
+    # Mostrar el tipo de artículo, haciendo salto de línea si es mayor de 30 caracteres
+    if len(tipo_articulo_display) > 50:
+        # Dividir el texto en partes de máximo 30 caracteres
+        for i in range(0, len(tipo_articulo_display), 30):
+            p.drawString(50, y, tipo_articulo_display[i:i+30])
+            y -= 12  # Ajusta el salto de línea para cada parte
+    else:
+        p.drawString(50, y, tipo_articulo_display)
+        y -= 12
+    p.setFont("Helvetica", 10)
+    # Cantidad, precio unitario y subtotal exento
+    # Mostrar la cantidad como 1 por cada objeto relacionado en NotaRelacionada
+    cantidad = 0
+    nota_relacionadas = NotaRelacionada.objects.filter(idNota=nota)
+    if nota_relacionadas.exists():
+        # Si hay relaciones, cuenta cada una como cantidad 1
+        cantidad = nota_relacionadas.count()
+    else:
+        # Si no hay relaciones, por defecto 1
+        cantidad = 1
+    p.drawRightString(295, 485, f"{cantidad:.2f}")
+    # Obtener el símbolo de la moneda desde la configuración
+    simbolo_moneda = config.moneda.simboloMoneda if config and hasattr(config, 'moneda') and hasattr(config.moneda, 'simboloMoneda') else ""
+    p.drawRightString(385, 485, f"{nota.totalNota:.2f} {simbolo_moneda}")
+    p.drawRightString(485, 485, f"{nota.subtotalExento:.2f}")
+    y -= 18
+    if y < 120:
+        p.showPage()
+        y = height - 80
+    p.line(30, y, width - 30, y)
+    y -= 20
+
+    # --- Totales y resumen ---
+    p.setFont("Helvetica", 10)
+    p.drawRightString(510, y, f"Subtotal Exento:      {nota.subtotalExento:.2f}")
+    y -= 16
+    p.drawRightString(510, y, f"Subtotal Gravado:     {nota.subtotalGravado:.2f}")
+    y -= 16
+    p.drawRightString(510, y, f"IVA (16%):            {nota.iva:.2f}")
+    y -= 16
+    p.drawRightString(510, y, f"IVA Retenido (75%):   {nota.ivaRetenido if nota.ivaRetenido else 0:.2f}")
+    y -= 16
+    p.drawRightString(510, y, f"ISLR Retenido (3%):   {nota.islrRetenido if nota.islrRetenido else 0:.2f}")
+    y -= 16
+    p.drawRightString(510, y, f"Descuento:            {nota.descuento:.2f}")
+    y -= 16
+    p.line(250, y, width - 30, y)
+    y -= 18
+    p.setFont("Helvetica-Bold", 11)
+    simbolo_moneda = config.moneda.simboloMoneda if config and hasattr(config, 'moneda') and hasattr(config.moneda, 'simboloMoneda') else ""
+    p.drawRightString(510, y, f"TOTAL:                {nota.totalNota:.2f} {simbolo_moneda}")
+    y -= 20
+    p.line(30, y, width - 30, y)
+    y -= 20
+
+    # --- Forma de pago ---
+    p.setFont("Helvetica", 10)
+    p.drawString(40, y, f"Forma de Pago: {nota.formaPago}")
+    y -= 20
+    p.line(30, y, width - 30, y)
+    y -= 40
+
+    # --- Firma autorizada ---
+    p.setFont("Helvetica-Bold", 11)
+    p.drawCentredString(width / 2, y, f"FIRMA AUTORIZADA: ")
+    y -= 20
+    p.line(30, y, width - 30, y)
+
+    p.showPage()
+    p.save()
+    return response
 def reporte_facturas_pdf(request):
     # Selección de cantidad de registros
     start = int(request.GET.get('start', 1))
@@ -1131,105 +1308,353 @@ def reporte_facturas_pdf(request):
     return response
 
 
-def reporte_factura_pdf(request, pk):
+def factura_generar_pdf(request, pk):
     factura = get_object_or_404(Factura, pk=pk)
+    nota = factura.nota
     detalles = FacturaDetalle.objects.filter(idFactura=factura)
+    pagos = Pago.objects.filter(idNota=nota)
+    config = Configuracion.objects.order_by('-fechaConfiguracion').first()
 
     response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = f'inline; filename="factura_{factura.numeroFactura}.pdf"'
-
+    response['Content-Disposition'] = f'attachment; filename="factura_{factura.numeroFactura}.pdf"'
     p = canvas.Canvas(response, pagesize=letter)
     width, height = letter
     logo_width, logo_height, logo_margin = 80, 80, 15
 
-    # Configuración institucional
+    # --- Encabezado institucional ---
+    y = height - 40
+    p.setFont("Helvetica-Bold", 14)
+    p.drawCentredString(width / 2, y, config.nombreInstitucion if config else "NOMBRE DE LA FUNDACIÓN")
+    y -= 18
+    p.setFont("Helvetica", 11)
+    p.drawCentredString(width / 2, y, f"RIF: {config.rif if config else 'J-XXXXXXXX-X'}")
+    y -= 16
+    p.setFont("Helvetica", 10)
+    p.drawCentredString(width / 2, y, "Dirección Fiscal:")
+    y -= 14
+    p.drawCentredString(width / 2, y, "AV. ALBERTO RAVELL CON AV. INTERCOMUNAL")
+    y -= 14
+    p.drawCentredString(width / 2, y, "JOSE ANTONIO PAEZ, LOCAL UPTYAB,")
+    y -= 14
+    p.drawCentredString(width / 2, y, "INDEPENDENCIA – EDO YARACUY")
+    y -= 20
+    p.line(30, y, width - 30, y)
+    y -= 20
+
+    # --- Datos de la factura ---
+    p.setFont("Helvetica-Bold", 11)
+    p.drawString(40, y, f"Factura N°: {factura.numeroFactura}")
+    y -= 16
+    p.setFont("Helvetica", 10)
+    p.drawString(40, y, f"Fecha de Emisión: {factura.fechaEmision.strftime('%d/%m/%Y')}")
+    y -= 16
+    cliente = factura.idPersona if factura.idPersona else factura.idEmpresa
+    nombre_cliente = getattr(cliente, 'nombreCompleto', getattr(cliente, 'nombreEmpresa', ''))
+    rif_cliente = getattr(cliente, 'cedula', getattr(cliente, 'rif', ''))
+    direccion_cliente = getattr(cliente, 'direccion', getattr(cliente, 'direccionEmpresa', ''))
+    p.drawString(40, y, f"Cliente: {nombre_cliente}")
+    y -= 16
+    p.drawString(40, y, f"RIF/Cédula: {rif_cliente}")
+    y -= 16
+    p.drawString(40, y, f"Dirección: {direccion_cliente}")
+    y -= 20
+    p.line(30, y, width - 30, y)
+    y -= 20
+
+    # --- Tabla de detalles de la factura ---
+    p.setFont("Helvetica-Bold", 10)
+    p.drawString(40, y, "Descripción")
+    p.drawString(260, y, "Cantidad")
+    p.drawString(330, y, "Precio Unitario")
+    p.drawString(430, y, "Subtotal Exento")
+    y -= 10
+    p.line(30, y, width - 30, y)
+    y -= 18
+    p.setFont("Helvetica", 10)
+    for det in detalles:
+        p.drawString(40, y, det.descripcion[:40])
+        y -= 14
+        p.setFont("Helvetica-Oblique", 9)
+        p.drawString(50, y, f"Artículo: {det.tipoItem}")
+        p.setFont("Helvetica", 10)
+        p.drawRightString(300, y, f"{det.cantidad:.2f}")
+        p.drawRightString(400, y, f"{det.precioUnitario:.2f}")
+        p.drawRightString(510, y, f"{det.subtotal:.2f}")
+        y -= 18
+        if y < 120:
+            p.showPage()
+            y = height - 80
+    p.line(30, y, width - 30, y)
+    y -= 20
+
+    # --- Totales y resumen ---
+    p.setFont("Helvetica", 10)
+    p.drawRightString(510, y, f"Subtotal Exento:      {factura.subtotalExento:.2f}")
+    y -= 16
+    p.drawRightString(510, y, f"Subtotal Gravado:     {factura.subtotalGravado:.2f}")
+    y -= 16
+    p.drawRightString(510, y, f"IVA (16%):            {factura.iva:.2f}")
+    y -= 16
+    p.drawRightString(510, y, f"IVA Retenido (75%):   {factura.ivaRetenido if factura.ivaRetenido else 0:.2f}")
+    y -= 16
+    p.drawRightString(510, y, f"ISLR Retenido (3%):   {factura.islrRetenido if factura.islrRetenido else 0:.2f}")
+    y -= 16
+    p.drawRightString(510, y, f"Descuento:            {factura.descuento:.2f}")
+    y -= 16
+    p.line(250, y, width - 30, y)
+    y -= 18
+    p.setFont("Helvetica-Bold", 11)
+    p.drawRightString(510, y, f"TOTAL:                {factura.totalVenta:.2f}")
+    y -= 20
+    p.line(30, y, width - 30, y)
+    y -= 20
+
+    # --- Pagos realizados ---
+    p.setFont("Helvetica-Bold", 10)
+    p.drawString(40, y, "Pagos realizados:")
+    y -= 16
+    p.setFont("Helvetica", 10)
+    if pagos.exists():
+        for pago in pagos:
+            moneda_simbolo = pago.idTasa.idMoneda.simboloMoneda if pago.idTasa and pago.idTasa.idMoneda else ""
+            p.drawString(50, y, f"Fecha: {pago.fechaPago.strftime('%d/%m/%Y')} | Monto: {pago.monto:.2f} {moneda_simbolo} | Forma: {pago.formaPago} | Referencia: {pago.referencia or ''}")
+            y -= 14
+            if y < 80:
+                p.showPage()
+                y = height - 80
+    else:
+        p.drawString(50, y, "No se han registrado pagos para esta factura.")
+        y -= 14
+
+    p.line(30, y, width - 30, y)
+    y -= 20
+
+    # --- Firma autorizada ---
+    p.setFont("Helvetica-Bold", 11)
+    p.drawCentredString(width / 2, y, f"FIRMA AUTORIZADA: ")
+    y -= 20
+    p.line(30, y, width - 30, y)
+
+    p.showPage()
+    p.save()
+    return response
+
+def reporte_pagos_pdf(request):
+    # Trae todos los pagos
+    pagos = list(Pago.objects.select_related('idNota', 'idTasa', 'idCuentaBanco__banco').order_by('-fechaPago'))
+
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'inline; filename="reporte_pagos.pdf"'
+    page_size = landscape(letter)
+    p = canvas.Canvas(response, pagesize=page_size)
+    width, height = page_size
+
+    # Encabezado institucional a la izquierda
     config = Configuracion.objects.order_by('-fechaConfiguracion').first()
     logo_path = config.logo.path if config and config.logo else None
-    firma_path = config.firma.path if config and config.firma else None
     nombre_institucion = config.nombreInstitucion if config else "Institución"
     rif_institucion = config.rif if config else ""
     direccion1 = "AV. ALBERTO RAVELL CON AV. INTERCOMUNAL JOSE ANTONIO PAEZ"
     direccion2 = "LOCAL UPTYAB, INDEPENDENCIA – EDO YARACUY"
 
-    # --- Define encabezado y pie ---
     def draw_header():
+        y = height - 40
         if logo_path and os.path.exists(logo_path):
-            p.drawImage(
-                logo_path,
-                width - logo_width - logo_margin,
-                height - logo_height - logo_margin,
-                width=logo_width,
-                height=logo_height,
-                preserveAspectRatio=True,
-                mask='auto'
-            )
-        text_top = height - logo_margin - 15
+            p.drawImage(logo_path, width - 120, y - 60, width=80, height=65, preserveAspectRatio=True, mask='auto')
+        p.setFont("Helvetica-Bold", 13)
+        p.drawString(140, y, nombre_institucion)
+        y -= 18
+        p.setFont("Helvetica", 11)
+        p.drawString(140, y, f"RIF: {rif_institucion}")
+        y -= 16
+        p.setFont("Helvetica", 10)
+        p.drawString(140, y, direccion1)
+        y -= 14
+        p.drawString(140, y, direccion2)
+        y -= 18
+        p.setFont("Helvetica-Bold", 13)
+        p.drawString(140, y, "REPORTE DE PAGOS")
+        y -= 10
+        p.line(30, y, width - 30, y)
+        return y - 18
 
-        p.setFont("Helvetica-Bold", 10)
-        p.drawString(logo_margin, text_top, nombre_institucion)
-        p.drawString(logo_margin, text_top - 15, f"RIF: {rif_institucion}")
-        p.drawString(logo_margin, text_top - 30, direccion1)
-        p.drawString(logo_margin, text_top - 45, direccion2)
-        p.setFont("Helvetica-Bold", 14)
-        p.drawCentredString(width / 2, text_top - 85, "FACTURA")
-
-    def draw_footer():
-        if firma_path and os.path.exists(firma_path):
-            p.drawImage(firma_path, width/2 - 60, 60, width=120, height=60, preserveAspectRatio=True, mask='auto')
-            p.setFont("Helvetica-Oblique", 10)
-            p.drawCentredString(width/2, 40, "Firma autorizada")
-        
+    def draw_footer(y):
         p.setFont("Helvetica", 8)
         fecha_generacion = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-        p.drawString(logo_margin, 20, f"Generado el: {fecha_generacion}")
+        p.drawString(40, 20, f"Generado el: {fecha_generacion}")
+        p.setFont("Helvetica-Bold", 10)
+        p.drawString(width - 200, 20, "Firma autorizada")
 
-    draw_header()
-
-    # Información de la factura
-    p.setFont("Helvetica", 10)
-    p.drawString(50, height - 120, f"N° Factura: {factura.numeroFactura}")
-    p.drawString(50, height - 140, f"Fecha: {factura.fechaEmision.strftime('%d/%m/%Y')}")
-    p.drawString(50, height - 160, f"Cliente: {factura.idPersona if factura.idPersona else 'N/A'}")
-    p.drawString(50, height - 180, f"Empresa: {factura.idEmpresa.nombreEmpresa if factura.idEmpresa else 'N/A'}")
-    p.drawString(50, height - 200, f"Estado: {factura.estado}")
-
-    # Tabla de detalles
-    data = [["Descripción", "Cantidad", "Precio Unitario", "Subtotal"]]
-    for det in detalles:
+    # Datos de la tabla
+    headers = [
+        "ID Pago", "N° Nota", "Fecha Pago", "Monto", "Moneda", "Forma de Pago",
+        "Referencia", "Banco", "Observaciones"
+    ]
+    data = [headers]
+    for pago in pagos:
+        banco_nombre = pago.idCuentaBanco.banco.nombreBanco if pago.idCuentaBanco and hasattr(pago.idCuentaBanco, 'banco') else "—"
         data.append([
-            det.descripcion,
-            str(det.cantidad),
-            f"{det.precioUnitario:.2f}",
-            f"{det.subtotal:.2f}"
+            str(pago.idPago),
+            pago.idNota.numeroNota if pago.idNota else "",
+            pago.fechaPago.strftime("%d/%m/%Y"),
+            f"{pago.monto:.2f}",
+            pago.idTasa.idMoneda.simboloMoneda if pago.idTasa and pago.idTasa.idMoneda and hasattr(pago.idTasa.idMoneda, 'simboloMoneda') else "",
+            pago.formaPago,
+            pago.referencia or "—",
+            banco_nombre,
+            pago.observaciones or "—"
         ])
-    
-    # Añadir fila de total
-    data.append(["", "", "TOTAL:", f"{factura.totalVenta:.2f}"])
-    
-    col_widths = [250, 70, 100, 100]
+    col_widths = [50, 105, 70, 70, 60, 80, 80, 80, 130]
     table_width = sum(col_widths)
-    table_x = (width - table_width) / 2
-    
-    table = Table(data, colWidths=col_widths)
-    table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#5e72e4")),
-        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0,0), (-1,0), 10),
-        ('BOTTOMPADDING', (0,0), (-1,0), 8),
-        ('BACKGROUND', (0,1), (-1,-2), colors.whitesmoke),
-        ('GRID', (0,0), (-1,-1), 0.5, colors.lightgrey),
-        ('ALIGN', (3,1), (3,-1), 'RIGHT'),
-        ('FONTWEIGHT', (0,-1), (-1,-1), 'BOLD'),
-        ('BACKGROUND', (0,-1), (-1,-1), colors.lightgrey),
-        ('ALIGN', (3,-1), (3,-1), 'RIGHT'),
-    ]))
-    
-    table.wrapOn(p, width, height)
-    table.drawOn(p, table_x, height - 250 - 22 * len(data))
-    
-    draw_footer()
+
+    header_height = 160
+    footer_height = 60
+    row_height = 25
+
+    available_height = height - header_height - footer_height
+    max_rows_per_page = max(1, int(available_height // row_height))
+    total_rows = len(data) - 1
+    page = 0
+
+    for start_row in range(0, total_rows, max_rows_per_page):
+        end_row = min(start_row + max_rows_per_page, total_rows)
+        page_data = [data[0]] + data[start_row + 1:end_row + 1]
+        if page > 0:
+            p.showPage()
+        y = draw_header()
+        table_x = 40
+        table = Table(page_data, colWidths=col_widths, rowHeights=[row_height]*len(page_data))
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0,0), (-1,0), 9),
+            ('ALIGN', (0,0), (-1,0), 'CENTER'),
+            ('VALIGN', (0,0), (-1,0), 'MIDDLE'),
+            ('BOTTOMPADDING', (0,0), (-1,0), 6),
+            ('FONTSIZE', (0,1), (-1,-1), 8),
+            ('ALIGN', (0,1), (-1,-1), 'CENTER'),
+            ('ALIGN', (8,1), (8,-1), 'LEFT'),
+            ('VALIGN', (0,1), (-1,-1), 'MIDDLE'),
+            ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.lightgrey),
+            ('BOX', (0,0), (-1,-1), 0.5, colors.black),
+        ]))
+        table.wrapOn(p, width, height)
+        table.drawOn(p, table_x, y - row_height * len(page_data) - 10)
+        draw_footer(y)
+        page += 1
+
+    p.save()
+    return response
+
+def pago_pdf(request, pk):
+    """
+    PDF individual de pago, horizontal, cabezal a la izquierda.
+    """
+    pago = get_object_or_404(Pago.objects.select_related('idNota', 'idTasa', 'idCuentaBanco__banco'), pk=pk)
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="pago_{pk}.pdf"'
+    page_size = landscape(letter)
+    p = canvas.Canvas(response, pagesize=page_size)
+    width, height = page_size
+
+    config = Configuracion.objects.order_by('-fechaConfiguracion').first()
+    logo_path = config.logo.path if config and config.logo else None
+    nombre_institucion = config.nombreInstitucion if config else "Institución"
+    rif_institucion = config.rif if config else ""
+    direccion1 = "AV. ALBERTO RAVELL CON AV. INTERCOMUNAL JOSE ANTONIO PAEZ"
+    direccion2 = "LOCAL UPTYAB, INDEPENDENCIA – EDO YARACUY"
+
+    def draw_header():
+        y = height - 40
+        if logo_path and os.path.exists(logo_path):
+            p.drawImage(logo_path, width - 120, y - 60, width=80, height=65, preserveAspectRatio=True, mask='auto')
+        p.setFont("Helvetica-Bold", 13)
+        p.drawString(140, y, nombre_institucion)
+        y -= 18
+        p.setFont("Helvetica", 11)
+        p.drawString(140, y, f"RIF: {rif_institucion}")
+        y -= 16
+        p.setFont("Helvetica", 10)
+        p.drawString(140, y, direccion1)
+        y -= 14
+        p.drawString(140, y, direccion2)
+        y -= 18
+        p.setFont("Helvetica-Bold", 13)
+        p.drawString(140, y, "COMPROBANTE DE PAGO")
+        y -= 10
+        p.line(30, y, width - 30, y)
+        return y - 18
+
+    def draw_footer(y):
+        p.setFont("Helvetica", 8)
+        fecha_generacion = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        p.drawString(40, 20, f"Generado el: {fecha_generacion}")
+        p.setFont("Helvetica-Bold", 10)
+        p.drawString(width - 200, 20, "Firma autorizada")
+
+    y = draw_header()
+    left_col_x = 60
+    line_height = 22
+
+    p.setFont("Helvetica-Bold", 11)
+    p.drawString(left_col_x, y, f"ID Pago:")
+    p.setFont("Helvetica", 10)
+    p.drawString(left_col_x + 120, y, str(pago.idPago))
+    y -= line_height
+
+    p.setFont("Helvetica-Bold", 11)
+    p.drawString(left_col_x, y, f"Nota asociada:")
+    p.setFont("Helvetica", 10)
+    p.drawString(left_col_x + 120, y, f"{pago.idNota.numeroNota if pago.idNota else ''}")
+    y -= line_height
+
+    p.setFont("Helvetica-Bold", 11)
+    p.drawString(left_col_x, y, f"Fecha de Pago:")
+    p.setFont("Helvetica", 10)
+    p.drawString(left_col_x + 120, y, pago.fechaPago.strftime('%d/%m/%Y'))
+    y -= line_height
+
+    p.setFont("Helvetica-Bold", 11)
+    p.drawString(left_col_x, y, f"Monto:")
+    p.setFont("Helvetica", 10)
+    p.drawString(left_col_x + 120, y, f"{pago.monto:.2f} {pago.idTasa.idMoneda.simboloMoneda if pago.idTasa and pago.idTasa.idMoneda else ''}")
+    y -= line_height
+
+    p.setFont("Helvetica-Bold", 11)
+    p.drawString(left_col_x, y, f"Forma de Pago:")
+    p.setFont("Helvetica", 10)
+    p.drawString(left_col_x + 120, y, pago.formaPago)
+    y -= line_height
+
+    p.setFont("Helvetica-Bold", 11)
+    p.drawString(left_col_x, y, f"Referencia:")
+    p.setFont("Helvetica", 10)
+    p.drawString(left_col_x + 120, y, pago.referencia or "—")
+    y -= line_height
+
+    p.setFont("Helvetica-Bold", 11)
+    p.drawString(left_col_x, y, f"Banco:")
+    p.setFont("Helvetica", 10)
+    banco_nombre = pago.idCuentaBanco.banco.nombreBanco if pago.idCuentaBanco and hasattr(pago.idCuentaBanco, 'banco') else "—"
+    p.drawString(left_col_x + 120, y, banco_nombre)
+    y -= line_height
+
+    p.setFont("Helvetica-Bold", 11)
+    p.drawString(left_col_x, y, f"Observaciones:")
+    p.setFont("Helvetica", 10)
+    obs = pago.observaciones or "—"
+    obs_lines = [obs[i:i+70] for i in range(0, len(obs), 70)]
+    for line in obs_lines:
+        p.drawString(left_col_x + 120, y, line)
+        y -= 16
+
+    y -= 10
+    p.line(30, y, width - 30, y)
+    y -= 20
+
+    draw_footer(y)
     p.showPage()
     p.save()
     return response

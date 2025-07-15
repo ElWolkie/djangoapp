@@ -317,6 +317,11 @@
 {% block javascripts %}
 <script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
 <script>
+    document.addEventListener('input', e => {
+    if (e.target.id === 'nombreCohorte') {
+      e.target.value = e.target.value.toUpperCase().replace(/[^A-Z\s]/g, '').slice(0,20);
+    }
+  });
 document.addEventListener("DOMContentLoaded", function () {
   // ============================
   // 1) Definición de datos de contexto

@@ -46,26 +46,26 @@ def contabilidad(request):
     except CuentaBanco.DoesNotExist:
         ultima_cuenta = None
 
-    # 2. Última empresa (corregir excepción)
+    # 2. Última empresa
     try:
         ultima_empresa = empresa.objects.latest('fechaEmpresa')
-    except empresa.DoesNotExist:  # ← Excepción corregida
+    except empresa.DoesNotExist:
         ultima_empresa = None
 
-    # 3. Periodo contable
+    # 3. Periodo contable actual (el más reciente por fecha de inicio)
     try:
-        periodo_actual = periodoContable.objects.latest('fechaInicioPeriodo')
+        periodo_actual = periodoContable.objects.filter(estadoPeriodo=True).latest('fechaInicioPeriodo')
     except periodoContable.DoesNotExist:
         periodo_actual = None
 
     context = {
         'ultima_cuenta': ultima_cuenta,
         'ultima_empresa': ultima_empresa,
-        'periodo_actual': periodo_actual,
-        'saldo_contable': "En desarrollo...",
+        'periodo_actual': periodo_actual,  # Ahora mostramos el período actual
         'total_cuentas': CuentaBanco.objects.count(),
         'total_empresas': empresa.objects.count(),
-        'total_periodos': periodoContable.objects.count()
+        'total_periodos': periodoContable.objects.count(),
+        'periodos_activos': periodoContable.objects.filter(estadoPeriodo=True).count()
     }
     
     return render(request, 'home/index2.html', context)

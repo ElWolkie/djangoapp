@@ -51,19 +51,19 @@
 
 {% block content %}
 <div class="container mt-4">
-  <h2 class="text-center mb-4">Registro de Ingresos</h2>
+  <h2 class="text-center mb-4">Listado de Ingresos</h2>
 
   <div class="row mb-3">
     <div class="col-md-4">
       <div class="input-group">
         <span class="input-group-text"><i class="fas fa-search"></i></span>
-        <input class="form-control" id="searchInput" type="text" placeholder="Buscar ingresos...">
+        <input class="form-control" id="searchInput" type="text" placeholder="Buscar...">
       </div>
     </div>
     <div class="col-md-4 text-end">
       {% if perms.home.add_movimiento %}
       <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#movimientoModal">
-        <i class="fas fa-plus-circle me-1"></i> Nuevo Ingreso
+        <i class="fas fa-plus-circle me-1"></i> Registrar Ingreso
       </button>
       {% endif %}
     </div>

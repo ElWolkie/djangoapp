@@ -169,5 +169,9 @@
       <p class="loading-text">Tu Factura se está generando...</p>
     </div>
   </div>
-  
+  <script>
+  setTimeout(function() {
+    window.location.href = "{% url 'factura_generar_pdf' factura_pk %}";
+  }, 2500); // 2.5 segundos de animación
+</script>
 {% endblock content %}
