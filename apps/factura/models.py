@@ -273,7 +273,7 @@ class PlanArticulo(models.Model):
     tipoArticulo = models.CharField(max_length=50, choices=TIPOS_ARTICULO)
     idPlanCuenta = models.ForeignKey(PlanCuenta, on_delete=models.CASCADE, verbose_name="Plan de Cuenta")
     tipo = models.BooleanField(default=False)
-    fecha = models.DateField(auto_now_add=True, verbose_name="Fecha de inicio")
+    fecha = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de inicio")
 
     def __str__(self):
         return f"Plan {self.idPlan} - {self.get_articulo_display()}"
