@@ -699,6 +699,7 @@ def formacion_modal(request):
         form = FormacionForm()
         tipos_formacion = TipoFormacion.objects.filter(estadoTipoFormacion='ACTIVO')
         return render(request, 'home/formaciones.html', {'form': form, 'tipos_formacion': tipos_formacion})
+    
 @login_required(login_url='login')
 @permission_required("home.change_formacion", raise_exception=True)
 def edit_formacion(request, pk):

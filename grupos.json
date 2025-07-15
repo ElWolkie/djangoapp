@@ -6,21 +6,6 @@
     "name": "Administrador",
     "permissions": [
       [
-        "view_bitacora",
-        "bitacora",
-        "bitacora"
-      ],
-      [
-        "change_configuracionbitacora",
-        "bitacora",
-        "configuracionbitacora"
-      ],
-      [
-        "view_configuracionbitacora",
-        "bitacora",
-        "configuracionbitacora"
-      ],
-      [
         "add_cargo",
         "home",
         "cargo"
@@ -261,6 +246,51 @@
         "usuarios"
       ],
       [
+        "add_honorario",
+        "honorario",
+        "honorario"
+      ],
+      [
+        "change_honorario",
+        "honorario",
+        "honorario"
+      ],
+      [
+        "view_honorario",
+        "honorario",
+        "honorario"
+      ],
+      [
+        "add_inscripcion",
+        "inscripcion",
+        "inscripcion"
+      ],
+      [
+        "change_inscripcion",
+        "inscripcion",
+        "inscripcion"
+      ],
+      [
+        "view_inscripcion",
+        "inscripcion",
+        "inscripcion"
+      ],
+      [
+        "add_inscripcioncuota",
+        "inscripcion",
+        "inscripcioncuota"
+      ],
+      [
+        "change_inscripcioncuota",
+        "inscripcion",
+        "inscripcioncuota"
+      ],
+      [
+        "view_inscripcioncuota",
+        "inscripcion",
+        "inscripcioncuota"
+      ],
+      [
         "add_personas",
         "persona",
         "personas"
@@ -304,6 +334,36 @@
         "view_tipopersona",
         "persona",
         "tipopersona"
+      ],
+      [
+        "add_requisitocliente",
+        "requisitoCliente",
+        "requisitocliente"
+      ],
+      [
+        "change_requisitocliente",
+        "requisitoCliente",
+        "requisitocliente"
+      ],
+      [
+        "view_requisitocliente",
+        "requisitoCliente",
+        "requisitocliente"
+      ],
+      [
+        "add_solicitud",
+        "solicitud",
+        "solicitud"
+      ],
+      [
+        "change_solicitud",
+        "solicitud",
+        "solicitud"
+      ],
+      [
+        "view_solicitud",
+        "solicitud",
+        "solicitud"
       ]
     ]
   }
@@ -2332,6 +2392,66 @@
     "name": "Contable",
     "permissions": [
       [
+        "add_asientocontable",
+        "asientoContable",
+        "asientocontable"
+      ],
+      [
+        "change_asientocontable",
+        "asientoContable",
+        "asientocontable"
+      ],
+      [
+        "view_asientocontable",
+        "asientoContable",
+        "asientocontable"
+      ],
+      [
+        "add_detalleasiento",
+        "asientoContable",
+        "detalleasiento"
+      ],
+      [
+        "change_detalleasiento",
+        "asientoContable",
+        "detalleasiento"
+      ],
+      [
+        "view_detalleasiento",
+        "asientoContable",
+        "detalleasiento"
+      ],
+      [
+        "add_banco",
+        "cuentaBanco",
+        "banco"
+      ],
+      [
+        "change_banco",
+        "cuentaBanco",
+        "banco"
+      ],
+      [
+        "view_banco",
+        "cuentaBanco",
+        "banco"
+      ],
+      [
+        "add_cuentabanco",
+        "cuentaBanco",
+        "cuentabanco"
+      ],
+      [
+        "change_cuentabanco",
+        "cuentaBanco",
+        "cuentabanco"
+      ],
+      [
+        "view_cuentabanco",
+        "cuentaBanco",
+        "cuentabanco"
+      ],
+      [
         "add_empresa",
         "empresa",
         "empresa"
@@ -2347,49 +2467,109 @@
         "empresa"
       ],
       [
-        "add_honorario",
-        "honorario",
-        "honorario"
+        "add_factura",
+        "factura",
+        "factura"
       ],
       [
-        "change_honorario",
-        "honorario",
-        "honorario"
+        "change_factura",
+        "factura",
+        "factura"
       ],
       [
-        "view_honorario",
-        "honorario",
-        "honorario"
+        "view_factura",
+        "factura",
+        "factura"
       ],
       [
-        "add_inscripcion",
-        "inscripcion",
-        "inscripcion"
+        "add_facturadetalle",
+        "factura",
+        "facturadetalle"
       ],
       [
-        "change_inscripcion",
-        "inscripcion",
-        "inscripcion"
+        "change_facturadetalle",
+        "factura",
+        "facturadetalle"
       ],
       [
-        "view_inscripcion",
-        "inscripcion",
-        "inscripcion"
+        "view_facturadetalle",
+        "factura",
+        "facturadetalle"
       ],
       [
-        "add_inscripcioncuota",
-        "inscripcion",
-        "inscripcioncuota"
+        "add_nota",
+        "factura",
+        "nota"
       ],
       [
-        "change_inscripcioncuota",
-        "inscripcion",
-        "inscripcioncuota"
+        "change_nota",
+        "factura",
+        "nota"
       ],
       [
-        "view_inscripcioncuota",
-        "inscripcion",
-        "inscripcioncuota"
+        "view_nota",
+        "factura",
+        "nota"
+      ],
+      [
+        "add_notarelacionada",
+        "factura",
+        "notarelacionada"
+      ],
+      [
+        "change_notarelacionada",
+        "factura",
+        "notarelacionada"
+      ],
+      [
+        "view_notarelacionada",
+        "factura",
+        "notarelacionada"
+      ],
+      [
+        "add_pago",
+        "factura",
+        "pago"
+      ],
+      [
+        "change_pago",
+        "factura",
+        "pago"
+      ],
+      [
+        "view_pago",
+        "factura",
+        "pago"
+      ],
+      [
+        "add_parametrotributario",
+        "factura",
+        "parametrotributario"
+      ],
+      [
+        "change_parametrotributario",
+        "factura",
+        "parametrotributario"
+      ],
+      [
+        "view_parametrotributario",
+        "factura",
+        "parametrotributario"
+      ],
+      [
+        "add_planarticulo",
+        "factura",
+        "planarticulo"
+      ],
+      [
+        "change_planarticulo",
+        "factura",
+        "planarticulo"
+      ],
+      [
+        "view_planarticulo",
+        "factura",
+        "planarticulo"
       ],
       [
         "add_periodocontable",
@@ -2422,19 +2602,19 @@
         "plancuenta"
       ],
       [
-        "add_solicitud",
-        "solicitud",
-        "solicitud"
+        "add_saldocontable",
+        "saldoContable",
+        "saldocontable"
       ],
       [
-        "change_solicitud",
-        "solicitud",
-        "solicitud"
+        "change_saldocontable",
+        "saldoContable",
+        "saldocontable"
       ],
       [
-        "view_solicitud",
-        "solicitud",
-        "solicitud"
+        "view_saldocontable",
+        "saldoContable",
+        "saldocontable"
       ]
     ]
   }

@@ -110,14 +110,20 @@
         <input id="searchInput" class="form-control" type="text" placeholder="Buscar...">
       </div>
     </div>
-    <div class="col-md-8 text-end">
-        {% if perms.home.add_solicitud %}
+    <div class="col-md-4 text-end">
+        {% if perms.solicitud.add_solicitud %}
           <a href="{% url 'solicitud_modal' %}"
             class="btn btn-warning"
             title="Ir a registro de solicitud">
             <i class="fas fa-plus-circle me-1"></i> Registrar Solicitud
           </a>
         {% endif %}
+    </div>
+
+    <div class="col-md-4 text-end">
+      <a href="{% url 'reporte_solicitudes_pdf' %}" class="btn btn-outline-danger" target="_blank">
+        <i class="fas fa-file-pdf"></i> Descargar PDF
+      </a>
     </div>
   </div>
 
@@ -175,7 +181,7 @@
             <td>
               <div class="d-flex gap-2">
                 <!-- Botón Ver más -->
-                {% if perms.home.view_solicitud %}
+                {% if perms.solicitud.view_solicitud %}
                   <button class="btn btn-info btn-sm view-details-btn"
                           data-bs-toggle="modal"
                           data-bs-target="#detailsModal"
@@ -194,7 +200,7 @@
                   </button>
                 {% endif %}
                 
-                {% if perms.home.change_solicitud %}
+                {% if perms.solicitud.change_solicitud %}
                 <button class="btn btn-primary btn-sm"
                         data-bs-toggle="modal"
                         data-bs-target="#editSolicitudModal"
@@ -204,7 +210,7 @@
                 </button>
                 {% endif %}
 
-                {% if solicitud.estadoSolicitud|upper == "ACTIVO" and perms.home.change_solicitud %}
+                {% if solicitud.estadoSolicitud|upper == "ACTIVO" and perms.solicitud.change_solicitud %}
                 <button class="btn btn-outline-warning btn-sm"
                         data-bs-toggle="modal"
                         data-bs-target="#deleteSolicitudModal"
@@ -214,7 +220,7 @@
                 </button>
                 {% endif %}
 
-                {% if solicitud.estadoSolicitud|upper == "INACTIVO" and perms.home.change_solicitud %}
+                {% if solicitud.estadoSolicitud|upper == "INACTIVO" and perms.solicitud.change_solicitud %}
                 <button class="btn btn-success btn-sm"
                         data-bs-toggle="modal"
                         data-bs-target="#reactivateSolicitudModal"
@@ -224,7 +230,7 @@
                 </button>
                 {% endif %}
 
-                {% if perms.home.view_solicitud or perms.home.change_solicitud %}
+                {% if perms.solicitud.view_solicitud or perms.solicitud.change_solicitud %}
                   <button class="btn btn-light btn-sm"
                           data-bs-toggle="modal"
                           data-bs-target="#requisitosSolicitudModal"

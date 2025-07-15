@@ -95,7 +95,7 @@ def delete_solicitud(request, pk):
     return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
 
 @login_required
-@permission_required('home.change_servicio', raise_exception=True)
+@permission_required('solicitud.change_solicitud', raise_exception=True)
 def desactivar_solicitud(request, pk):
     solicitud = get_object_or_404(Solicitud, pk=pk)
     if request.method == 'POST':

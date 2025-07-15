@@ -195,7 +195,7 @@
                   </button>
                 {% endif %}
 
-                {% if formacion.estadoFormacion|upper == "ACTIVO" and perms.home.delete_formacion %}
+                {% if formacion.estadoFormacion|upper == "ACTIVO" and perms.home.change_formacion %}
                   <button class="btn btn-outline-warning btn-sm"
                           data-bs-toggle="modal"
                           data-bs-target="#deleteFormacionModal"
@@ -228,7 +228,7 @@
 </div>
 
 {# ─── Modales ─── #}
-
+{% if perms.home.view_formacion %}
 <!-- Modal: Ver Detalles -->
 <div class="modal fade details-modal" id="detailsModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
@@ -271,8 +271,10 @@
     </div>
   </div>
 </div>
+{% endif %}
 
 <!-- Modal: Registrar Formación -->
+{% if perms.home.add_formacion %}
 <div class="modal fade" id="formacionModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
@@ -288,8 +290,10 @@
     </div>
   </div>
 </div>
+{% endif %}
 
 <!-- Modal: Editar Formación -->
+ {% if perms.home.change_formacion %}
 <div class="modal fade" id="editFormacionModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-md">
     <div class="modal-content">
@@ -305,8 +309,10 @@
     </div>
   </div>
 </div>
+{% endif %}
 
 <!-- Modal: Inhabilitar Formación -->
+ {% if perms.home.change_formacion %}
 <div class="modal fade" id="deleteFormacionModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -327,8 +333,10 @@
     </div>
   </div>
 </div>
+{% endif %}
 
 <!-- Modal: Reactivar Formación -->
+ {% if perms.home.change_formacion %}
 <div class="modal fade" id="reactivateFormacionModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -349,6 +357,8 @@
     </div>
   </div>
 </div>
+{% endif %}
+
 {% endblock content %}
 {% block javascripts %}
 <script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
