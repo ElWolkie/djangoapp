@@ -316,6 +316,13 @@
           </ul>
         </div>
       </li>
+      <li class="nav-item">
+        <a class="nav-link"  href="{% url 'plan_articulo_list' %}">
+          <i class="ni ni-bullet-list-67 text-orange"></i>
+          <span class="nav-link-text">Articulo</span>
+        </a>
+      </li>
+     
         <li class="nav-item">
           <a class="nav-link" href="#" id="parametroTributarioDropdown" data-toggle="collapse" data-target="#parametroTributarioMenu" aria-expanded="false" aria-controls="parametroTributarioMenu">
               <i class="ni ni-settings text-orange"></i>
@@ -337,7 +344,7 @@
                   </li>
               </ul>
           </div>
-      </li>
+        </li>
                     
         {# --- CERRAR SESIÓN (Visible para todos los autenticados) --- #}
         {% if user.is_authenticated %}

@@ -1,0 +1,349 @@
+{% extends 'layouts/base2.html' %}
+{% load static %}
+
+{% block title %}Registrar/Editar Plan de Artículo{% endblock title %}
+
+{% block stylesheets %}
+<link rel="stylesheet" href="{% static 'assets/css/styleForms.css' %}">
+<link rel="stylesheet" href="{% static 'assets/css/argon.css' %}">
+<style>
+  .form-control {
+    font-size: 0.9rem;
+  }
+  .form-group label {
+    font-weight: bold;
+  }
+</style>
+{% endblock stylesheets %}
+
+{% block content %}
+<div class="container mt-4">
+  <h2 class="text-center mb-4">{% if plan_articulo %}Editar{% else %}Registrar{% endif %} Plan de Artículo</h2>
+
+  <form method="post" id="planArticuloForm" action="{% url 'plan_articulo_create' %}">
+         {% csrf_token %}
+    <div class="form-group mb-3">
+      <label for="tipoArticulo">Tipo de Artículo</label>
+      <select id="tipoArticulo" name="tipoArticulo" class="form-control">
+        {% for key, value in form.fields.tipoArticulo.choices %}
+          <option value="{{ key }}" {% if form.instance.tipoArticulo == key %}selected{% endif %}>{{ value }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="row">
+        <div class="form-group col-md-6">
+            <label for="planCuentaDebe">Plan de Cuenta (Debe):</label>
+            <div class="input-group">
+                <input type="text" id="planCuentaDebe" class="form-control text-dark" placeholder="Seleccione un plan de cuenta para el Debe" readonly required />
+                <button type="button" id="buscarPlanCuentaDebe" class="btn btn-warning" data-toggle="modal" data-target="#planCuentaDebeModal">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+            <input type="hidden" id="idPlanCuentaDebe" name="idPlanCuentaDebe" required />
+            <div class="invalid-feedback">Por favor seleccione un plan de cuenta para el Debe.</div>
+        </div>
+        <div class="form-group col-md-6">
+            <label for="planCuentaHaber">Plan de Cuenta (Haber):</label>
+            <div class="input-group">
+                <input type="text" id="planCuentaHaber" class="form-control text-dark" placeholder="Seleccione un plan de cuenta para el Haber" readonly required />
+                <button type="button" id="buscarPlanCuentaHaber" class="btn btn-warning" data-toggle="modal" data-target="#planCuentaHaberModal">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+            <input type="hidden" id="idPlanCuentaHaber" name="idPlanCuentaHaber" required />
+            <div class="invalid-feedback">Por favor seleccione un plan de cuenta para el Haber.</div>
+        </div>
+    </div>
+  
+    <div class="text-center">
+          <a href="{% url 'plan_articulo_list' %}" class="btn btn-secondary mt-4">
+            <i class="fas fa-arrow-left me-1"></i> Cancelar
+        </a>
+
+
+        <button type="submit" class="btn btn-warning mt-4">
+            <i class="fas fa-save me-1"></i> Guardar
+        </button>
+      
+    </div>
+  </form>
+</div>
+
+<!-- Modal para seleccionar Plan de Cuenta (Debe) -->
+<div class="modal fade" id="planCuentaDebeModal" tabindex="-1" role="dialog" aria-labelledby="planCuentaDebeModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="planCuentaDebeModalLabel">Seleccionar Plan de Cuenta (Debe)</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row mb-3">
+            <div class="col-md-8">
+              <div class="input-group">
+                <div class="input-group-prepend">
+                  <span class="input-group-text" style="background-color: #bcbcbc; border: none;">
+                    <i class="fas fa-search text-warning"></i>
+                  </span>
+                </div>
+                <input class="form-control" id="searchPlanCuentaDebeInput" type="text" placeholder="Buscar..." onkeyup="filterTable('tablaPlanCuentaDebe', 'searchPlanCuentaDebeInput')">
+              </div>
+            </div>
+          </div>
+          <table class="table table-sm  table-striped table-hover" id="tablaPlanCuentaDebe">
+            <thead>
+              <tr>
+                <th>Código</th>
+                <th>Nombre</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for cuenta in cuentas_plan %}
+                <tr data-id="{{ cuenta.idPlanCuenta }}" data-nombre="{{ cuenta.codigoPlanCuenta }} - {{ cuenta.nombrePlanCuenta }}" style="cursor:pointer;">
+                  <td>{{ cuenta.codigoPlanCuenta }}</td>
+                  <td>{{ cuenta.nombrePlanCuenta }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          <p id="mensajeSinRegistrosDebe" class="text-center text-muted" style="display: none;">No hay registros disponibles</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Modal para seleccionar Plan de Cuenta (Haber) -->
+  <div class="modal fade" id="planCuentaHaberModal" tabindex="-1" role="dialog" aria-labelledby="planCuentaHaberModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="planCuentaHaberModalLabel">Seleccionar Plan de Cuenta (Haber)</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row mb-3">
+            <div class="col-md-8">
+              <div class="input-group">
+                <div class="input-group-prepend">
+                  <span class="input-group-text" style="background-color: #bcbcbc; border: none;">
+                    <i class="fas fa-search text-warning"></i>
+                  </span>
+                </div>
+                <input class="form-control" id="searchPlanCuentaHaberInput" type="text" placeholder="Buscar..." onkeyup="filterTable('tablaPlanCuentaHaber', 'searchPlanCuentaHaberInput')">
+              </div>
+            </div>
+          </div>
+          <table class="table table-sm  table-striped table-hover" id="tablaPlanCuentaHaber">
+            <thead>
+              <tr>
+                <th>Código</th>
+                <th>Nombre</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for cuenta in cuentas_plan %}
+                <tr data-id="{{ cuenta.idPlanCuenta }}" data-nombre="{{ cuenta.codigoPlanCuenta }} - {{ cuenta.nombrePlanCuenta }}" style="cursor:pointer;">
+                  <td>{{ cuenta.codigoPlanCuenta }}</td>
+                  <td>{{ cuenta.nombrePlanCuenta }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          <p id="mensajeSinRegistrosHaber" class="text-center text-muted" style="display: none;">No hay registros disponibles</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock content %}
+
+{% block javascripts %}
+<script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
+<script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // --- Función para paginar tablas ---
+  const paginateTable = (tableId, rowsPerPage) => {
+    const table = document.getElementById(tableId);
+    const rows = table.querySelectorAll('tbody tr');
+    const paginationContainer = document.createElement('div');
+    paginationContainer.className = 'pagination-container mt-3';
+    table.parentNode.insertBefore(paginationContainer, table.nextSibling);
+
+    const pagination = document.createElement('ul');
+    pagination.className = 'pagination justify-content-center';
+    paginationContainer.appendChild(pagination);
+
+    let currentPage = 1;
+
+    const displayRows = () => {
+      const start = (currentPage - 1) * rowsPerPage;
+      const end = start + rowsPerPage;
+      rows.forEach((row, index) => {
+        row.style.display = index >= start && index < end ? '' : 'none';
+      });
+    };
+
+    const setupPagination = () => {
+      const totalPages = Math.ceil(rows.length / rowsPerPage);
+      pagination.innerHTML = '';
+
+      const prevLi = document.createElement('li');
+      prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+      prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Anterior">&laquo;</a>`;
+      prevLi.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (currentPage > 1) currentPage--;
+        displayRows();
+        setupPagination();
+      });
+      pagination.appendChild(prevLi);
+
+      for (let i = 1; i <= totalPages; i++) {
+        const li = document.createElement('li');
+        li.className = `page-item ${i === currentPage ? 'active' : ''}`;
+        li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+        li.addEventListener('click', (e) => {
+          e.preventDefault();
+          currentPage = i;
+          displayRows();
+          setupPagination();
+        });
+        pagination.appendChild(li);
+      }
+
+      const nextLi = document.createElement('li');
+      nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+      nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Siguiente">&raquo;</a>`;
+      nextLi.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (currentPage < totalPages) currentPage++;
+        displayRows();
+        setupPagination();
+      });
+      pagination.appendChild(nextLi);
+    };
+
+    displayRows();
+    setupPagination();
+  };
+
+  // --- Función para filtrar tablas ---
+  const filterTable = (tableId, inputId) => {
+    const input = document.getElementById(inputId);
+    const table = document.getElementById(tableId);
+    const rows = table.querySelectorAll('tbody tr');
+
+    input.addEventListener('keyup', () => {
+      const filter = input.value.toUpperCase();
+      rows.forEach((row) => {
+        const text = row.textContent || row.innerText;
+        row.style.display = text.toUpperCase().includes(filter) ? '' : 'none';
+      });
+    });
+  };
+
+  // --- Activar búsqueda y paginación para las tablas de los modales ---
+  filterTable('tablaPlanCuentaDebe', 'searchPlanCuentaDebeInput');
+  paginateTable('tablaPlanCuentaDebe', 5);
+
+  filterTable('tablaPlanCuentaHaber', 'searchPlanCuentaHaberInput');
+  paginateTable('tablaPlanCuentaHaber', 5);
+
+  // --- Función para manejar selección en los modales ---
+  const handleSeleccionDebe = (tr) => {
+    const id = tr.getAttribute('data-id');
+    const nombre = tr.getAttribute('data-nombre');
+    document.getElementById('planCuentaDebe').value = nombre;
+    document.getElementById('idPlanCuentaDebe').value = id;
+    bootstrap.Modal.getInstance(document.getElementById('planCuentaDebeModal')).hide();
+  };
+
+  const handleSeleccionHaber = (tr) => {
+    const id = tr.getAttribute('data-id');
+    const nombre = tr.getAttribute('data-nombre');
+    document.getElementById('planCuentaHaber').value = nombre;
+    document.getElementById('idPlanCuentaHaber').value = id;
+    bootstrap.Modal.getInstance(document.getElementById('planCuentaHaberModal')).hide();
+  };
+
+  // --- Event listeners para las tablas de los modales ---
+  const tablaDebe = document.getElementById('tablaPlanCuentaDebe');
+  if (tablaDebe) {
+    tablaDebe.addEventListener('click', (event) => {
+      const fila = event.target.closest('tr');
+      if (fila && fila.hasAttribute('data-id')) {
+        handleSeleccionDebe(fila);
+      }
+    });
+  }
+
+  const tablaHaber = document.getElementById('tablaPlanCuentaHaber');
+  if (tablaHaber) {
+    tablaHaber.addEventListener('click', (event) => {
+      const fila = event.target.closest('tr');
+      if (fila && fila.hasAttribute('data-id')) {
+        handleSeleccionHaber(fila);
+      }
+    });
+  }
+
+  // --- Función para manejar envío del formulario con alertas SweetAlert ---
+  const form = document.querySelector('#planArticuloForm');
+form.addEventListener('submit', async (event) => {
+  event.preventDefault();
+
+  const formData = new FormData(form);
+  const url = form.action;
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'X-CSRFToken': formData.get('csrfmiddlewaretoken'),
+      },
+    });
+
+    const result = await response.json();
+
+    if (response.ok && result.success) {
+      Swal.fire({
+        title: 'Éxito',
+        text: result.message || 'Operación realizada correctamente.',
+        icon: 'success',
+        confirmButtonText: 'OK',
+      }).then(() => {
+        // Redirigir solo después de mostrar la alerta
+        if (result.url) {
+          window.location.href = result.url;
+        }
+      });
+    } else {
+      Swal.fire({
+        title: 'Error',
+        text: result.message || 'Ocurrió un error al procesar la solicitud.',
+        icon: 'error',
+        confirmButtonText: 'OK',
+      });
+    }
+  } catch (error) {
+    Swal.fire({
+      title: 'Error',
+      text: 'Error de conexión con el servidor.',
+      icon: 'error',
+      confirmButtonText: 'OK',
+    });
+  }
+});
+});
+</script>
+{% endblock javascripts %}
