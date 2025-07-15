@@ -260,13 +260,13 @@ def notas_create(request):
                                    'Por favor, registre o active un periodo contable antes de continuar.'
                     }, status=400)
 
-                # Verificar que las cuentas contables estén presentes en la solicitud
-                if 'idPlanCuentaDebe' not in request.POST or 'idPlanCuentaHaber' not in request.POST:
-                    return JsonResponse({
-                        'success': False,
-                        'message': 'Debe seleccionar las cuentas contables para el debe y el haber. '
-                                   'Asegúrese de que los campos "idPlanCuentaDebe" y "idPlanCuentaHaber" estén presentes.'
-                    }, status=400)
+                # # Verificar que las cuentas contables estén presentes en la solicitud
+                # if 'idPlanCuentaDebe' not in request.POST or 'idPlanCuentaHaber' not in request.POST:
+                #     return JsonResponse({
+                #         'success': False,
+                #         'message': 'Debe seleccionar las cuentas contables para el debe y el haber. '
+                #                    'Asegúrese de que los campos "idPlanCuentaDebe" y "idPlanCuentaHaber" estén presentes.'
+                #     }, status=400)
 
                 # Crear el asiento contable
                 try:
@@ -285,15 +285,31 @@ def notas_create(request):
 
                 # Crear los detalles del asiento contable
                 try:
+                    # Consultar los registros más recientes de PlanArticulo para el tipo de artículo seleccionado
+                    plan_articulos = PlanArticulo.objects.filter(tipoArticulo=nota.tipoArticulo).order_by('-fecha')
+
+                    # Filtrar para obtener un registro para el debe (tipo=1) y otro para el haber (tipo=0)
+                    plan_articulo_debe = plan_articulos.filter(tipo=1).first()
+                    plan_articulo_haber = plan_articulos.filter(tipo=0).first()
+
+                    # Validar que se hayan encontrado ambos registros
+                    if not plan_articulo_debe or not plan_articulo_haber:
+                        return JsonResponse({
+                            'success': False,
+                            'message': 'No se encontraron cuentas contables válidas para el tipo de artículo seleccionado. '
+                                    'Por favor, revise la configuración de los planes de artículo.'
+                        }, status=400)
+
+                    # Crear los detalles del asiento contable usando los registros encontrados
                     DetalleAsiento.objects.create(
                         idAsiento=asiento,
-                        idPlanCuenta_id=request.POST['idPlanCuentaDebe'],
+                        idPlanCuenta=plan_articulo_debe.idPlanCuenta,
                         debe=nota.totalNota,
                         haber=0.00
                     )
                     DetalleAsiento.objects.create(
                         idAsiento=asiento,
-                        idPlanCuenta_id=request.POST['idPlanCuentaHaber'],
+                        idPlanCuenta=plan_articulo_haber.idPlanCuenta,
                         debe=0.00,
                         haber=nota.totalNota
                     )
@@ -301,7 +317,7 @@ def notas_create(request):
                     return JsonResponse({
                         'success': False,
                         'message': f'Error al crear los detalles del asiento contable: {str(e)}. '
-                                   'Por favor, revise las cuentas contables seleccionadas.'
+                                'Por favor, revise las cuentas contables seleccionadas.'
                     }, status=500)
 
                 # Asociar el asiento contable a la nota
