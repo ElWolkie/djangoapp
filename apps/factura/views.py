@@ -25,7 +25,7 @@ from apps.honorario.models import Honorario
 from apps.inscripcion.models import Inscripcion, InscripcionCuota
 from apps.periodoContable.models import periodoContable
 from apps.solicitud.models import Solicitud
-from .models import Factura, FacturaDetalle, NotaRelacionada, Pago, ParametroTributario, Nota, PlanArticulo
+from .models import TIPOS_ARTICULO, Factura, FacturaDetalle, NotaRelacionada, Pago, ParametroTributario, Nota, PlanArticulo
 from .forms import FacturaForm, FacturaDetalleForm, PagoForm, ParametroTributarioForm, NotaForm, PlanArticuloForm
 from apps.asientoContable.models import AsientoContable, DetalleAsiento
 from apps.home.models import Configuracion, CuotaFormacion, Moneda, Tasa
@@ -1229,8 +1229,8 @@ def nota_pago_pdf(request, pk):
     y -= 14
     # Tipo de artículo debajo de la descripción
     p.setFont("Helvetica-Oblique", 9)
-    tipo_articulo_display = dict(Nota.TIPOS_ARTICULO).get(nota.tipoArticulo, nota.tipoArticulo)
-    # Mostrar el tipo de artículo, haciendo salto de línea si es mayor de 30 caracteres
+
+    tipo_articulo_display = dict(TIPOS_ARTICULO).get(nota.tipoArticulo, nota.tipoArticulo)    # Mostrar el tipo de artículo, haciendo salto de línea si es mayor de 30 caracteres
     if len(tipo_articulo_display) > 50:
         # Dividir el texto en partes de máximo 30 caracteres
         for i in range(0, len(tipo_articulo_display), 30):
