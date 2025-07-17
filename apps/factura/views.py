@@ -507,23 +507,30 @@ def factura_detalle_list(request, factura_id):
         'detalles': detalles
     })
 def generar_numero_factura_unico(nota):
-
+    """
+    Genera un número único de factura basado en un prefijo y un número secuencial.
+    """
     prefijo = "FAC"
-    
-    # Obtener el último número secuencial basado en el campo numeroFactura
-    ultimo = Factura.objects.aggregate(Max('numeroFactura'))['numeroFactura__max'] or 0
-    nuevo = int(ultimo) + 1 if str(ultimo).isdigit() else 1
-    numero_secuencial = f"{nuevo:08d}"
 
-    # Simulación de número de control (debe ser provisto por imprenta autorizada)
-    fecha_hora = datetime.now().strftime("%d%m%y%H%M")
-    numero_control = f"CNT-{fecha_hora}-{random.randint(100, 999)}"
+    while True:
+        # Obtener el último número secuencial basado en el campo numeroFactura
+        ultimo = Factura.objects.aggregate(Max('numeroFactura'))['numeroFactura__max']
 
-    # Crear número de factura
-    numero_factura = f"{numero_secuencial}"
+        # Convertir el último número a entero, manejando ceros a la izquierda
+        if ultimo and ultimo.isdigit():
+            nuevo = int(ultimo) + 1
+        else:
+            nuevo = 1
 
-    return numero_factura
+        # Formatear el nuevo número con ceros a la izquierda
+        numero_secuencial = f"{nuevo:08d}"
 
+        # Crear el número de factura
+        numero_factura = f"{numero_secuencial}"
+
+        # Verificar si el número ya existe en la base de datos
+        if not Factura.objects.filter(numeroFactura=numero_factura).exists():
+            return numero_factura
 @transaction.atomic
 def factura_create_notas(request, nota_id=None):
     """
