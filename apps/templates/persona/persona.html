@@ -403,22 +403,28 @@ document.addEventListener("DOMContentLoaded", function() {
   }
 
   function generarRif(tipo, cedula) {
-    const tipoMapeo = {
-      V: 1,
-      E: 2,
-      J: 3,
-      P: 4,
-      G: 5
-    };
+  const tipoMapeo = {
+    V: 1,
+    E: 2,
+    J: 3,
+    P: 4,
+    G: 5
+  };
 
-    if (!tipoMapeo[tipo]) {
-      throw new Error("Tipo de persona inválido");
-    }
-
-    const rifNumerico = `${tipoMapeo[tipo]}${cedula}`;
-    const digito = calcularDigitoVerificador(rifNumerico);
-    return `${tipo}${cedula}-${digito}`;
+  if (!tipoMapeo[tipo]) {
+    throw new Error("Tipo de persona inválido");
   }
+
+  // Normalizar tipo y cédula
+  const letra = tipo.toUpperCase().charAt(0);
+  const numeroCedula = cedula.replace(/\D/g, '').padStart(8, '0'); // 8 dígitos, con ceros si falta
+
+  const baseNumerico = `${tipoMapeo[letra]}${numeroCedula}`;
+  const digito = calcularDigitoVerificador(baseNumerico);
+
+  // Formato: X-XXXXXXXX-X
+  return `${letra}-${numeroCedula}-${digito}`;
+}
 
   // Función para actualizar la descripción del tipo de cédula
   function updateCedulaDescription() {
@@ -717,6 +723,62 @@ document.addEventListener("DOMContentLoaded", function() {
       }
     }
   });
-  
+
+function activarValidaciones() {
+  document.addEventListener('input', function(e) {
+    const input = e.target;
+    if (input.tagName !== 'INPUT') return;
+
+    const valor = input.value;
+    let nuevo = valor;
+
+    // Caracteres prohibidos generales (salvo '-' para RIF)
+    const proh = /["',:_+]/g;
+
+    if (input.id === 'rif') {
+      // RIF (formato X-XXXXXXXX-X):
+      // 1) Convertir a mayúsculas
+      // 2) Permitir solo A–Z, 0–9 y guiones
+      nuevo = valor
+        .toUpperCase()
+        .replace(/[^A-Z0-9-]/g, '');
+
+    } else if (input.type === 'email') {
+      // Email: eliminar todo excepto letras, dígitos, @, punto y caracteres especiales permitidos
+      nuevo = valor
+        .replace(/[^A-Za-z0-9@.!#$%&'*+/=?^_`{|}~\-]/g, '')
+        // evitar más de una arroba
+        .replace(/^([^@]*)@(.+)@(.+)$/, '$1@$2$3');
+
+    } else {
+      // Otros inputs:
+      // 1) Convertir a mayúsculas (si no es #correo)
+      // 2) Eliminar caracteres prohibidos y puntos
+      if (input.id !== 'correo') {
+        nuevo = valor.toUpperCase();
+      }
+      nuevo = nuevo.replace(proh, '').replace(/\./g, '');
+    }
+
+    if (nuevo !== valor) {
+      input.value = nuevo;
+    }
+  });
+}
+
+// Validación final al enviar el formulario
+document
+  .getElementById('registroPersona')
+  .addEventListener('submit', function(e) {
+    const rif = document.getElementById('rif').value;
+    const patronRif = /^[A-Z]-\d{8}-\d$/;
+    if (!patronRif.test(rif)) {
+      e.preventDefault();
+      alert('RIF inválido. Debe tener el formato X-XXXXXXXX-X');
+    }
+  });
+
+activarValidaciones();
+
 </script>
 {% endblock javascripts %}
