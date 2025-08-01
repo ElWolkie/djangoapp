@@ -80,17 +80,9 @@
               <td class="highlight-debe">{{ tipo.total_debe|floatformat:2 }}</td>
               <td class="highlight-haber">{{ tipo.total_haber|floatformat:2 }}</td>
               <td>
-                {% with tipo.total_debe|default:0 as debe %}
-                {% with tipo.total_haber|default:0 as haber %}
-                {% if debe > haber %}
-                  <span class="badge bg-success">Deudor: {{ debe|floatformat:2 }}</span>
-                {% elif haber > debe %}
-                  <span class="badge bg-danger">Acreedor: {{ haber|floatformat:2 }}</span>
-                {% else %}
-                  <span class="badge bg-secondary">Saldo Cero</span>
-                {% endif %}
-                {% endwith %}
-                {% endwith %}
+                <span class="badge">
+                  {{ tipo.saldo }}
+                </span>
               </td>
             </tr>
           {% empty %}
