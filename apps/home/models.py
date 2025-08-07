@@ -257,7 +257,7 @@ class Banco(models.Model):
     fechaBanco = models.DateField(default=timezone.now, verbose_name="Fecha Registro")
 
     def save(self, *args, **kwargs):
-        # Antes de guardar, verificamos si el nombre ya existe
+        # Antes de guardar, verificamos si el nombre ya existe en la bd
         if Banco.objects.exclude(pk=self.pk).filter(nombreBanco__iexact=self.nombreBanco).exists():
             raise ValidationError("El nombre del Banco ya existe.")
         
