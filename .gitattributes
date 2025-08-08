@@ -17,3 +17,6 @@
 *.gif binary
 *.ico binary
 *.keystore binary
+
+# Mantener CRLF para scripts de Windows
+*.bat text eol=crlf
