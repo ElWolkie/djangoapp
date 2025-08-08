@@ -1,3 +1,4 @@
+cat > .gitignore <<'GITIGNORE'
 # byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -31,5 +32,13 @@ apps/static/assets/.temp
 
 # Archivos de configuración sensible
 .env
-core/settings.py
-apps/home/urls.py
+capp/build/
+
+# Mobile (evitar subir node_modules y builds móviles)
+mobile/node_modules/
+mobile/.expo/
+mobile/android/.gradle/
+mobile/android/app/build/
+mobile/ios/Pods/
+mobile/.env
+GITIGNORE
