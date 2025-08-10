@@ -161,9 +161,14 @@
                 </a>
               </li>
               {% endif %}
+
+              <!-- Divider -->
+              <hr class="my-1">
+              <!-- Divider -->
+
               {% if perms.cuentaBanco.add_cuentabanco or perms.cuentaBanco.view_cuentabanco or perms.cuentaBanco.change_cuentabanco or perms.cuentaBanco.delete_cuentabanco %}
               <li class="nav-item">
-                <a class="nav-link" href="#" id="cuentaBancoDropdown" data-toggle="collapse" data-target="#cuentaBancoMenu" aria-expanded="false" aria-controls="cuentaBancoMenu">
+                <a class="nav-link" href="#" id="cuentaBancoDropdown" data-toggle="collapse" data-target="#cuentaBancoMenu" aria-expanded="false" aria-controls="cuentaBancoMenu" style="padding-left: 15px;">
                   <i class="ni ni-archive-2 text-orange"></i>
                   <span class="nav-link-text">Cuentas</span>
                 </a>

@@ -152,7 +152,7 @@
             <th>Cédula</th>
             <th>Cargo</th>
             <th>Materia</th>
-            <th>Horas</th>
+            {% comment %} <th>Horas</th> {% endcomment %}
             <th>Cohorte</th>
             <th>Estado</th>
             <th class="actions-column">Acciones</th>
@@ -165,7 +165,7 @@
             <td>{{ honorario.idPersona.cedula }}</td>
             <td>{{ honorario.idCargo.nombreCargo }}</td>
             <td>{{ honorario.idMateria.nombreMateria }}</td>
-            <td>{{ honorario.horas }}</td>
+            {% comment %} <td>{{ honorario.horas }}</td> {% endcomment %}
             <td>{{ honorario.idCohorte.nombreCohorte }}</td>
             <td>
               {% if honorario.estadoHonorario == "ACTIVO" %}

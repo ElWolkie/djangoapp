@@ -761,6 +761,34 @@ def tabla_formaciones(request):
         formaciones = Formacion.objects.filter(estadoFormacion='ACTIVO')
     tipo_formaciones = TipoFormacion.objects.filter(estadoTipoFormacion='ACTIVO')
 
+    formaciones = Formacion.objects.select_related('idTF')\
+        .prefetch_related(Prefetch('cuotas', queryset=CuotaFormacion.objects.order_by('orden')))
+
+    for f in formaciones:
+        cuotas_qs = f.cuotas.all()  # related_name='cuotas'
+        if f.tieneCuotas and cuotas_qs.exists():
+            cuotas = list(cuotas_qs)
+            tipos = {c.tipoCuota for c in cuotas}                # códigos (ej. 'MENSUAL')
+            # si todas las cuotas comparten el mismo tipo usamos su display, sino 'Mixto'
+            tipo_display = cuotas[0].get_tipoCuota_display() if len(tipos) == 1 else "Mixto"
+            # montos formateados con 2 decimales
+            montos = ", ".join(f"{c.valorCuota:.2f}" for c in cuotas)
+            f.cuotas_count = len(cuotas)
+            f.cuotas_list = montos
+            f.cuotas_tipo = tipo_display
+            f.cuotas_text = f"Sí - {tipo_display} ({f.cuotas_count} cuotas: {montos})"
+        elif f.tieneCuotas:
+            # tiene el flag pero no hay cuotas creadas
+            f.cuotas_count = 0
+            f.cuotas_list = ""
+            f.cuotas_tipo = ""
+            f.cuotas_text = "Sí - (No hay cuotas registradas)"
+        else:
+            f.cuotas_count = 0
+            f.cuotas_list = ""
+            f.cuotas_tipo = ""
+            f.cuotas_text = "No"
+
     return render(request, 'home/tablaFormaciones.html', {
         'formaciones': formaciones,
         'tipoFormaciones': tipo_formaciones,
