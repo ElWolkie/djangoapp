@@ -779,6 +779,12 @@ document
   });
 
 activarValidaciones();
+//Validar <textarea> en mayusculas con acentos, comillas, guiones, puntos y ñ.
+document.querySelectorAll("textarea").forEach(function(textarea) {
+  textarea.addEventListener("input", function() {
+    this.value = this.value.toUpperCase().replace(/[^A-Z0-9ÑñÁÉÍÓÚáéíóú\s.,-]/g, '');
+  });
+});
 
 </script>
 {% endblock javascripts %}

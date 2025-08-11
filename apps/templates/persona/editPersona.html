@@ -282,6 +282,14 @@ document
   });
 
 activarValidaciones();
+//Validar mayusculas para direccion con acentos, comillas, guiones, puntos y ñ.
 
+</script>
+<script>
+  document.querySelectorAll("input[type='text']").forEach(function(input) {
+  input.addEventListener("input", function() {
+    this.value = this.value.toUpperCase().replace(/[^A-Z0-9ÑñÁÉÍÓÚáéíóú\s.,-]/g, '');
+  });
+});
 </script>
 {% endblock javascripts %}

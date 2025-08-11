@@ -261,5 +261,30 @@
       formacionSelect.value = "";
     });
   });
+document.addEventListener("DOMContentLoaded", function () {
+  const input = document.getElementById("valorInscripcion");
+  if (!input) return;
+
+  input.addEventListener("input", function (e) {
+    let raw = this.value.replace(/[^\d]/g, '');
+
+    if (raw.length < 3) {
+      this.value = raw;
+      return;
+    }
+
+    const intPart = raw.slice(0, raw.length - 2);
+    const decimalPart = raw.slice(-2);
+
+    const formattedInt = parseInt(intPart, 10).toLocaleString('es-VE');
+
+    const finalValue = `${formattedInt},${decimalPart}`;
+
+    // Evitar que el cursor salte al final
+    const selectionStart = this.selectionStart;
+    this.value = finalValue;
+    this.setSelectionRange(selectionStart, selectionStart);
+  });
+});
 </script>
 {% endblock javascripts %}

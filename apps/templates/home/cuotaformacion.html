@@ -154,21 +154,19 @@
                     <label for="idFormacion" class="form-label">
                         <i class="fas fa-graduation-cap"></i> Formación
                     </label>
-                    {% if formaciones|length == 1 %}
-                        <input type="text" id="idFormacion" class="form-control" value="{{ formaciones.0.nombreFormacion }}" readonly>
-                        <input type="hidden" id="idFormacion" name="idFormacion" value="{{ formaciones.0.idFormacion }}">
-                    {% else %}
-                        <!-- Botón para abrir el modal -->
+                        {% if formaciones|length == 1 %}
+                        <input type="text" id="nombreFormacion" class="form-control" value="{{ formaciones.0.nombreFormacion }}" readonly>
+                        <input type="hidden" name="idFormacion" value="{{ formaciones.0.idFormacion }}">
+                        {% else %}
                         <div class="input-group">
-                            <input type="text" id="nombreFormacion" class="form-control" placeholder="Seleccione una formación" readonly>
-                            <input type="hidden" id="idFormacion" name="idFormacion">
+                            <input type="text" id="nombreFormacion" class="form-control" placeholder="Seleccione una formación" readonly required>
+                            <input type="hidden" name="idFormacion" id="idFormacion">
                             <button type="button" class="btn btn-warning" id="abrirModalFormacion">
                                 <i class="fas fa-search"></i> 
                             </button>
                         </div>
                         <div class="invalid-feedback">Por favor, seleccione una formación.</div>
-
-                    {% endif %}
+                        {% endif %}
                 </div>
             </div>
             <div class="col-md-6">
@@ -176,7 +174,7 @@
                     <label for="nombreCuota" class="form-label">
                         <i class="fas fa-heading"></i> Nombre de la Cuota
                     </label>
-                    <input type="text" id="nombreCuota" name="nombreCuota" class="form-control" placeholder="Ingrese el nombre de la cuota" maxlength="100" required>
+                    <input type="text" id="nombreCuota" name="nombreCuota" class="form-control" placeholder="Ingrese el nombre de la cuota" maxlength="50" required>
                     <div class="invalid-feedback">Por favor, ingrese un nombre válido.</div>
                 </div>
             </div>
@@ -201,22 +199,34 @@
                     <label for="valorCuota" class="form-label">
                         <i class="fas fa-dollar-sign"></i> Valor de la Cuota
                     </label>
-                    <input type="number" id="valorCuota" name="valorCuota" class="form-control" placeholder="Ingrese el valor" step="0.01" required>
+                    <input type="text" id="valorCuota" name="valorCuota" class="form-control" placeholder="Ingrese el valor" step="0.01" required>
                     <div class="invalid-feedback">Por favor, ingrese un valor válido.</div>
                 </div>
             </div>
         </div>
-        <div class="row">
-            <div class="col-md-6">
-                <div class="form-group"></div>
-                    <label for="orden" class="form-label">
-                        <i class="fas fa-sort-numeric-up"></i> Orden
-                    </label>
-                    <input type="number" id="orden" name="orden" class="form-control" placeholder="Ingrese el orden" min="1" required>
-                    <div class="invalid-feedback">Por favor, ingrese un orden válido.</div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="orden" class="form-label">
+                                <i class="fas fa-sort-numeric-up"></i> Orden
+                            </label>
+                            <input type="number" id="orden" name="orden" class="form-control" placeholder="Ingrese el orden" min="1" required>
+                            <div class="invalid-feedback">Por favor, ingrese un orden válido.</div>
+                        </div>
+                    </div>
+                </div>
+                            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="fechaCuota" class="form-label">
+                        </label>
+                        <input type="hidden" id="fechaCuota" name="fechaCuota" class="form-control" required>
+                        <div class="invalid-feedback">Por favor, seleccione una fecha válida.</div>
+                    </div>
                 </div>
             </div>
         </div>
+
         <input type="hidden" id="is_active" name="is_active" value="True">
         <div class="text-center mt-4">
             <button type="submit" class="btn-submit">
@@ -350,60 +360,155 @@
     });
 </script>
 <script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const formacionesTable = document.getElementById('formacionesTable');
-        formacionesTable.addEventListener('click', function (event) {
-            if (event.target.classList.contains('seleccionarFormacion')) {
-                const idFormacion = event.target.getAttribute('data-id');
-                const nombreFormacion = event.target.getAttribute('data-nombre');
-                document.getElementById('idFormacion').value = idFormacion;
-                document.getElementById('nombreFormacion').value = nombreFormacion;
-                bootstrap.Modal.getInstance(document.getElementById('formacionModal')).hide();
-            }
-        });
-
-        const cuotaFormacionForm = document.getElementById('cuotaFormacionForm');
-        cuotaFormacionForm.addEventListener('submit', function (event) {
-            event.preventDefault();
-            const formData = new FormData(cuotaFormacionForm);
-            fetch(cuotaFormacionForm.action, {
-                method: 'POST',
-                body: formData,
-                headers: { 'X-Requested-With': 'XMLHttpRequest' },
-            })
-                .then(response => response.ok ? response.json() : Promise.reject('Error en la respuesta del servidor'))
-                .then(data => {
-                    const options = {
-                        icon: data.success ? 'success' : 'error',
-                        title: data.success ? 'Cuota registrada exitosamente' : 'Error al registrar la cuota',
-                        text: data.message || 'Ocurrió un error inesperado.',
-                        confirmButtonText: 'Aceptar',
-                        customClass: { confirmButton: 'btn btn-warning' },
-                        buttonsStyling: false,
-                    };
-                    if (data.success) {
-                        options.showCancelButton = true;
-                        options.confirmButtonText = 'Añadir otra cuota';
-                        options.cancelButtonText = 'Ir a la tabla de cuotas';
-                        options.customClass.cancelButton = 'btn btn-primary';
-                        Swal.fire(options).then(result => {
-                            if (result.isConfirmed) window.location.reload();
-                            else window.location.href = data.redirect_url;
-                        });
-                    } else Swal.fire(options);
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error inesperado',
-                        text: 'Ocurrió un error al procesar la solicitud.',
-                        confirmButtonText: 'Aceptar',
-                        customClass: { confirmButton: 'btn btn-warning' },
-                        buttonsStyling: false,
-                    });
-                });
-        });
+document.addEventListener('DOMContentLoaded', () => {
+  // 1) Selección de formación y cierre de modal
+  const table = document.getElementById('formacionesTable');
+  if (table) {
+    table.addEventListener('click', e => {
+      const row = e.target.closest('.formacion-row');
+      if (!row) return;
+      document.getElementById('idFormacion').value   = row.dataset.id;
+      document.getElementById('nombreFormacion').value = row.dataset.nombre;
+      const modalEl = document.getElementById('formacionModal');
+      if (modalEl) bootstrap.Modal.getInstance(modalEl).hide();
     });
+  }
+
+  // 2) Envío AJAX de la cuota
+  const cuotaForm = document.getElementById('cuotaFormacionForm');
+  if (cuotaForm) {
+    cuotaForm.addEventListener('submit', e => {
+      e.preventDefault();
+      const formData = new FormData(cuotaForm);
+      fetch(cuotaForm.action, {
+        method: 'POST',
+        body: formData,
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      })
+      .then(res => res.ok ? res.json() : Promise.reject(res.statusText))
+      .then(json => {
+        const opts = {
+          icon: json.success ? 'success' : 'error',
+          title: json.success 
+            ? 'Cuota registrada exitosamente' 
+            : 'Error al registrar la cuota',
+          text: json.message || 'Ocurrió un error inesperado.',
+          confirmButtonText: 'Aceptar',
+          customClass: { confirmButton: 'btn btn-warning' },
+          buttonsStyling: false
+        };
+        if (json.success) {
+          Object.assign(opts, {
+            showCancelButton: true,
+            confirmButtonText: 'Añadir otra cuota',
+            cancelButtonText: 'Ir a la tabla de cuotas',
+            customClass: {
+              confirmButton: 'btn btn-warning',
+              cancelButton: 'btn btn-primary'
+            }
+          });
+          Swal.fire(opts).then(result => {
+            result.isConfirmed 
+              ? window.location.reload() 
+              : window.location.href = json.redirect_url;
+          });
+        } else {
+          Swal.fire(opts);
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        Swal.fire({
+          icon: 'error',
+          title: 'Error inesperado',
+          text: 'Ocurrió un error al procesar la solicitud.',
+          confirmButtonText: 'Aceptar',
+          customClass: { confirmButton: 'btn btn-warning' },
+          buttonsStyling: false
+        });
+      });
+    });
+  }
+
+  // 3) Mayúsculas, validación Bootstrap, formateo de valorCuota y nuevas validaciones
+  (function activarValidaciones() {
+    // a) Mayúsculas automáticas (excluye password, hidden, email y valorCuota)
+    document.querySelectorAll('input').forEach(input => {
+      if (!/password|hidden|email/.test(input.type) && input.id !== 'valorCuota') {
+        input.addEventListener('input', e => {
+          e.target.value = e.target.value.toUpperCase();
+        });
+      }
+    });
+
+    // b) Validación visual de Bootstrap al submit
+    document.querySelectorAll('.needs-validation').forEach(form => {
+      form.addEventListener('submit', e => {
+        if (!form.checkValidity()) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        form.classList.add('was-validated');
+      }, false);
+    });
+
+    // c) Formateo en “1.234,56” para valorCuota
+    const inputValor = document.getElementById('valorCuota');
+    if (inputValor) {
+      inputValor.setAttribute('inputmode', 'numeric');
+      inputValor.setAttribute('autocomplete', 'off');
+
+      inputValor.addEventListener('input', function () {
+        const oldValue = this.value;
+        const oldCursor = this.selectionStart;
+        let nums = oldValue.replace(/\D/g, '');
+
+        if (nums.length === 0) {
+          this.value = '';
+          return;
+        }
+        while (nums.length < 3) nums = '0' + nums;
+
+        const intPart = nums.slice(0, -2);
+        const decPart = nums.slice(-2);
+        const formattedInt = parseInt(intPart, 10)
+          .toLocaleString('es-VE');
+        const newValue = `${formattedInt},${decPart}`;
+
+        const delta = newValue.length - oldValue.length;
+        this.value = newValue;
+        const newCursor = Math.max(0, oldCursor + delta);
+        this.setSelectionRange(newCursor, newCursor);
+      });
+
+      if (inputValor.value) {
+        const event = new Event('input', { bubbles: true });
+        inputValor.dispatchEvent(event);
+      }
+    }
+
+    // d) Validación para nombreCuota: no permitir números
+    const nombreInput = document.getElementById('nombreCuota');
+    if (nombreInput) {
+      nombreInput.addEventListener('input', function () {
+        this.value = this.value.replace(/[0-9]/g, '');
+      });
+    }
+
+    // e) Validación para orden: solo un dígito numérico
+    const ordenInput = document.getElementById('orden');
+    if (ordenInput) {
+      ordenInput.addEventListener('input', function () {
+        this.value = this.value.replace(/\D/g, '');
+        if (this.value.length > 1) {
+          this.value = this.value.slice(0, 1);
+        }
+      });
+    }
+
+  })();
+});
 </script>
+
+
 {% endblock javascripts %}

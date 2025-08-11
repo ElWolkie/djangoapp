@@ -173,10 +173,18 @@
                               </a>
                             </li>
                           {% endif %}
-                          </ul>  
-                        </div>  
+
+                          {% if perms.home.view_cuotaformacion or perms.home.add_cuotaformacion %}
+                          <li class="nav-item">  
+                            <a class="nav-link" href="{% url 'consultar_cuota_formacion' %}" style="padding-left: 30px;"><i class="ni ni-bullet-list-67 text-orange"></i>
+                              <span class="nav-link-text">Cuota
+                            </a>
+                          </li>
+                    {% endif %}  
                       </li> 
                     {% endif %}
+                        </ul>  
+                        </div>
                     
                     {% if perms.home.view_materia or perms.home.add_materia %}
                       <li class="nav-item">  
