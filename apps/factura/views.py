@@ -1162,6 +1162,7 @@ def nota_pago_pdf(request, pk):
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="nota_pago_{nota.numeroNota}.pdf"'
     p = canvas.Canvas(response, pagesize=letter)
+    p.setTitle("Reporte de nota de Pago")
     width, height = letter
 
     # --- Encabezado institucional ---
@@ -1311,7 +1312,7 @@ def reporte_facturas_pdf(request):
     facturas = facturas[start-1:end]
 
     response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = 'attachment; filename="reporte_notasdecobro.pdf"'
+    response['Content-Disposition'] = 'attachment; filename="reporte_facturas.pdf"'
 
     # Para aumentar el tamaño de la hoja, define un tamaño personalizado (por ejemplo, más grande que letter)
     custom_width = 14 * inch  # ancho personalizado (por ejemplo, 14 pulgadas)
@@ -1320,6 +1321,7 @@ def reporte_facturas_pdf(request):
 
     # Aquí se pone la hoja en horizontal usando landscape y el tamaño personalizado
     p = canvas.Canvas(response, pagesize=landscape(page_size))
+    p.setTitle("Reporte de Facturas")
     width, height = landscape(page_size)
     logo_width, logo_height, logo_margin = 100, 100, 15
 
@@ -1449,6 +1451,7 @@ def factura_generar_pdf(request, pk):
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="factura_{factura.numeroFactura}.pdf"'
     p = canvas.Canvas(response, pagesize=letter)
+    p.setTitle("Reporte de Factura Indivual")
     width, height = letter
 
     # --- Encabezado institucional ---
@@ -1577,6 +1580,7 @@ def reporte_pagos_pdf(request):
     response['Content-Disposition'] = 'inline; filename="reporte_pagos.pdf"'
     page_size = landscape(letter)
     p = canvas.Canvas(response, pagesize=page_size)
+    p.setTitle("Reporte de Pagos")
     width, height = page_size
 
     # Encabezado institucional a la izquierda
@@ -1687,6 +1691,7 @@ def pago_pdf(request, pk):
     response['Content-Disposition'] = f'inline; filename="pago_{pk}.pdf"'
     page_size = landscape(letter)
     p = canvas.Canvas(response, pagesize=page_size)
+    p.setTitle("Reporte de Pago Individual")
     width, height = page_size
 
     config = Configuracion.objects.order_by('-fechaConfiguracion').first()

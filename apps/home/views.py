@@ -762,7 +762,14 @@ def activar_cuota_formacion(request, pk):
 @login_required(login_url='login')
 @permission_required("home.view_cuotaformacion", raise_exception=True)
 def reporte_cuotas_formacion_pdf(request):
-    cuotas = CuotaFormacion.objects.select_related('idFormacion').all()
+    # Manejo de parámetros de paginación
+    start = int(request.GET.get('start', 1))
+    end = int(request.GET.get('end', 0))
+    cuotas = list(CuotaFormacion.objects.select_related('idFormacion').all())
+    
+    if end == 0 or end > len(cuotas):
+        end = len(cuotas)
+    cuotas = cuotas[start-1:end]
 
     # Configuración inicial del PDF
     response = HttpResponse(content_type='application/pdf')
@@ -770,19 +777,77 @@ def reporte_cuotas_formacion_pdf(request):
     p = canvas.Canvas(response, pagesize=letter)
     p.setTitle("Reporte de Cuotas de Formación")
     width, height = letter
+    logo_width, logo_height, logo_margin = 80, 80, 15  # Reducir tamaño del logo
 
-    # Encabezado
-    p.setFont("Helvetica-Bold", 12)
-    p.drawString(50, height - 50, "Reporte de Cuotas de Formación")
-    p.setFont("Helvetica", 10)
-    p.drawString(50, height - 70, f"Generado el: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
+    # Obtener configuración institucional
+    config = Configuracion.objects.order_by('-fechaConfiguracion').first()
+    logo_path = config.logo.path if config and config.logo else None
+    firma_path = config.firma.path if config and config.firma else None
+    nombre_institucion = config.nombreInstitucion if config else "Institución"
+    rif_institucion = config.rif if config else ""
+    direccion1 = "AV. ALBERTO RAVELL CON AV. INTERCOMUNAL JOSE ANTONIO PAEZ"
+    direccion2 = "LOCAL UPTYAB, INDEPENDENCIA – EDO YARACUY"
 
-    # Tabla
+    # Definir márgenes seguros
+    min_margin = 30
+    safe_left = min_margin
+    safe_right = width - min_margin
+    safe_width = safe_right - safe_left
+    safe_center = width / 2
+
+    # Funciones para encabezado y pie de página
+    def draw_header():
+        # Logo a la derecha
+        if logo_path and os.path.exists(logo_path):
+            p.drawImage(
+                logo_path,
+                width - logo_width - logo_margin,
+                height - logo_height - logo_margin,
+                width=logo_width,
+                height=logo_height,
+                preserveAspectRatio=True,
+                mask='auto'
+            )
+        
+        # Texto institucional a la izquierda
+        text_top = height - logo_margin - 15
+        p.setFont("Helvetica-Bold", 10)
+        p.drawString(min_margin, text_top, nombre_institucion)
+        p.drawString(min_margin, text_top - 15, f"RIF: {rif_institucion}")
+        p.drawString(min_margin, text_top - 30, direccion1)
+        p.drawString(min_margin, text_top - 45, direccion2)
+        
+        # Título centrado
+        p.setFont("Helvetica-Bold", 11)
+        p.drawCentredString(safe_center, text_top - 85, "REPORTE DE CUOTAS DE FORMACIÓN")
+
+    def draw_footer():
+        # Firma centrada en el pie de página
+        if firma_path and os.path.exists(firma_path):
+            p.drawImage(
+                firma_path,
+                width/2 - 50,
+                60,
+                width=100,
+                height=50,
+                preserveAspectRatio=True,
+                mask='auto'
+            )
+            p.setFont("Helvetica-Oblique", 9)
+            p.drawCentredString(width/2, 35, "Firma autorizada")
+        
+        # Fecha de generación
+        p.setFont("Helvetica", 8)
+        fecha_generacion = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        p.drawString(min_margin, 20, f"Generado el: {fecha_generacion}")
+
+    # Preparar datos de la tabla
     headers = ["ID", "Formación", "Nombre", "Tipo", "Valor", "Orden", "Estado"]
     data = [headers]
+    
     for cuota in cuotas:
         data.append([
-            cuota.idCuota,
+            str(cuota.idCuota),
             cuota.idFormacion.nombreFormacion if cuota.idFormacion else "Sin formación",
             cuota.nombreCuota,
             cuota.get_tipoCuota_display(),
@@ -790,23 +855,99 @@ def reporte_cuotas_formacion_pdf(request):
             cuota.orden,
             "Activo" if cuota.is_active else "Inactivo"
         ])
+    
+    # Configuración de la tabla con espacios aumentados
+    col_widths = [40, 120, 100, 80, 60, 50, 60]  # Anchos ajustados
+    table_width = sum(col_widths)
+    
+    # Espaciado vertical aumentado
+    header_height = 150  # Más espacio para encabezado
+    footer_height = 100  # Más espacio para pie de página
+    row_height = 25  # Aumentar altura de filas
+    cell_padding = 5  # Padding interno en celdas
+    
+    # Calcular espacio disponible
+    available_height = height - header_height - footer_height
+    max_rows_per_page = max(1, int(available_height // row_height))
+    total_rows = len(data) - 1
+    page = 0
 
-    table = Table(data, colWidths=[50, 100, 100, 80, 60, 50, 60])
-    table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-        ('GRID', (0, 0), (-1, -1), 1, colors.black),
-    ]))
+    # Generar páginas
+    for start_row in range(0, total_rows, max_rows_per_page):
+        end_row = min(start_row + max_rows_per_page, total_rows)
+        page_data = [data[0]] + data[start_row + 1:end_row + 1]
+        
+        if page > 0:
+            p.showPage()
+        
+        draw_header()
+        y_position = height - header_height
+        
+        # Centrar tabla horizontalmente
+        table_x = safe_left + (safe_width - table_width) / 2
+        table = Table(page_data, colWidths=col_widths, rowHeights=[row_height]*len(page_data))
+        
+        # Estilo de la tabla con más espacio
+        table_style = TableStyle([
+            # Encabezado
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0,0), (-1,0), 9),  # Tamaño reducido
+            ('ALIGN', (0,0), (-1,0), 'CENTER'),
+            ('VALIGN', (0,0), (-1,0), 'MIDDLE'),
+            ('BOTTOMPADDING', (0,0), (-1,0), cell_padding),
+            
+            # Cuerpo de la tabla
+            ('FONTSIZE', (0,1), (-1,-1), 8),  # Tamaño reducido
+            ('ALIGN', (0,1), (-1,-1), 'CENTER'),
+            ('ALIGN', (1,1), (2,-1), 'LEFT'),  # Alinear texto a izquierda
+            ('VALIGN', (0,1), (-1,-1), 'MIDDLE'),
+            ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.lightgrey),
+            ('BOX', (0,0), (-1,-1), 0.5, colors.black),
+            ('TOPPADDING', (0,1), (-1,-1), cell_padding),
+            ('BOTTOMPADDING', (0,1), (-1,-1), cell_padding),
+        ])
+        
+        # Resaltar valores monetarios
+        for i in range(1, len(page_data)):
+            table_style.add('TEXTCOLOR', (4,i), (4,i), colors.HexColor("#007bff"))  # Azul para valores
+            
+        # RESALTAR ESTADOS
+        for i in range(1, len(page_data)):
+            # Obtener valor del estado (columna 6)
+            estado_valor = page_data[i][6].strip().lower()
+            
+            # Determinar color según estado
+            if estado_valor == "activo":
+                color = colors.HexColor("#28a745")  # Verde
+            elif estado_valor == "inactivo":
+                color = colors.HexColor("#dc3545")  # Rojo
+            else:
+                color = colors.black  # Negro para otros valores
+            
+            # Aplicar color a la celda de estado (columna 6)
+            table_style.add('TEXTCOLOR', (6, i), (6, i), color)
+        
+        table.setStyle(table_style)
+        table.wrapOn(p, width, height)
+        table.drawOn(p, table_x, y_position - row_height * len(page_data) - 10)
+        
+        # Información de paginación
+        p.setFont("Helvetica", 8)
+        pagination_text = f"Página {page + 1} - Registros {start_row + 1} a {end_row} de {total_rows}"
+        p.drawCentredString(
+            safe_center, 
+            y_position - row_height * len(page_data) - 25,
+            pagination_text
+        )
+        
+        draw_footer()
+        page += 1
 
-    table.wrapOn(p, width, height)
-    table.drawOn(p, 50, height - 200)
     p.save()
     return response
-
 
 # FORMACION
 @login_required(login_url='login')
