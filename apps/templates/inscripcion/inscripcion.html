@@ -13,6 +13,7 @@
       box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.1);
       padding: 2rem;
       margin: 2rem auto;
+      /* Volvemos al tamaño original que pediste */
       max-width: 800px;
   }
   
@@ -112,6 +113,11 @@
       color: #212529;
       font-weight: 500;
       transition: all 0.3s;
+
+      /* FORZAR que ocupe todo el ancho de su columna y que el padding no lo recorte */
+      width: 100%;
+      display: block;
+      box-sizing: border-box;
   }
   
   .styled-select:focus {
@@ -122,6 +128,10 @@
   .select-group {
       position: relative;
       margin-bottom: 1.5rem;
+      /* permitir que el grupo crezca dentro de la columna */
+      display: flex;
+      flex-direction: column;
+      height: 100%;
   }
   
   .select-group label {
@@ -136,6 +146,12 @@
       margin-right: 10px;
       color: #6c757d;
       font-size: 1.2rem;
+  }
+
+  /* Alineo las columnas de formulario para que los inputs se estiren correctamente */
+  .col-md-6.form-group, .col-md-4.form-group, .col-md-8.form-group {
+      display: flex;
+      flex-direction: column;
   }
   
   .form-divider {
@@ -161,6 +177,13 @@
       color: #6c757d;
       font-weight: 600;
       z-index: 1;
+  }
+
+  /* Responsive: asegurar que en móviles los selects ocupen 100% */
+  @media (max-width: 767px) {
+    .inscripcion-form { padding: 1rem; margin: 1rem; max-width: 100%; }
+    .cedula-select { flex-basis: 80px; }
+    .styled-select { padding: 0.6rem 0.9rem; }
   }
 </style>
 {% endblock stylesheets %}
@@ -219,30 +242,31 @@
         <span><i class="fas fa-book me-2"></i> Información Académica</span>
       </div>
       
-          <div class="form-group mb-4">
-            <label for="nombreCohorte" class="form-label">
-              <i class="fas fa-users me-2"></i> Cohorte
-            </label>
-            <div class="input-group">
-              <input type="text" id="nombreCohorte" name="nombreCohorte" class="form-control" 
-                     oninput="checkCohorte()" placeholder="Nombre de cohorte">
+      <div class="form-group mb-4">
+        <label for="nombreCohorte" class="form-label">
+          <i class="fas fa-users me-2"></i> Cohorte
+        </label>
+        <div class="input-group">
+          <input type="text" id="nombreCohorte" name="nombreCohorte" class="form-control" 
+                 oninput="checkCohorte()" placeholder="Nombre de cohorte">
 
-              <div class="check-icon" id="check-cohorte-icon"></div>
+          <div class="check-icon" id="check-cohorte-icon"></div>
 
-            </div>
+        </div>
 
-            <div class="invalid-feedback">Por favor, ingrese una cohorte válida.</div>
-            <input type="hidden" id="idCohorte" name="idCohorte" />
-            <input type="hidden" id="estadoContrato" name="estadoContrato" value="ACTIVO" />
-          </div>
+        <div class="invalid-feedback">Por favor, ingrese una cohorte válida.</div>
+        <input type="hidden" id="idCohorte" name="idCohorte" />
+        <input type="hidden" id="estadoContrato" name="estadoContrato" value="ACTIVO" />
+      </div>
         
       <div class="row">
+        <!-- Ambos selects ahora son iguales: col-md-6 / col-md-6 -->
         <div class="col-md-6 form-group">
           <div class="select-group">
             <label for="idTF" class="form-label">
               <i class="fas fa-graduation-cap me-2"></i> Tipo de Formación
             </label>
-            <select id="idTF" name="idTF" class="form-select styled-select" style="width: 100%;">
+            <select id="idTF" name="idTF" class="form-select styled-select">
               <option value="" disabled selected>Seleccione...</option>
               {% for tipo in tipos_formacion %}
               <option value="{{ tipo.idTF }}">{{ tipo.nombreTipoFormacion }}</option>
