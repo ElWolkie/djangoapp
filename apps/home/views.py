@@ -12,7 +12,7 @@ from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required, permission_required
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.contrib.auth.models import Group
 from collections import defaultdict # Para agrupar
 
@@ -4156,7 +4156,7 @@ def actualizar_monedas_api(request):
     # Solo permitir método POST para esta acción que modifica datos
     if request.method != 'POST':
         messages.error(request, "Método no permitido.")
-        return redirect('tabla_monedas') # O a donde quieras redirigir
+        return redirect('tabla_monedas')  # O a donde quieras redirigir
 
     # URL de la API (puedes ponerla en settings.py si prefieres)
     CURRENCY_API_URL = 'https://openexchangerates.org/api/currencies.json'
@@ -4165,63 +4165,107 @@ def actualizar_monedas_api(request):
 
     try:
         # --- 1. Llamada a la API ---
-        print(f"DEBUG: Llamando a la API: {CURRENCY_API_URL}") # Debug
-        response = requests.get(CURRENCY_API_URL, timeout=15) # Timeout de 15 segundos
-        response.raise_for_status() # Lanza un error si la respuesta no es 2xx (OK)
+        print(f"DEBUG: Llamando a la API: {CURRENCY_API_URL}")
+        response = requests.get(CURRENCY_API_URL, timeout=15)
+        response.raise_for_status()
 
         # --- 2. Procesar Respuesta JSON ---
         api_currencies = response.json()
-        print(f"DEBUG: Recibidas {len(api_currencies)} monedas de la API.") # Debug
+        print(f"DEBUG: Recibidas {len(api_currencies)} monedas de la API.")
 
-        # --- 3. Obtener Símbolos Existentes en BD ---
-        # Usamos values_list y flat=True para obtener una lista plana de símbolos
-        # y set() para búsquedas rápidas (O(1) en promedio)
+        # --- 3. Obtener Símbolos y Nombres Existentes en BD (normalizados) ---
         codigos_existentes = set(Moneda.objects.values_list('simboloMoneda', flat=True))
-        print(f"DEBUG: {len(codigos_existentes)} códigos de moneda existentes en BD.") # Debug
+        # Normalizamos nombres a lower + strip para comparar insensible a mayúsc/minúsc
+        nombres_existentes = set(
+            (n.strip().lower() for n in Moneda.objects.values_list('nombreMoneda', flat=True) if n)
+        )
 
-        # --- 4. Comparar y Añadir Nuevas Monedas ---
+        print(f"DEBUG: {len(codigos_existentes)} códigos existentes en BD.")
+        print(f"DEBUG: {len(nombres_existentes)} nombres existentes en BD (normalizados).")
+
+        # --- 4. Comparar y Añadir Nuevas Monedas (lista para crear) ---
         monedas_para_crear = []
         for codigo, nombre in api_currencies.items():
-            # Limitar longitud si es necesario (aunque los códigos suelen ser 3 chars)
             codigo_limpio = codigo.strip()[:5]
             nombre_limpio = nombre.strip()[:100]
+            nombre_key = nombre_limpio.lower()
 
-            if codigo_limpio not in codigos_existentes:
-                # Añadir a la lista para creación masiva (más eficiente)
-                monedas_para_crear.append(
-                    Moneda(
-                        nombreMoneda=nombre_limpio,
-                        simboloMoneda=codigo_limpio,
-                        estadoMoneda='INACTIVO' # Estado por defecto al crear
-                        # fechaMoneda se añade automáticamente
-                    )
+            # Si ya existe por código o por nombre (insensible a mayúsc/minúsc), saltamos
+            if codigo_limpio in codigos_existentes or nombre_key in nombres_existentes:
+                # DEBUG opcional:
+                # print(f"DEBUG: Saltando {codigo_limpio} - {nombre_limpio} (existente)")
+                continue
+
+            monedas_para_crear.append(
+                Moneda(
+                    nombreMoneda=nombre_limpio,
+                    simboloMoneda=codigo_limpio,
+                    estadoMoneda='INACTIVO'  # Estado por defecto al crear
                 )
-                codigos_existentes.add(codigo_limpio) # Añadir al set para evitar duplicados en este lote
+            )
+            # Añadimos inmediatamente a los sets para evitar duplicados dentro del mismo lote
+            codigos_existentes.add(codigo_limpio)
+            nombres_existentes.add(nombre_key)
 
         # --- 5. Guardar Nuevas Monedas en BD (si hay) ---
         if monedas_para_crear:
             try:
-                # bulk_create es más eficiente para insertar muchos objetos
-                Moneda.objects.bulk_create(monedas_para_crear)
+                # Intentamos bulk_create con ignore_conflicts si la versión de Django lo soporta.
+                # Esto evita excepciones por claves únicas que ya hayan aparecido en concurrencia.
+                Moneda.objects.bulk_create(monedas_para_crear, ignore_conflicts=True)
+                # Si ignore_conflicts se usa, no podemos saber exactamente cuántas se crearon vs ignoradas,
+                # pero podemos asumir que intentamos insertar len(monedas_para_crear). Para precisión, podríamos
+                # comparar conteos previos/posteriores.
                 nuevas_monedas_contador = len(monedas_para_crear)
-                print(f"DEBUG: Añadidas {nuevas_monedas_contador} nuevas monedas.") # Debug
-                messages.success(request, f'¡Actualización completada! Se añadieron {nuevas_monedas_contador} nuevas monedas.')
-            except Exception as db_error: # Captura errores de BD (ej. violación de unique)
-                print(f"ERROR DB al guardar monedas: {db_error}") # Debug
+                print(f"DEBUG: Intentadas {nuevas_monedas_contador} inserciones con bulk_create(ignore_conflicts=True).")
+                messages.success(request, f'¡Actualización completada! Se procesaron {nuevas_monedas_contador} monedas (las duplicadas se omitieron).')
+            except TypeError:
+                # Si la versión de Django no soporta ignore_conflicts en bulk_create, fallback:
+                try:
+                    with transaction.atomic():
+                        Moneda.objects.bulk_create(monedas_para_crear)
+                    nuevas_monedas_contador = len(monedas_para_crear)
+                    messages.success(request, f'¡Actualización completada! Se añadieron {nuevas_monedas_contador} nuevas monedas.')
+                except IntegrityError as e:
+                    # Ocurrió una violación de unicidad (posible condición de carrera o inconsistencia).
+                    print(f"WARNING: IntegrityError durante bulk_create: {e}. Aplicando inserción segura por fila.")
+                    creadas = 0
+                    for m in monedas_para_crear:
+                        try:
+                            # Intentamos crear sólo si no existe; get_or_create evita excepción por unique
+                            obj, created_flag = Moneda.objects.get_or_create(
+                                simboloMoneda=m.simboloMoneda,
+                                defaults={
+                                    'nombreMoneda': m.nombreMoneda,
+                                    'estadoMoneda': m.estadoMoneda
+                                }
+                            )
+                            if created_flag:
+                                creadas += 1
+                        except Exception as e2:
+                            monedas_fallidas.append(f"{m.simboloMoneda} - {str(e2)}")
+                    nuevas_monedas_contador = creadas
+                    msg = f'¡Actualización completada! Se añadieron {nuevas_monedas_contador} nuevas monedas.'
+                    if monedas_fallidas:
+                        msg += f' Algunas no pudieron guardarse: {len(monedas_fallidas)}.'
+                    messages.success(request, msg)
+            except Exception as db_error:
+                # Otro error inesperado de BD
+                print(f"ERROR DB al guardar monedas: {db_error}")
                 messages.error(request, f'Error al guardar las nuevas monedas en la base de datos: {db_error}')
         else:
-            print("DEBUG: No se encontraron nuevas monedas para añadir.") # Debug
+            print("DEBUG: No se encontraron nuevas monedas para añadir.")
             messages.info(request, '¡Todo al día! No se encontraron nuevas monedas en la API.')
 
     except requests.exceptions.RequestException as e:
-        print(f"ERROR API: {e}") # Debug
+        print(f"ERROR API: {e}")
         messages.error(request, f"Error al conectar con la API de monedas: {e}")
-    except Exception as e: # Captura otros errores (ej. JSON inválido, etc.)
-        print(f"ERROR General: {e}") # Debug
+    except Exception as e:
+        print(f"ERROR General: {e}")
         messages.error(request, f"Ocurrió un error inesperado durante la actualización: {e}")
 
     # --- 6. Redirigir de vuelta ---
-    return redirect('tabla_monedas') # Redirige a la página de moneda
+    return redirect('tabla_monedas')
 
 
 @login_required(login_url='login')

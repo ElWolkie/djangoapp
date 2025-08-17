@@ -127,7 +127,7 @@
         <tbody>
           {% for moneda in monedas %}
           <tr>
-            <td>{{ moneda.idMoneda }}</td>
+            <td>{{ forloop.counter }}</td>
             <td>{{ moneda.nombreMoneda }}</td>
             <td>{{ moneda.simboloMoneda }}</td>
             <td>{{ moneda.fechaMoneda|date:"d/m/Y" }}</td>
@@ -198,7 +198,8 @@
       </div>
       <div class="modal-body">
         <p>Esto <b><strong>recargará todas las monedas existentes en el mundo</strong></b> desde el servicio externo.<br> Recuerde que las monedas se añadirán inactivas. 
-          <br><br>¿Deseas continuar?</p>
+          <br><br>¿Deseas continuar?
+          <br><br>Este proceso puede tardar unos minutos dependiendo de la conexión y el número de monedas a actualizar.</p>
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
