@@ -184,31 +184,85 @@
 
 {% block javascripts %}
 <script>
-  // Activar mayúsculas en inputs
-  function activarMayusculasInputs() {
+
+// Activar mayúsculas en inputs
+function activarMayusculasInputs() {
     document.addEventListener('input', function(e) {
-      if (e.target.tagName === 'INPUT' && !/password|hidden|email/.test(e.target.type)) {
-        e.target.value = e.target.value.toUpperCase();
+      const input = e.target;
+      if (input.tagName === 'INPUT' && !/password|hidden|email/.test(input.type)) {
+        input.value = input.value.toUpperCase();
       }
     });
   }
   activarMayusculasInputs();
 
-  document.addEventListener("DOMContentLoaded", function() {
-    // Validación de nombre: solo letras y espacios
-    document.getElementById("nombreTramite").addEventListener("input", function() {
-      this.value = this.value.replace(/[^A-Z\s]/g, '');
-    });
+  // Validación de nombre: solo letras y espacios
+  document.getElementById("nombreTramite").addEventListener("input", function() {
+    this.value = this.value.replace(/[^A-Z\s]/g, '').slice(0, 50);
+  });
 
-    // Validación de días: solo números y letras (para permitir "días")
-    document.getElementById("diasTramite").addEventListener("input", function() {
-      this.value = this.value.replace(/[^A-Z0-9\s]/g, '');
-    });
+  // Validación y autoespaciado en diasTramite
+  document.getElementById("diasTramite").addEventListener("input", function() {
+    let valor = this.value.toUpperCase().replace(/[^A-Z0-9\s]/g, '').slice(0, 20);
 
-    // Validación de precio: solo números y punto decimal
-    document.getElementById("precioTramite").addEventListener("input", function() {
-      this.value = this.value.replace(/[^0-9.]/g, '');
-    });
+    // Insertar espacio automáticamente después del número inicial si no existe
+    const match = valor.match(/^(\d{3,4})([A-Z])?/);
+    if (match && !valor.includes(' ')) {
+      const numero = match[1];
+      const resto = valor.slice(numero.length).trim();
+      this.value = `${numero} ${resto}`;
+    } else {
+      this.value = valor;
+    }
+  });
+
+  // Validación y formato español en precioTramite
+document.getElementById("precioTramite").addEventListener("input", function() {
+  const input = this;
+  const raw = input.value;
+  const oldPos = input.selectionStart;
+
+  // ❌ Bloquear letras desde el inicio
+  if (/[A-Za-z]/.test(raw)) {
+    // Elimina letras inmediatamente
+    input.value = raw.replace(/[A-Za-z]/g, '');
+    return;
+  }
+
+  // Contar dígitos antes del cursor
+  const digitsBefore = raw.slice(0, oldPos).replace(/[^0-9]/g, '').length;
+
+  // Limpiar y parsear
+  const cleaned = raw
+    .replace(/\./g, '')     // quitar puntos previos
+    .replace(/,/g, '.')     // coma → punto para parsear
+    .replace(/[^0-9.]/g, ''); 
+  const num = parseFloat(cleaned);
+  if (isNaN(num)) return;
+
+  // Formatear en estilo español (puntos de miles, coma decimal)
+  const formatted = num.toLocaleString('es-VE', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+
+  // Calcular nueva posición del cursor
+  let newPos = 0, counted = 0;
+  for (let i = 0; i < formatted.length; i++) {
+    if (/[0-9]/.test(formatted[i])) counted++;
+    if (counted === digitsBefore) {
+      newPos = i + 1;
+      break;
+    }
+  }
+  if (counted < digitsBefore) {
+    newPos = formatted.length;
+  }
+
+  // Aplicar resultado y posicionar cursor
+  input.value = formatted;
+  input.setSelectionRange(newPos, newPos);
+  });
 
     // Validación de Bootstrap
     (function() {
@@ -224,6 +278,5 @@
         }, false);
       });
     })();
-  });
 </script>
 {% endblock javascripts %}

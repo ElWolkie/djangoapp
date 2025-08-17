@@ -144,14 +144,18 @@
 {% block javascripts %}
 <script>
   // Activar mayúsculas en inputs
-  function activarMayusculasInputs() {
-    document.addEventListener('input', function(e) {
-      if (e.target.tagName === 'INPUT' && !/password|hidden|email/.test(e.target.type)) {
-        e.target.value = e.target.value.toUpperCase();
-      }
-    });
-  }
-  activarMayusculasInputs();
+document.getElementById("nombreRequisito").addEventListener("input", function() {
+    this.value = this.value.replace(/[^a-zA-Z\s]/g, '');
+  });
+          // Activar mayúsculas en inputs
+          function activarMayusculasInputs() {
+      document.addEventListener('input', function(e) {
+        if (e.target.tagName === 'INPUT' && !e.target.type.match(/password|hidden|email/)) {
+          e.target.value = e.target.value.toUpperCase();
+        }
+      });
+    }
+    activarMayusculasInputs();
 
   document.addEventListener("DOMContentLoaded", function() {
     // Validación de nombre: solo letras y espacios

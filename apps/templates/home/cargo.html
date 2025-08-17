@@ -122,7 +122,7 @@
   // Mayúsculas y solo letras
   document.addEventListener('input', e => {
     if (e.target.id === 'nombreCargo') {
-      e.target.value = e.target.value.toUpperCase().replace(/[^A-Z\s]/g, '').slice(0,100);
+      e.target.value = e.target.value.toUpperCase().replace(/[^A-Z\s]/g, '').slice(0,40);
     }
   });
   // Bootstrap validation

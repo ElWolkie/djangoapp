@@ -23,6 +23,8 @@ from reportlab.platypus import Table, TableStyle
 from reportlab.lib import colors
 import os
 import json
+from django.core.paginator import Paginator
+
 @login_required(login_url='login')
 @permission_required("inscripcion.add_inscripcion", raise_exception=True)
 def inscripcion_modal(request):
@@ -122,20 +124,36 @@ def edit_inscripcion(request, pk):
     # GET: Mostrar formulario de edición (solo para carga inicial)
     form = InscripcionForm(instance=instance)
     
-    # Obtener datos relacionados
+# Obtener TODAS las formaciones activas
+    formaciones = Formacion.objects.filter(estadoFormacion='ACTIVO').annotate(
+        cuotas_activas=Exists(
+            CuotaFormacion.objects.filter(
+                idFormacion=OuterRef('pk'),
+                is_active=True
+            )
+        ),
+        cantidad_cuotas=Count('cuotas', filter=models.Q(cuotas__is_active=True))
+    )
+    
+    # Generar datos para las cuotas
+    for formacion in formaciones:
+        formacion.cuotas_json = json.dumps([
+            {'nombreCuota': cuota.nombreCuota, 'valorCuota': float(cuota.valorCuota)}
+            for cuota in formacion.cuotas.filter(is_active=True)
+        ])
+    
     context = {
-        'form': form,
+        'form': InscripcionForm(instance=instance),
         'inscripcion': instance,
         'personas': Personas.objects.all(),
         'cargos': Cargo.objects.all(),
         'materias': Materia.objects.all(),
         'cohortes': Cohorte.objects.all(),
-        'formaciones': Formacion.objects.all(),
+        'formaciones': formaciones,  # Todas las formaciones activas
         'tipos_formacion': TipoFormacion.objects.all()
     }
     
     return render(request, 'inscripcion/editInscripcion.html', context)
-
 
 @login_required(login_url='login')
 @permission_required("inscripcion.change_inscripcion", raise_exception=True)
@@ -192,10 +210,17 @@ def tabla_inscripciones(request):
         ]
         requisitos_entregados_dict[inscripcion.idInscripcion] = requisitos
 
+    # Paginación 
+    paginator = Paginator(inscripciones, 10)  # 10 cuotas por página
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
     return render(request, 'inscripcion/tablaInscripciones.html', {
-        'inscripciones': inscripciones,
+        'inscripcionsdes': inscripciones.order_by('-idInscripcion'),
         'requisitos_entregados_dict': requisitos_entregados_dict,
         'mostrar_inactivos': mostrar,
+        'inscripciones': page_obj,  # Pasar el objeto de la página al template
+
     })
 
 # @login_required(login_url='login')

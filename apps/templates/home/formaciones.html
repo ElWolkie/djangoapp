@@ -141,8 +141,8 @@
                    class="form-control input-with-icon"
                    placeholder="Ingrese el nombre"
                    maxlength="40" data-required="true" required>
-          </div>
           <div class="invalid-feedback">Por favor, ingrese un nombre válido.</div>
+         </div>
         </div>
       </div>
     </div>
@@ -160,26 +160,52 @@
                    class="form-control input-with-icon"
                    placeholder="Ingrese el valor"
                    maxlength="20" data-required="true" required>
+            <div class="invalid-feedback">Por favor, ingrese un valor válido.</div>
           </div>
-          <div class="invalid-feedback">Por favor, ingrese un valor válido.</div>
         </div>
       </div>
       <!-- Duración -->
       <div class="col-md-6">
         <div class="form-group">
-          <label for="duracion" class="form-label">
-            <i class="fas fa-clock"></i> Duración
+          <label for="cantidad" class="form-label">
+        <i class="fas fa-clock"></i> Duración
           </label>
           <div class="input-group">
-            <i class="fas fa-hourglass-half input-icon"></i>
-            <input type="text" id="duracion" name="duracion"
-                   class="form-control input-with-icon"
-                   placeholder="Ingrese la duración"
-                   maxlength="14" data-required="true" required>
+        <i class="fas fa-hourglass-half input-icon"></i>
+        <input type="text" id="cantidad" name="cantidad"
+           class="form-control input-with-icon"
+           placeholder="Duración"
+           maxlength="14" data-required="true" required
+           style="max-width: 180px;">
+        <select id="unidadDuracion" name="unidadDuracion" class="form-control ms-2" style="max-width: 120px;">
+          <option value="HORAS">Horas</option>
+          <option value="DÍAS">Días</option>
+          <option value="SEMANAS">Semanas</option>
+          <option value="MESES">Meses</option>
+          <option value="AÑOS">Años</option>
+        </select>
+        <input type="hidden" id="duracion" name="duracion">
+        <div class="invalid-feedback">Por favor, ingrese una duración válida.</div>
           </div>
-          <div class="invalid-feedback">Por favor, ingrese una duración válida.</div>
         </div>
       </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        const cantidadInput = document.getElementById("cantidad");
+        const unidadSelect = document.getElementById("unidadDuracion");
+        const hiddenDuracion = document.getElementById("duracion");
+
+        function updateHiddenDuracion() {
+      const cantidad = cantidadInput.value.trim();
+      const unidad = unidadSelect.value;
+      hiddenDuracion.value = cantidad ? `${cantidad} ${unidad}` : "";
+        }
+
+        cantidadInput.addEventListener("input", updateHiddenDuracion);
+        unidadSelect.addEventListener("change", updateHiddenDuracion);
+      });
+    </script>
     </div>
       
   <!-- Cuota -->
@@ -261,5 +287,30 @@
       formacionSelect.value = "";
     });
   });
+document.addEventListener("DOMContentLoaded", function () {
+  const input = document.getElementById("valorInscripcion");
+  if (!input) return;
+
+  input.addEventListener("input", function (e) {
+    let raw = this.value.replace(/[^\d]/g, '');
+
+    if (raw.length < 3) {
+      this.value = raw;
+      return;
+    }
+
+    const intPart = raw.slice(0, raw.length - 2);
+    const decimalPart = raw.slice(-2);
+
+    const formattedInt = parseInt(intPart, 10).toLocaleString('es-VE');
+
+    const finalValue = `${formattedInt},${decimalPart}`;
+
+    // Evitar que el cursor salte al final
+    const selectionStart = this.selectionStart;
+    this.value = finalValue;
+    this.setSelectionRange(selectionStart, selectionStart);
+  });
+});
 </script>
 {% endblock javascripts %}

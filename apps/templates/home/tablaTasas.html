@@ -106,7 +106,7 @@
             <th>ID</th>
             <th>Moneda</th>
             <th>Monto</th>
-            <th>Fecha</th>
+            <th>Fecha | Hora</th>
             <th>Estado</th>
             <th class="actions-column">Acciones</th>
           </tr>
@@ -117,7 +117,7 @@
             <td>{{ tasa.idTasa }}</td>
             <td>{{ tasa.idMoneda.nombreMoneda }} {{ tasa.idMoneda.simboloMoneda }}</td>
             <td>{{ tasa.montoTasa }}</td>
-            <td>{{ tasa.fechaTasa|date:"d/m/Y" }}</td>
+            <td>{{ tasa.fechaTasa|date:"d/m/Y | h:i A" }}</td>
             <td>
               {% if tasa.estadoTasa|upper == "ACTIVO" %}
                 <span class="badge bg-success text-white">

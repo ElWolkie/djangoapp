@@ -202,5 +202,94 @@ document.addEventListener("DOMContentLoaded", function() {
     }
   });
   
+  // Validación personalizada para el teléfono
+  document.addEventListener('input', function(e) {
+    const input = e.target;
+    if (input.id === 'telefono') {
+      // Permitir solo números y guión
+      input.value = input.value.replace(/[^0-9\-]/g, '');
+
+      // Formatear como xxxx-xxxxxxx
+      let digits = input.value.replace(/\D/g, '');
+      if (digits.length > 4) {
+        input.value = digits.substring(0, 4) + '-' + digits.substring(4, 11);
+      } else {
+        input.value = digits;
+      }
+
+      // Validar formato xxxx-xxxxxxx
+      const telefonoRegex = /^\d{4}-\d{7}$/;
+      if (!telefonoRegex.test(input.value)) {
+        input.setCustomValidity('El teléfono debe tener el formato xxxx-xxxxxxx.');
+      } else {
+        input.setCustomValidity('');
+      }
+    }
+  });
+  
+function activarValidaciones() {
+  document.addEventListener('input', function(e) {
+    const input = e.target;
+    if (input.tagName !== 'INPUT') return;
+
+    const valor = input.value;
+    let nuevo = valor;
+
+    // Caracteres prohibidos generales (salvo '-' para RIF)
+    const proh = /["',:_+]/g;
+
+    if (input.id === 'rif') {
+      // RIF (formato X-XXXXXXXX-X):
+      // 1) Convertir a mayúsculas
+      // 2) Permitir solo A–Z, 0–9 y guiones
+      nuevo = valor
+        .toUpperCase()
+        .replace(/[^A-Z0-9-]/g, '');
+
+    } else if (input.type === 'email') {
+      // Email: eliminar todo excepto letras, dígitos, @, punto y caracteres especiales permitidos
+      nuevo = valor
+        .replace(/[^A-Za-z0-9@.!#$%&'*+/=?^_`{|}~\-]/g, '')
+        // evitar más de una arroba
+        .replace(/^([^@]*)@(.+)@(.+)$/, '$1@$2$3');
+
+    } else {
+      // Otros inputs:
+      // 1) Convertir a mayúsculas (si no es #correo)
+      // 2) Eliminar caracteres prohibidos y puntos
+      if (input.id !== 'correo') {
+        nuevo = valor.toUpperCase();
+      }
+      nuevo = nuevo.replace(proh, '').replace(/\./g, '');
+    }
+
+    if (nuevo !== valor) {
+      input.value = nuevo;
+    }
+  });
+}
+
+// Validación final al enviar el formulario
+document
+  .getElementById('registroPersona')
+  .addEventListener('submit', function(e) {
+    const rif = document.getElementById('rif').value;
+    const patronRif = /^[A-Z]-\d{8}-\d$/;
+    if (!patronRif.test(rif)) {
+      e.preventDefault();
+      alert('RIF inválido. Debe tener el formato X-XXXXXXXX-X');
+    }
+  });
+
+activarValidaciones();
+//Validar mayusculas para direccion con acentos, comillas, guiones, puntos y ñ.
+
+</script>
+<script>
+  document.querySelectorAll("input[type='text']").forEach(function(input) {
+  input.addEventListener("input", function() {
+    this.value = this.value.toUpperCase().replace(/[^A-Z0-9ÑñÁÉÍÓÚáéíóú\s.,-]/g, '');
+  });
+});
 </script>
 {% endblock javascripts %}

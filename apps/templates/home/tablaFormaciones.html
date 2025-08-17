@@ -308,7 +308,7 @@
 <!-- Modal: Editar Formación -->
  {% if perms.home.change_formacion %}
 <div class="modal fade" id="editFormacionModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-md">
+  <div class="modal-dialog modal-lg">
     <div class="modal-content">
       <div class="modal-header bg-primary text-white">
         <h5 class="modal-title text-white"><i class="fas fa-edit me-2"></i> Editar Formación</h5>
@@ -340,6 +340,7 @@
         <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
         <form id="deleteFormacionForm" method="post">
           {% csrf_token %}
+          <input type="hidden" name="next" value="{{ request.get_full_path }}">
           <button type="submit" class="btn btn-warning">Inhabilitar</button>
         </form>
       </div>
@@ -363,7 +364,8 @@
       <div class="modal-footer">
         <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
         <form id="reactivateFormacionForm" method="post">
-          {% csrf_token %}
+          {% csrf_token %}          
+          <input type="hidden" name="next" value="">
           <button type="submit" class="btn btn-success">Reactivar</button>
         </form>
       </div>
@@ -395,28 +397,28 @@ document.addEventListener("DOMContentLoaded", function() {
     });
   });
 
-  ['deleteFormacionModal', 'reactivateFormacionModal'].forEach(modalId => {
-    $(`#${modalId}`).on('show.bs.modal', function(e) {
-      const button = $(e.relatedTarget);
-      $(`#${modalId}Form`).attr('action', button.data('url'));
+['deleteFormacionModal', 'reactivateFormacionModal'].forEach(modalId => {
+    const modalSel = `#${modalId}`;
+    const formSel  = modalId === 'deleteFormacionModal'
+                     ? '#deleteFormacionForm'
+                     : '#reactivateFormacionForm';
+
+    $(modalSel).on('show.bs.modal', function(e) {
+      const btnUrl = $(e.relatedTarget).data('url');
+      const nextParam = encodeURIComponent(window.location.href);
+
+      // action completo
+      const actionFull = btnUrl + '?next=' + nextParam;
+      $(formSel).attr('action', actionFull);
+
+      // también actualizamos el hidden next por si tu backend lo lee desde POST
+      $(formSel).find('input[name=next]').val(window.location.href);
     });
   });
 
-  function handleFormSubmit(formSelector, modalId) {
-    $(document).on('submit', formSelector, function(e) {
-      e.preventDefault();
-      const $form = $(this);
-      if (!validateInputs(formSelector)) return false;
-
-      $.ajax({
-        url: $form.attr('action'),
-        method: $form.attr('method'),
-        data: $form.serialize(),
-        success: response => handleResponse(response, modalId),
-        error: () => Swal.fire('Error', 'Error al procesar la solicitud', 'error')
-      });
-    });
-  }
+  // 2) Reutilizamos tu función genérica de envío AJAX
+  handleFormSubmit('#deleteFormacionForm',   '#deleteFormacionModal');
+  handleFormSubmit('#reactivateFormacionForm','#reactivateFormacionModal');
 
   function validateInputs(formSelector) {
     const form = document.querySelector(formSelector);

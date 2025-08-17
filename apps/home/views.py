@@ -13,6 +13,7 @@ from django.core.exceptions import ValidationError
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required, permission_required
 from django.db import IntegrityError, transaction
+from django.views.decorators.http import require_POST
 from django.contrib.auth.models import Group
 from collections import defaultdict # Para agrupar
 
@@ -621,38 +622,61 @@ def recover_password(request):
 @permission_required("home.add_cuotaformacion", raise_exception=True)
 def registrar_cuota_formacion(request, idFormacion=None):
     if idFormacion:
-        formaciones = Formacion.objects.filter(idFormacion=idFormacion, estadoFormacion='ACTIVO')  # Filtrar por ID si se proporciona
+        formaciones = Formacion.objects.filter(idFormacion=idFormacion, estadoFormacion='ACTIVO')
     else:
-        formaciones = Formacion.objects.filter(estadoFormacion='ACTIVO')  # Filtrar formaciones activas
+        formaciones = Formacion.objects.filter(estadoFormacion='ACTIVO')
     
     if request.method == 'POST':
-        form = CuotaFormacionForm(request.POST)
-        if form.is_valid():
-            try:
-                form.save()
-                return JsonResponse({
-                    'success': True,
-                    'message': "Cuota de formación registrada exitosamente.",
-                    'redirect_url': reverse('consultar_cuota_formacion')  # URL para redirigir
-                })
-            except ValidationError as e:
+        # Crear instancia manualmente en lugar de usar ModelForm
+        try:
+            # Obtener datos del POST
+            id_formacion = request.POST.get('idFormacion')
+            if not id_formacion:
                 return JsonResponse({
                     'success': False,
-                    'message': f"Error: {e.messages}"
+                    'message': "Debe seleccionar una formación."
                 })
-        else:
+            
+            # Convertir valor a decimal
+            valor = request.POST['valorCuota'].replace('.', '').replace(',', '.')
+            
+            # Crear instancia de CuotaFormacion
+            cuota = CuotaFormacion(
+                idFormacion_id=id_formacion,  # Usar _id aquí
+                nombreCuota=request.POST['nombreCuota'],
+                tipoCuota=request.POST['tipoCuota'],
+                valorCuota=valor,
+                orden=request.POST['orden'],
+                # fechaCuota se auto-completa y is_active tiene default
+            )
+            
+            # Validar y guardar
+            cuota.full_clean()
+            cuota.save()
+            
+            return JsonResponse({
+                'success': True,
+                'message': "Cuota de formación registrada exitosamente.",
+                'redirect_url': reverse('consultar_cuota_formacion')
+            })
+            
+        except ValidationError as e:
             return JsonResponse({
                 'success': False,
-                'message': "Por favor, corrija los errores en el formulario."
+                'message': f"Error: {e.messages}"
             })
+            
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'message': f"Error inesperado: {str(e)}"
+            })
+            
     else:
-        form = CuotaFormacionForm()
-    
-    return render(request, 'home/cuotaformacion.html', {
-        'form': form,
-        'formaciones': formaciones,
-        'tipos_cuota': CuotaFormacion.TIPOS_CUOTA,  # Pasar TIPOS_CUOTA al contexto
-    })
+        return render(request, 'home/cuotaformacion.html', {
+            'formaciones': formaciones,
+            'tipos_cuota': CuotaFormacion.TIPOS_CUOTA,
+        })
 from django.core.paginator import Paginator
 
 @login_required(login_url='login')
@@ -673,39 +697,312 @@ def consultar_cuota_formacion(request):
         'cuotas': page_obj,  # Pasar el objeto de la página al template
         'mostrar_inactivos': mostrar,
     })
+#EDITAR CUOTA
+@login_required(login_url='login')
+@permission_required("home.change_cuotaformacion", raise_exception=True)
+def edit_cuota_formacion(request, pk):
+    cuota = get_object_or_404(CuotaFormacion, pk=pk)
+    if request.method == 'POST':
+        post_data = request.POST.copy()
+        post_data['idFormacion'] = str(cuota.idFormacion_id)
 
+        valor = post_data.get('valorCuota', '')
+        post_data['valorCuota'] = valor.replace('.', '').replace(',', '.')
+
+        form = CuotaFormacionForm(post_data, instance=cuota)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({
+              'success': True,
+              'message': 'Cuota actualizada correctamente.',
+              'redirect': ('tablaCuotasFormaciones.html')
+            })
+        else:
+            errors = {f: e for f,e in form.errors.items()}
+            return JsonResponse({'success': False, 'errors': errors})
+    else:
+        form = CuotaFormacionForm(instance=cuota)
+        return render(request, 'home/modales/editCuotaFormacion.html', {
+            'form': form, 'cuota': cuota
+        })
+
+# DESACTIVAR CUOTAS
+@login_required(login_url='login')
+@permission_required('home.change_cuotaformacion', raise_exception=True)
+def desactivar_cuota_formacion(request, pk):
+    cuota = get_object_or_404(CuotaFormacion, pk=pk)
+    
+    if request.method == 'POST':
+        cuota.is_active = False
+        cuota.save()
+        
+        response_data = {
+            'success': True,
+            'message': f"Cuota {cuota.nombreCuota} desactivada exitosamente."
+        }
+        
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse(response_data)
+        else:
+            messages.success(request, response_data['message'])
+            return redirect('consultar_cuota_formacion')
+    
+    return JsonResponse({'success': False, 'message': 'Método no permitido'}, status=405)
+
+# REACTIVAR CUOTAS
+@login_required(login_url='login')
+@permission_required('home.change_cuotaformacion', raise_exception=True)
+def activar_cuota_formacion(request, pk):
+    cuota = get_object_or_404(CuotaFormacion, pk=pk)
+    
+    if request.method == 'POST':
+        cuota.is_active = True
+        cuota.save()
+        
+        response_data = {
+            'success': True,
+            'message': f"Cuota {cuota.nombreCuota} activada exitosamente."
+        }
+        
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse(response_data)
+        else:
+            messages.success(request, response_data['message'])
+            return redirect('consultar_cuota_formacion')
+    
+    return JsonResponse({'success': False, 'message': 'Método no permitido'}, status=405)
+
+#REPORTE CUOTAS
+@login_required(login_url='login')
+@permission_required("home.view_cuotaformacion", raise_exception=True)
+def reporte_cuotas_formacion_pdf(request):
+    # Manejo de parámetros de paginación
+    start = int(request.GET.get('start', 1))
+    end = int(request.GET.get('end', 0))
+    cuotas = list(CuotaFormacion.objects.select_related('idFormacion').all())
+    
+    if end == 0 or end > len(cuotas):
+        end = len(cuotas)
+    cuotas = cuotas[start-1:end]
+
+    # Configuración inicial del PDF
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'inline; filename="reporte_cuotas_formacion.pdf"'
+    p = canvas.Canvas(response, pagesize=letter)
+    p.setTitle("Reporte de Cuotas de Formación")
+    width, height = letter
+    logo_width, logo_height, logo_margin = 80, 80, 15  # Reducir tamaño del logo
+
+    # Obtener configuración institucional
+    config = Configuracion.objects.order_by('-fechaConfiguracion').first()
+    logo_path = config.logo.path if config and config.logo else None
+    firma_path = config.firma.path if config and config.firma else None
+    nombre_institucion = config.nombreInstitucion if config else "Institución"
+    rif_institucion = config.rif if config else ""
+    direccion1 = "AV. ALBERTO RAVELL CON AV. INTERCOMUNAL JOSE ANTONIO PAEZ"
+    direccion2 = "LOCAL UPTYAB, INDEPENDENCIA – EDO YARACUY"
+
+    # Definir márgenes seguros
+    min_margin = 30
+    safe_left = min_margin
+    safe_right = width - min_margin
+    safe_width = safe_right - safe_left
+    safe_center = width / 2
+
+    # Funciones para encabezado y pie de página
+    def draw_header():
+        # Logo a la derecha
+        if logo_path and os.path.exists(logo_path):
+            p.drawImage(
+                logo_path,
+                width - logo_width - logo_margin,
+                height - logo_height - logo_margin,
+                width=logo_width,
+                height=logo_height,
+                preserveAspectRatio=True,
+                mask='auto'
+            )
+        
+        # Texto institucional a la izquierda
+        text_top = height - logo_margin - 15
+        p.setFont("Helvetica-Bold", 10)
+        p.drawString(min_margin, text_top, nombre_institucion)
+        p.drawString(min_margin, text_top - 15, f"RIF: {rif_institucion}")
+        p.drawString(min_margin, text_top - 30, direccion1)
+        p.drawString(min_margin, text_top - 45, direccion2)
+        
+        # Título centrado
+        p.setFont("Helvetica-Bold", 11)
+        p.drawCentredString(safe_center, text_top - 85, "REPORTE DE CUOTAS DE FORMACIÓN")
+
+    def draw_footer():
+        # Firma centrada en el pie de página
+        if firma_path and os.path.exists(firma_path):
+            p.drawImage(
+                firma_path,
+                width/2 - 50,
+                60,
+                width=100,
+                height=50,
+                preserveAspectRatio=True,
+                mask='auto'
+            )
+            p.setFont("Helvetica-Oblique", 9)
+            p.drawCentredString(width/2, 35, "Firma autorizada")
+        
+        # Fecha de generación
+        p.setFont("Helvetica", 8)
+        fecha_generacion = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        p.drawString(min_margin, 20, f"Generado el: {fecha_generacion}")
+
+    # Preparar datos de la tabla
+    headers = ["ID", "Formación", "Nombre", "Tipo", "Valor", "Orden", "Estado"]
+    data = [headers]
+    
+    for cuota in cuotas:
+        data.append([
+            str(cuota.idCuota),
+            cuota.idFormacion.nombreFormacion if cuota.idFormacion else "Sin formación",
+            cuota.nombreCuota,
+            cuota.get_tipoCuota_display(),
+            f"{cuota.valorCuota:.2f}",
+            cuota.orden,
+            "Activo" if cuota.is_active else "Inactivo"
+        ])
+    
+    # Configuración de la tabla con espacios aumentados
+    col_widths = [40, 120, 100, 80, 60, 50, 60]  # Anchos ajustados
+    table_width = sum(col_widths)
+    
+    # Espaciado vertical aumentado
+    header_height = 150  # Más espacio para encabezado
+    footer_height = 100  # Más espacio para pie de página
+    row_height = 25  # Aumentar altura de filas
+    cell_padding = 5  # Padding interno en celdas
+    
+    # Calcular espacio disponible
+    available_height = height - header_height - footer_height
+    max_rows_per_page = max(1, int(available_height // row_height))
+    total_rows = len(data) - 1
+    page = 0
+
+    # Generar páginas
+    for start_row in range(0, total_rows, max_rows_per_page):
+        end_row = min(start_row + max_rows_per_page, total_rows)
+        page_data = [data[0]] + data[start_row + 1:end_row + 1]
+        
+        if page > 0:
+            p.showPage()
+        
+        draw_header()
+        y_position = height - header_height
+        
+        # Centrar tabla horizontalmente
+        table_x = safe_left + (safe_width - table_width) / 2
+        table = Table(page_data, colWidths=col_widths, rowHeights=[row_height]*len(page_data))
+        
+        # Estilo de la tabla con más espacio
+        table_style = TableStyle([
+            # Encabezado
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0,0), (-1,0), 9),  # Tamaño reducido
+            ('ALIGN', (0,0), (-1,0), 'CENTER'),
+            ('VALIGN', (0,0), (-1,0), 'MIDDLE'),
+            ('BOTTOMPADDING', (0,0), (-1,0), cell_padding),
+            
+            # Cuerpo de la tabla
+            ('FONTSIZE', (0,1), (-1,-1), 8),  # Tamaño reducido
+            ('ALIGN', (0,1), (-1,-1), 'CENTER'),
+            ('ALIGN', (1,1), (2,-1), 'LEFT'),  # Alinear texto a izquierda
+            ('VALIGN', (0,1), (-1,-1), 'MIDDLE'),
+            ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.lightgrey),
+            ('BOX', (0,0), (-1,-1), 0.5, colors.black),
+            ('TOPPADDING', (0,1), (-1,-1), cell_padding),
+            ('BOTTOMPADDING', (0,1), (-1,-1), cell_padding),
+        ])
+        
+        # Resaltar valores monetarios
+        for i in range(1, len(page_data)):
+            table_style.add('TEXTCOLOR', (4,i), (4,i), colors.HexColor("#007bff"))  # Azul para valores
+            
+        # RESALTAR ESTADOS
+        for i in range(1, len(page_data)):
+            # Obtener valor del estado (columna 6)
+            estado_valor = page_data[i][6].strip().lower()
+            
+            # Determinar color según estado
+            if estado_valor == "activo":
+                color = colors.HexColor("#28a745")  # Verde
+            elif estado_valor == "inactivo":
+                color = colors.HexColor("#dc3545")  # Rojo
+            else:
+                color = colors.black  # Negro para otros valores
+            
+            # Aplicar color a la celda de estado (columna 6)
+            table_style.add('TEXTCOLOR', (6, i), (6, i), color)
+        
+        table.setStyle(table_style)
+        table.wrapOn(p, width, height)
+        table.drawOn(p, table_x, y_position - row_height * len(page_data) - 10)
+        
+        # Información de paginación
+        p.setFont("Helvetica", 8)
+        pagination_text = f"Página {page + 1} - Registros {start_row + 1} a {end_row} de {total_rows}"
+        p.drawCentredString(
+            safe_center, 
+            y_position - row_height * len(page_data) - 25,
+            pagination_text
+        )
+        
+        draw_footer()
+        page += 1
+
+    p.save()
+    return response
 
 # FORMACION
 @login_required(login_url='login')
 @permission_required("home.add_formacion", raise_exception=True)
 def formacion_modal(request):
+    tipos_formacion = TipoFormacion.objects.filter(estadoTipoFormacion='ACTIVO')
     if request.method == 'POST':
-        form = FormacionForm(request.POST)
+        post_data = request.POST.copy()
+        valor = post_data.get('valorInscripcion', '')
+        valor = valor.replace('.', '').replace(',', '.')
+        post_data['valorInscripcion'] = valor
+        form = FormacionForm(post_data)  # Usa solo este formulario
+
         if form.is_valid():
             try:
                 formacion = form.save()
                 messages.success(request, "Formación registrada exitosamente.")
-                
-                # Redirigir según el valor de tieneCuotas
                 if formacion.tieneCuotas:
-                    return redirect('registrar_cuota_formacion', idFormacion=formacion.idFormacion)  # Redirige al registro de cuotas con el ID de la formación
+                    return redirect('registrar_cuota_formacion', idFormacion=formacion.idFormacion)
                 else:
-                    return redirect('tabla_formaciones')  # Redirige a la tabla de formaciones
+                    return redirect('tabla_formaciones')
             except ValidationError as e:
                 messages.error(request, f"Error: {e.messages}")
         else:
             messages.error(request, "Por favor, corrija los errores en el formulario.")
+        return render(request, 'home/formaciones.html', {'form': form, 'tipos_formacion': tipos_formacion})
     else:
         form = FormacionForm()
-        tipos_formacion = TipoFormacion.objects.filter(estadoTipoFormacion='ACTIVO')
         return render(request, 'home/formaciones.html', {'form': form, 'tipos_formacion': tipos_formacion})
-    
+
 @login_required(login_url='login')
 @permission_required("home.change_formacion", raise_exception=True)
 def edit_formacion(request, pk):
     formacion = get_object_or_404(Formacion, pk=pk)
     if request.method == 'POST':
-        form = FormacionForm(request.POST, instance=formacion)
+        post_data = request.POST.copy()
+        valor = post_data.get('valorInscripcion', '')
+        # Reemplaza puntos de miles y convierte la coma decimal a punto
+        valor = valor.replace('.', '').replace(',', '.')
+        post_data['valorInscripcion'] = valor
+        form = FormacionForm(post_data, instance=formacion)  # Usa el post_data corregido        
         if form.is_valid():
             form.save()
             return JsonResponse({'success': True, 'message': 'Formación actualizada exitosamente.'})
@@ -722,23 +1019,14 @@ def edit_formacion(request, pk):
         })
 
 @login_required(login_url='login')
-@permission_required("home.change_formacion", raise_exception=True)
-def delete_formacion(request, pk):
-    instance = get_object_or_404(Formacion, pk=pk)
-    instance.estadoFormacion = 'INACTIVO'
-    instance.save()
-    return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
-
-@login_required(login_url='login')
 @permission_required('home.change_formacion', raise_exception=True)
+@require_POST
 def desactivar_formacion(request, pk):
-    Formaciones = get_object_or_404(Formacion, pk=pk)
-    if request.method == 'POST':
-        Formaciones.estadoFormacion = "INACTIVO"
-        Formaciones.save()
-        messages.success(request, f'⛔ Formación {Formaciones.nombreFormacion} desactivada')
-        return redirect(request.POST.get('next', 'tabla_formaciones'))
-    return redirect('tabla_formaciones')
+    formacion = get_object_or_404(Formacion, pk=pk)
+    formacion.estadoFormacion = "INACTIVO"
+    formacion.save(update_fields=['estadoFormacion'])
+    messages.success(request, f'⛔ Formación {formacion.nombreFormacion} desactivada')
+    return redirect(request.POST.get('next', 'tabla_formaciones'))
 
 @login_required(login_url='login')
 @permission_required('home.change_formacion', raise_exception=True)
@@ -790,13 +1078,14 @@ def tabla_formaciones(request):
             f.cuotas_text = "No"
 
     return render(request, 'home/tablaFormaciones.html', {
-        'formaciones': formaciones,
+        'formaciones': formaciones.order_by('-idFormacion'),
         'tipoFormaciones': tipo_formaciones,
         'mostrar_inactivos': mostrar,
     })
 
 @login_required(login_url='login')
 def reporte_formaciones_pdf(request):
+
     # Manejo de parámetros de paginación
     start = int(request.GET.get('start', 1))
     end = int(request.GET.get('end', 0))
@@ -810,6 +1099,7 @@ def reporte_formaciones_pdf(request):
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = 'inline; filename="reporte_formaciones.pdf"'
     p = canvas.Canvas(response, pagesize=letter)
+    p.setTitle("Reporte de Formaciones")
     width, height = letter
     logo_width, logo_height, logo_margin = 80, 80, 15  # Reducir tamaño del logo
 
@@ -885,13 +1175,13 @@ def reporte_formaciones_pdf(request):
             f.idTF.nombreTipoFormacion if f.idTF else "Sin tipo",
             f.nombreFormacion,
             f.duracion,
-            f"${f.valorFormacion:,.2f}" if f.valorFormacion else "-",
+            f"${float(f.valorInscripcion):,.2f}" if f.valorInscripcion is not None else "-",
             f.estadoFormacion,
             f.fechaFormacion.strftime("%d/%m/%Y")
         ])
     
     # Configuración de la tabla con espacios aumentados
-    col_widths = [35, 90, 180, 70, 60, 50, 60]  # Anchos ajustados
+    col_widths = [35, 140, 180, 70, 60, 50, 60]  # Anchos ajustados
     table_width = sum(col_widths)
     
     # Espaciado vertical aumentado
@@ -1074,6 +1364,7 @@ def reporte_tipo_formacion_pdf(request):
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = 'inline; filename="reporte_tipos_formacion.pdf"'
     p = canvas.Canvas(response, pagesize=letter)
+    p.setTitle("Reporte de Tipos Formaciones")
     width, height = letter
     logo_width, logo_height, logo_margin = 80, 80, 15  # Tamaño reducido del logo
 
@@ -1344,6 +1635,7 @@ def reporte_materias_pdf(request):
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = 'inline; filename="reporte_materias.pdf"'
     p = canvas.Canvas(response, pagesize=letter)
+    p.setTitle("Reporte de Materias")
     width, height = letter
     logo_width, logo_height, logo_margin = 80, 80, 15  # Tamaño reducido del logo
 
@@ -1585,7 +1877,7 @@ def tabla_cohortes(request):
         cohortes = Cohorte.objects.filter(estadoCohorte='ACTIVO')
 
     return render(request, 'home/tablaCohortes.html', {
-        'cohortes': cohortes,
+        'cohortes': cohortes.order_by('-idCohorte'),
         'mostrar_inactivos': mostrar,
     })
 
@@ -1604,6 +1896,7 @@ def reporte_cohortes_pdf(request):
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = 'inline; filename="reporte_cohortes.pdf"'
     p = canvas.Canvas(response, pagesize=letter)
+    p.setTitle("Reporte de Cohortes")
     width, height = letter
     logo_width, logo_height, logo_margin = 80, 80, 15  # Tamaño reducido del logo
 
@@ -1855,6 +2148,7 @@ def reporte_cargos_pdf(request):
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = 'inline; filename="reporte_cargos.pdf"'
     p = canvas.Canvas(response, pagesize=letter)
+    p.setTitle("Reporte de Cargos")
     width, height = letter
     logo_width, logo_height, logo_margin = 80, 80, 15  # Tamaño reducido del logo
 
@@ -2089,7 +2383,7 @@ def tabla_requisitos(request):
     else:
         requisitos = Requisito.objects.filter(estadoRequisito='ACTIVO')
     return render(request, 'home/tablaRequisitos.html', {
-        'requisitos': requisitos,
+        'requisitos': requisitos.order_by('-idRequisito'),
         'mostrar_inactivos': mostrar,
     })
 
@@ -2108,6 +2402,7 @@ def reporte_requisitos_pdf(request):
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = 'inline; filename="reporte_requisitos.pdf"'
     p = canvas.Canvas(response, pagesize=letter)
+    p.setTitle("Reporte de Requisitos")
     width, height = letter
     logo_width, logo_height, logo_margin = 80, 80, 15  # Tamaño reducido del logo
 
@@ -2359,6 +2654,7 @@ def reporte_servicios_pdf(request):
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = 'inline; filename="reporte_servicios.pdf"'
     p = canvas.Canvas(response, pagesize=letter)
+    p.setTitle("Reporte de Servicios")
     width, height = letter
     logo_width, logo_height, logo_margin = 80, 80, 15  # Tamaño reducido del logo
 
@@ -2605,7 +2901,7 @@ def tabla_tramites(request):
     else:
         tramites = Tramite.objects.filter(estadoTramite='ACTIVO')
     return render(request, 'home/tablaTramites.html', {
-        'tramites': tramites,
+        'tramites': tramites.order_by('-idTramite'),
         'mostrar_inactivos': mostrar,
     })
 
@@ -2625,6 +2921,7 @@ def reporte_tramites_pdf(request):
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = 'inline; filename="reporte_tramites.pdf"'
     p = canvas.Canvas(response, pagesize=letter)
+    p.setTitle("Reporte de Tramites")
     width, height = letter
     logo_width, logo_height, logo_margin = 80, 80, 15  # Tamaño reducido del logo
 
@@ -3121,6 +3418,7 @@ def reporte_monedas_pdf(request):
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = 'inline; filename="reporte_monedas.pdf"'
     p = canvas.Canvas(response, pagesize=letter)
+    p.setTitle("Reporte de Monedas")
     width, height = letter
     logo_width, logo_height, logo_margin = 80, 80, 15  # Tamaño reducido del logo
 
@@ -3360,7 +3658,7 @@ def tabla_tasas(request):
     else:
         tasas = Tasa.objects.filter(estadoTasa='ACTIVO')
     return render(request, 'home/tablaTasas.html', {
-        'tasas': tasas,
+        'tasas': tasas.order_by('-fechaTasa'),
         'mostrar_inactivos': mostrar,
     })
 

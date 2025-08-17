@@ -26,7 +26,7 @@ from apps.honorario.models import Honorario
 from apps.inscripcion.models import Inscripcion, InscripcionCuota
 from apps.periodoContable.models import periodoContable
 from apps.solicitud.models import Solicitud
-from .models import Factura, FacturaDetalle, NotaRelacionada, Pago, ParametroTributario, Nota, PlanArticulo
+from .models import TIPOS_ARTICULO, Factura, FacturaDetalle, NotaRelacionada, Pago, ParametroTributario, Nota, PlanArticulo
 from .forms import FacturaForm, FacturaDetalleForm, PagoForm, ParametroTributarioForm, NotaForm, PlanArticuloForm
 from apps.asientoContable.models import AsientoContable, DetalleAsiento
 from apps.home.models import Configuracion, CuotaFormacion, Moneda, Tasa
@@ -508,23 +508,30 @@ def factura_detalle_list(request, factura_id):
         'detalles': detalles
     })
 def generar_numero_factura_unico(nota):
-
+    """
+    Genera un número único de factura basado en un prefijo y un número secuencial.
+    """
     prefijo = "FAC"
-    
-    # Obtener el último número secuencial basado en el campo numeroFactura
-    ultimo = Factura.objects.aggregate(Max('numeroFactura'))['numeroFactura__max'] or 0
-    nuevo = int(ultimo) + 1 if str(ultimo).isdigit() else 1
-    numero_secuencial = f"{nuevo:08d}"
 
-    # Simulación de número de control (debe ser provisto por imprenta autorizada)
-    fecha_hora = datetime.now().strftime("%d%m%y%H%M")
-    numero_control = f"CNT-{fecha_hora}-{random.randint(100, 999)}"
+    while True:
+        # Obtener el último número secuencial basado en el campo numeroFactura
+        ultimo = Factura.objects.aggregate(Max('numeroFactura'))['numeroFactura__max']
 
-    # Crear número de factura
-    numero_factura = f"{numero_secuencial}"
+        # Convertir el último número a entero, manejando ceros a la izquierda
+        if ultimo and ultimo.isdigit():
+            nuevo = int(ultimo) + 1
+        else:
+            nuevo = 1
 
-    return numero_factura
+        # Formatear el nuevo número con ceros a la izquierda
+        numero_secuencial = f"{nuevo:08d}"
 
+        # Crear el número de factura
+        numero_factura = f"{numero_secuencial}"
+
+        # Verificar si el número ya existe en la base de datos
+        if not Factura.objects.filter(numeroFactura=numero_factura).exists():
+            return numero_factura
 @transaction.atomic
 def factura_create_notas(request, nota_id=None):
     """
@@ -1156,6 +1163,7 @@ def nota_pago_pdf(request, pk):
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="nota_pago_{nota.numeroNota}.pdf"'
     p = canvas.Canvas(response, pagesize=letter)
+    p.setTitle("Reporte de nota de Pago")
     width, height = letter
 
     # --- Encabezado institucional ---
@@ -1223,8 +1231,8 @@ def nota_pago_pdf(request, pk):
     y -= 14
     # Tipo de artículo debajo de la descripción
     p.setFont("Helvetica-Oblique", 9)
-    tipo_articulo_display = dict(Nota.TIPOS_ARTICULO).get(nota.tipoArticulo, nota.tipoArticulo)
-    # Mostrar el tipo de artículo, haciendo salto de línea si es mayor de 30 caracteres
+
+    tipo_articulo_display = dict(TIPOS_ARTICULO).get(nota.tipoArticulo, nota.tipoArticulo)    # Mostrar el tipo de artículo, haciendo salto de línea si es mayor de 30 caracteres
     if len(tipo_articulo_display) > 50:
         # Dividir el texto en partes de máximo 30 caracteres
         for i in range(0, len(tipo_articulo_display), 30):
@@ -1305,10 +1313,18 @@ def reporte_facturas_pdf(request):
     facturas = facturas[start-1:end]
 
     response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = 'inline; filename="reporte_facturas.pdf"'
-    p = canvas.Canvas(response, pagesize=letter)
-    width, height = letter
-    logo_width, logo_height, logo_margin = 80, 80, 15
+    response['Content-Disposition'] = 'attachment; filename="reporte_facturas.pdf"'
+
+    # Para aumentar el tamaño de la hoja, define un tamaño personalizado (por ejemplo, más grande que letter)
+    custom_width = 14 * inch  # ancho personalizado (por ejemplo, 14 pulgadas)
+    custom_height = 9 * inch  # alto personalizado (por ejemplo, 9 pulgadas)
+    page_size = (custom_width, custom_height)
+
+    # Aquí se pone la hoja en horizontal usando landscape y el tamaño personalizado
+    p = canvas.Canvas(response, pagesize=landscape(page_size))
+    p.setTitle("Reporte de Facturas")
+    width, height = landscape(page_size)
+    logo_width, logo_height, logo_margin = 100, 100, 15
 
     # Configuración institucional
     config = Configuracion.objects.order_by('-fechaConfiguracion').first()
@@ -1461,6 +1477,7 @@ def factura_generar_pdf(request, pk):
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="factura_{factura.numeroFactura}.pdf"'
     p = canvas.Canvas(response, pagesize=letter)
+    p.setTitle("Reporte de Factura Indivual")
     width, height = letter
     logo_width, logo_height, logo_margin = 80, 80, 15
 
@@ -1590,6 +1607,7 @@ def reporte_pagos_pdf(request):
     response['Content-Disposition'] = 'inline; filename="reporte_pagos.pdf"'
     page_size = landscape(letter)
     p = canvas.Canvas(response, pagesize=page_size)
+    p.setTitle("Reporte de Pagos")
     width, height = page_size
 
     # Encabezado institucional a la izquierda
@@ -1700,6 +1718,7 @@ def pago_pdf(request, pk):
     response['Content-Disposition'] = f'inline; filename="pago_{pk}.pdf"'
     page_size = landscape(letter)
     p = canvas.Canvas(response, pagesize=page_size)
+    p.setTitle("Reporte de Pago Individual")
     width, height = page_size
 
     config = Configuracion.objects.order_by('-fechaConfiguracion').first()

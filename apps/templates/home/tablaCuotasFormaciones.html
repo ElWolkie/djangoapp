@@ -64,10 +64,21 @@
       {% endif %}
     </div>
     <div class="col-md-4 text-end">
-      <a href="" class="btn btn-outline-danger" target="_blank">
+      <a href="{% url 'reporte_cuotas_formacion_pdf' %}" class="btn btn-outline-danger" target="_blank">
         <i class="fas fa-file-pdf"></i> Descargar PDF
       </a>
     </div>
+  </div>
+
+    <div class="mb-3">
+    <a href="?mostrar_inactivos={% if mostrar_inactivos %}false{% else %}true{% endif %}"
+       class="btn btn-outline-secondary btn-sm">
+      {% if mostrar_inactivos %}
+        <i class="fas fa-eye-slash me-1"></i> Ocultar inactivos
+      {% else %}
+        <i class="fas fa-eye me-1"></i> Mostrar inactivos
+      {% endif %}
+    </a>
   </div>
 
   <div id="globalMessages">
@@ -138,25 +149,27 @@
                 {% endif %}
 
                 {% if perms.home.change_cuotaformacion %}
-                  <a href="" class="btn btn-primary btn-sm" title="Editar">
+                  <!-- Botón para editar -->
+                  <a href="{% url 'edit_cuota_formacion' cuota.idCuota %}" class="btn btn-primary btn-sm" title="Editar">
                     <i class="fas fa-edit"></i>
                   </a>
                 {% endif %}
 
                 {% if cuota.is_active and perms.home.delete_cuotaformacion %}
+                  <!-- Botón para desactivar -->
                   <button class="btn btn-outline-warning btn-sm"
                           data-bs-toggle="modal"
                           data-bs-target="#deleteCuotaModal"
-                          data-url=""
+                          data-url="{% url 'desactivar_cuota_formacion' cuota.idCuota %}"
                           title="Inhabilitar">
                     <i class="fas fa-user-slash"></i>
                   </button>
-                {% endif %}
-                {% if not cuota.is_active and perms.home.change_cuotaformacion %}
+                {% else %}
+                  <!-- Botón para reactivar -->
                   <button class="btn btn-success btn-sm"
                           data-bs-toggle="modal"
                           data-bs-target="#reactivateCuotaModal"
-                          data-url=""
+                          data-url="{% url 'activar_cuota_formacion' cuota.idCuota %}"
                           title="Reactivar">
                     <i class="fas fa-redo"></i>
                   </button>
@@ -173,32 +186,38 @@
       </table>
     </div>
   </div>
-  <!-- Controles de paginación -->
+ <!-- Controles de paginación -->
 <div class="pagination-container text-center mt-4">
-    <nav aria-label="Page navigation">
-      <ul class="pagination justify-content-center">
-        {% if cuotas.has_previous %}
-          <li class="page-item">
-            <a class="page-link" href="?page={{ cuotas.previous_page_number }}" aria-label="Anterior">
-              <span aria-hidden="true">&laquo;</span>
-            </a>
-          </li>
-        {% endif %}
-        {% for num in cuotas.paginator.page_range %}
-          <li class="page-item {% if cuotas.number == num %}active{% endif %}">
+  <nav aria-label="Page navigation">
+    <ul class="pagination justify-content-center">
+      {% if cuota.has_previous %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ cuota.previous_page_number }}" aria-label="Anterior">
+            <span aria-hidden="true">&laquo;</span>
+          </a>
+        </li>
+      {% endif %}
+
+      {% for num in cuota.paginator.page_range %}
+        {% if num == 1 or num == cuota.paginator.num_pages or num >= cuota.number|add:"-2" and num <= cuota.number|add:"2" %}
+          <li class="page-item {% if cuota.number == num %}active{% endif %}">
             <a class="page-link" href="?page={{ num }}">{{ num }}</a>
           </li>
-        {% endfor %}
-        {% if cuotas.has_next %}
-          <li class="page-item">
-            <a class="page-link" href="?page={{ cuotas.next_page_number }}" aria-label="Siguiente">
-              <span aria-hidden="true">&raquo;</span>
-            </a>
-          </li>
+        {% elif num == cuota.number|add:"-3" or num == cuota.number|add:"3" %}
+          <li class="page-item disabled"><span class="page-link">...</span></li>
         {% endif %}
-      </ul>
-    </nav>
-  </div>
+      {% endfor %}
+
+      {% if cuota.has_next %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ cuota.next_page_number }}" aria-label="Siguiente">
+            <span aria-hidden="true">&raquo;</span>
+          </a>
+        </li>
+      {% endif %}
+    </ul>
+  </nav>
+</div>
 </div>
 
 
@@ -253,41 +272,225 @@
   </div>
 </div>
 
+<!-- Modal: Editar Cuota -->
+<div class="modal fade" id="editCuotaModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title text-white"><i class="fas fa-edit me-2"></i> Editar Cuota de Formación</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Cerrar" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body" id="editCuotaContent">
+        <div class="text-center py-4 text-muted">Cargando formulario…</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Desactivar Cuota -->
+<div class="modal fade" id="deleteCuotaModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-warning text-dark">
+        <h5 class="modal-title"><i class="fas fa-user-slash me-2"></i> Confirmar Inhabilitación</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">¿Seguro que deseas inhabilitar esta cuota?</div>
+      <div class="modal-footer">
+        <form id="deleteCuotaForm" method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-warning">Inhabilitar</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Reactivar Cuota -->
+<div class="modal fade" id="reactivateCuotaModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title"><i class="fas fa-redo me-2"></i> Confirmar Reactivación</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">¿Deseas reactivar esta cuota?</div>
+      <div class="modal-footer">
+        <form id="reactivateCuotaForm" method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-success">Reactivar</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
 {% endblock content %}
 
 {% block javascripts %}
+<script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
+<script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
+<script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
+
 <script>
-document.addEventListener("DOMContentLoaded", function() {
-  const searchInput = document.getElementById("searchInput");
-  const table = document.getElementById("cuotasTable");
+$(document).ready(function() {
+  // Búsqueda en tiempo real
+  $('#searchInput').on('keyup', function() {
+    const filter = $(this).val().toUpperCase();
+    $('#cuotasTable tbody tr').each(function() {
+      $(this).toggle($(this).text().toUpperCase().indexOf(filter) > -1);
+    });
+  });
 
-  searchInput.addEventListener("keyup", function() {
-    const filter = this.value.toUpperCase();
-    const rows = table.getElementsByTagName("tr");
+  // Modal de detalles
+  $('#detailsModal').on('show.bs.modal', function(event) {
+    const button = $(event.relatedTarget);
+    const modal = $(this);
+    
+    modal.find('#detail-id').text(button.data('id'));
+    modal.find('#detail-formacion').text(button.data('formacion'));
+    modal.find('#detail-nombre').text(button.data('nombre'));
+    modal.find('#detail-tipo').text(button.data('tipo'));
+    modal.find('#detail-valor').text(button.data('valor'));
+    modal.find('#detail-orden').text(button.data('orden'));
+    modal.find('#detail-fecha').text(button.data('fecha'));
+    modal.find('#detail-estado').html(
+      button.data('estado') === "True" 
+        ? '<span class="badge bg-success text-white">Activo</span>'
+        : '<span class="badge bg-danger text-white">Inactivo</span>'
+    );
+  });
 
-    for (let i = 1; i < rows.length; i++) {
-      const row = rows[i];
-      const text = row.textContent || row.innerText;
-      row.style.display = text.toUpperCase().includes(filter) ? "" : "none";
+ // Configuración de modales de desactivar y reactivar
+  $('#deleteCuotaModal, #reactivateCuotaModal').on('show.bs.modal', function(e) {
+    const button = $(e.relatedTarget);
+    const form = $(this).find('form');
+    form.attr('action', button.data('url'));
+  });
+
+  $('#deleteCuotaForm, #reactivateCuotaForm').on('submit', function(e) {
+    e.preventDefault();
+    const form = $(this);
+    const modal = form.closest('.modal');
+    
+    // Agregar token CSRF si no está presente
+    if (!form.find('input[name=csrfmiddlewaretoken]').length) {
+        form.append('<input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">');
     }
+    
+    $.ajax({
+        url: form.attr('action'),
+        method: 'POST',
+        data: form.serialize(),
+        success: function(response) {
+            if (response.success) {
+                modal.modal('hide');
+                showGlobalMessage(response.message, 'success');
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                Swal.fire('Error', response.message, 'error');
+            }
+        },
+        error: function() {
+            Swal.fire('Error', 'Error de conexión con el servidor', 'error');
+        }
+    });
   });
 
-  const detailsModal = document.getElementById("detailsModal");
-  detailsModal.addEventListener("show.bs.modal", function(event) {
-    const button = event.relatedTarget;
-    const modal = this;
+  // Función para mostrar mensajes globales
+  function showGlobalMessage(message, type) {
+    const container = $('#globalMessages');
+    const alertClass = {
+      success: 'alert-success',
+      error: 'alert-danger',
+      warning: 'alert-warning'
+    }[type] || 'alert-info';
 
-    modal.querySelector("#detail-id").textContent = button.getAttribute("data-id");
-    modal.querySelector("#detail-formacion").textContent = button.getAttribute("data-formacion");
-    modal.querySelector("#detail-nombre").textContent = button.getAttribute("data-nombre");
-    modal.querySelector("#detail-tipo").textContent = button.getAttribute("data-tipo");
-    modal.querySelector("#detail-valor").textContent = button.getAttribute("data-valor");
-    modal.querySelector("#detail-orden").textContent = button.getAttribute("data-orden");
-    modal.querySelector("#detail-fecha").textContent = button.getAttribute("data-fecha");
-    modal.querySelector("#detail-estado").innerHTML = button.getAttribute("data-estado") === "True"
-      ? '<span class="badge bg-success text-white">Activo</span>'
-      : '<span class="badge bg-danger text-white">Inactivo</span>';
-  });
+    container.html(`
+      <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
+        ${message}
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+    `);
+  }
+  
+  // Paginación
+  const table = document.getElementById('cuotasTable');
+  const paginationContainer = document.querySelector('.pagination-container');
+  
+  if (paginationContainer && table) {
+    const rowsPerPage = 10;
+    let currentPage = 1;
+    
+    function displayRows() {
+      const rows = table.querySelectorAll('tbody tr');
+      const start = (currentPage - 1) * rowsPerPage;
+      const end = start + rowsPerPage;
+      
+      rows.forEach((row, index) => {
+        row.style.display = (index >= start && index < end) ? '' : 'none';
+      });
+    }
+    
+    function setupPagination() {
+      const rows = table.querySelectorAll('tbody tr');
+      const totalPages = Math.ceil(rows.length / rowsPerPage);
+      const pagination = paginationContainer.querySelector('.pagination');
+      
+      if (!pagination) return;
+      
+      pagination.innerHTML = '';
+      
+      // Botón Anterior
+      const prevLi = document.createElement('li');
+      prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+      prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Anterior">&laquo;</a>`;
+      prevLi.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (currentPage > 1) {
+          currentPage--;
+          displayRows();
+          setupPagination();
+        }
+      });
+      pagination.appendChild(prevLi);
+      
+      // Botones de páginas
+      for (let i = 1; i <= totalPages; i++) {
+        const li = document.createElement('li');
+        li.className = `page-item ${i === currentPage ? 'active' : ''}`;
+        li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+        li.addEventListener('click', (e) => {
+          e.preventDefault();
+          currentPage = i;
+          displayRows();
+          setupPagination();
+        });
+        pagination.appendChild(li);
+      }
+      
+      // Botón Siguiente
+      const nextLi = document.createElement('li');
+      nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+      nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Siguiente">&raquo;</a>`;
+      nextLi.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (currentPage < totalPages) {
+          currentPage++;
+          displayRows();
+          setupPagination();
+        }
+      });
+      pagination.appendChild(nextLi);
+    }
+    
+    displayRows();
+    setupPagination();
+  }
 });
 </script>
 {% endblock javascripts %}

@@ -30,17 +30,24 @@
 {% block javascripts %}
 <script>
     function activarMayusculasInputs() {
-    document.addEventListener('input', function(e) {
-      if (e.target.tagName === 'INPUT' && !e.target.type.match(/password|hidden|email/)) {
-        e.target.value = e.target.value.toUpperCase();
-      }
-    });
-  }
-  activarMayusculasInputs();
-  document.getElementById("nombreCargo").addEventListener("input", function() {
-    this.value = this.value.replace(/[^a-zA-Z\s]/g, '');
+  // Mayúsculas y solo letras
+  document.addEventListener('input', e => {
+    if (e.target.id === 'nombreCargo') {
+      e.target.value = e.target.value.toUpperCase().replace(/[^A-Z\s]/g, '').slice(0,40);
+    }
   });
-  
+  // Bootstrap validation
+  (function(){'use strict';
+    var forms = document.querySelectorAll('.needs-validation');
+    Array.prototype.slice.call(forms).forEach(f=>{
+      f.addEventListener('submit', e=>{
+        if (!f.checkValidity()) {
+          e.preventDefault(); e.stopPropagation();
+        }
+        f.classList.add('was-validated');
+      }, false);
+    });
+  })();
 //Recarga dinamica
 
 $(document).on('submit', '#editCargoForm', function(e) {
@@ -68,20 +75,8 @@ $(document).on('submit', '#editCargoForm', function(e) {
       });
     });
 
-          // Validaciones de Bootstrap
-          (function() {
-        'use strict';
-        var forms = document.querySelectorAll('.needs-validation');
-        Array.prototype.slice.call(forms).forEach(function(form) {
-          form.addEventListener('submit', function(event) {
-            if (!form.checkValidity()) {
-              event.preventDefault();
-              event.stopPropagation();
-            }
-            form.classList.add('was-validated');
-          }, false);
-        });
-      })();
+  }
+  activarMayusculasInputs();
 </script>
 
 

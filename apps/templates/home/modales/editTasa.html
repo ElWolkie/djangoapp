@@ -30,7 +30,7 @@
       
       <div class="form-group col-md-6">  
         <label for="montoTasa">Monto:</label>  
-        <input type="text" id="montoTasa" name="montoTasa" class="form-control text-dark" value="{{tasa.montoTasa}}" placeholder="64,86" tabindex="3" maxlength="100" required />  
+        <input type="text" id="montoTasa" name="montoTasa" class="form-control text-dark" value="{{tasa.montoTasa}}" placeholder="64,86" tabindex="3" maxlength="50" required />  
         <input type="hidden" id="estadoTasa" name="estadoTasa" class="form-control text-dark" value="ACTIVO" />  
       </div>  
     </div>  
@@ -81,6 +81,66 @@ $(document).on('submit', '#registroForm', function(e) {
           }
         }
       });
+    });
+
+    // Validación y formato español en montoTasa
+document.getElementById("montoTasa").addEventListener("input", function() {
+  const input = this;
+  const raw = input.value;
+  const oldPos = input.selectionStart;
+
+  // ❌ Bloquear letras desde el inicio
+  if (/[A-Za-z]/.test(raw)) {
+    // Elimina letras inmediatamente
+    input.value = raw.replace(/[A-Za-z]/g, '');
+    return;
+  }
+
+  // Contar dígitos antes del cursor
+  const digitsBefore = raw.slice(0, oldPos).replace(/[^0-9]/g, '').length;
+
+  // Limpiar y parsear
+  const cleaned = raw
+    .replace(/\./g, '')     // quitar puntos previos
+    .replace(/,/g, '.')     // coma → punto para parsear
+    .replace(/[^0-9.]/g, ''); 
+  const num = parseFloat(cleaned);
+  if (isNaN(num)) return;
+
+  // Formatear en estilo español (puntos de miles, coma decimal)
+  const formatted = num.toLocaleString('es-VE', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+
+  // Calcular nueva posición del cursor
+  let newPos = 0, counted = 0;
+  for (let i = 0; i < formatted.length; i++) {
+    if (/[0-9]/.test(formatted[i])) counted++;
+    if (counted === digitsBefore) {
+      newPos = i + 1;
+      break;
+    }
+  }
+  if (counted < digitsBefore) {
+    newPos = formatted.length;
+  }
+
+  // Aplicar resultado y posicionar cursor
+  input.value = formatted;
+  input.setSelectionRange(newPos, newPos);
+  });
+
+    // Validación de formulario
+    var forms = document.querySelectorAll('.needs-validation');
+    Array.prototype.slice.call(forms).forEach(function(form) {
+      form.addEventListener('submit', function(event) {
+        if (!form.checkValidity()) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+        form.classList.add('was-validated');
+      }, false);
     });
 </script>
 
