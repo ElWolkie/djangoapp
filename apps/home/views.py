@@ -1037,7 +1037,7 @@ def tabla_formaciones(request):
     tipo_formaciones = TipoFormacion.objects.filter(estadoTipoFormacion='ACTIVO')
 
     return render(request, 'home/tablaFormaciones.html', {
-        'formaciones': formaciones,
+        'formaciones': formaciones.order_by('-idFormacion'),
         'tipoFormaciones': tipo_formaciones,
         'mostrar_inactivos': mostrar,
     })
@@ -1836,7 +1836,7 @@ def tabla_cohortes(request):
         cohortes = Cohorte.objects.filter(estadoCohorte='ACTIVO')
 
     return render(request, 'home/tablaCohortes.html', {
-        'cohortes': cohortes,
+        'cohortes': cohortes.order_by('-idCohorte'),
         'mostrar_inactivos': mostrar,
     })
 
@@ -2342,7 +2342,7 @@ def tabla_requisitos(request):
     else:
         requisitos = Requisito.objects.filter(estadoRequisito='ACTIVO')
     return render(request, 'home/tablaRequisitos.html', {
-        'requisitos': requisitos,
+        'requisitos': requisitos.order_by('-idRequisito'),
         'mostrar_inactivos': mostrar,
     })
 
@@ -2860,7 +2860,7 @@ def tabla_tramites(request):
     else:
         tramites = Tramite.objects.filter(estadoTramite='ACTIVO')
     return render(request, 'home/tablaTramites.html', {
-        'tramites': tramites,
+        'tramites': tramites.order_by('-idTramite'),
         'mostrar_inactivos': mostrar,
     })
 
@@ -3730,7 +3730,7 @@ def tabla_tasas(request):
     else:
         tasas = Tasa.objects.filter(estadoTasa='ACTIVO')
     return render(request, 'home/tablaTasas.html', {
-        'tasas': tasas,
+        'tasas': tasas.order_by('-fechaTasa'),
         'mostrar_inactivos': mostrar,
     })
 

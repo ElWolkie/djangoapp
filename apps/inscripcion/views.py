@@ -23,6 +23,8 @@ from reportlab.platypus import Table, TableStyle
 from reportlab.lib import colors
 import os
 import json
+from django.core.paginator import Paginator
+
 @login_required(login_url='login')
 @permission_required("inscripcion.add_inscripcion", raise_exception=True)
 def inscripcion_modal(request):
@@ -208,10 +210,17 @@ def tabla_inscripciones(request):
         ]
         requisitos_entregados_dict[inscripcion.idInscripcion] = requisitos
 
+    # Paginación 
+    paginator = Paginator(inscripciones, 10)  # 10 cuotas por página
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
     return render(request, 'inscripcion/tablaInscripciones.html', {
-        'inscripciones': inscripciones,
+        'inscripcionsdes': inscripciones.order_by('-idInscripcion'),
         'requisitos_entregados_dict': requisitos_entregados_dict,
         'mostrar_inactivos': mostrar,
+        'inscripciones': page_obj,  # Pasar el objeto de la página al template
+
     })
 
 # @login_required(login_url='login')

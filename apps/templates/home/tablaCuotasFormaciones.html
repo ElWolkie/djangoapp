@@ -186,32 +186,38 @@
       </table>
     </div>
   </div>
-  <!-- Controles de paginación -->
+ <!-- Controles de paginación -->
 <div class="pagination-container text-center mt-4">
-    <nav aria-label="Page navigation">
-      <ul class="pagination justify-content-center">
-        {% if cuotas.has_previous %}
-          <li class="page-item">
-            <a class="page-link" href="?page={{ cuotas.previous_page_number }}" aria-label="Anterior">
-              <span aria-hidden="true">&laquo;</span>
-            </a>
-          </li>
-        {% endif %}
-        {% for num in cuotas.paginator.page_range %}
-          <li class="page-item {% if cuotas.number == num %}active{% endif %}">
+  <nav aria-label="Page navigation">
+    <ul class="pagination justify-content-center">
+      {% if cuota.has_previous %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ cuota.previous_page_number }}" aria-label="Anterior">
+            <span aria-hidden="true">&laquo;</span>
+          </a>
+        </li>
+      {% endif %}
+
+      {% for num in cuota.paginator.page_range %}
+        {% if num == 1 or num == cuota.paginator.num_pages or num >= cuota.number|add:"-2" and num <= cuota.number|add:"2" %}
+          <li class="page-item {% if cuota.number == num %}active{% endif %}">
             <a class="page-link" href="?page={{ num }}">{{ num }}</a>
           </li>
-        {% endfor %}
-        {% if cuotas.has_next %}
-          <li class="page-item">
-            <a class="page-link" href="?page={{ cuotas.next_page_number }}" aria-label="Siguiente">
-              <span aria-hidden="true">&raquo;</span>
-            </a>
-          </li>
+        {% elif num == cuota.number|add:"-3" or num == cuota.number|add:"3" %}
+          <li class="page-item disabled"><span class="page-link">...</span></li>
         {% endif %}
-      </ul>
-    </nav>
-  </div>
+      {% endfor %}
+
+      {% if cuota.has_next %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ cuota.next_page_number }}" aria-label="Siguiente">
+            <span aria-hidden="true">&raquo;</span>
+          </a>
+        </li>
+      {% endif %}
+    </ul>
+  </nav>
+</div>
 </div>
 
 

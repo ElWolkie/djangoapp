@@ -152,8 +152,6 @@
             <th>Cédula</th>
             <th>Cargo</th>
             <th>Materia</th>
-            <th>Horas</th>
-            <th>Cohorte</th>
             <th>Estado</th>
             <th class="actions-column">Acciones</th>
           </tr>
@@ -165,8 +163,6 @@
             <td>{{ honorario.idPersona.cedula }}</td>
             <td>{{ honorario.idCargo.nombreCargo }}</td>
             <td>{{ honorario.idMateria.nombreMateria }}</td>
-            <td>{{ honorario.horas }}</td>
-            <td>{{ honorario.idCohorte.nombreCohorte }}</td>
             <td>
               {% if honorario.estadoHonorario == "ACTIVO" %}
                 <span class="badge bg-success text-white">
