@@ -241,76 +241,58 @@
 {% endblock content %}
 
 {% block javascripts %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-  // Activar mayúsculas en inputs
-  function activarMayusculasInputs() {
-    document.addEventListener('input', function(e) {
-      if (e.target.tagName === 'INPUT' && !/password|hidden|email/.test(e.target.type)) {
-        e.target.value = e.target.value.toUpperCase();
+    // Función principal que activa validaciones y formateo
+  function activarValidacionFormacion() {
+    // 1) Mayúsculas en inputs, excepto valorInscripcion
+    document.querySelectorAll('input').forEach(function(input) {
+      if (!/password|hidden|email/.test(input.type) && input.id !== 'valorInscripcion') {
+        input.addEventListener('input', function() {
+          this.value = this.value.toUpperCase();
+        });
       }
     });
-  }
-  activarMayusculasInputs();
 
-  document.addEventListener("DOMContentLoaded", function() {
-
-    document.getElementById("valorInscripcion").addEventListener("input", function() {
-      this.value = this.value.replace(/[^0-9.]/g, '').slice(0,20);
+    // 2) Validación de Bootstrap
+    var forms = document.querySelectorAll('.needs-validation');
+    Array.prototype.forEach.call(forms, function(form) {
+      form.addEventListener('submit', function(event) {
+        if (!form.checkValidity()) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+        form.classList.add('was-validated');
+      }, false);
     });
-    document.getElementById("duracion").addEventListener("input", function() {
+
+    // 3) Formateo de valorInscripcion
+    const input = document.getElementById('valorInscripcion');
+    if (!input) return;
+
+    const formatearValor = (valor) => {
+      let raw = valor.replace(/[^\d]/g, '');
+      if (!raw) return '';
+      while (raw.length < 3) raw = '0' + raw;
+      const intPart = raw.slice(0, raw.length - 2);
+      const decimalPart = raw.slice(-2);
+      const formattedInt = parseInt(intPart, 10).toLocaleString('es-VE');
+      return `${formattedInt},${decimalPart}`;
+    };
+
+    // Listener de input
+    input.addEventListener('input', function () {
+      this.value = formatearValor(this.value);
     });
 
-    (function() {
-      'use strict';
-      var forms = document.querySelectorAll('.needs-validation');
-      Array.prototype.slice.call(forms).forEach(function(form) {
-        form.addEventListener('submit', function(event) {
-          if (!form.checkValidity()) {
-            event.preventDefault();
-            event.stopPropagation();
-          }
-          form.classList.add('was-validated');
-        }, false);
-      });
-    })();
-  });
-</script>
-<script>
-  document.addEventListener("DOMContentLoaded", function () {
-    const tipoFormacionSelect = document.getElementById("idTF");
-    const formacionSelect = document.getElementById("idFormacion");
-    tipoFormacionSelect.addEventListener("change", function () {
-      Array.from(formacionSelect.options).forEach(option => {
-        option.style.display = (option.dataset.tf === this.value || option.value === "")
-          ? "block" : "none";
-      });
-      formacionSelect.value = "";
-    });
-  });
-document.addEventListener("DOMContentLoaded", function () {
-  const input = document.getElementById("valorInscripcion");
-  if (!input) return;
-
-  input.addEventListener("input", function (e) {
-    let raw = this.value.replace(/[^\d]/g, '');
-
-    if (raw.length < 3) {
-      this.value = raw;
-      return;
+    // Formatear valor inicial
+    if (input.value) {
+      input.value = formatearValor(input.value);
     }
+  }
 
-    const intPart = raw.slice(0, raw.length - 2);
-    const decimalPart = raw.slice(-2);
-
-    const formattedInt = parseInt(intPart, 10).toLocaleString('es-VE');
-
-    const finalValue = `${formattedInt},${decimalPart}`;
-
-    // Evitar que el cursor salte al final
-    const selectionStart = this.selectionStart;
-    this.value = finalValue;
-    this.setSelectionRange(selectionStart, selectionStart);
-  });
-});
+  // Ejecutar al cargar la página
+  document.addEventListener('DOMContentLoaded', activarValidacionFormacion);
 </script>
+
 {% endblock javascripts %}

@@ -176,7 +176,7 @@
                           data-id="{{ formacion.idFormacion }}"
                           data-nombre="{{ formacion.nombreFormacion }}"
                           data-tipo="{{ formacion.idTF.nombreTipoFormacion }}"
-                          data-valor="{{ formacion.valorFormacion }}"
+                          data-valor="{{ formacion.valorInscripcion }}"
                           data-duracion="{{ formacion.duracion }}"
                           data-estado="{{ formacion.estadoFormacion }}"
                           data-fecha="{{ formacion.fechaFormacion|date:'d/m/Y' }}"
@@ -229,41 +229,21 @@
 
 {# ─── Modales ─── #}
 
-<!-- Modal: Ver Detalles -->
+<!-- Modal de Detalles -->
 <div class="modal fade details-modal" id="detailsModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header bg-primary text-white">
-        <h5 class="modal-title text-white">Ver más de <span id="detail-nombre"></span></h5>
-        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
-          <i class="fas fa-times"></i>
-        </button>
+        <h5 class="modal-title text-white">Detalles de la Formación</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
-        <div class="detail-item">
-          <div class="detail-label">ID:</div>
-          <div class="detail-value" id="detail-id"></div>
-        </div>
-        <div class="detail-item">
-          <div class="detail-label">Tipo:</div>
-          <div class="detail-value" id="detail-tipo"></div>
-        </div>
-        <div class="detail-item">
-          <div class="detail-label">Valor:</div>
-          <div class="detail-value bold" id="detail-valor"></div>
-        </div>
-        <div class="detail-item">
-          <div class="detail-label">Duración:</div>
-          <div class="detail-value" id="detail-duracion"></div>
-        </div>
-        <div class="detail-item">
-          <div class="detail-label">Estado:</div>
-          <div class="detail-value" id="detail-estado"></div>
-        </div>
-        <div class="detail-item">
-          <div class="detail-label">Fecha de registro:&nbsp</div>
-          <div class="detail-value" id="detail-fecha"></div>
-        </div>
+        <p><strong>Nombre:</strong> <span id="modalNombre"></span></p>
+        <p><strong>Tipo:</strong> <span id="modalTipo"></span></p>
+        <p><strong>Valor:</strong> <span id="modalValor"></span></p>
+        <p><strong>Duración:</strong> <span id="modalDuracion"></span></p>
+        <p><strong>Estado:</strong> <span id="modalEstado"></span></p>
+        <p><strong>Fecha:</strong> <span id="modalFecha"></span></p>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
@@ -271,6 +251,7 @@
     </div>
   </div>
 </div>
+
 
 <!-- Modal: Registrar Formación -->
 <div class="modal fade" id="formacionModal" tabindex="-1" aria-hidden="true">
@@ -624,5 +605,19 @@ document.addEventListener("DOMContentLoaded", function() {
     });
   }
 });
+</script>
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const detailsModal = document.getElementById("detailsModal");
+    detailsModal.addEventListener("show.bs.modal", function (event) {
+      const button = event.relatedTarget; // Botón que activó el modal
+      document.getElementById("modalNombre").textContent = button.getAttribute("data-nombre");
+      document.getElementById("modalTipo").textContent = button.getAttribute("data-tipo");
+      document.getElementById("modalValor").textContent = button.getAttribute("data-valor");
+      document.getElementById("modalDuracion").textContent = button.getAttribute("data-duracion");
+      document.getElementById("modalEstado").textContent = button.getAttribute("data-estado");
+      document.getElementById("modalFecha").textContent = button.getAttribute("data-fecha");
+    });
+  });
 </script>
 {% endblock javascripts %}
