@@ -10,9 +10,6 @@ urlpatterns = [
     path('personastp/', views.PersonaTPListCreate.as_view(), name='personatp-list'),  # Nueva ruta
 
     path('verificar-cedula/', verificar_cedula, name='verificar-cedula'),
-    
-    # path('cuota/', views.CuotaListCreate.as_view(), name='cuota-list'),
-    # path('ofertas/', views.OfertasListCreate.as_view(), name='oferta-list'),
 
     path('materia/', views.MateriaListCreate.as_view(), name='materia-list'),
     path('cohorte/', views.CohorteListCreate.as_view(), name='cohorte-list'),

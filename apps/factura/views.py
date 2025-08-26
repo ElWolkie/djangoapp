@@ -1,3 +1,4 @@
+from datetime import datetime
 from datetime import timezone
 from datetime import datetime
 from decimal import Decimal
@@ -804,7 +805,7 @@ def pago_create(request, pk=None):
 
                     # Obtener el plan de cuenta según la forma de pago
                     if pago.formaPago == 'EFECTIVO':
-                        plan_cuenta_debe = PlanCuenta.objects.filter(codigoPlanCuenta='1101').first()
+                        plan_cuenta_debe = PlanCuenta.objects.filter(codigoPlanCuenta='110101').first()
                         print(f"Plan de cuenta para pagos en efectivo: {plan_cuenta_debe}")
                         if not plan_cuenta_debe:
                             return JsonResponse({
@@ -1326,19 +1327,18 @@ def reporte_facturas_pdf(request):
     logo_width, logo_height, logo_margin = 100, 100, 15
 
     # Configuración institucional
-    config = None
-    try:
-        config = Configuracion.objects.order_by('-fechaConfiguracion').first()
-    except Exception:
-        pass
+    config = Configuracion.objects.order_by('-fechaConfiguracion').first()
     logo_path = config.logo.path if config and config.logo else None
     firma_path = config.firma.path if config and config.firma else None
     nombre_institucion = config.nombreInstitucion if config else "Institución"
     rif_institucion = config.rif if config else ""
+    direccion1 = "AV. ALBERTO RAVELL CON AV. INTERCOMUNAL JOSE ANTONIO PAEZ"
+    direccion2 = "LOCAL UPTYAB, INDEPENDENCIA – EDO YARACUY"
 
     safe_left = logo_margin
     safe_right = width - logo_margin
     safe_width = safe_right - safe_left
+    safe_center = width / 2
 
     # --- Define encabezado y pie ---
     def draw_header():
@@ -1356,52 +1356,57 @@ def reporte_facturas_pdf(request):
 
         p.setFont("Helvetica-Bold", 10)
         p.drawString(logo_margin, text_top, nombre_institucion)
-        p.drawString(logo_margin, text_top - 20, f"RIF: {rif_institucion}")
-        p.drawString(logo_margin, text_top - 40, "AV. ALBERTO RAVELL CON AV. INTERCOMUNAL JOSE ANTONIO PAEZ,")
-        p.drawString(logo_margin, text_top - 60, "LOCAL UPTYAB, INDEPENDENCIA – EDO YARACUY")
+        p.drawString(logo_margin, text_top - 15, f"RIF: {rif_institucion}")
+        p.drawString(logo_margin, text_top - 30, direccion1)
+        p.drawString(logo_margin, text_top - 45, direccion2)
         p.setFont("Helvetica-Bold", 13)
-        p.drawCentredString(width / 2, text_top - 100, "Reporte de notas de Cobro")
+        p.drawCentredString(width / 2, text_top - 85, "Reporte de Facturas")
 
     def draw_footer():
         if firma_path and os.path.exists(firma_path):
             p.drawImage(firma_path, width/2 - 60, 60, width=120, height=60, preserveAspectRatio=True, mask='auto')
             p.setFont("Helvetica-Oblique", 10)
             p.drawCentredString(width/2, 40, "Firma autorizada")
+        
+        p.setFont("Helvetica", 8)
+        fecha_generacion = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        p.drawString(logo_margin, 20, f"Generado el: {fecha_generacion}")
 
     # --- Datos de la tabla ---
     data = [
         [
-            "ID",
             "N° Factura",
-            "Fecha Emisión",
+            "Fecha",
             "Cliente",
-            "Tipo",
-            "Subtotal Exento",
-            "Subtotal Gravado",
-            "IVA",
-            "Total Venta",
+            "Empresa",
+            "Total",
             "Estado"
         ]
     ]
     for fac in facturas:
         data.append([
-            str(getattr(fac, 'idFactura', '')),
-            getattr(fac, 'numeroFactura', ''),
-            fac.fechaEmision.strftime("%d/%m/%Y") if hasattr(fac, 'fechaEmision') and fac.fechaEmision else '',
-            str(fac.idPersona) if fac.idPersona else '',
-            dict(Factura.TIPOS_FACTURA).get(fac.tipoFactura, fac.tipoFactura),
-            f"{fac.subtotalExento:.2f}",
-            f"{fac.subtotalGravado:.2f}",
-            f"{fac.iva:.2f}",
+            fac.numeroFactura,
+            fac.fechaEmision.strftime("%d/%m/%Y"),
+            str(fac.idPersona) if fac.idPersona else 'N/A',
+            fac.idEmpresa.nombreEmpresa if fac.idEmpresa else 'N/A',
             f"{fac.totalVenta:.2f}",
-            fac.estado,
+            fac.estado
         ])
-    col_widths = [40, 120, 90, 120, 180, 100, 100, 60, 80, 60]
+    
+    # Colores para estados
+    estado_colores = {
+        'Generada': colors.HexColor("#2dce89"),
+        'Pagada': colors.HexColor("#11cdef"),
+        'Eliminada': colors.HexColor("#f5365c"),
+        'Pendiente': colors.HexColor("#fb6340")
+    }
+
+    col_widths = [120, 80, 120, 120, 70, 70]
     table_width = sum(col_widths)
 
     # --- Cálculo de espacio ---
     header_height = 140
-    footer_height = 160
+    footer_height = 100
     row_height = 22
     available_height = height - header_height - footer_height
 
@@ -1422,18 +1427,39 @@ def reporte_facturas_pdf(request):
         # Centrar la tabla horizontalmente
         table_x = safe_left + (safe_width - table_width) / 2
         table = Table(page_data, colWidths=col_widths)
-        table.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
+        
+        # Estilo de la tabla
+        table_style = TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#5e72e4")),
             ('TEXTCOLOR', (0,0), (-1,0), colors.white),
             ('ALIGN', (0,0), (-1,-1), 'CENTER'),
             ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0,0), (-1,0), 12),
-            ('BOTTOMPADDING', (0,0), (-1,0), 10),
+            ('FONTSIZE', (0,0), (-1,0), 10),
+            ('BOTTOMPADDING', (0,0), (-1,0), 8),
             ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
-            ('GRID', (0,0), (-1,-1), 1, colors.black),
-        ]))
+            ('GRID', (0,0), (-1,-1), 0.5, colors.lightgrey),
+            ('FONTSIZE', (0,1), (-1,-1), 9),
+            ('ALIGN', (4,1), (4,-1), 'RIGHT'),
+        ])
+        
+        # Aplicar colores a los estados
+        for i in range(1, len(page_data)):
+            estado = page_data[i][5]
+            if estado in estado_colores:
+                table_style.add('TEXTCOLOR', (5,i), (5,i), estado_colores[estado])
+        
+        table.setStyle(table_style)
         table.wrapOn(p, width, height)
         table.drawOn(p, table_x, y - row_height * len(page_data))
+        
+        # Información de paginación
+        p.setFont("Helvetica", 8)
+        p.drawCentredString(
+            safe_center, 
+            y - row_height * len(page_data) - 20,
+            f"Página {page + 1} - Registros {start_row + 1} a {end_row} de {total_rows}"
+        )
+        
         draw_footer()
         page += 1
 
@@ -1453,6 +1479,7 @@ def factura_generar_pdf(request, pk):
     p = canvas.Canvas(response, pagesize=letter)
     p.setTitle("Reporte de Factura Indivual")
     width, height = letter
+    logo_width, logo_height, logo_margin = 80, 80, 15
 
     # --- Encabezado institucional ---
     y = height - 40

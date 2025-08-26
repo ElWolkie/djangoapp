@@ -18,8 +18,14 @@ SECRET_KEY = config("SECRET_KEY", default="S#perS3crEt_1122")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config("DEBUG", default=True, cast=bool)
 
+# 365 días de retención (ajustable)
+BITACORA_RETENCION_DIAS = 365
+
+TIME_ZONE = 'America/Caracas'  # Ajusta a tu zona
+USE_TZ = True
+
 # load production server from .env
-ALLOWED_HOSTS = ["localhost", "127.0.0.1", config("SERVER", default="127.0.0.1")]
+ALLOWED_HOSTS = ["localhost", "127.0.0.1", "192.168.0.103", "10.52.13.73", '192.168.0.1', '192.168.0.106', '192.168.0.105', '0.0.0.0', config("SERVER", default="127.0.0.1")]
 
 # SECURE_SSL_REDIRECT = True  # Redirige HTTP → HTTPS
 # SESSION_COOKIE_SECURE = True  # Cookies solo por HTTPS
@@ -53,6 +59,7 @@ INSTALLED_APPS = [
     "apps.authentication",
     "apps.home",  # Enable the inner home (home)
     'django_extensions',
+    "apps.bitacora.apps.BitacoraConfig",  # Habilita la aplicación para gestionar bitacora
     "apps.persona",  # Habilita la aplicación para gestionar personas
     "apps.honorario",  # Habilita la aplicación para gestionar honorario
     "apps.inscripcion",  # Habilita la aplicación para gestionar honorario
@@ -80,8 +87,16 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "corsheaders.middleware.CorsMiddleware",
+    "apps.bitacora.middleware.AuditMiddleware",
     # 'debug_toolbar.middleware.DebugToolbarMiddleware',
 ]
+
+CORS_ALLOW_ALL_ORIGINS = True
+
+CORS_ALLOWED_ORIGINS = [
+    "http://127.0.0.1:8000",  # IP local del PC donde corre Django
+]
+
 
 # Direcciones IP donde se mostrará la toolbar (normalmente localhost)
 INTERNAL_IPS = [
@@ -144,8 +159,14 @@ REST_FRAMEWORK = {
 }
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    # duraciones opcionales:
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+
+    # aquí indicamos a SimpleJWT que el campo PK de tu usuario es idUsuario
+    'USER_ID_FIELD': 'idUsuario',
+    # y cómo lo nombrará dentro del payload del token
+    'USER_ID_CLAIM': 'user_id',
 }
 
 CORS_ALLOWED_ORIGINS = [

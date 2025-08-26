@@ -12,8 +12,8 @@ from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required, permission_required
+from django.db import IntegrityError, transaction
 from django.views.decorators.http import require_POST
-from django.db import IntegrityError
 from django.contrib.auth.models import Group
 from collections import defaultdict # Para agrupar
 
@@ -37,6 +37,8 @@ from apps.empresa.models import empresa
 from apps.persona.models import PersonaTP
 from apps.periodoContable.models import periodoContable
 
+from apps.bitacora.signals import registrar_login_fallido
+
 @login_required(login_url='login')
 def contabilidad(request):
     # 1. Última cuenta bancaria
@@ -45,26 +47,26 @@ def contabilidad(request):
     except CuentaBanco.DoesNotExist:
         ultima_cuenta = None
 
-    # 2. Última empresa (corregir excepción)
+    # 2. Última empresa
     try:
         ultima_empresa = empresa.objects.latest('fechaEmpresa')
-    except empresa.DoesNotExist:  # ← Excepción corregida
+    except empresa.DoesNotExist:
         ultima_empresa = None
 
-    # 3. Periodo contable
+    # 3. Periodo contable actual (el más reciente por fecha de inicio)
     try:
-        periodo_actual = periodoContable.objects.latest('fechaInicioPeriodo')
+        periodo_actual = periodoContable.objects.filter(estadoPeriodo=True).latest('fechaInicioPeriodo')
     except periodoContable.DoesNotExist:
         periodo_actual = None
 
     context = {
         'ultima_cuenta': ultima_cuenta,
         'ultima_empresa': ultima_empresa,
-        'periodo_actual': periodo_actual,
-        'saldo_contable': "En desarrollo...",
+        'periodo_actual': periodo_actual,  # Ahora mostramos el período actual
         'total_cuentas': CuentaBanco.objects.count(),
         'total_empresas': empresa.objects.count(),
-        'total_periodos': periodoContable.objects.count()
+        'total_periodos': periodoContable.objects.count(),
+        'periodos_activos': periodoContable.objects.filter(estadoPeriodo=True).count()
     }
     
     return render(request, 'home/index2.html', context)
@@ -157,7 +159,7 @@ def login_view(request):
         next_param = request.POST.get('next', 'home')
 
         # Extraer solo los dígitos de la cédula usando regex
-        cedula_numerica = re.sub(r'\D', '', cedula_input)  # elimina todo lo que no es número
+        cedula_numerica = re.sub(r'\D', '', cedula_input)
 
         try:
             persona = Personas.objects.get(cedula__regex=r'[A-Z]-?' + cedula_numerica)
@@ -165,6 +167,8 @@ def login_view(request):
 
             if user is not None:
                 login(request, user)
+                # La señal user_logged_in se dispara automáticamente aquí
+                
                 if user.is_superuser:
                     return redirect('home')
                 elif user.groups.filter(name='Contable').exists():
@@ -172,8 +176,18 @@ def login_view(request):
                 else:
                     return redirect('home')
             else:
+                # REGISTRAR INTENTO FALLIDO (CONTRASEÑA INCORRECTA)
+                registrar_login_fallido(
+                    username=cedula_input,
+                    ip=request.META.get('REMOTE_ADDR')
+                )
                 messages.error(request, "Contraseña incorrecta")
         except Personas.DoesNotExist:
+            # REGISTRAR INTENTO FALLIDO (USUARIO NO EXISTE)
+            registrar_login_fallido(
+                username=cedula_input,
+                ip=request.META.get('REMOTE_ADDR')
+            )
             messages.error(request, "No existe un usuario con esta cédula")
         except Exception as e:
             messages.error(request, f"Error al iniciar sesión: {str(e)}")
@@ -978,7 +992,6 @@ def formacion_modal(request):
         form = FormacionForm()
         return render(request, 'home/formaciones.html', {'form': form, 'tipos_formacion': tipos_formacion})
 
-
 @login_required(login_url='login')
 @permission_required("home.change_formacion", raise_exception=True)
 def edit_formacion(request, pk):
@@ -1043,6 +1056,34 @@ def tabla_formaciones(request):
     else:
         formaciones = Formacion.objects.filter(estadoFormacion='ACTIVO')
     tipo_formaciones = TipoFormacion.objects.filter(estadoTipoFormacion='ACTIVO')
+
+    formaciones = Formacion.objects.select_related('idTF')\
+        .prefetch_related(Prefetch('cuotas', queryset=CuotaFormacion.objects.order_by('orden')))
+
+    for f in formaciones:
+        cuotas_qs = f.cuotas.all()  # related_name='cuotas'
+        if f.tieneCuotas and cuotas_qs.exists():
+            cuotas = list(cuotas_qs)
+            tipos = {c.tipoCuota for c in cuotas}                # códigos (ej. 'MENSUAL')
+            # si todas las cuotas comparten el mismo tipo usamos su display, sino 'Mixto'
+            tipo_display = cuotas[0].get_tipoCuota_display() if len(tipos) == 1 else "Mixto"
+            # montos formateados con 2 decimales
+            montos = ", ".join(f"{c.valorCuota:.2f}" for c in cuotas)
+            f.cuotas_count = len(cuotas)
+            f.cuotas_list = montos
+            f.cuotas_tipo = tipo_display
+            f.cuotas_text = f"Sí - {tipo_display} ({f.cuotas_count} cuotas: {montos})"
+        elif f.tieneCuotas:
+            # tiene el flag pero no hay cuotas creadas
+            f.cuotas_count = 0
+            f.cuotas_list = ""
+            f.cuotas_tipo = ""
+            f.cuotas_text = "Sí - (No hay cuotas registradas)"
+        else:
+            f.cuotas_count = 0
+            f.cuotas_list = ""
+            f.cuotas_tipo = ""
+            f.cuotas_text = "No"
 
     return render(request, 'home/tablaFormaciones.html', {
         'formaciones': formaciones.order_by('-idFormacion'),
@@ -3290,119 +3331,6 @@ def tabla_bancos(request):
         'mostrar_inactivos': mostrar,
     })
 
-@login_required(login_url='login')
-@permission_required("home.view_banco", raise_exception=True)
-def reporte_bancos_pdf(request):
-    # Rango de registros
-    start = int(request.GET.get('start', 1))
-    end   = int(request.GET.get('end',   0))
-    todos  = list(Banco.objects.all().order_by('nombreBanco'))
-    if end == 0 or end > len(todos):
-        end = len(todos)
-    bancos = todos[start-1:end]
-
-    # Preparar PDF
-    response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = 'inline; filename="reporte_bancos.pdf"'
-    p = canvas.Canvas(response, pagesize=letter)
-    width, height = letter
-
-    # Cargar logo/firma
-    config     = Configuracion.objects.order_by('-fechaConfiguracion').first()
-    logo_path  = config.logo.path   if config and config.logo   else None
-    firma_path = config.firma.path  if config and config.firma  else None
-    nombre_ins = config.nombreInstitucion if config else "Institución"
-    rif_ins    = config.rif if config else ""
-
-    # Márgenes y espacios
-    logo_w, logo_h, mgn = 80, 80, 20
-    left_safe  = mgn + logo_w
-    right_safe = width - mgn - logo_w
-    safe_w     = right_safe - left_safe
-
-    def draw_header():
-        if logo_path and os.path.exists(logo_path):
-            p.drawImage(logo_path,
-                        width - logo_w - mgn, height - logo_h - mgn,
-                        width=logo_w, height=logo_h,
-                        preserveAspectRatio=True, mask='auto')
-        p.setFont("Helvetica-Bold", 12)
-        y = height - mgn - 10
-        p.drawString(mgn, y,    nombre_ins)
-        p.drawString(mgn, y-15, f"RIF: {rif_ins}")
-        p.drawString(mgn, y-35, "REPORTE DE BANCOS")
-        p.line(mgn, y-40, width-mgn, y-40)
-
-    def draw_footer():
-        if firma_path and os.path.exists(firma_path):
-            p.drawImage(firma_path,
-                        width/2 - 50,  35,
-                        width=100, height=40,
-                        preserveAspectRatio=True, mask='auto')
-        p.setFont("Helvetica-Oblique", 9)
-        p.drawCentredString(width/2, 20, "Firma autorizada")
-
-    # Construir datos
-    headers = ["Código Local", "Código SWIFT", "Código Contable", "Nombre", "Estado", "Fecha"]
-    data = [headers]
-    for b in bancos:
-        cod_cont = b.codigoPlanCuenta.codigoPlanCuenta if b.codigoPlanCuenta else ""
-        estado   = "Activo" if b.estadoBanco else "Inactivo"
-        data.append([
-            b.codLocalBanco,
-            b.codSwiftBanco,
-            cod_cont,
-            b.nombreBanco,
-            estado,
-            b.fechaBanco.strftime("%d/%m/%Y"),
-        ])
-
-    # Anchos, alturas y cálculo de filas por página
-    col_widths  = [70, 70, 80, 150, 60, 60]
-    row_h       = 20
-    header_h    = 100  # aumentado para más espacio
-    footer_h    = 70
-    avail_h     = height - header_h - footer_h
-    max_rows    = max(1, int(avail_h // row_h))
-
-    # Dibujar páginas
-    for i in range(0, len(data)-1, max_rows):
-        if i > 0:
-            p.showPage()
-        draw_header()
-
-        chunk = [data[0]] + data[i+1 : i+1+max_rows]
-        table = Table(chunk, colWidths=col_widths, rowHeights=row_h)
-        table.setStyle(TableStyle([
-            # Cabecera
-            ('BACKGROUND',       (0,0), (-1,0), colors.HexColor("#fe8330")),
-            ('TEXTCOLOR',        (0,0), (-1,0), colors.white),
-            ('FONTNAME',         (0,0), (-1,0), 'Helvetica-Bold'),
-            ('FONTSIZE',         (0,0), (-1,0), 10),
-            ('ALIGN',            (0,0), (-1,0), 'CENTER'),
-            ('BOTTOMPADDING',    (0,0), (-1,0), 6),
-
-            # Celdas de datos
-            ('FONTNAME',         (0,1), (-1,-1), 'Helvetica'),
-            ('FONTSIZE',         (0,1), (-1,-1), 9),
-            ('ALIGN',            (0,1), (-1,-1), 'CENTER'),
-            ('VALIGN',           (0,1), (-1,-1), 'MIDDLE'),
-            ('INNERGRID',        (0,0), (-1,-1), 0.5, colors.grey),
-            ('BOX',              (0,0), (-1,-1), 0.5, colors.grey),
-            ('BACKGROUND',       (0,1), (-1,-1), colors.whitesmoke),
-        ]))
-
-        # Posición de la tabla (bajamos un poco más)
-        x = left_safe + (safe_w - sum(col_widths)) / 2
-        y = height - header_h - 10 - row_h * len(chunk)
-        table.wrapOn(p, width, height)
-        table.drawOn(p, x, y)
-
-        draw_footer()
-
-    p.save()
-    return response
-
 #MONEDA
 @login_required(login_url='login')
 @permission_required("home.add_moneda", raise_exception=True)
@@ -4534,7 +4462,7 @@ def actualizar_monedas_api(request):
     # Solo permitir método POST para esta acción que modifica datos
     if request.method != 'POST':
         messages.error(request, "Método no permitido.")
-        return redirect('tabla_monedas') # O a donde quieras redirigir
+        return redirect('tabla_monedas')  # O a donde quieras redirigir
 
     # URL de la API (puedes ponerla en settings.py si prefieres)
     CURRENCY_API_URL = 'https://openexchangerates.org/api/currencies.json'
@@ -4543,63 +4471,107 @@ def actualizar_monedas_api(request):
 
     try:
         # --- 1. Llamada a la API ---
-        print(f"DEBUG: Llamando a la API: {CURRENCY_API_URL}") # Debug
-        response = requests.get(CURRENCY_API_URL, timeout=15) # Timeout de 15 segundos
-        response.raise_for_status() # Lanza un error si la respuesta no es 2xx (OK)
+        print(f"DEBUG: Llamando a la API: {CURRENCY_API_URL}")
+        response = requests.get(CURRENCY_API_URL, timeout=15)
+        response.raise_for_status()
 
         # --- 2. Procesar Respuesta JSON ---
         api_currencies = response.json()
-        print(f"DEBUG: Recibidas {len(api_currencies)} monedas de la API.") # Debug
+        print(f"DEBUG: Recibidas {len(api_currencies)} monedas de la API.")
 
-        # --- 3. Obtener Símbolos Existentes en BD ---
-        # Usamos values_list y flat=True para obtener una lista plana de símbolos
-        # y set() para búsquedas rápidas (O(1) en promedio)
+        # --- 3. Obtener Símbolos y Nombres Existentes en BD (normalizados) ---
         codigos_existentes = set(Moneda.objects.values_list('simboloMoneda', flat=True))
-        print(f"DEBUG: {len(codigos_existentes)} códigos de moneda existentes en BD.") # Debug
+        # Normalizamos nombres a lower + strip para comparar insensible a mayúsc/minúsc
+        nombres_existentes = set(
+            (n.strip().lower() for n in Moneda.objects.values_list('nombreMoneda', flat=True) if n)
+        )
 
-        # --- 4. Comparar y Añadir Nuevas Monedas ---
+        print(f"DEBUG: {len(codigos_existentes)} códigos existentes en BD.")
+        print(f"DEBUG: {len(nombres_existentes)} nombres existentes en BD (normalizados).")
+
+        # --- 4. Comparar y Añadir Nuevas Monedas (lista para crear) ---
         monedas_para_crear = []
         for codigo, nombre in api_currencies.items():
-            # Limitar longitud si es necesario (aunque los códigos suelen ser 3 chars)
             codigo_limpio = codigo.strip()[:5]
             nombre_limpio = nombre.strip()[:100]
+            nombre_key = nombre_limpio.lower()
 
-            if codigo_limpio not in codigos_existentes:
-                # Añadir a la lista para creación masiva (más eficiente)
-                monedas_para_crear.append(
-                    Moneda(
-                        nombreMoneda=nombre_limpio,
-                        simboloMoneda=codigo_limpio,
-                        estadoMoneda='INACTIVO' # Estado por defecto al crear
-                        # fechaMoneda se añade automáticamente
-                    )
+            # Si ya existe por código o por nombre (insensible a mayúsc/minúsc), saltamos
+            if codigo_limpio in codigos_existentes or nombre_key in nombres_existentes:
+                # DEBUG opcional:
+                # print(f"DEBUG: Saltando {codigo_limpio} - {nombre_limpio} (existente)")
+                continue
+
+            monedas_para_crear.append(
+                Moneda(
+                    nombreMoneda=nombre_limpio,
+                    simboloMoneda=codigo_limpio,
+                    estadoMoneda='INACTIVO'  # Estado por defecto al crear
                 )
-                codigos_existentes.add(codigo_limpio) # Añadir al set para evitar duplicados en este lote
+            )
+            # Añadimos inmediatamente a los sets para evitar duplicados dentro del mismo lote
+            codigos_existentes.add(codigo_limpio)
+            nombres_existentes.add(nombre_key)
 
         # --- 5. Guardar Nuevas Monedas en BD (si hay) ---
         if monedas_para_crear:
             try:
-                # bulk_create es más eficiente para insertar muchos objetos
-                Moneda.objects.bulk_create(monedas_para_crear)
+                # Intentamos bulk_create con ignore_conflicts si la versión de Django lo soporta.
+                # Esto evita excepciones por claves únicas que ya hayan aparecido en concurrencia.
+                Moneda.objects.bulk_create(monedas_para_crear, ignore_conflicts=True)
+                # Si ignore_conflicts se usa, no podemos saber exactamente cuántas se crearon vs ignoradas,
+                # pero podemos asumir que intentamos insertar len(monedas_para_crear). Para precisión, podríamos
+                # comparar conteos previos/posteriores.
                 nuevas_monedas_contador = len(monedas_para_crear)
-                print(f"DEBUG: Añadidas {nuevas_monedas_contador} nuevas monedas.") # Debug
-                messages.success(request, f'¡Actualización completada! Se añadieron {nuevas_monedas_contador} nuevas monedas.')
-            except Exception as db_error: # Captura errores de BD (ej. violación de unique)
-                print(f"ERROR DB al guardar monedas: {db_error}") # Debug
+                print(f"DEBUG: Intentadas {nuevas_monedas_contador} inserciones con bulk_create(ignore_conflicts=True).")
+                messages.success(request, f'¡Actualización completada! Se procesaron {nuevas_monedas_contador} monedas (las duplicadas se omitieron).')
+            except TypeError:
+                # Si la versión de Django no soporta ignore_conflicts en bulk_create, fallback:
+                try:
+                    with transaction.atomic():
+                        Moneda.objects.bulk_create(monedas_para_crear)
+                    nuevas_monedas_contador = len(monedas_para_crear)
+                    messages.success(request, f'¡Actualización completada! Se añadieron {nuevas_monedas_contador} nuevas monedas.')
+                except IntegrityError as e:
+                    # Ocurrió una violación de unicidad (posible condición de carrera o inconsistencia).
+                    print(f"WARNING: IntegrityError durante bulk_create: {e}. Aplicando inserción segura por fila.")
+                    creadas = 0
+                    for m in monedas_para_crear:
+                        try:
+                            # Intentamos crear sólo si no existe; get_or_create evita excepción por unique
+                            obj, created_flag = Moneda.objects.get_or_create(
+                                simboloMoneda=m.simboloMoneda,
+                                defaults={
+                                    'nombreMoneda': m.nombreMoneda,
+                                    'estadoMoneda': m.estadoMoneda
+                                }
+                            )
+                            if created_flag:
+                                creadas += 1
+                        except Exception as e2:
+                            monedas_fallidas.append(f"{m.simboloMoneda} - {str(e2)}")
+                    nuevas_monedas_contador = creadas
+                    msg = f'¡Actualización completada! Se añadieron {nuevas_monedas_contador} nuevas monedas.'
+                    if monedas_fallidas:
+                        msg += f' Algunas no pudieron guardarse: {len(monedas_fallidas)}.'
+                    messages.success(request, msg)
+            except Exception as db_error:
+                # Otro error inesperado de BD
+                print(f"ERROR DB al guardar monedas: {db_error}")
                 messages.error(request, f'Error al guardar las nuevas monedas en la base de datos: {db_error}')
         else:
-            print("DEBUG: No se encontraron nuevas monedas para añadir.") # Debug
+            print("DEBUG: No se encontraron nuevas monedas para añadir.")
             messages.info(request, '¡Todo al día! No se encontraron nuevas monedas en la API.')
 
     except requests.exceptions.RequestException as e:
-        print(f"ERROR API: {e}") # Debug
+        print(f"ERROR API: {e}")
         messages.error(request, f"Error al conectar con la API de monedas: {e}")
-    except Exception as e: # Captura otros errores (ej. JSON inválido, etc.)
-        print(f"ERROR General: {e}") # Debug
+    except Exception as e:
+        print(f"ERROR General: {e}")
         messages.error(request, f"Ocurrió un error inesperado durante la actualización: {e}")
 
     # --- 6. Redirigir de vuelta ---
-    return redirect('tabla_monedas') # Redirige a la página de moneda
+    return redirect('tabla_monedas')
 
 
 @login_required(login_url='login')

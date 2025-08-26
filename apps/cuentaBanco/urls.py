@@ -10,6 +10,8 @@ urlpatterns = [
     path('editar/<int:pk>/', views.banco_update, name='banco_update'),
     path('eliminar/<int:pk>/', views.banco_delete, name='banco_delete'),
     path('reactivar/<int:pk>/', views.banco_reactivate, name='banco_reactivate'),
+    path('reporte-bancos/', views.reporte_bancos_pdf, name='reporte_bancos_pdf'),
+
     
     # Cuentas Bancarias
     path('cuentas/', views.cuenta_banco_list, name='cuenta_banco_list'),
@@ -18,4 +20,5 @@ urlpatterns = [
     path('cuentas/editar/<int:pk>/', views.cuenta_banco_update, name='cuenta_banco_update'),
     path('cuentas/eliminar/<int:pk>/', views.cuenta_banco_delete, name='cuenta_banco_delete'),
     path('cuentas/reactivar/<int:pk>/', views.cuenta_banco_reactivate, name='cuenta_banco_reactivate'),
+    path('reporte-cuenta-bancos/', views.reporte_cuentas_banco_pdf, name='reporte_cuentas_banco_pdf'),
 ]

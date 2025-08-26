@@ -180,7 +180,7 @@
             <td class="actions-column">
               <div class="d-flex gap-2">
                 <!-- Botón Ver más -->
-                {% if perms.home.view_inscripcion %}
+                {% if perms.inscripcion.view_inscripcion %}
                   <button class="btn btn-info btn-sm view-details-btn"
                           data-bs-toggle="modal"
                           data-bs-target="#detailsModal"
@@ -198,7 +198,7 @@
                   </button>
                 {% endif %}
                 
-                {% if perms.home.change_inscripcion %}
+                {% if perms.inscripcion.change_inscripcion %}
                 <button class="btn btn-primary btn-sm"
                         data-bs-toggle="modal"
                         data-bs-target="#editInscripcionModal"
@@ -208,7 +208,7 @@
                 </button>
                 {% endif %}
                 
-                {% if inscripcion.is_active and perms.home.change_inscripcion %}
+                {% if inscripcion.is_active and perms.inscripcion.change_inscripcion %}
                 <button class="btn btn-outline-warning btn-sm"
                         data-bs-toggle="modal"
                         data-bs-target="#deleteInscripcionModal"
@@ -218,7 +218,7 @@
                 </button>
                 {% endif %}
                 
-                {% if not inscripcion.is_active and perms.home.change_inscripcion %}
+                {% if not inscripcion.is_active and perms.inscripcion.change_inscripcion %}
                 <button class="btn btn-success btn-sm"
                         data-bs-toggle="modal"
                         data-bs-target="#reactivateInscripcionModal"
@@ -229,7 +229,7 @@
                 {% endif %}
                 
                 {% if inscripcion.idInscripcion %}
-                  {% if perms.home.change_inscripcion or perms.home.view_inscripcion %}
+                  {% if perms.inscripcion.change_inscripcion or perms.inscripcion.view_inscripcion %}
                     <button class="btn btn-light btn-sm"
                             data-bs-toggle="modal"
                             data-bs-target="#requisitosInscripcionModal"
@@ -287,6 +287,7 @@
 
 {# ─── MODALES ─── #}
 <!-- Modal de Detalles -->
+ {% if perms.inscripcion.view_inscripcion %}
 <div class="modal fade details-modal" id="detailsModal" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -340,6 +341,7 @@
     </div>
   </div>
 </div>
+{% endif %}
 
 {% if perms.inscripcion.change_inscripcion %}
 <div class="modal fade" id="editInscripcionModal" tabindex="-1" aria-hidden="true">
@@ -409,8 +411,10 @@
     <div class="modal-content">
       <form id="requisitosInscripcionForm" method="post">
       <div class="modal-header bg-primary text-white">
-        <h5 class="modal-title"><i class="fas fa-clipboard-check me-2"></i> Requisitos de la Inscripción</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <h5 class="modal-title text-white"><i class="fas fa-clipboard-check me-2"></i>&nbsp Requisitos de la Inscripción</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
       </div>
       <div class="modal-body">
         <!-- Aquí se cargará el formulario dinámicamente -->
@@ -489,7 +493,7 @@ $(function(){
   });
 
   // MODAL DE EDICIÓN
-  {% if perms.home.change_inscripcion %}
+  {% if perms.inscripcion.change_inscripcion %}
   $('#editInscripcionModal')
     .on('show.bs.modal', e => {
       const url = $(e.relatedTarget).data('url'),

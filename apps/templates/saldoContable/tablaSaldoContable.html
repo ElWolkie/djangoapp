@@ -76,28 +76,30 @@
           </tr>
         </thead>
         <tbody>
+          {% if perms.saldoContable.view_saldocontable %}
           {% for saldo in saldos %}
-          <tr>
-            <td>{{ saldo.idSaldo }}</td>
-            <td>
-              <strong>{{ saldo.id_plan_cuenta.codigoPlanCuenta }}</strong> - 
-              {{ saldo.id_plan_cuenta.nombrePlanCuenta }}
-            </td>
-            <td>
-              {{ saldo.id_periodo.nombrePeriodo }}<br>
-              <small class="text-muted">
-                {{ saldo.id_periodo.fechaInicioPeriodo|date:"d/m/Y" }} - 
-                {{ saldo.id_periodo.fechaFinPeriodo|date:"d/m/Y" }}
-              </small>
-            </td>
-            <td class="text-success fw-bold">${{ saldo.saldo_inicial }}</td>
-            <td class="text-primary fw-bold">${{ saldo.saldo_final }}</td>
-          </tr>
-          {% empty %}
-          <tr>
-            <td colspan="5" class="text-center py-4">No hay saldos contables registrados.</td>
-          </tr>
+              <tr>
+                <td>{{ saldo.idSaldo }}</td>
+                <td>
+                  <strong>{{ saldo.id_plan_cuenta.codigoPlanCuenta }}</strong> - 
+                  {{ saldo.id_plan_cuenta.nombrePlanCuenta }}
+                </td>
+                <td>
+                  {{ saldo.id_periodo.nombrePeriodo }}<br>
+                  <small class="text-muted">
+                    {{ saldo.id_periodo.fechaInicioPeriodo|date:"d/m/Y" }} - 
+                    {{ saldo.id_periodo.fechaFinPeriodo|date:"d/m/Y" }}
+                  </small>
+                </td>
+                <td class="text-success fw-bold">${{ saldo.saldo_inicial }}</td>
+                <td class="text-primary fw-bold">${{ saldo.saldo_final }}</td>
+              </tr>
+              {% empty %}
+              <tr>
+                <td colspan="5" class="text-center py-4">No hay saldos contables registrados.</td>
+              </tr>
           {% endfor %}
+          {% endif %}
         </tbody>
       </table>
     </div>

@@ -177,7 +177,7 @@
             <td class="actions-column">
               <div class="d-flex gap-2">
                 <!-- Botón Ver más -->
-                {% if perms.home.view_honorario %}
+                {% if perms.honorario.view_honorario %}
                   <button class="btn btn-info btn-sm view-details-btn"
                           data-bs-toggle="modal"
                           data-bs-target="#detailsModal"
@@ -197,7 +197,7 @@
                   </button>
                 {% endif %}
                 
-                {% if perms.home.change_honorario %}
+                {% if perms.honorario.change_honorario %}
                   <button class="btn btn-primary btn-sm"
                           data-bs-toggle="modal"
                           data-bs-target="#editHonorarioModal"
@@ -206,7 +206,7 @@
                   </button>
                 {% endif %}
                 
-                {% if honorario.estadoHonorario == "ACTIVO" and perms.honorario.delete_honorario %}
+                {% if honorario.estadoHonorario == "ACTIVO" and perms.honorario.change_honorario %}
                   <button class="btn btn-outline-warning btn-sm"
                           data-bs-toggle="modal"
                           data-bs-target="#deleteHonorarioModal"
@@ -299,7 +299,7 @@
   </div>
 </div>
 
-{% if perms.home.change_honorario %}
+{% if perms.honorario.change_honorario %}
 <!-- Editar Honorario -->
 <div class="modal fade" id="editHonorarioModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
@@ -320,7 +320,7 @@
 </div>
 {% endif %}
 
-{% if perms.home.delete_honorario %}
+{% if perms.honorario.change_honorario %}
 <!-- Desactivar Honorario -->
 <div class="modal fade" id="deleteHonorarioModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
@@ -344,7 +344,7 @@
 </div>
 {% endif %}
 
-{% if perms.home.change_honorario %}
+{% if perms.honorario.change_honorario %}
 <!-- Reactivar Honorario -->
 <div class="modal fade" id="reactivateHonorarioModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">

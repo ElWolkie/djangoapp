@@ -1,31 +1,152 @@
 {% extends 'layouts/base2.html' %}
+{% load static %}
 
 {% block title %}Registrar Factura{% endblock title %}
 
 {% block stylesheets %}
-<link rel="stylesheet" href="/static/assets/css/styleForms.css" />
-<link rel="stylesheet" href="/static/assets/css/argon.css" />
+<link rel="stylesheet" href="{% static 'assets/css/styleForms.css' %}" />
+<link rel="stylesheet" href="{% static 'assets/css/argon.css' %}" />
 
 <style>
-  #tablaPersonas th, #tablaPersonas td, #tablaEmpresas th, #tablaEmpresas td {
-    text-align: center;
-    white-space: nowrap;
-  }
+/* Card principal */
+.nota-card {
+  background: linear-gradient(135deg,#f8fafc 0%, #eef2f6 100%);
+  border-radius: 1rem;
+  box-shadow: 0 0.75rem 1.5rem rgba(19,38,63,0.06);
+  padding: 1.75rem;
+  margin: 2rem auto;
+  max-width: 1100px;
+  font-weight: 600;
+}
 
-  #tablaPersonas th, #tablaEmpresas th {
-    font-weight: bold;
-  }
+/* Header */
+.nota-header {
+  text-align: center;
+  margin-bottom: 1.25rem;
+  position: relative;
+  padding-bottom: .5rem;
+}
+.nota-header h2 {
+  color: #0f1724;
+  font-weight: 800;
+  margin-bottom: 0.25rem;
+  letter-spacing: -0.2px;
+}
+.nota-header p.sub {
+  color: #6b7280;
+  margin: 0;
+  font-size: .95rem;
+}
+.nota-header::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 50%;
+  transform: translateX(-50%);
+  width: 90px; height: 4px;
+  background: linear-gradient(90deg,#ffc107,#fd7e14);
+  border-radius: 4px;
+}
+
+/* Inputs y selects: alturas uniformes y apariencia moderna */
+.form-control, .form-select {
+  border-radius: .65rem;
+  padding: .55rem .9rem;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  transition: box-shadow .18s ease, border-color .18s ease;
+  min-height: 44px;
+  line-height: 1.2;
+  font-size: .95rem;
+  box-sizing: border-box;
+}
+.form-control:focus, .form-select:focus {
+  outline: none;
+  border-color: #ffc107;
+  box-shadow: 0 0 0 .2rem rgba(255,193,7,0.12);
+}
+
+/* Labels más compactos */
+.form-label { margin-bottom: .35rem; font-weight: 700; color: #374151; }
+
+/* Wrapper para evitar saltos por helper text */
+.field-wrap { display:flex; flex-direction:column; gap: .25rem; }
+.field-wrap .form-text { margin:0; min-height:18px; color:#6b7280; font-weight:500; font-size:.85rem; }
+
+/* Botones de búsqueda (icon) dentro de input-group */
+.input-group .btn {
+  border-radius: 0 .6rem .6rem 0;
+  border: 1px solid #d1d5db;
+  height: 44px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
+
+/* Botón guardar (estilo llamativo) */
+.btn-pago, .btn-guardar {
+  background: linear-gradient(135deg,#ffc107 0%,#fd7e14 100%);
+  border:none;
+  color:#fff;
+  font-weight:700;
+  padding:.7rem 1.4rem;
+  border-radius:.6rem;
+  box-shadow: 0 6px 14px rgba(253,126,20,0.14);
+  transition: transform .18s, box-shadow .18s;
+}
+.btn-pago:hover, .btn-guardar:hover { transform: translateY(-3px); box-shadow: 0 10px 24px rgba(253,126,20,0.18); }
+
+/* Badges y tablas */
+.badge { padding:.45rem .6rem; border-radius:.65rem; font-weight:700; }
+.table-sm th, .table-sm td { vertical-align: middle; font-weight:600; }
+#tablaPersonas th, #tablaPersonas td, #tablaEmpresas th, #tablaEmpresas td {
+  text-align:center;
+  white-space:nowrap;
+}
+#tablaPersonas th, #tablaEmpresas th { font-weight:700; }
+
+/* Modals: visual */
+.modal-content { border-radius:.75rem; overflow:hidden; }
+#tablaPersonas tbody tr:hover, #tablaEmpresas tbody tr:hover,
+#tablaCuotas tbody tr:hover, #tablaInscripciones tbody tr:hover {
+  background: rgba(255,193,7,0.08); cursor: pointer;
+}
+
+/* Campos que se ocultan con transiciones */
+.hidden { opacity:0; pointer-events:none; transform: translateY(-6px); transition: opacity .25s ease, transform .18s ease; }
+.visible { opacity:1; transform: translateY(0); transition: opacity .25s ease, transform .18s ease; }
+
+/* Responsive */
+@media (max-width: 767px) {
+  .nota-card { padding:1rem; margin:1rem; }
+  .input-group .btn { border-radius:.45rem; height:40px; }
+  .form-control, .form-select { min-height:40px; }
+}
+
+/* Helpers de búsqueda */
+.input-group-text.icon-search { background-color: #bcbcbc; border: none; color: #ffb84d; }
+
+/* Ajustes para radios y check groups */
+.form-check { display:inline-flex; align-items:center; margin-right:.5rem; }
+.form-check-input { margin-right:.35rem; }
+
+/* Alinear filas de formulario en pares (labels e inputs) */
+.row.align-items-end > .col-md-6, .row.align-items-center > .col-md-6 {
+  display:flex; flex-direction:column; justify-content:flex-end;
+}
 </style>
 {% endblock stylesheets %}
 
 {% block content %}
 <br>
-<div class="text-right mb-3">
+<div class="text-end mb-3">
   <button type="button" id="toggleReadonly" class="btn btn-secondary">Habilitar edición manual</button>
 </div>
 
-<div class="container mt-5">
-  <h2 class="text-center text-dark mb-4">Registrar Nota</h2>
+<div class="nota-card">
+  <div class="nota-header">
+    <h2><i class="fas fa-file-invoice text-warning me-2"></i> Registrar Nota</h2>
+    <p class="sub">Complete la información para registrar la nota/factura.</p>
+  </div>
 
   {% if messages %}
     {% for message in messages %}
@@ -37,282 +158,334 @@
 
   <form method="POST" id="notaForm" action="{% url 'nota_create' %}" class="text-dark needs-validation" autocomplete="off" novalidate>
     {% csrf_token %}
+    <div class="row g-3">
 
-    <div class="form-row">
-      <div class="form-row align-items-center">
-        <div class="form-group col-md-2">
-          <label for="tipoOperacionCheckbox" class="form-label small">Tipo de Operación:</label>
-          <div class="form-check ml-2">
-            <input class="form-check-input" type="radio" name="tipoOperacion" id="ingresoCheckbox" value="ingreso" required>
-            <label class="form-check-label small" for="ingresoCheckbox">Cobro</label>
+      <!-- FILA 1: Tipo Operación | Tipo Articulo | Número Nota -->
+      <div class="row g-3 align-items-end w-100">
+        <div class="col-md-2">
+          <label class="form-label small">Tipo de Operación:</label>
+          <div class="field-wrap">
+            <div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="tipoOperacion" id="ingresoCheckbox" value="ingreso" required>
+                <label class="form-check-label small" for="ingresoCheckbox">Cobro</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="tipoOperacion" id="egresoCheckbox" value="egreso" required>
+                <label class="form-check-label small" for="egresoCheckbox">Pago</label>
+              </div>
+            </div>
+            <div class="invalid-feedback small">Por favor seleccione el tipo de operación.</div>
           </div>
-          <div class="form-check ml-2">
-            <input class="form-check-input" type="radio" name="tipoOperacion" id="egresoCheckbox" value="egreso" required>
-            <label class="form-check-label small" for="egresoCheckbox">Pago</label>
-          </div>
-          <div class="invalid-feedback small">Por favor seleccione el tipo de operación.</div>
         </div>
 
-        <div class="form-group col-md-4">
-          <label for="tipoArticulo">Tipo de Nota:</label>
-          <select id="tipoArticulo" name="tipoArticulo" class="form-control text-dark" required disabled>
-            <option value=""  selected>Seleccione el tipo de articulo...</option>
-            <!-- Facturas de Egresos (Pagos) -->
-            <optgroup label="Pagos a Proveedores" class="egreso-options" style="display: none;">
-              <option value="HONORARIO_PROFESOR">Honorarios Profesionales</option>
-              <option value="SERVICIO_GENERAL">Servicios Generales (Internet, Luz, etc.)</option>
-              <option value="COMPRA_BIENES">Compra de Bienes/Materiales</option>
-            </optgroup>
-            <!-- Facturas de Ingresos -->
-            <optgroup label="Ingresos de Estudiantes" class="ingreso-options" style="display: none;">
-              <option value="INSCRIPCION">Inscripción</option>
-              <option value="CUOTA">Cuota</option>
-              <option value="SOLICITUD">Solicitud de Trámites</option>
-            </optgroup>
-          </select>
-          <div class="invalid-feedback">Por favor seleccione un tipo de articulo.</div>
-        </div>
-        <div class="form-group col-md-6">
-          <label for="numeroNota">Número de Nota:</label>
-          <input type="text" id="numeroNota" name="numeroNota" class="form-control text-dark"
-             value="{{ numero_nota }}" {% if not numero_nota %}required{% else %}readonly{% endif %} />
-          <div class="invalid-feedback">Por favor ingrese un número de nota válido.</div>
-        </div>
-
-        <div class="form-group col-md-2">
-          <label for="tipoEntidadCheckbox" class="form-label small">Tipo de Entidad:</label>
-          <div class="form-check ml-2">
-            <input class="form-check-input" type="radio" name="tipoEntidad" id="personaCheckbox" value="persona" checked required>
-            <label class="form-check-label small" for="personaCheckbox">Persona</label>
+        <div class="col-md-4">
+          <label for="tipoArticulo" class="form-label">Tipo de Nota:</label>
+          <div class="field-wrap">
+            <select id="tipoArticulo" name="tipoArticulo" class="form-select large" required disabled>
+              <option value="" selected>Seleccione el tipo de articulo...</option>
+              <optgroup label="Pagos a Proveedores" class="egreso-options" style="display:none;">
+                <option value="HONORARIO_PROFESOR">Honorarios Profesionales</option>
+                <option value="SERVICIO_GENERAL">Servicios Generales (Internet, Luz, etc.)</option>
+                <option value="COMPRA_BIENES">Compra de Bienes/Materiales</option>
+              </optgroup>
+              <optgroup label="Ingresos de Estudiantes" class="ingreso-options" style="display:none;">
+                <option value="INSCRIPCION">Inscripción</option>
+                <option value="CUOTA">Cuota</option>
+                <option value="SOLICITUD">Solicitud de Trámites</option>
+              </optgroup>
+            </select>
+            <div class="invalid-feedback">Por favor seleccione un tipo de articulo.</div>
           </div>
-          <div class="form-check ml-2">
-            <input class="form-check-input" type="radio" name="tipoEntidad" id="empresaCheckbox" value="empresa" required>
-            <label class="form-check-label small" for="empresaCheckbox">Empresa</label>
-          </div>
-          <div class="invalid-feedback">Por favor seleccione el tipo de entidad.</div>
         </div>
 
-        <div class="form-group col-md-4">
-          <div id="personaGroup" style="display: none;">
-            <label for="personaInput">Persona:</label>
-            <div class="input-group">
-              <input type="text" id="personaInput" class="form-control text-dark" placeholder="Seleccione una persona" readonly />
-              <button type="button" id="buscarPersona" class="btn btn-warning" data-toggle="modal" data-target="#personaModal">
-                <i class="fas fa-search"></i>
-              </button>           
-               <div class="invalid-feedback">Por favor seleccione una persona.</div>
+        <div class="col-md-6">
+          <label for="numeroNota" class="form-label">Número de Nota:</label>
+          <div class="field-wrap">
+            <input type="text" id="numeroNota" name="numeroNota" class="form-control" value="{{ numero_nota }}" {% if not numero_nota %}required{% else %}readonly{% endif %} />
+            <div class="invalid-feedback">Por favor ingrese un número de nota válido.</div>
+          </div>
+        </div>
+      </div>
 
+      <!-- FILA 2: Tipo Entidad (radio) | Persona/Empresa selector -->
+      <div class="row g-3 align-items-end w-100">
+        <div class="col-md-2">
+          <label class="form-label small">Tipo de Entidad:</label>
+          <div class="field-wrap">
+            <div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="tipoEntidad" id="personaCheckbox" value="persona" checked required>
+                <label class="form-check-label small" for="personaCheckbox">Persona</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="tipoEntidad" id="empresaCheckbox" value="empresa" required>
+                <label class="form-check-label small" for="empresaCheckbox">Empresa</label>
+              </div>
+            </div>
+            <div class="invalid-feedback">Por favor seleccione el tipo de entidad.</div>
+          </div>
+        </div>
+
+        <div class="col-md-4">
+          <div id="personaGroup" style="display:none;">
+            <label for="personaInput" class="form-label">Persona:</label>
+            <div class="field-wrap">
+              <div class="input-group">
+                <input type="text" id="personaInput" class="form-control" placeholder="Seleccione una persona" readonly />
+                <button type="button" id="buscarPersona" class="btn btn-outline-warning" data-toggle="modal" data-target="#personaModal">
+                  <i class="fas fa-search"></i>
+                </button>
+              </div>
+              <div class="invalid-feedback">Por favor seleccione una persona.</div>
             </div>
             <input type="hidden" id="idPersona" name="idPersona" />
           </div>
 
-          <div id="empresaGroup" style="display: none;">
-            <label for="empresaInput">Empresa:</label>
-            <div class="input-group">
-              <input type="text" id="empresaInput" class="form-control text-dark" placeholder="Seleccione una empresa" readonly />
-              <button type="button" id="buscarEmpresa" class="btn btn-warning" data-toggle="modal" data-target="#empresaModal">
-                <i class="fas fa-search"></i>
-              </button>            
+          <div id="empresaGroup" style="display:none;">
+            <label for="empresaInput" class="form-label">Empresa:</label>
+            <div class="field-wrap">
+              <div class="input-group">
+                <input type="text" id="empresaInput" class="form-control" placeholder="Seleccione una empresa" readonly />
+                <button type="button" id="buscarEmpresa" class="btn btn-outline-warning" data-toggle="modal" data-target="#empresaModal">
+                  <i class="fas fa-search"></i>
+                </button>
+              </div>
               <div class="invalid-feedback">Por favor seleccione una empresa.</div>
-
             </div>
             <input type="hidden" id="idEmpresa" name="idEmpresa" />
           </div>
         </div>
 
-        <div  id="articulos" class="form-group col-md-6">
-        <!-- NO APLICA-->
-        <div id="noAplicaGroup" >
-          <label for="cuota">Articulo:</label>
-            <div class="input-group">
-              <input type="text" id="noAplica" class="form-control text-dark" placeholder="Seleccione" value="No requiere articulo" readonly required />
-              <button type="button"  class="btn btn-success" data-toggle="modal">
-                <i class="fas fa-check"></i>
-              </button>
-            </div>
-         </div>
-          <!-- CUOTA -->
-           <div id="cuotaGroup" style="display: none;">
-            <label for="cuota">Cuota:</label>
+        <div id="articulos" class="col-md-6">
+          <div id="noAplicaGroup">
+            <label class="form-label">Articulo:</label>
+            <div class="field-wrap">
               <div class="input-group">
-                <input type="text" id="cuota" class="form-control text-dark" placeholder="Seleccione un plan de cuota" readonly required />
-                <button type="button" id="buscarCuota" class="btn btn-warning" data-toggle="modal" data-target="#cuotaModal">
+                <input type="text" id="noAplica" class="form-control" placeholder="Seleccione" value="No requiere articulo" readonly required />
+                <button type="button" class="btn btn-success">
+                  <i class="fas fa-check"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div id="cuotaGroup" style="display:none;">
+            <label class="form-label">Cuota:</label>
+            <div class="field-wrap">
+              <div class="input-group">
+                <input type="text" id="cuota" class="form-control" placeholder="Seleccione un plan de cuota" readonly required />
+                <button type="button" id="buscarCuota" class="btn btn-outline-warning" data-toggle="modal" data-target="#cuotaModal">
                   <i class="fas fa-search"></i>
                 </button>
               </div>
-              <input type="hidden" id="idCuota" name="idCuota" required />
               <div class="invalid-feedback">Por favor seleccione una cuota.</div>
-           </div>
-
-          <div id="inscripcionGroup" style="display: none;">
-            <!-- INSCRIPCION -->
-            <label for="inscripcion">Inscripcion:</label>
-            <div class="input-group">
-              <input type="text" id="inscripcion" class="form-control text-dark" placeholder="Seleccione una inscripcion" readonly required />
-              <button type="button" id="buscarInscripcion" class="btn btn-warning" data-toggle="modal" data-target="#inscripcionModal">
-                <i class="fas fa-search"></i>
-              </button>
             </div>
-            <input type="hidden" id="idInscripcion" name="idInscripcion" required />
-            <div class="invalid-feedback">Por favor seleccione una cuota.</div>
+            <input type="hidden" id="idCuota" name="idCuota" />
           </div>
 
-          <div id="honorarioGroup" style="display: none;">
-          <!-- HONORARIO -->
-          <label for="honorario">Honorario:</label>
-            <div class="input-group">
-              <input type="text" id="honorario" class="form-control text-dark" placeholder="Seleccione un honorario" readonly required />
-              <button type="button" id="buscarHonorario" class="btn btn-warning" data-toggle="modal" data-target="#honorarioModal">
-                <i class="fas fa-search"></i>
-              </button>
+          <div id="inscripcionGroup" style="display:none;">
+            <label class="form-label">Inscripción:</label>
+            <div class="field-wrap">
+              <div class="input-group">
+                <input type="text" id="inscripcion" class="form-control" placeholder="Seleccione una inscripcion" readonly required />
+                <button type="button" id="buscarInscripcion" class="btn btn-outline-warning" data-toggle="modal" data-target="#inscripcionModal">
+                  <i class="fas fa-search"></i>
+                </button>
+              </div>
+              <div class="invalid-feedback">Por favor seleccione una inscripción.</div>
             </div>
-            <input type="hidden" id="idHonorario" name="idHonorario" required />
-            <div class="invalid-feedback">Por favor seleccione un Honorario.</div>
+            <input type="hidden" id="idInscripcion" name="idInscripcion" />
           </div>
 
-          <div id="solicitudGroup" style="display: none;">
-            <!-- SOLICITUD -->
-            <label for="inscripcion">Solicitud:</label>
-            <div class="input-group">
-              <input type="text" id="solicitud" class="form-control text-dark" placeholder="Seleccione una solicitud" readonly required />
-              <button type="button" id="buscarSolicitud" class="btn btn-warning" data-toggle="modal" data-target="#solicitudModal">
-                <i class="fas fa-search"></i>
-              </button>
+          <div id="honorarioGroup" style="display:none;">
+            <label class="form-label">Honorario:</label>
+            <div class="field-wrap">
+              <div class="input-group">
+                <input type="text" id="honorario" class="form-control" placeholder="Seleccione un honorario" readonly required />
+                <button type="button" id="buscarHonorario" class="btn btn-outline-warning" data-toggle="modal" data-target="#honorarioModal">
+                  <i class="fas fa-search"></i>
+                </button>
+              </div>
+              <div class="invalid-feedback">Por favor seleccione un Honorario.</div>
             </div>
-            <input type="hidden" id="idSolicitud" name="idSolicitud" required />
-            <div class="invalid-feedback">Por favor seleccione una cuota.</div>
+            <input type="hidden" id="idHonorario" name="idHonorario" />
+          </div>
+
+          <div id="solicitudGroup" style="display:none;">
+            <label class="form-label">Solicitud:</label>
+            <div class="field-wrap">
+              <div class="input-group">
+                <input type="text" id="solicitud" class="form-control" placeholder="Seleccione una solicitud" readonly required />
+                <button type="button" id="buscarSolicitud" class="btn btn-outline-warning" data-toggle="modal" data-target="#solicitudModal">
+                  <i class="fas fa-search"></i>
+                </button>
+              </div>
+              <div class="invalid-feedback">Por favor seleccione una solicitud.</div>
+            </div>
+            <input type="hidden" id="idSolicitud" name="idSolicitud" />
+          </div>
+        </div>
+      </div>
+
+      <!-- FILA 3: Forma de pago | Fecha Emisión -->
+      <div class="row g-3 align-items-end w-100">
+        <div class="col-md-6">
+          <label for="formaPago" class="form-label">Forma de Pago:</label>
+          <div class="field-wrap">
+            <select id="formaPago" name="formaPago" class="form-select large" required>
+              <option value="" disabled selected>Seleccione la forma de pago...</option>
+              <option value="contado">Contado</option>
+              <option value="credito">Crédito</option>
+            </select>
+            <div class="invalid-feedback">Por favor seleccione una forma de pago.</div>
           </div>
         </div>
 
-        <div class="form-group col-md-6">
-          <label for="formaPago">Forma de Pago:</label>
-          <select id="formaPago" name="formaPago" class="form-control text-dark" required>
-            <option value="" disabled selected>Seleccione la forma de pago...</option>
-            <option value="contado">Contado</option>
-            <option value="credito">Crédito</option>
-          </select>
-          <div class="invalid-feedback">Por favor seleccione una forma de pago.</div>
+        <div class="col-md-6">
+          <label for="fechaEmision" class="form-label">Fecha de Emisión:</label>
+          <div class="field-wrap">
+            <input type="date" id="fechaEmision" name="fechaEmision" class="form-control" max="{{ today_date }}" required />
+            <div class="invalid-feedback">Por favor ingrese una fecha de emisión válida.</div>
+          </div>
         </div>
-      <div class="form-group col-md-6">
-        <label for="fechaEmision">Fecha de Emisión:</label>
-        <input type="date" id="fechaEmision" name="fechaEmision" class="form-control text-dark" max="{{ today_date }}" required />
-        <div class="invalid-feedback">Por favor ingrese una fecha de emisión válida.</div>
-      </div>
-    </div>
-
-    <div class="form-row">
-     
-      <div class="form-group col-md-6">
-        <label for="fechaVencimiento">Fecha de Vencimiento:</label>
-        <input type="date" id="fechaVencimiento" name="fechaVencimiento" class="form-control text-dark" />
-      </div>
-      <div class="form-group col-md-6" id="plazoCreditoGroup" style="display: none;">
-        <label for="plazoCredito">Plazo de Crédito (días):</label>
-        <input type="number" id="plazoCredito" name="plazoCredito" class="form-control text-dark" placeholder="Ingrese el plazo de crédito en días" min="0" />
-        <div class="invalid-feedback">Por favor ingrese un plazo de crédito válido.</div>
-      </div>
-      <div class="form-group col-md-6">
-        <label for="idTasa">Moneda:</label>
-        <select id="idTasa" name="idTasa" class="form-control text-dark" required readonlys>
-
-          <!-- <option value="" disabled selected>Seleccione una moneda...</option> -->
-          {% for moneda in monedas %}
-            <option value="{{ moneda.ultima_idTasa }}" {% if moneda.idMoneda__nombreMoneda == "DOLAR" %}selected{% endif %}>
-            {{ moneda.idMoneda__nombreMoneda }}{% if moneda.ultima_tasa %} | Tasa: {{ moneda.ultima_tasa }}{% else %} - Sin tasa{% endif %}
-            </option>
-          {% endfor %}
-        </select>
-        <div class="invalid-feedback">Por favor seleccione una moneda.</div>
       </div>
 
-      <div class="form-group col-md-6">
-        <label for="subtotalExento">Subtotal Exento:</label>
-        <input type="text" id="subtotalExento" name="subtotalExento" class="form-control text-dark" placeholder="Ingrese el subtotal exento" step="0.01" min="0" required />
-        <div class="invalid-feedback">Por favor ingrese un subtotal exento válido.</div>
+      <!-- FILA 4: Fecha Vencimiento | Plazo Crédito -->
+      <div class="row g-3 align-items-end w-100">
+        <div class="col-md-6">
+          <label for="fechaVencimiento" class="form-label">Fecha de Vencimiento:</label>
+          <div class="field-wrap">
+            <input type="date" id="fechaVencimiento" name="fechaVencimiento" class="form-control" />
+          </div>
+        </div>
+
+        <div class="col-md-6" id="plazoCreditoGroup" style="display:none;">
+          <label for="plazoCredito" class="form-label">Plazo de Crédito (días):</label>
+          <div class="field-wrap">
+            <input type="number" id="plazoCredito" name="plazoCredito" class="form-control" placeholder="Ingrese el plazo de crédito en días" min="0" />
+            <div class="invalid-feedback">Por favor ingrese un plazo de crédito válido.</div>
+          </div>
+        </div>
       </div>
 
-      <div class="form-group col-md-6">
-        <label for="subtotalGravado">Subtotal Gravado:</label>
-        <input type="number" id="subtotalGravado" name="subtotalGravado" class="form-control text-dark" placeholder="Ingrese el subtotal gravado" step="0.01" min="0" required />
-        <small id="ivaPercentageHelp" class="form-text text-muted">IVA aplicable: <span id="ivaPercentage">16</span>%</small>
-        <div class="invalid-feedback">Por favor ingrese un subtotal gravado válido.</div>
-    </div>
+      <!-- FILA 5: Moneda | Subtotales -->
+      <div class="row g-3 align-items-end w-100">
+        <div class="col-md-6">
+          <label for="idTasa" class="form-label">Moneda:</label>
+          <div class="field-wrap">
+            <select id="idTasa" name="idTasa" class="form-select large" required>
+              {% for moneda in monedas %}
+                <option value="{{ moneda.ultima_idTasa }}" {% if moneda.idMoneda__nombreMoneda == "DOLAR" %}selected{% endif %}>
+                  {{ moneda.idMoneda__nombreMoneda }}{% if moneda.ultima_tasa %} | Tasa: {{ moneda.ultima_tasa }}{% else %} - Sin tasa{% endif %}
+                </option>
+              {% endfor %}
+            </select>
+            <div class="invalid-feedback">Por favor seleccione una moneda.</div>
+          </div>
+        </div>
 
-    <div class="form-group col-md-6">
-      <label for="iva">IVA:</label>
-      <input type="number" id="iva" name="iva" class="form-control text-dark" placeholder="Ingrese el IVA" step="0.01" min="0" readonly required />
-      <div class="invalid-feedback">Por favor ingrese un IVA válido.</div>
-    </div>
-
-
-  <div class="form-group col-md-6">
-    <label for="ivaRetenido">IVA Retenido:</label>
-    <input type="number" id="ivaRetenido" name="ivaRetenido" class="form-control text-dark" placeholder="Ingrese el IVA retenido" step="0.01" min="0" readonly />
-    <small id="ivaRetentionHelp" class="form-text text-muted">Porcentaje de retención: <span id="ivaRetentionPercentage">75</span>%</small>
-  </div>
-
-  <div class="form-group col-md-6">
-    <label for="islrRetenido">ISLR Retenido:</label>
-    <input type="number" id="islrRetenido" name="islrRetenido" class="form-control text-dark" placeholder="Ingrese el ISLR retenido" step="0.01" min="0" readonly />
-    <small id="islrRetentionHelp" class="form-text text-muted">Porcentaje de retención: <span id="islrRetentionPercentage">3</span>%</small>
-  </div>
-
-      <div class="form-group col-md-6">
-        <label for="descuento">Descuento:</label>
-        <input type="number" id="descuento" name="descuento" class="form-control text-dark" placeholder="Ingrese el descuento" step="0.01" min="0" required />
-        <div class="invalid-feedback">Por favor ingrese un descuento válido.</div>
-      </div>
-      <div class="form-group col-md-6">
-        <label for="totalNota">Total Venta:</label>
-        <input type="number" id="totalNota" name="totalNota" class="form-control text-dark" placeholder="Ingrese el total de la venta" step="0.01" min="0" required />
-        <div class="invalid-feedback">Por favor ingrese un total de venta válido.</div>
+        <div class="col-md-6">
+          <label for="subtotalExento" class="form-label">Subtotal Exento:</label>
+          <div class="field-wrap">
+            <input type="text" id="subtotalExento" name="subtotalExento" class="form-control" placeholder="Ingrese el subtotal exento" step="0.01" min="0" required />
+            <div class="invalid-feedback">Por favor ingrese un subtotal exento válido.</div>
+          </div>
+        </div>
       </div>
 
+      <!-- FILA 6: Subtotal Gravado | IVA -->
+      <div class="row g-3 align-items-end w-100">
+        <div class="col-md-6">
+          <label for="subtotalGravado" class="form-label">Subtotal Gravado:</label>
+          <div class="field-wrap">
+            <input type="number" id="subtotalGravado" name="subtotalGravado" class="form-control" placeholder="Ingrese el subtotal gravado" step="0.01" min="0" required />
+            <small id="ivaPercentageHelp" class="form-text text-muted">IVA aplicable: <span id="ivaPercentage">16</span>%</small>
+            <div class="invalid-feedback">Por favor ingrese un subtotal gravado válido.</div>
+          </div>
+        </div>
+
+        <div class="col-md-6">
+          <label for="iva" class="form-label">IVA:</label>
+          <div class="field-wrap">
+            <input type="number" id="iva" name="iva" class="form-control" placeholder="Ingrese el IVA" step="0.01" min="0" readonly required />
+            <div class="invalid-feedback">Por favor ingrese un IVA válido.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- FILA 7: Retenciones y descuento/total -->
+      <div class="row g-3 align-items-end w-100">
+        <div class="col-md-6">
+          <label for="ivaRetenido" class="form-label">IVA Retenido:</label>
+          <div class="field-wrap">
+            <input type="number" id="ivaRetenido" name="ivaRetenido" class="form-control" placeholder="Ingrese el IVA retenido" step="0.01" min="0" readonly />
+            <small id="ivaRetentionHelp" class="form-text text-muted">Porcentaje de retención: <span id="ivaRetentionPercentage">75</span>%</small>
+          </div>
+        </div>
+
+        <div class="col-md-6">
+          <label for="islrRetenido" class="form-label">ISLR Retenido:</label>
+          <div class="field-wrap">
+            <input type="number" id="islrRetenido" name="islrRetenido" class="form-control" placeholder="Ingrese el ISLR retenido" step="0.01" min="0" readonly />
+            <small id="islrRetentionHelp" class="form-text text-muted">Porcentaje de retención: <span id="islrRetentionPercentage">3</span>%</small>
+          </div>
+        </div>
+      </div>
+
+      <div class="row g-3 align-items-end w-100">
+        <div class="col-md-6">
+          <label for="descuento" class="form-label">Descuento:</label>
+          <div class="field-wrap">
+            <input type="number" id="descuento" name="descuento" class="form-control" placeholder="Ingrese el descuento" step="0.01" min="0" required />
+            <div class="invalid-feedback">Por favor ingrese un descuento válido.</div>
+          </div>
+        </div>
+
+        <div class="col-md-6">
+          <label for="totalNota" class="form-label">Total Venta:</label>
+          <div class="field-wrap">
+            <input type="number" id="totalNota" name="totalNota" class="form-control" placeholder="Ingrese el total de la venta" step="0.01" min="0" required />
+            <div class="invalid-feedback">Por favor ingrese un total de venta válido.</div>
+          </div>
+        </div>
+      </div>
 
       <input type="hidden" id="estado" name="estado" value="PENDIENTE" />
-      <div class="form-group col-md-6">
-        <label for="observaciones">Observaciones:</label>
-        <textarea id="observaciones" name="observaciones" class="form-control text-dark" rows="3" placeholder="Ingrese observaciones (opcional)"></textarea>
-      </div>
-        <!-- <div class="form-group col-md-6">
-          <label for="planCuentaDebe">Plan de Cuenta (Debe):</label>
-          <div class="input-group">
-            <input type="text" id="planCuentaDebe" class="form-control text-dark" placeholder="Seleccione un plan de cuenta para el Debe" readonly required />
-            <button type="button" id="buscarPlanCuentaDebe" class="btn btn-warning" data-toggle="modal" data-target="#planCuentaDebeModal">
-              <i class="fas fa-search"></i>
-            </button>
+
+      <!-- Observaciones -->
+      <div class="row g-3 mt-2 w-100">
+        <div class="col-md-6">
+          <label for="observaciones" class="form-label">Observaciones:</label>
+          <div class="field-wrap">
+            <textarea id="observaciones" name="observaciones" class="form-control" rows="3" placeholder="Ingrese observaciones (opcional)"></textarea>
           </div>
-          <input type="hidden" id="idPlanCuentaDebe" name="idPlanCuentaDebe" required />
-          <div class="invalid-feedback">Por favor seleccione un plan de cuenta para el Debe.</div>
         </div>
 
-        <div class="form-group col-md-6">
-          <label for="planCuentaHaber">Plan de Cuenta (Haber):</label>
-          <div class="input-group">
-            <input type="text" id="planCuentaHaber" class="form-control text-dark" placeholder="Seleccione un plan de cuenta para el Haber" readonly required />
-            <button type="button" id="buscarPlanCuentaHaber" class="btn btn-warning" data-toggle="modal" data-target="#planCuentaHaberModal">
-              <i class="fas fa-search"></i>
-            </button>
-          </div>
-          <input type="hidden" id="idPlanCuentaHaber" name="idPlanCuentaHaber" required />
-          <div class="invalid-feedback">Por favor seleccione un plan de cuenta para el Haber.</div>
-        </div> -->
+        <!-- Espacio para futuros campos (plan cuentas etc) -->
+        <div class="col-md-6"></div>
       </div>
-   
-    <div class="text-center">
-      <input type="submit" class="btn btn-warning mt-4" value="Guardar" />
+
+      <!-- BOTÓN GUARDAR -->
+      <div class="row mt-3 w-100">
+        <div class="col-12 text-center">
+          <input type="submit" class="btn-guardar" value="Guardar" />
+        </div>
+      </div>
+
     </div>
   </form>
 </div>
 
-</div>
+<!-- MODALS (preservados tal cual, con small tweaks de clases) -->
+
 <!-- Modal para seleccionar Persona -->
 <div class="modal fade" id="personaModal" tabindex="-1" role="dialog" aria-labelledby="personaModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered" role="document">
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title" id="personaModalLabel">Seleccionar Persona</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+        <button type="button" class="close btn-close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
       </div>
@@ -320,39 +493,37 @@
         <div class="row mb-3">
           <div class="col-md-8">
             <div class="input-group">
-              <div class="input-group-prepend">
-                <span class="input-group-text" style="background-color: #bcbcbc; border: none;">
-                  <i class="fas fa-search text-warning"></i>
-                </span>
-              </div>
-              <input class="form-control" id="searchPersonaInput" type="text" placeholder="Buscar..." onkeyup="filterTable('tablaPersonas', 'searchPersonaInput')">
+              <span class="input-group-text icon-search"><i class="fas fa-search"></i></span>
+              <input class="form-control" id="searchPersonaInput" type="text" placeholder="Buscar..." onkeyup="filterTable('tablaPersonas','searchPersonaInput')">
             </div>
           </div>
         </div>
-        <table class="table table-lg table-responsive table-striped table-hover mx-auto justify-content-center" id="tablaPersonas">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Cédula</th>
-              <th>Nombre</th>
-              <th>Apellidos</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for persona in personas %}
-              <tr data-id="{{ persona.idPersona }}" data-nombre="{{ persona.nombres }} {{ persona.apellidos }}">
-                <td>{{ persona.idPersona }}</td>
-                <td>{{ persona.cedula }}</td>
-                <td>{{ persona.nombres }}</td>
-                <td>{{ persona.apellidos }}</td>
+        <div class="table-responsive">
+          <table class="table table-lg table-striped table-hover" id="tablaPersonas">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Cédula</th>
+                <th>Nombre</th>
+                <th>Apellidos</th>
               </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-        <p id="mensajeSinRegistrosPersona" class="text-center text-muted" style="display: none;">No hay registros disponibles</p>
+            </thead>
+            <tbody>
+              {% for persona in personas %}
+                <tr data-id="{{ persona.idPersona }}" data-nombre="{{ persona.nombres }} {{ persona.apellidos }}">
+                  <td>{{ persona.idPersona }}</td>
+                  <td>{{ persona.cedula }}</td>
+                  <td>{{ persona.nombres }}</td>
+                  <td>{{ persona.apellidos }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <p id="mensajeSinRegistrosPersona" class="text-center text-muted" style="display:none;">No hay registros disponibles</p>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+        <button class="btn btn-secondary" data-dismiss="modal" type="button">Cerrar</button>
       </div>
     </div>
   </div>
@@ -364,7 +535,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title" id="empresaModalLabel">Seleccionar Empresa</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+        <button type="button" class="close btn-close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
       </div>
@@ -372,92 +543,81 @@
         <div class="row mb-3">
           <div class="col-md-8">
             <div class="input-group">
-              <div class="input-group-prepend">
-                <span class="input-group-text" style="background-color: #bcbcbc; border: none;">
-                  <i class="fas fa-search text-warning"></i>
-                </span>
-              </div>
-              <input class="form-control" id="searchEmpresaInput" type="text" placeholder="Buscar..." onkeyup="filterTable('tablaEmpresas', 'searchEmpresaInput')">
+              <span class="input-group-text icon-search"><i class="fas fa-search"></i></span>
+              <input class="form-control" id="searchEmpresaInput" type="text" placeholder="Buscar..." onkeyup="filterTable('tablaEmpresas','searchEmpresaInput')">
             </div>
           </div>
         </div>
-        <table class="table table-sm table-responsive table-striped table-hover" id="tablaEmpresas">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Nombre</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for empresa in empresas %}
-              <tr data-id="{{ empresa.idEmpresa }}" data-nombre="{{ empresa.nombreEmpresa }}">
-                <td>{{ empresa.idEmpresa }}</td>
-                <td>{{ empresa.nombreEmpresa }}</td>
+        <div class="table-responsive">
+          <table class="table table-sm table-striped table-hover" id="tablaEmpresas">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Nombre</th>
               </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-        <p id="mensajeSinRegistrosEmpresa" class="text-center text-muted" style="display: none;">No hay registros disponibles</p>
+            </thead>
+            <tbody>
+              {% for empresa in empresas %}
+                <tr data-id="{{ empresa.idEmpresa }}" data-nombre="{{ empresa.nombreEmpresa }}">
+                  <td>{{ empresa.idEmpresa }}</td>
+                  <td>{{ empresa.nombreEmpresa }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <p id="mensajeSinRegistrosEmpresa" class="text-center text-muted" style="display:none;">No hay registros disponibles</p>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+        <button class="btn btn-secondary" data-dismiss="modal" type="button">Cerrar</button>
       </div>
     </div>
   </div>
 </div>
 
-
 <!-- Modal para seleccionar Cuota -->
 <div class="modal fade" id="cuotaModal" tabindex="-1" role="dialog" aria-labelledby="cuotaModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered" style="max-width: 550px;" role="document">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:550px;" role="document">
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title" id="cuotaModalLabel">Seleccionar Cuota</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
+        <button type="button" class="close btn-close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
       </div>
       <div class="modal-body">
         <div class="row mb-3">
           <div class="col-md-8">
             <div class="input-group">
-              <div class="input-group-prepend">
-                <span class="input-group-text" style="background-color: #bcbcbc; border: none;">
-                  <i class="fas fa-search text-warning"></i>
-                </span>
-              </div>
-              <input class="form-control" id="searchCuotaInput" type="text" placeholder="Buscar..." onkeyup="filterTable('tablaCuotas', 'searchCuotaInput')">
+              <span class="input-group-text icon-search"><i class="fas fa-search"></i></span>
+              <input class="form-control" id="searchCuotaInput" type="text" placeholder="Buscar..." onkeyup="filterTable('tablaCuotas','searchCuotaInput')">
             </div>
           </div>
         </div>
-        <table class="table table-sm table-striped table-hover table-responsive" id="tablaCuotas">
-          <thead>
-            <tr>
-              <th>ID Cuota</th>
-              <th>ID Inscripción</th>
-              <th>Nombre Cuota</th>
-              <th>Monto</th>
-              <th>Formación</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for cuota in cuotas %}
-              {% for inscripcion in cuota.inscripciones.all %}
-                <tr data-id="{{ cuota.idCuota }}" data-nombre="{{ cuota.nombreCuota }}" data-valor="{{ cuota.valorCuota }}" data-idIn= "{{ inscripcion.idInscripcion }}">
-                  <td>{{ cuota.idCuota }}</td>
-                  <td>{{ inscripcion.idInscripcion }}</td>
-                  <td>{{ cuota.nombreCuota }}</td>
-                  <td>{{ cuota.valorCuota }}</td>
-                  <td>{{ inscripcion.idFormacion.nombreFormacion }}</td>
-                </tr>
+        <div class="table-responsive">
+          <table class="table table-sm table-striped table-hover" id="tablaCuotas">
+            <thead>
+              <tr>
+                <th>ID Cuota</th><th>ID Inscripción</th><th>Nombre Cuota</th><th>Monto</th><th>Formación</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for cuota in cuotas %}
+                {% for inscripcion in cuota.inscripciones.all %}
+                  <tr data-id="{{ cuota.idCuota }}" data-nombre="{{ cuota.nombreCuota }}" data-valor="{{ cuota.valorCuota }}" data-idIn="{{ inscripcion.idInscripcion }}">
+                    <td>{{ cuota.idCuota }}</td>
+                    <td>{{ inscripcion.idInscripcion }}</td>
+                    <td>{{ cuota.nombreCuota }}</td>
+                    <td>{{ cuota.valorCuota }}</td>
+                    <td>{{ inscripcion.idFormacion.nombreFormacion }}</td>
+                  </tr>
+                {% endfor %}
               {% endfor %}
-            {% endfor %}
-          </tbody>
-        </table>
-        <p id="mensajeSinRegistrosCuota" class="text-center text-muted" style="display: none;">No hay registros disponibles</p>
+            </tbody>
+          </table>
+        </div>
+        <p id="mensajeSinRegistrosCuota" class="text-center text-muted" style="display:none;">No hay registros disponibles</p>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+        <button class="btn btn-secondary" data-dismiss="modal" type="button">Cerrar</button>
       </div>
     </div>
   </div>
@@ -465,289 +625,193 @@
 
 <!-- Modal para seleccionar Inscripción -->
 <div class="modal fade" id="inscripcionModal" tabindex="-1" role="dialog" aria-labelledby="inscripcionModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered" style="max-width: 550px;"role="document">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:550px;" role="document">
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title" id="inscripcionModalLabel">Seleccionar Inscripción</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
+        <button class="close btn-close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
       </div>
       <div class="modal-body">
         <div class="row mb-3">
           <div class="col-md-8">
             <div class="input-group">
-              <div class="input-group-prepend">
-                <span class="input-group-text" style="background-color: #bcbcbc; border: none;">
-                  <i class="fas fa-search text-warning"></i>
-                </span>
-              </div>
-              <input class="form-control" id="searchInscripcionInput" type="text" placeholder="Buscar..." onkeyup="filterTable('tablaInscripciones', 'searchInscripcionInput')">
+              <span class="input-group-text icon-search"><i class="fas fa-search"></i></span>
+              <input class="form-control" id="searchInscripcionInput" type="text" placeholder="Buscar..." onkeyup="filterTable('tablaInscripciones','searchInscripcionInput')">
             </div>
           </div>
         </div>
-        <table class="table table-sm table-responsive table-striped table-hover" id="tablaInscripciones">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Tipo Formación</th>
-              <th>Formación</th>
-              <th>Valor</th>
-              <th>Cohorte</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for inscripcion in inscripciones %}
-              <tr data-id="{{ inscripcion.idInscripcion }}" data-valor="{{ inscripcion.idFormacion.valorInscripcion }}" data-nombre="{{ inscripcion.idTF.nombreTipoFormacion }} {{ inscripcion.idFormacion.nombreFormacion }}" data-persona-id="{{ inscripcion.idPersona.idPersona }}">
-                <td>{{ inscripcion.idInscripcion }}</td>
-                <td>{{ inscripcion.idTF.nombreTipoFormacion }}</td>
-                <td>{{ inscripcion.idFormacion.nombreFormacion }}</td>
-                <td>{{ inscripcion.idFormacion.valorInscripcion }}</td>
-                <td>{{ inscripcion.idCohorte.nombreCohorte }}</td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-        <p id="mensajeSinRegistrosInscripcion" class="text-center text-muted" style="display: none;">No hay registros disponibles</p>
+        <div class="table-responsive">
+          <table class="table table-sm table-striped table-hover" id="tablaInscripciones">
+            <thead>
+              <tr><th>ID</th><th>Tipo Formación</th><th>Formación</th><th>Valor</th><th>Cohorte</th></tr>
+            </thead>
+            <tbody>
+              {% for inscripcion in inscripciones %}
+                <tr data-id="{{ inscripcion.idInscripcion }}" data-valor="{{ inscripcion.idFormacion.valorInscripcion }}" data-nombre="{{ inscripcion.idTF.nombreTipoFormacion }} {{ inscripcion.idFormacion.nombreFormacion }}" data-persona-id="{{ inscripcion.idPersona.idPersona }}">
+                  <td>{{ inscripcion.idInscripcion }}</td>
+                  <td>{{ inscripcion.idTF.nombreTipoFormacion }}</td>
+                  <td>{{ inscripcion.idFormacion.nombreFormacion }}</td>
+                  <td>{{ inscripcion.idFormacion.valorInscripcion }}</td>
+                  <td>{{ inscripcion.idCohorte.nombreCohorte }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <p id="mensajeSinRegistrosInscripcion" class="text-center text-muted" style="display:none;">No hay registros disponibles</p>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+        <button class="btn btn-secondary" data-dismiss="modal" type="button">Cerrar</button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Modal para seleccionar Honorario -->
+<!-- Modal honorarios -->
 <div class="modal fade" id="honorarioModal" tabindex="-1" role="dialog" aria-labelledby="honorarioModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered" role="document">
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title" id="honorarioModalLabel">Seleccionar Honorario</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
+        <button class="close btn-close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
       </div>
       <div class="modal-body">
         <div class="row mb-3">
           <div class="col-md-8">
             <div class="input-group">
-              <div class="input-group-prepend">
-                <span class="input-group-text" style="background-color: #bcbcbc; border: none;">
-                  <i class="fas fa-search text-warning"></i>
-                </span>
-              </div>
-              <input class="form-control" id="searchHonorarioInput" type="text" placeholder="Buscar..." onkeyup="filterTable('tablaHonorarios', 'searchHonorarioInput')">
+              <span class="input-group-text icon-search"><i class="fas fa-search"></i></span>
+              <input class="form-control" id="searchHonorarioInput" type="text" placeholder="Buscar..." onkeyup="filterTable('tablaHonorarios','searchHonorarioInput')">
             </div>
           </div>
         </div>
-        <table class="table table-sm table-responsive table-striped table-hover" id="tablaHonorarios">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Cargo</th>
-              <th>Cohorte</th>
-              <th>Materia</th>
-              <th>Horas</th>
-              <th>Monto</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for honorario in honorarios %}
-              <tr data-id="{{ honorario.idHonorario }}" data-valor="{{ honorario.monto }}" data-nombre="{{ honorario.idCargo.nombreCargo }}" data-persona-id="honorario.idPersona.idPersona" >
-                <td>{{ honorario.idHonorario }}</td>
-                <td>{{ honorario.idCargo.nombreCargo }}</td>
-                <td>{{ honorario.idCohorte.nombreCohorte }}</td>
-                <td>{{ honorario.idMateria.nombreMateria }}</td>
-                <td>{{ honorario.horas }}</td>
-                <td>{{ honorario.monto }}</td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-        <p id="mensajeSinRegistrosHonorario" class="text-center text-muted" style="display: none;">No hay registros disponibles</p>
+        <div class="table-responsive">
+          <table class="table table-sm table-striped table-hover" id="tablaHonorarios">
+            <thead><tr><th>ID</th><th>Cargo</th><th>Cohorte</th><th>Materia</th><th>Horas</th><th>Monto</th></tr></thead>
+            <tbody>
+              {% for honorario in honorarios %}
+                <tr data-id="{{ honorario.idHonorario }}" data-valor="{{ honorario.monto }}" data-nombre="{{ honorario.idCargo.nombreCargo }}">
+                  <td>{{ honorario.idHonorario }}</td>
+                  <td>{{ honorario.idCargo.nombreCargo }}</td>
+                  <td>{{ honorario.idCohorte.nombreCohorte }}</td>
+                  <td>{{ honorario.idMateria.nombreMateria }}</td>
+                  <td>{{ honorario.horas }}</td>
+                  <td>{{ honorario.monto }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <p id="mensajeSinRegistrosHonorario" class="text-center text-muted" style="display:none;">No hay registros disponibles</p>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+        <button class="btn btn-secondary" data-dismiss="modal" type="button">Cerrar</button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Modal para seleccionar Solicitud -->
+<!-- Modal Solicitudes -->
 <div class="modal fade" id="solicitudModal" tabindex="-1" role="dialog" aria-labelledby="solicitudModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered" style="max-width: 550px;" role="document">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:550px;" role="document">
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title" id="solicitudModalLabel">Seleccionar Solicitud</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
+        <button class="close btn-close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
       </div>
       <div class="modal-body">
         <div class="row mb-3">
           <div class="col-md-8">
             <div class="input-group">
-              <div class="input-group-prepend">
-                <span class="input-group-text" style="background-color: #bcbcbc; border: none;">
-                  <i class="fas fa-search text-warning"></i>
-                </span>
-              </div>
-              <input class="form-control" id="searchSolicitudInput" type="text" placeholder="Buscar..." onkeyup="filterTable('tablaSolicitudes', 'searchSolicitudInput')">
+              <span class="input-group-text icon-search"><i class="fas fa-search"></i></span>
+              <input class="form-control" id="searchSolicitudInput" type="text" placeholder="Buscar..." onkeyup="filterTable('tablaSolicitudes','searchSolicitudInput')">
             </div>
           </div>
         </div>
-        <table class="table table-sm table-responsive table-striped table-hover" id="tablaSolicitudes">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Tramite</th>
-              <th>Servicio</th>
-              <th>Monto Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for solicitud in solicitudes %}
-              <tr data-id="{{ solicitud.idSoli }}" data-valor="{{ solicitud.montoTotal }}" data-nombre="{{ solicitud.idTramite.nombreTramite }} {{ solicitud.idServicio.nombreServicio }}" data-monto="{{ solicitud.montoTotal }}" data-persona-id="{{ solicitud.idPersona.idPersona }}">
-                <td>{{ solicitud.idSoli }}</td>
-                <td>{{ solicitud.idTramite.nombreTramite }}</td>
-                <td>{{ solicitud.idServicio.nombreServicio }}</td>
-                <td>{{ solicitud.montoTotal }}</td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-        <p id="mensajeSinRegistrosSolicitud" class="text-center text-muted" style="display: none;">No hay registros disponibles</p>
+        <div class="table-responsive">
+          <table class="table table-sm table-striped table-hover" id="tablaSolicitudes">
+            <thead><tr><th>ID</th><th>Tramite</th><th>Servicio</th><th>Monto Total</th></tr></thead>
+            <tbody>
+              {% for solicitud in solicitudes %}
+                <tr data-id="{{ solicitud.idSoli }}" data-valor="{{ solicitud.montoTotal }}" data-nombre="{{ solicitud.idTramite.nombreTramite }} {{ solicitud.idServicio.nombreServicio }}" data-monto="{{ solicitud.montoTotal }}" data-persona-id="{{ solicitud.idPersona.idPersona }}">
+                  <td>{{ solicitud.idSoli }}</td>
+                  <td>{{ solicitud.idTramite.nombreTramite }}</td>
+                  <td>{{ solicitud.idServicio.nombreServicio }}</td>
+                  <td>{{ solicitud.montoTotal }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <p id="mensajeSinRegistrosSolicitud" class="text-center text-muted" style="display:none;">No hay registros disponibles</p>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+        <button class="btn btn-secondary" data-dismiss="modal" type="button">Cerrar</button>
       </div>
     </div>
   </div>
 </div>
 
-
-<!-- Modal para seleccionar Plan de Cuenta (Debe) -->
+<!-- Plan de cuenta (Debe) -->
 <div class="modal fade" id="planCuentaDebeModal" tabindex="-1" role="dialog" aria-labelledby="planCuentaDebeModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered" role="document">
     <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="planCuentaDebeModalLabel">Seleccionar Plan de Cuenta (Debe)</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
+      <div class="modal-header"><h5 class="modal-title" id="planCuentaDebeModalLabel">Seleccionar Plan de Cuenta (Debe)</h5>
+        <button class="close btn-close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button></div>
       <div class="modal-body">
-        <div class="row mb-3">
-          <div class="col-md-8">
-            <div class="input-group">
-              <div class="input-group-prepend">
-                <span class="input-group-text" style="background-color: #bcbcbc; border: none;">
-                  <i class="fas fa-search text-warning"></i>
-                </span>
-              </div>
-              <input class="form-control" id="searchPlanCuentaDebeInput" type="text" placeholder="Buscar..." onkeyup="filterTable('tablaPlanCuentaDebe', 'searchPlanCuentaDebeInput')">
-            </div>
-          </div>
-        </div>
-        <table class="table table-sm table-responsive table-striped table-hover" id="tablaPlanCuentaDebe">
-          <thead>
-            <tr>
-              <th>Código</th>
-              <th>Nombre</th>
+        <div class="row mb-3"><div class="col-md-8"><div class="input-group"><span class="input-group-text icon-search"><i class="fas fa-search"></i></span><input class="form-control" id="searchPlanCuentaDebeInput" type="text" placeholder="Buscar..." onkeyup="filterTable('tablaPlanCuentaDebe','searchPlanCuentaDebeInput')"></div></div></div>
+        <div class="table-responsive"><table class="table table-sm table-striped table-hover" id="tablaPlanCuentaDebe"><thead><tr><th>Código</th><th>Nombre</th></tr></thead><tbody>
+          {% for cuenta in cuentas_plan %}
+            <tr data-id="{{ cuenta.idPlanCuenta }}" data-nombre="{{ cuenta.codigoPlanCuenta }} - {{ cuenta.nombrePlanCuenta }}">
+              <td>{{ cuenta.codigoPlanCuenta }}</td><td>{{ cuenta.nombrePlanCuenta }}</td>
             </tr>
-          </thead>
-          <tbody>
-            {% for cuenta in cuentas_plan %}
-              <tr data-id="{{ cuenta.idPlanCuenta }}" data-nombre="{{ cuenta.codigoPlanCuenta }} - {{ cuenta.nombrePlanCuenta }}">
-                <td>{{ cuenta.codigoPlanCuenta }}</td>
-                <td>{{ cuenta.nombrePlanCuenta }}</td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-        <p id="mensajeSinRegistrosDebe" class="text-center text-muted" style="display: none;">No hay registros disponibles</p>
+          {% endfor %}
+        </tbody></table></div>
+        <p id="mensajeSinRegistrosDebe" class="text-center text-muted" style="display:none;">No hay registros disponibles</p>
       </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
-      </div>
+      <div class="modal-footer"><button class="btn btn-secondary" data-dismiss="modal" type="button">Cerrar</button></div>
     </div>
   </div>
 </div>
 
-<!-- Modal para seleccionar Plan de Cuenta (Haber) -->
+<!-- Plan de cuenta (Haber) -->
 <div class="modal fade" id="planCuentaHaberModal" tabindex="-1" role="dialog" aria-labelledby="planCuentaHaberModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered" role="document">
     <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="planCuentaHaberModalLabel">Seleccionar Plan de Cuenta (Haber)</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
+      <div class="modal-header"><h5 class="modal-title" id="planCuentaHaberModalLabel">Seleccionar Plan de Cuenta (Haber)</h5>
+        <button class="close btn-close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button></div>
       <div class="modal-body">
-        <div class="row mb-3">
-          <div class="col-md-8">
-            <div class="input-group">
-              <div class="input-group-prepend">
-                <span class="input-group-text" style="background-color: #bcbcbc; border: none;">
-                  <i class="fas fa-search text-warning"></i>
-                </span>
-              </div>
-              <input class="form-control" id="searchPlanCuentaHaberInput" type="text" placeholder="Buscar..." onkeyup="filterTable('tablaPlanCuentaHaber', 'searchPlanCuentaHaberInput')">
-            </div>
-          </div>
-        </div>
-        <table class="table table-sm table-responsive table-striped table-hover" id="tablaPlanCuentaHaber">
-          <thead>
-            <tr>
-              <th>Código</th>
-              <th>Nombre</th>
+        <div class="row mb-3"><div class="col-md-8"><div class="input-group"><span class="input-group-text icon-search"><i class="fas fa-search"></i></span><input class="form-control" id="searchPlanCuentaHaberInput" type="text" placeholder="Buscar..." onkeyup="filterTable('tablaPlanCuentaHaber','searchPlanCuentaHaberInput')"></div></div></div>
+        <div class="table-responsive"><table class="table table-sm table-striped table-hover" id="tablaPlanCuentaHaber"><thead><tr><th>Código</th><th>Nombre</th></tr></thead><tbody>
+          {% for cuenta in cuentas_plan %}
+            <tr data-id="{{ cuenta.idPlanCuenta }}" data-nombre="{{ cuenta.codigoPlanCuenta }} - {{ cuenta.nombrePlanCuenta }}">
+              <td>{{ cuenta.codigoPlanCuenta }}</td><td>{{ cuenta.nombrePlanCuenta }}</td>
             </tr>
-          </thead>
-          <tbody>
-            {% for cuenta in cuentas_plan %}
-              <tr data-id="{{ cuenta.idPlanCuenta }}" data-nombre="{{ cuenta.codigoPlanCuenta }} - {{ cuenta.nombrePlanCuenta }}">
-                <td>{{ cuenta.codigoPlanCuenta }}</td>
-                <td>{{ cuenta.nombrePlanCuenta }}</td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-        <p id="mensajeSinRegistrosHaber" class="text-center text-muted" style="display: none;">No hay registros disponibles</p>
+          {% endfor %}
+        </tbody></table></div>
+        <p id="mensajeSinRegistrosHaber" class="text-center text-muted" style="display:none;">No hay registros disponibles</p>
       </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
-      </div>
+      <div class="modal-footer"><button class="btn btn-secondary" data-dismiss="modal" type="button">Cerrar</button></div>
     </div>
   </div>
 </div>
 
-<!-- Modal para Detalles de la Factura -->
+<!-- Modal Detalle Nota -->
 <div class="modal fade" id="detalleFacturaModal" tabindex="-1" role="dialog" aria-labelledby="detalleFacturaModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered" role="document">
     <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="detalleFacturaModalLabel">Detalles de la Nota</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
-      <div class="modal-body" id="detalleFacturaModalBody">
-        <!-- Los detalles de la factura se llenarán dinámicamente -->
-      </div>
-      <div class="modal-footer">
-        <button type="button" id="okButton" class="btn btn-secondary" data-dismiss="modal">OK</button>
-        <!-- <button type="button" id="modificarButton" class="btn btn-warning">Modificar Detalles</button> -->
-      </div>
+      <div class="modal-header"><h5 class="modal-title" id="detalleFacturaModalLabel">Detalles de la Nota</h5><button class="close btn-close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button></div>
+      <div class="modal-body" id="detalleFacturaModalBody"><!-- dinámico --></div>
+      <div class="modal-footer"><button id="okButton" class="btn btn-secondary" data-dismiss="modal" type="button">OK</button></div>
     </div>
   </div>
 </div>
 
-
 {% endblock content %}
+
+
 {% block javascripts %}
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   let parametrosTributarios = {};
@@ -1528,8 +1592,6 @@ toggleReadonlyButton.addEventListener('click', () => {
     });
   }
 });
-
-
 
 
 document.addEventListener('DOMContentLoaded', function () {

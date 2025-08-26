@@ -1,108 +1,277 @@
 {% extends 'layouts/base2.html' %}
+{% load static %}
 
 {% block title %}Registrar Banco{% endblock title %}
 {% block stylesheets %}
-<link rel="stylesheet" href="/static/assets/css/styleForms.css" />
-<link rel="stylesheet" href="/static/assets/css/argon.css" />
+<link rel="stylesheet" href="{% static 'assets/css/styleForms.css' %}" />
+<link rel="stylesheet" href="{% static 'assets/css/argon.css' %}" />
+<style>
+  .banco-container {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 1rem;
+    box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.1);
+    padding: 2rem;
+    margin: 2rem auto;
+    max-width: 700px;
+  }
+  
+  .banco-header {
+    text-align: center;
+    margin-bottom: 2rem;
+    position: relative;
+    padding-bottom: 1rem;
+  }
+  
+  .banco-header h2 {
+    color: #343a40;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+  }
+  
+  .banco-header::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80px;
+    height: 4px;
+    background: linear-gradient(90deg, #ffc107, #fd7e14);
+    border-radius: 2px;
+  }
+  
+  .form-group {
+    margin-bottom: 1.5rem;
+    position: relative;
+  }
+  
+  .form-label {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+  }
+  
+  .form-label i {
+    margin-right: 8px;
+    color: #fd7e14;
+  }
+  
+  .form-control {
+    border-radius: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    border: 1px solid #ced4da;
+    background-color: #fff;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.075);
+    transition: all 0.3s;
+  }
+  
+  .form-control:focus {
+    border-color: #ffc107;
+    box-shadow: 0 0 0 0.25rem rgba(255,193,7,0.25);
+  }
+  
+  .input-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6c757d;
+    z-index: 2;
+  }
+  
+  .input-with-icon {
+    padding-left: 40px;
+  }
+  
+  .btn-submit {
+    background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+    border: none;
+    color: #fff;
+    font-weight: 600;
+    padding: 0.75rem 2rem;
+    border-radius: 0.5rem;
+    transition: all 0.3s;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+    width: 200px;
+  }
+  
+  .btn-submit:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    background: linear-gradient(135deg, #fd7e14 0%, #ffc107 100%);
+  }
+  
+  .btn-submit i {
+    margin-right: 8px;
+  }
+  
+  .input-group-btn .btn {
+    border-radius: 0 0.5rem 0.5rem 0;
+    background: #ffc107;
+    color: #343a40;
+    border: 1px solid #ced4da;
+    border-left: none;
+  }
+</style>
 {% endblock stylesheets %}
 
 {% block content %}
-<div class="container mt-5">
-  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Registrar Banco</h2>
+<div class="mt-4">
+  <div class="banco-container">
+    <div class="banco-header">
+      <h2><i class="fas fa-university text-warning"></i> Registrar Banco</h2>
+      <p class="text-muted">Complete todos los campos para registrar un nuevo banco</p>
+    </div>
 
-  <form method="POST" class="mt-3 text-dark needs-validation" autocomplete="off" style="font-weight: bold; max-width: 600px; margin: 0 auto;" id="bancoForm" action="{% url 'banco_create' %}" novalidate>
-    {% csrf_token %}
-    <div class="form-row">
-      <div class="form-group col-md-12">
-        <label for="cuentaPadre">Cuenta Contable Padre:</label>
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+          <div class="d-flex align-items-center">
+            <i class="fas {% if message.tags == 'success' %}fa-check-circle{% else %}fa-exclamation-circle{% endif %} me-2"></i>
+            <div>{{ message }}</div>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+      {% endfor %}
+    {% endif %}
+
+    <form method="POST" autocomplete="off" id="bancoForm" action="{% url 'banco_create' %}" novalidate>
+      {% csrf_token %}
+      
+      <div class="form-group">
+        <label for="cuentaPadre" class="form-label">
+          <i class="fas fa-file-invoice-dollar"></i> Cuenta Contable Padre
+        </label>
         <div class="input-group">
-          <input type="text" id="cuentaPadre" class="form-control text-dark" placeholder="Seleccione una cuenta contable" readonly required />
-          <button type="button" id="buscarCuentaPadre" class="btn btn-warning" data-toggle="modal" data-target="#cuentaPadreModal">
+          <i class="fas fa-search input-icon"></i>
+          <input type="text" id="cuentaPadre" class="form-control input-with-icon" placeholder="Seleccione una cuenta contable" readonly required />
+          <button type="button" id="buscarCuentaPadre" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#cuentaPadreModal">
             <i class="fas fa-search"></i>
           </button>
-          <div class="invalid-feedback">
-            Por favor seleccione una cuenta contable válida.
-          </div>
         </div>
         <input type="hidden" id="cuentaPadreId" name="cuentaPadre" />
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="form-group col-md-6">
-        <label for="codLocalBanco">Código Local:</label>
-        <input type="text" id="codLocalBanco" name="codLocalBanco" class="form-control text-dark" placeholder="Ingrese el código local" maxlength="10" required />
         <div class="invalid-feedback">
-          Por favor ingrese un código local válido.
+          Por favor seleccione una cuenta contable válida.
         </div>
       </div>
-      <div class="form-group col-md-6">
-        <label for="codSwiftBanco">Código SWIFT:</label>
-        <input type="text" id="codSwiftBanco" name="codSwiftBanco" class="form-control text-dark" placeholder="Ingrese el código SWIFT" maxlength="11" required />
-        <div class="invalid-feedback">
-          Por favor ingrese un código SWIFT válido.
+
+      <div class="row">
+        <div class="col-md-6">
+          <div class="form-group">
+            <label for="codLocalBanco" class="form-label">
+              <i class="fas fa-hashtag"></i> Código Local
+            </label>
+            <div class="input-group">
+              <i class="fas fa-barcode input-icon"></i>
+              <input type="text" id="codLocalBanco" name="codLocalBanco" 
+                     class="form-control input-with-icon" 
+                     placeholder="Ej: 0102" maxlength="10" required />
+            </div>
+            <div class="invalid-feedback">
+              Por favor ingrese un código local válido.
+            </div>
+          </div>
+        </div>
+        
+        <div class="col-md-6">
+          <div class="form-group">
+            <label for="codSwiftBanco" class="form-label">
+              <i class="fas fa-globe"></i> Código SWIFT
+            </label>
+            <div class="input-group">
+              <i class="fas fa-barcode input-icon"></i>
+              <input type="text" id="codSwiftBanco" name="codSwiftBanco" 
+                     class="form-control input-with-icon" 
+                     placeholder="Ej: BACVVEMM" maxlength="11" required />
+            </div>
+            <div class="invalid-feedback">
+              Por favor ingrese un código SWIFT válido.
+            </div>
+          </div>
         </div>
       </div>
-    </div>
-    <div class="form-row">
-      <div class="form-group col-md-12">
-        <label for="nombreBanco">Nombre del Banco:</label>
-        <input type="text" id="nombreBanco" name="nombreBanco" class="form-control text-dark" placeholder="Ingrese el nombre del banco" maxlength="100" required />
+
+      <div class="form-group">
+        <label for="nombreBanco" class="form-label">
+          <i class="fas fa-building"></i> Nombre del Banco
+        </label>
+        <div class="input-group">
+          <i class="fas fa-font input-icon"></i>
+          <input type="text" id="nombreBanco" name="nombreBanco" 
+                 class="form-control input-with-icon" 
+                 placeholder="Ej: Banco de Venezuela" maxlength="100" required />
+        </div>
         <div class="invalid-feedback">
           Por favor ingrese un nombre válido.
         </div>
       </div>
-    </div>
-    <div class="text-center">
-      <input type="submit" class="btn btn-warning mt-4" value="Guardar" />
-    </div>
-  </form>
+
+      <div class="text-center mt-4">
+        <button type="submit" class="btn-submit">
+          <i class="fas fa-save me-2"></i> Guardar
+        </button>
+      </div>
+    </form>
+  </div>
 </div>
 
 <!-- Modal para buscar cuenta contable -->
 <div class="modal fade" id="cuentaPadreModal" tabindex="-1" role="dialog" aria-labelledby="cuentaPadreModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered" role="document">
+  <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
     <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="cuentaPadreModalLabel">Seleccionar Cuenta Contable</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title" id="cuentaPadreModalLabel">
+          <i class="fas fa-search mr-2"></i> Seleccionar Cuenta Contable
+        </h5>
+        <button type="button" class="btn-close text-white" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
-        <div class="row mb-3">
-          <div class="col-md-8">
-            <div class="input-group">
-              <div class="input-group-prepend">
-                <span class="input-group-text" style="background-color: #bcbcbc; border: none;">
-                  <i class="fas fa-search text-warning"></i>
-                </span>
-              </div>
-              <input class="form-control" id="searchModalInput" type="text" placeholder="Buscar..." onkeyup="filterModalTable()">
-            </div>
+        <div class="input-group mb-3">
+          <div class="input-group-prepend">
+            <span class="input-group-text bg-light">
+              <i class="fas fa-search text-warning"></i>
+            </span>
           </div>
+          <input class="form-control" id="searchModalInput" type="text" placeholder="Buscar cuenta...">
         </div>
-        <table class="table table-sm table-responsive table-striped table-hover" id="tablaCuentas">
-          <thead>
-            <tr>
-              <th style="width: 10%;">Código</th>
-              <th style="width: 20%;">Nombre</th>
-              <th style="width: 10%;">Nivel</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for cuenta in planes %}
-              <tr data-id="{{ cuenta.idPlanCuenta }}" data-nombre="{{ cuenta.codigoPlanCuenta }} - {{ cuenta.nombrePlanCuenta }}">
-                <td>{{ cuenta.codigoPlanCuenta }}</td>
-                <td>{{ cuenta.nombrePlanCuenta }}</td>
-                <td>{{ cuenta.nivelPlanCuenta }}</td>
+        <div class="table-responsive">
+          <table class="table table-sm table-striped table-hover" id="tablaCuentas">
+            <thead class="bg-light">
+              <tr>
+                <th style="width: 15%;">Código</th>
+                <th style="width: 60%;">Nombre</th>
+                <th style="width: 10%;">Nivel</th>
+                <th style="width: 15%;">Seleccionar</th>
               </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-        <p id="mensajeSinRegistros" class="text-center text-muted" style="display: none;">No hay registros disponibles</p>
+            </thead>
+            <tbody>
+              {% for cuenta in planes %}
+                <tr data-id="{{ cuenta.idPlanCuenta }}" data-nombre="{{ cuenta.codigoPlanCuenta }} - {{ cuenta.nombrePlanCuenta }}">
+                  <td>{{ cuenta.codigoPlanCuenta }}</td>
+                  <td>{{ cuenta.nombrePlanCuenta }}</td>
+                  <td>{{ cuenta.nivelPlanCuenta }}</td>
+                  <td>
+                    <button class="btn btn-sm btn-warning btn-select">
+                      <i class="fas fa-check"></i> Elegir
+                    </button>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <p id="mensajeSinRegistros" class="text-center text-muted my-4" style="display: none;">
+          <i class="fas fa-info-circle mr-2"></i> No se encontraron registros
+        </p>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
       </div>
     </div>
   </div>
@@ -110,150 +279,44 @@
 {% endblock content %}
 
 {% block javascripts %}
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script>
-  document.addEventListener('DOMContentLoaded', function () {
-    const bancoForm = document.getElementById('bancoForm');
-    const cuentaPadreInput = document.getElementById('cuentaPadre');
-    const cuentaPadreIdInput = document.getElementById('cuentaPadreId');
-    const tablaCuentas = document.getElementById('tablaCuentas');
+  <script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
+  <script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const cuentaPadreInput = document.getElementById('cuentaPadre');
+      const cuentaPadreIdInput = document.getElementById('cuentaPadreId');
+      const tablaCuentas = document.getElementById('tablaCuentas');
+      const searchModalInput = document.getElementById('searchModalInput');
 
-    // Manejar el clic en las filas de la tabla
-    tablaCuentas.addEventListener('click', function (event) {
-      const fila = event.target.closest('tr');
-      if (fila) {
-        const cuentaId = fila.getAttribute('data-id');
-        const cuentaNombre = fila.getAttribute('data-nombre');
+      // Manejar clic en botón de selección
+      tablaCuentas.addEventListener('click', function (event) {
+        if (event.target.classList.contains('btn-select')) {
+          const fila = event.target.closest('tr');
+          const cuentaId = fila.getAttribute('data-id');
+          const cuentaNombre = fila.getAttribute('data-nombre');
+          
+          cuentaPadreInput.value = cuentaNombre;
+          cuentaPadreIdInput.value = cuentaId;
+          cuentaPadreInput.classList.remove('is-invalid');
+          cuentaPadreInput.classList.add('is-valid');
+          
+          // Cerrar el modal
+          const modal = bootstrap.Modal.getInstance(document.getElementById('cuentaPadreModal'));
+          modal.hide();
+        }
+      });
 
-        cuentaPadreInput.value = cuentaNombre;
-        cuentaPadreIdInput.value = cuentaId;
-
-        cuentaPadreInput.classList.remove('is-invalid');
-        cuentaPadreInput.classList.add('is-valid');
-
-        $('#cuentaPadreModal').modal('hide');
-      }
-    });
-
-    // Manejar el envío del formulario con AJAX
-    bancoForm.addEventListener('submit', function (event) {
-      event.preventDefault();
-
-      let isValid = true;
-
-//NOTA, ESTA VALIDACION DE CAMPOS ESPECIFICOS DEBE IR SIEMPRE DESPUES DEL PREVENTDEFAULT Y ANTES DEL AJAX
-    // Validar que se haya seleccionado una cuenta contable
-    if (!cuentaPadreIdInput.value) {
-      cuentaPadreInput.classList.add('is-invalid');
-      isValid = false;
-    } else {
-      cuentaPadreInput.classList.remove('is-invalid');
-      cuentaPadreInput.classList.add('is-valid');
-    }
-
-  // Validar el campo Código Local
-  const codLocalBancoInput = document.getElementById('codLocalBanco');
-  if (!codLocalBancoInput.value.trim() || codLocalBancoInput.value.length > 10) {
-    codLocalBancoInput.classList.add('is-invalid');
-    isValid = false;
-  } else {
-    codLocalBancoInput.classList.remove('is-invalid');
-    codLocalBancoInput.classList.add('is-valid');
-  }
-
-  // Validar el campo Código SWIFT
-  const codSwiftBancoInput = document.getElementById('codSwiftBanco');
-  if (!codSwiftBancoInput.value.trim() || codSwiftBancoInput.value.length > 11) {
-    codSwiftBancoInput.classList.add('is-invalid');
-    isValid = false;
-  } else {
-    codSwiftBancoInput.classList.remove('is-invalid');
-    codSwiftBancoInput.classList.add('is-valid');
-  }
-
-  // Validar el campo Nombre del Banco
-  const nombreBancoInput = document.getElementById('nombreBanco');
-  if (!nombreBancoInput.value.trim() || nombreBancoInput.value.length > 100) {
-    nombreBancoInput.classList.add('is-invalid');
-    isValid = false;
-  } else {
-    nombreBancoInput.classList.remove('is-invalid');
-    nombreBancoInput.classList.add('is-valid');
-  }
-
-    // Si no es válido, detener el proceso
-    if (!isValid) {
-      return;
-    }
-      const formData = new FormData(bancoForm);
-
-      fetch(bancoForm.action, {
-        method: 'POST',
-        body: formData,
-        headers: {
-          'X-Requested-With': 'XMLHttpRequest',
-        },
-      })
-        .then((response) => response.json())
-        .then((data) => {
-          if (data.success) {
-            Swal.fire({
-              icon: 'success',
-              title: 'Registro exitoso',
-              text: data.message,
-              confirmButtonText: 'Aceptar',
-              customClass: {
-                confirmButton: 'btn btn-warning',
-              },
-              buttonsStyling: false,
-            }).then(() => {
-              if (data.redirect_url) {
-                window.location.href = data.redirect_url;
-              }
-            });
-          } else {
-            Swal.fire({
-              icon: 'error',
-              title: 'Error en el registro',
-              html: Object.values(data.errors)
-                .map((error) => `<p>${error}</p>`)
-                .join(''),
-              confirmButtonText: 'Aceptar',
-              customClass: {
-                confirmButton: 'btn btn-warning',
-              },
-              buttonsStyling: false,
-            });
-          }
-        })
-        .catch((error) => {
-          console.error('Error:', error);
-          Swal.fire({
-            icon: 'error',
-            title: 'Error inesperado',
-            text: 'Ocurrió un error al procesar la solicitud.',
-            confirmButtonText: 'Aceptar',
-            customClass: {
-              confirmButton: 'btn btn-warning',
-            },
-            buttonsStyling: false,
-          });
-        });
-    });
-
-    // Filtrar las cuentas en el modal
-    window.filterModalTable = function () {
-      const input = document.getElementById('searchModalInput');
-      const filter = input.value.toUpperCase();
-      const rows = tablaCuentas.getElementsByTagName('tr');
-
-      let visibleRows = 0;
-      for (let i = 0; i < rows.length; i++) {
-        const cells = rows[i].getElementsByTagName('td');
-        if (cells.length > 0) {
+      // Filtrar cuentas en el modal
+      searchModalInput.addEventListener('keyup', function() {
+        const filter = this.value.toUpperCase();
+        const rows = tablaCuentas.getElementsByTagName('tr');
+        let visibleRows = 0;
+        
+        for (let i = 1; i < rows.length; i++) {
+          const cells = rows[i].getElementsByTagName('td');
           const codigo = cells[0].textContent || cells[0].innerText;
           const nombre = cells[1].textContent || cells[1].innerText;
-
+          
           if (codigo.toUpperCase().indexOf(filter) > -1 || nombre.toUpperCase().indexOf(filter) > -1) {
             rows[i].style.display = '';
             visibleRows++;
@@ -261,13 +324,41 @@
             rows[i].style.display = 'none';
           }
         }
-      }
+        
+        const mensaje = document.getElementById('mensajeSinRegistros');
+        mensaje.style.display = visibleRows === 0 ? 'block' : 'none';
+      });
 
-      const mensajeSinRegistros = document.getElementById('mensajeSinRegistros');
-      mensajeSinRegistros.style.display = visibleRows === 0 ? 'block' : 'none';
-    };
-
-    
-  });
-</script>
+      // Validar formulario antes de enviar
+      const bancoForm = document.getElementById('bancoForm');
+      bancoForm.addEventListener('submit', function (event) {
+        let valid = true;
+        
+        if (!cuentaPadreIdInput.value) {
+          cuentaPadreInput.classList.add('is-invalid');
+          valid = false;
+        }
+        
+        if (!document.getElementById('codLocalBanco').value) {
+          document.getElementById('codLocalBanco').classList.add('is-invalid');
+          valid = false;
+        }
+        
+        if (!document.getElementById('codSwiftBanco').value) {
+          document.getElementById('codSwiftBanco').classList.add('is-invalid');
+          valid = false;
+        }
+        
+        if (!document.getElementById('nombreBanco').value) {
+          document.getElementById('nombreBanco').classList.add('is-invalid');
+          valid = false;
+        }
+        
+        if (!valid) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      }, false);
+    });
+  </script>
 {% endblock javascripts %}

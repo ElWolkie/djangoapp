@@ -52,7 +52,7 @@
 <nav class="sidenav navbar navbar-vertical  fixed-left  navbar-expand-xs navbar-light bg-white" id="sidenav-main">
   <div class="scrollbar-inner">
     <div class="sidenav-header align-items-center">
-      <a class="navbar-brand" href="/">
+      <a class="navbar-brand" href="{% url 'contabilidad' %}">
         <img src="{% static 'assets/img/brand/SACFU.png' %}" class="navbar-brand-img" alt="Logo" style="width: 110px; height: auto;">
       </a>
       <div style="background-color: rgb(240, 128, 0); color: rgb(25, 25, 117); border-radius: 30px; padding: 1%; text-align: center; margin-top: 0px; width: 80%; margin-left: auto; margin-right: auto; position: relative;"></div>
@@ -126,6 +126,7 @@
                 </ul>
               </div>
             </li>
+            
             {% if perms.empresa.add_empresa or perms.empresa.view_empresa or perms.empresa.change_empresa or perms.empresa.delete_empresa %}
             <li class="nav-item">
               <a class="nav-link" href="{% url 'empresa_list' %}">
@@ -134,6 +135,7 @@
               </a>
             </li>
             {% endif %}
+
             {% if perms.cuentaBanco.add_banco or perms.cuentaBanco.view_banco or perms.cuentaBanco.change_banco or perms.cuentaBanco.delete_banco %}
             <li class="nav-item">
               <a class="nav-link" href="#" id="bancoDropdown" data-toggle="collapse" data-target="#bancoMenu" aria-expanded="false" aria-controls="bancoMenu">
@@ -159,9 +161,14 @@
                 </a>
               </li>
               {% endif %}
+
+              <!-- Divider -->
+              <hr class="my-1">
+              <!-- Divider -->
+
               {% if perms.cuentaBanco.add_cuentabanco or perms.cuentaBanco.view_cuentabanco or perms.cuentaBanco.change_cuentabanco or perms.cuentaBanco.delete_cuentabanco %}
               <li class="nav-item">
-                <a class="nav-link" href="#" id="cuentaBancoDropdown" data-toggle="collapse" data-target="#cuentaBancoMenu" aria-expanded="false" aria-controls="cuentaBancoMenu">
+                <a class="nav-link" href="#" id="cuentaBancoDropdown" data-toggle="collapse" data-target="#cuentaBancoMenu" aria-expanded="false" aria-controls="cuentaBancoMenu" style="padding-left: 15px;">
                   <i class="ni ni-archive-2 text-orange"></i>
                   <span class="nav-link-text">Cuentas</span>
                 </a>
@@ -264,8 +271,9 @@
           </ul>
         </div>
       </li>
-      {% endif %}     
+      {% endif %}
 
+      {% if perms.saldoContable.add_saldocontable or perms.saldoContable.view_saldocontable or perms.saldoContable.change_saldocontable or perms.saldoContable.delete_saldocontable %}
       <li class="nav-item">
         <a class="nav-link" href="#" id="saldoContableDropdown" data-toggle="collapse" data-target="#saldoContableMenu" aria-expanded="false" aria-controls="saldoContableMenu">
           <i class="ni ni-chart-bar-32 text-orange"></i>
@@ -273,21 +281,28 @@
         </a>
         <div id="saldoContableMenu" class="collapse ml-3">
           <ul class="nav flex-column">
+        {% if perms.saldoContable.add_saldocontable %}
         <li class="nav-item">
           <a class="nav-link" href="{% url 'saldo_contable_create' %}" style="padding-left: 15px;">
             <i class="ni ni-fat-add text-orange"></i>
             <span class="nav-link-text">Registrar
           </a>
         </li>
+        {% endif %}
+
+        {% if perms.saldoContable.add_saldocontable or perms.saldoContable.view_saldocontable or perms.saldoContable.change_saldocontable or perms.saldoContable.delete_saldocontable %}
         <li class="nav-item">
           <a class="nav-link" href="{% url 'saldo_contable_list' %}" style="padding-left: 15px;">
             <i class="ni ni-bullet-list-67 text-orange"></i>
             <span class="nav-link-text">Consultar
           </a>
         </li>
+        {% endif %}
+        {% endif %}
           </ul>
         </div>
       </li>
+
       <li class="nav-item">
         <a class="nav-link" href="#" id="librosContablesDropdown" data-toggle="collapse" data-target="#librosContablesMenu" aria-expanded="false" aria-controls="librosContablesMenu">
           <i class="ni ni-books text-orange"></i>
