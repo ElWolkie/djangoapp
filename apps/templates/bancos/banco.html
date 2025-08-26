@@ -20,11 +20,11 @@
           <button type="button" id="buscarCuentaPadre" class="btn btn-warning" data-toggle="modal" data-target="#cuentaPadreModal">
             <i class="fas fa-search"></i>
           </button>
+          <div class="invalid-feedback">
+            Por favor seleccione una cuenta contable válida.
+          </div>
         </div>
         <input type="hidden" id="cuentaPadreId" name="cuentaPadre" />
-        <div class="invalid-feedback">
-          Por favor seleccione una cuenta contable válida.
-        </div>
       </div>
     </div>
     <div class="form-row">
@@ -139,6 +139,52 @@
     bancoForm.addEventListener('submit', function (event) {
       event.preventDefault();
 
+      let isValid = true;
+
+//NOTA, ESTA VALIDACION DE CAMPOS ESPECIFICOS DEBE IR SIEMPRE DESPUES DEL PREVENTDEFAULT Y ANTES DEL AJAX
+    // Validar que se haya seleccionado una cuenta contable
+    if (!cuentaPadreIdInput.value) {
+      cuentaPadreInput.classList.add('is-invalid');
+      isValid = false;
+    } else {
+      cuentaPadreInput.classList.remove('is-invalid');
+      cuentaPadreInput.classList.add('is-valid');
+    }
+
+  // Validar el campo Código Local
+  const codLocalBancoInput = document.getElementById('codLocalBanco');
+  if (!codLocalBancoInput.value.trim() || codLocalBancoInput.value.length > 10) {
+    codLocalBancoInput.classList.add('is-invalid');
+    isValid = false;
+  } else {
+    codLocalBancoInput.classList.remove('is-invalid');
+    codLocalBancoInput.classList.add('is-valid');
+  }
+
+  // Validar el campo Código SWIFT
+  const codSwiftBancoInput = document.getElementById('codSwiftBanco');
+  if (!codSwiftBancoInput.value.trim() || codSwiftBancoInput.value.length > 11) {
+    codSwiftBancoInput.classList.add('is-invalid');
+    isValid = false;
+  } else {
+    codSwiftBancoInput.classList.remove('is-invalid');
+    codSwiftBancoInput.classList.add('is-valid');
+  }
+
+  // Validar el campo Nombre del Banco
+  const nombreBancoInput = document.getElementById('nombreBanco');
+  if (!nombreBancoInput.value.trim() || nombreBancoInput.value.length > 100) {
+    nombreBancoInput.classList.add('is-invalid');
+    isValid = false;
+  } else {
+    nombreBancoInput.classList.remove('is-invalid');
+    nombreBancoInput.classList.add('is-valid');
+  }
+
+    // Si no es válido, detener el proceso
+    if (!isValid) {
+      return;
+    }
       const formData = new FormData(bancoForm);
 
       fetch(bancoForm.action, {
@@ -220,6 +266,8 @@
       const mensajeSinRegistros = document.getElementById('mensajeSinRegistros');
       mensajeSinRegistros.style.display = visibleRows === 0 ? 'block' : 'none';
     };
+
+    
   });
 </script>
 {% endblock javascripts %}

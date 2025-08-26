@@ -477,13 +477,7 @@ document.addEventListener("DOMContentLoaded", function() {
   handleFormSubmit('#formacionForm', '#formacionModal');
   handleFormSubmit('#editFormacionForm', '#editFormacionModal');
 
-  $('#searchInput').on('keyup', function() {
-    const filter = this.value.toUpperCase();
-    $('#formacionesTable tbody tr').each(function() {
-      $(this).toggle($(this).text().toUpperCase().includes(filter));
-    });
-  });
-
+ 
   window.manageFormacion = function(id, action) {
     const isDelete = action === 'delete';
     const url = isDelete 
@@ -604,6 +598,17 @@ document.addEventListener("DOMContentLoaded", function() {
       }
     });
   }
+  const searchInput = document.getElementById("searchInput");
+
+  searchInput.addEventListener("keyup", function () {
+    const filter = searchInput.value.toUpperCase();
+    const rows = table.querySelectorAll("tbody tr");
+
+    rows.forEach((row) => {
+      const text = row.textContent || row.innerText;
+      row.style.display = text.toUpperCase().includes(filter) ? "" : "none";
+    });
+  });
 });
 </script>
 <script>
