@@ -16,6 +16,8 @@ const { width } = Dimensions.get('window');
 
 type RootStackParamList = {
   Personas: undefined;
+  Formaciones: undefined;
+  TipoFormaciones: undefined;
   // Agrega aquí otras pantallas si es necesario
 };
 

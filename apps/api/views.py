@@ -1,6 +1,6 @@
 from rest_framework import generics
-from apps.home.models import Personas, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Denominacion, Banco, Moneda, Tasa, TipoIngreso
-from .serializers import PersonaSerializer, TipoPersonaSerializer, PersonaTPSerializer, MateriaSerializer, CohorteSerializer, CargoSerializer, HonorarioSerializer, RequisitoSerializer, ServicioSerializer, TramiteSerializer, SolicitudSerializer, DenominacionSerializer, BancoSerializer, MonedaSerializer, TasaSerializer, TipoIngresoSerializer  # Importa ambos serializadores
+from apps.home.models import Personas, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Denominacion, Banco, Moneda, Tasa, TipoIngreso, Formacion, TipoFormacion
+from .serializers import PersonaSerializer, TipoPersonaSerializer, PersonaTPSerializer, FormacionSerializer, TPFormacionSerializer, MateriaSerializer, CohorteSerializer, CargoSerializer, HonorarioSerializer, RequisitoSerializer, ServicioSerializer, TramiteSerializer, SolicitudSerializer, DenominacionSerializer, BancoSerializer, MonedaSerializer, TasaSerializer, TipoIngresoSerializer  # Importa ambos serializadores
 from apps.persona.models import PersonaTP, TipoPersona
 from apps.honorario.models import Honorario
 from apps.solicitud.models import Solicitud
@@ -24,6 +24,16 @@ class PersonaTPListCreate(generics.ListCreateAPIView):
 class PersonaRetrieveUpdateDestroy(generics.RetrieveUpdateDestroyAPIView):
     queryset = Personas.objects.all()  # Usa el modelo Personas
     serializer_class = PersonaSerializer  # Usa el serializador PersonaSerializer
+
+# Vista para Formacion
+class FormacionListCreate(generics.ListCreateAPIView):
+    queryset = Formacion.objects.all()  # Usa el modelo Formacion
+    serializer_class = FormacionSerializer  # Usa el serializador Formacion
+
+# Vista para Formacion
+class TPFormacionListCreate(generics.ListCreateAPIView):
+    queryset = TipoFormacion.objects.all()  # Usa el modelo Formacion
+    serializer_class = TPFormacionSerializer  # Usa el serializador Formacion
 
 class MateriaListCreate(generics.ListCreateAPIView):
     queryset = Materia.objects.all()  # Usa el modelo Materia

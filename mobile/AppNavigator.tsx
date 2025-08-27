@@ -1,10 +1,18 @@
-// AppNavigator.tsx (completo con reload support)
-import React, { useState } from 'react';
-import { createDrawerNavigator, DrawerContentScrollView, DrawerItemList, DrawerItem } from '@react-navigation/drawer';
+// AppNavigator.tsx
+import React, { useContext } from 'react';
+import {
+  createDrawerNavigator,
+  DrawerContentScrollView,
+  DrawerItemList,
+  DrawerItem,
+} from '@react-navigation/drawer';
 import DashboardScreen from './src/screens/DashboardScreen';
 import PantallaPersonas from './src/screens/personas';
+import PantallaFormaciones from './src/screens/formaciones';
+import PantallaTPFormaciones from './src/screens/tipoFormaciones';
 import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { ReloadContext } from './src/contexts/ReloadContext';
 
 const Drawer = createDrawerNavigator();
 
@@ -12,20 +20,17 @@ function CustomDrawerContent(props: any) {
   return (
     <DrawerContentScrollView {...props} contentContainerStyle={{ flex: 1 }}>
       <View style={styles.drawerHeader}>
-        <Image
-          source={require('./assets/SACFU.png')}
-          style={styles.drawerLogo}
-          resizeMode="contain"
-        />
+        <Image source={require('./assets/SACFU.png')} style={styles.drawerLogo} resizeMode="contain" />
         <Text style={styles.drawerTitle}>ADMINISTRATIVO</Text>
       </View>
+
       <DrawerItemList {...props} />
+
       <View style={{ flex: 1 }} />
+
       <DrawerItem
         label="Cerrar Sesión"
-        icon={({ color, size }) => (
-          <Icon name="logout" color="#e63946" size={size} />
-        )}
+        icon={({ color, size }) => <Icon name="logout" color="#e63946" size={size} />}
         onPress={() => {
           props.navigation.replace('Login');
         }}
@@ -36,38 +41,31 @@ function CustomDrawerContent(props: any) {
 }
 
 export default function AppNavigator() {
-  // clave para reiniciar pantalla
-  const [reloadKey, setReloadKey] = useState(0);
-
-  const handleReload = () => {
-    setReloadKey(prev => prev + 1);
-  };
+  // Usamos ReloadContext para triggerReload (botón funcional)
+  const { triggerReload } = useContext(ReloadContext);
 
   const renderReloadButton = () => (
-    <TouchableOpacity onPress={handleReload} style={{ marginRight: 16 }}>
+    <TouchableOpacity onPress={() => { triggerReload(); }} style={{ marginRight: 16 }}>
       <Icon name="reload" size={22} color="#fff" />
     </TouchableOpacity>
   );
 
   return (
     <Drawer.Navigator
-      key={reloadKey} // fuerza a reiniciar la pantalla al cambiar
       drawerContent={props => <CustomDrawerContent {...props} />}
       screenOptions={{
         headerStyle: { backgroundColor: '#4f8cff' },
         headerTintColor: '#fff',
         drawerActiveTintColor: '#4f8cff',
         drawerLabelStyle: { fontWeight: 'bold' },
-        headerRight: () => renderReloadButton(), // botón de recarga en el header
+        headerRight: () => renderReloadButton(),
       }}
     >
       <Drawer.Screen
         name="Dashboard"
         component={DashboardScreen}
         options={{
-          drawerIcon: ({ color, size }) => (
-            <Icon name="view-dashboard" color={color} size={size} />
-          ),
+          drawerIcon: ({ color, size }) => <Icon name="view-dashboard" color={color} size={size} />,
           title: 'Inicio',
         }}
       />
@@ -75,10 +73,24 @@ export default function AppNavigator() {
         name="Personas"
         component={PantallaPersonas}
         options={{
-          drawerIcon: ({ color, size }) => (
-            <Icon name="account-group" color={color} size={size} />
-          ),
+          drawerIcon: ({ color, size }) => <Icon name="account-group" color={color} size={size} />,
           title: 'Gestión de Personas',
+        }}
+      />
+      <Drawer.Screen
+        name="Formaciones"
+        component={PantallaFormaciones}
+        options={{
+          drawerIcon: ({ color, size }) => <Icon name="school" color={color} size={size} />,
+          title: 'Formaciones',
+        }}
+      />
+      <Drawer.Screen
+        name="TipoFormaciones"
+        component={PantallaTPFormaciones}
+        options={{
+          drawerIcon: ({ color, size }) => <Icon name="format-list-bulleted" color={color} size={size} />,
+          title: 'Tipo Formaciones',
         }}
       />
     </Drawer.Navigator>

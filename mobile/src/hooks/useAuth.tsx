@@ -1,8 +1,8 @@
 // src/hooks/useAuth.ts
 import { useState, useCallback } from 'react';
 // Update the import path below if your api file is located elsewhere
-import api from '../api';
-import { storeTokens, clearTokens } from '../auth';
+import api from '../api/api';
+import { storeTokens, clearTokens } from '../api/auth';
 
 export const useAuth = () => {
   const [token, setToken] = useState<string | null>(null);

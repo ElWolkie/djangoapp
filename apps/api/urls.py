@@ -7,7 +7,9 @@ urlpatterns = [
     path('personas/', views.PersonaListCreate.as_view(), name='persona-list'),
     path('personas/<int:pk>/', views.PersonaRetrieveUpdateDestroy.as_view(), name='persona-detail'),
     path('tipo-personas/', views.TipoPersonaListCreate.as_view(), name='tipo-persona-list'),
-    path('personastp/', views.PersonaTPListCreate.as_view(), name='personatp-list'),  # Nueva ruta
+    path('personastp/', views.PersonaTPListCreate.as_view(), name='personatp-list'),
+    path('formaciones/', views.FormacionListCreate.as_view(), name='formaciones-list'),
+    path('tipo-formaciones/', views.TPFormacionListCreate.as_view(), name='tipo-formaciones-list'),
 
     path('verificar-cedula/', verificar_cedula, name='verificar-cedula'),
 

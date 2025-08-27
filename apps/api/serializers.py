@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from apps.home.models import Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Denominacion, Banco, Moneda, Tasa, TipoIngreso
+from apps.home.models import Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Denominacion, Banco, Moneda, Tasa, TipoIngreso, Formacion, TipoFormacion
 from apps.persona.models import Personas, PersonaTP, TipoPersona
 from apps.honorario.models import Honorario
 from apps.solicitud.models import Solicitud
@@ -37,6 +37,16 @@ class PersonaTPSerializer(serializers.ModelSerializer):
     class Meta:
         model = PersonaTP  # Usa el modelo de home
         fields = ['idPersona', 'idTP', 'fechaAsignacion']
+
+class FormacionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Formacion  # Usa el modelo de home
+        fields = ['idFormacion', 'idTF', 'nombreFormacion', 'valorInscripcion', 'tieneCuotas', 'duracion', 'estadoFormacion', 'fechaFormacion']
+
+class TPFormacionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TipoFormacion  # Usa el modelo de home
+        fields = ['idTF', 'nombreTipoFormacion', 'estadoTipoFormacion', 'fechaTipoFormacion']
 
 class MateriaSerializer(serializers.ModelSerializer):
     class Meta:
