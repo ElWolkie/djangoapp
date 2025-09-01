@@ -32,6 +32,8 @@ $
 $ # Start the application (development mode)
 $ python manage.py runserver # default port 8000
 $ python manage.py runserver 0.0.0.0:8000 #Para la app movil
+$ npx expo start -c #para correr el entorno Expo en linux mint 
+
 $
 $ # Access the web app in browser: http://127.0.0.1:8000/
 # python manage.py show_urls  | grep "/api/"  LISTAR LOS ENDPOINTS DE LA API
