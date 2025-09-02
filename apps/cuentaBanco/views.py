@@ -21,6 +21,7 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
 from reportlab.platypus import Table, TableStyle
+from django.core.paginator import Paginator
 
 @login_required(login_url='login')
 @permission_required("cuentaBanco.view_banco", raise_exception=True)
@@ -30,8 +31,13 @@ def banco_list(request):
         bancos = Banco.objects.all()
     else:
         bancos = Banco.objects.filter(estadoBanco=True).order_by('nombreBanco')
+    
+      # Paginación 
+    paginator = Paginator(bancos, 10)  # 10 cuotas por página
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
     return render(request, 'bancos/tablaBancos.html', {
-        'bancos': bancos,
+        'bancos': page_obj,
         'titulo': 'Listado de Bancos',
         'mostrar_inactivos': mostrar,
     })
