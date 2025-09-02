@@ -283,3 +283,8 @@ body {
 .text-orange {
   color: #000000; /* Naranja brillante */
 }
+ /* estilo tabla personalizada */
+  .compact-table th,
+  .compact-table td {
+    text-align: left;
+  }
