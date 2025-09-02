@@ -999,16 +999,24 @@ def edit_formacion(request, pk):
     if request.method == 'POST':
         post_data = request.POST.copy()
         valor = post_data.get('valorInscripcion', '')
-        # Reemplaza puntos de miles y convierte la coma decimal a punto
         valor = valor.replace('.', '').replace(',', '.')
         post_data['valorInscripcion'] = valor
-        form = FormacionForm(post_data, instance=formacion)  # Usa el post_data corregido        
+        
+        form = FormacionForm(post_data, instance=formacion)
+        
         if form.is_valid():
             form.save()
-            return JsonResponse({'success': True, 'message': 'Formación actualizada exitosamente.'})
+            # Agregar mensaje de éxito y redirigir
+            messages.success(request, 'Formación actualizada exitosamente.')
+            return redirect('tabla_formaciones')  # Ajusta con tu nombre de URL
         else:
-            errors = {field: error for field, error in form.errors.items()}
-            return JsonResponse({'success': False, 'errors': errors})
+            # Para mostrar errores en el modal sin redirigir
+            tipos_formacion = TipoFormacion.objects.all()
+            return render(request, 'home/modales/editFormaciones.html', {
+                'form': form,
+                'formacion': formacion,
+                'tipos_formacion': tipos_formacion
+            })
     else:
         form = FormacionForm(instance=formacion)
         tipos_formacion = TipoFormacion.objects.all()

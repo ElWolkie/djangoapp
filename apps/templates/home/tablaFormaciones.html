@@ -169,25 +169,20 @@
             <td class="actions-column">
               <div class="d-flex gap-2">
                 {% if perms.home.view_formacion %}
-                  <!-- Botón para ver detalless -->
+                  <!-- Botón para ver detalles -->
                   <button class="btn btn-info btn-sm view-details-btn"
                           data-bs-toggle="modal"
                           data-bs-target="#detailsModal"
                           data-id="{{ formacion.idFormacion }}"
-                          data-nombre="{{ formacion.nombreFormacion|escape }}"
-                          data-tipo="{{ formacion.idTF.nombreTipoFormacion|escape }}"
+                          data-nombre="{{ formacion.nombreFormacion }}"
+                          data-tipo="{{ formacion.idTF.nombreTipoFormacion }}"
                           data-valor="{{ formacion.valorInscripcion }}"
-                          data-duracion="{{ formacion.duracion|escape }}"
-                          data-cuotas="{{ formacion.cuotas_text|escape }}"
-                          data-cuotas-tipo="{{ formacion.cuotas_tipo|escape }}"
-                          data-cuotas-count="{{ formacion.cuotas_count }}"
-                          data-cuotas-list="{{ formacion.cuotas_list|escape }}"
-                          data-estado="{{ formacion.estadoFormacion|escape }}"
+                          data-duracion="{{ formacion.duracion }}"
+                          data-estado="{{ formacion.estadoFormacion }}"
                           data-fecha="{{ formacion.fechaFormacion|date:'d/m/Y' }}"
                           title="Ver más">
                     <i class="fas fa-eye"></i>
                   </button>
-
                 {% endif %}
 
                 {% if perms.home.change_formacion %}
@@ -200,7 +195,7 @@
                   </button>
                 {% endif %}
 
-                {% if formacion.estadoFormacion|upper == "ACTIVO" and perms.home.change_formacion %}
+                {% if formacion.estadoFormacion|upper == "ACTIVO" and perms.home.delete_formacion %}
                   <button class="btn btn-outline-warning btn-sm"
                           data-bs-toggle="modal"
                           data-bs-target="#deleteFormacionModal"
@@ -233,50 +228,22 @@
 </div>
 
 {# ─── Modales ─── #}
-{% if perms.home.view_formacion %}
-<!-- Modal: Ver Detalles -->
+
+<!-- Modal de Detalles -->
 <div class="modal fade details-modal" id="detailsModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header bg-primary text-white">
-        <h5 class="modal-title text-white">Ver más de <span id="detail-nombre"></span></h5>
-        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
-          <i class="fas fa-times"></i>
-        </button>
+        <h5 class="modal-title text-white">Detalles de la Formación</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
-        <div class="detail-item">
-          <div class="detail-label">ID:</div>
-          <div class="detail-value" id="detail-id"></div>
-        </div>
-        <div class="detail-item">
-          <div class="detail-label">Tipo:</div>
-          <div class="detail-value" id="detail-tipo"></div>
-        </div>
-        <div class="detail-item">
-          <div class="detail-label">Valor:</div>
-          <div class="detail-value bold" id="detail-valor"></div>
-        </div>
-        <div class="detail-item">
-          <div class="detail-label">Duración:</div>
-          <div class="detail-value" id="detail-duracion"></div>
-        </div>
-        <div class="detail-item">
-          <div class="detail-label">Tiene Cuota:</div>
-          <div class="detail-value" id="detail-cuotas"></div>
-        </div>
-        {% comment %} <div class="detail-item">
-          <div class="detail-label">Detalle pagos:</div>
-          <div class="detail-value" id="detail-cuotas-list"></div>
-        </div> {% endcomment %}
-        <div class="detail-item">
-          <div class="detail-label">Estado:</div>
-          <div class="detail-value" id="detail-estado"></div>
-        </div>
-        <div class="detail-item">
-          <div class="detail-label">Fecha de registro:&nbsp</div>
-          <div class="detail-value" id="detail-fecha"></div>
-        </div>
+        <p><strong>Nombre:</strong> <span id="modalNombre"></span></p>
+        <p><strong>Tipo:</strong> <span id="modalTipo"></span></p>
+        <p><strong>Valor:</strong> <span id="modalValor"></span></p>
+        <p><strong>Duración:</strong> <span id="modalDuracion"></span></p>
+        <p><strong>Estado:</strong> <span id="modalEstado"></span></p>
+        <p><strong>Fecha:</strong> <span id="modalFecha"></span></p>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
@@ -284,10 +251,9 @@
     </div>
   </div>
 </div>
-{% endif %}
+
 
 <!-- Modal: Registrar Formación -->
-{% if perms.home.add_formacion %}
 <div class="modal fade" id="formacionModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
@@ -303,10 +269,8 @@
     </div>
   </div>
 </div>
-{% endif %}
 
 <!-- Modal: Editar Formación -->
- {% if perms.home.change_formacion %}
 <div class="modal fade" id="editFormacionModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
@@ -322,10 +286,8 @@
     </div>
   </div>
 </div>
-{% endif %}
 
 <!-- Modal: Inhabilitar Formación -->
- {% if perms.home.change_formacion %}
 <div class="modal fade" id="deleteFormacionModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -347,10 +309,8 @@
     </div>
   </div>
 </div>
-{% endif %}
 
 <!-- Modal: Reactivar Formación -->
- {% if perms.home.change_formacion %}
 <div class="modal fade" id="reactivateFormacionModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -372,8 +332,6 @@
     </div>
   </div>
 </div>
-{% endif %}
-
 {% endblock content %}
 {% block javascripts %}
 <script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
@@ -497,82 +455,29 @@ document.addEventListener("DOMContentLoaded", function() {
     `);
   }
 
-  // Helper: formatea número redondeado a moneda sin decimales (ej. 1000 => "1.000")
-  function formatCurrencyRounded(value) {
-    if (value === null || value === undefined) return '';
-    // convertir posibles cadenas con coma/punto a Number
-    const n = Number(String(value).replace(/\s/g,'').replace(/,/g,'.'));
-    if (isNaN(n)) return value;
-    // redondea al entero más cercano y formatea en locale es-ES
-    const rounded = Math.round(n);
-    return new Intl.NumberFormat('es-ES', { maximumFractionDigits: 0 }).format(rounded);
-  }
-
-  // Manejo del modal de detalles (solo muestra el resumen en data-cuotas)
   $('#detailsModal').on('show.bs.modal', function(event) {
     const button = $(event.relatedTarget);
     const modal = $(this);
+    const data = ['id', 'nombre', 'tipo', 'valor', 'duracion', 'estado', 'fecha'].reduce((acc, key) => {
+      acc[key] = button.data(key);
+      return acc;
+    }, {});
 
-    // leemos atributos directos
-    const id = button.attr('data-id') || '';
-    const nombre = button.attr('data-nombre') || '';
-    const tipo = button.attr('data-tipo') || '';
-    const valorRaw = button.attr('data-valor') || '';
-    const duracion = button.attr('data-duracion') || '';
-    const cuotasText = button.attr('data-cuotas') || '';           // texto resumen preparado por la vista
-    const cuotasListRaw = button.attr('data-cuotas-list') || '';  // opcional, en caso que la vista lo haya puesto
-    const cuotasTipo = button.attr('data-cuotas-tipo') || '';
-    const cuotasCount = button.attr('data-cuotas-count') || '';
-    const estado = button.attr('data-estado') || '';
-    const fecha = button.attr('data-fecha') || '';
-
-    // formatear valor de inscripción (redondeado)
-    const valor = formatCurrencyRounded(valorRaw);
-
-    // Si no existe cuotasText intentamos construir un resumen simple redondeando montos
-    let resumenCuotas = cuotasText;
-    if (!resumenCuotas) {
-      // si hay lista raw, usamos ella
-      if (cuotasListRaw) {
-        const items = cuotasListRaw.split(',').map(s => s.trim()).filter(Boolean);
-        const formatted = items.map(it => formatCurrencyRounded(it));
-        resumenCuotas = `Sí - ${cuotasTipo || 'Sin tipo registrado'} (${formatted.length} cuotas: ${formatted.join(', ')})`;
-      } else {
-        // si no hay nada, asumimos "No" o el flag
-        // Si el botón no trae "Sí" ni "No", mostramos "No"
-        resumenCuotas = 'No';
-      }
-    } else {
-      // si existe texto, intentamos reemplazar números con su versión redondeada para consistencia
-      // esto es opcional: busca números y los redondea
-      resumenCuotas = (String(resumenCuotas)).replace(/[\d]+[.,\d]*/g, function(match) {
-        return formatCurrencyRounded(match);
-      });
-    }
-
-    // rellenar modal (sin detalle por pagos)
-    modal.find('#detail-nombre').text(nombre);
-    modal.find('#detail-id').text(id);
-    modal.find('#detail-tipo').text(tipo);
-    modal.find('#detail-valor').text(valor);
-    modal.find('#detail-duracion').text(duracion);
-    modal.find('#detail-cuotas').text(resumenCuotas);
-    modal.find('#detail-fecha').text(fecha);
+    modal.find('#detail-nombre').text(data.nombre);
+    modal.find('#detail-id').text(data.id);
+    modal.find('#detail-tipo').text(data.tipo);
+    modal.find('#detail-valor').text(data.valor);
+    modal.find('#detail-duracion').text(data.duracion);
+    modal.find('#detail-fecha').text(data.fecha);
     modal.find('#detail-estado').html(
-      `<span class="badge ${estado.toUpperCase() === "ACTIVO" ? 'bg-success' : 'bg-danger'} text-white">${estado}</span>`
+      `<span class="badge ${data.estado.toUpperCase() === "ACTIVO" ? 'bg-success' : 'bg-danger'} text-white">${data.estado}</span>`
     );
   });
 
   handleFormSubmit('#formacionForm', '#formacionModal');
   handleFormSubmit('#editFormacionForm', '#editFormacionModal');
 
-  $('#searchInput').on('keyup', function() {
-    const filter = this.value.toUpperCase();
-    $('#formacionesTable tbody tr').each(function() {
-      $(this).toggle($(this).text().toUpperCase().includes(filter));
-    });
-  });
-
+ 
   window.manageFormacion = function(id, action) {
     const isDelete = action === 'delete';
     const url = isDelete 
@@ -684,15 +589,40 @@ document.addEventListener("DOMContentLoaded", function() {
     setupPagination();
 
     // Scroll horizontal
-    const wrap = document.querySelector('.table-responsive');
-    if(wrap){
-      wrap.addEventListener('wheel', e=>{
-        if(e.deltaY){
-          e.preventDefault();
-          wrap.scrollLeft += e.deltaY;
-        }
-      });
-    }
+  const wrap = document.querySelector('.table-responsive');
+  if(wrap){
+    wrap.addEventListener('wheel', e=>{
+      if(e.deltaY){
+        e.preventDefault();
+        wrap.scrollLeft += e.deltaY;
+      }
+    });
+  }
+  const searchInput = document.getElementById("searchInput");
+
+  searchInput.addEventListener("keyup", function () {
+    const filter = searchInput.value.toUpperCase();
+    const rows = table.querySelectorAll("tbody tr");
+
+    rows.forEach((row) => {
+      const text = row.textContent || row.innerText;
+      row.style.display = text.toUpperCase().includes(filter) ? "" : "none";
+    });
+  });
+});
+</script>
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const detailsModal = document.getElementById("detailsModal");
+    detailsModal.addEventListener("show.bs.modal", function (event) {
+      const button = event.relatedTarget; // Botón que activó el modal
+      document.getElementById("modalNombre").textContent = button.getAttribute("data-nombre");
+      document.getElementById("modalTipo").textContent = button.getAttribute("data-tipo");
+      document.getElementById("modalValor").textContent = button.getAttribute("data-valor");
+      document.getElementById("modalDuracion").textContent = button.getAttribute("data-duracion");
+      document.getElementById("modalEstado").textContent = button.getAttribute("data-estado");
+      document.getElementById("modalFecha").textContent = button.getAttribute("data-fecha");
+    });
   });
 </script>
 {% endblock javascripts %}

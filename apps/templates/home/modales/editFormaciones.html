@@ -141,12 +141,12 @@
                    placeholder="Ingrese el nombre"
                    maxlength="40" data-required="true" required
                    value="{{ formacion.nombreFormacion }}">
+            <div class="invalid-feedback">Por favor, ingrese un nombre válido.</div>
           </div>
-          <div class="invalid-feedback">Por favor, ingrese un nombre válido.</div>
         </div>
       </div>
     </div>
-
+      <!--ACOMODAR LOS DIVS O USAR CSS PARA MOSTRAR LOS DIV CLASS INVALID-FEEDBACK-->
     <div class="row">
       <!-- Valor -->
       <div class="col-md-6">
@@ -165,24 +165,94 @@
           <div class="invalid-feedback">Por favor, ingrese un valor válido.</div>
         </div>
       </div>
-      <!-- Duración -->
-      <div class="col-md-6">
-        <div class="form-group">
-          <label for="duracion" class="form-label">
-            <i class="fas fa-clock"></i> Duración
-          </label>
-          <div class="input-group">
-            <i class="fas fa-hourglass-half input-icon"></i>
-            <input type="text" id="duracion" name="duracion"
-                   class="form-control input-with-icon"
-                   placeholder="Ingrese la duración"
-                   maxlength="14" data-required="true" required
-                   value="{{ formacion.duracion }}">
-          </div>
-          <div class="invalid-feedback">Por favor, ingrese una duración válida.</div>
-        </div>
-      </div>
+<!-- Duración (estructura inmutable) -->
+<div class="col-md-6">
+  <div class="form-group">
+    <label for="cantidad" class="form-label">
+      <i class="fas fa-clock"></i> Duración
+    </label>
+    <div class="input-group">
+      <i class="fas fa-hourglass-half input-icon"></i>
+
+      <input type="text" id="cantidad" name="cantidad"
+             class="form-control input-with-icon"
+             placeholder="Duración"
+             maxlength="14" data-required="true" required
+             style="max-width: 180px;">
+
+      <select id="unidadDuracion" name="unidadDuracion"
+              class="form-control ms-2" style="max-width: 120px;">
+        <option value="HORAS">Horas</option>
+        <option value="DÍAS">Días</option>
+        <option value="SEMANAS">Semanas</option>
+        <option value="MESES">Meses</option>
+        <option value="AÑOS">Años</option>
+      </select>
+
+      <input type="hidden" id="duracion" name="duracion"
+             value="{{ formacion.duracion }}">
+      <div class="invalid-feedback">Por favor, ingrese una duración válida.</div>
     </div>
+  </div>
+</div>
+
+<script>
+  (function(){
+    const cantidadInput  = document.getElementById("cantidad");
+    const unidadSelect   = document.getElementById("unidadDuracion");
+    const hiddenDuracion = document.getElementById("duracion");
+
+    if (!cantidadInput || !unidadSelect || !hiddenDuracion) {
+      console.warn("Duración: falta algún elemento en el DOM.");
+      return;
+    }
+
+    // ► 1. Bandera para evitar 'dirty' hasta terminar de poblar
+    let isInit = true;
+
+    // ► 2. Función que une cantidad + unidad en el hidden
+    function updateHidden() {
+      const c = cantidadInput.value.trim();
+      const u = unidadSelect.value;
+      hiddenDuracion.value = c ? `${c} ${u}` : "";
+    }
+
+    // ► 3. Lectura inicial robusta
+    const initial = hiddenDuracion.value.trim();
+    if (initial) {
+      // Regex: uno o más dígitos + espacio + resto
+      const m = initial.match(/^(\d+)\s+(.+)$/);
+      if (m) {
+        cantidadInput.value = m[1];
+
+        // Buscamos la opción cuyo value coincida (ignoramos mayúsculas/acentos)
+        const buscada = m[2].toUpperCase();
+        Array.from(unidadSelect.options).forEach(opt => {
+          if (opt.value.toUpperCase() === buscada) {
+            unidadSelect.value = opt.value;
+          }
+        });
+      }
+    }
+
+    // Llamada tras parseo para que el hidden refleje el valor correcto
+    updateHidden();
+
+    // ► 4. Listeners (solo disparan dirty al cambiar tras init)
+    cantidadInput.addEventListener("input", () => {
+      updateHidden();
+      if (!isInit) cantidadInput.dispatchEvent(new Event("change"));
+    });
+
+    unidadSelect.addEventListener("change", () => {
+      updateHidden();
+      if (!isInit) unidadSelect.dispatchEvent(new Event("change"));
+    });
+
+    // ► 5. Fin de la inicialización
+    isInit = false;
+  })();
+</script>
       
     <!-- Cuota -->
     <div class="col-md-6 mx-auto">
@@ -219,6 +289,7 @@
 {% endblock content %}
 
 {% block javascripts %}
+<script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
 <script>
   // Función principal que activa validaciones y formateo
   function activarValidacionFormacion() {

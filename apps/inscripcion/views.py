@@ -216,7 +216,6 @@ def tabla_inscripciones(request):
     page_obj = paginator.get_page(page_number)
 
     return render(request, 'inscripcion/tablaInscripciones.html', {
-        'inscripcionsdes': inscripciones.order_by('-idInscripcion'),
         'requisitos_entregados_dict': requisitos_entregados_dict,
         'mostrar_inactivos': mostrar,
         'inscripciones': page_obj,  # Pasar el objeto de la página al template
