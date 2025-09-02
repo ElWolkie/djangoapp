@@ -25,7 +25,7 @@ TIME_ZONE = 'America/Caracas'  # Ajusta a tu zona
 USE_TZ = True
 
 # load production server from .env
-ALLOWED_HOSTS = ["localhost", "127.0.0.1", "192.168.0.103", "10.52.13.73", '192.168.0.1', '192.168.0.106', '192.168.0.107', '192.168.0.105', '0.0.0.0', config("SERVER", default="127.0.0.1")]
+ALLOWED_HOSTS = ["localhost", "127.0.0.1", "192.168.0.103", "192.168.250.3", "192.168.250.1", "192.168.250.5", "10.52.13.73", '192.168.0.1', '192.168.0.106', '192.168.0.107', '192.168.0.105', '0.0.0.0', config("SERVER", default="127.0.0.1")]
 
 # SECURE_SSL_REDIRECT = True  # Redirige HTTP → HTTPS
 # SESSION_COOKIE_SECURE = True  # Cookies solo por HTTPS

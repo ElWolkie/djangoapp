@@ -4570,6 +4570,13 @@ def actualizar_monedas_api(request):
 @permission_required("home.add_banco", raise_exception=True)
 def actualizar_bancos_api(request):
     if request.method != 'POST':
+        # Si es AJAX devolvemos JSON, si no redirigimos con message
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': False,
+                'type': 'error',
+                'message': "Método no permitido."
+            }, status=405)
         messages.error(request, "Método no permitido.")
         return redirect('banco_list')
 
@@ -4581,37 +4588,36 @@ def actualizar_bancos_api(request):
         resp.raise_for_status()
         api_bancos = resp.json()
 
-        # Determinar una cuenta padre por defecto para todos los bancos nuevos
-        # Aquí usamos la primera PlanCuenta que encuentre; ajústalo según tu lógica
         cuenta_padre = PlanCuenta.objects.first()
         if not cuenta_padre:
-            messages.error(request, "No hay cuentas contables padre configuradas.")
+            msg = "No hay cuentas contables padre configuradas."
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'success': False, 'type': 'error', 'message': msg}, status=400)
+            messages.error(request, msg)
             return redirect('banco_list')
 
-        # Obtener códigos locales existentes
+        # Códigos locales existentes
         cod_exist = set(Banco.objects.values_list('codLocalBanco', flat=True))
 
         nuevos_list = []
         for item in api_bancos:
-            code = item.get('code', '').strip()
-            name = item.get('shortName', '').strip()
+            code = (item.get('code') or '').strip()
+            name = (item.get('shortName') or '').strip()
             if not code or not name:
                 continue
 
-            cod_local = code[:10]  # hasta 10 chars para codLocalBanco
+            cod_local = code[:10]
             if cod_local in cod_exist:
                 continue
 
-            # Hacemos el valor único incorporando el código local
             cod_swift_placeholder = f"SW-N/A-{cod_local}"
 
-            # Preparamos el banco inactivo con valores por defecto
             b = Banco(
                 nombreBanco=name[:100],
                 codLocalBanco=cod_local,
-                codSwiftBanco = cod_swift_placeholder,
+                codSwiftBanco=cod_swift_placeholder,
                 cuentaPadre=cuenta_padre,
-                estadoBanco=False  # inactivo inicialmente
+                estadoBanco=False
             )
             nuevos_list.append(b)
             cod_exist.add(cod_local)
@@ -4619,14 +4625,27 @@ def actualizar_bancos_api(request):
         if nuevos_list:
             Banco.objects.bulk_create(nuevos_list)
             nuevos = len(nuevos_list)
-            messages.success(request, f"¡Actualización completa! Se añadieron {nuevos} nuevos bancos.")
+            msg = f"¡Actualización completa! Se añadieron {nuevos} nuevos bancos."
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'success': True, 'type': 'success', 'added': nuevos, 'message': msg})
+            messages.success(request, msg)
         else:
-            messages.info(request, "¡Todo al día! No se encontraron bancos nuevos.")
+            # No hay nuevos bancos
+            msg = "¡Todo al día! No se encontraron bancos nuevos."
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'success': True, 'type': 'info', 'added': 0, 'message': msg})
+            messages.info(request, msg)
 
     except requests.exceptions.RequestException as e:
-        messages.error(request, f"Error al obtener datos de bancos: {e}")
+        msg = f"Error al obtener datos de bancos: {e}"
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'type': 'error', 'message': msg}, status=502)
+        messages.error(request, msg)
     except Exception as e:
-        messages.error(request, f"Error inesperado al actualizar bancos: {e}")
+        msg = f"Error inesperado al actualizar bancos: {e}"
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'type': 'error', 'message': msg}, status=500)
+        messages.error(request, msg)
 
     return redirect('banco_list')
 

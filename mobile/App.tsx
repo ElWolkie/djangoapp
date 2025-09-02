@@ -8,6 +8,7 @@ import AppNavigator from './AppNavigator';
 import PantallaPersonas from './src/screens/personas';
 import PantallaFormaciones from './src/screens/formaciones';
 import PantallaTPFormaciones from './src/screens/tipoFormaciones';
+import PantallaMaterias from './src/screens/materias';
 import { AuthProvider } from './src/contexts/AuthContext';
 import { ReloadProvider } from './src/contexts/ReloadContext';
 
@@ -17,6 +18,7 @@ export type RootStackParamList = {
   Personas: undefined;
   Formaciones: undefined;
   TipoFormaciones: undefined;
+  Materias: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -32,6 +34,7 @@ export default function App() {
             <Stack.Screen name="Personas" component={PantallaPersonas} options={{ title: 'Mi Sistema' }} />
             <Stack.Screen name="Formaciones" component={PantallaFormaciones} options={{ title: 'Formaciones' }} />
             <Stack.Screen name="TipoFormaciones" component={PantallaTPFormaciones} options={{ title: 'Formaciones' }} />
+            <Stack.Screen name="Materias" component={PantallaMaterias} options={{ title: 'Materias' }} />
           </Stack.Navigator>
         </NavigationContainer>
       </ReloadProvider>

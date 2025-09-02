@@ -18,6 +18,7 @@ type RootStackParamList = {
   Personas: undefined;
   Formaciones: undefined;
   TipoFormaciones: undefined;
+  Materias: undefined;
   // Agrega aquí otras pantallas si es necesario
 };
 

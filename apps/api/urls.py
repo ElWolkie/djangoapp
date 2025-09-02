@@ -10,10 +10,10 @@ urlpatterns = [
     path('personastp/', views.PersonaTPListCreate.as_view(), name='personatp-list'),
     path('formaciones/', views.FormacionListCreate.as_view(), name='formaciones-list'),
     path('tipo-formaciones/', views.TPFormacionListCreate.as_view(), name='tipo-formaciones-list'),
+    path('materias/', views.MateriaListCreate.as_view(), name='materia-list'),
 
     path('verificar-cedula/', verificar_cedula, name='verificar-cedula'),
 
-    path('materia/', views.MateriaListCreate.as_view(), name='materia-list'),
     path('cohorte/', views.CohorteListCreate.as_view(), name='cohorte-list'),
     path('cargo/', views.CargoListCreate.as_view(), name='cargo-list'),
     # path('contrato/', views.ContratoListCreate.as_view(), name='contrato-list'),

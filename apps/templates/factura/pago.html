@@ -8,18 +8,18 @@
 <link rel="stylesheet" href="{% static 'assets/css/argon.css' %}" />
 
 <style>
-/* Contenedor principal estilo tarjeta moderna */
+/* --- Diseño combinado + iconos para labels e inputs --- */
+
 .pago-card {
   background: linear-gradient(135deg, #f8fafc 0%, #eef2f6 100%);
   border-radius: 1rem;
-  box-shadow: 0 0.75rem 1.5rem rgba(19, 38, 63, 0.08);
+  box-shadow: 0 0.75rem 1.5rem rgba(19, 38, 63, 0.06);
   padding: 2rem;
   margin: 2rem auto;
   max-width: 980px;
   font-weight: 600;
 }
 
-/* Header */
 .pago-header {
   text-align: center;
   margin-bottom: 1.5rem;
@@ -47,14 +47,34 @@
   border-radius: 3px;
 }
 
+/* Labels con icono a la izquierda */
+.label-with-icon {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  font-weight: 700;
+  color: #374151;
+  margin-bottom: .35rem;
+}
+.label-with-icon .label-icon {
+  color: #fd7e14;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 1.2em;
+  width: 28px;
+  line-height: 1;
+}
+
 /* Inputs y selects: alturas uniformes y apariencia moderna */
 .form-control, .form-select {
   border-radius: .65rem;
-  padding: .55rem .9rem;
+  padding: .6rem .95rem;
   border: 1px solid #d1d5db;
   background: #ffffff;
   transition: box-shadow .18s ease, border-color .18s ease;
-  min-height: 44px;               /* asegura tamaño agradable */
+  min-height: 44px;
   line-height: 1.2;
   font-size: .95rem;
   box-sizing: border-box;
@@ -65,25 +85,96 @@
   box-shadow: 0 0 0 .2rem rgba(255,193,7,0.12);
 }
 
-/* Wrapper para control + helper: evita saltos verticales */
-.field-wrap { display: flex; flex-direction: column; gap: .25rem; }
-.field-wrap .form-text { margin: 0; min-height: 18px; color: #6b7280; font-weight: 500; font-size: .85rem; }
-
-/* Consistencia label -> margen reducido */
-.form-label {
-  margin-bottom: .35rem;
-  font-weight: 700;
-  color: #374151;
+/* Wrapper para control + helper */
+.field-wrap { 
+  display: flex; 
+  flex-direction: column; 
+  gap: .25rem; 
+}
+.field-wrap .form-text { 
+  margin: 0; 
+  min-height: 18px; 
+  color: #6b7280; 
+  font-weight: 500; 
+  font-size: .85rem; 
 }
 
-/* Input group botones */
-.input-group .btn {
-  border-radius: 0 .6rem .6rem 0;
+/* NUEVA ESTRATEGIA: Contenedor flex para icono + input */
+.input-icon-container {
+  display: flex;
+  align-items: center;
+  position: relative;
+  width: 100%;
+}
+
+.input-icon-container .input-icon {
+  position: absolute;
+  left: 12px;
+  z-index: 3;
+  color: #6c757d;
+  font-size: 1rem;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  width: 20px;
+}
+
+/* Asegurar que el input tenga padding izquierdo para el icono */
+.input-icon-container .form-control,
+.input-icon-container .form-select {
+  padding-left: 2.5rem;
+  flex: 1;
+}
+
+/* Input group (derecha) y posición relativa */
+.input-group { 
+  position: relative; 
+  display: flex; 
+  align-items: stretch; /* Cambiado a stretch para alinear correctamente */
+  width: 100%;
+}
+
+/* Ajuste específico para el contenedor de icono dentro de input-group */
+.input-group .input-icon-container {
+  flex: 1;
+  margin-bottom: 0; /* Eliminar margen inferior si existe */
+}
+
+/* Botones dentro de input-group - ALINEACIÓN CORREGIDA */
+.input-group .btn { 
+  border-radius: 0 .6rem .6rem 0; 
   border: 1px solid #d1d5db;
-  height: 44px; /* igual que inputs */
+  border-left: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  z-index: 3;
+  margin-left: -1px; /* Para solapar bordes */
+  height: auto; /* Dejar que determine su altura según el contenedor */
+}
+
+/* Ajuste para que el botón tenga la misma altura que el input */
+.input-group .btn {
+  height: 100%;
+  min-height: 44px;
+}
+
+/* más espacio para el texto cuando hay icono */
+.input-with-icon { 
+  padding-left: 2.5rem !important; 
+}
+
+/* selects con icono */
+select.input-with-icon.form-select { 
+  padding-left: 2.5rem !important; 
+  background-position: right 0.75rem center;
+}
+
+/* Evitar que el botón del input (lado derecho) tape el texto */
+.input-group .form-control.input-with-icon[readonly] { 
+  padding-right: 48px; 
 }
 
 /* Botón guardar */
@@ -97,64 +188,45 @@
   box-shadow: 0 6px 14px rgba(253,126,20,0.14);
   transition: transform .18s, box-shadow .18s;
 }
-.btn-pago:hover { transform: translateY(-3px); box-shadow: 0 10px 24px rgba(253,126,20,0.18); }
-
-/* Badges para estado */
-.badge {
-  padding: .45rem .6rem;
-  border-radius: .65rem;
-  font-weight: 700;
+.btn-pago:hover { 
+  transform: translateY(-3px); 
+  box-shadow: 0 10px 24px rgba(253,126,20,0.18); 
 }
 
 /* Tablas dentro de modal */
-.table-sm th, .table-sm td {
-  vertical-align: middle;
-  font-weight: 600;
+.table-sm th, .table-sm td { 
+  vertical-align: middle; 
+  font-weight: 600; 
 }
-#tablaNotas th, #tablaNotas td, #tablaCuentas th, #tablaCuentas td {
-  text-align: center;
-  white-space: nowrap;
+#tablaNotas th,#tablaNotas td,
+#tablaCuentas th,#tablaCuentas td { 
+  text-align: center; 
+  white-space: nowrap; 
 }
-#tablaNotas th, #tablaCuentas th { font-weight: 700; }
-
-/* Transiciones bancos */
-#bancos, #bancos2 {
-  transition: opacity 0.25s ease, transform 0.18s ease;
-}
-.hidden {
-  opacity: 0;
-  pointer-events: none;
-  transform: translateY(-6px);
-}
-
-/* Responsive tweaks */
-@media (max-width: 767px) {
-  .pago-card { padding: 1rem; margin: 1rem; }
-  .input-group .btn { border-radius: .45rem; height: 40px; }
-  .form-control, .form-select { min-height: 40px; }
+#tablaNotas th,#tablaCuentas th { 
+  font-weight: 700; 
 }
 
 /* Focus visual para filas seleccionadas en modales */
-#tablaNotas tbody tr:hover, #tablaCuentas tbody tr:hover {
-  background: rgba(255,193,7,0.08);
-  cursor: pointer;
+#tablaNotas tbody tr:hover, 
+#tablaCuentas tbody tr:hover { 
+  background: rgba(255,193,7,0.08); 
+  cursor: pointer; 
 }
 
-/* Aseguramos que columnas pares estén alineadas verticalmente */
-.row.align-items-end > .col-md-6,
-.row.align-items-center > .col-md-6 {
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
+/* Ajustes responsive */
+@media (max-width: 767px) {
+  .pago-card { padding: 1rem; margin: 1rem; }
+  .input-group .btn { 
+    border-radius: .45rem; 
+    min-height: 40px;
+    padding: 0.5rem;
+  }
+  .form-control, .form-select { min-height: 40px; }
+  .input-with-icon { padding-left: 2.2rem !important; }
+  .input-icon-container .input-icon { left: 10px; }
 }
 
-/* Si quieres selects con más "peso" visual */
-.form-select.large {
-  font-weight: 700;
-  font-size: 1rem;
-  padding-top: .6rem;
-  padding-bottom: .6rem;
-}
 </style>
 {% endblock stylesheets %}
 
@@ -179,30 +251,42 @@
     <!-- FILA 1: Nota (izq) y Forma de Pago (der) -->
     <div class="row g-3 align-items-end mb-2">
       <div class="col-md-6">
-        <label for="notaInput" class="form-label">Nota:</label>
+        <label class="label-with-icon" for="notaInput">
+          <span class="label-icon"><i class="fas fa-file-invoice"></i></span>
+          <span>Nota:</span>
+        </label>
         <div class="field-wrap">
           <div class="input-group">
-            <input type="text" id="notaInput" class="form-control" placeholder="Seleccione una nota" readonly required />
-            <button type="button" id="buscarNota" class="btn btn-outline-warning" data-toggle="modal" data-target="#notaModal">
+            <div class="input-icon-container">
+              <i class="fas fa-receipt input-icon" aria-hidden="true"></i>
+              <input type="text" id="notaInput" class="form-control" placeholder="Seleccione una nota" readonly required />
+            </div>
+            <input type="hidden" id="idNota" name="idNota" required />
+            <button type="button" id="buscarNota" class="btn btn-outline-warning" data-toggle="modal" data-target="#notaModal" aria-label="Buscar nota">
               <i class="fas fa-search"></i>
             </button>
           </div>
           <small class="form-text text-muted">Seleccione la nota a pagar.</small>
         </div>
-        <input type="hidden" id="idNota" name="idNota" required />
         <div class="invalid-feedback">Por favor seleccione una nota.</div>
       </div>
 
       <div class="col-md-6">
-        <label for="formaPago" class="form-label">Forma de Pago:</label>
+        <label class="label-with-icon" for="formaPago">
+          <span class="label-icon"><i class="fas fa-hand-holding-usd"></i></span>
+          <span>Forma de Pago:</span>
+        </label>
         <div class="field-wrap">
-          <select id="formaPago" name="formaPago" class="form-select large" required>
-            <option value="" disabled selected>Seleccione la forma de pago...</option>
-            <option value="EFECTIVO">Efectivo</option>
-            <option value="TRANSFERENCIA">Transferencia</option>
-            <option value="TARJETA">Tarjeta</option>
-            <option value="CHEQUE">Cheque</option>
-          </select>
+          <div class="input-icon-container">
+            <i class="fas fa-wallet input-icon" aria-hidden="true"></i>
+            <select id="formaPago" name="formaPago" class="form-select large" required>
+              <option value="" disabled selected>Seleccione la forma de pago...</option>
+              <option value="EFECTIVO">Efectivo</option>
+              <option value="TRANSFERENCIA">Transferencia</option>
+              <option value="TARJETA">Tarjeta</option>
+              <option value="CHEQUE">Cheque</option>
+            </select>
+          </div>
           <small class="form-text text-muted">Si es efectivo, no necesitas seleccionar cuenta.</small>
         </div>
         <div class="invalid-feedback">Por favor seleccione una forma de pago.</div>
@@ -212,23 +296,35 @@
     <!-- FILA 2: Moneda (izq) y Monto (der) -->
     <div class="row g-3 align-items-end mb-2">
       <div class="col-md-6">
-        <label for="idTasa" class="form-label">Moneda:</label>
+        <label class="label-with-icon" for="idTasa">
+          <span class="label-icon"><i class="fas fa-coins"></i></span>
+          <span>Moneda:</span>
+        </label>
         <div class="field-wrap">
-          <select id="idTasa" name="idTasa" class="form-select large" required>
-            <option value="" disabled selected>Seleccione una moneda...</option>
-            {% for moneda in monedas %}
-              <option value="{{ moneda.ultima_idTasa }}">{{ moneda.idMoneda__nombreMoneda }}{% if moneda.ultima_tasa %} | Tasa: {{ moneda.ultima_tasa }}{% else %} - Sin tasa{% endif %}</option>
-            {% endfor %}
-          </select>
+          <div class="input-icon-container">
+            <i class="fas fa-dollar-sign input-icon" aria-hidden="true"></i>
+            <select id="idTasa" name="idTasa" class="form-select large" required>
+              <option value="" disabled selected>Seleccione una moneda...</option>
+              {% for moneda in monedas %}
+                <option value="{{ moneda.ultima_idTasa }}">{{ moneda.idMoneda__nombreMoneda }}{% if moneda.ultima_tasa %} | Tasa: {{ moneda.ultima_tasa }}{% else %} - Sin tasa{% endif %}</option>
+              {% endfor %}
+            </select>
+          </div>
           <small class="form-text text-muted">Tasa actual usada para conversión.</small>
         </div>
         <div class="invalid-feedback">Por favor seleccione una moneda.</div>
       </div>
 
       <div class="col-md-6">
-        <label for="monto" class="form-label">Monto:</label>
+        <label class="label-with-icon" for="monto">
+          <span class="label-icon"><i class="fas fa-money-bill-wave"></i></span>
+          <span>Monto:</span>
+        </label>
         <div class="field-wrap">
-          <input type="number" id="monto" name="monto" class="form-control" placeholder="Ingrese el monto del pago" step="0.0001" min="0" required />
+          <div class="input-icon-container">
+            <i class="fas fa-calculator input-icon" aria-hidden="true"></i>
+            <input type="number" id="monto" name="monto" class="form-control" placeholder="Ingrese el monto del pago" step="0.0001" min="0" required />
+          </div>
           <small id="deudaNota" class="form-text text-muted">Seleccione una nota para ver la deuda.</small>
         </div>
         <div class="invalid-feedback">Por favor ingrese un monto válido.</div>
@@ -238,25 +334,37 @@
     <!-- FILA 3: Cuenta Bancaria (izq) y Referencia (der) -->
     <div class="row g-3 align-items-end mb-2">
       <div id="bancos" class="col-md-6">
-        <label for="cuentaBancoInput" class="form-label">Cuenta Bancaria:</label>
+        <label class="label-with-icon" for="cuentaBancoInput">
+          <span class="label-icon"><i class="fas fa-university"></i></span>
+          <span>Cuenta Bancaria:</span>
+        </label>
         <div class="field-wrap">
           <div class="input-group">
-            <input type="text" id="cuentaBancoInput" class="form-control" placeholder="Seleccione una cuenta bancaria" readonly required />
-            <button type="button" id="buscarCuentaBanco" class="btn btn-outline-warning" data-toggle="modal" data-target="#cuentaBancoModal">
+            <div class="input-icon-container">
+              <i class="fas fa-credit-card input-icon" aria-hidden="true"></i>
+              <input type="text" id="cuentaBancoInput" class="form-control" placeholder="Seleccione una cuenta bancaria" readonly required />
+            </div>
+            <input type="hidden" id="idCuentaBanco" name="idCuentaBanco" required />
+            <input type="hidden" id="idPlanCuentaDebe" name="idPlanCuentaDebe" required />
+            <button type="button" id="buscarCuentaBanco" class="btn btn-outline-warning" data-toggle="modal" data-target="#cuentaBancoModal" aria-label="Buscar cuenta bancaria">
               <i class="fas fa-search"></i>
             </button>
           </div>
           <small class="form-text text-muted">Selecciona la cuenta si no es efectivo.</small>
         </div>
-        <input type="hidden" id="idCuentaBanco" name="idCuentaBanco" required />
-        <input type="hidden" id="idPlanCuentaDebe" name="idPlanCuentaDebe" required />
         <div class="invalid-feedback">Por favor seleccione una cuenta bancaria.</div>
       </div>
 
       <div id="bancos2" class="col-md-6">
-        <label for="referencia" class="form-label">Referencia:</label>
+        <label class="label-with-icon" for="referencia">
+          <span class="label-icon"><i class="fas fa-hashtag"></i></span>
+          <span>Referencia:</span>
+        </label>
         <div class="field-wrap">
-          <input type="text" id="referencia" name="referencia" class="form-control" placeholder="Ingrese la referencia del pago (opcional)" maxlength="100" />
+          <div class="input-icon-container">
+            <i class="fas fa-keyboard input-icon" aria-hidden="true"></i>
+            <input type="text" id="referencia" name="referencia" class="form-control" placeholder="Ingrese la referencia del pago (opcional)" maxlength="14" />
+          </div>
           <small class="form-text text-muted">Máx. 14 dígitos (solo números).</small>
         </div>
       </div>
@@ -265,7 +373,10 @@
     <!-- FILA 4: Observaciones -->
     <div class="row g-3 mb-3">
       <div class="col-12">
-        <label for="observaciones" class="form-label">Observaciones:</label>
+        <label class="label-with-icon" for="observaciones">
+          <span class="label-icon"><i class="fas fa-sticky-note"></i></span>
+          <span>Observaciones:</span>
+        </label>
         <textarea id="observaciones" name="observaciones" class="form-control" placeholder="Ingrese observaciones adicionales (opcional)" rows="3"></textarea>
       </div>
       <input type="hidden" id="tasaConfiguracion" value="{{ tasa_configuracion_valor }}" />
@@ -274,9 +385,15 @@
     <!-- FILA 5: Fecha al centro -->
     <div class="row mb-3">
       <div class="col-md-6 mx-auto">
-        <label for="fechaPago" class="form-label">Fecha de Pago:</label>
+        <label class="label-with-icon" for="fechaPago">
+          <span class="label-icon"><i class="fas fa-calendar-alt"></i></span>
+          <span>Fecha de Pago:</span>
+        </label>
         <div class="field-wrap">
-          <input type="date" id="fechaPago" name="fechaPago" class="form-control" max="{{ today_date }}" required />
+          <div class="input-icon-container">
+            <i class="fas fa-calendar input-icon" aria-hidden="true"></i>
+            <input type="date" id="fechaPago" name="fechaPago" class="form-control" max="{{ today_date }}" required />
+          </div>
           <small class="form-text text-muted">No puede ser una fecha futura.</small>
         </div>
         <div class="invalid-feedback">Por favor ingrese una fecha de pago válida.</div>
@@ -289,6 +406,7 @@
   </form>
 </div>
 
+<!-- Los modales se mantienen igual -->
 <!-- Modal para seleccionar Nota -->
 <div class="modal fade" id="notaModal" tabindex="-1" role="dialog" aria-labelledby="notaModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
@@ -424,7 +542,7 @@ document.addEventListener('DOMContentLoaded', function () {
         notaInput.classList.remove('is-invalid');
       }
 
-      // Validar Cuenta Bancaria solo si la forma de pago no es "Efectivo"
+      // Validar Cuenta Bancaria solo si la forma de pago no es "EFECTIVO"
       const cuentaBancoInput = document.getElementById('cuentaBancoInput');
       const idCuentaBanco = document.getElementById('idCuentaBanco').value;
       const formaPagoSelect = document.getElementById('formaPago');
@@ -437,7 +555,7 @@ document.addEventListener('DOMContentLoaded', function () {
           cuentaBancoInput.classList.remove('is-invalid');
         }
       } else {
-        cuentaBancoInput.classList.remove('is-invalid');
+        if (cuentaBancoInput) cuentaBancoInput.classList.remove('is-invalid');
       }
 
       if (!isValid || !pagoForm.checkValidity()) {
@@ -512,7 +630,12 @@ document.addEventListener('DOMContentLoaded', function () {
             deudaElement.textContent = `Deuda actual: ${deudaNota}`;
           }
 
-          $('#notaModal').modal('hide');
+          if (typeof $ === 'function' && $('#notaModal').modal) {
+            $('#notaModal').modal('hide');
+          } else {
+            const modalEl = document.getElementById('notaModal');
+            try { bootstrap.Modal.getInstance(modalEl).hide(); } catch(e) {}
+          }
         }
       });
     }
@@ -532,7 +655,12 @@ document.addEventListener('DOMContentLoaded', function () {
           document.getElementById('idCuentaBanco').value = idCuentaBanco;
           document.getElementById('idPlanCuentaDebe').value = idPlanCuentaDebe;
 
-          $('#cuentaBancoModal').modal('hide');
+          if (typeof $ === 'function' && $('#cuentaBancoModal').modal) {
+            $('#cuentaBancoModal').modal('hide');
+          } else {
+            const modalEl = document.getElementById('cuentaBancoModal');
+            try { bootstrap.Modal.getInstance(modalEl).hide(); } catch(e) {}
+          }
         }
       });
     }

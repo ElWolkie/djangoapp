@@ -51,7 +51,7 @@ class TPFormacionSerializer(serializers.ModelSerializer):
 class MateriaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Materia  # Usa el modelo de home
-        fields = ['idMateria', 'idOferta', 'nombreMateria', 'estadoMateria', 'fechaMateria']
+        fields = ['idMateria', 'idFormacion', 'nombreMateria', 'estadoMateria', 'fechaMateria']
 
 class CohorteSerializer(serializers.ModelSerializer):
     class Meta:

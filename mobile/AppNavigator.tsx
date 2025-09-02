@@ -10,6 +10,7 @@ import DashboardScreen from './src/screens/DashboardScreen';
 import PantallaPersonas from './src/screens/personas';
 import PantallaFormaciones from './src/screens/formaciones';
 import PantallaTPFormaciones from './src/screens/tipoFormaciones';
+import PantallaMaterias from './src/screens/materias';
 import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { ReloadContext } from './src/contexts/ReloadContext';
@@ -91,6 +92,14 @@ export default function AppNavigator() {
         options={{
           drawerIcon: ({ color, size }) => <Icon name="format-list-bulleted" color={color} size={size} />,
           title: 'Tipo Formaciones',
+        }}
+      />
+      <Drawer.Screen
+        name="Materias"
+        component={PantallaMaterias}
+        options={{
+          drawerIcon: ({ color, size }) => <Icon name="format-list-bulleted" color={color} size={size} />,
+          title: 'Materias',
         }}
       />
     </Drawer.Navigator>
