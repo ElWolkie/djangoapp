@@ -223,7 +223,7 @@
       {% endfor %}
     {% endif %}
 
-    <form method="POST" autocomplete="off" id="registroPersona" action="{% url 'persona_modal' %}">
+    <form method="POST" autocomplete="off" id="registroPersona" action="{% url 'persona_modal' %}" class="needs-validation" novalidate autocomplete="off">
       {% csrf_token %}
 
       <!-- Checkboxes ocultos -->
@@ -241,7 +241,7 @@
                 <i class="fas fa-id-card form-icon"></i> Cédula
               </label>
               <div class="input-group">
-                <select id="tipo_cedula" name="tipo_cedula" class="form-select cedula-select" required>
+                <select id="tipo_cedula" name="tipo_cedula" class="form-select cedula-select" data-required="true" required>
                   <option value="V" selected>Venezolano</option>
                   <option value="E">Extranjero</option>
                   <option value="P">Pasaporte</option>
@@ -250,7 +250,8 @@
                        class="form-control cedula-input" 
                        placeholder="12345678" maxlength="8" 
                        oninput="this.value = this.value.replace(/[^0-9]/g, '')"
-                       >
+                        data-required="true" required>
+             <div class="invalid-feedback">Por favor, digita una cédula.</div>
               </div>
               <div id="cedula-type-description" class="text-muted mt-2"></div>
 
@@ -263,7 +264,8 @@
               <div class="input-group">
                 <i class="fas fa-file-invoice-dollar input-icon"></i>
                 <input type="text" id="rif" name="rif" class="form-control input-with-icon" 
-                       placeholder="J-12345678-9" maxlength="20">
+                       placeholder="J-12345678-9" maxlength="20" data-required="true" required>
+              <div class="invalid-feedback">Por favor, digita un RIF.</div>
               </div>
             </div>
               <div class="form-group">
@@ -273,8 +275,9 @@
                   <div class="input-group">
                     <i class="fas fa-user input-icon"></i>
                     <input type="text" id="nombres" name="nombres" class="form-control input-with-icon" 
-                           placeholder="Ingrese su nombre" maxlength="100" required>
-                  </div>
+                           placeholder="Ingrese su nombre" maxlength="100" data-required="true" required>
+                   <div class="invalid-feedback">Por favor, ingrese al menos un nombre.</div>
+                   </div>
               </div>
               
               <div class="form-group">
@@ -284,7 +287,8 @@
                   <div class="input-group">
                     <i class="fas fa-user input-icon"></i>
                     <input type="text" id="apellidos" name="apellidos" class="form-control input-with-icon" 
-                           placeholder="Ingrese su apellido" maxlength="100" required>
+                           placeholder="Ingrese su apellido" maxlength="100" data-required="true" required>
+                  <div class="invalid-feedback">Por favor, ingrese al menos un apellido.</div>
                   </div>
               </div>
           </div>
@@ -300,8 +304,9 @@
                   <div class="input-group">
                     <i class="fas fa-mobile-alt input-icon"></i>
                     <input type="text" id="telefono" name="telefono" class="form-control input-with-icon" 
-                           placeholder="Ej: 0412-1234567" maxlength="15" required>
-                  </div>
+                           placeholder="Ej: 0412-1234567" maxlength="15" data-required="true" required>
+                  <div class="invalid-feedback">Por favor, ingrese un número de teléfono.</div>
+                 </div>
               </div>
               
               <div class="form-group">
@@ -311,7 +316,8 @@
                   <div class="input-group">
                     <i class="fas fa-at input-icon"></i>
                     <input type="email" id="correo" name="correo" class="form-control input-with-icon" 
-                           placeholder="example@tudominio.com" required>
+                           placeholder="example@tudominio.com" data-required="true" required>
+                  <div class="invalid-feedback">Por favor, ingrese un correo.</div>
                   </div>
               </div>
         
@@ -325,7 +331,8 @@
         <div class="input-group">
           <i class="fas fa-home input-icon"></i>
           <textarea id="direccion" name="direccion" class="form-control input-with-icon"
-                    placeholder="Ingrese la dirección completa" rows="4"></textarea>
+                    placeholder="Ingrese la dirección completa" rows="4" data-required="true" required></textarea>
+        <div class="invalid-feedback">Por favor, ingrese una dirección.</div>
         </div>
       </div>
     </div>
@@ -355,7 +362,7 @@
           {% csrf_token %}
           <div class="form-group mb-3">
             <label for="nombreTP" class="form-label">Nombre del Tipo</label>
-            <input type="text" id="nombreTP" name="nombreTP" class="form-control" required>
+            <input type="text" id="nombreTP" name="nombreTP" class="form-control" data-required="true" required>
           </div>
           <input type="hidden" id="estadoTP" name="estadoTP" value="ACTIVO">
           <button type="submit" class="btn btn-warning w-100 py-2">
@@ -774,7 +781,6 @@ document
     const patronRif = /^[A-Z]-\d{8}-\d$/;
     if (!patronRif.test(rif)) {
       e.preventDefault();
-      alert('RIF inválido. Debe tener el formato X-XXXXXXXX-X');
     }
   });
 
@@ -782,9 +788,19 @@ activarValidaciones();
 //Validar <textarea> en mayusculas con acentos, comillas, guiones, puntos y ñ.
 document.querySelectorAll("textarea").forEach(function(textarea) {
   textarea.addEventListener("input", function() {
-    this.value = this.value.toUpperCase().replace(/[^A-Z0-9ÑñÁÉÍÓÚáéíóú\s.,-]/g, '');
+    this.value = this.value.toUpperCase().replace(/[^A-Z0-9ÑñÁÉÍÓÚáéíóú\s.,\-'""]/g, '');
   });
 });
-
+    // b) Validación visual de Bootstrap al submit
+    document.querySelectorAll('.needs-validation').forEach(form => {
+      form.addEventListener('submit', e => {
+        if (!form.checkValidity()) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        form.classList.add('was-validated');
+      }, false);
+    });
+    
 </script>
 {% endblock javascripts %}
