@@ -58,6 +58,7 @@ urlpatterns = [
     ##########################################################3333
 
     # Specific route for formacion modal
+    path('api/cuotas/', views.api_cuotas, name='api_cuotas'),
     path('formacionModal/', views.formacion_modal, name='formacion_modal'),
     path('editFormacion/<int:pk>/', views.edit_formacion, name='edit_formacion'),
     path('reactivateFormacion/<int:pk>/', views.reactivate_formacion, name='reactivate_formacion'),

@@ -9,11 +9,11 @@ from django.template import loader
 from django.db.models import OuterRef, Subquery, Max, Count, Sum, Q, Prefetch
 from django.urls import reverse
 from django.contrib import messages
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError, FieldError
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required, permission_required
 from django.db import IntegrityError, transaction
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_GET
 from django.contrib.auth.models import Group
 from collections import defaultdict # Para agrupar
 
@@ -28,7 +28,7 @@ from reportlab.platypus import Table, TableStyle
 from django.db.models.functions import ExtractMonth
 
 from .forms import AsignarGrupoForm, UsuarioForm, TipoFormacionForm, FormacionForm, MateriaForm, CohorteForm, CargoForm, RequisitoForm, ServicioForm, TramiteForm, DenominacionForm, BancoForm, MonedaForm, TasaForm, TipoMovimientoForm, MovimientoForm, ConfiguracionForm, CuotaFormacionForm
-from .models import Personas, Usuarios, TipoFormacion, Formacion, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Denominacion, Banco, Moneda, Tasa, Movimiento, TipoMovimiento, Configuracion, CuotaFormacion
+from .models import Personas, Usuarios, TipoFormacion, Formacion, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Denominacion, Banco, Moneda, Tasa, Movimiento, TipoMovimiento, Configuracion, CuotaFormacion, CuotaFormacion
 
 from apps.honorario.models import Honorario
 from apps.solicitud.models import Solicitud
@@ -36,6 +36,8 @@ from apps.cuentaBanco.models import Banco, PlanCuenta, CuentaBanco
 from apps.empresa.models import empresa
 from apps.persona.models import PersonaTP
 from apps.periodoContable.models import periodoContable
+
+from django.core.paginator import Paginator
 
 from apps.bitacora.signals import registrar_login_fallido
 
@@ -677,7 +679,6 @@ def registrar_cuota_formacion(request, idFormacion=None):
             'formaciones': formaciones,
             'tipos_cuota': CuotaFormacion.TIPOS_CUOTA,
         })
-from django.core.paginator import Paginator
 
 @login_required(login_url='login')
 @permission_required("home.view_cuotaformacion", raise_exception=True)
@@ -697,6 +698,37 @@ def consultar_cuota_formacion(request):
         'cuotas': page_obj,  # Pasar el objeto de la página al template
         'mostrar_inactivos': mostrar,
     })
+
+@login_required
+@require_GET
+def api_cuotas(request):
+    formacion_id = request.GET.get('formacion_id')
+    
+    # ----> AÑADE ESTA LÍNEA <----
+    print(f"Paso 2: La API recibió la solicitud para formacion_id = {formacion_id}")
+
+    if not formacion_id:
+        return JsonResponse({'results': []}, status=400)
+
+    qs = CuotaFormacion.objects.filter(idFormacion_id=formacion_id)
+
+    # ----> AÑADE ESTA LÍNEA <----
+    print(f"----> Base de datos encontró {qs.count()} cuotas para este ID.")
+
+    data = []
+    for c in qs:
+        data.append({
+            'id': c.idCuota,
+            'nombre': c.nombreCuota,
+            'tipo_valor': c.tipoCuota,
+            'tipo_display': c.get_tipoCuota_display(),
+            'valor': str(c.valorCuota),
+            'orden': c.orden,
+            'is_active': c.is_active,
+        })
+
+    return JsonResponse({'results': data})
+
 #EDITAR CUOTA
 @login_required(login_url='login')
 @permission_required("home.change_cuotaformacion", raise_exception=True)

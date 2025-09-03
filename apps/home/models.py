@@ -127,8 +127,10 @@ class CuotaFormacion(models.Model):
     valorCuota = models.DecimalField(max_digits=10, decimal_places=2)
     orden = models.PositiveIntegerField(help_text="Orden en que se deben pagar las cuotas")
     fechaCuota = models.DateField(null=True, blank=True, auto_now_add=True)
+    is_active = models.BooleanField(default=True)
 
     def clean(self):
+        # La lógica de validación está bien, no se necesita cambiar.
         qs = CuotaFormacion.objects.filter(
             idFormacion=self.idFormacion,
             nombreCuota__iexact=self.nombreCuota,
@@ -139,7 +141,6 @@ class CuotaFormacion(models.Model):
             qs = qs.exclude(pk=self.pk)
         if qs.exists():
             raise ValidationError("Ya existe una cuota con el mismo idFormacion, nombreCuota, tipoCuota y orden.")
-    is_active = models.BooleanField(default=True )
     
     class Meta:
         verbose_name = "Cuota de Formación"
