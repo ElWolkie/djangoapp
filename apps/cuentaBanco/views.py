@@ -24,17 +24,30 @@ from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Spacer
 from reportlab.lib.units import mm
 from django.core.paginator import Paginator
+from django.db.models import Q
 
 @login_required(login_url='login')
 @permission_required("cuentaBanco.view_banco", raise_exception=True)
 def banco_list(request):
     mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+    search_query = request.GET.get('search', '').strip()  # Obtener el término de búsqueda
+
     if mostrar:
         bancos = Banco.objects.all()
     else:
         bancos = Banco.objects.filter(estadoBanco=True).order_by('nombreBanco')
     
-      # Paginación 
+
+          # Filtrar por el término de búsqueda si existe BUSCADOR
+    if search_query:
+        bancos = bancos.filter(
+            Q(nombreBanco__icontains=search_query) |
+            Q(codLocalBanco__icontains=search_query) |
+            Q(codSwiftBanco__icontains=search_query) |
+            Q(codigoPlanCuenta__codigoPlanCuenta__icontains=search_query) |
+            Q(estadoBanco__icontains=search_query) |
+            Q(fechaBanco__icontains=search_query)
+        )
     paginator = Paginator(bancos, 10)  # 10 cuotas por página
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
@@ -42,6 +55,8 @@ def banco_list(request):
         'bancos': page_obj,
         'titulo': 'Listado de Bancos',
         'mostrar_inactivos': mostrar,
+        'search_query': search_query,  # Pasar el término de búsqueda al template
+
     })
 
 @login_required(login_url='login')

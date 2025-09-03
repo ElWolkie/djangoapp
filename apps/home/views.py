@@ -1051,16 +1051,29 @@ def reactivate_formacion(request, pk):
 @permission_required("home.view_formacion", raise_exception=True)
 def tabla_formaciones(request):
     mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+    search_query = request.GET.get('search', '').strip()  # Obtener el término de búsqueda
+
     if mostrar:
         formaciones = Formacion.objects.all()
     else:
-        formaciones = Formacion.objects.filter(estadoFormacion='ACTIVO')
+        formaciones = Formacion.objects.filter(estadoFormacion='ACTIVO').order_by('-fechaFormacion')
+  
+    # Filtrar por el término de búsqueda si existe BUSCADOR
+    if search_query:
+        formaciones = formaciones.filter(
+            Q(nombreFormacion__icontains=search_query) |
+            Q(idTF__nombreTipoFormacion__icontains=search_query) |
+            Q(valorInscripcion__icontains=search_query) |
+            Q(duracion__icontains=search_query)
+        )
+
+  
     tipo_formaciones = TipoFormacion.objects.filter(estadoTipoFormacion='ACTIVO')
 
-    formaciones = Formacion.objects.select_related('idTF')\
+    formacionesCuotas = Formacion.objects.select_related('idTF')\
         .prefetch_related(Prefetch('cuotas', queryset=CuotaFormacion.objects.order_by('orden')))
 
-    for f in formaciones:
+    for f in formacionesCuotas:
         cuotas_qs = f.cuotas.all()  # related_name='cuotas'
         if f.tieneCuotas and cuotas_qs.exists():
             cuotas = list(cuotas_qs)
@@ -1084,11 +1097,16 @@ def tabla_formaciones(request):
             f.cuotas_list = ""
             f.cuotas_tipo = ""
             f.cuotas_text = "No"
-
+   # Paginación 
+    paginator = Paginator(formaciones, 3)  # 10 cuotas por página
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
     return render(request, 'home/tablaFormaciones.html', {
-        'formaciones': formaciones.order_by('-idFormacion'),
+        'formaciones':page_obj,
         'tipoFormaciones': tipo_formaciones,
         'mostrar_inactivos': mostrar,
+        'search_query': search_query,  # Pasar el término de búsqueda al template
+
     })
 
 @login_required(login_url='login')

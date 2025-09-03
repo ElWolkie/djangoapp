@@ -89,10 +89,14 @@
 
   <div class="row mb-3">
     <div class="col-md-4">
-      <div class="input-group">
-        <span class="input-group-text"><i class="fas fa-search"></i></span>
-        <input class="form-control" id="searchInput" type="text" placeholder="Buscar...">
-      </div>
+   <div class="input-group">
+    <!-- Buscador directo del bakend NO BORRAR -->
+     <form onsubmit="updateSearchParam(event)" class="d-flex w-100">
+          <span class="input-group-text"><i class="fas fa-search"></i></span>
+          <input type="text" id="searchInput" name="search" class="form-control" placeholder="Buscar..." value="{{ search_query|default:'' }}" title="Recuerda que la busqueda discrimina entre activos/inactivos.">
+          <button type="submit" style="display:none" tabindex="-1" aria-hidden="true"></button>
+      </form>
+    </div>
     </div>
     <div class="col-md-4 text-center">
       {% if perms.home.add_formacion %}
@@ -111,7 +115,7 @@
 
   <div class="mb-3">
     <a href="?mostrar_inactivos={% if mostrar_inactivos %}false{% else %}true{% endif %}"
-       class="btn btn-outline-secondary btn-sm">
+       class="btn btn-outline-secondary btn-sm" title="¿No encuentras lo que buscas? Intenta cambiar este filtro.">
       {% if mostrar_inactivos %}
         <i class="fas fa-eye-slash me-1"></i> Ocultar inactivos
       {% else %}
@@ -224,6 +228,38 @@
         </tbody>
       </table>
     </div>
+    <!-- Paginación -->
+ <div class="pagination-container text-center mt-4">
+  <nav aria-label="Page navigation">
+    <ul class="pagination justify-content-center">
+      {% if formaciones.has_previous %}
+        <li class="page-item">
+          <a class="page-link" href="?search={{ search_query }}&page={{ formaciones.previous_page_number }}" aria-label="Anterior">
+            <span aria-hidden="true">&laquo;</span>
+          </a>
+        </li>
+      {% endif %}
+
+      {% for num in formaciones.paginator.page_range %}
+        {% if num == 1 or num == formaciones.paginator.num_pages or num >= formaciones.number|add:"-2" and num <= formaciones.number|add:"2" %}
+          <li class="page-item {% if formaciones.number == num %}active{% endif %}">
+            <a class="page-link" href="?search={{ search_query }}&page={{ num }}">{{ num }}</a>
+          </li>
+        {% elif num == formaciones.number|add:"-3" or num == formaciones.number|add:"3" %}
+          <li class="page-item disabled"><span class="page-link">...</span></li>
+        {% endif %}
+      {% endfor %}
+
+      {% if formaciones.has_next %}
+        <li class="page-item">
+          <a class="page-link" href="?search={{ search_query }}&page={{ formaciones.next_page_number }}" aria-label="Siguiente">
+            <span aria-hidden="true">&raquo;</span>
+          </a>
+        </li>
+      {% endif %}
+    </ul>
+  </nav>
+</div>
   </div>
 </div>
 
@@ -540,54 +576,7 @@ document.addEventListener("DOMContentLoaded", function() {
         }
     }
 
-    function setupPagination() {
-        const rows = table.getElementsByTagName('tr');
-        const totalPages = Math.ceil((rows.length - 1) / rowsPerPage);
-
-        pagination.innerHTML = '';
-
-        // Botón Anterior
-        const prevLi = document.createElement('li');
-        prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
-        prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Anterior">&laquo;</a>`;
-        prevLi.addEventListener('click', (e) => {
-            e.preventDefault();
-            if (currentPage > 1) currentPage--;
-            displayRows();
-            setupPagination();
-        });
-        pagination.appendChild(prevLi);
-
-        // Botones de Páginas
-        for (let i = 1; i <= totalPages; i++) {
-            const li = document.createElement('li');
-            li.className = `page-item ${i === currentPage ? 'active' : ''}`;
-            li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
-            li.addEventListener('click', (e) => {
-                e.preventDefault();
-                currentPage = i;
-                displayRows();
-                setupPagination();
-            });
-            pagination.appendChild(li);
-        }
-
-        // Botón Siguiente
-        const nextLi = document.createElement('li');
-        nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
-        nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Siguiente">&raquo;</a>`;
-        nextLi.addEventListener('click', (e) => {
-            e.preventDefault();
-            if (currentPage < totalPages) currentPage++;
-            displayRows();
-            setupPagination();
-        });
-        pagination.appendChild(nextLi);
-    }
-
-    displayRows();
-    setupPagination();
-
+ 
     // Scroll horizontal
   const wrap = document.querySelector('.table-responsive');
   if(wrap){
@@ -598,17 +587,7 @@ document.addEventListener("DOMContentLoaded", function() {
       }
     });
   }
-  const searchInput = document.getElementById("searchInput");
 
-  searchInput.addEventListener("keyup", function () {
-    const filter = searchInput.value.toUpperCase();
-    const rows = table.querySelectorAll("tbody tr");
-
-    rows.forEach((row) => {
-      const text = row.textContent || row.innerText;
-      row.style.display = text.toUpperCase().includes(filter) ? "" : "none";
-    });
-  });
 });
 </script>
 <script>
@@ -625,4 +604,30 @@ document.addEventListener("DOMContentLoaded", function() {
     });
   });
 </script>
+
+<script>
+  // Función para actualizar el parámetro de página en la URL del paginador NO BORRAR 
+  function updatePageParam(pageNumber) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('page', pageNumber); // Actualiza o añade el parámetro 'page'
+    window.location.href = url.toString(); // Redirige a la nueva URL
+  }
+  
+  // Actualiza el parámetro de búsqueda en la URL
+  function updateSearchParam(event) {
+    event.preventDefault(); // Evita el envío normal del formulario
+
+    const searchInput = document.getElementById('searchInput').value.trim();
+    const url = new URL(window.location.href);
+
+    if (searchInput) {
+      url.searchParams.set('search', searchInput); // Actualiza o añade el parámetro 'search'
+    } else {
+      url.searchParams.delete('search'); // Elimina el parámetro 'search' si está vacío
+    }
+
+    window.location.href = url.toString(); // Redirige a la nueva URL
+  }
+</script>
+
 {% endblock javascripts %}

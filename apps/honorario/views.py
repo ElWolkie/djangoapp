@@ -5,6 +5,8 @@ from django.contrib.auth.decorators import login_required, permission_required
 from django.template import loader
 from django.urls import reverse
 from django.contrib import messages
+from django.db.models import Q, Prefetch
+from django.core.paginator import Paginator
 
 from .forms import HonorarioForm
 from .models import Honorario
@@ -129,13 +131,38 @@ def reactivate_honorario(request, pk):
 @permission_required("honorario.view_honorario", raise_exception=True)
 def tabla_honorarios(request):
     mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+    search_query = request.GET.get('search', '').strip()  # Obtener el término de búsqueda
+
     if mostrar:
         honorarios = Honorario.objects.all()
     else:
         honorarios = Honorario.objects.filter(estadoHonorario='ACTIVO')
+
+          # Filtrar por el término de búsqueda si existe BUSCADOR
+    if search_query:
+        honorarios = honorarios.filter(
+            Q(idHonorario__icontains=search_query) |
+            Q(idPersona__cedula__icontains=search_query) |
+            Q(idPersona__nombres__icontains=search_query) |
+            Q(idPersona__apellidos__icontains=search_query) |
+            Q(idCargo__nombreCargo__icontains=search_query) |
+            Q(idCohorte__nombreCohorte__icontains=search_query) |
+            Q(idMateria__nombreMateria__icontains=search_query) |
+            Q(horas__icontains=search_query) |
+            Q(monto__icontains=search_query) |
+            Q(estadoHonorario__icontains=search_query) |
+            Q(fechaHonorario__icontains=search_query)
+        )
+    # Paginación 
+    paginator = Paginator(honorarios, 10)  # 10 cuotas por página
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
     return render(request, 'honorario/tablaHonorarios.html', {
-        'honorarios': honorarios,
+        'honorarios': page_obj,
         'mostrar_inactivos': mostrar,
+        'search_query': search_query,  # Pasar el término de búsqueda al template
+
     })
 
 @login_required(login_url='login')

@@ -76,14 +76,18 @@
   <div class="row mb-3">
     <div class="col-md-4">
       <div class="input-group">
-        <span class="input-group-text"><i class="fas fa-search"></i></span>
-        <input class="form-control" id="searchInput" type="text" placeholder="Buscar...">
+        <!-- Buscador directo del bakend NO BORRAR -->
+      <form onsubmit="updateSearchParam(event)" class="d-flex w-100">
+          <span class="input-group-text"><i class="fas fa-search"></i></span>
+          <input type="text" id="searchInput" name="search" class="form-control" placeholder="Buscar..." value="{{ search_query|default:'' }}" title="Recuerda que la busqueda discrimina entre activos/inactivos.">
+          <button type="submit" style="display:none" tabindex="-1" aria-hidden="true"></button>
+      </form>
       </div>
     </div>
 
     <div class="col-md-4 text-end">
       {% if perms.cuentaBanco.add_banco %}
-      <a href="{% url 'banco_create' %}" class="btn btn-warning px-3">
+      <a href="{% url 'banco_create' %}" class="btn btn-warning px-3" title="Registrar un nuevo banco">
         <i class="fas fa-plus-circle me-1"></i> Registrar
       </a>
       {% endif %}
@@ -121,7 +125,7 @@
   </div>
 
   <div class="mb-3">
-    <a href="?mostrar_inactivos={% if mostrar_inactivos %}false{% else %}true{% endif %}" class="btn btn-outline-secondary btn-sm">
+    <a href="?mostrar_inactivos={% if mostrar_inactivos %}false{% else %}true{% endif %}" class="btn btn-outline-secondary btn-sm" title="¿No encuentras lo que buscas? Intenta cambiar este filtro.">
       {% if mostrar_inactivos %}
         <i class="fas fa-eye-slash me-1"></i> Ocultar inactivos
       {% else %}
@@ -151,8 +155,8 @@
         <thead class="table-light">
           <tr>
             <th>Nombre</th>
-            <th>Código Local</th>
-            <th>Código SWIFT</th>
+            <th title="Código utilizado para transferencias nacionales.">Código Local</th>
+            <th title="Código utilizado para transferencias internacionales.">Código SWIFT</th>
             <th>Estado</th>
             <th class="actions-column">Acciones</th>
           </tr>
@@ -231,12 +235,12 @@
   </div>
 
   <!-- Paginación -->
-<div class="pagination-container text-center mt-4">
+ <div class="pagination-container text-center mt-4">
   <nav aria-label="Page navigation">
     <ul class="pagination justify-content-center">
       {% if bancos.has_previous %}
         <li class="page-item">
-          <a class="page-link" href="javascript:void(0);" onclick="updatePageParam({{ bancos.previous_page_number }})" aria-label="Anterior">
+          <a class="page-link" href="?search={{ search_query }}&page={{ bancos.previous_page_number }}" aria-label="Anterior">
             <span aria-hidden="true">&laquo;</span>
           </a>
         </li>
@@ -245,7 +249,7 @@
       {% for num in bancos.paginator.page_range %}
         {% if num == 1 or num == bancos.paginator.num_pages or num >= bancos.number|add:"-2" and num <= bancos.number|add:"2" %}
           <li class="page-item {% if bancos.number == num %}active{% endif %}">
-            <a class="page-link" href="javascript:void(0);" onclick="updatePageParam({{ num }})">{{ num }}</a>
+            <a class="page-link" href="?search={{ search_query }}&page={{ num }}">{{ num }}</a>
           </li>
         {% elif num == bancos.number|add:"-3" or num == bancos.number|add:"3" %}
           <li class="page-item disabled"><span class="page-link">...</span></li>
@@ -254,7 +258,7 @@
 
       {% if bancos.has_next %}
         <li class="page-item">
-          <a class="page-link" href="javascript:void(0);" onclick="updatePageParam({{ bancos.next_page_number }})" aria-label="Siguiente">
+          <a class="page-link" href="?search={{ search_query }}&page={{ bancos.next_page_number }}" aria-label="Siguiente">
             <span aria-hidden="true">&raquo;</span>
           </a>
         </li>
@@ -770,6 +774,20 @@ document.addEventListener('DOMContentLoaded', function () {
   function updatePageParam(pageNumber) {
     const url = new URL(window.location.href);
     url.searchParams.set('page', pageNumber); // Actualiza o añade el parámetro 'page'
+    window.location.href = url.toString(); // Redirige a la nueva URL
+  }
+  function updateSearchParam(event) {
+    event.preventDefault(); // Evita el envío normal del formulario
+
+    const searchInput = document.getElementById('searchInput').value.trim();
+    const url = new URL(window.location.href);
+
+    if (searchInput) {
+      url.searchParams.set('search', searchInput); // Actualiza o añade el parámetro 'search'
+    } else {
+      url.searchParams.delete('search'); // Elimina el parámetro 'search' si está vacío
+    }
+
     window.location.href = url.toString(); // Redirige a la nueva URL
   }
 </script>
