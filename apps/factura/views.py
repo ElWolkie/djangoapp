@@ -1,7 +1,7 @@
 from datetime import datetime
 from datetime import timezone
 from datetime import datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from pyexpat.errors import messages
 import random
 from django.shortcuts import render, get_object_or_404, redirect
@@ -33,6 +33,8 @@ from apps.home.models import Configuracion, CuotaFormacion, Moneda, Tasa
 from apps.persona.models import Personas
 from apps.empresa.models import empresa
 from apps.planCuenta.models import PlanCuenta
+
+from .templatetags.decimal_filters import to_decimal
 
 
 def create_plan_articulo(request):
@@ -154,8 +156,15 @@ def plan_articulo_list(request):
 
 
 def factura_cargando(request, pk):
-    # Redirige primero a la animación, luego al PDF
-    return render(request, 'factura/cargando.html', {'factura_pk': pk})
+    """
+    Vista que muestra una página de carga antes de generar el PDF de factura.
+    """
+    factura = get_object_or_404(Factura, pk=pk)
+    context = {
+        'factura': factura,
+        'pdf_url': reverse('factura_generar_pdf', args=[pk])
+    }
+    return render(request, 'factura/cargando.html', context)
 def factura_list(request):
     """
     Vista para listar todas las facturas junto con sus detalles.
@@ -241,7 +250,17 @@ def notas_create(request):
             'message': f'No se encontró una tasa registrada para la moneda de configuración ({moneda_configuracion.nombreMoneda}).'
         }, status=400)
 
-    tasa_configuracion_valor = Decimal(tasa_configuracion.montoTasa)  # Convertir a Decimal
+    # Convertir a Decimal de forma segura (acepta cadenas con comas/miles)
+    try:
+        raw_tasa = str(tasa_configuracion.montoTasa or '0').replace('.', '').replace(',', '.')
+        tasa_configuracion_valor = to_decimal(raw_tasa)
+    except (InvalidOperation, ValueError):
+        return JsonResponse({
+            'success': False,
+            'message': f'Valor de tasa inválido: {tasa_configuracion.montoTasa}'
+        }, status=400)
+
+    tasa_configuracion_valor = to_decimal(tasa_configuracion.montoTasa)  # Convertir a Decimal
     print(f"Tasa de configuración ({moneda_configuracion.nombreMoneda}): {tasa_configuracion_valor}")
 
     if request.method == 'POST':
@@ -695,7 +714,7 @@ def pago_create(request, pk=None):
             'message': f'No se encontró una tasa registrada para la moneda de configuración ({moneda_configuracion.nombreMoneda}).'
         }, status=400)
 
-    tasa_configuracion_valor = Decimal(tasa_configuracion.montoTasa)  # Convertir a Decimal
+    tasa_configuracion_valor = to_decimal(tasa_configuracion.montoTasa)  # Convertir a Decimal
     print(f"Tasa de configuración ({moneda_configuracion.nombreMoneda}): {tasa_configuracion_valor}")
 
     # Calcular el saldo pendiente de cada nota
@@ -964,20 +983,20 @@ def pago_create(request, pk=None):
                             else:
                                 print("No se encontró una relación para la nota.")
 
-                            return JsonResponse({
-                                'success': True,
-                                'message': 'Pago creado exitosamente y asiento contable generado. La nota ha sido pagada en su totalidad. Ya puede facturar.',
-                                'redirect_url': reverse('factura_create', args=[pago.idNota.idNota]),
-                                'relaciones': relaciones,  # Enviar las llaves relacionadas
-                                'pago': {
-                                    'idPago': pago.idPago,
-                                    'idNota': pago.idNota.numeroNota,
-                                    'monto': f"{float(pago.monto):.2f} {pago.idTasa.idMoneda.simboloMoneda}",
-                                    'fechaPago': pago.fechaPago.strftime('%d/%m/%Y'),
-                                    'formaPago': pago.formaPago,
-                                    'referencia': pago.referencia
-                                }
-                            })
+                                return JsonResponse({
+                                    'success': True,
+                                    'message': 'Pago creado exitosamente y asiento contable generado. La nota ha sido pagada en su totalidad. Ya puede facturar.',
+                                    'redirect_url': reverse('factura_list'),
+                                    'relaciones': relaciones,
+                                    'pago': {
+                                        'idPago': pago.idPago,
+                                        'idNota': pago.idNota.numeroNota,
+                                        'monto': f"{float(pago.monto):.2f} {pago.idTasa.idMoneda.simboloMoneda}",
+                                        'fechaPago': pago.fechaPago.strftime('%d/%m/%Y'),
+                                        'formaPago': pago.formaPago,
+                                        'referencia': pago.referencia
+                                    }
+                                })
             except ValueError as e:
                 print(f"Error de valor: {e}")
                 return JsonResponse({
