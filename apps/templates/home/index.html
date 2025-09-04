@@ -4,6 +4,19 @@
 
 {% block stylesheets %}
 <link rel="stylesheet" href="/static/assets/css/argon.css" />
+
+<style>
+  .chart-line {
+  position: relative;
+  width: 100%;
+  overflow-x: auto;
+}
+
+.chart-line .chart-canvas {
+  width: 100% !important;
+  height: auto !important;
+}
+</style>
 {% endblock stylesheets %}
 
 {% block content %}
@@ -141,9 +154,8 @@
             </div>
             <div class="card-body">
               <!-- Chart -->
-              <div class="chart">
-                <!-- Chart wrapper -->
-                <canvas id="chart-sales-dark" class="chart-canvas"></canvas>
+              <div class="chart-line">
+                  <canvas id="chart-sales-dark" class="chart-canvas"></canvas>
               </div>
             </div>
           </div>
@@ -159,9 +171,9 @@
               </div>
             </div>
             <div class="card-body">
-              <!-- Chart -->
-              <div class="chart">
-                <canvas id="chart-bars" class="chart-canvas"></canvas>
+              <!-- Gráfico de barras -->
+              <div class="chart" style="min-height: 350px;">
+                  <canvas id="chart-bars" class="chart-canvas"></canvas>
               </div>
             </div>
           </div>
@@ -183,11 +195,13 @@
 
   <script>
     // Gráfico de líneas
+    const puntos = {{ chart_data|safe }}.length;
+    document.getElementById('chart-sales-dark').style.width = (puntos * 60) + 'px';
     var ctx = document.getElementById('chart-sales-dark').getContext('2d');
     new Chart(ctx, {
         type: 'line',
         data: {
-            labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'],
+            labels: {{ chart_labels|safe }},
             datasets: [{
                 label: 'Solicitudes',
                 data: {{ chart_data|safe }},
@@ -196,13 +210,21 @@
             }]
         },
         options: {
-            responsive: true,
-            plugins: {
-                legend: {
-                    display: false
+        responsive: true,
+        maintainAspectRatio: false, // Permite que el alto se ajuste
+        plugins: {
+            legend: { display: false }
+        },
+        scales: {
+            x: {
+                ticks: {
+                    autoSkip: false, // No salta etiquetas
+                    maxRotation: 45, // Rota etiquetas para que quepan
+                    minRotation: 45
                 }
             }
         }
+    }
     });
     
     // Gráfico de barras

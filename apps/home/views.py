@@ -38,6 +38,11 @@ from apps.persona.models import PersonaTP
 from apps.periodoContable.models import periodoContable
 
 from django.core.paginator import Paginator
+from django.db.models.functions import TruncDate
+from django.utils.timezone import localtime
+from datetime import date, timedelta
+from django.utils import timezone
+from collections import Counter
 
 from apps.bitacora.signals import registrar_login_fallido
 
@@ -61,15 +66,38 @@ def contabilidad(request):
     except periodoContable.DoesNotExist:
         periodo_actual = None
 
+    # =========================
+    hoy = date.today()
+    dias_rango = [hoy - timedelta(days=i) for i in range(29, -1, -1)]
+
+    cuentas = CuentaBanco.objects.all()
+
+    fechas_locales = []
+    for c in cuentas:
+        fecha = c.fechaRegistro
+        if isinstance(fecha, datetime):
+            fecha = timezone.localtime(fecha).date()
+        elif isinstance(fecha, date):
+            fecha = fecha
+        fechas_locales.append(fecha)
+
+    conteo_dict = Counter(fechas_locales)
+
+    chart_labels = [d.strftime("%d/%m/%Y") for d in dias_rango]
+    chart_data = [conteo_dict.get(d, 0) for d in dias_rango]
+
     context = {
         'ultima_cuenta': ultima_cuenta,
         'ultima_empresa': ultima_empresa,
-        'periodo_actual': periodo_actual,  # Ahora mostramos el período actual
+        'periodo_actual': periodo_actual,
         'total_cuentas': CuentaBanco.objects.count(),
         'total_empresas': empresa.objects.count(),
         'total_periodos': periodoContable.objects.count(),
-        'periodos_activos': periodoContable.objects.filter(estadoPeriodo=True).count()
+        'periodos_activos': periodoContable.objects.filter(estadoPeriodo=True).count(),
+        'chart_labels': chart_labels,
+        'chart_data': chart_data,
     }
+
     
     return render(request, 'home/index2.html', context)
 
@@ -87,7 +115,7 @@ def home(request):
     }
 
     try:
-        ultima_solicitud = solicitudes.select_related('idServicio').latest('fechaSolicitud')
+        ultima_solicitud = solicitudes.latest('fechaSolicitud')
     except Solicitud.DoesNotExist:
         ultima_solicitud = None
 
@@ -110,29 +138,38 @@ def home(request):
 
     honorarios_data = Honorario.objects.filter(estadoHonorario='ACTIVO').aggregate(
         total=Count('idHonorario'),
-        horas=Sum('horas', output_field=models.IntegerField())
+        horas=Sum('horas')
     )
 
-    chart_data = cache.get('solicitudes_por_mes')
-    if not chart_data:
-        meses = [0]*12
-        solicitudes_por_mes = solicitudes.annotate(
-            month=ExtractMonth('fechaSolicitud')
-        ).values('month').annotate(total=Count('idSoli'))
-        
-        for mes in solicitudes_por_mes:
-            meses[mes['month'] - 1] = mes['total']
-        chart_data = meses
-        cache.set('solicitudes_por_mes', chart_data, 86400)
+    # Últimos 30 días
+    hoy = date.today()
+    dias_rango = [hoy - timedelta(days=i) for i in range(29, -1, -1)]
+
+    fechas_locales = []
+    for s in solicitudes:
+        fecha = s.fechaSolicitud
+        # Si es datetime, convertir a hora local
+        if isinstance(fecha, datetime):
+            fecha = timezone.localtime(fecha).date()
+        # Si ya es date, usarlo tal cual
+        elif isinstance(fecha, date):
+            fecha = fecha
+        fechas_locales.append(fecha)
+
+    conteo_dict = Counter(fechas_locales)
+
+    labels = [d.strftime("%d/%m/%Y") for d in dias_rango]
+    data = [conteo_dict.get(d, 0) for d in dias_rango]
 
     context = {
         **counts,
         'ultima_solicitud': ultima_solicitud.fechaSolicitud if ultima_solicitud else None,
         'servicio_popular': servicio_popular,
-        'total_honorarios': honorarios_data['total'],
+        'total_honorarios': honorarios_data['total'] or 0,
         'total_horas': honorarios_data['horas'] or 0,
         'cohorte_reciente': cohorte_reciente.nombreCohorte if cohorte_reciente else "N/A",
-        'chart_data': chart_data,
+        'chart_labels': labels,
+        'chart_data': data,
     }
 
     return render(request, 'home/index.html', context)
@@ -2917,7 +2954,7 @@ def desactivar_tramite(request, pk):
     if request.method == 'POST':
         tramites.estadoTramite = "INACTIVO"
         tramites.save()
-        messages.success(request, f'⛔ Trámite {tramites.nombreTramite} desactivado')
+        messages.success(request, f' Trámite {tramites.nombreTramite} desactivado')
         return redirect(request.POST.get('next', 'tabla_tramites'))
     return redirect('tabla_tramites')
 
@@ -2928,7 +2965,7 @@ def reactivate_tramite(request, pk):
     if request.method == 'POST':
         tramites.estadoTramite = "ACTIVO"
         tramites.save()
-        messages.success(request, f'✅ Trámite {tramites.nombreTramite} activado')
+        messages.success(request, f' Trámite {tramites.nombreTramite} activado')
         return redirect(request.POST.get('next', 'tabla_tramites'))
     return redirect('tabla_tramites')
 

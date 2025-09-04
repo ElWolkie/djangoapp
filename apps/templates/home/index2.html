@@ -170,13 +170,13 @@
             <div class="row align-items-center">
               <div class="col">
                 <h6 class="text-light text-uppercase ls-1 mb-1">Tendencias</h6>
-                <h5 class="h3 text-white mb-0">Movimientos Bancarios</h5>
+                <h5 class="h3 text-white mb-0">Cuentas Bancarias Creadas (Últimos 30 días)</h5>
               </div>
             </div>
           </div>
-          <div class="card-body">
+          <div class="card-body" style="height: 400px;">  <!-- antes probablemente era más pequeño -->
             <canvas id="chart-sales-dark" class="chart-canvas"></canvas>
-          </div>
+        </div>
         </div>
       </div>
       
@@ -199,32 +199,53 @@
   </div>
 </div>
 {% endblock content %}
-
 {% block javascripts %}
 <script src="/static/assets/vendor/chart.js/dist/Chart.min.js"></script>
 <script src="/static/assets/vendor/chart.js/dist/Chart.extension.js"></script>
 
 <script>
-  // Gráfico de movimientos bancarios (ajustar según tus datos reales)
+  // === Gráfico de cuentas bancarias creadas por día ===
   var ctx = document.getElementById('chart-sales-dark').getContext('2d');
   new Chart(ctx, {
       type: 'line',
       data: {
-          labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'],
+          labels: {{ chart_labels|safe }},
           datasets: [{
-              label: 'Movimientos',
-              data: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], // Placeholder
+              label: 'Cuentas creadas',
+              data: {{ chart_data|safe }},
               borderColor: '#11cdef',
-              tension: 0.4
+              backgroundColor: 'rgba(17, 205, 239, 0.2)',
+              fill: true,
+              tension: 0.4,
+              pointBackgroundColor: '#11cdef',
+              pointBorderColor: '#fff',
+              pointHoverBackgroundColor: '#fff',
+              pointHoverBorderColor: '#11cdef'
           }]
       },
       options: {
           responsive: true,
-          plugins: { legend: { display: false } }
+          maintainAspectRatio: false,
+          plugins: { 
+              legend: { display: false }
+          },
+          scales: {
+              x: {
+                  ticks: {
+                      autoSkip: false,
+                      maxRotation: 45,
+                      minRotation: 45
+                  }
+              },
+              y: {
+                  beginAtZero: true,
+                  precision: 0
+              }
+          }
       }
   });
-  
-  // Gráfico de barras actualizado para contabilidad
+
+  // === Gráfico de barras: Totales actuales ===
   var ctx2 = document.getElementById('chart-bars').getContext('2d');
   new Chart(ctx2, {
       type: 'bar',
@@ -242,7 +263,13 @@
       },
       options: {
           responsive: true,
-          plugins: { legend: { display: false } }
+          plugins: { legend: { display: false } },
+          scales: {
+              y: {
+                  beginAtZero: true,
+                  precision: 0
+              }
+          }
       }
   });
 </script>
