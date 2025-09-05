@@ -35,10 +35,12 @@ def honorario_modal(request):
                     'errors': {'__all__': ['Ya existe un honorario idéntico en la base de datos.']}
                 })
             monto = honorario.monto
+            idHonorario = honorario.pk
+
             return JsonResponse({
                 'success': True,
                 'message': 'Registro exitoso.',
-                'redirect_url': f"{reverse('nota_create')}?honorario={monto}&id={honorario.idPersona.idPersona}"
+                'redirect_url': f"{reverse('nota_create')}?honorario={monto}&idP={honorario.idPersona.idPersona}&idH={idHonorario}"
             })
         else:
             # Empaquetar errores de campo y non-field

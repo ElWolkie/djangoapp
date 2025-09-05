@@ -77,11 +77,11 @@
     <div class="col-md-4">
       <div class="input-group">
         <!-- Buscador directo del bakend NO BORRAR -->
-      <form onsubmit="updateSearchParam(event)" class="d-flex w-100">
-          <span class="input-group-text"><i class="fas fa-search"></i></span>
-          <input type="text" id="searchInput" name="search" class="form-control" placeholder="Buscar..." value="{{ search_query|default:'' }}" title="Recuerda que la busqueda discrimina entre activos/inactivos.">
-          <button type="submit" style="display:none" tabindex="-1" aria-hidden="true"></button>
-      </form>
+  <form onsubmit="updateSearchParam(event)" class="d-flex w-100">
+    <span class="input-group-text"><i class="fas fa-search"></i></span>
+    <input type="text" id="searchInput" name="search" class="form-control" placeholder="Buscar..." value="{{ search_query|default:'' }}">
+    <button type="submit" style="display:none" tabindex="-1" aria-hidden="true"></button>
+  </form>
       </div>
     </div>
 
@@ -235,12 +235,12 @@
   </div>
 
   <!-- Paginación -->
- <div class="pagination-container text-center mt-4">
+<div class="pagination-container text-center mt-4">
   <nav aria-label="Page navigation">
     <ul class="pagination justify-content-center">
       {% if bancos.has_previous %}
         <li class="page-item">
-          <a class="page-link" href="?search={{ search_query }}&page={{ bancos.previous_page_number }}" aria-label="Anterior">
+          <a class="page-link" href="javascript:void(0);" onclick="updatePageParam({{ bancos.previous_page_number }})" aria-label="Anterior">
             <span aria-hidden="true">&laquo;</span>
           </a>
         </li>
@@ -249,7 +249,7 @@
       {% for num in bancos.paginator.page_range %}
         {% if num == 1 or num == bancos.paginator.num_pages or num >= bancos.number|add:"-2" and num <= bancos.number|add:"2" %}
           <li class="page-item {% if bancos.number == num %}active{% endif %}">
-            <a class="page-link" href="?search={{ search_query }}&page={{ num }}">{{ num }}</a>
+            <a class="page-link" href="javascript:void(0);" onclick="updatePageParam({{ num }})">{{ num }}</a>
           </li>
         {% elif num == bancos.number|add:"-3" or num == bancos.number|add:"3" %}
           <li class="page-item disabled"><span class="page-link">...</span></li>
@@ -258,7 +258,7 @@
 
       {% if bancos.has_next %}
         <li class="page-item">
-          <a class="page-link" href="?search={{ search_query }}&page={{ bancos.next_page_number }}" aria-label="Siguiente">
+          <a class="page-link" href="javascript:void(0);" onclick="updatePageParam({{ bancos.next_page_number }})" aria-label="Siguiente">
             <span aria-hidden="true">&raquo;</span>
           </a>
         </li>
@@ -788,6 +788,7 @@ document.addEventListener('DOMContentLoaded', function () {
       url.searchParams.delete('search'); // Elimina el parámetro 'search' si está vacío
     }
 
+    url.searchParams.delete('page'); // Reinicia el parámetro 'page' al realizar una nueva búsqueda
     window.location.href = url.toString(); // Redirige a la nueva URL
   }
 </script>
