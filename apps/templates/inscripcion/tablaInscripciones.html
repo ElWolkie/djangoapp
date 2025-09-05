@@ -107,14 +107,18 @@
   <div class="row mb-3">
     <div class="col-md-4">
       <div class="input-group">
-        <span class="input-group-text"><i class="fas fa-search"></i></span>
-        <input id="searchInput" class="form-control" type="text" placeholder="Buscar...">
+         <!-- Buscador directo del bakend NO BORRAR -->
+      <form onsubmit="updateSearchParam(event)" class="d-flex w-100">
+          <span class="input-group-text"><i class="fas fa-search"></i></span>
+          <input type="text" id="searchInput" name="search" class="form-control" placeholder="Buscar..." value="{{ search_query|default:'' }}" title="Recuerda que la busqueda discrimina entre activos/inactivos.">
+          <button type="submit" style="display:none" tabindex="-1" aria-hidden="true"></button>
+      </form>
       </div>
     </div>
     
     <div class="col-md-4 text-center">
       {% if perms.inscripcion.add_inscripcion %}
-      <a href="{% url 'inscripcion_modal' %}" class="btn btn-warning">
+      <a href="{% url 'inscripcion_modal' %}" class="btn btn-warning" title="Registrar nueva inscripción">
         <i class="fas fa-plus-circle me-1"></i> Registrar Inscripción
       </a>
       {% endif %}
@@ -129,7 +133,7 @@
   
     <div class="mb-3">
       <a href="?mostrar_inactivos={% if mostrar_inactivos %}false{% else %}true{% endif %}"
-        class="btn btn-outline-secondary btn-sm">
+        class="btn btn-outline-secondary btn-sm" title="¿No encuentras lo que buscas? Intenta cambiar este filtro.">
         {% if mostrar_inactivos %}
           <i class="fas fa-eye-slash me-1"></i> Ocultar inactivos
         {% else %}
@@ -251,13 +255,13 @@
       </table>
     </div>
   </div>
-<!-- Controles de paginación -->
+  <!-- Paginación -->
 <div class="pagination-container text-center mt-4">
   <nav aria-label="Page navigation">
     <ul class="pagination justify-content-center">
       {% if inscripciones.has_previous %}
         <li class="page-item">
-          <a class="page-link" href="?page={{ inscripciones.previous_page_number }}" aria-label="Anterior">
+          <a class="page-link" href="javascript:void(0);" onclick="updatePageParam({{ inscripciones.previous_page_number }})" aria-label="Anterior">
             <span aria-hidden="true">&laquo;</span>
           </a>
         </li>
@@ -266,7 +270,7 @@
       {% for num in inscripciones.paginator.page_range %}
         {% if num == 1 or num == inscripciones.paginator.num_pages or num >= inscripciones.number|add:"-2" and num <= inscripciones.number|add:"2" %}
           <li class="page-item {% if inscripciones.number == num %}active{% endif %}">
-            <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+            <a class="page-link" href="javascript:void(0);" onclick="updatePageParam({{ num }})">{{ num }}</a>
           </li>
         {% elif num == inscripciones.number|add:"-3" or num == inscripciones.number|add:"3" %}
           <li class="page-item disabled"><span class="page-link">...</span></li>
@@ -275,7 +279,7 @@
 
       {% if inscripciones.has_next %}
         <li class="page-item">
-          <a class="page-link" href="?page={{ inscripciones.next_page_number }}" aria-label="Siguiente">
+          <a class="page-link" href="javascript:void(0);" onclick="updatePageParam({{ inscripciones.next_page_number }})" aria-label="Siguiente">
             <span aria-hidden="true">&raquo;</span>
           </a>
         </li>
@@ -629,14 +633,6 @@ $(function(){
     });
   });
 
-  // FILTRADO DE TABLA
-  $('#searchInput').on('keyup', function(){
-    const v = this.value.toUpperCase();
-    $('#inscripcionesTable tbody tr').each(function(){
-      $(this).toggle($(this).text().toUpperCase().includes(v));
-    });
-  });
-
   // SCROLL HORIZONTAL
   $('.table-responsive').on('wheel', function(e) {
     if(e.originalEvent.deltaY !== 0){
@@ -684,8 +680,32 @@ $(document).on('click', '#cancelarEdicionRequisitos', function() {
   $('#requisitosClienteFormContainer').hide();
   $('#requisitosEntregadosView').show();
 });
+});
 </script>
+<script>
+  // Actualiza el parámetro de página en la URL para el paginador
+  function updatePageParam(pageNumber) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('page', pageNumber); // Actualiza o añade el parámetro 'page'
+    window.location.href = url.toString(); // Redirige a la nueva URL
+  }
 
+  // Actualiza el parámetro de búsqueda en la URL
+  function updateSearchParam(event) {
+    event.preventDefault(); // Evita el envío normal del formulario
+
+    const searchInput = document.getElementById('searchInput').value.trim();
+    const url = new URL(window.location.href);
+
+    if (searchInput) {
+      url.searchParams.set('search', searchInput); // Actualiza o añade el parámetro 'search'
+    } else {
+      url.searchParams.delete('search'); // Elimina el parámetro 'search' si está vacío
+    }
+
+    window.location.href = url.toString(); // Redirige a la nueva URL
+  }
+</script>
 <style>
   .is-invalid {
     border-color: #dc3545 !important;

@@ -7,7 +7,7 @@ from django.template import loader
 from django.db.models import Exists, OuterRef
 from django.db.models import Count
 from django.db import models
-from django.db.models import OuterRef, Subquery, Max
+from django.db.models import OuterRef, Subquery, Max, Count, Sum, Q, Prefetch
 from django.urls import reverse
 from django.contrib import messages
 from django.template.loader import render_to_string
@@ -188,7 +188,9 @@ def reactivate_inscripcion(request, pk):
 @permission_required("inscripcion.view_inscripcion", raise_exception=True)
 def tabla_inscripciones(request):
     mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
-    
+    search_query = request.GET.get('search', '').strip()  # Obtener el término de búsqueda
+
+  
     # Filtrar inscripciones según estado
     if mostrar:
         inscripciones = Inscripcion.objects.prefetch_related(
@@ -209,7 +211,20 @@ def tabla_inscripciones(request):
             if rc.entregado
         ]
         requisitos_entregados_dict[inscripcion.idInscripcion] = requisitos
-
+  # Filtrar por el término de búsqueda si existe BUSCADOR
+    if search_query:
+        inscripciones = inscripciones.filter(
+            Q(idInscripcion__icontains=search_query) |
+            Q(idPersona__cedula__icontains=search_query) |
+            Q(idPersona__nombres__icontains=search_query) |
+            Q(idPersona__apellidos__icontains=search_query) |
+            Q(idCohorte__nombreCohorte__icontains=search_query) |
+            Q(idTF__nombreTipoFormacion__icontains=search_query) |
+            Q(idFormacion__nombreFormacion__icontains=search_query) |
+            Q(estadoPago__icontains=search_query) |
+            Q(montoPagado__icontains=search_query) |
+            Q(fechaInscripcion__icontains=search_query)
+        )
     # Paginación 
     paginator = Paginator(inscripciones, 10)  # 10 cuotas por página
     page_number = request.GET.get('page')
@@ -219,6 +234,7 @@ def tabla_inscripciones(request):
         'requisitos_entregados_dict': requisitos_entregados_dict,
         'mostrar_inactivos': mostrar,
         'inscripciones': page_obj,  # Pasar el objeto de la página al template
+        'search_query': search_query,  # Pasar el término de búsqueda al template
 
     })
 

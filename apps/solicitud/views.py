@@ -28,10 +28,11 @@ def solicitud_modal(request):
         if form.is_valid():
             solicitud = form.save()  # Guardar la solicitud y obtener la instancia
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return JsonResponse({
+             idSolicitud = solicitud.pk
+            return JsonResponse({
                     'success': True,
                     'message': 'Registro exitoso.',
-                    'redirect_url': reverse('nota_create') + f"?solicitud={solicitud.montoTotal}&id={solicitud.idPersona.idPersona}"
+                    'redirect_url': reverse('nota_create') + f"?solicitud={solicitud.montoTotal}&idP={solicitud.idPersona.idPersona}&idS={idSolicitud}"
                 })
         else:
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':

@@ -232,7 +232,7 @@
             <label for="personaInput" class="form-label">Persona:</label>
             <div class="field-wrap">
               <div class="input-group">
-                <input type="text" id="personaInput" class="form-control" placeholder="Seleccione una persona" readonly />
+                <input type="text" id="personaInput" class="form-control text-dark" placeholder="Seleccione una persona" readonly />
                 <button type="button" id="buscarPersona" class="btn btn-outline-warning" data-toggle="modal" data-target="#personaModal">
                   <i class="fas fa-search"></i>
                 </button>
@@ -246,7 +246,7 @@
             <label for="empresaInput" class="form-label">Empresa:</label>
             <div class="field-wrap">
               <div class="input-group">
-                <input type="text" id="empresaInput" class="form-control" placeholder="Seleccione una empresa" readonly />
+                <input type="text" id="empresaInput" class="form-control text-dark" placeholder="Seleccione una empresa" readonly />
                 <button type="button" id="buscarEmpresa" class="btn btn-outline-warning" data-toggle="modal" data-target="#empresaModal">
                   <i class="fas fa-search"></i>
                 </button>
@@ -262,7 +262,7 @@
             <label class="form-label">Articulo:</label>
             <div class="field-wrap">
               <div class="input-group">
-                <input type="text" id="noAplica" class="form-control" placeholder="Seleccione" value="No requiere articulo" readonly required />
+                <input type="text" id="noAplica" class="form-control text-dark" placeholder="Seleccione" value="No requiere articulo" readonly required />
                 <button type="button" class="btn btn-success">
                   <i class="fas fa-check"></i>
                 </button>
@@ -274,7 +274,7 @@
             <label class="form-label">Cuota:</label>
             <div class="field-wrap">
               <div class="input-group">
-                <input type="text" id="cuota" class="form-control" placeholder="Seleccione un plan de cuota" readonly required />
+                <input type="text" id="cuota" class="form-control text-dark" placeholder="Seleccione un plan de cuota" readonly required />
                 <button type="button" id="buscarCuota" class="btn btn-outline-warning" data-toggle="modal" data-target="#cuotaModal">
                   <i class="fas fa-search"></i>
                 </button>
@@ -288,7 +288,7 @@
             <label class="form-label">Inscripción:</label>
             <div class="field-wrap">
               <div class="input-group">
-                <input type="text" id="inscripcion" class="form-control" placeholder="Seleccione una inscripcion" readonly required />
+                <input type="text" id="inscripcion" class="form-control " placeholder="Seleccione una inscripcion" readonly required />
                 <button type="button" id="buscarInscripcion" class="btn btn-outline-warning" data-toggle="modal" data-target="#inscripcionModal">
                   <i class="fas fa-search"></i>
                 </button>
@@ -302,7 +302,7 @@
             <label class="form-label">Honorario:</label>
             <div class="field-wrap">
               <div class="input-group">
-                <input type="text" id="honorario" class="form-control" placeholder="Seleccione un honorario" readonly required />
+                <input type="text" id="honorario" class="form-control text-dark" placeholder="Seleccione un honorario" readonly required />
                 <button type="button" id="buscarHonorario" class="btn btn-outline-warning" data-toggle="modal" data-target="#honorarioModal">
                   <i class="fas fa-search"></i>
                 </button>
@@ -316,7 +316,7 @@
             <label class="form-label">Solicitud:</label>
             <div class="field-wrap">
               <div class="input-group">
-                <input type="text" id="solicitud" class="form-control" placeholder="Seleccione una solicitud" readonly required />
+                <input type="text" id="solicitud" class="form-control text-dark" placeholder="Seleccione una solicitud" readonly required />
                 <button type="button" id="buscarSolicitud" class="btn btn-outline-warning" data-toggle="modal" data-target="#solicitudModal">
                   <i class="fas fa-search"></i>
                 </button>
@@ -345,7 +345,7 @@
         <div class="col-md-6">
           <label for="fechaEmision" class="form-label">Fecha de Emisión:</label>
           <div class="field-wrap">
-            <input type="date" id="fechaEmision" name="fechaEmision" class="form-control" max="{{ today_date }}" required />
+            <input type="date" id="fechaEmision" name="fechaEmision" class="form-control text-dark" max="{{ today_date }}" required />
             <div class="invalid-feedback">Por favor ingrese una fecha de emisión válida.</div>
           </div>
         </div>
@@ -353,20 +353,21 @@
 
       <!-- FILA 4: Fecha Vencimiento | Plazo Crédito -->
       <div class="row g-3 align-items-end w-100">
-        <div class="col-md-6">
-          <label for="fechaVencimiento" class="form-label">Fecha de Vencimiento:</label>
-          <div class="field-wrap">
-            <input type="date" id="fechaVencimiento" name="fechaVencimiento" class="form-control" />
-          </div>
-        </div>
 
         <div class="col-md-6" id="plazoCreditoGroup" style="display:none;">
           <label for="plazoCredito" class="form-label">Plazo de Crédito (días):</label>
           <div class="field-wrap">
-            <input type="number" id="plazoCredito" name="plazoCredito" class="form-control" placeholder="Ingrese el plazo de crédito en días" min="0" />
+            <input type="number" id="plazoCredito" name="plazoCredito" class="form-control text-dark" placeholder="Ingrese el plazo de crédito en días" min="0" />
             <div class="invalid-feedback">Por favor ingrese un plazo de crédito válido.</div>
           </div>
         </div>
+        <div class="col-md-6">
+          <label for="fechaVencimiento" class="form-label ">Fecha de Vencimiento:</label>
+          <div class="field-wrap">
+            <input type="date" id="fechaVencimiento" name="fechaVencimiento" class="form-control text-dark" />
+          </div>
+        </div>
+
       </div>
 
       <!-- FILA 5: Moneda | Subtotales -->
@@ -388,7 +389,7 @@
         <div class="col-md-6">
           <label for="subtotalExento" class="form-label">Subtotal Exento:</label>
           <div class="field-wrap">
-            <input type="text" id="subtotalExento" name="subtotalExento" class="form-control" placeholder="Ingrese el subtotal exento" step="0.01" min="0" required />
+            <input type="text" id="subtotalExento" name="subtotalExento" class="form-control text-dark" placeholder="Ingrese el subtotal exento" step="0.01" min="0" required />
             <div class="invalid-feedback">Por favor ingrese un subtotal exento válido.</div>
           </div>
         </div>
@@ -399,7 +400,7 @@
         <div class="col-md-6">
           <label for="subtotalGravado" class="form-label">Subtotal Gravado:</label>
           <div class="field-wrap">
-            <input type="number" id="subtotalGravado" name="subtotalGravado" class="form-control" placeholder="Ingrese el subtotal gravado" step="0.01" min="0" required />
+            <input type="number" id="subtotalGravado" name="subtotalGravado" class="form-control text-dark" placeholder="Ingrese el subtotal gravado" step="0.01" min="0" required />
             <small id="ivaPercentageHelp" class="form-text text-muted">IVA aplicable: <span id="ivaPercentage">16</span>%</small>
             <div class="invalid-feedback">Por favor ingrese un subtotal gravado válido.</div>
           </div>
@@ -408,7 +409,7 @@
         <div class="col-md-6">
           <label for="iva" class="form-label">IVA:</label>
           <div class="field-wrap">
-            <input type="number" id="iva" name="iva" class="form-control" placeholder="Ingrese el IVA" step="0.01" min="0" readonly required />
+            <input type="number" id="iva" name="iva" class="form-control text-dark" placeholder="Ingrese el IVA" step="0.01" min="0" readonly required />
             <div class="invalid-feedback">Por favor ingrese un IVA válido.</div>
           </div>
         </div>
@@ -419,7 +420,7 @@
         <div class="col-md-6">
           <label for="ivaRetenido" class="form-label">IVA Retenido:</label>
           <div class="field-wrap">
-            <input type="number" id="ivaRetenido" name="ivaRetenido" class="form-control" placeholder="Ingrese el IVA retenido" step="0.01" min="0" readonly />
+            <input type="number" id="ivaRetenido" name="ivaRetenido" class="form-control text-dark" placeholder="Ingrese el IVA retenido" step="0.01" min="0" readonly />
             <small id="ivaRetentionHelp" class="form-text text-muted">Porcentaje de retención: <span id="ivaRetentionPercentage">75</span>%</small>
           </div>
         </div>
@@ -427,7 +428,7 @@
         <div class="col-md-6">
           <label for="islrRetenido" class="form-label">ISLR Retenido:</label>
           <div class="field-wrap">
-            <input type="number" id="islrRetenido" name="islrRetenido" class="form-control" placeholder="Ingrese el ISLR retenido" step="0.01" min="0" readonly />
+            <input type="number" id="islrRetenido" name="islrRetenido" class="form-control text-dark" placeholder="Ingrese el ISLR retenido" step="0.01" min="0" readonly />
             <small id="islrRetentionHelp" class="form-text text-muted">Porcentaje de retención: <span id="islrRetentionPercentage">3</span>%</small>
           </div>
         </div>
@@ -437,7 +438,7 @@
         <div class="col-md-6">
           <label for="descuento" class="form-label">Descuento:</label>
           <div class="field-wrap">
-            <input type="number" id="descuento" name="descuento" class="form-control" placeholder="Ingrese el descuento" step="0.01" min="0" required />
+            <input type="number" id="descuento" name="descuento" class="form-control text-dark" placeholder="Ingrese el descuento" step="0.01" min="0" required />
             <div class="invalid-feedback">Por favor ingrese un descuento válido.</div>
           </div>
         </div>
@@ -445,7 +446,7 @@
         <div class="col-md-6">
           <label for="totalNota" class="form-label">Total Venta:</label>
           <div class="field-wrap">
-            <input type="number" id="totalNota" name="totalNota" class="form-control" placeholder="Ingrese el total de la venta" step="0.01" min="0" required />
+            <input type="number" id="totalNota" name="totalNota" class="form-control text-dark" placeholder="Ingrese el total de la venta" step="0.01" min="0" required />
             <div class="invalid-feedback">Por favor ingrese un total de venta válido.</div>
           </div>
         </div>
@@ -454,11 +455,11 @@
       <input type="hidden" id="estado" name="estado" value="PENDIENTE" />
 
       <!-- Observaciones -->
-      <div class="row g-3 mt-2 w-100">
-        <div class="col-md-6">
+      <div class="row g-3 mt-2 w-100 ">
+        <div class="col-md-12">
           <label for="observaciones" class="form-label">Observaciones:</label>
           <div class="field-wrap">
-            <textarea id="observaciones" name="observaciones" class="form-control" rows="3" placeholder="Ingrese observaciones (opcional)"></textarea>
+            <textarea id="observaciones" name="observaciones" class="form-control text-dark" rows="3" placeholder="Ingrese observaciones (opcional)"></textarea>
           </div>
         </div>
 
@@ -813,7 +814,8 @@
 <script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
+  // Variables globales
   let parametrosTributarios = {};
   const notaForm = document.getElementById('notaForm');
 
@@ -833,13 +835,118 @@ document.addEventListener('DOMContentLoaded', function() {
   const formaPago = document.getElementById('formaPago');
   const plazoCreditoInput = document.getElementById('plazoCredito');
   const toggleReadonlyButton = document.getElementById('toggleReadonly');
-  const camposReadonly = ['iva', 'ivaRetenido', 'islrRetenido', 'numeroNota','descuento', 'subtotalExento', 'subtotalGravado', 'totalNota', 'fechaEmision', 'fechaVencimiento', 'formaPago', 'plazoCredito'];
-  descuento.value = '0.00'; // Inicializar descuento en 0
-  subtotalExento.value = '0.00'; // Inicializar descuento en 0
-  subtotalGravado.value = '0.00'; // Inicializar descuento en 0
-  tipoArticuloSelect.addEventListener('change', actualizarVisibilidadArticulos);
+  const camposReadonly = [
+    'iva',
+    'ivaRetenido',
+    'islrRetenido',
+    'numeroNota',
+    'descuento',
+    'subtotalExento',
+    'subtotalGravado',
+    'totalNota',
+    'fechaEmision',
+    'fechaVencimiento',
+    'formaPago',
+    'plazoCredito',
+  ];
 
+  // Inicializar valores predeterminados
+  descuento.value = '0.00';
+  subtotalExento.value = '0.00';
+  subtotalGravado.value = '0.00';
 
+  // Función para establecer la fecha de hoy
+  function establecerFechaHoy() {
+    const hoy = new Date();
+    const fechaHoy = hoy.toISOString().split('T')[0]; // Formato YYYY-MM-DD
+    fechaEmision.value = fechaHoy; // Establecer la fecha de hoy en el campo
+  }
+
+  // Obtener parámetros tributarios desde el servidor
+  async function obtenerParametrosTributarios() {
+    try {
+      const response = await fetch('/factura/obtener-parametros-tributarios/');
+      if (!response.ok) throw new Error('Error al obtener parámetros tributarios');
+      parametrosTributarios = await response.json();
+    } catch (error) {
+      console.error('Error:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'No se pudieron cargar los parámetros tributarios. Los cálculos podrían no ser exactos.',
+      });
+    }
+  }
+
+  // Obtener un parámetro tributario específico
+  function obtenerParametro(tipo, aplicaA) {
+    return parametrosTributarios[tipo]?.find((p) => p.aplica_a === aplicaA) || null;
+  }
+
+  // Función para actualizar la visibilidad del campo de plazo de crédito
+  function actualizarVisibilidadPlazoCredito() {
+    if (formaPago.value === 'credito') {
+      plazoCreditoGroup.style.display = 'block'; // Mostrar el campo de plazo de crédito
+    } else {
+      plazoCreditoGroup.style.display = 'none'; // Ocultar el campo de plazo de crédito
+      plazoCreditoInput.value = ''; // Limpiar el valor del campo
+    }
+  }
+
+  // Función para actualizar la visibilidad de los campos según el tipo de operación
+  function actualizarOpciones() {
+    const isIngreso = ingresoCheckbox.checked;
+    tipoArticuloSelect.disabled = !isIngreso && !egresoCheckbox.checked;
+    document.querySelector('.ingreso-options').style.display = isIngreso ? 'block' : 'none';
+    document.querySelector('.egreso-options').style.display = isIngreso ? 'none' : 'block';
+    tipoArticuloSelect.value = '';
+    calcularMontos();
+  }
+
+  // Calcular montos de la factura
+  function calcularMontos() {
+    const gravado = parseFloat(subtotalGravado.value) || 0;
+    const exento = parseFloat(subtotalExento.value) || 0;
+    const descuentoValor = parseFloat(descuento.value) || 0;
+    const tipoArticulo = tipoArticuloSelect.value;
+
+    const parametroIva = obtenerParametro('IVA_GENERAL', tipoArticulo);
+    const parametroRetencionIva = obtenerParametro('IVA_RETENIDO_SERVICIOS', tipoArticulo);
+    const parametroRetencionIslr = egresoCheckbox.checked
+      ? obtenerParametro(tipoArticulo === 'HONORARIO_PROFESOR' ? 'ISLR_HONORARIOS' : 'ISLR_SERVICIOS', tipoArticulo)
+      : null;
+
+    const porcentajeIva = parametroIva?.porcentaje || 16;
+    const ivaCalculado = gravado * (porcentajeIva / 100);
+    iva.value = ivaCalculado.toFixed(2);
+
+    if (egresoCheckbox.checked) {
+      ivaRetenido.value = (ivaCalculado * (parametroRetencionIva?.porcentaje || 0) / 100).toFixed(2);
+      islrRetenido.value = (gravado * (parametroRetencionIslr?.porcentaje || 0) / 100).toFixed(2);
+    } else {
+      ivaRetenido.value = islrRetenido.value = '0.00';
+    }
+
+    const total = exento + gravado + ivaCalculado - descuentoValor;
+    totalNota.value = total.toFixed(2);
+
+    document.getElementById('ivaPercentage').textContent = porcentajeIva;
+    if (egresoCheckbox.checked) {
+      document.getElementById('ivaRetentionPercentage').textContent = parametroRetencionIva?.porcentaje || 0;
+      document.getElementById('islrRetentionPercentage').textContent = parametroRetencionIslr?.porcentaje || 0;
+    }
+  }
+
+  // Actualizar la fecha de vencimiento según la forma de pago
+  function actualizarFechaVencimiento() {
+    const fecha = new Date(fechaEmision.value);
+    if (!fechaEmision.value) return (fechaVencimiento.value = '');
+    const dias = formaPago.value === 'credito' ? parseInt(plazoCreditoInput.value) || 0 : 1;
+    fecha.setDate(fecha.getDate() + dias);
+    fechaVencimiento.value = fecha.toISOString().split('T')[0];
+  }
+
+  // Envío del formulario
   notaForm.addEventListener('submit', async function (event) {
     event.preventDefault(); // Evitar el redireccionamiento por defecto
 
@@ -869,6 +976,8 @@ document.addEventListener('DOMContentLoaded', function() {
           cancelButtonText: 'Pagar',
           confirmButtonColor: '#28a745',
           cancelButtonColor: '#ffc107',
+          allowOutsideClick: false, // Evita que se cierre al hacer clic fuera
+
         }).then((action) => {
           if (action.isConfirmed) {
             // Redirigir a la lista de notas
@@ -878,8 +987,9 @@ document.addEventListener('DOMContentLoaded', function() {
             window.location.href = result.pagar;
           }
         });
-      } else if (result.errors) {
-        // Mostrar errores específicos del formulario (si existen)
+      }else {
+      // Mostrar errores específicos del formulario (si existen)
+      if (result.errors) {
         for (const [field, messages] of Object.entries(result.errors)) {
           const input = document.querySelector(`[name="${field}"]`);
           if (input) {
@@ -891,17 +1001,28 @@ document.addEventListener('DOMContentLoaded', function() {
           }
         }
       }
-    } catch (error) {
-      console.error('Error al enviar el formulario:', error);
-      Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: 'Ocurrió un error inesperado. Por favor, inténtelo de nuevo.',
-      });
-    } finally {
-      submitButton.disabled = false; // Habilitar el botón nuevamente
+
+      // Mostrar alerta de error con el mensaje general del servidor
+      if (result.message) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: result.message,
+        });
+      }
     }
-  });
+  } catch (error) {
+    console.error('Error al enviar el formulario:', error);
+    Swal.fire({
+      icon: 'error',
+      title: 'Error',
+      text: 'Ocurrió un error inesperado. Por favor, inténtelo de nuevo.',
+    });
+  } finally {
+    submitButton.disabled = false; // Habilitar el botón nuevamente
+  }
+});
+    
   // Limpiar mensajes de error al modificar los campos
   notaForm.querySelectorAll('input, select, textarea').forEach((input) => {
     input.addEventListener('input', () => {
@@ -985,6 +1106,8 @@ function manejarParametro(tipo, valor) {
       subtotalGravado.setAttribute('readonly', true);
       descuento.value = '0.00';
       descuento.setAttribute('readonly', true);
+        // Deshabilitar el botón de inscripción
+      document.getElementById('buscarInscripcion').disabled = true;
       break;
 
     case 'SOLICITUD':
@@ -1004,6 +1127,10 @@ function manejarParametro(tipo, valor) {
       descuento.value = '0.00';
       descuento.removeAttribute('readonly');
       descuento.readOnly = false;
+
+      // Deshabilitar el botón de solicitud
+      document.getElementById('buscarSolicitud').disabled = true;
+     
       break;
       case 'CUOTA': // Agregar lógica para CUOTA
       subtotalGravado.value = parseFloat(valor).toFixed(2);
@@ -1018,6 +1145,9 @@ function manejarParametro(tipo, valor) {
         actualizarVisibilidadArticulos();
       }, 0);
       
+      // Deshabilitar el botón de cuota
+      document.getElementById('buscarCuota').disabled = true;
+      break
     case 'HONORARIO_PROFESOR':
       subtotalGravado.value = parseFloat(valor).toFixed(2);
       subtotalGravado.setAttribute('readonly', true);
@@ -1036,6 +1166,9 @@ function manejarParametro(tipo, valor) {
       descuento.setAttribute('readonly', true);
       ivaRetenido.removeAttribute('readonly');
       ivaRetenido.readOnly = false;
+     
+      // Deshabilitar el botón de honorario
+      document.getElementById('buscarHonorario').disabled = true;
       break;
 
     default:
@@ -1112,14 +1245,14 @@ if (idParam) {
               row.setAttribute('data-id', cuota.idCuota);
               row.setAttribute('data-nombre', cuota.nombreCuota);
               row.setAttribute('data-valor', cuota.valorCuota);
-              row.setAttribute('data-inscripcion-id', inscripcion.idInscripcion);
+              row.setAttribute('data-idIn', inscripcion.idInscripcion);
 
               row.innerHTML = `
                 <td>${cuota.idCuota}</td>
                 <td>${cuota.nombreCuota}</td>
                 <td>${cuota.valorCuota}</td>
                 <td>${inscripcion.idInscripcion}</td>
-                <td>${inscripcion.nombreFormacion}</td>
+                <td>${inscripcion.idFormacion.nombreFormacion}</td>
               `;
               tbody.appendChild(row);
             });
@@ -1148,6 +1281,10 @@ if (idParam) {
   }
 });
   }
+
+      // Deshabilitar el botón de persona
+      document.getElementById('buscarPersona').disabled = true;
+     
 }
 // Manejar el parámetro 'id' de la URL
 if (idInscripcionParam) {
