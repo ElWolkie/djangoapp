@@ -814,7 +814,8 @@
 <script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
+  // Variables globales
   let parametrosTributarios = {};
   const notaForm = document.getElementById('notaForm');
 
@@ -834,13 +835,118 @@ document.addEventListener('DOMContentLoaded', function() {
   const formaPago = document.getElementById('formaPago');
   const plazoCreditoInput = document.getElementById('plazoCredito');
   const toggleReadonlyButton = document.getElementById('toggleReadonly');
-  const camposReadonly = ['iva', 'ivaRetenido', 'islrRetenido', 'numeroNota','descuento', 'subtotalExento', 'subtotalGravado', 'totalNota', 'fechaEmision', 'fechaVencimiento', 'formaPago', 'plazoCredito'];
-  descuento.value = '0.00'; // Inicializar descuento en 0
-  subtotalExento.value = '0.00'; // Inicializar descuento en 0
-  subtotalGravado.value = '0.00'; // Inicializar descuento en 0
-  tipoArticuloSelect.addEventListener('change', actualizarVisibilidadArticulos);
+  const camposReadonly = [
+    'iva',
+    'ivaRetenido',
+    'islrRetenido',
+    'numeroNota',
+    'descuento',
+    'subtotalExento',
+    'subtotalGravado',
+    'totalNota',
+    'fechaEmision',
+    'fechaVencimiento',
+    'formaPago',
+    'plazoCredito',
+  ];
 
+  // Inicializar valores predeterminados
+  descuento.value = '0.00';
+  subtotalExento.value = '0.00';
+  subtotalGravado.value = '0.00';
 
+  // Función para establecer la fecha de hoy
+  function establecerFechaHoy() {
+    const hoy = new Date();
+    const fechaHoy = hoy.toISOString().split('T')[0]; // Formato YYYY-MM-DD
+    fechaEmision.value = fechaHoy; // Establecer la fecha de hoy en el campo
+  }
+
+  // Obtener parámetros tributarios desde el servidor
+  async function obtenerParametrosTributarios() {
+    try {
+      const response = await fetch('/factura/obtener-parametros-tributarios/');
+      if (!response.ok) throw new Error('Error al obtener parámetros tributarios');
+      parametrosTributarios = await response.json();
+    } catch (error) {
+      console.error('Error:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'No se pudieron cargar los parámetros tributarios. Los cálculos podrían no ser exactos.',
+      });
+    }
+  }
+
+  // Obtener un parámetro tributario específico
+  function obtenerParametro(tipo, aplicaA) {
+    return parametrosTributarios[tipo]?.find((p) => p.aplica_a === aplicaA) || null;
+  }
+
+  // Función para actualizar la visibilidad del campo de plazo de crédito
+  function actualizarVisibilidadPlazoCredito() {
+    if (formaPago.value === 'credito') {
+      plazoCreditoGroup.style.display = 'block'; // Mostrar el campo de plazo de crédito
+    } else {
+      plazoCreditoGroup.style.display = 'none'; // Ocultar el campo de plazo de crédito
+      plazoCreditoInput.value = ''; // Limpiar el valor del campo
+    }
+  }
+
+  // Función para actualizar la visibilidad de los campos según el tipo de operación
+  function actualizarOpciones() {
+    const isIngreso = ingresoCheckbox.checked;
+    tipoArticuloSelect.disabled = !isIngreso && !egresoCheckbox.checked;
+    document.querySelector('.ingreso-options').style.display = isIngreso ? 'block' : 'none';
+    document.querySelector('.egreso-options').style.display = isIngreso ? 'none' : 'block';
+    tipoArticuloSelect.value = '';
+    calcularMontos();
+  }
+
+  // Calcular montos de la factura
+  function calcularMontos() {
+    const gravado = parseFloat(subtotalGravado.value) || 0;
+    const exento = parseFloat(subtotalExento.value) || 0;
+    const descuentoValor = parseFloat(descuento.value) || 0;
+    const tipoArticulo = tipoArticuloSelect.value;
+
+    const parametroIva = obtenerParametro('IVA_GENERAL', tipoArticulo);
+    const parametroRetencionIva = obtenerParametro('IVA_RETENIDO_SERVICIOS', tipoArticulo);
+    const parametroRetencionIslr = egresoCheckbox.checked
+      ? obtenerParametro(tipoArticulo === 'HONORARIO_PROFESOR' ? 'ISLR_HONORARIOS' : 'ISLR_SERVICIOS', tipoArticulo)
+      : null;
+
+    const porcentajeIva = parametroIva?.porcentaje || 16;
+    const ivaCalculado = gravado * (porcentajeIva / 100);
+    iva.value = ivaCalculado.toFixed(2);
+
+    if (egresoCheckbox.checked) {
+      ivaRetenido.value = (ivaCalculado * (parametroRetencionIva?.porcentaje || 0) / 100).toFixed(2);
+      islrRetenido.value = (gravado * (parametroRetencionIslr?.porcentaje || 0) / 100).toFixed(2);
+    } else {
+      ivaRetenido.value = islrRetenido.value = '0.00';
+    }
+
+    const total = exento + gravado + ivaCalculado - descuentoValor;
+    totalNota.value = total.toFixed(2);
+
+    document.getElementById('ivaPercentage').textContent = porcentajeIva;
+    if (egresoCheckbox.checked) {
+      document.getElementById('ivaRetentionPercentage').textContent = parametroRetencionIva?.porcentaje || 0;
+      document.getElementById('islrRetentionPercentage').textContent = parametroRetencionIslr?.porcentaje || 0;
+    }
+  }
+
+  // Actualizar la fecha de vencimiento según la forma de pago
+  function actualizarFechaVencimiento() {
+    const fecha = new Date(fechaEmision.value);
+    if (!fechaEmision.value) return (fechaVencimiento.value = '');
+    const dias = formaPago.value === 'credito' ? parseInt(plazoCreditoInput.value) || 0 : 1;
+    fecha.setDate(fecha.getDate() + dias);
+    fechaVencimiento.value = fecha.toISOString().split('T')[0];
+  }
+
+  // Envío del formulario
   notaForm.addEventListener('submit', async function (event) {
     event.preventDefault(); // Evitar el redireccionamiento por defecto
 
@@ -870,6 +976,8 @@ document.addEventListener('DOMContentLoaded', function() {
           cancelButtonText: 'Pagar',
           confirmButtonColor: '#28a745',
           cancelButtonColor: '#ffc107',
+          allowOutsideClick: false, // Evita que se cierre al hacer clic fuera
+
         }).then((action) => {
           if (action.isConfirmed) {
             // Redirigir a la lista de notas
@@ -879,8 +987,9 @@ document.addEventListener('DOMContentLoaded', function() {
             window.location.href = result.pagar;
           }
         });
-      } else if (result.errors) {
-        // Mostrar errores específicos del formulario (si existen)
+      }else {
+      // Mostrar errores específicos del formulario (si existen)
+      if (result.errors) {
         for (const [field, messages] of Object.entries(result.errors)) {
           const input = document.querySelector(`[name="${field}"]`);
           if (input) {
@@ -892,17 +1001,28 @@ document.addEventListener('DOMContentLoaded', function() {
           }
         }
       }
-    } catch (error) {
-      console.error('Error al enviar el formulario:', error);
-      Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: 'Ocurrió un error inesperado. Por favor, inténtelo de nuevo.',
-      });
-    } finally {
-      submitButton.disabled = false; // Habilitar el botón nuevamente
+
+      // Mostrar alerta de error con el mensaje general del servidor
+      if (result.message) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: result.message,
+        });
+      }
     }
-  });
+  } catch (error) {
+    console.error('Error al enviar el formulario:', error);
+    Swal.fire({
+      icon: 'error',
+      title: 'Error',
+      text: 'Ocurrió un error inesperado. Por favor, inténtelo de nuevo.',
+    });
+  } finally {
+    submitButton.disabled = false; // Habilitar el botón nuevamente
+  }
+});
+    
   // Limpiar mensajes de error al modificar los campos
   notaForm.querySelectorAll('input, select, textarea').forEach((input) => {
     input.addEventListener('input', () => {
@@ -1125,14 +1245,14 @@ if (idParam) {
               row.setAttribute('data-id', cuota.idCuota);
               row.setAttribute('data-nombre', cuota.nombreCuota);
               row.setAttribute('data-valor', cuota.valorCuota);
-              row.setAttribute('data-inscripcion-id', inscripcion.idInscripcion);
+              row.setAttribute('data-idIn', inscripcion.idInscripcion);
 
               row.innerHTML = `
                 <td>${cuota.idCuota}</td>
                 <td>${cuota.nombreCuota}</td>
                 <td>${cuota.valorCuota}</td>
                 <td>${inscripcion.idInscripcion}</td>
-                <td>${inscripcion.nombreFormacion}</td>
+                <td>${inscripcion.idFormacion.nombreFormacion}</td>
               `;
               tbody.appendChild(row);
             });
