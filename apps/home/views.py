@@ -16,6 +16,7 @@ from django.db import IntegrityError, transaction
 from django.views.decorators.http import require_POST
 from django.contrib.auth.models import Group
 from collections import defaultdict # Para agrupar
+from django.core.paginator import Paginator
 
 from django.core.cache import cache
 from django.db import models  # Para el output_field en Sum
@@ -3679,12 +3680,27 @@ def reactivate_tasa(request, pk):
 @permission_required("home.view_tasa", raise_exception=True)
 def tabla_tasas(request):
     mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+    search_query = request.GET.get('search', '').strip()  # Obtener el término de búsqueda
+
     if mostrar:
         tasas = Tasa.objects.all()
     else:
-        tasas = Tasa.objects.filter(estadoTasa='ACTIVO')
+        tasas = Tasa.objects.filter(estadoTasa='ACTIVO').order_by('-fechaTasa')
+
+          # Filtrar por el término de búsqueda si existe BUSCADOR
+    if search_query:
+        tasas = tasas.filter(
+            Q(idMoneda__nombreMoneda__icontains=search_query) |
+            Q(idMoneda__simboloMoneda__icontains=search_query) |
+            Q(montoTasa__icontains=search_query) |
+            Q(estadoTasa__icontains=search_query) |
+            Q(fechaTasa__icontains=search_query)
+        )
+    paginator = Paginator(tasas, 10)  # 10 tasas por página
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
     return render(request, 'home/tablaTasas.html', {
-        'tasas': tasas.order_by('-fechaTasa'),
+        'tasas':page_obj,
         'mostrar_inactivos': mostrar,
     })
 

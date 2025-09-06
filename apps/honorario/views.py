@@ -156,7 +156,7 @@ def tabla_honorarios(request):
             Q(fechaHonorario__icontains=search_query)
         )
     # Paginación 
-    paginator = Paginator(honorarios, 10)  # 10 cuotas por página
+    paginator = Paginator(honorarios, 2)  # 10 cuotas por página
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 

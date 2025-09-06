@@ -77,11 +77,11 @@
     <div class="col-md-4">
       <div class="input-group">
         <!-- Buscador directo del bakend NO BORRAR -->
-  <form onsubmit="updateSearchParam(event)" class="d-flex w-100">
-    <span class="input-group-text"><i class="fas fa-search"></i></span>
-    <input type="text" id="searchInput" name="search" class="form-control" placeholder="Buscar..." value="{{ search_query|default:'' }}">
-    <button type="submit" style="display:none" tabindex="-1" aria-hidden="true"></button>
-  </form>
+        <form onsubmit="updateSearchParam(event)" class="d-flex w-100">
+          <span class="input-group-text"><i class="fas fa-search"></i></span>
+          <input type="text" id="searchInput" name="search" class="form-control" placeholder="Buscar..." value="{{ search_query|default:'' }}">
+          <button type="submit" style="display:none" tabindex="-1" aria-hidden="true"></button>
+        </form>
       </div>
     </div>
 

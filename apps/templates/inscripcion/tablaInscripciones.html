@@ -683,14 +683,12 @@ $(document).on('click', '#cancelarEdicionRequisitos', function() {
 });
 </script>
 <script>
-  // Actualiza el parámetro de página en la URL para el paginador
+  // Función para actualizar el parámetro 'page' en la URL y recargar la página
   function updatePageParam(pageNumber) {
     const url = new URL(window.location.href);
     url.searchParams.set('page', pageNumber); // Actualiza o añade el parámetro 'page'
     window.location.href = url.toString(); // Redirige a la nueva URL
   }
-
-  // Actualiza el parámetro de búsqueda en la URL
   function updateSearchParam(event) {
     event.preventDefault(); // Evita el envío normal del formulario
 
@@ -703,6 +701,7 @@ $(document).on('click', '#cancelarEdicionRequisitos', function() {
       url.searchParams.delete('search'); // Elimina el parámetro 'search' si está vacío
     }
 
+    url.searchParams.delete('page'); // Reinicia el parámetro 'page' al realizar una nueva búsqueda
     window.location.href = url.toString(); // Redirige a la nueva URL
   }
 </script>
