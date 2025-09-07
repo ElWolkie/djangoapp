@@ -739,7 +739,15 @@ def pago_create(request, pk=None):
         })
 
     if request.method == 'POST':
-        form = PagoForm(request.POST)
+ # Procesar el campo monto para convertirlo a formato decimal
+        post_data = request.POST.copy()
+        monto_str = post_data.get('monto', '')
+        if monto_str:
+            # Reemplazar: quitar puntos de mil y cambiar coma decimal por punto
+            monto_str = monto_str.replace('.', '').replace(',', '.')
+            post_data['monto'] = monto_str
+
+        form = PagoForm(post_data)        
         if form.is_valid():
             try:
                 # Iniciar una transacción atómica

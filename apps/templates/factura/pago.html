@@ -323,7 +323,7 @@ select.input-with-icon.form-select {
         <div class="field-wrap">
           <div class="input-icon-container">
             <i class="fas fa-calculator input-icon" aria-hidden="true"></i>
-            <input type="number" id="monto" name="monto" class="form-control" placeholder="Ingrese el monto del pago" step="0.0001" min="0" required />
+            <input type="text" id="monto" name="monto" class="form-control" placeholder="Ingrese el monto del pago" step="0.0001" min="0" required />
           </div>
           <small id="deudaNota" class="form-text text-muted">Seleccione una nota para ver la deuda.</small>
         </div>
@@ -705,6 +705,40 @@ document.addEventListener('DOMContentLoaded', function () {
     if (tasaSelect) {
       tasaSelect.addEventListener('change', validar);
     }
+          const input = document.getElementById('monto');
+      if (!input) return;
+
+    const formatearValor = (valor) => {
+      let raw = valor.replace(/[^\d]/g, '');
+      if (!raw) return '';
+      while (raw.length < 3) raw = '0' + raw;
+      const intPart = raw.slice(0, raw.length - 2);
+      const decimalPart = raw.slice(-2);
+      const formattedInt = parseInt(intPart, 10).toLocaleString('es-VE');
+      return `${formattedInt},${decimalPart}`;
+    };
+
+    // Listener de input
+    input.addEventListener('input', function () {
+      this.value = formatearValor(this.value);
+    });
+
+    // Formatear valor inicial
+    if (input.value) {
+      input.value = formatearValor(input.value);
+    }
+    const obtenerMontoNumerico = (valorFormateado) => {
+  if (!valorFormateado) return 0;
+
+  // Elimina puntos de miles y reemplaza coma decimal por punto
+  const limpio = valorFormateado.replace(/\./g, '').replace(',', '.');
+
+  // Convierte a número flotante
+  const numero = parseFloat(limpio);
+
+  // Verifica si es un número válido
+  return isNaN(numero) ? 0 : numero;
+};
   }
 
   function autoseleccionarNota() {
