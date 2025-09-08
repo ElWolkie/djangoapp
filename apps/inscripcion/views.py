@@ -190,8 +190,7 @@ def tabla_inscripciones(request):
     mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
     search_query = request.GET.get('search', '').strip()  # Obtener el término de búsqueda
 
-  
-    # Filtrar inscripciones según estado
+    # Filtrar inscripciones según estado (mantenemos tu prefetch y estructura)
     if mostrar:
         inscripciones = Inscripcion.objects.prefetch_related(
             'requisitocliente_set__idRequisito'
@@ -201,17 +200,17 @@ def tabla_inscripciones(request):
             'requisitocliente_set__idRequisito'
         )
     
-    # Preparar diccionario de requisitos entregados
+    # Preparar diccionario de requisitos entregados (mismo lugar que tenías)
     requisitos_entregados_dict = {}
     for inscripcion in inscripciones:
-        # Acceder a los requisitos precargados
         requisitos = [
             rc.idRequisito.nombreRequisito 
             for rc in inscripcion.requisitocliente_set.all()
             if rc.entregado
         ]
         requisitos_entregados_dict[inscripcion.idInscripcion] = requisitos
-  # Filtrar por el término de búsqueda si existe BUSCADOR
+
+    # Filtrar por el término de búsqueda si existe BUSCADOR
     if search_query:
         inscripciones = inscripciones.filter(
             Q(idInscripcion__icontains=search_query) |
@@ -225,8 +224,18 @@ def tabla_inscripciones(request):
             Q(montoPagado__icontains=search_query) |
             Q(fechaInscripcion__icontains=search_query)
         )
+
+    # Mensajes informativos
+    if mostrar:
+        hay_inactivos = inscripciones.filter(is_active=False).exists()
+        if not hay_inactivos:
+            messages.info(request, 'No hay inscripciones inactivas para mostrar.')
+    else:
+        if not inscripciones.exists():
+            messages.info(request, 'No hay inscripciones activas para mostrar.')
+
     # Paginación 
-    paginator = Paginator(inscripciones, 10)  # 10 cuotas por página
+    paginator = Paginator(inscripciones, 10)  # 10 por página
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
@@ -235,8 +244,8 @@ def tabla_inscripciones(request):
         'mostrar_inactivos': mostrar,
         'inscripciones': page_obj,  # Pasar el objeto de la página al template
         'search_query': search_query,  # Pasar el término de búsqueda al template
-
     })
+
 
 # @login_required(login_url='login')
 # @permission_required("inscripcion.add_pagocuota", raise_exception=True)

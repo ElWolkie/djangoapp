@@ -114,7 +114,7 @@ def desactivar_honorario(request, pk):
     if request.method == 'POST':
         honorarios.estadoHonorario = "INACTIVO"
         honorarios.save()
-        messages.success(request, f'⛔ Honorario {honorarios.idHonorario} desactivado')
+        messages.success(request, f'Honorario {honorarios.idHonorario} desactivado')
         return redirect(request.POST.get('next', 'tabla_honorarios'))
     return redirect('tabla_honorarios')
 
@@ -125,7 +125,7 @@ def reactivate_honorario(request, pk):
     if request.method == 'POST':
         honorarios.estadoHonorario = "ACTIVO"
         honorarios.save()
-        messages.success(request, f'✅ Honorario {honorarios.idHonorario} activado')
+        messages.success(request, f'Honorario {honorarios.idHonorario} activado')
         return redirect(request.POST.get('next', 'tabla_honorarios'))
     return redirect('tabla_honorarios')
 
@@ -140,7 +140,7 @@ def tabla_honorarios(request):
     else:
         honorarios = Honorario.objects.filter(estadoHonorario='ACTIVO')
 
-          # Filtrar por el término de búsqueda si existe BUSCADOR
+    # Filtrar por el término de búsqueda si existe BUSCADOR
     if search_query:
         honorarios = honorarios.filter(
             Q(idHonorario__icontains=search_query) |
@@ -155,8 +155,18 @@ def tabla_honorarios(request):
             Q(estadoHonorario__icontains=search_query) |
             Q(fechaHonorario__icontains=search_query)
         )
+
+    # Mensajes informativos (mismo patrón: pedir inactivos pero no hay -> info; si no mostrar y no hay activos -> info)
+    if mostrar:
+        hay_inactivos = honorarios.exclude(estadoHonorario='ACTIVO').exists()
+        if not hay_inactivos:
+            messages.info(request, 'No hay honorarios inactivos para mostrar.')
+    else:
+        if not honorarios.exists():
+            messages.info(request, 'No hay honorarios activos para mostrar.')
+
     # Paginación 
-    paginator = Paginator(honorarios, 10)  # 10 cuotas por página
+    paginator = Paginator(honorarios, 10)  # 10 por página
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
@@ -164,7 +174,6 @@ def tabla_honorarios(request):
         'honorarios': page_obj,
         'mostrar_inactivos': mostrar,
         'search_query': search_query,  # Pasar el término de búsqueda al template
-
     })
 
 @login_required(login_url='login')

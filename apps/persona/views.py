@@ -155,17 +155,17 @@ def desactivar_persona(request, pk):
         user = Usuarios.objects.get(idPersona=persona)
         if user.is_superuser:
             return JsonResponse({'success': False,
-                                 'message': '❌ No puedes desactivar al superusuario.'})
+                                 'message': 'No puedes desactivar al superusuario.'})
         if user.is_active:
             return JsonResponse({'success': False,
-                                 'message': '❌ Primero desactiva la cuenta de usuario asociada.'})
+                                 'message': 'Primero desactiva la cuenta de usuario asociada.'})
     except Usuarios.DoesNotExist:
         pass
 
     if request.method == 'POST':
         persona.estadoPersona = "INACTIVO"
         persona.save()
-        msg = f"⛔ {persona.nombres} desactivado"
+        msg = f"{persona.nombres} {persona.apellidos} Desactivado correctamente."
         if request.headers.get('x-requested-with') == 'XMLHttpRequest':
             return JsonResponse({'success': True, 'message': msg})
         messages.success(request, msg)
@@ -183,14 +183,14 @@ def reactivate_persona(request, pk):
         user = Usuarios.objects.get(idPersona=persona)
         if user.is_superuser:
             return JsonResponse({'success': False,
-                                 'message': '❌ No puedes reactivar al superusuario aquí.'})
+                                 'message': 'No puedes reactivar al superusuario aquí.'})
     except Usuarios.DoesNotExist:
         pass
 
     if request.method == 'POST':
         persona.estadoPersona = "ACTIVO"
         persona.save()
-        msg = f"✅ {persona.nombres} reactivado"
+        msg = f"{persona.nombres} {persona.apellidos} Reactivado correctamente."
         if request.headers.get('x-requested-with') == 'XMLHttpRequest':
             return JsonResponse({'success': True, 'message': msg})
         messages.success(request, msg)
@@ -212,16 +212,25 @@ def tabla_persona(request):
     tipo_consulta = request.session.get('tipo_consulta', None)
     mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
 
-    # Inicializar queryset
-    personas = Personas.objects.all()
+    # Query inicial
+    qs = Personas.objects.all()
 
-    # Filtrar por tipo (Cliente/Proveedor)
+    # Filtrar por tipo (Cliente/Proveedor/Usuario)
     if tipo_consulta in ['1', '2', '3']:
-        personas = personas.filter(personatp__idTP=tipo_consulta).distinct()
+        qs = qs.filter(personatp__idTP=tipo_consulta).distinct()
 
-    # Filtrar por estado (activo/inactivo)
-    if not mostrar:
-        personas = personas.filter(estadoPersona='ACTIVO')
+    # Si está pidiendo mostrar inactivos, comprobamos si existen inactivos
+    if mostrar:
+        # ¿hay al menos un registro inactivo en el queryset ya filtrado por tipo?
+        hay_inactivos = qs.exclude(estadoPersona='ACTIVO').exists()
+        if not hay_inactivos:
+            # Notificar al usuario que no hay inactivos (se mostrará en la plantilla)
+            messages.info(request, 'No hay personas inactivas para mostrar.')
+        # dejamos qs tal cual (muestra activos + inactivos)
+        personas = qs
+    else:
+        # Solo mostrar activos
+        personas = qs.filter(estadoPersona='ACTIVO')
 
     # Determinar texto para el título
     tipo_texto = "Usuarios" if tipo_consulta == '1' else "Clientes" if tipo_consulta == '2' else "Proveedores" if tipo_consulta == '3' else "Personas"

@@ -721,18 +721,30 @@ def registrar_cuota_formacion(request, idFormacion=None):
 @permission_required("home.view_cuotaformacion", raise_exception=True)
 def consultar_cuota_formacion(request):
     mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
-    if mostrar:
-        cuotaFormaciones = CuotaFormacion.objects.select_related('idFormacion').all()
-    else:
-        cuotaFormaciones = CuotaFormacion.objects.select_related('idFormacion').filter(is_active=True)
 
-    # Paginación 
-    paginator = Paginator(cuotaFormaciones, 10)  # 10 cuotas por página
+    # Query base (con select_related para optimizar)
+    qs = CuotaFormacion.objects.select_related('idFormacion').all()
+
+    if not mostrar:
+        qs = qs.filter(is_active=True)
+
+    # Mensajes informativos
+    if mostrar:
+        # ¿hay cuotas inactivas en el queryset actual?
+        hay_inactivos = qs.filter(is_active=False).exists()
+        if not hay_inactivos:
+            messages.info(request, 'No hay cuotas inactivas para mostrar.')
+    else:
+        if not qs.exists():
+            messages.info(request, 'No hay cuotas activas para mostrar.')
+
+    # Paginación
+    paginator = Paginator(qs, 10)  # 10 cuotas por página
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
     return render(request, 'home/tablaCuotasFormaciones.html', {
-        'cuotas': page_obj,  # Pasar el objeto de la página al template
+        'cuotas': page_obj,
         'mostrar_inactivos': mostrar,
     })
 
@@ -1102,7 +1114,7 @@ def desactivar_formacion(request, pk):
     formacion = get_object_or_404(Formacion, pk=pk)
     formacion.estadoFormacion = "INACTIVO"
     formacion.save(update_fields=['estadoFormacion'])
-    messages.success(request, f'⛔ Formación {formacion.nombreFormacion} desactivada')
+    messages.success(request, f'Formación {formacion.nombreFormacion} desactivada')
     return redirect(request.POST.get('next', 'tabla_formaciones'))
 
 @login_required(login_url='login')
@@ -1112,7 +1124,7 @@ def reactivate_formacion(request, pk):
     if request.method == 'POST':
         Formaciones.estadoFormacion = "ACTIVO"
         Formaciones.save()
-        messages.success(request, f'✅ Formación {Formaciones.nombreFormacion} activada')
+        messages.success(request, f'Formación {Formaciones.nombreFormacion} activada')
         return redirect(request.POST.get('next', 'tabla_formaciones'))
     return redirect('tabla_formaciones')
 
@@ -1122,41 +1134,53 @@ def tabla_formaciones(request):
     mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
     search_query = request.GET.get('search', '').strip()  # Obtener el término de búsqueda
 
-    if mostrar:
-        formaciones = Formacion.objects.all()
-    else:
-        formaciones = Formacion.objects.filter(estadoFormacion='ACTIVO').order_by('-fechaFormacion')
-  
-    # Filtrar por el término de búsqueda si existe BUSCADOR
+    # Query base con optimizaciones
+    qs = Formacion.objects.select_related('idTF').prefetch_related(
+        Prefetch('cuotas', queryset=CuotaFormacion.objects.order_by('orden'))
+    ).order_by('-fechaFormacion')
+
+    # Filtrar por estado si no se piden inactivos
+    if not mostrar:
+        qs = qs.filter(estadoFormacion='ACTIVO')
+
+    # Aplicar búsqueda si existe
     if search_query:
-        formaciones = formaciones.filter(
+        qs = qs.filter(
             Q(nombreFormacion__icontains=search_query) |
             Q(idTF__nombreTipoFormacion__icontains=search_query) |
             Q(valorInscripcion__icontains=search_query) |
             Q(duracion__icontains=search_query)
         )
 
-  
-    tipo_formaciones = TipoFormacion.objects.filter(estadoTipoFormacion='ACTIVO')
+    # Mensajes informativos según el caso
+    if mostrar:
+        # Dentro del queryset ya filtrado por búsqueda (y por tipo/estado si aplica),
+        # comprobamos si hay registros inactivos.
+        hay_inactivos = qs.exclude(estadoFormacion='ACTIVO').exists()
+        if not hay_inactivos:
+            messages.info(request, 'No hay formaciones inactivas para mostrar.')
+    else:
+        # Si no estamos mostrando inactivos comprobamos si hay activos para mostrar
+        if not qs.exists():
+            messages.info(request, 'No hay formaciones activas para mostrar.')
 
-    formacionesCuotas = Formacion.objects.select_related('idTF')\
-        .prefetch_related(Prefetch('cuotas', queryset=CuotaFormacion.objects.order_by('orden')))
+    # Paginación
+    paginator = Paginator(qs, 3)  # ajusta el número por página si quieres
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
 
-    for f in formacionesCuotas:
-        cuotas_qs = f.cuotas.all()  # related_name='cuotas'
-        if f.tieneCuotas and cuotas_qs.exists():
-            cuotas = list(cuotas_qs)
-            tipos = {c.tipoCuota for c in cuotas}                # códigos (ej. 'MENSUAL')
-            # si todas las cuotas comparten el mismo tipo usamos su display, sino 'Mixto'
-            tipo_display = cuotas[0].get_tipoCuota_display() if len(tipos) == 1 else "Mixto"
-            # montos formateados con 2 decimales
-            montos = ", ".join(f"{c.valorCuota:.2f}" for c in cuotas)
-            f.cuotas_count = len(cuotas)
+    # Calcular información de cuotas solo para los objetos en la página
+    for f in page_obj.object_list:
+        cuotas_qs = list(getattr(f, 'cuotas').all())  # prefetch ya aplicado
+        if getattr(f, 'tieneCuotas', False) and cuotas_qs:
+            tipos = {c.tipoCuota for c in cuotas_qs}
+            tipo_display = cuotas_qs[0].get_tipoCuota_display() if len(tipos) == 1 else "Mixto"
+            montos = ", ".join(f"{c.valorCuota:.2f}" for c in cuotas_qs)
+            f.cuotas_count = len(cuotas_qs)
             f.cuotas_list = montos
             f.cuotas_tipo = tipo_display
             f.cuotas_text = f"Sí - {tipo_display} ({f.cuotas_count} cuotas: {montos})"
-        elif f.tieneCuotas:
-            # tiene el flag pero no hay cuotas creadas
+        elif getattr(f, 'tieneCuotas', False):
             f.cuotas_count = 0
             f.cuotas_list = ""
             f.cuotas_tipo = ""
@@ -1166,16 +1190,14 @@ def tabla_formaciones(request):
             f.cuotas_list = ""
             f.cuotas_tipo = ""
             f.cuotas_text = "No"
-   # Paginación 
-    paginator = Paginator(formaciones, 3)  # 10 cuotas por página
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
+
+    tipo_formaciones = TipoFormacion.objects.filter(estadoTipoFormacion='ACTIVO')
+
     return render(request, 'home/tablaFormaciones.html', {
-        'formaciones':page_obj,
+        'formaciones': page_obj,
         'tipoFormaciones': tipo_formaciones,
         'mostrar_inactivos': mostrar,
-        'search_query': search_query,  # Pasar el término de búsqueda al template
-
+        'search_query': search_query,
     })
 
 @login_required(login_url='login')
@@ -1415,7 +1437,7 @@ def desactivar_tipoFormacion(request, pk):
     if request.method == 'POST':
         tipoFormaciones.estadoTipoFormacion = "INACTIVO"
         tipoFormaciones.save()
-        messages.success(request, f'⛔ Tipo Formación {tipoFormaciones.nombreTipoFormacion} desactivada')
+        messages.success(request, f'Tipo Formación {tipoFormaciones.nombreTipoFormacion} desactivada')
         return redirect(request.POST.get('next', 'tabla_tipoFormacion'))
     return redirect('tabla_tipoFormacion')
 
@@ -1426,7 +1448,7 @@ def reactivate_tipoFormacion(request, pk):
     if request.method == 'POST':
         tipoFormaciones.estadoTipoFormacion = "ACTIVO"
         tipoFormaciones.save()
-        messages.success(request, f'✅ Tipo Formación {tipoFormaciones.nombreTipoFormacion} activada')
+        messages.success(request, f'Tipo Formación {tipoFormaciones.nombreTipoFormacion} activada')
         return redirect(request.POST.get('next', 'tabla_tipoFormacion'))
     return redirect('tabla_tipoFormacion')
 
@@ -1434,13 +1456,25 @@ def reactivate_tipoFormacion(request, pk):
 @permission_required("home.view_tipoformacion", raise_exception=True)
 def tabla_tipoFormacion(request):
     mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+
+    # Query base
+    qs = TipoFormacion.objects.all()
+
+    if not mostrar:
+        qs = qs.filter(estadoTipoFormacion='ACTIVO')
+
+    # Mensajes informativos
     if mostrar:
-        tipoFormaciones = TipoFormacion.objects.all()
+        # ¿hay inactivos en el queryset actual?
+        hay_inactivos = qs.exclude(estadoTipoFormacion='ACTIVO').exists()
+        if not hay_inactivos:
+            messages.info(request, 'No hay tipos de formación inactivos para mostrar.')
     else:
-        tipoFormaciones = TipoFormacion.objects.filter(estadoTipoFormacion='ACTIVO')
+        if not qs.exists():
+            messages.info(request, 'No hay tipos de formación activos para mostrar.')
 
     return render(request, 'home/tablaTipoFormaciones.html', {
-        'tipoFormaciones': tipoFormaciones,
+        'tipoFormaciones': qs,
         'mostrar_inactivos': mostrar,
     })
 
@@ -1686,7 +1720,7 @@ def desactivar_materias(request, pk):
     if request.method == 'POST':
         materias.estadoMateria = "INACTIVO"
         materias.save()
-        messages.success(request, f'⛔ Materia {materias.nombreMateria} desactivada')
+        messages.success(request, f'Materia {materias.nombreMateria} desactivada')
         return redirect(request.POST.get('next', 'tabla_materias'))
     return redirect('tabla_materias')
 
@@ -1697,7 +1731,7 @@ def reactivate_materias(request, pk):
     if request.method == 'POST':
         materias.estadoMateria = "ACTIVO"
         materias.save()
-        messages.success(request, f'✅ Materia {materias.nombreMateria} activada')
+        messages.success(request, f'Materia {materias.nombreMateria} activada')
         return redirect(request.POST.get('next', 'tabla_materias'))
     return redirect('tabla_materias')
 
@@ -1705,15 +1739,26 @@ def reactivate_materias(request, pk):
 @permission_required("home.view_materia", raise_exception=True)
 def tabla_materias(request):
     mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+
+    qs = Materia.objects.all()
+
+    if not mostrar:
+        qs = qs.filter(estadoMateria='ACTIVO')
+
+    # Mensajes informativos
     if mostrar:
-        materias = Materia.objects.all()
+        hay_inactivos = qs.exclude(estadoMateria='ACTIVO').exists()
+        if not hay_inactivos:
+            messages.info(request, 'No hay materias inactivas para mostrar.')
     else:
-        materias = Materia.objects.filter(estadoMateria='ACTIVO')
+        if not qs.exists():
+            messages.info(request, 'No hay materias activas para mostrar.')
 
     return render(request, 'home/tablaMaterias.html', {
-        'materias': materias,
+        'materias': qs,
         'mostrar_inactivos': mostrar,
     })
+
 
 @login_required(login_url='login')
 def reporte_materias_pdf(request):
@@ -1947,7 +1992,7 @@ def desactivar_cohorte(request, pk):
     if request.method == 'POST':
         cohortes.estadoCohorte = "INACTIVO"
         cohortes.save()
-        messages.success(request, f'⛔ Cohorte {cohortes.nombreCohorte} desactivada')
+        messages.success(request, f'Cohorte {cohortes.nombreCohorte} desactivada')
         return redirect(request.POST.get('next', 'tabla_cohortes'))
     return redirect('tabla_cohortes')
 
@@ -1958,7 +2003,7 @@ def reactivate_cohorte(request, pk):
     if request.method == 'POST':
         cohortes.estadoCohorte = "ACTIVO"
         cohortes.save()
-        messages.success(request, f'✅ Cohorte {cohortes.nombreCohorte} activada')
+        messages.success(request, f'Cohorte {cohortes.nombreCohorte} activada')
         return redirect(request.POST.get('next', 'tabla_cohortes'))
     return redirect('tabla_cohortes')
 
@@ -1966,15 +2011,26 @@ def reactivate_cohorte(request, pk):
 @permission_required("home.view_cohorte", raise_exception=True)
 def tabla_cohortes(request):
     mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+
+    qs = Cohorte.objects.all()
+
+    if not mostrar:
+        qs = qs.filter(estadoCohorte='ACTIVO')
+
+    # Mensajes informativos
     if mostrar:
-        cohortes = Cohorte.objects.all()
+        hay_inactivos = qs.exclude(estadoCohorte='ACTIVO').exists()
+        if not hay_inactivos:
+            messages.info(request, 'No hay cohortes inactivas para mostrar.')
     else:
-        cohortes = Cohorte.objects.filter(estadoCohorte='ACTIVO')
+        if not qs.exists():
+            messages.info(request, 'No hay cohortes activas para mostrar.')
 
     return render(request, 'home/tablaCohortes.html', {
-        'cohortes': cohortes.order_by('-idCohorte'),
+        'cohortes': qs.order_by('-idCohorte'),
         'mostrar_inactivos': mostrar,
     })
+
 
 @login_required(login_url='login')
 def reporte_cohortes_pdf(request):
@@ -2200,7 +2256,7 @@ def desactivar_cargo(request, pk):
     if request.method == 'POST':
         cargos.estadoCargo = "INACTIVO"
         cargos.save()
-        messages.success(request, f'⛔ Cargo {cargos.nombreCargo} desactivado')
+        messages.success(request, f'Cargo {cargos.nombreCargo} desactivado')
         return redirect(request.POST.get('next', 'tabla_cargos'))
     return redirect('tabla_cargos')
 
@@ -2211,7 +2267,7 @@ def reactivate_cargo(request, pk):
     if request.method == 'POST':
         cargos.estadoCargo = "ACTIVO"
         cargos.save()
-        messages.success(request, f'✅ Cargo {cargos.nombreCargo} activado')
+        messages.success(request, f'Cargo {cargos.nombreCargo} activado')
         return redirect(request.POST.get('next', 'tabla_cargos'))
     return redirect('tabla_cargos')
 
@@ -2219,14 +2275,26 @@ def reactivate_cargo(request, pk):
 @permission_required("home.view_cargo", raise_exception=True)
 def tabla_cargos(request):
     mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+
+    qs = Cargo.objects.all()
+
+    if not mostrar:
+        qs = qs.filter(estadoCargo='ACTIVO')
+
+    # Mensajes informativos
     if mostrar:
-        cargos = Cargo.objects.all()
+        hay_inactivos = qs.exclude(estadoCargo='ACTIVO').exists()
+        if not hay_inactivos:
+            messages.info(request, 'No hay cargos inactivos para mostrar.')
     else:
-        cargos = Cargo.objects.filter(estadoCargo='ACTIVO')
+        if not qs.exists():
+            messages.info(request, 'No hay cargos activos para mostrar.')
+
     return render(request, 'home/tablaCargos.html', {
-        'cargos': cargos,
+        'cargos': qs,
         'mostrar_inactivos': mostrar,
     })
+
 
 @login_required(login_url='login')
 def reporte_cargos_pdf(request):

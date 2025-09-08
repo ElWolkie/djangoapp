@@ -161,7 +161,7 @@
         <thead class="table-light">
           <tr>
             <th>ID</th>
-            {% comment %} <th>Solicitante</th> {% endcomment %}
+            <th>Solicitante</th>
             <th>Trámite</th>
             <th>Servicio</th>
             <th>Estado</th>
@@ -172,7 +172,7 @@
           {% for solicitud in solicitudes %}
           <tr>
             <td>{{ solicitud.idSoli }}</td>
-            {% comment %} <td>{{ solicitud.idPersona.nombres }} {{ solicitud.idPersona.apellidos }}</td> {% endcomment %}
+            <td>{{ solicitud.idPersona.nombres }} {{ solicitud.idPersona.apellidos }}</td>
             <td>{{ solicitud.idTramite.nombreTramite }}</td>
             <td>{{ solicitud.idServicio.nombreServicio }}</td>
             <td>
