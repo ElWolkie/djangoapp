@@ -1,0 +1,87 @@
+# node
+node_modules/
+npm-debug.log*
+yarn-error.log*
+pnpm-lock.yaml
+package-lock.json
+
+# expo
+.expo/
+.expo-shared/
+.expo-shared/assets.json
+
+# environment files (ignore all .env but keep .env.sample)
+.env
+.env.* 
+!.env.sample
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+*.iml
+
+# Android
+android/.gradle/
+android/app/build/
+**/android/.gradle/
+**/android/app/build/
+
+# iOS
+ios/Pods/
+ios/build/
+**/ios/Pods/
+**/ios/build/
+
+# Xcode
+*.xcworkspace
+*.xcuserdata
+*.xcuserstate
+*.xcodeproj/xcshareddata/
+
+# Gradle
+.gradle/
+local.properties
+
+# Build outputs
+build/
+dist/
+tmp/
+temp/
+
+# Metro, bundler caches
+.expo/*
+.cache/
+.packager/
+.metro-cache/
+metro-cache/
+
+# Logs and databases
+*.log
+*.sqlite
+*.db
+
+# Keystores / signing
+*.jks
+*.keystore
+*.pem
+*.p12
+
+# Misc
+coverage/
+.npm/
+/.pnp.*
+.pnp.js
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/Preview.png
+
+# Optional: if you keep APKs / IPAs locally
+*.apk
+*.aab
+*.ipa
