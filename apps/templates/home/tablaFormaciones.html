@@ -758,18 +758,27 @@
     });
   });
 
-  // --- updateSearchParam helper (mantener comportamiento original del template) ---
-  window.updateSearchParam = function(event) {
-    event.preventDefault();
-    const searchInput = document.getElementById('searchInput');
-    const query = searchInput ? searchInput.value.trim() : '';
+<script>
+  // Función para actualizar el parámetro 'page' en la URL y recargar la página
+  function updatePageParam(pageNumber) {
     const url = new URL(window.location.href);
-    if (query) url.searchParams.set('search', query);
-    else url.searchParams.delete('search');
-    // conservar mostrar_inactivos si estaba en la URL actual
-    window.location.href = url.toString();
-  };
+    url.searchParams.set('page', pageNumber); // Actualiza o añade el parámetro 'page'
+    window.location.href = url.toString(); // Redirige a la nueva URL
+  }
+  function updateSearchParam(event) {
+    event.preventDefault(); // Evita el envío normal del formulario
 
-})(jQuery);
+    const searchInput = document.getElementById('searchInput').value.trim();
+    const url = new URL(window.location.href);
+
+    if (searchInput) {
+      url.searchParams.set('search', searchInput); // Actualiza o añade el parámetro 'search'
+    } else {
+      url.searchParams.delete('search'); // Elimina el parámetro 'search' si está vacío
+    }
+
+    url.searchParams.delete('page'); // Reinicia el parámetro 'page' al realizar una nueva búsqueda
+    window.location.href = url.toString(); // Redirige a la nueva URL
+  }
 </script>
 {% endblock javascripts %}

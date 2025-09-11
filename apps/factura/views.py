@@ -739,7 +739,15 @@ def pago_create(request, pk=None):
         })
 
     if request.method == 'POST':
-        form = PagoForm(request.POST)
+        # Procesar el campo monto para convertirlo a formato decimal
+        post_data = request.POST.copy()
+        monto_str = post_data.get('monto', '')
+        if monto_str:
+            # Reemplazar: quitar puntos de mil y cambiar coma decimal por punto
+            monto_str = monto_str.replace('.', '').replace(',', '.')
+            post_data['monto'] = monto_str
+
+        form = PagoForm(post_data)        
         if form.is_valid():
             try:
                 # Iniciar una transacción atómica
@@ -874,9 +882,9 @@ def pago_create(request, pk=None):
                                     inscripcion.estadoPago = 'PARCIAL'
                                     inscripcion.save()
                                 case _ if nota_relacionada.idCuota:
-                                     cuota = nota_relacionada.idCuota
-                                     cuota.estadoPago = 'PARCIAL'
-                                     cuota.save()
+                                    cuota = nota_relacionada.idCuota
+                                    cuota.estadoPago = 'PARCIAL'
+                                    cuota.save()
                                 case _ if nota_relacionada.idSolicitud:
                                     solicitud = nota_relacionada.idSolicitud
                                     solicitud.estadoPago = 'PARCIAL'
@@ -903,37 +911,8 @@ def pago_create(request, pk=None):
                                 'referencia': pago.referencia
                             }
                         })      
-                            # Caso 2: El pago fue exitoso, la deuda fue saldada y se cerró la nota
-                    if saldo_nota - monto_pago_convertido == 0:
-                        pago.idNota.estado = 'PAGADO'
-                        pago.idNota.save()
-
-                        # Verificar el tipo de asociación de la nota usando las relaciones
-                        nota_relacionada = NotaRelacionada.objects.filter(idNota=pago.idNota).first()
-                        if nota_relacionada:
-                            match nota_relacionada:
-                                case _ if nota_relacionada.idInscripcion:
-                                    inscripcion = nota_relacionada.idInscripcion
-                                    inscripcion.estadoPago = 'PAGADO'
-                                    inscripcion.save()
-                                case _ if nota_relacionada.idCuota:
-                                    cuota = nota_relacionada.idCuota
-                                    cuota.estadoPago = 'PAGADO'
-                                    cuota.save()
-                                case _ if nota_relacionada.idSolicitud:
-                                    solicitud = nota_relacionada.idSolicitud
-                                    solicitud.estadoPago = 'PAGADO'
-                                    solicitud.save()
-                                case _ if nota_relacionada.idHonorario:
-                                    honorario = nota_relacionada.idHonorario
-                                    honorario.estadoPago = 'PAGADO'
-                                    honorario.save()
-                                case _:
-                                    print("Tipo de asociación desconocido")
-                        else:
-                            print("No se encontró una relación para la nota.")
-
-                      # Caso 2: El pago fue exitoso, la deuda fue saldada y se cerró la nota
+                    else:
+                        # Caso 2: El pago fue exitoso, la deuda fue saldada y se cerró la nota
                         if saldo_nota - monto_pago_convertido == 0:
                             pago.idNota.estado = 'PAGADO'
                             pago.idNota.save()
@@ -983,20 +962,20 @@ def pago_create(request, pk=None):
                             else:
                                 print("No se encontró una relación para la nota.")
 
-                                return JsonResponse({
-                                    'success': True,
-                                    'message': 'Pago creado exitosamente y asiento contable generado. La nota ha sido pagada en su totalidad. Ya puede facturar.',
-                                    'redirect_url': reverse('factura_list'),
-                                    'relaciones': relaciones,
-                                    'pago': {
-                                        'idPago': pago.idPago,
-                                        'idNota': pago.idNota.numeroNota,
-                                        'monto': f"{float(pago.monto):.2f} {pago.idTasa.idMoneda.simboloMoneda}",
-                                        'fechaPago': pago.fechaPago.strftime('%d/%m/%Y'),
-                                        'formaPago': pago.formaPago,
-                                        'referencia': pago.referencia
-                                    }
-                                })
+                            return JsonResponse({
+                                'success': True,
+                                'message': 'Pago creado exitosamente y asiento contable generado. La nota ha sido pagada en su totalidad. Ya puede facturar.',
+                                'redirect_url': reverse('factura_list'),
+                                'relaciones': relaciones,
+                                'pago': {
+                                    'idPago': pago.idPago,
+                                    'idNota': pago.idNota.numeroNota,
+                                    'monto': f"{float(pago.monto):.2f} {pago.idTasa.idMoneda.simboloMoneda}",
+                                    'fechaPago': pago.fechaPago.strftime('%d/%m/%Y'),
+                                    'formaPago': pago.formaPago,
+                                    'referencia': pago.referencia
+                                }
+                            })
             except ValueError as e:
                 print(f"Error de valor: {e}")
                 return JsonResponse({

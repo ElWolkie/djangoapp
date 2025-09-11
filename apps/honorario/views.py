@@ -166,7 +166,7 @@ def tabla_honorarios(request):
             messages.info(request, 'No hay honorarios activos para mostrar.')
 
     # Paginación 
-    paginator = Paginator(honorarios, 10)  # 10 por página
+    paginator = Paginator(honorarios, 2)  # 10 cuotas por página
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
