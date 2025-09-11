@@ -17,3 +17,6 @@
 ## Diseño
 - [x] Actualizar diseño de LibroMayorScreen para coincidir con el sistema web
 - [x] Actualizar diseño de LibroDiarioScreen para coincidir con el sistema web
+
+## Navegación
+- [x] Actualizar navegación móvil para menú en cascada de Libros Contables
