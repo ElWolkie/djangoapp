@@ -271,15 +271,25 @@ def listado_tipos_persona(request):
     # Leemos el parámetro ?mostrar_inactivos=true/false
     mostrar = request.GET.get('mostrar_inactivos', 'false').lower() == 'true'
 
+    # Query base (con orden original)
+    qs = TipoPersona.objects.all().order_by('-fechaTP', 'nombreTP')
+
+    # Si no pedimos inactivos, filtramos solo activos (case-insensitive)
+    if not mostrar:
+        qs = qs.filter(estadoTP__iexact='ACTIVO').order_by('-fechaTP', 'nombreTP')
+
+    # Mensajes informativos
     if mostrar:
-        tipopersonas = TipoPersona.objects.all().order_by('-fechaTP', 'nombreTP')
+        # ¿hay inactivos dentro del queryset actual?
+        hay_inactivos = qs.exclude(estadoTP__iexact='ACTIVO').exists()
+        if not hay_inactivos:
+            messages.info(request, 'No hay tipos de persona inactivos para mostrar.')
     else:
-        tipopersonas = TipoPersona.objects.filter(
-            estadoTP__iexact='ACTIVO'
-        ).order_by('-fechaTP', 'nombreTP')
+        if not qs.exists():
+            messages.info(request, 'No hay tipos de persona activos para mostrar.')
 
     context = {
-        'tipopersonas': tipopersonas,
+        'tipopersonas': qs,
         'mostrar_inactivos': mostrar
     }
     return render(request, 'persona/tablaTipoPersona.html', context)

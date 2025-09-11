@@ -387,11 +387,27 @@ def eliminar_usuario(request, pk):
 @permission_required("home.view_usuarios", login_url='page-403', raise_exception=True)
 def lista_usuarios(request):
     mostrar_inactivos = request.GET.get('mostrar_inactivos', 'false') == 'true'
-    
+
+    # Query base y orden
+    qs = Usuarios.objects.select_related('idPersona').order_by('-fechaUsuario')
+
+    # Aplicar filtro por estado si no se piden inactivos
+    if not mostrar_inactivos:
+        qs = qs.filter(is_active=True)
+
+    # Mensajes informativos (misma lógica que en las otras vistas)
+    if mostrar_inactivos:
+        # comprobar si hay registros inactivos dentro del queryset actual
+        hay_inactivos = qs.filter(is_active=False).exists()
+        if not hay_inactivos:
+            messages.info(request, 'No hay usuarios inactivos para mostrar.')
+    else:
+        # si no mostramos inactivos y no hay usuarios activos
+        if not qs.exists():
+            messages.info(request, 'No hay usuarios activos para mostrar.')
+
     return render(request, 'home/tablaUsuario.html', {
-        'usuarios': Usuarios.objects.select_related('idPersona')
-                                   .filter(is_active=True if not mostrar_inactivos else Q())
-                                   .order_by('-fechaUsuario'),
+        'usuarios': qs,
         'mostrar_inactivos': mostrar_inactivos
     })
 
@@ -2523,7 +2539,7 @@ def desactivar_requisito(request, pk):
     if request.method == 'POST':
         requisitos.estadoRequisito = "INACTIVO"
         requisitos.save()
-        messages.success(request, f'⛔ Requisito {requisitos.nombreRequisito} desactivado')
+        messages.success(request, f'Requisito {requisitos.nombreRequisito} desactivado')
         return redirect(request.POST.get('next', 'tabla_requisitos'))
     return redirect('tabla_requisitos')
 
@@ -2534,7 +2550,7 @@ def reactivate_requisito(request, pk):
     if request.method == 'POST':
         requisitos.estadoRequisito = "ACTIVO"
         requisitos.save()
-        messages.success(request, f'✅ Requisito {requisitos.nombreRequisito} activado')
+        messages.success(request, f'Requisito {requisitos.nombreRequisito} activado')
         return redirect(request.POST.get('next', 'tabla_requisitos'))
     return redirect('tabla_requisitos')
 
@@ -2542,12 +2558,23 @@ def reactivate_requisito(request, pk):
 @permission_required("home.view_requisito", raise_exception=True)
 def tabla_requisitos(request):
     mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+
+    qs = Requisito.objects.all()
+
+    if not mostrar:
+        qs = qs.filter(estadoRequisito='ACTIVO')
+
+    # Mensajes informativos
     if mostrar:
-        requisitos = Requisito.objects.all()
+        hay_inactivos = qs.exclude(estadoRequisito='ACTIVO').exists()
+        if not hay_inactivos:
+            messages.info(request, 'No hay requisitos inactivos para mostrar.')
     else:
-        requisitos = Requisito.objects.filter(estadoRequisito='ACTIVO')
+        if not qs.exists():
+            messages.info(request, 'No hay requisitos activos para mostrar.')
+
     return render(request, 'home/tablaRequisitos.html', {
-        'requisitos': requisitos.order_by('-idRequisito'),
+        'requisitos': qs.order_by('-idRequisito'),
         'mostrar_inactivos': mostrar,
     })
 
@@ -2775,7 +2802,7 @@ def desactivar_servicio(request, pk):
     if request.method == 'POST':
         servicios.estadoServicio = "INACTIVO"
         servicios.save()
-        messages.success(request, f'⛔ Servicio {servicios.nombreServicio} desactivado')
+        messages.success(request, f'Servicio {servicios.nombreServicio} desactivado')
         return redirect(request.POST.get('next', 'tabla_servicios'))
     return redirect('tabla_servicios')
 
@@ -2786,7 +2813,7 @@ def reactivate_servicio(request, pk):
     if request.method == 'POST':
         servicios.estadoServicio = "ACTIVO"
         servicios.save()
-        messages.success(request, f'✅ Servicio {servicios.nombreServicio} activado')
+        messages.success(request, f'Servicio {servicios.nombreServicio} activado')
         return redirect(request.POST.get('next', 'tabla_servicios'))
     return redirect('tabla_servicios')
 
@@ -2794,12 +2821,23 @@ def reactivate_servicio(request, pk):
 @permission_required("home.view_servicio", raise_exception=True)
 def tabla_servicios(request):
     mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+
+    qs = Servicio.objects.all()
+
+    if not mostrar:
+        qs = qs.filter(estadoServicio='ACTIVO')
+
+    # Mensajes informativos
     if mostrar:
-        servicios = Servicio.objects.all()
+        hay_inactivos = qs.exclude(estadoServicio='ACTIVO').exists()
+        if not hay_inactivos:
+            messages.info(request, 'No hay servicios inactivos para mostrar.')
     else:
-        servicios = Servicio.objects.filter(estadoServicio='ACTIVO')
+        if not qs.exists():
+            messages.info(request, 'No hay servicios activos para mostrar.')
+
     return render(request, 'home/tablaServicios.html', {
-        'servicios': servicios,
+        'servicios': qs,
         'mostrar_inactivos': mostrar,
     })
 
@@ -3060,12 +3098,23 @@ def reactivate_tramite(request, pk):
 @permission_required("home.view_tramite", raise_exception=True)
 def tabla_tramites(request):
     mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+
+    qs = Tramite.objects.all()
+
+    if not mostrar:
+        qs = qs.filter(estadoTramite='ACTIVO')
+
+    # Mensajes informativos
     if mostrar:
-        tramites = Tramite.objects.all()
+        hay_inactivos = qs.exclude(estadoTramite='ACTIVO').exists()
+        if not hay_inactivos:
+            messages.info(request, 'No hay trámites inactivos para mostrar.')
     else:
-        tramites = Tramite.objects.filter(estadoTramite='ACTIVO')
+        if not qs.exists():
+            messages.info(request, 'No hay trámites activos para mostrar.')
+
     return render(request, 'home/tablaTramites.html', {
-        'tramites': tramites.order_by('-idTramite'),
+        'tramites': qs.order_by('-idTramite'),
         'mostrar_inactivos': mostrar,
     })
 
@@ -3531,7 +3580,7 @@ def desactivar_moneda(request, pk):
     if request.method == 'POST':
         moneda.estadoMoneda = "INACTIVO"
         moneda.save()
-        messages.success(request, f'✅ Moneda {moneda.nombreMoneda} desactivada')
+        messages.success(request, f'Moneda {moneda.nombreMoneda} desactivada')
         return redirect(request.POST.get('next', 'tabla_monedas'))
     return redirect('tabla_monedas')
 
@@ -3550,7 +3599,7 @@ def reactivate_moneda(request, pk):
     if request.method == 'POST':
         moneda.estadoMoneda = "ACTIVO"
         moneda.save()
-        messages.success(request, f'✅ Moneda {moneda.nombreMoneda} activada')
+        messages.success(request, f'Moneda {moneda.nombreMoneda} activada')
         return redirect(request.POST.get('next', 'tabla_monedas'))
     return redirect('tabla_monedas')
 
@@ -3558,12 +3607,23 @@ def reactivate_moneda(request, pk):
 @permission_required("home.view_moneda", raise_exception=True)
 def tabla_monedas(request):
     mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+
+    qs = Moneda.objects.all()
+
+    if not mostrar:
+        qs = qs.filter(estadoMoneda='ACTIVO')
+
+    # Mensajes informativos
     if mostrar:
-        monedas = Moneda.objects.all()
+        hay_inactivos = qs.exclude(estadoMoneda='ACTIVO').exists()
+        if not hay_inactivos:
+            messages.info(request, 'No hay monedas inactivas para mostrar.')
     else:
-        monedas = Moneda.objects.filter(estadoMoneda='ACTIVO')
+        if not qs.exists():
+            messages.info(request, 'No hay monedas activas para mostrar.')
+
     return render(request, 'home/tablaMonedas.html', {
-        'monedas': monedas,
+        'monedas': qs,
         'mostrar_inactivos': mostrar,
     })
 
@@ -3790,7 +3850,7 @@ def desactivar_tasa(request, pk):
     if request.method == 'POST':
         tasa.estadoTasa = "INACTIVO"
         tasa.save()
-        messages.success(request, f'✅ Moneda {tasa.idMoneda.nombreMoneda} desactivada')
+        messages.success(request, f'Tasa de {tasa.idMoneda.nombreMoneda} desactivada')
         return redirect(request.POST.get('next', 'tabla_tasas'))
     return redirect('tabla_tasas')
 
@@ -3809,7 +3869,7 @@ def reactivate_tasa(request, pk):
     if request.method == 'POST':
         tasa.estadoTasa = "ACTIVO"
         tasa.save()
-        messages.success(request, f'✅ Moneda {tasa.idMoneda.nombreMoneda} activada')
+        messages.success(request, f'Tasa de {tasa.idMoneda.nombreMoneda} activada')
         return redirect(request.POST.get('next', 'tabla_tasas'))
     return redirect('tabla_tasas')
 
@@ -3824,7 +3884,7 @@ def tabla_tasas(request):
     else:
         tasas = Tasa.objects.filter(estadoTasa='ACTIVO').order_by('-fechaTasa')
 
-          # Filtrar por el término de búsqueda si existe BUSCADOR
+    # Filtrar por el término de búsqueda si existe
     if search_query:
         tasas = tasas.filter(
             Q(idMoneda__nombreMoneda__icontains=search_query) |
@@ -3833,12 +3893,25 @@ def tabla_tasas(request):
             Q(estadoTasa__icontains=search_query) |
             Q(fechaTasa__icontains=search_query)
         )
+
+    # Mensajes informativos (aplicados sobre el queryset ya filtrado)
+    if mostrar:
+        hay_inactivos = tasas.exclude(estadoTasa='ACTIVO').exists()
+        if not hay_inactivos:
+            messages.info(request, 'No hay tasas inactivas para mostrar.')
+    else:
+        if not tasas.exists():
+            messages.info(request, 'No hay tasas activas para mostrar.')
+
+    # Paginación
     paginator = Paginator(tasas, 10)  # 10 tasas por página
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
+
     return render(request, 'home/tablaTasas.html', {
-        'tasas':page_obj,
+        'tasas': page_obj,
         'mostrar_inactivos': mostrar,
+        'search_query': search_query,
     })
 
 @login_required(login_url='login')
