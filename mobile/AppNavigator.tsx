@@ -11,6 +11,11 @@ import PantallaPersonas from './src/screens/personas';
 import PantallaFormaciones from './src/screens/formaciones';
 import PantallaTPFormaciones from './src/screens/tipoFormaciones';
 import PantallaMaterias from './src/screens/materias';
+import LibroDiarioScreen from './src/screens/LibroDiarioScreen';
+import LibroMayorScreen from './src/screens/LibroMayorScreen';
+import BalanceCuentasScreen from './src/screens/BalanceCuentasScreen';
+import IngresosScreen from './src/screens/IngresosScreen';
+import EgresosScreen from './src/screens/EgresosScreen';
 import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { ReloadContext } from './src/contexts/ReloadContext';
@@ -102,6 +107,47 @@ export default function AppNavigator() {
           title: 'Materias',
         }}
       />
+      <Drawer.Screen
+        name="LibroDiario"
+        component={LibroDiarioScreen}
+        options={{
+          drawerIcon: ({ color, size }) => <Icon name="book-open-page-variant" color={color} size={size} />,
+          title: 'Libro Diario',
+        }}
+      />
+      <Drawer.Screen
+        name="LibroMayor"
+        component={LibroMayorScreen}
+        options={{
+          drawerIcon: ({ color, size }) => <Icon name="book-multiple" color={color} size={size} />,
+          title: 'Libro Mayor',
+        }}
+      />
+      <Drawer.Screen
+        name="BalanceCuentas"
+        component={BalanceCuentasScreen}
+        options={{
+          drawerIcon: ({ color, size }) => <Icon name="scale-balance" color={color} size={size} />,
+          title: 'Balance de Cuentas',
+        }}
+      />
+      <Drawer.Screen
+        name="Ingresos"
+        component={IngresosScreen}
+        options={{
+          drawerIcon: ({ color, size }) => <Icon name="cash-plus" color={color} size={size} />,
+          title: 'Ingresos',
+        }}
+      />
+      <Drawer.Screen
+        name="Egresos"
+        component={EgresosScreen}
+        options={{
+          drawerIcon: ({ color, size }) => <Icon name="cash-minus" color={color} size={size} />,
+          title: 'Egresos',
+        }}
+      />
+
     </Drawer.Navigator>
   );
 }

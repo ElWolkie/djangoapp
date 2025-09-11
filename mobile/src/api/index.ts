@@ -76,3 +76,29 @@ api.interceptors.response.use(
 );
 
 export default api;
+
+// Funciones para contabilidad
+export const getLibroDiario = async () => {
+  const response = await api.get('/libro-diario/');
+  return response.data;
+};
+
+export const getLibroMayor = async () => {
+  const response = await api.get('/libro-mayor/');
+  return response.data;
+};
+
+export const getBalanceCuentas = async () => {
+  const response = await api.get('/balance-cuentas/');
+  return response.data;
+};
+
+export const getIngresos = async () => {
+  const response = await api.get('/ingresos/');
+  return response.data;
+};
+
+export const getEgresos = async () => {
+  const response = await api.get('/egresos/');
+  return response.data;
+};
