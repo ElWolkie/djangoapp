@@ -32,4 +32,11 @@ urlpatterns = [
 
     path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),  # Solo permite POST
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),  # Solo permite POST
+
+    # URLs para contabilidad
+    path('libro-diario/', views.LibroDiarioAPIView.as_view(), name='libro-diario'),
+    path('libro-mayor/', views.LibroMayorAPIView.as_view(), name='libro-mayor'),
+    path('balance-cuentas/', views.BalanceCuentasAPIView.as_view(), name='balance-cuentas'),
+    path('ingresos/', views.IngresosAPIView.as_view(), name='ingresos'),
+    path('egresos/', views.EgresosAPIView.as_view(), name='egresos'),
 ]

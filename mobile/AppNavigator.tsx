@@ -1,5 +1,5 @@
 // AppNavigator.tsx
-import React, { useContext } from 'react';
+import React, { useContext, useState } from 'react';
 import {
   createDrawerNavigator,
   DrawerContentScrollView,
@@ -11,6 +11,11 @@ import PantallaPersonas from './src/screens/personas';
 import PantallaFormaciones from './src/screens/formaciones';
 import PantallaTPFormaciones from './src/screens/tipoFormaciones';
 import PantallaMaterias from './src/screens/materias';
+import LibroDiarioScreen from './src/screens/LibroDiarioScreen';
+import LibroMayorScreen from './src/screens/LibroMayorScreen';
+import BalanceCuentasScreen from './src/screens/BalanceCuentasScreen';
+import IngresosScreen from './src/screens/IngresosScreen';
+import EgresosScreen from './src/screens/EgresosScreen';
 import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { ReloadContext } from './src/contexts/ReloadContext';
@@ -18,6 +23,16 @@ import { ReloadContext } from './src/contexts/ReloadContext';
 const Drawer = createDrawerNavigator();
 
 function CustomDrawerContent(props: any) {
+  const [librosContablesExpanded, setLibrosContablesExpanded] = useState(false);
+
+  const toggleLibrosContables = () => {
+    setLibrosContablesExpanded(!librosContablesExpanded);
+  };
+
+  const navigateTo = (screenName: string) => {
+    props.navigation.navigate(screenName);
+  };
+
   return (
     <DrawerContentScrollView {...props} contentContainerStyle={{ flex: 1 }}>
       <View style={styles.drawerHeader}>
@@ -26,6 +41,31 @@ function CustomDrawerContent(props: any) {
       </View>
 
       <DrawerItemList {...props} />
+
+      {/* Libros Contables Section */}
+      <View style={styles.menuSection}>
+        <TouchableOpacity style={styles.menuItem} onPress={toggleLibrosContables}>
+          <Icon name="book-open-variant" color="#4f8cff" size={24} />
+          <Text style={styles.menuText}>Libros Contables</Text>
+          <Icon name={librosContablesExpanded ? "chevron-up" : "chevron-down"} color="#4f8cff" size={24} />
+        </TouchableOpacity>
+        {librosContablesExpanded && (
+          <View style={styles.submenu}>
+            <TouchableOpacity style={styles.submenuItem} onPress={() => navigateTo('LibroDiario')}>
+              <Icon name="book-open-page-variant" color="#666" size={20} />
+              <Text style={styles.submenuText}>Libro Diario</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.submenuItem} onPress={() => navigateTo('LibroMayor')}>
+              <Icon name="book-multiple" color="#666" size={20} />
+              <Text style={styles.submenuText}>Libro Mayor</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.submenuItem} onPress={() => navigateTo('BalanceCuentas')}>
+              <Icon name="scale-balance" color="#666" size={20} />
+              <Text style={styles.submenuText}>Balance de Cuentas</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
 
       <View style={{ flex: 1 }} />
 
@@ -102,6 +142,47 @@ export default function AppNavigator() {
           title: 'Materias',
         }}
       />
+      <Drawer.Screen
+        name="LibroDiario"
+        component={LibroDiarioScreen}
+        options={{
+          drawerItemStyle: { display: 'none' }, // Hide from drawer
+          title: 'Libro Diario',
+        }}
+      />
+      <Drawer.Screen
+        name="LibroMayor"
+        component={LibroMayorScreen}
+        options={{
+          drawerItemStyle: { display: 'none' }, // Hide from drawer
+          title: 'Libro Mayor',
+        }}
+      />
+      <Drawer.Screen
+        name="BalanceCuentas"
+        component={BalanceCuentasScreen}
+        options={{
+          drawerItemStyle: { display: 'none' }, // Hide from drawer
+          title: 'Balance de Cuentas',
+        }}
+      />
+      <Drawer.Screen
+        name="Ingresos"
+        component={IngresosScreen}
+        options={{
+          drawerIcon: ({ color, size }) => <Icon name="cash-plus" color={color} size={size} />,
+          title: 'Ingresos',
+        }}
+      />
+      <Drawer.Screen
+        name="Egresos"
+        component={EgresosScreen}
+        options={{
+          drawerIcon: ({ color, size }) => <Icon name="cash-minus" color={color} size={size} />,
+          title: 'Egresos',
+        }}
+      />
+
     </Drawer.Navigator>
   );
 }
@@ -125,5 +206,48 @@ const styles = StyleSheet.create({
     color: '#4f8cff',
     fontSize: 16,
     letterSpacing: 1,
+  },
+  menuSection: {
+    marginTop: 10,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    marginHorizontal: 10,
+    marginBottom: 5,
+  },
+  menuText: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#4f8cff',
+    marginLeft: 10,
+  },
+  submenu: {
+    marginLeft: 20,
+    marginRight: 10,
+  },
+  submenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    backgroundColor: '#fff',
+    borderRadius: 6,
+    marginBottom: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  submenuText: {
+    fontSize: 14,
+    color: '#666',
+    marginLeft: 10,
   },
 });
