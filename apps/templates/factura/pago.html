@@ -503,6 +503,8 @@ select.input-with-icon.form-select {
 
 {% block javascripts %}
 <script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
+<script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
   // Inicializar funciones y eventos
@@ -513,6 +515,7 @@ document.addEventListener('DOMContentLoaded', function () {
   validarMontoContraDeuda();
   autoseleccionarNota();
   manejarFormaPago();
+  forzarMayusculas();
 
   function establecerFechaPorDefecto() {
     const fechaPagoInput = document.getElementById('fechaPago');
@@ -796,104 +799,73 @@ document.addEventListener('DOMContentLoaded', function () {
     return csrfCookie ? csrfCookie.split('=')[1] : '';
   }
 
-  function mostrarMensajeExito(data) {
-    if (data.message.includes('La nota ha sido pagada en su totalidad')) {
-      Swal.fire({
-        icon: 'success',
-        title: 'Pago registrado exitosamente',
-        html: `
-          <p><strong>ID Pago:</strong> ${data.pago.idPago}</p>
-          <p><strong>Nota:</strong> ${data.pago.idNota}</p>
-          <p><strong>Monto:</strong> ${data.pago.monto}</p>
-          <p><strong>Fecha de Pago:</strong> ${data.pago.fechaPago}</p>
-          <p><strong>Forma de Pago:</strong> ${data.pago.formaPago}</p>
-          <p><strong>Referencia:</strong> ${data.pago.referencia || 'N/A'}</p>
-          <p class="text-success">${data.message}</p>
-        `,
-        showConfirmButton: true,
-        confirmButtonText: 'Generar Factura',
-        confirmButtonColor: '#28a745',
-        allowOutsideClick: false,
-        allowEscapeKey: false,
-        allowEnterKey: false
-      }).then((result) => {
-        if (result.isConfirmed) {
-          fetch(data.redirect_url, {
-            method: 'POST',
-            headers: {
-              'X-Requested-With': 'XMLHttpRequest',
-              'Content-Type': 'application/json',
-              'X-CSRFToken': getCSRFToken(),
-            },
-          })
-            .then((response) => {
-              if (!response.ok) {
-                return response.json().then((errorData) => {
-                  throw new Error(errorData.message || 'Error al generar la factura');
-                });
-              }
-              return response.json();
-            })
-            .then((facturaData) => {
-              Swal.fire({
-                icon: 'success',
-                title: 'Factura creada exitosamente',
-                html: `
-                  <p><strong>Número de Factura:</strong> ${facturaData.facturas.join(', ')}</p>
-                  <p><strong>Mensaje:</strong> ${facturaData.message}</p>
-                `,
-                confirmButtonText: 'Aceptar',
-                confirmButtonColor: '#28a745',
-              }).then(() => {
-                window.location.href = '/factura/cargando';
-              });
-            })
-            .catch((error) => {
-              console.error('Error:', error);
-              Swal.fire({
-                icon: 'error',
-                title: 'Error al generar la factura',
-                text: error.message || 'Ocurrió un error inesperado.',
-                showCancelButton: true,
-                confirmButtonText: 'Intentar de nuevo',
-                cancelButtonText: 'Ir a la lista de facturas',
-                confirmButtonColor: '#28a745',
-                cancelButtonColor: '#dc3545',
-                allowOutsideClick: false,
-                allowEscapeKey: false,
-                allowEnterKey: false
-              }).then((result) => {
-                if (result.isConfirmed) {
-                  mostrarMensajeExito(data);
-                } else if (result.dismiss === Swal.DismissReason.cancel) {
-                  window.location.href = '/factura/list';
-                }
-              });
-            });
-        }
-      });
-    } else {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Pago registrado exitosamente',
-        html: `
-          <p><strong>ID Pago:</strong> ${data.pago.idPago}</p>
-          <p><strong>Nota:</strong> ${data.pago.idNota}</p>
-          <p><strong>Monto:</strong> ${data.pago.monto}</p>
-          <p><strong>Fecha de Pago:</strong> ${data.pago.fechaPago}</p>
-          <p><strong>Forma de Pago:</strong> ${data.pago.formaPago}</p>
-          <p><strong>Referencia:</strong> ${data.pago.referencia || 'N/A'}</p>
-          <p class="text-danger">${data.message}</p>
-        `,
-        confirmButtonText: 'Realizar otro pago',
-        customClass: { confirmButton: 'btn btn-warning' },
-        buttonsStyling: false,
-      }).then(() => {
-        window.location.href = data.redirect_url;
-      });
-    }
+function mostrarMensajeExito(data) {
+  if (data.factura_generada && data.factura_id) {
+    // Redirigir directamente a la página de carga para generar el PDF
+    window.location.href = data.redirect_url;
+  } else if (data.message.includes('La nota ha sido pagada en su totalidad')) {
+    // Mostrar mensaje de éxito con opción para generar factura
+    Swal.fire({
+      icon: 'success',
+      title: 'Pago registrado exitosamente',
+      html: `
+        <p><strong>ID Pago:</strong> ${data.pago.idPago}</p>
+        <p><strong>Nota:</strong> ${data.pago.idNota}</p>
+        <p><strong>Monto:</strong> ${data.pago.monto}</p>
+        <p><strong>Fecha de Pago:</strong> ${data.pago.fechaPago}</p>
+        <p><strong>Forma de Pago:</strong> ${data.pago.formaPago}</p>
+        <p><strong>Referencia:</strong> ${data.pago.referencia || 'N/A'}</p>
+        <p class="text-success">${data.message}</p>
+      `,
+      showCancelButton: true,
+      confirmButtonText: 'Generar Factura',
+      confirmButtonColor: '#28a745',
+      cancelButtonText: 'Volver a Pagos',
+      cancelButtonColor: '#6c757d',
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      allowEnterKey: false
+    }).then((result) => {
+      if (result.isConfirmed) {
+            const notaId = document.getElementById('idNota').value;
+            window.location.href = `/factura/facturas/nueva/${notaId}/`;
+        // Redirigir a la página de generación de factura
+      } else if (result.dismiss === Swal.DismissReason.cancel) {
+        // Redirigir a la lista de pagos
+        window.location.href = "{% url 'pago_list' %}";
+      }
+    });
+  } else {
+    // Mostrar mensaje de advertencia para pagos parciales
+    Swal.fire({
+      icon: 'warning',
+      title: 'Pago registrado exitosamente',
+      html: `
+        <p><strong>ID Pago:</strong> ${data.pago.idPago}</p>
+        <p><strong>Nota:</strong> ${data.pago.idNota}</p>
+        <p><strong>Monto:</strong> ${data.pago.monto}</p>
+        <p><strong>Fecha de Pago:</strong> ${data.pago.fechaPago}</p>
+        <p><strong>Forma de Pago:</strong> ${data.pago.formaPago}</p>
+        <p><strong>Referencia:</strong> ${data.pago.referencia || 'N/A'}</p>
+        <p class="text-danger">${data.message}</p>
+      `,
+      confirmButtonText: 'Realizar otro pago',
+      confirmButtonColor: '#ffc107',
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      allowEnterKey: false
+    }).then(() => {
+      // Redirigir para realizar otro pago
+      window.location.href = data.redirect_url;
+    });
   }
+}
 
+// Función para obtener el token CSRF
+function getCSRFToken() {
+  const csrfCookie = document.cookie.split('; ').find(row => row.startsWith('csrftoken='));
+  return csrfCookie ? csrfCookie.split('=')[1] : '';
+}
   // Validar solo números y máximo 14 dígitos para Referencia
   const refInput = document.getElementById("referencia");
   if (refInput) {
@@ -965,6 +937,27 @@ document.addEventListener('DOMContentLoaded', function () {
   // Inicializar paginación para las tablas dentro de los modales
   setupPagination('tablaNotas', 10); // Cambia el ID y el número de filas por página según sea necesario
   setupPagination('tablaCuentas', 10); // Cambia el ID y el número de filas por página según sea necesario
+    function forzarMayusculas() {
+    // Seleccionar los campos que deben estar en mayúsculas
+    const camposMayusculas = [
+        'referencia',
+        'observaciones'
+    ];
+    
+    camposMayusculas.forEach(campoId => {
+        const campo = document.getElementById(campoId);
+        if (campo) {
+            campo.addEventListener('input', function() {
+                this.value = this.value.toUpperCase();
+            });
+            
+            // Aplicar también al evento blur por si acaso
+            campo.addEventListener('blur', function() {
+                this.value = this.value.toUpperCase();
+            });
+        }
+    });
+}
 });
 </script>
 {% endblock javascripts %}

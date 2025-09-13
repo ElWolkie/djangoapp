@@ -162,7 +162,8 @@ def factura_cargando(request, pk):
     factura = get_object_or_404(Factura, pk=pk)
     context = {
         'factura': factura,
-        'pdf_url': reverse('factura_generar_pdf', args=[pk])
+        'factura_pk': factura.id,  # Asegurarnos de pasar el ID correcto
+        'pdf_url': reverse('factura_generar_pdf', args=[factura.id])
     }
     return render(request, 'factura/cargando.html', context)
 def factura_list(request):
@@ -570,10 +571,15 @@ def factura_create_notas(request, nota_id=None):
         facturas_creadas = []
         with transaction.atomic():
             for nota in notas:
-                # Crear la factura
+                # Verificar si ya existe una factura para esta nota (relación OneToOne)
+                if hasattr(nota, 'factura'):
+                    # Ya existe una factura para esta nota, saltar a la siguiente
+                    continue
+                
+                # Crear la factura - solo establecer campos directos del modelo
                 factura = Factura.objects.create(
                     numeroFactura=generar_numero_factura_unico(nota),
-                    nota=nota,
+                    nota=nota,  # Establecer la relación OneToOne con la nota
                     estado='GENERADA'
                 )
 
@@ -598,11 +604,15 @@ def factura_create_notas(request, nota_id=None):
 
                 facturas_creadas.append(factura)
 
+        # Redirigir a la página de carga para la primera factura creada
+        if facturas_creadas:
+            return redirect('factura_cargando', pk=facturas_creadas[0].id)
+        
+        # Si no se crearon facturas (todas ya existían)
         return JsonResponse({
-            'success': True,
-            'message': 'Facturas creadas exitosamente.',
-            'facturas': [factura.numeroFactura for factura in facturas_creadas]
-        })
+            'success': False,
+            'message': 'No se crearon nuevas facturas. Todas las notas ya tienen facturas asociadas.'
+        }, status=400)
 
     except Exception as e:
         import traceback
@@ -962,20 +972,64 @@ def pago_create(request, pk=None):
                             else:
                                 print("No se encontró una relación para la nota.")
 
-                            return JsonResponse({
-                                'success': True,
-                                'message': 'Pago creado exitosamente y asiento contable generado. La nota ha sido pagada en su totalidad. Ya puede facturar.',
-                                'redirect_url': reverse('factura_list'),
-                                'relaciones': relaciones,
-                                'pago': {
-                                    'idPago': pago.idPago,
-                                    'idNota': pago.idNota.numeroNota,
-                                    'monto': f"{float(pago.monto):.2f} {pago.idTasa.idMoneda.simboloMoneda}",
-                                    'fechaPago': pago.fechaPago.strftime('%d/%m/%Y'),
-                                    'formaPago': pago.formaPago,
-                                    'referencia': pago.referencia
-                                }
-                            })
+                             # GENERAR FACTURA AUTOMÁTICAMENTE
+                    factura_generada = False
+                    factura_id = None
+                    try:
+                        factura = Factura.objects.create(
+                            numeroFactura=generar_numero_factura_unico(pago.idNota),
+                            idPersona=pago.idNota.idPersona,
+                            idEmpresa=pago.idNota.idEmpresa,
+                            fechaEmision=datetime.now().date(),
+                            totalVenta=pago.idNota.totalNota,
+                            subtotalExento=pago.idNota.subtotalExento,
+                            subtotalGravado=pago.idNota.subtotalGravado,
+                            iva=pago.idNota.iva,
+                            ivaRetenido=pago.idNota.ivaRetenido,
+                            islrRetenido=pago.idNota.islrRetenido,
+                            descuento=pago.idNota.descuento,
+                            estado='GENERADA'
+                        )
+                        FacturaDetalle.objects.create(
+                            idFactura=factura,
+                            idNota=pago.idNota,
+                            tipoItem=pago.idNota.tipoArticulo,
+                            descripcion=f"Nota {pago.idNota.numeroNota}",
+                            cantidad=1,
+                            precioUnitario=pago.idNota.totalNota,
+                            exento=pago.idNota.subtotalExento > 0,
+                            descuentoItem=pago.idNota.descuento,
+                            subtotal=pago.idNota.subtotalGravado + pago.idNota.subtotalExento,
+                            ivaItem=pago.idNota.iva,
+                            totalItem=pago.idNota.totalNota
+                        )
+                        # Actualizar estado de la nota
+                        pago.idNota.estado = 'FACTURADO'
+                        pago.idNota.save()
+                        
+                        factura_generada = True
+                        factura_id = factura.idFactura
+                    except Exception as e:
+                        print(f"Error al generar factura automáticamente: {str(e)}")
+                        # Si hay error, mantener el estado PAGADO y no FACTURADO
+                        pass
+
+                    return JsonResponse({
+                        'success': True,
+                        'message': 'Pago creado exitosamente. La nota ha sido pagada en su totalidad y facturada automáticamente.',
+                        'redirect_url': reverse('factura_cargando', args=[factura_id]) if factura_generada else reverse('factura_list'),
+                        'factura_generada': factura_generada,
+                        'factura_id': factura_id,
+                        'relaciones': relaciones,
+                        'pago': {
+                            'idPago': pago.idPago,
+                            'idNota': pago.idNota.numeroNota,
+                            'monto': f"{float(pago.monto):.2f} {pago.idTasa.idMoneda.simboloMoneda}",
+                            'fechaPago': pago.fechaPago.strftime('%d/%m/%Y'),
+                            'formaPago': pago.formaPago,
+                            'referencia': pago.referencia
+                        }
+                    })
             except ValueError as e:
                 print(f"Error de valor: {e}")
                 return JsonResponse({
@@ -1506,10 +1560,22 @@ def factura_generar_pdf(request, pk):
     p.setFont("Helvetica", 10)
     p.drawString(40, y, f"Fecha de Emisión: {factura.fechaEmision.strftime('%d/%m/%Y')}")
     y -= 16
-    cliente = factura.idPersona if factura.idPersona else factura.idEmpresa
-    nombre_cliente = getattr(cliente, 'nombreCompleto', getattr(cliente, 'nombreEmpresa', ''))
-    rif_cliente = getattr(cliente, 'cedula', getattr(cliente, 'rif', ''))
-    direccion_cliente = getattr(cliente, 'direccion', getattr(cliente, 'direccionEmpresa', ''))
+    
+    nombre_cliente = "N/A"
+    rif_cliente = "N/A"
+    direccion_cliente = "N/A"
+
+    # Obtener información del cliente 
+    if hasattr(nota, 'idPersona') and nota.idPersona:
+        nombre_cliente = getattr(nota.idPersona, 'nombreCompleto', 
+                                f"{getattr(nota.idPersona, 'nombres', '')} {getattr(nota.idPersona, 'apellidos', '')}".strip())
+        rif_cliente = getattr(nota.idPersona, 'cedula', 'N/A')
+        direccion_cliente = getattr(nota.idPersona, 'direccion', 'N/A')
+    # Si no hay persona, intentar obtener información de la empresa
+    elif hasattr(nota, 'idEmpresa') and nota.idEmpresa:
+        nombre_cliente = getattr(nota.idEmpresa, 'nombreEmpresa', 'N/A')
+        rif_cliente = getattr(nota.idEmpresa, 'rif', 'N/A')
+        direccion_cliente = getattr(nota.idEmpresa, 'direccionEmpresa', 'N/A')
     p.drawString(40, y, f"Cliente: {nombre_cliente}")
     y -= 16
     p.drawString(40, y, f"RIF/Cédula: {rif_cliente}")
