@@ -327,29 +327,16 @@
               {% endwith %}
             </td>
           </tr>
-        </thead>
-        <tbody>
-          {% for tipo in tipos_cuentas %}
-            <tr>
-              <td>{{ tipo.tipoPlanCuenta }}</td>
-              <td class="highlight-debe">{{ tipo.total_debe|floatformat:2 }}</td>
-              <td class="highlight-haber">{{ tipo.total_haber|floatformat:2 }}</td>
-              <td>
-                <span class="badge">
-                  {{ tipo.saldo }}
-                </span>
-              </td>
-            </tr>
-          {% empty %}
-          <tr>
-            <td colspan="4" class="text-center py-4">No hay tipos de cuentas registradas.</td>
-          </tr>
-          {% endfor %}
+        {% empty %}
+        <tr>
+          <td colspan="4" class="text-center py-4">No hay tipos de cuentas registradas.</td>
+        </tr>
+        {% endfor %}
         </tbody>
       </table>
     </div>
   </div>
- {% endblock content %}
+{% endblock content %}
 
 {% block javascripts %}
 <script>
