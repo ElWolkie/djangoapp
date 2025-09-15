@@ -1,6 +1,7 @@
 {% extends 'layouts/base2.html' %}
 
-{% block title %}Registrar Factura{% endblock title %}
+{% block title %}Generando Factura{% endblock title %}
+
 {% block stylesheets %}
 <link rel="stylesheet" href="/static/assets/css/styleForms.css" />
 <link rel="stylesheet" href="/static/assets/css/argon.css" />
@@ -91,7 +92,7 @@
     .pen-body {
       width: 10px;
       height: 40px;
-      background: linear-gradient(to bottom, #c0c0c0, #808080); /* Cuerpo metálico */
+      background: linear-gradient(to bottom, #c0c0c0, #808080);
       border-radius: 5px;
       position: absolute;
       bottom: 10px;
@@ -102,7 +103,7 @@
       height: 0;
       border-left: 5px solid transparent;
       border-right: 5px solid transparent;
-      border-top: 10px solid #000; /* Punta negra */
+      border-top: 10px solid #000;
       position: absolute;
       bottom: 0;
       left: 0;
@@ -111,7 +112,7 @@
     .pen-clip {
       width: 2px;
       height: 15px;
-      background: #808080; /* Clip metálico */
+      background: #808080;
       position: absolute;
       top: 5px;
       right: -3px;
@@ -142,8 +143,14 @@
       font-weight: 600;
       color: #343a40;
     }
-  </style>
+    
+    .error-message {
+      color: #dc3545;
+      margin-top: 1rem;
+    }
+</style>
 {% endblock stylesheets %}
+
 {% block content %}
 <div class="container mt-5">
     <div class="loading-content">
@@ -167,11 +174,22 @@
         </div>
       </div>
       <p class="loading-text">Tu Factura se está generando...</p>
+      
+      {% if not factura_pk %}
+      <p class="error-message">Error: No se pudo identificar la factura a generar.</p>
+      {% endif %}
     </div>
   </div>
-  <script>
-  setTimeout(function() {
-    window.location.href = "{% url 'factura_generar_pdf' factura_pk %}";
-  }, 2500); // 2.5 segundos de animación
+  
+{% if factura_pk %}
+<script>
+    setTimeout(function() {
+        window.location.href = "{% url 'factura_generar_pdf' factura_pk %}";
+    }, 2500); // 2.5 segundos de animación
 </script>
+{% else %}
+<script>
+    console.error("factura_pk no está definido en el contexto");
+</script>
+{% endif %}
 {% endblock content %}
