@@ -287,7 +287,6 @@
                 <th>Valor</th>
                 <th>Orden</th>
                 <th>Estado</th>
-                <th class="actions-column">Acciones</th>
               </tr>
             </thead>
             <tbody id="cuotasTbody">
@@ -314,22 +313,38 @@
 <script>
 $(document).ready(function () {
   const apiUrl = "{% url 'api_cuotas' %}";
-  
-  // Inicializar modales usando data-bs-toggle (método nativo de Bootstrap)
-  const formacionModalEl = document.getElementById('formacionModal');
-  const cuotaModalEl = document.getElementById('cuotaModal');
-  
-  // Configurar botones para abrir modales
-  document.getElementById('abrirModalFormacion').addEventListener('click', function() {
-    const modal = new bootstrap.Modal(formacionModalEl);
-    modal.show();
-    
-    // Limpiar búsqueda al abrir el modal
-    $('#searchFormacionInput').val('');
-    filterTable('formacionesTable','searchFormacionInput');
-  });
 
-  document.getElementById('verCuotas').addEventListener('click', async function() {
+  // Eliminar la funcionalidad de selección de fila en el modal de cuotas
+  $('#cuotasTable').off('click keydown', '.cuota-row');
+  $('#cuotasTable').off('click', '.seleccionarCuota');
+
+  // Obtener referencia al modal de formaciones
+  const formacionModalEl = document.getElementById('formacionModal');
+
+  // Obtener idFormacion de la URL si está presente
+  const urlParams = new URLSearchParams(window.location.search);
+  const idFormacionFromUrl = window.location.pathname.split('/').filter(Boolean).pop();
+
+  if (idFormacionFromUrl && !isNaN(idFormacionFromUrl)) {
+    // Configurar el input y el botón "Ver cuotas" automáticamente
+    $('#idFormacion').val(idFormacionFromUrl);
+
+    // Mostrar automáticamente las cuotas para la formación recibida
+    $('#verCuotas').trigger('click');
+  } else {
+    // Configurar el botón "Buscar formación" para abrir el modal
+    $('#abrirModalFormacion').on('click', function() {
+      const modal = new bootstrap.Modal(document.getElementById('formacionModal'));
+      modal.show();
+
+      // Limpiar búsqueda al abrir el modal
+      $('#searchFormacionInput').val('');
+      filterTable('formacionesTable', 'searchFormacionInput');
+    });
+  }
+
+  // Configurar botón "Ver cuotas" usando jQuery para evitar problemas de referencia
+  $('#verCuotas').on('click', async function() {
     const idForm = $('#idFormacion').val();
     if (!idForm) {
       Swal.fire({
@@ -339,19 +354,19 @@ $(document).ready(function () {
         confirmButtonText: 'Aceptar',
         customClass: { confirmButton: 'btn btn-warning' },
         buttonsStyling: false
-      }).then(() => { 
-        const modal = new bootstrap.Modal(formacionModalEl);
+      }).then(() => {
+        const modal = new bootstrap.Modal(document.getElementById('formacionModal'));
         modal.show();
       });
       return;
     }
 
-    const modal = new bootstrap.Modal(cuotaModalEl);
+    const modal = new bootstrap.Modal(document.getElementById('cuotaModal'));
     modal.show();
-    
+
     // Limpiar búsqueda al abrir el modal
     $('#searchCuotasInput').val('');
-    
+
     const $tbody = $('#cuotasTbody');
     $tbody.html('<tr><td colspan="7" class="text-center py-4"><i class="fas fa-spinner fa-spin fa-2x"></i><p class="mt-2">Cargando cuotas...</p></td></tr>');
 
@@ -362,6 +377,48 @@ $(document).ready(function () {
       $tbody.html('<tr><td colspan="7" class="text-center text-danger py-4">Error al cargar las cuotas. Intente de nuevo.</td></tr>');
     }
   });
+
+  async function getCuotasFromServer(formacionId) {
+    const url = `${apiUrl}?formacion_id=${encodeURIComponent(formacionId)}`;
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        credentials: 'same-origin',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      });
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (error) {
+      console.error('Fetch error:', error);
+      return null;
+    }
+  }
+
+  function renderCuotasIntoModal(cuotasArray) {
+    const $tbody = $('#cuotasTbody');
+    $tbody.empty();
+    if (!Array.isArray(cuotasArray) || cuotasArray.length === 0) {
+      $tbody.append('<tr><td colspan="7" class="text-center text-muted py-4">No se encontraron cuotas para esta formación.</td></tr>');
+    } else {
+      cuotasArray.forEach(c => $tbody.append(buildCuotaRow(c)));
+    }
+    if (pagCuotas) pagCuotas.refresh();
+  }
+
+  function buildCuotaRow(c) {
+    const isActive = c.is_active ? '<span class="badge bg-success text-white"><i class="fas fa-check-circle me-1"></i> Activo</span>' : '<span class="badge bg-danger text-white"><i class="fas fa-times-circle me-1"></i> Inactivo</span>';
+    return `
+      <tr class="cuota-row" tabindex="0">
+        <td>${c.id || ''}</td>
+        <td>${c.nombre || ''}</td>
+        <td>${c.tipo_display || c.tipo || ''}</td>
+        <td>${c.valor || ''}</td>
+        <td>${c.orden || ''}</td>
+        <td>${isActive}</td>
+        <td><button type="button" class="btn btn-sm btn-outline-primary seleccionarCuota">Seleccionar</button></td>
+      </tr>
+    `;
+  }
 
   // -------------------------
   // Función global de filtrado (igual que en tu plantilla cuenta banco)
@@ -495,7 +552,6 @@ $(document).ready(function () {
         <td>${c.valor||''}</td>
         <td>${c.orden||''}</td>
         <td>${isActive}</td>
-        <td><button type="button" class="btn btn-sm btn-outline-primary seleccionarCuota">Seleccionar</button></td>
       </tr>
     `;
   }
@@ -550,18 +606,6 @@ $(document).ready(function () {
     $('#nombreFormacion').val($(this).data('nombre')).removeClass('is-invalid').addClass('is-valid');
     const modal = bootstrap.Modal.getInstance(formacionModalEl);
     if (modal) modal.hide();
-  });
-
-  // Selección de cuota desde modal (fila o botón)
-  $('#cuotasTable').on('click keydown', '.cuota-row', function (e) {
-    if (e.type === 'keydown' && e.key !== 'Enter') return;
-    if ($(e.target).closest('button').length) return;
-    e.preventDefault();
-    completarFormularioDesdeFila($(this));
-  });
-
-  $('#cuotasTable').on('click', '.seleccionarCuota', function () {
-    completarFormularioDesdeFila($(this).closest('tr'));
   });
 
   // Búsqueda rápida dentro del modal de cuotas
