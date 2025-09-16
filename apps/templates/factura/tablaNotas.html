@@ -338,5 +338,28 @@ $(document).ready(function() {
     return csrfCookie ? csrfCookie.split('=')[1] : '';
   }
 });
+
+function actualizarTablaNotas() {
+  fetch(window.location.href, {
+    headers: {
+      'X-Requested-With': 'XMLHttpRequest',
+    }
+  })
+  .then(response => response.text())
+  .then(html => {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const nuevaTabla = doc.querySelector('#notasTable');
+    if (nuevaTabla) {
+      document.querySelector('#notasTable').innerHTML = nuevaTabla.innerHTML;
+      // Re-inicializar la paginación y búsqueda si es necesario
+      setupPagination();
+    }
+  })
+  .catch(error => console.error('Error al actualizar tabla:', error));
+}
+
+// Llamar a la función cada 30 segundos
+setInterval(actualizarTablaNotas, 30000);
 </script>
 {% endblock javascripts %}

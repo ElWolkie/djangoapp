@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -8,14 +8,19 @@ import {
   Animated,
   StatusBar,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { useNavigation, DrawerActions, NavigationProp } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { getIngresos, getEgresos } from '../api';
 
 const { width } = Dimensions.get('window');
 
 type RootStackParamList = {
   Personas: undefined;
+  Formaciones: undefined;
+  TipoFormaciones: undefined;
+  Materias: undefined;
   // Agrega aquí otras pantallas si es necesario
 };
 
@@ -29,14 +34,38 @@ export default function DashboardScreen() {
     new Animated.Value(0),
   ]).current;
 
+  const [totalIngresos, setTotalIngresos] = useState(0);
+  const [totalEgresos, setTotalEgresos] = useState(0);
+  const [loadingFinanzas, setLoadingFinanzas] = useState(true);
+
   useEffect(() => {
+    fetchFinanzas();
     Animated.stagger(120, [
       Animated.spring(cardsAnim[0], { toValue: 1, useNativeDriver: true }),
       Animated.spring(cardsAnim[1], { toValue: 1, useNativeDriver: true }),
       Animated.spring(cardsAnim[2], { toValue: 1, useNativeDriver: true }),
       Animated.spring(cardsAnim[3], { toValue: 1, useNativeDriver: true }),
+      Animated.spring(cardsAnim[4], { toValue: 1, useNativeDriver: true }),
+      Animated.spring(cardsAnim[5], { toValue: 1, useNativeDriver: true }),
     ]).start();
   }, []);
+
+  const fetchFinanzas = async () => {
+    try {
+      const [ingresosData, egresosData] = await Promise.all([
+        getIngresos(),
+        getEgresos(),
+      ]);
+      const totalIng = ingresosData.reduce((sum: number, item: any) => sum + item.total_ingreso, 0);
+      const totalEgr = egresosData.reduce((sum: number, item: any) => sum + item.total_egreso, 0);
+      setTotalIngresos(totalIng);
+      setTotalEgresos(totalEgr);
+    } catch (error) {
+      console.error('Error fetching financial data:', error);
+    } finally {
+      setLoadingFinanzas(false);
+    }
+  };
 
   // Datos simulados
   const stats = [
@@ -55,18 +84,18 @@ export default function DashboardScreen() {
       subtitle: 'Más pedido: Certificado',
     },
     {
-      title: 'Honorarios',
-      value: 5,
-      icon: 'cash-multiple',
-      color: '#11cdef',
-      subtitle: 'Horas totales: 40h',
+      title: 'Total Ingresos',
+      value: loadingFinanzas ? '...' : `$${totalIngresos.toFixed(2)}`,
+      icon: 'trending-up',
+      color: '#28a745',
+      subtitle: 'Ingresos totales',
     },
     {
-      title: 'Cohortes',
-      value: 3,
-      icon: 'book-open-variant',
-      color: '#f5365c',
-      subtitle: 'Más reciente: 2025',
+      title: 'Total Egresos',
+      value: loadingFinanzas ? '...' : `$${totalEgresos.toFixed(2)}`,
+      icon: 'trending-down',
+      color: '#dc3545',
+      subtitle: 'Egresos totales',
     },
   ];
 

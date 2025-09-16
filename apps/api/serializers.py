@@ -1,8 +1,11 @@
 from rest_framework import serializers
-from apps.home.models import Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Denominacion, Banco, Moneda, Tasa, TipoIngreso
+from apps.home.models import Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Denominacion, Banco, Moneda, Tasa, TipoIngreso, Formacion, TipoFormacion
 from apps.persona.models import Personas, PersonaTP, TipoPersona
 from apps.honorario.models import Honorario
 from apps.solicitud.models import Solicitud
+from apps.asientoContable.models import AsientoContable, DetalleAsiento
+from apps.planCuenta.models import PlanCuenta
+from apps.periodoContable.models import periodoContable
 
         
 class TipoPersonaSerializer(serializers.ModelSerializer):
@@ -38,10 +41,20 @@ class PersonaTPSerializer(serializers.ModelSerializer):
         model = PersonaTP  # Usa el modelo de home
         fields = ['idPersona', 'idTP', 'fechaAsignacion']
 
+class FormacionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Formacion  # Usa el modelo de home
+        fields = ['idFormacion', 'idTF', 'nombreFormacion', 'valorInscripcion', 'tieneCuotas', 'duracion', 'estadoFormacion', 'fechaFormacion']
+
+class TPFormacionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TipoFormacion  # Usa el modelo de home
+        fields = ['idTF', 'nombreTipoFormacion', 'estadoTipoFormacion', 'fechaTipoFormacion']
+
 class MateriaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Materia  # Usa el modelo de home
-        fields = ['idMateria', 'idOferta', 'nombreMateria', 'estadoMateria', 'fechaMateria']
+        fields = ['idMateria', 'idFormacion', 'nombreMateria', 'estadoMateria', 'fechaMateria']
 
 class CohorteSerializer(serializers.ModelSerializer):
     class Meta:
@@ -102,3 +115,29 @@ class TipoIngresoSerializer(serializers.ModelSerializer):
     class Meta:
         model = TipoIngreso  # Usa el modelo de home
         fields = ['idTipoIngreso', 'nombreTipoIngreso', 'estadoTipoIngreso', 'fechaTipoIngreso']
+
+# Serializers para contabilidad
+class PeriodoContableSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = periodoContable
+        fields = ['idPeriodo', 'nombrePeriodo', 'fechaInicioPeriodo', 'fechaFinPeriodo', 'estadoPeriodo', 'fechaPeriodoDigital']
+
+class PlanCuentaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PlanCuenta
+        fields = ['idPlanCuenta', 'codigoPlanCuenta', 'nombrePlanCuenta', 'tipoPlanCuenta', 'naturalezaPlanCuenta', 'nivelPlanCuenta', 'cuentaPadre', 'estadoPlanCuenta', 'fechaPlanCuenta']
+
+class DetalleAsientoSerializer(serializers.ModelSerializer):
+    idPlanCuenta = PlanCuentaSerializer(read_only=True)
+
+    class Meta:
+        model = DetalleAsiento
+        fields = ['idDetalle', 'idPlanCuenta', 'debe', 'haber', 'estadoDetalle', 'fechaDetalle']
+
+class AsientoContableSerializer(serializers.ModelSerializer):
+    detalles = DetalleAsientoSerializer(many=True, read_only=True)
+    idPeriodo = PeriodoContableSerializer(read_only=True)
+
+    class Meta:
+        model = AsientoContable
+        fields = ['idAsiento', 'numeroAsiento', 'fechaAsiento', 'conceptoAsiento', 'idPeriodo', 'fechaAsientoDigital', 'detalles']

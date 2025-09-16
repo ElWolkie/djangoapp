@@ -1,100 +1,143 @@
+{% extends 'layouts/base.html' %}
 {% load static %}
 
 {% block stylesheets %}
 <link rel="stylesheet" href="/static/assets/css/styleForms.css" />
 <link rel="stylesheet" href="/static/assets/css/argon.css" />
 <style>
-  .formacion-container {
-    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-    border-radius: 1rem;
-    box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.1);
-    padding: 2rem;
-    margin: 2rem auto;
-    max-width: 700px;
-  }
-  .formacion-header {
-    text-align: center;
-    margin-bottom: 2rem;
-    position: relative;
-    padding-bottom: 1rem;
-  }
-  .formacion-header h2 {
-    color: #343a40;
-    font-weight: 700;
-  }
-  .formacion-header::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 80px;
-    height: 4px;
-    background: linear-gradient(90deg, #ffc107, #fd7e14);
-    border-radius: 2px;
-  }
-  .form-group {
-    margin-bottom: 1.5rem;
-    position: relative;
-  }
-  .form-label {
-    font-weight: 600;
-    color: #495057;
-    margin-bottom: 0.5rem;
-    display: flex;
-    align-items: center;
-  }
-  .form-label i {
-    margin-right: 8px;
-    color: #fd7e14;
-  }
-  .form-control {
-    border-radius: 0.5rem;
-    padding: 0.75rem 1.25rem;
-    border: 1px solid #ced4da;
-    background-color: #fff;
-    box-shadow: inset 0 1px 2px rgba(0,0,0,0.075);
-    transition: all 0.3s;
-  }
-  .form-control:focus {
-    border-color: #ffc107;
-    box-shadow: 0 0 0 0.25rem rgba(255,193,7,0.25);
-  }
-  .btn-submit {
-    background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
-    border: none;
-    color: #fff;
-    font-weight: 600;
-    padding: 0.75rem 2rem;
-    border-radius: 0.5rem;
-    transition: all 0.3s;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  }
-  .btn-submit:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
-    background: linear-gradient(135deg, #fd7e14 0%, #ffc107 100%);
-  }
+    .cuota-container {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 1rem;
+        box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.1);
+        padding: 2rem;
+        margin: 2rem auto;
+        max-width: 700px;
+    }
+    .cuota-header {
+        text-align: center;
+        margin-bottom: 2rem;
+        position: relative;
+        padding-bottom: 1rem;
+    }
+    .cuota-header h2 {
+        color: #343a40;
+        font-weight: 700;
+    }
+    .cuota-header::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 80px;
+        height: 4px;
+        background: linear-gradient(90deg, #ffc107, #fd7e14);
+        border-radius: 2px;
+    }
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+    .form-label {
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+    }
+    .form-label i {
+        margin-right: 8px;
+        color: #fd7e14;
+    }
+    .form-control {
+        border-radius: 0.5rem;
+        padding: 0.75rem 1.25rem;
+        border: 1px solid #ced4da;
+        background-color: #fff;
+        box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.075);
+        transition: all 0.3s;
+    }
+    .form-control:focus {
+        border-color: #ffc107;
+        box-shadow: 0 0 0 0.25rem rgba(255,193,7,0.25);
+    }
+    .btn-submit {
+        background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+        border: none;
+        color: #fff;
+        font-weight: 600;
+        padding: 0.75rem 2rem;
+        border-radius: 0.5rem;
+        transition: all 0.3s;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    .btn-submit:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        background: linear-gradient(135deg, #fd7e14 0%, #ffc107 100%);
+    }
+        /* Estilo para alinear el contenido de la tabla a la izquierda */
+        #formacionesTable td, #formacionesTable th {
+        text-align: left;
+    }
+</style>
+
+<!-- tabla -->
+<style>
+    .pagination-container {
+        display: flex;
+        justify-content: center; /* Centra la paginación horizontalmente */
+        margin-top: 1rem !important;
+    }
+
+    .pagination {
+        display: flex;
+        list-style: none;
+        padding: 0;
+    }
+
+    .page-item {
+        margin: 0 5px; /* Espaciado entre los botones de paginación */
+    }
+
+    .page-link {
+        display: inline-block;
+        padding: 0.5rem 0.75rem;
+        border-radius: 4px;
+        text-decoration: none;
+        color: #007bff;
+        border: 1px solid #dee2e6;
+        background-color: #fff;
+        transition: background-color 0.3s, color 0.3s;
+    }
+
+    .page-link:hover {
+        background-color: #007bff;
+        color: #fff;
+    }
+
+    .page-item.active .page-link {
+        background-color: #fb6340;
+        border-color: #fb6340;
+        color: #fff;
+    }
+
+    .page-item.disabled .page-link {
+        color: #6c757d;
+        pointer-events: none;
+        background-color: #e9ecef;
+    }
 </style>
 {% endblock stylesheets %}
 
 {% block content %}
-<div class="formacion-container">
-  <div class="formacion-header">
-    <h2><i class="fas fa-graduation-cap text-warning"></i> Editar Cuota de Formación</h2>
-    <p class="text-muted">Complete todos los campos para editar la cuota</p>
+<div class="cuota-container">
+  <div class="cuota-header">
+    <h2><i class="fas fa-money-check-alt text-warning"></i> Editar Cuota de Formación</h2>
+    <p class="text-muted">Modifique los campos y guarde los cambios</p>
   </div>
-
   <form method="POST" id="editCuotaFormacionForm" action="{% url 'edit_cuota_formacion' cuota.pk %}"
         class="needs-validation" novalidate autocomplete="off">
     {% csrf_token %}
-    <div class="form-group mb-3" style="display: none;">
-  <label for="idFormacion" class="form-label">
-    <i class="fas fa-university"></i> Formación asociada
-  </label>
-  <input type="hidden" id="idFormacion" name="idFormacion" value="{{ cuota.idFormacion.pk }}">
-    </div>
-
     <div class="form-group mb-3">
       <label for="nombreCuota" class="form-label">
         <i class="fas fa-heading"></i> Nombre de la Cuota
@@ -102,7 +145,6 @@
       <input type="text" id="nombreCuota" name="nombreCuota" class="form-control" value="{{ cuota.nombreCuota }}" required>
       <div class="invalid-feedback">Por favor, ingrese un nombre válido.</div>
     </div>
-
     <div class="form-group mb-3">
       <label for="tipoCuota" class="form-label">
         <i class="fas fa-list-alt"></i> Tipo de Cuota
@@ -115,15 +157,13 @@
       </select>
       <div class="invalid-feedback">Por favor, seleccione un tipo de cuota.</div>
     </div>
-
     <div class="form-group mb-3">
       <label for="valorCuota" class="form-label">
         <i class="fas fa-dollar-sign"></i> Valor de la Cuota
       </label>
-      <input type="text" id="valorCuota" name="valorCuota" class="form-control" value="{{ cuota.valorCuota }}" required>
+      <input type="text" id="valorCuota" name="valorCuota" class="form-control" value="{{ cuota.valorCuota }}" maxlength="20" required>
       <div class="invalid-feedback">Por favor, ingrese un valor válido.</div>
     </div>
-
     <div class="form-group mb-3">
       <label for="orden" class="form-label">
         <i class="fas fa-sort-numeric-up"></i> Orden
@@ -131,20 +171,16 @@
       <input type="number" id="orden" name="orden" class="form-control" value="{{ cuota.orden }}" required>
       <div class="invalid-feedback">Por favor, ingrese un orden válido.</div>
     </div>
-
-    <div class="form-group mb-3">
-  <label for="fechaCuota" class="form-label">
-  </label>
-  <input type="hidden" id="fechaCuota" name="fechaCuota" class="form-control" value="{{ cuota.fechaCuota|date:'Y-m-d' }}" readonly>
+    <div class="form-group mb-3" style="display: none;">
+      <label for="fechaCuota" class="form-label"></label>
+      <input type="hidden" id="fechaCuota" name="fechaCuota" class="form-control" value="{{ cuota.fechaCuota|date:'Y-m-d' }}" readonly>
     </div>
-
-  <div class="form-group mb-3" style="display: none;">
-    <label for="is_active" class="form-label">
-      <i class="fas fa-toggle-on"></i> Estado de la cuota
-    </label>
-    <input type="hidden" id="is_active" name="is_active" value="{% if cuota.is_active %}on{% else %}{% endif %}">
-  </div>
-
+    <div class="form-group mb-3" style="display: none;">
+      <label for="is_active" class="form-label">
+        <i class="fas fa-toggle-on"></i> Estado de la cuota
+      </label>
+      <input type="hidden" id="is_active" name="is_active" value="{% if cuota.is_active %}on{% else %}{% endif %}">
+    </div>
     <div class="text-center mt-4">
       <button type="submit" class="btn-submit">
         <i class="fas fa-save me-2"></i> Guardar Cambios
@@ -158,182 +194,65 @@
 {% block javascripts %}
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-  // 1) Función de mayúsculas, validación Bootstrap y formateo de valorCuota
-  function activarValidacionCuotaFormacion() {
-    // Mayúsculas en todos los inputs (excepto valorCuota)
-    document.querySelectorAll('input').forEach(input => {
-      if (!/password|hidden|email/.test(input.type) && input.id !== 'valorCuota') {
-        input.addEventListener('input', e => {
-          e.target.value = e.target.value.toUpperCase();
-        });
+document.addEventListener("DOMContentLoaded", function () {
+  // Mayúsculas en todos los inputs (excepto valorCuota)
+  document.querySelectorAll('input').forEach(input => {
+    if (!/password|hidden|email/.test(input.type) && input.id !== 'valorCuota') {
+      input.addEventListener('input', e => {
+        e.target.value = e.target.value.toUpperCase();
+      });
+    }
+  });
+
+  // Validación visual Bootstrap
+  Array.prototype.slice.call(document.querySelectorAll('.needs-validation')).forEach(function (form) {
+    form.addEventListener('submit', function (event) {
+      if (!form.checkValidity()) {
+        event.preventDefault();
+        event.stopPropagation();
       }
-    });
+      form.classList.add('was-validated');
+    }, false);
+  });
 
-    // Validación visual Bootstrap
-    document.querySelectorAll('.needs-validation').forEach(form => {
-      form.addEventListener('submit', e => {
-        if (!form.checkValidity()) {
-          e.preventDefault();
-          e.stopPropagation();
-        }
-        form.classList.add('was-validated');
-      }, false);
-    });
-
-    // Formateo en “1.234,56” para el input valorCuota
-    const inputValor = document.getElementById('valorCuota');
-    if (!inputValor) return;
-
-    const formatearValor = valor => {
-      let raw = valor.replace(/[^\d]/g, '');
-      if (!raw) return '';
-      while (raw.length < 3) raw = '0' + raw;
-      const intPart = raw.slice(0, raw.length - 2);
-      const decimalPart = raw.slice(-2);
+  // Formateo en “1.234,56” para el input valorCuota
+  const inputValor = document.getElementById('valorCuota');
+  if (inputValor) {
+    inputValor.setAttribute('inputmode', 'numeric');
+    inputValor.setAttribute('autocomplete', 'off');
+    inputValor.addEventListener('input', function () {
+      let nums = this.value.replace(/\D/g, '');
+      if (nums.length === 0) {
+        this.value = '';
+        return;
+      }
+      while (nums.length < 3) nums = '0' + nums;
+      const intPart = nums.slice(0, -2);
+      const decPart = nums.slice(-2);
       const formattedInt = parseInt(intPart, 10).toLocaleString('es-VE');
-      return `${formattedInt},${decimalPart}`;
-    };
-
-    inputValor.addEventListener('input', e => {
-      e.target.value = formatearValor(e.target.value);
+      this.value = `${formattedInt},${decPart}`;
     });
-
     if (inputValor.value) {
-      inputValor.value = formatearValor(inputValor.value);
+      const event = new Event('input', { bubbles: true });
+      inputValor.dispatchEvent(event);
     }
   }
 
-  document.addEventListener('DOMContentLoaded', function () {
-    // 2) Activar validación + formateo
-    activarValidacionCuotaFormacion();
-
-    // 3) Abrir modal de selección de formación
-    $('#abrirModalFormacion').on('click', () => {
-      $('#formacionModal').modal('show');
+  // Validación para nombreCuota: solo letras, números y espacios
+  const nombreInput = document.getElementById('nombreCuota');
+  if (nombreInput) {
+    nombreInput.addEventListener('input', function () {
+      this.value = this.value.replace(/[^A-ZÁÉÍÓÚÑ0-9\s]/g, '');
     });
+  }
 
-    // 4) Seleccionar formación al hacer clic en la fila
-    $('#formacionesTable').on('click', '.formacion-row', function () {
-      const id = $(this).data('id');
-      const nombre = $(this).data('nombre');
-      $('#idFormacion').val(id);
-      $('#nombreFormacion').val(nombre);
-      $('#formacionModal').modal('hide');
+  // Validación para orden: solo dígitos
+  const ordenInput = document.getElementById('orden');
+  if (ordenInput) {
+    ordenInput.addEventListener('input', function () {
+      this.value = this.value.replace(/\D/g, '');
     });
-
-    // 5) Paginación de la tabla de formaciones
-    const table = document.getElementById('formacionesTable');
-    const paginationContainer = document.querySelector('.pagination-container');
-    const rowsPerPage = 5;
-    let currentPage = 1;
-
-    function displayRows() {
-      const rows = table.getElementsByTagName('tr');
-      const start = (currentPage - 1) * rowsPerPage;
-      const end = start + rowsPerPage;
-      Array.from(rows).forEach((row, i) => {
-        row.style.display = i >= start && i < end ? '' : 'none';
-      });
-    }
-
-    function setupPagination() {
-      const rows = table.getElementsByTagName('tr');
-      const totalPages = Math.ceil(rows.length / rowsPerPage);
-      paginationContainer.innerHTML = '';
-
-      // Botón Anterior
-      const prevLi = document.createElement('li');
-      prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
-      prevLi.innerHTML = `<a class="page-link" href="#">&laquo;</a>`;
-      prevLi.onclick = e => {
-        e.preventDefault();
-        if (currentPage > 1) currentPage--;
-        displayRows();
-        setupPagination();
-      };
-      paginationContainer.appendChild(prevLi);
-
-      // Páginas
-      for (let i = 1; i <= totalPages; i++) {
-        const li = document.createElement('li');
-        li.className = `page-item ${i === currentPage ? 'active' : ''}`;
-        li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
-        li.onclick = e => {
-          e.preventDefault();
-          currentPage = i;
-          displayRows();
-          setupPagination();
-        };
-        paginationContainer.appendChild(li);
-      }
-
-      // Botón Siguiente
-      const nextLi = document.createElement('li');
-      nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
-      nextLi.innerHTML = `<a class="page-link" href="#">&raquo;</a>`;
-      nextLi.onclick = e => {
-        e.preventDefault();
-        if (currentPage < totalPages) currentPage++;
-        displayRows();
-        setupPagination();
-      };
-      paginationContainer.appendChild(nextLi);
-    }
-
-    displayRows();
-    setupPagination();
-
-    // 6) Envío AJAX para editar cuota
-    $('#cuotaFormacionForm').on('submit', function (e) {
-      e.preventDefault();
-      const form = this;
-      const formData = new FormData(form);
-
-      fetch(form.action, {
-        method: 'POST',
-        body: formData,
-        headers: { 'X-Requested-With': 'XMLHttpRequest' }
-      })
-        .then(res => res.ok ? res.json() : Promise.reject('Error servidor'))
-        .then(data => {
-          const opts = {
-            icon: data.success ? 'success' : 'error',
-            title: data.success ? 'Cuota actualizada' : 'Error al actualizar',
-            text: data.message || '',
-            confirmButtonText: 'Aceptar',
-            customClass: { confirmButton: 'btn btn-warning' },
-            buttonsStyling: false
-          };
-
-          if (data.success) {
-            opts.showCancelButton = true;
-            opts.confirmButtonText = 'Editar otra cuota';
-            opts.cancelButtonText = 'Volver a la lista';
-            opts.customClass.cancelButton = 'btn btn-primary';
-            Swal.fire(opts).then(r => {
-              if (r.isConfirmed) window.location.reload();
-              else window.location.href = data.redirect_url;
-            });
-          } else {
-            Swal.fire(opts);
-          }
-        })
-        .catch(err => {
-          console.error(err);
-          Swal.fire({
-            icon: 'error',
-            title: 'Error inesperado',
-            text: 'No se pudo procesar la solicitud.',
-            confirmButtonText: 'Aceptar',
-            customClass: { confirmButton: 'btn btn-warning' },
-            buttonsStyling: false
-          });
-        });
-    });
-  });
-
-  // 7) Re-activar validaciones/formato cuando se abra el modal de edición
-  $('#editCuotaModal').on('shown.bs.modal', activarValidacionCuotaFormacion);
+  }
+});
 </script>
-
 {% endblock javascripts %}

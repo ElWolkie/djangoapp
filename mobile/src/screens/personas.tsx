@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import Modal from 'react-native-modal';
-import api from '../api';
+import api from '../api/api';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = width - 24;

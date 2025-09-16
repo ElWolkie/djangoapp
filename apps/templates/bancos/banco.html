@@ -226,10 +226,12 @@
   <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
     <div class="modal-content">
       <div class="modal-header bg-primary text-white">
-        <h5 class="modal-title" id="cuentaPadreModalLabel">
+        <h5 class="modal-title text-white" id="cuentaPadreModalLabel">
           <i class="fas fa-search mr-2"></i> Seleccionar Cuenta Contable
         </h5>
-        <button type="button" class="btn-close text-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
       </div>
       <div class="modal-body">
         <div class="input-group mb-3">
@@ -266,6 +268,8 @@
             </tbody>
           </table>
         </div>
+         <!-- Contenedor para la paginación -->
+        <div class="pagination-container d-flex justify-content-center mt-3"></div>
         <p id="mensajeSinRegistros" class="text-center text-muted my-4" style="display: none;">
           <i class="fas fa-info-circle mr-2"></i> No se encontraron registros
         </p>
@@ -329,6 +333,63 @@
         mensaje.style.display = visibleRows === 0 ? 'block' : 'none';
       });
 
+
+    // Paginación para la tabla del modal
+    const paginationContainer = document.querySelector('.pagination-container');
+    const rowsPerPage = 10; // Número de filas por página
+    let currentPage = 1;
+
+    function displayRows() {
+      const rows = tablaCuentas.getElementsByTagName('tr');
+      const start = (currentPage - 1) * rowsPerPage + 1; // Ignorar encabezado
+      const end = start + rowsPerPage;
+      for (let i = 1; i < rows.length; i++) {
+        rows[i].style.display = i >= start && i < end ? '' : 'none';
+      }
+    }
+
+    function setupPagination() {
+      const rows = tablaCuentas.getElementsByTagName('tr');
+      const totalPages = Math.ceil((rows.length - 1) / rowsPerPage); // Ignorar encabezado
+      paginationContainer.innerHTML = '';
+
+      const prevLi = document.createElement('li');
+      prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+      prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Anterior">&laquo;</a>`;
+      prevLi.addEventListener('click', e => {
+        e.preventDefault();
+        if (currentPage > 1) currentPage--;
+        displayRows();
+        setupPagination();
+      });
+      paginationContainer.appendChild(prevLi);
+
+      for (let i = 1; i <= totalPages; i++) {
+        const li = document.createElement('li');
+        li.className = `page-item ${i === currentPage ? 'active' : ''}`;
+        li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+        li.addEventListener('click', e => {
+          e.preventDefault();
+          currentPage = i;
+          displayRows();
+          setupPagination();
+        });
+        paginationContainer.appendChild(li);
+      }
+
+      const nextLi = document.createElement('li');
+      nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+      nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Siguiente">&raquo;</a>`;
+      nextLi.addEventListener('click', e => {
+        e.preventDefault();
+        if (currentPage < totalPages) currentPage++;
+        displayRows();
+        setupPagination();
+      });
+      paginationContainer.appendChild(nextLi);
+    }
+
+
       // Validar formulario antes de enviar
       const bancoForm = document.getElementById('bancoForm');
       bancoForm.addEventListener('submit', function (event) {
@@ -359,6 +420,8 @@
           event.stopPropagation();
         }
       }, false);
+       displayRows();
+    setupPagination();
     });
   </script>
 {% endblock javascripts %}

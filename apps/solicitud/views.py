@@ -28,10 +28,11 @@ def solicitud_modal(request):
         if form.is_valid():
             solicitud = form.save()  # Guardar la solicitud y obtener la instancia
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return JsonResponse({
+             idSolicitud = solicitud.pk
+            return JsonResponse({
                     'success': True,
                     'message': 'Registro exitoso.',
-                    'redirect_url': reverse('nota_create') + f"?solicitud={solicitud.montoTotal}&id={solicitud.idPersona.idPersona}"
+                    'redirect_url': reverse('nota_create') + f"?solicitud={solicitud.montoTotal}&idP={solicitud.idPersona.idPersona}&idS={idSolicitud}"
                 })
         else:
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -101,7 +102,7 @@ def desactivar_solicitud(request, pk):
     if request.method == 'POST':
         solicitud.estadoSolicitud = "INACTIVO"
         solicitud.save()
-        messages.success(request, f'⛔ Solicitud {solicitud.idSoli} desactivada')
+        messages.success(request, f'Solicitud {solicitud.idSoli} desactivada')
         return redirect(request.POST.get('next', 'tabla_solicitud'))
     return redirect('tabla_solicitud')
 
@@ -112,7 +113,7 @@ def reactivate_solicitud(request, pk):
     if request.method == 'POST':
         solicitud.estadoSolicitud = "ACTIVO"
         solicitud.save()
-        messages.success(request, f'✅ Solicitud {solicitud.idSoli} activada')
+        messages.success(request, f'Solicitud {solicitud.idSoli} activada')
         return redirect(request.POST.get('next', 'tabla_solicitud'))
     return redirect('tabla_solicitud')
 
@@ -120,12 +121,23 @@ def reactivate_solicitud(request, pk):
 @permission_required("solicitud.view_solicitud", raise_exception=True)
 def tabla_solicitud(request):
     mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+    # Query base
+    qs = Solicitud.objects.all()
+    # Aplicar filtro por estado si no se piden inactivos
+    if not mostrar:
+        qs = qs.filter(estadoSolicitud='ACTIVO')
+
+    # Mensajes informativos
     if mostrar:
-        solicitudes = Solicitud.objects.all()
+        hay_inactivos = qs.exclude(estadoSolicitud='ACTIVO').exists()
+        if not hay_inactivos:
+            messages.info(request, 'No hay solicitudes inactivas para mostrar.')
     else:
-        solicitudes = Solicitud.objects.filter(estadoSolicitud='ACTIVO')
+        if not qs.exists():
+            messages.info(request, 'No hay solicitudes activas para mostrar.')
+
     return render(request, 'solicitud/tablaSolicitud.html', {
-        'solicitudes': solicitudes,
+        'solicitudes': qs,
         'mostrar_inactivos': mostrar,
     })
 

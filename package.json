@@ -1,21 +1,26 @@
 {
-    "name": "argon-dashboard-django",
-    "mastertemplate": "boilerplate-code-django-dashboard",
-    "version": "1.0.2",
-    "description": "Template project - Django Boilerplate Code ",
-    "scripts": {},
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/creativetimofficial/argon-dashboard-django"
-    },
-    "bugs": {
-        "url": "https://github.com/creativetimofficial/argon-dashboard-django/issues",
-        "email": "support@appseed.us"
-    },
-    "author": "Creative-Tim / AppSeed.us",
-    "engines": {
-        "node": ">=10.0.0"
-    },
-    "dependencies": {},
-    "devDependencies": {}
+  "name": "argon-dashboard-django",
+  "mastertemplate": "boilerplate-code-django-dashboard",
+  "version": "1.0.2",
+  "description": "Template project - Django Boilerplate Code ",
+  "scripts": {},
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/creativetimofficial/argon-dashboard-django"
+  },
+  "bugs": {
+    "url": "https://github.com/creativetimofficial/argon-dashboard-django/issues",
+    "email": "support@appseed.us"
+  },
+  "author": "Creative-Tim / AppSeed.us",
+  "engines": {
+    "node": ">=10.0.0"
+  },
+  "dependencies": {
+    "expo": "53.0.22",
+    "metro": "^0.82.0",
+    "metro-config": "^0.83.1",
+    "metro-core": "^0.83.1",
+    "react-native": "0.79.5"
+  }
 }

@@ -129,8 +129,9 @@
                    class="form-control input-with-icon"
                    placeholder="Ingrese el nombre del trámite"
                    maxlength="100" data-required="true" required>
+          
+            <div class="invalid-feedback">Por favor, ingrese un nombre válido.</div>
           </div>
-          <div class="invalid-feedback">Por favor, ingrese un nombre válido.</div>
         </div>
       </div>
     </div>
@@ -158,9 +159,9 @@
           <option value="AÑOS">Años</option>
         </select>
         <!-- hidden que SE ENVÍA: name debe coincidir con el campo en el form/model -->
+                   <div class="invalid-feedback">Por favor, ingrese el tiempo de respuesta.</div>
         <input type="hidden" id="diasTramite" name="diasTramite" value="">
           </div>
-          <div class="invalid-feedback">Por favor, ingrese el tiempo de respuesta.</div>
         </div>
       </div>
       
@@ -177,8 +178,8 @@
                    placeholder="Ej: 1.234,56"
                    maxlength="20" data-required="true" required inputmode="decimal"
                    pattern="^[0-9]{1,3}(?:\.[0-9]{3})*,\d{2}$">
-          </div>
           <div class="invalid-feedback">Por favor, ingrese un precio válido. Ej: 1.234,56</div>
+          </div>
         </div>
       </div>
     </div>

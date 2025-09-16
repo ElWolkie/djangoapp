@@ -7,7 +7,7 @@ from django.template import loader
 from django.db.models import Exists, OuterRef
 from django.db.models import Count
 from django.db import models
-from django.db.models import OuterRef, Subquery, Max
+from django.db.models import OuterRef, Subquery, Max, Count, Sum, Q, Prefetch
 from django.urls import reverse
 from django.contrib import messages
 from django.template.loader import render_to_string
@@ -188,8 +188,9 @@ def reactivate_inscripcion(request, pk):
 @permission_required("inscripcion.view_inscripcion", raise_exception=True)
 def tabla_inscripciones(request):
     mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
-    
-    # Filtrar inscripciones según estado
+    search_query = request.GET.get('search', '').strip()  # Obtener el término de búsqueda
+
+    # Filtrar inscripciones según estado (mantenemos tu prefetch y estructura)
     if mostrar:
         inscripciones = Inscripcion.objects.prefetch_related(
             'requisitocliente_set__idRequisito'
@@ -199,10 +200,9 @@ def tabla_inscripciones(request):
             'requisitocliente_set__idRequisito'
         )
     
-    # Preparar diccionario de requisitos entregados
+    # Preparar diccionario de requisitos entregados (mismo lugar que tenías)
     requisitos_entregados_dict = {}
     for inscripcion in inscripciones:
-        # Acceder a los requisitos precargados
         requisitos = [
             rc.idRequisito.nombreRequisito 
             for rc in inscripcion.requisitocliente_set.all()
@@ -210,18 +210,42 @@ def tabla_inscripciones(request):
         ]
         requisitos_entregados_dict[inscripcion.idInscripcion] = requisitos
 
+    # Filtrar por el término de búsqueda si existe BUSCADOR
+    if search_query:
+        inscripciones = inscripciones.filter(
+            Q(idInscripcion__icontains=search_query) |
+            Q(idPersona__cedula__icontains=search_query) |
+            Q(idPersona__nombres__icontains=search_query) |
+            Q(idPersona__apellidos__icontains=search_query) |
+            Q(idCohorte__nombreCohorte__icontains=search_query) |
+            Q(idTF__nombreTipoFormacion__icontains=search_query) |
+            Q(idFormacion__nombreFormacion__icontains=search_query) |
+            Q(estadoPago__icontains=search_query) |
+            Q(montoPagado__icontains=search_query) |
+            Q(fechaInscripcion__icontains=search_query)
+        )
+
+    # Mensajes informativos
+    if mostrar:
+        hay_inactivos = inscripciones.filter(is_active=False).exists()
+        if not hay_inactivos:
+            messages.info(request, 'No hay inscripciones inactivas para mostrar.')
+    else:
+        if not inscripciones.exists():
+            messages.info(request, 'No hay inscripciones activas para mostrar.')
+
     # Paginación 
-    paginator = Paginator(inscripciones, 10)  # 10 cuotas por página
+    paginator = Paginator(inscripciones, 10)  # 10 por página
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
     return render(request, 'inscripcion/tablaInscripciones.html', {
-        'inscripcionsdes': inscripciones.order_by('-idInscripcion'),
         'requisitos_entregados_dict': requisitos_entregados_dict,
         'mostrar_inactivos': mostrar,
         'inscripciones': page_obj,  # Pasar el objeto de la página al template
-
+        'search_query': search_query,  # Pasar el término de búsqueda al template
     })
+
 
 # @login_required(login_url='login')
 # @permission_required("inscripcion.add_pagocuota", raise_exception=True)

@@ -42,6 +42,40 @@
     background-color: #fb6340;
     border-color: #fb6340;
   }
+
+  /* Estilos para el modal de detalles */
+  .details-modal .modal-content {
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  }
+  .details-modal .modal-header {
+    background: linear-gradient(135deg, #5e72e4 0%, #825ee4 100%);
+    color: white;
+    border-radius: 15px 15px 0 0;
+  }
+  .detail-item {
+    padding: 10px 0;
+    border-bottom: 1px solid #eee;
+    display: flex;
+  }
+  .detail-label {
+    font-weight: 600;
+    color: #525f7f;
+    min-width: 120px;
+  }
+  .detail-value {
+    color: #8898aa;
+    flex-grow: 1;
+  }
+  .detail-value.bold {
+    font-weight: 600;
+    color: #333;
+  }
+  
+  /* Estilo para el botón de cierre del modal */
+  .modal-header .btn-close {
+    filter: invert(1) grayscale(100%) brightness(200%);
+  }
 </style>
 {% endblock stylesheets %}
 
@@ -70,7 +104,7 @@
     </div>
   </div>
 
-    <div class="mb-3">
+  <div class="mb-3">
     <a href="?mostrar_inactivos={% if mostrar_inactivos %}false{% else %}true{% endif %}"
        class="btn btn-outline-secondary btn-sm">
       {% if mostrar_inactivos %}
@@ -99,7 +133,7 @@
       <table class="table table-striped table-hover align-middle text-gray-dark" id="cuotasTable">
         <thead class="table-light">
           <tr>
-            <th>ID</th>
+            <th>#</th>
             <th>Formación</th>
             <th>Nombre</th>
             <th>Tipo</th>
@@ -112,7 +146,7 @@
         <tbody>
           {% for cuota in cuotas %}
           <tr>
-            <td>{{ cuota.idCuota }}</td>
+            <td>{{ forloop.counter }}</td>
             <td>{{ cuota.idFormacion.nombreFormacion }}</td>
             <td>{{ cuota.nombreCuota }}</td>
             <td>{{ cuota.get_tipoCuota_display }}</td>
@@ -186,47 +220,47 @@
       </table>
     </div>
   </div>
- <!-- Controles de paginación -->
-<div class="pagination-container text-center mt-4">
-  <nav aria-label="Page navigation">
-    <ul class="pagination justify-content-center">
-      {% if cuota.has_previous %}
-        <li class="page-item">
-          <a class="page-link" href="?page={{ cuota.previous_page_number }}" aria-label="Anterior">
-            <span aria-hidden="true">&laquo;</span>
-          </a>
-        </li>
-      {% endif %}
-
-      {% for num in cuota.paginator.page_range %}
-        {% if num == 1 or num == cuota.paginator.num_pages or num >= cuota.number|add:"-2" and num <= cuota.number|add:"2" %}
-          <li class="page-item {% if cuota.number == num %}active{% endif %}">
-            <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+  
+  <!-- Controles de paginación -->
+  <div class="pagination-container text-center mt-4">
+    <nav aria-label="Page navigation">
+      <ul class="pagination justify-content-center">
+        {% if cuota.has_previous %}
+          <li class="page-item">
+            <a class="page-link" href="?page={{ cuota.previous_page_number }}" aria-label="Anterior">
+              <span aria-hidden="true">&laquo;</span>
+            </a>
           </li>
-        {% elif num == cuota.number|add:"-3" or num == cuota.number|add:"3" %}
-          <li class="page-item disabled"><span class="page-link">...</span></li>
         {% endif %}
-      {% endfor %}
 
-      {% if cuota.has_next %}
-        <li class="page-item">
-          <a class="page-link" href="?page={{ cuota.next_page_number }}" aria-label="Siguiente">
-            <span aria-hidden="true">&raquo;</span>
-          </a>
-        </li>
-      {% endif %}
-    </ul>
-  </nav>
+        {% for num in cuota.paginator.page_range %}
+          {% if num == 1 or num == cuota.paginator.num_pages or num >= cuota.number|add:"-2" and num <= cuota.number|add:"2" %}
+            <li class="page-item {% if cuota.number == num %}active{% endif %}">
+              <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+            </li>
+          {% elif num == cuota.number|add:"-3" or num == cuota.number|add:"3" %}
+            <li class="page-item disabled"><span class="page-link">...</span></li>
+          {% endif %}
+        {% endfor %}
+
+        {% if cuota.has_next %}
+          <li class="page-item">
+            <a class="page-link" href="?page={{ cuota.next_page_number }}" aria-label="Siguiente">
+              <span aria-hidden="true">&raquo;</span>
+            </a>
+          </li>
+        {% endif %}
+      </ul>
+    </nav>
+  </div>
 </div>
-</div>
 
-
-<!-- Modal: Ver Detalles -->
+<!-- Modal: Ver Detalles (Actualizado con el estilo de cuentas bancarias) -->
 <div class="modal fade details-modal" id="detailsModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header bg-primary text-white">
-        <h5 class="modal-title text-white">Ver más de <span id="detail-nombre"></span></h5>
+        <h5 class="modal-title text-white">Detalles de Cuota de Formación</h5>
         <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
           <i class="fas fa-times"></i>
         </button>
@@ -363,7 +397,7 @@ $(document).ready(function() {
     );
   });
 
- // Configuración de modales de desactivar y reactivar
+  // Configuración de modales de desactivar y reactivar
   $('#deleteCuotaModal, #reactivateCuotaModal').on('show.bs.modal', function(e) {
     const button = $(e.relatedTarget);
     const form = $(this).find('form');
@@ -491,6 +525,29 @@ $(document).ready(function() {
     displayRows();
     setupPagination();
   }
+});
+</script>
+
+<script>
+//SCRIPT PARA QUE EL MENSAJE DE ALERTA DESAPAREZCA SOLO DE INACTIVOS
+document.addEventListener('DOMContentLoaded', function () {
+  const AUTO_CLOSE_MS = 3000; // <-- 3000 ms = 3s (pon 2000 para 2s)
+
+  document.querySelectorAll('#globalMessages .alert').forEach(alertEl => {
+    // no cerrar automáticamente alert-danger (errores) si prefieres
+    if (alertEl.classList.contains('alert-danger')) return;
+
+    setTimeout(() => {
+      try {
+        // usa la API de Bootstrap para cerrar limpiamente
+        const bsAlert = bootstrap.Alert.getOrCreateInstance(alertEl);
+        bsAlert.close();
+      } catch (e) {
+        // fallback simple
+        alertEl.remove();
+      }
+    }, AUTO_CLOSE_MS);
+  });
 });
 </script>
 {% endblock javascripts %}

@@ -17589,3 +17589,10 @@ input.datetimepicker[data-color="yellow"] + .bootstrap-datetimepicker-widget {
   background: transparent; }
 
 /*# sourceMappingURL=argon.css.map */
+
+/* ESTILOS TABLA PERSONALIZADA */
+
+  .compact-table th,
+  .compact-table td {
+    text-align: left;
+  }

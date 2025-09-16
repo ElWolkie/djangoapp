@@ -1,9 +1,15 @@
 from rest_framework import generics
-from apps.home.models import Personas, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Denominacion, Banco, Moneda, Tasa, TipoIngreso
-from .serializers import PersonaSerializer, TipoPersonaSerializer, PersonaTPSerializer, MateriaSerializer, CohorteSerializer, CargoSerializer, HonorarioSerializer, RequisitoSerializer, ServicioSerializer, TramiteSerializer, SolicitudSerializer, DenominacionSerializer, BancoSerializer, MonedaSerializer, TasaSerializer, TipoIngresoSerializer  # Importa ambos serializadores
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from django.db.models import Sum
+from apps.home.models import Personas, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Denominacion, Banco, Moneda, Tasa, TipoIngreso, Formacion, TipoFormacion
+from .serializers import PersonaSerializer, TipoPersonaSerializer, PersonaTPSerializer, FormacionSerializer, TPFormacionSerializer, MateriaSerializer, CohorteSerializer, CargoSerializer, HonorarioSerializer, RequisitoSerializer, ServicioSerializer, TramiteSerializer, SolicitudSerializer, DenominacionSerializer, BancoSerializer, MonedaSerializer, TasaSerializer, TipoIngresoSerializer, AsientoContableSerializer, PlanCuentaSerializer, PeriodoContableSerializer  # Importa ambos serializadores
 from apps.persona.models import PersonaTP, TipoPersona
 from apps.honorario.models import Honorario
 from apps.solicitud.models import Solicitud
+from apps.asientoContable.models import AsientoContable, DetalleAsiento
+from apps.planCuenta.models import PlanCuenta
+from apps.periodoContable.models import periodoContable
 
 # Vista para Personas
 class PersonaListCreate(generics.ListCreateAPIView):
@@ -24,6 +30,16 @@ class PersonaTPListCreate(generics.ListCreateAPIView):
 class PersonaRetrieveUpdateDestroy(generics.RetrieveUpdateDestroyAPIView):
     queryset = Personas.objects.all()  # Usa el modelo Personas
     serializer_class = PersonaSerializer  # Usa el serializador PersonaSerializer
+
+# Vista para Formacion
+class FormacionListCreate(generics.ListCreateAPIView):
+    queryset = Formacion.objects.all()  # Usa el modelo Formacion
+    serializer_class = FormacionSerializer  # Usa el serializador Formacion
+
+# Vista para Formacion
+class TPFormacionListCreate(generics.ListCreateAPIView):
+    queryset = TipoFormacion.objects.all()  # Usa el modelo Formacion
+    serializer_class = TPFormacionSerializer  # Usa el serializador Formacion
 
 class MateriaListCreate(generics.ListCreateAPIView):
     queryset = Materia.objects.all()  # Usa el modelo Materia
@@ -76,3 +92,55 @@ class TasaListCreate(generics.ListCreateAPIView):
 class TipoIngresoListCreate(generics.ListCreateAPIView):
     queryset = TipoIngreso.objects.all()  # Usa el modelo TipoIngreso
     serializer_class = TipoIngresoSerializer  # Usa el serializador TipoIngresoSerializer
+
+# Vistas para contabilidad
+class LibroDiarioAPIView(APIView):
+    def get(self, request):
+        asientos = AsientoContable.objects.prefetch_related('detalles').order_by('fechaAsiento', 'numeroAsiento')
+        serializer = AsientoContableSerializer(asientos, many=True)
+        return Response(serializer.data)
+
+class LibroMayorAPIView(APIView):
+    def get(self, request):
+        cuentas = PlanCuenta.objects.annotate(
+            total_debe=Sum('detalleasiento__debe'),
+            total_haber=Sum('detalleasiento__haber')
+        ).order_by('codigoPlanCuenta')
+        serializer = PlanCuentaSerializer(cuentas, many=True)
+        return Response(serializer.data)
+
+class BalanceCuentasAPIView(APIView):
+    def get(self, request):
+        tipos_cuentas = PlanCuenta.objects.values('tipoPlanCuenta').annotate(
+            total_debe=Sum('detalleasiento__debe'),
+            total_haber=Sum('detalleasiento__haber')
+        ).order_by('tipoPlanCuenta')
+
+        # Calcular el saldo para cada tipo de cuenta
+        for tipo in tipos_cuentas:
+            debe = tipo['total_debe'] or 0
+            haber = tipo['total_haber'] or 0
+            if debe > haber:
+                tipo['saldo'] = f"Deudor: {debe - haber:.2f}"
+            elif haber > debe:
+                tipo['saldo'] = f"Acreedor: {haber - debe:.2f}"
+            else:
+                tipo['saldo'] = "Saldo Cero"
+
+        return Response(list(tipos_cuentas))
+
+class IngresosAPIView(APIView):
+    def get(self, request):
+        ingresos = PlanCuenta.objects.filter(tipoPlanCuenta='ingreso').annotate(
+            total_ingreso=Sum('detalleasiento__haber') - Sum('detalleasiento__debe')
+        ).order_by('codigoPlanCuenta')
+        serializer = PlanCuentaSerializer(ingresos, many=True)
+        return Response(serializer.data)
+
+class EgresosAPIView(APIView):
+    def get(self, request):
+        egresos = PlanCuenta.objects.filter(tipoPlanCuenta='gasto').annotate(
+            total_egreso=Sum('detalleasiento__debe') - Sum('detalleasiento__haber')
+        ).order_by('codigoPlanCuenta')
+        serializer = PlanCuentaSerializer(egresos, many=True)
+        return Response(serializer.data)

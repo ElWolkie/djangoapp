@@ -9,13 +9,14 @@ from django.template import loader
 from django.db.models import OuterRef, Subquery, Max, Count, Sum, Q, Prefetch
 from django.urls import reverse
 from django.contrib import messages
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError, FieldError
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required, permission_required
 from django.db import IntegrityError, transaction
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_GET
 from django.contrib.auth.models import Group
 from collections import defaultdict # Para agrupar
+from django.core.paginator import Paginator
 
 from django.core.cache import cache
 from django.db import models  # Para el output_field en Sum
@@ -28,7 +29,7 @@ from reportlab.platypus import Table, TableStyle
 from django.db.models.functions import ExtractMonth
 
 from .forms import AsignarGrupoForm, UsuarioForm, TipoFormacionForm, FormacionForm, MateriaForm, CohorteForm, CargoForm, RequisitoForm, ServicioForm, TramiteForm, DenominacionForm, BancoForm, MonedaForm, TasaForm, TipoMovimientoForm, MovimientoForm, ConfiguracionForm, CuotaFormacionForm
-from .models import Personas, Usuarios, TipoFormacion, Formacion, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Denominacion, Banco, Moneda, Tasa, Movimiento, TipoMovimiento, Configuracion, CuotaFormacion
+from .models import Personas, Usuarios, TipoFormacion, Formacion, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Denominacion, Banco, Moneda, Tasa, Movimiento, TipoMovimiento, Configuracion, CuotaFormacion, CuotaFormacion
 
 from apps.honorario.models import Honorario
 from apps.solicitud.models import Solicitud
@@ -36,6 +37,13 @@ from apps.cuentaBanco.models import Banco, PlanCuenta, CuentaBanco
 from apps.empresa.models import empresa
 from apps.persona.models import PersonaTP
 from apps.periodoContable.models import periodoContable
+
+from django.core.paginator import Paginator
+from django.db.models.functions import TruncDate
+from django.utils.timezone import localtime
+from datetime import date, timedelta
+from django.utils import timezone
+from collections import Counter
 
 from apps.bitacora.signals import registrar_login_fallido
 
@@ -59,15 +67,38 @@ def contabilidad(request):
     except periodoContable.DoesNotExist:
         periodo_actual = None
 
+    # =========================
+    hoy = date.today()
+    dias_rango = [hoy - timedelta(days=i) for i in range(29, -1, -1)]
+
+    cuentas = CuentaBanco.objects.all()
+
+    fechas_locales = []
+    for c in cuentas:
+        fecha = c.fechaRegistro
+        if isinstance(fecha, datetime):
+            fecha = timezone.localtime(fecha).date()
+        elif isinstance(fecha, date):
+            fecha = fecha
+        fechas_locales.append(fecha)
+
+    conteo_dict = Counter(fechas_locales)
+
+    chart_labels = [d.strftime("%d/%m/%Y") for d in dias_rango]
+    chart_data = [conteo_dict.get(d, 0) for d in dias_rango]
+
     context = {
         'ultima_cuenta': ultima_cuenta,
         'ultima_empresa': ultima_empresa,
-        'periodo_actual': periodo_actual,  # Ahora mostramos el período actual
+        'periodo_actual': periodo_actual,
         'total_cuentas': CuentaBanco.objects.count(),
         'total_empresas': empresa.objects.count(),
         'total_periodos': periodoContable.objects.count(),
-        'periodos_activos': periodoContable.objects.filter(estadoPeriodo=True).count()
+        'periodos_activos': periodoContable.objects.filter(estadoPeriodo=True).count(),
+        'chart_labels': chart_labels,
+        'chart_data': chart_data,
     }
+
     
     return render(request, 'home/index2.html', context)
 
@@ -85,7 +116,7 @@ def home(request):
     }
 
     try:
-        ultima_solicitud = solicitudes.select_related('idServicio').latest('fechaSolicitud')
+        ultima_solicitud = solicitudes.latest('fechaSolicitud')
     except Solicitud.DoesNotExist:
         ultima_solicitud = None
 
@@ -108,29 +139,38 @@ def home(request):
 
     honorarios_data = Honorario.objects.filter(estadoHonorario='ACTIVO').aggregate(
         total=Count('idHonorario'),
-        horas=Sum('horas', output_field=models.IntegerField())
+        horas=Sum('horas')
     )
 
-    chart_data = cache.get('solicitudes_por_mes')
-    if not chart_data:
-        meses = [0]*12
-        solicitudes_por_mes = solicitudes.annotate(
-            month=ExtractMonth('fechaSolicitud')
-        ).values('month').annotate(total=Count('idSoli'))
-        
-        for mes in solicitudes_por_mes:
-            meses[mes['month'] - 1] = mes['total']
-        chart_data = meses
-        cache.set('solicitudes_por_mes', chart_data, 86400)
+    # Últimos 30 días
+    hoy = date.today()
+    dias_rango = [hoy - timedelta(days=i) for i in range(29, -1, -1)]
+
+    fechas_locales = []
+    for s in solicitudes:
+        fecha = s.fechaSolicitud
+        # Si es datetime, convertir a hora local
+        if isinstance(fecha, datetime):
+            fecha = timezone.localtime(fecha).date()
+        # Si ya es date, usarlo tal cual
+        elif isinstance(fecha, date):
+            fecha = fecha
+        fechas_locales.append(fecha)
+
+    conteo_dict = Counter(fechas_locales)
+
+    labels = [d.strftime("%d/%m/%Y") for d in dias_rango]
+    data = [conteo_dict.get(d, 0) for d in dias_rango]
 
     context = {
         **counts,
         'ultima_solicitud': ultima_solicitud.fechaSolicitud if ultima_solicitud else None,
         'servicio_popular': servicio_popular,
-        'total_honorarios': honorarios_data['total'],
+        'total_honorarios': honorarios_data['total'] or 0,
         'total_horas': honorarios_data['horas'] or 0,
         'cohorte_reciente': cohorte_reciente.nombreCohorte if cohorte_reciente else "N/A",
-        'chart_data': chart_data,
+        'chart_labels': labels,
+        'chart_data': data,
     }
 
     return render(request, 'home/index.html', context)
@@ -347,11 +387,27 @@ def eliminar_usuario(request, pk):
 @permission_required("home.view_usuarios", login_url='page-403', raise_exception=True)
 def lista_usuarios(request):
     mostrar_inactivos = request.GET.get('mostrar_inactivos', 'false') == 'true'
-    
+
+    # Query base y orden
+    qs = Usuarios.objects.select_related('idPersona').order_by('-fechaUsuario')
+
+    # Aplicar filtro por estado si no se piden inactivos
+    if not mostrar_inactivos:
+        qs = qs.filter(is_active=True)
+
+    # Mensajes informativos (misma lógica que en las otras vistas)
+    if mostrar_inactivos:
+        # comprobar si hay registros inactivos dentro del queryset actual
+        hay_inactivos = qs.filter(is_active=False).exists()
+        if not hay_inactivos:
+            messages.info(request, 'No hay usuarios inactivos para mostrar.')
+    else:
+        # si no mostramos inactivos y no hay usuarios activos
+        if not qs.exists():
+            messages.info(request, 'No hay usuarios activos para mostrar.')
+
     return render(request, 'home/tablaUsuario.html', {
-        'usuarios': Usuarios.objects.select_related('idPersona')
-                                   .filter(is_active=True if not mostrar_inactivos else Q())
-                                   .order_by('-fechaUsuario'),
+        'usuarios': qs,
         'mostrar_inactivos': mostrar_inactivos
     })
 
@@ -677,26 +733,68 @@ def registrar_cuota_formacion(request, idFormacion=None):
             'formaciones': formaciones,
             'tipos_cuota': CuotaFormacion.TIPOS_CUOTA,
         })
-from django.core.paginator import Paginator
 
 @login_required(login_url='login')
 @permission_required("home.view_cuotaformacion", raise_exception=True)
 def consultar_cuota_formacion(request):
     mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
-    if mostrar:
-        cuotaFormaciones = CuotaFormacion.objects.select_related('idFormacion').all()
-    else:
-        cuotaFormaciones = CuotaFormacion.objects.select_related('idFormacion').filter(is_active=True)
 
-    # Paginación 
-    paginator = Paginator(cuotaFormaciones, 10)  # 10 cuotas por página
+    # Query base (con select_related para optimizar)
+    qs = CuotaFormacion.objects.select_related('idFormacion').all()
+
+    if not mostrar:
+        qs = qs.filter(is_active=True)
+
+    # Mensajes informativos
+    if mostrar:
+        # ¿hay cuotas inactivas en el queryset actual?
+        hay_inactivos = qs.filter(is_active=False).exists()
+        if not hay_inactivos:
+            messages.info(request, 'No hay cuotas inactivas para mostrar.')
+    else:
+        if not qs.exists():
+            messages.info(request, 'No hay cuotas activas para mostrar.')
+
+    # Paginación
+    paginator = Paginator(qs, 10)  # 10 cuotas por página
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
     return render(request, 'home/tablaCuotasFormaciones.html', {
-        'cuotas': page_obj,  # Pasar el objeto de la página al template
+        'cuotas': page_obj,
         'mostrar_inactivos': mostrar,
     })
+
+@login_required
+@require_GET
+def api_cuotas(request):
+    formacion_id = request.GET.get('formacion_id')
+    
+    # ----> AÑADE ESTA LÍNEA <----
+    print(f"Paso 2: La API recibió la solicitud para formacion_id = {formacion_id}")
+
+    if not formacion_id:
+        return JsonResponse({'results': []}, status=400)
+
+    qs = CuotaFormacion.objects.filter(idFormacion_id=formacion_id)
+
+    # ----> AÑADE ESTA LÍNEA <----
+    print(f"----> Base de datos encontró {qs.count()} cuotas para este ID.")
+
+    data = []
+    for c in qs:
+        data.append({
+            'id': c.idCuota,
+            'nombre': c.nombreCuota,
+            'tipo_valor': c.tipoCuota,
+            'tipo_display': c.get_tipoCuota_display(),
+            'valor': str(c.valorCuota),
+            'orden': c.orden,
+            'is_active': c.is_active,
+        })
+
+    return JsonResponse({'results': data})
+
 #EDITAR CUOTA
 @login_required(login_url='login')
 @permission_required("home.change_cuotaformacion", raise_exception=True)
@@ -1033,7 +1131,7 @@ def desactivar_formacion(request, pk):
     formacion = get_object_or_404(Formacion, pk=pk)
     formacion.estadoFormacion = "INACTIVO"
     formacion.save(update_fields=['estadoFormacion'])
-    messages.success(request, f'⛔ Formación {formacion.nombreFormacion} desactivada')
+    messages.success(request, f'Formación {formacion.nombreFormacion} desactivada')
     return redirect(request.POST.get('next', 'tabla_formaciones'))
 
 @login_required(login_url='login')
@@ -1043,7 +1141,7 @@ def reactivate_formacion(request, pk):
     if request.method == 'POST':
         Formaciones.estadoFormacion = "ACTIVO"
         Formaciones.save()
-        messages.success(request, f'✅ Formación {Formaciones.nombreFormacion} activada')
+        messages.success(request, f'Formación {Formaciones.nombreFormacion} activada')
         return redirect(request.POST.get('next', 'tabla_formaciones'))
     return redirect('tabla_formaciones')
 
@@ -1051,30 +1149,55 @@ def reactivate_formacion(request, pk):
 @permission_required("home.view_formacion", raise_exception=True)
 def tabla_formaciones(request):
     mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+    search_query = request.GET.get('search', '').strip()  # Obtener el término de búsqueda
+
+    # Query base con optimizaciones
+    qs = Formacion.objects.select_related('idTF').prefetch_related(
+        Prefetch('cuotas', queryset=CuotaFormacion.objects.order_by('orden'))
+    ).order_by('-fechaFormacion')
+
+    # Filtrar por estado si no se piden inactivos
+    if not mostrar:
+        qs = qs.filter(estadoFormacion='ACTIVO')
+
+    # Aplicar búsqueda si existe
+    if search_query:
+        qs = qs.filter(
+            Q(nombreFormacion__icontains=search_query) |
+            Q(idTF__nombreTipoFormacion__icontains=search_query) |
+            Q(valorInscripcion__icontains=search_query) |
+            Q(duracion__icontains=search_query)
+        )
+
+    # Mensajes informativos según el caso
     if mostrar:
-        formaciones = Formacion.objects.all()
+        # Dentro del queryset ya filtrado por búsqueda (y por tipo/estado si aplica),
+        # comprobamos si hay registros inactivos.
+        hay_inactivos = qs.exclude(estadoFormacion='ACTIVO').exists()
+        if not hay_inactivos:
+            messages.info(request, 'No hay formaciones inactivas para mostrar.')
     else:
-        formaciones = Formacion.objects.filter(estadoFormacion='ACTIVO')
-    tipo_formaciones = TipoFormacion.objects.filter(estadoTipoFormacion='ACTIVO')
+        # Si no estamos mostrando inactivos comprobamos si hay activos para mostrar
+        if not qs.exists():
+            messages.info(request, 'No hay formaciones activas para mostrar.')
 
-    formaciones = Formacion.objects.select_related('idTF')\
-        .prefetch_related(Prefetch('cuotas', queryset=CuotaFormacion.objects.order_by('orden')))
+    # Paginación
+    paginator = Paginator(qs, 3)  # ajusta el número por página si quieres
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
 
-    for f in formaciones:
-        cuotas_qs = f.cuotas.all()  # related_name='cuotas'
-        if f.tieneCuotas and cuotas_qs.exists():
-            cuotas = list(cuotas_qs)
-            tipos = {c.tipoCuota for c in cuotas}                # códigos (ej. 'MENSUAL')
-            # si todas las cuotas comparten el mismo tipo usamos su display, sino 'Mixto'
-            tipo_display = cuotas[0].get_tipoCuota_display() if len(tipos) == 1 else "Mixto"
-            # montos formateados con 2 decimales
-            montos = ", ".join(f"{c.valorCuota:.2f}" for c in cuotas)
-            f.cuotas_count = len(cuotas)
+    # Calcular información de cuotas solo para los objetos en la página
+    for f in page_obj.object_list:
+        cuotas_qs = list(getattr(f, 'cuotas').all())  # prefetch ya aplicado
+        if getattr(f, 'tieneCuotas', False) and cuotas_qs:
+            tipos = {c.tipoCuota for c in cuotas_qs}
+            tipo_display = cuotas_qs[0].get_tipoCuota_display() if len(tipos) == 1 else "Mixto"
+            montos = ", ".join(f"{c.valorCuota:.2f}" for c in cuotas_qs)
+            f.cuotas_count = len(cuotas_qs)
             f.cuotas_list = montos
             f.cuotas_tipo = tipo_display
             f.cuotas_text = f"Sí - {tipo_display} ({f.cuotas_count} cuotas: {montos})"
-        elif f.tieneCuotas:
-            # tiene el flag pero no hay cuotas creadas
+        elif getattr(f, 'tieneCuotas', False):
             f.cuotas_count = 0
             f.cuotas_list = ""
             f.cuotas_tipo = ""
@@ -1085,10 +1208,13 @@ def tabla_formaciones(request):
             f.cuotas_tipo = ""
             f.cuotas_text = "No"
 
+    tipo_formaciones = TipoFormacion.objects.filter(estadoTipoFormacion='ACTIVO')
+
     return render(request, 'home/tablaFormaciones.html', {
-        'formaciones': formaciones.order_by('-idFormacion'),
+        'formaciones': page_obj,
         'tipoFormaciones': tipo_formaciones,
         'mostrar_inactivos': mostrar,
+        'search_query': search_query,
     })
 
 @login_required(login_url='login')
@@ -1328,7 +1454,7 @@ def desactivar_tipoFormacion(request, pk):
     if request.method == 'POST':
         tipoFormaciones.estadoTipoFormacion = "INACTIVO"
         tipoFormaciones.save()
-        messages.success(request, f'⛔ Tipo Formación {tipoFormaciones.nombreTipoFormacion} desactivada')
+        messages.success(request, f'Tipo Formación {tipoFormaciones.nombreTipoFormacion} desactivada')
         return redirect(request.POST.get('next', 'tabla_tipoFormacion'))
     return redirect('tabla_tipoFormacion')
 
@@ -1339,7 +1465,7 @@ def reactivate_tipoFormacion(request, pk):
     if request.method == 'POST':
         tipoFormaciones.estadoTipoFormacion = "ACTIVO"
         tipoFormaciones.save()
-        messages.success(request, f'✅ Tipo Formación {tipoFormaciones.nombreTipoFormacion} activada')
+        messages.success(request, f'Tipo Formación {tipoFormaciones.nombreTipoFormacion} activada')
         return redirect(request.POST.get('next', 'tabla_tipoFormacion'))
     return redirect('tabla_tipoFormacion')
 
@@ -1347,13 +1473,25 @@ def reactivate_tipoFormacion(request, pk):
 @permission_required("home.view_tipoformacion", raise_exception=True)
 def tabla_tipoFormacion(request):
     mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+
+    # Query base
+    qs = TipoFormacion.objects.all()
+
+    if not mostrar:
+        qs = qs.filter(estadoTipoFormacion='ACTIVO')
+
+    # Mensajes informativos
     if mostrar:
-        tipoFormaciones = TipoFormacion.objects.all()
+        # ¿hay inactivos en el queryset actual?
+        hay_inactivos = qs.exclude(estadoTipoFormacion='ACTIVO').exists()
+        if not hay_inactivos:
+            messages.info(request, 'No hay tipos de formación inactivos para mostrar.')
     else:
-        tipoFormaciones = TipoFormacion.objects.filter(estadoTipoFormacion='ACTIVO')
+        if not qs.exists():
+            messages.info(request, 'No hay tipos de formación activos para mostrar.')
 
     return render(request, 'home/tablaTipoFormaciones.html', {
-        'tipoFormaciones': tipoFormaciones,
+        'tipoFormaciones': qs,
         'mostrar_inactivos': mostrar,
     })
 
@@ -1599,7 +1737,7 @@ def desactivar_materias(request, pk):
     if request.method == 'POST':
         materias.estadoMateria = "INACTIVO"
         materias.save()
-        messages.success(request, f'⛔ Materia {materias.nombreMateria} desactivada')
+        messages.success(request, f'Materia {materias.nombreMateria} desactivada')
         return redirect(request.POST.get('next', 'tabla_materias'))
     return redirect('tabla_materias')
 
@@ -1610,7 +1748,7 @@ def reactivate_materias(request, pk):
     if request.method == 'POST':
         materias.estadoMateria = "ACTIVO"
         materias.save()
-        messages.success(request, f'✅ Materia {materias.nombreMateria} activada')
+        messages.success(request, f'Materia {materias.nombreMateria} activada')
         return redirect(request.POST.get('next', 'tabla_materias'))
     return redirect('tabla_materias')
 
@@ -1618,15 +1756,26 @@ def reactivate_materias(request, pk):
 @permission_required("home.view_materia", raise_exception=True)
 def tabla_materias(request):
     mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+
+    qs = Materia.objects.all()
+
+    if not mostrar:
+        qs = qs.filter(estadoMateria='ACTIVO')
+
+    # Mensajes informativos
     if mostrar:
-        materias = Materia.objects.all()
+        hay_inactivos = qs.exclude(estadoMateria='ACTIVO').exists()
+        if not hay_inactivos:
+            messages.info(request, 'No hay materias inactivas para mostrar.')
     else:
-        materias = Materia.objects.filter(estadoMateria='ACTIVO')
+        if not qs.exists():
+            messages.info(request, 'No hay materias activas para mostrar.')
 
     return render(request, 'home/tablaMaterias.html', {
-        'materias': materias,
+        'materias': qs,
         'mostrar_inactivos': mostrar,
     })
+
 
 @login_required(login_url='login')
 def reporte_materias_pdf(request):
@@ -1860,7 +2009,7 @@ def desactivar_cohorte(request, pk):
     if request.method == 'POST':
         cohortes.estadoCohorte = "INACTIVO"
         cohortes.save()
-        messages.success(request, f'⛔ Cohorte {cohortes.nombreCohorte} desactivada')
+        messages.success(request, f'Cohorte {cohortes.nombreCohorte} desactivada')
         return redirect(request.POST.get('next', 'tabla_cohortes'))
     return redirect('tabla_cohortes')
 
@@ -1871,7 +2020,7 @@ def reactivate_cohorte(request, pk):
     if request.method == 'POST':
         cohortes.estadoCohorte = "ACTIVO"
         cohortes.save()
-        messages.success(request, f'✅ Cohorte {cohortes.nombreCohorte} activada')
+        messages.success(request, f'Cohorte {cohortes.nombreCohorte} activada')
         return redirect(request.POST.get('next', 'tabla_cohortes'))
     return redirect('tabla_cohortes')
 
@@ -1879,15 +2028,26 @@ def reactivate_cohorte(request, pk):
 @permission_required("home.view_cohorte", raise_exception=True)
 def tabla_cohortes(request):
     mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+
+    qs = Cohorte.objects.all()
+
+    if not mostrar:
+        qs = qs.filter(estadoCohorte='ACTIVO')
+
+    # Mensajes informativos
     if mostrar:
-        cohortes = Cohorte.objects.all()
+        hay_inactivos = qs.exclude(estadoCohorte='ACTIVO').exists()
+        if not hay_inactivos:
+            messages.info(request, 'No hay cohortes inactivas para mostrar.')
     else:
-        cohortes = Cohorte.objects.filter(estadoCohorte='ACTIVO')
+        if not qs.exists():
+            messages.info(request, 'No hay cohortes activas para mostrar.')
 
     return render(request, 'home/tablaCohortes.html', {
-        'cohortes': cohortes.order_by('-idCohorte'),
+        'cohortes': qs.order_by('-idCohorte'),
         'mostrar_inactivos': mostrar,
     })
+
 
 @login_required(login_url='login')
 def reporte_cohortes_pdf(request):
@@ -2113,7 +2273,7 @@ def desactivar_cargo(request, pk):
     if request.method == 'POST':
         cargos.estadoCargo = "INACTIVO"
         cargos.save()
-        messages.success(request, f'⛔ Cargo {cargos.nombreCargo} desactivado')
+        messages.success(request, f'Cargo {cargos.nombreCargo} desactivado')
         return redirect(request.POST.get('next', 'tabla_cargos'))
     return redirect('tabla_cargos')
 
@@ -2124,7 +2284,7 @@ def reactivate_cargo(request, pk):
     if request.method == 'POST':
         cargos.estadoCargo = "ACTIVO"
         cargos.save()
-        messages.success(request, f'✅ Cargo {cargos.nombreCargo} activado')
+        messages.success(request, f'Cargo {cargos.nombreCargo} activado')
         return redirect(request.POST.get('next', 'tabla_cargos'))
     return redirect('tabla_cargos')
 
@@ -2132,14 +2292,26 @@ def reactivate_cargo(request, pk):
 @permission_required("home.view_cargo", raise_exception=True)
 def tabla_cargos(request):
     mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+
+    qs = Cargo.objects.all()
+
+    if not mostrar:
+        qs = qs.filter(estadoCargo='ACTIVO')
+
+    # Mensajes informativos
     if mostrar:
-        cargos = Cargo.objects.all()
+        hay_inactivos = qs.exclude(estadoCargo='ACTIVO').exists()
+        if not hay_inactivos:
+            messages.info(request, 'No hay cargos inactivos para mostrar.')
     else:
-        cargos = Cargo.objects.filter(estadoCargo='ACTIVO')
+        if not qs.exists():
+            messages.info(request, 'No hay cargos activos para mostrar.')
+
     return render(request, 'home/tablaCargos.html', {
-        'cargos': cargos,
+        'cargos': qs,
         'mostrar_inactivos': mostrar,
     })
+
 
 @login_required(login_url='login')
 def reporte_cargos_pdf(request):
@@ -2367,7 +2539,7 @@ def desactivar_requisito(request, pk):
     if request.method == 'POST':
         requisitos.estadoRequisito = "INACTIVO"
         requisitos.save()
-        messages.success(request, f'⛔ Requisito {requisitos.nombreRequisito} desactivado')
+        messages.success(request, f'Requisito {requisitos.nombreRequisito} desactivado')
         return redirect(request.POST.get('next', 'tabla_requisitos'))
     return redirect('tabla_requisitos')
 
@@ -2378,7 +2550,7 @@ def reactivate_requisito(request, pk):
     if request.method == 'POST':
         requisitos.estadoRequisito = "ACTIVO"
         requisitos.save()
-        messages.success(request, f'✅ Requisito {requisitos.nombreRequisito} activado')
+        messages.success(request, f'Requisito {requisitos.nombreRequisito} activado')
         return redirect(request.POST.get('next', 'tabla_requisitos'))
     return redirect('tabla_requisitos')
 
@@ -2386,12 +2558,23 @@ def reactivate_requisito(request, pk):
 @permission_required("home.view_requisito", raise_exception=True)
 def tabla_requisitos(request):
     mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+
+    qs = Requisito.objects.all()
+
+    if not mostrar:
+        qs = qs.filter(estadoRequisito='ACTIVO')
+
+    # Mensajes informativos
     if mostrar:
-        requisitos = Requisito.objects.all()
+        hay_inactivos = qs.exclude(estadoRequisito='ACTIVO').exists()
+        if not hay_inactivos:
+            messages.info(request, 'No hay requisitos inactivos para mostrar.')
     else:
-        requisitos = Requisito.objects.filter(estadoRequisito='ACTIVO')
+        if not qs.exists():
+            messages.info(request, 'No hay requisitos activos para mostrar.')
+
     return render(request, 'home/tablaRequisitos.html', {
-        'requisitos': requisitos.order_by('-idRequisito'),
+        'requisitos': qs.order_by('-idRequisito'),
         'mostrar_inactivos': mostrar,
     })
 
@@ -2619,7 +2802,7 @@ def desactivar_servicio(request, pk):
     if request.method == 'POST':
         servicios.estadoServicio = "INACTIVO"
         servicios.save()
-        messages.success(request, f'⛔ Servicio {servicios.nombreServicio} desactivado')
+        messages.success(request, f'Servicio {servicios.nombreServicio} desactivado')
         return redirect(request.POST.get('next', 'tabla_servicios'))
     return redirect('tabla_servicios')
 
@@ -2630,7 +2813,7 @@ def reactivate_servicio(request, pk):
     if request.method == 'POST':
         servicios.estadoServicio = "ACTIVO"
         servicios.save()
-        messages.success(request, f'✅ Servicio {servicios.nombreServicio} activado')
+        messages.success(request, f'Servicio {servicios.nombreServicio} activado')
         return redirect(request.POST.get('next', 'tabla_servicios'))
     return redirect('tabla_servicios')
 
@@ -2638,12 +2821,23 @@ def reactivate_servicio(request, pk):
 @permission_required("home.view_servicio", raise_exception=True)
 def tabla_servicios(request):
     mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+
+    qs = Servicio.objects.all()
+
+    if not mostrar:
+        qs = qs.filter(estadoServicio='ACTIVO')
+
+    # Mensajes informativos
     if mostrar:
-        servicios = Servicio.objects.all()
+        hay_inactivos = qs.exclude(estadoServicio='ACTIVO').exists()
+        if not hay_inactivos:
+            messages.info(request, 'No hay servicios inactivos para mostrar.')
     else:
-        servicios = Servicio.objects.filter(estadoServicio='ACTIVO')
+        if not qs.exists():
+            messages.info(request, 'No hay servicios activos para mostrar.')
+
     return render(request, 'home/tablaServicios.html', {
-        'servicios': servicios,
+        'servicios': qs,
         'mostrar_inactivos': mostrar,
     })
 
@@ -2885,7 +3079,7 @@ def desactivar_tramite(request, pk):
     if request.method == 'POST':
         tramites.estadoTramite = "INACTIVO"
         tramites.save()
-        messages.success(request, f'⛔ Trámite {tramites.nombreTramite} desactivado')
+        messages.success(request, f' Trámite {tramites.nombreTramite} desactivado')
         return redirect(request.POST.get('next', 'tabla_tramites'))
     return redirect('tabla_tramites')
 
@@ -2896,7 +3090,7 @@ def reactivate_tramite(request, pk):
     if request.method == 'POST':
         tramites.estadoTramite = "ACTIVO"
         tramites.save()
-        messages.success(request, f'✅ Trámite {tramites.nombreTramite} activado')
+        messages.success(request, f' Trámite {tramites.nombreTramite} activado')
         return redirect(request.POST.get('next', 'tabla_tramites'))
     return redirect('tabla_tramites')
 
@@ -2904,12 +3098,23 @@ def reactivate_tramite(request, pk):
 @permission_required("home.view_tramite", raise_exception=True)
 def tabla_tramites(request):
     mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+
+    qs = Tramite.objects.all()
+
+    if not mostrar:
+        qs = qs.filter(estadoTramite='ACTIVO')
+
+    # Mensajes informativos
     if mostrar:
-        tramites = Tramite.objects.all()
+        hay_inactivos = qs.exclude(estadoTramite='ACTIVO').exists()
+        if not hay_inactivos:
+            messages.info(request, 'No hay trámites inactivos para mostrar.')
     else:
-        tramites = Tramite.objects.filter(estadoTramite='ACTIVO')
+        if not qs.exists():
+            messages.info(request, 'No hay trámites activos para mostrar.')
+
     return render(request, 'home/tablaTramites.html', {
-        'tramites': tramites.order_by('-idTramite'),
+        'tramites': qs.order_by('-idTramite'),
         'mostrar_inactivos': mostrar,
     })
 
@@ -3375,7 +3580,7 @@ def desactivar_moneda(request, pk):
     if request.method == 'POST':
         moneda.estadoMoneda = "INACTIVO"
         moneda.save()
-        messages.success(request, f'✅ Moneda {moneda.nombreMoneda} desactivada')
+        messages.success(request, f'Moneda {moneda.nombreMoneda} desactivada')
         return redirect(request.POST.get('next', 'tabla_monedas'))
     return redirect('tabla_monedas')
 
@@ -3394,7 +3599,7 @@ def reactivate_moneda(request, pk):
     if request.method == 'POST':
         moneda.estadoMoneda = "ACTIVO"
         moneda.save()
-        messages.success(request, f'✅ Moneda {moneda.nombreMoneda} activada')
+        messages.success(request, f'Moneda {moneda.nombreMoneda} activada')
         return redirect(request.POST.get('next', 'tabla_monedas'))
     return redirect('tabla_monedas')
 
@@ -3402,12 +3607,23 @@ def reactivate_moneda(request, pk):
 @permission_required("home.view_moneda", raise_exception=True)
 def tabla_monedas(request):
     mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+
+    qs = Moneda.objects.all()
+
+    if not mostrar:
+        qs = qs.filter(estadoMoneda='ACTIVO')
+
+    # Mensajes informativos
     if mostrar:
-        monedas = Moneda.objects.all()
+        hay_inactivos = qs.exclude(estadoMoneda='ACTIVO').exists()
+        if not hay_inactivos:
+            messages.info(request, 'No hay monedas inactivas para mostrar.')
     else:
-        monedas = Moneda.objects.filter(estadoMoneda='ACTIVO')
+        if not qs.exists():
+            messages.info(request, 'No hay monedas activas para mostrar.')
+
     return render(request, 'home/tablaMonedas.html', {
-        'monedas': monedas,
+        'monedas': qs,
         'mostrar_inactivos': mostrar,
     })
 
@@ -3634,7 +3850,7 @@ def desactivar_tasa(request, pk):
     if request.method == 'POST':
         tasa.estadoTasa = "INACTIVO"
         tasa.save()
-        messages.success(request, f'✅ Moneda {tasa.idMoneda.nombreMoneda} desactivada')
+        messages.success(request, f'Tasa de {tasa.idMoneda.nombreMoneda} desactivada')
         return redirect(request.POST.get('next', 'tabla_tasas'))
     return redirect('tabla_tasas')
 
@@ -3653,7 +3869,7 @@ def reactivate_tasa(request, pk):
     if request.method == 'POST':
         tasa.estadoTasa = "ACTIVO"
         tasa.save()
-        messages.success(request, f'✅ Moneda {tasa.idMoneda.nombreMoneda} activada')
+        messages.success(request, f'Tasa de {tasa.idMoneda.nombreMoneda} activada')
         return redirect(request.POST.get('next', 'tabla_tasas'))
     return redirect('tabla_tasas')
 
@@ -3661,13 +3877,41 @@ def reactivate_tasa(request, pk):
 @permission_required("home.view_tasa", raise_exception=True)
 def tabla_tasas(request):
     mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+    search_query = request.GET.get('search', '').strip()  # Obtener el término de búsqueda
+
     if mostrar:
         tasas = Tasa.objects.all()
     else:
-        tasas = Tasa.objects.filter(estadoTasa='ACTIVO')
+        tasas = Tasa.objects.filter(estadoTasa='ACTIVO').order_by('-fechaTasa')
+
+    # Filtrar por el término de búsqueda si existe
+    if search_query:
+        tasas = tasas.filter(
+            Q(idMoneda__nombreMoneda__icontains=search_query) |
+            Q(idMoneda__simboloMoneda__icontains=search_query) |
+            Q(montoTasa__icontains=search_query) |
+            Q(estadoTasa__icontains=search_query) |
+            Q(fechaTasa__icontains=search_query)
+        )
+
+    # Mensajes informativos (aplicados sobre el queryset ya filtrado)
+    if mostrar:
+        hay_inactivos = tasas.exclude(estadoTasa='ACTIVO').exists()
+        if not hay_inactivos:
+            messages.info(request, 'No hay tasas inactivas para mostrar.')
+    else:
+        if not tasas.exists():
+            messages.info(request, 'No hay tasas activas para mostrar.')
+
+    # Paginación
+    paginator = Paginator(tasas, 10)  # 10 tasas por página
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
     return render(request, 'home/tablaTasas.html', {
-        'tasas': tasas.order_by('-fechaTasa'),
+        'tasas': page_obj,
         'mostrar_inactivos': mostrar,
+        'search_query': search_query,
     })
 
 @login_required(login_url='login')
@@ -4578,6 +4822,13 @@ def actualizar_monedas_api(request):
 @permission_required("home.add_banco", raise_exception=True)
 def actualizar_bancos_api(request):
     if request.method != 'POST':
+        # Si es AJAX devolvemos JSON, si no redirigimos con message
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': False,
+                'type': 'error',
+                'message': "Método no permitido."
+            }, status=405)
         messages.error(request, "Método no permitido.")
         return redirect('banco_list')
 
@@ -4589,37 +4840,36 @@ def actualizar_bancos_api(request):
         resp.raise_for_status()
         api_bancos = resp.json()
 
-        # Determinar una cuenta padre por defecto para todos los bancos nuevos
-        # Aquí usamos la primera PlanCuenta que encuentre; ajústalo según tu lógica
         cuenta_padre = PlanCuenta.objects.first()
         if not cuenta_padre:
-            messages.error(request, "No hay cuentas contables padre configuradas.")
+            msg = "No hay cuentas contables padre configuradas."
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'success': False, 'type': 'error', 'message': msg}, status=400)
+            messages.error(request, msg)
             return redirect('banco_list')
 
-        # Obtener códigos locales existentes
+        # Códigos locales existentes
         cod_exist = set(Banco.objects.values_list('codLocalBanco', flat=True))
 
         nuevos_list = []
         for item in api_bancos:
-            code = item.get('code', '').strip()
-            name = item.get('shortName', '').strip()
+            code = (item.get('code') or '').strip()
+            name = (item.get('shortName') or '').strip()
             if not code or not name:
                 continue
 
-            cod_local = code[:10]  # hasta 10 chars para codLocalBanco
+            cod_local = code[:10]
             if cod_local in cod_exist:
                 continue
 
-            # Hacemos el valor único incorporando el código local
             cod_swift_placeholder = f"SW-N/A-{cod_local}"
 
-            # Preparamos el banco inactivo con valores por defecto
             b = Banco(
                 nombreBanco=name[:100],
                 codLocalBanco=cod_local,
-                codSwiftBanco = cod_swift_placeholder,
+                codSwiftBanco=cod_swift_placeholder,
                 cuentaPadre=cuenta_padre,
-                estadoBanco=False  # inactivo inicialmente
+                estadoBanco=False
             )
             nuevos_list.append(b)
             cod_exist.add(cod_local)
@@ -4627,14 +4877,27 @@ def actualizar_bancos_api(request):
         if nuevos_list:
             Banco.objects.bulk_create(nuevos_list)
             nuevos = len(nuevos_list)
-            messages.success(request, f"¡Actualización completa! Se añadieron {nuevos} nuevos bancos.")
+            msg = f"¡Actualización completa! Se añadieron {nuevos} nuevos bancos."
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'success': True, 'type': 'success', 'added': nuevos, 'message': msg})
+            messages.success(request, msg)
         else:
-            messages.info(request, "¡Todo al día! No se encontraron bancos nuevos.")
+            # No hay nuevos bancos
+            msg = "¡Todo al día! No se encontraron bancos nuevos."
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'success': True, 'type': 'info', 'added': 0, 'message': msg})
+            messages.info(request, msg)
 
     except requests.exceptions.RequestException as e:
-        messages.error(request, f"Error al obtener datos de bancos: {e}")
+        msg = f"Error al obtener datos de bancos: {e}"
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'type': 'error', 'message': msg}, status=502)
+        messages.error(request, msg)
     except Exception as e:
-        messages.error(request, f"Error inesperado al actualizar bancos: {e}")
+        msg = f"Error inesperado al actualizar bancos: {e}"
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'type': 'error', 'message': msg}, status=500)
+        messages.error(request, msg)
 
     return redirect('banco_list')
 

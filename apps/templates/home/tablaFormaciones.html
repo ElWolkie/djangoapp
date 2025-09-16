@@ -89,10 +89,14 @@
 
   <div class="row mb-3">
     <div class="col-md-4">
-      <div class="input-group">
-        <span class="input-group-text"><i class="fas fa-search"></i></span>
-        <input class="form-control" id="searchInput" type="text" placeholder="Buscar...">
-      </div>
+   <div class="input-group">
+    <!-- Buscador directo del bakend NO BORRAR -->
+     <form onsubmit="updateSearchParam(event)" class="d-flex w-100">
+          <span class="input-group-text"><i class="fas fa-search"></i></span>
+          <input type="text" id="searchInput" name="search" class="form-control" placeholder="Buscar..." value="{{ search_query|default:'' }}" title="Recuerda que la busqueda discrimina entre activos/inactivos.">
+          <button type="submit" style="display:none" tabindex="-1" aria-hidden="true"></button>
+      </form>
+    </div>
     </div>
     <div class="col-md-4 text-center">
       {% if perms.home.add_formacion %}
@@ -111,7 +115,7 @@
 
   <div class="mb-3">
     <a href="?mostrar_inactivos={% if mostrar_inactivos %}false{% else %}true{% endif %}"
-       class="btn btn-outline-secondary btn-sm">
+       class="btn btn-outline-secondary btn-sm" title="¿No encuentras lo que buscas? Intenta cambiar este filtro.">
       {% if mostrar_inactivos %}
         <i class="fas fa-eye-slash me-1"></i> Ocultar inactivos
       {% else %}
@@ -174,12 +178,16 @@
                           data-bs-toggle="modal"
                           data-bs-target="#detailsModal"
                           data-id="{{ formacion.idFormacion }}"
-                          data-nombre="{{ formacion.nombreFormacion }}"
-                          data-tipo="{{ formacion.idTF.nombreTipoFormacion }}"
-                          data-valor="{{ formacion.valorInscripcion }}"
-                          data-duracion="{{ formacion.duracion }}"
-                          data-estado="{{ formacion.estadoFormacion }}"
+                          data-nombre="{{ formacion.nombreFormacion|escape }}"
+                          data-tipo="{{ formacion.idTF.nombreTipoFormacion|escape }}"
+                          data-valor="{{ formacion.valorInscripcion|floatformat:2 }}"
+                          data-duracion="{{ formacion.duracion|escape }}"
+                          data-estado="{{ formacion.estadoFormacion|escape }}"
                           data-fecha="{{ formacion.fechaFormacion|date:'d/m/Y' }}"
+                          data-cuotas-text="{{ formacion.cuotas_text|default:''|escape }}"
+                          data-cuotas-count="{{ formacion.cuotas_count|default:0 }}"
+                          data-cuotas-list="{{ formacion.cuotas_list|default:''|escape }}"
+                          data-cuotas-tipo="{{ formacion.cuotas_tipo|default:''|escape }}"
                           title="Ver más">
                     <i class="fas fa-eye"></i>
                   </button>
@@ -224,26 +232,98 @@
         </tbody>
       </table>
     </div>
+    <!-- Paginación -->
+ <div class="pagination-container text-center mt-4">
+  <nav aria-label="Page navigation">
+    <ul class="pagination justify-content-center">
+      {% if formaciones.has_previous %}
+        <li class="page-item">
+          <a class="page-link" href="?search={{ search_query }}&page={{ formaciones.previous_page_number }}" aria-label="Anterior">
+            <span aria-hidden="true">&laquo;</span>
+          </a>
+        </li>
+      {% endif %}
+
+      {% for num in formaciones.paginator.page_range %}
+        {% if num == 1 or num == formaciones.paginator.num_pages or num >= formaciones.number|add:"-2" and num <= formaciones.number|add:"2" %}
+          <li class="page-item {% if formaciones.number == num %}active{% endif %}">
+            <a class="page-link" href="?search={{ search_query }}&page={{ num }}">{{ num }}</a>
+          </li>
+        {% elif num == formaciones.number|add:"-3" or num == formaciones.number|add:"3" %}
+          <li class="page-item disabled"><span class="page-link">...</span></li>
+        {% endif %}
+      {% endfor %}
+
+      {% if formaciones.has_next %}
+        <li class="page-item">
+          <a class="page-link" href="?search={{ search_query }}&page={{ formaciones.next_page_number }}" aria-label="Siguiente">
+            <span aria-hidden="true">&raquo;</span>
+          </a>
+        </li>
+      {% endif %}
+    </ul>
+  </nav>
+</div>
   </div>
 </div>
 
 {# ─── Modales ─── #}
 
-<!-- Modal de Detalles -->
+<!-- Modal de Detalles (estilo 'personas') -->
 <div class="modal fade details-modal" id="detailsModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header bg-primary text-white">
         <h5 class="modal-title text-white">Detalles de la Formación</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
       </div>
       <div class="modal-body">
-        <p><strong>Nombre:</strong> <span id="modalNombre"></span></p>
-        <p><strong>Tipo:</strong> <span id="modalTipo"></span></p>
-        <p><strong>Valor:</strong> <span id="modalValor"></span></p>
-        <p><strong>Duración:</strong> <span id="modalDuracion"></span></p>
-        <p><strong>Estado:</strong> <span id="modalEstado"></span></p>
-        <p><strong>Fecha:</strong> <span id="modalFecha"></span></p>
+        <div class="detail-item">
+          <div class="detail-label">Nombre:</div>
+          <div class="detail-value" id="detail-nombre"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Tipo:</div>
+          <div class="detail-value" id="detail-tipo"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Valor:</div>
+          <div class="detail-value bold" id="detail-valor"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Duración:</div>
+          <div class="detail-value" id="detail-duracion"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Fecha:</div>
+          <div class="detail-value" id="detail-fecha"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Estado:</div>
+          <div class="detail-value" id="detail-estado"></div>
+        </div>
+
+        </br></br>
+
+        <div class="detail-item">
+          <div class="detail-label">¿Tiene cuotas? &nbsp</div>
+          <div class="detail-value bold" id="detail-cuotas-text"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Cantidad:</div>
+          <div class="detail-value" id="detail-cuotas-count"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Tipo cuotas:</div>
+          <div class="detail-value" id="detail-cuotas-tipo"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Montos:</div>
+          <div class="detail-value" id="detail-cuotas-list"></div>
+        </div>
+
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
@@ -251,7 +331,6 @@
     </div>
   </div>
 </div>
-
 
 <!-- Modal: Registrar Formación -->
 <div class="modal fade" id="formacionModal" tabindex="-1" aria-hidden="true">
@@ -339,52 +418,113 @@
 <script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
 
 <script>
-document.addEventListener("DOMContentLoaded", function() {
-  const modalConfig = [
-    { id: '#formacionModal', url: () => "{% url 'formacion_modal' %}", content: '#registrarFormacionContent' },
-    { id: '#editFormacionModal', url: e => $(e.relatedTarget).data('url'), content: '#editFormacionContent' }
-  ];
+/* Bloque JS completo para pegar — maneja modales, envío AJAX, mensajes auto-close, detalles y utilidades */
+(function($){
+  'use strict';
 
-  modalConfig.forEach(({ id, url, content }) => {
-    $(id).on('show.bs.modal', function(e) {
-      const $content = $(this).find(content);
-      $content.html('<div class="text-center py-4"><div class="spinner-border text-primary"></div></div>');
-      $.get(url(e)).done(html => $content.html(html));
-    }).on('hidden.bs.modal', function() {
-      $(content).empty();
+  // --- helper: obtener CSRF desde cookie (Django) ---
+  function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+      const cookies = document.cookie.split(';');
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
+      }
+    }
+    return cookieValue;
+  }
+  const csrftoken = getCookie('csrftoken');
+
+  // --- Global show message (in #globalMessages) con auto-close ---
+  function showGlobalMessage(message, type = 'info', opts = {}) {
+    const autoClose = opts.autoClose !== undefined ? opts.autoClose : true;
+    const delay = opts.delay || 3000;
+    const map = { success: 'alert-success', error: 'alert-danger', danger: 'alert-danger', warning: 'alert-warning' };
+    const alertClass = map[type] || 'alert-info';
+    const $container = $('#globalMessages');
+
+    const $alert = $(`
+      <div class="alert ${alertClass} alert-dismissible fade show" role="alert" style="position:relative;">
+        ${message}
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+    `);
+
+    $container.html($alert);
+
+    if (autoClose && !alertClass.includes('danger')) {
+      setTimeout(() => {
+        try {
+          const bs = bootstrap.Alert.getOrCreateInstance($alert.get(0));
+          bs.close();
+        } catch (e) {
+          $alert.remove();
+        }
+      }, delay);
+    }
+  }
+
+  // --- Small helper to decide URL when modalConfig.url may be a function ---
+  function resolveUrl(urlOrFn, e) {
+    return (typeof urlOrFn === 'function') ? urlOrFn(e) : urlOrFn;
+  }
+
+  // --- Modal dynamic loader (abrir form registrar / editar) ---
+  $(function(){
+    const modalConfig = [
+      { id: '#formacionModal', url: () => "{% url 'formacion_modal' %}", content: '#registrarFormacionContent' },
+      { id: '#editFormacionModal', url: e => $(e.relatedTarget).data('url'), content: '#editFormacionContent' }
+    ];
+
+    modalConfig.forEach(({ id, url, content }) => {
+      $(id)
+        .on('show.bs.modal', function(e) {
+          const $content = $(this).find(content);
+          $content.html('<div class="text-center py-4"><div class="spinner-border text-primary" role="status"></div></div>');
+          const resolved = resolveUrl(url, e);
+          $.get(resolved)
+            .done(html => $content.html(html))
+            .fail(() => $content.html('<div class="text-center text-danger py-4">Error cargando contenido.</div>'));
+        })
+        .on('hidden.bs.modal', function() {
+          $(this).find(content).empty();
+        });
     });
   });
 
-['deleteFormacionModal', 'reactivateFormacionModal'].forEach(modalId => {
-    const modalSel = `#${modalId}`;
-    const formSel  = modalId === 'deleteFormacionModal'
-                     ? '#deleteFormacionForm'
-                     : '#reactivateFormacionForm';
+  // --- Preparar forms de delete/reactivate para usar next param y action ---
+  $(function(){
+    const map = [
+      { modal: '#deleteFormacionModal', form: '#deleteFormacionForm' },
+      { modal: '#reactivateFormacionModal', form: '#reactivateFormacionForm' }
+    ];
 
-    $(modalSel).on('show.bs.modal', function(e) {
-      const btnUrl = $(e.relatedTarget).data('url');
-      const nextParam = encodeURIComponent(window.location.href);
-
-      // action completo
-      const actionFull = btnUrl + '?next=' + nextParam;
-      $(formSel).attr('action', actionFull);
-
-      // también actualizamos el hidden next por si tu backend lo lee desde POST
-      $(formSel).find('input[name=next]').val(window.location.href);
+    map.forEach(({ modal, form }) => {
+      $(modal).on('show.bs.modal', function(e){
+        const btnUrl = $(e.relatedTarget).data('url') || '';
+        const nextParam = encodeURIComponent(window.location.href || '/');
+        const actionFull = btnUrl + (btnUrl.includes('?') ? '&' : '?') + 'next=' + nextParam;
+        // set action on the form in the modal
+        $(form).attr('action', actionFull);
+        // update hidden next if present
+        $(form).find('input[name=next]').val(window.location.href);
+      });
     });
   });
 
-  // 2) Reutilizamos tu función genérica de envío AJAX
-  handleFormSubmit('#deleteFormacionForm',   '#deleteFormacionModal');
-  handleFormSubmit('#reactivateFormacionForm','#reactivateFormacionModal');
-
+  // --- Validación simple por data-required (para formularios dinámicos) ---
   function validateInputs(formSelector) {
     const form = document.querySelector(formSelector);
-    if (!form) return false;
-
+    if (!form) return true; // nada que validar si no existe (server-side forms)
     let valid = true, firstInvalid = null;
     form.querySelectorAll('[data-required]').forEach(input => {
-      if (!input.value.trim()) {
+      if (!String(input.value || '').trim()) {
         input.classList.add('is-invalid');
         if (!firstInvalid) firstInvalid = input;
         valid = false;
@@ -392,29 +532,37 @@ document.addEventListener("DOMContentLoaded", function() {
         input.classList.remove('is-invalid');
       }
     });
-
-    if (!valid) {
+    if (!valid && firstInvalid) {
+      $(firstInvalid).focus();
       Swal.fire({
         title: 'Campos requeridos',
         text: 'Complete los campos obligatorios marcados en rojo',
         icon: 'warning',
         confirmButtonText: 'OK'
-      }).then(() => firstInvalid?.focus());
+      });
     }
     return valid;
   }
 
-  function handleResponse(response, modalId) {
-    const modal = $(modalId);
-    const messagesContainer = modal.find('.modal-body');
-    messagesContainer.find('.alert').remove();
+  // --- Manejo genérico de respuesta JSON desde el servidor ---
+  function handleResponse(response, modalSelector) {
+    const $modal = $(modalSelector);
+    const $messagesContainer = $modal.find('.modal-body').first();
+    $messagesContainer.find('.alert').remove();
+
+    if (response === null || typeof response !== 'object') {
+      showGlobalMessage('Respuesta inesperada del servidor', 'error');
+      return;
+    }
 
     if (response.success) {
-      modal.modal('hide');
-      showGlobalMessage(response.message, 'success');
-      setTimeout(() => location.reload(), 1500);
+      // cerrar modal, mostrar mensaje y recargar (pequeño delay para mejor UX)
+      $modal.modal('hide');
+      showGlobalMessage(response.message || 'Operación exitosa', 'success');
+      setTimeout(() => { window.location.reload(); }, 1400);
     } else {
-      if (response.errors?.__all__) {
+      // errores globales
+      if (response.errors && response.errors.__all__) {
         Swal.fire({
           title: 'Error de registro',
           text: response.errors.__all__.join('\n'),
@@ -422,207 +570,215 @@ document.addEventListener("DOMContentLoaded", function() {
           confirmButtonText: 'OK'
         });
       }
-      Object.entries(response.errors).forEach(([field, errors]) => {
-        if (field !== "__all__") {
-          messagesContainer.prepend(
-            `<div class="alert alert-danger alert-dismissible fade show" role="alert">
+      // errores por campo -> prefijar en modal
+      if (response.errors) {
+        Object.entries(response.errors).forEach(([field, errors]) => {
+          if (field === '__all__') return;
+          const html = `
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
               ${errors.join(', ')}
-              <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+              <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.5rem; right:.5rem;">
                 <i class="fas fa-times"></i>
               </button>
-            </div>`
-          );
-        }
-      });
+            </div>`;
+          $messagesContainer.prepend(html);
+        });
+        // si hay inputs con name igual a field, añadimos clase is-invalid
+        Object.keys(response.errors).forEach(field => {
+          const $input = $modal.find(`[name="${field}"]`);
+          if ($input.length) $input.addClass('is-invalid');
+        });
+      } else {
+        // mensaje fallback
+        showGlobalMessage(response.message || 'Error en la operación', 'error');
+      }
     }
   }
 
-  function showGlobalMessage(message, type) {
-    const container = $('#globalMessages');
-    const alertClass = {
-      success: 'alert-success',
-      error: 'alert-danger',
-      warning: 'alert-warning'
-    }[type] || 'alert-info';
+  // --- handleFormSubmit: somete forms (incluso dinámicos) via AJAX ---
+  function handleFormSubmit(formSelector, modalSelector) {
+    // use delegated event in case form is loaded dynamically
+    $(document).on('submit', formSelector, function(e){
+      e.preventDefault();
+      const form = this;
 
-    container.html(`
-      <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
-        ${message}
-        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
-          <i class="fas fa-times"></i>
-        </button>
-      </div>
-    `);
+      // validate if there are data-required attributes
+      if (!validateInputs(formSelector)) return;
+
+      const $modal = $(modalSelector);
+      const url = form.action || $(form).attr('action') || window.location.href;
+      const formData = new FormData(form);
+
+      // show loading inside modal body
+      const $body = $modal.find('.modal-body').first();
+      const prevContent = $body.html();
+      $body.html('<div class="text-center py-4"><div class="spinner-border text-primary" role="status"></div></div>');
+
+      $.ajax({
+        url: url,
+        method: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        headers: {
+          'X-CSRFToken': csrftoken,
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        success: function(resp){
+          handleResponse(resp, modalSelector);
+        },
+        error: function(xhr){
+          let text = 'Error de conexión';
+          try {
+            const json = xhr.responseJSON;
+            if (json && json.message) text = json.message;
+          } catch(ex) {}
+          $body.html(prevContent);
+          Swal.fire('Error', text, 'error');
+        }
+      });
+    });
   }
 
-  $('#detailsModal').on('show.bs.modal', function(event) {
-    const button = $(event.relatedTarget);
-    const modal = $(this);
-    const data = ['id', 'nombre', 'tipo', 'valor', 'duracion', 'estado', 'fecha'].reduce((acc, key) => {
-      acc[key] = button.data(key);
-      return acc;
-    }, {});
-
-    modal.find('#detail-nombre').text(data.nombre);
-    modal.find('#detail-id').text(data.id);
-    modal.find('#detail-tipo').text(data.tipo);
-    modal.find('#detail-valor').text(data.valor);
-    modal.find('#detail-duracion').text(data.duracion);
-    modal.find('#detail-fecha').text(data.fecha);
-    modal.find('#detail-estado').html(
-      `<span class="badge ${data.estado.toUpperCase() === "ACTIVO" ? 'bg-success' : 'bg-danger'} text-white">${data.estado}</span>`
-    );
+  // --- bind handleFormSubmit for known modal forms (IDs used in template) ---
+  $(function(){
+    handleFormSubmit('#deleteFormacionForm', '#deleteFormacionModal');
+    handleFormSubmit('#reactivateFormacionForm', '#reactivateFormacionModal');
+    handleFormSubmit('#formacionForm', '#formacionModal');         // si tu form crea id=formacionForm
+    handleFormSubmit('#editFormacionForm', '#editFormacionModal'); // si tu form crea id=editFormacionForm
   });
 
-  handleFormSubmit('#formacionForm', '#formacionModal');
-  handleFormSubmit('#editFormacionForm', '#editFormacionModal');
+  // --- details modal (estilo personas) ---
+  $(function(){
+    $('#detailsModal').on('show.bs.modal', function(event) {
+      const button = $(event.relatedTarget);
 
- 
+      // lee datos desde los data-*
+      const nombre = button.data('nombre') || '';
+      const tipo = button.data('tipo') || '';
+      const valor = button.data('valor') || '';
+      const duracion = button.data('duracion') || '';
+      const fecha = button.data('fecha') || '';
+      const estado = button.data('estado') || '';
+      const cuotas_text = button.data('cuotas-text') || '';
+      const cuotas_count = button.data('cuotas-count') || 0;
+      const cuotas_list = button.data('cuotas-list') || '';
+      const cuotas_tipo = button.data('cuotas-tipo') || '';
+
+      const modal = $(this);
+
+      modal.find('#detail-nombre').text(nombre);
+      modal.find('#detail-tipo').text(tipo);
+      modal.find('#detail-valor').text(valor ? (valor + ' Bs.') : '—');
+      modal.find('#detail-duracion').text(duracion || '—');
+      modal.find('#detail-fecha').text(fecha || '—');
+
+      const estadoHtml = `<span class="badge ${String(estado).toUpperCase() === 'ACTIVO' ? 'bg-success' : 'bg-danger'} text-white">${estado || '—'}</span>`;
+      modal.find('#detail-estado').html(estadoHtml);
+
+      // Cuotas: si cuotas_list es una cadena con comas, formateamos ligeramente
+      const montosFormatted = cuotas_list ? cuotas_list : '—';
+      modal.find('#detail-cuotas-text').text(cuotas_text || (cuotas_count ? 'Sí' : 'No'));
+      modal.find('#detail-cuotas-count').text(cuotas_count || '0');
+      modal.find('#detail-cuotas-tipo').text(cuotas_tipo || (cuotas_count ? 'Mixto' : '—'));
+      modal.find('#detail-cuotas-list').text(montosFormatted);
+
+      // actualizar título
+      modal.find('.modal-title').text(`Detalles de ${nombre || 'Formación'}`);
+    });
+  });
+
+  // --- manageFormacion: confirmaciones con SweetAlert + petición POST ---
   window.manageFormacion = function(id, action) {
     const isDelete = action === 'delete';
-    const url = isDelete 
+    const url = isDelete
       ? "{% url 'desactivar_formacion' 0 %}".replace('0', id)
       : "{% url 'reactivate_formacion' 0 %}".replace('0', id);
 
     Swal.fire({
-      title: isDelete ? '¿Eliminar registro?' : '¿Reactivar registro?',
+      title: isDelete ? '¿Inhabilitar formación?' : '¿Reactivar formación?',
       icon: isDelete ? 'warning' : 'question',
       showCancelButton: true,
-      confirmButtonText: isDelete ? 'Eliminar' : 'Reactivar',
+      confirmButtonText: isDelete ? 'Inhabilitar' : 'Reactivar',
       cancelButtonText: 'Cancelar',
       customClass: {
-        confirmButton: isDelete ? 'btn btn-danger' : 'btn btn-success',
+        confirmButton: isDelete ? 'btn btn-warning' : 'btn btn-success',
         cancelButton: 'btn btn-secondary'
       }
     }).then(result => {
-      if (result.isConfirmed) {
-        $.ajax({
-          url: url,
-          method: 'POST',
-          data: { csrfmiddlewaretoken: '{{ csrf_token }}' },
-          success: response => {
-            if (response.success) {
-              showGlobalMessage(response.message, 'success');
-              setTimeout(() => location.reload(), 1500);
-            } else {
-              Swal.fire('Error', response.message, 'error');
-            }
-          },
-          error: () => Swal.fire('Error', 'Error de conexión', 'error')
-        });
-      }
+      if (!result.isConfirmed) return;
+      $.ajax({
+        url: url,
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': csrftoken,
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        data: {},
+        success: function(resp){
+          if (resp && resp.success) {
+            showGlobalMessage(resp.message || 'Operación exitosa', 'success');
+            setTimeout(() => { window.location.reload(); }, 1200);
+          } else {
+            Swal.fire('Error', resp && resp.message ? resp.message : 'Error en la operación', 'error');
+          }
+        },
+        error: function() { Swal.fire('Error', 'Error de conexión', 'error'); }
+      });
     });
   };
-});
-</script>
+
+  // --- Scroll horizontal suave en tablas ---
+  $(function(){
+    const wrap = document.querySelector('.table-responsive');
+    if (wrap) {
+      wrap.addEventListener('wheel', function(e){
+        if (e.deltaY) {
+          e.preventDefault();
+          wrap.scrollLeft += e.deltaY;
+        }
+      }, { passive: false });
+    }
+  });
+
+  // --- Auto-close mensajes renderizados por Django al cargar la página ---
+  $(function(){
+    const AUTO_CLOSE_MS = 3000;
+    $('#globalMessages .alert').each(function(){
+      const $a = $(this);
+      if ($a.hasClass('alert-danger')) return; // no auto-close errores
+      setTimeout(() => {
+        try {
+          const bs = bootstrap.Alert.getOrCreateInstance($a.get(0));
+          bs.close();
+        } catch(e) {
+          $a.remove();
+        }
+      }, AUTO_CLOSE_MS);
+    });
+  });
 
 <script>
-  document.addEventListener('DOMContentLoaded', function () {
-    const table = document.getElementById('formacionesTable');
-    const paginationContainer = document.createElement('div');
-    paginationContainer.className = 'pagination-container mt-3';
-    table.parentNode.insertBefore(paginationContainer, table.nextSibling);
-
-    const pagination = document.createElement('ul');
-    pagination.className = 'pagination justify-content-center';
-    paginationContainer.appendChild(pagination);
-
-    const rowsPerPage = 10;
-    let currentPage = 1;
-
-    function displayRows() {
-        const rows = table.getElementsByTagName('tr');
-        const start = (currentPage - 1) * rowsPerPage + 1;
-        const end = start + rowsPerPage;
-
-        for (let i = 1; i < rows.length; i++) {
-            rows[i].style.display = i >= start && i < end ? '' : 'none';
-        }
-    }
-
-    function setupPagination() {
-        const rows = table.getElementsByTagName('tr');
-        const totalPages = Math.ceil((rows.length - 1) / rowsPerPage);
-
-        pagination.innerHTML = '';
-
-        // Botón Anterior
-        const prevLi = document.createElement('li');
-        prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
-        prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Anterior">&laquo;</a>`;
-        prevLi.addEventListener('click', (e) => {
-            e.preventDefault();
-            if (currentPage > 1) currentPage--;
-            displayRows();
-            setupPagination();
-        });
-        pagination.appendChild(prevLi);
-
-        // Botones de Páginas
-        for (let i = 1; i <= totalPages; i++) {
-            const li = document.createElement('li');
-            li.className = `page-item ${i === currentPage ? 'active' : ''}`;
-            li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
-            li.addEventListener('click', (e) => {
-                e.preventDefault();
-                currentPage = i;
-                displayRows();
-                setupPagination();
-            });
-            pagination.appendChild(li);
-        }
-
-        // Botón Siguiente
-        const nextLi = document.createElement('li');
-        nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
-        nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Siguiente">&raquo;</a>`;
-        nextLi.addEventListener('click', (e) => {
-            e.preventDefault();
-            if (currentPage < totalPages) currentPage++;
-            displayRows();
-            setupPagination();
-        });
-        pagination.appendChild(nextLi);
-    }
-
-    displayRows();
-    setupPagination();
-
-    // Scroll horizontal
-  const wrap = document.querySelector('.table-responsive');
-  if(wrap){
-    wrap.addEventListener('wheel', e=>{
-      if(e.deltaY){
-        e.preventDefault();
-        wrap.scrollLeft += e.deltaY;
-      }
-    });
+  // Función para actualizar el parámetro 'page' en la URL y recargar la página
+  function updatePageParam(pageNumber) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('page', pageNumber); // Actualiza o añade el parámetro 'page'
+    window.location.href = url.toString(); // Redirige a la nueva URL
   }
-  const searchInput = document.getElementById("searchInput");
+  function updateSearchParam(event) {
+    event.preventDefault(); // Evita el envío normal del formulario
 
-  searchInput.addEventListener("keyup", function () {
-    const filter = searchInput.value.toUpperCase();
-    const rows = table.querySelectorAll("tbody tr");
+    const searchInput = document.getElementById('searchInput').value.trim();
+    const url = new URL(window.location.href);
 
-    rows.forEach((row) => {
-      const text = row.textContent || row.innerText;
-      row.style.display = text.toUpperCase().includes(filter) ? "" : "none";
-    });
-  });
-});
-</script>
-<script>
-  document.addEventListener("DOMContentLoaded", function () {
-    const detailsModal = document.getElementById("detailsModal");
-    detailsModal.addEventListener("show.bs.modal", function (event) {
-      const button = event.relatedTarget; // Botón que activó el modal
-      document.getElementById("modalNombre").textContent = button.getAttribute("data-nombre");
-      document.getElementById("modalTipo").textContent = button.getAttribute("data-tipo");
-      document.getElementById("modalValor").textContent = button.getAttribute("data-valor");
-      document.getElementById("modalDuracion").textContent = button.getAttribute("data-duracion");
-      document.getElementById("modalEstado").textContent = button.getAttribute("data-estado");
-      document.getElementById("modalFecha").textContent = button.getAttribute("data-fecha");
-    });
-  });
+    if (searchInput) {
+      url.searchParams.set('search', searchInput); // Actualiza o añade el parámetro 'search'
+    } else {
+      url.searchParams.delete('search'); // Elimina el parámetro 'search' si está vacío
+    }
+
+    url.searchParams.delete('page'); // Reinicia el parámetro 'page' al realizar una nueva búsqueda
+    window.location.href = url.toString(); // Redirige a la nueva URL
+  }
 </script>
 {% endblock javascripts %}

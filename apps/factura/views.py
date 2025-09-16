@@ -1,7 +1,7 @@
 from datetime import datetime
 from datetime import timezone
 from datetime import datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from pyexpat.errors import messages
 import random
 from django.shortcuts import render, get_object_or_404, redirect
@@ -33,6 +33,8 @@ from apps.home.models import Configuracion, CuotaFormacion, Moneda, Tasa
 from apps.persona.models import Personas
 from apps.empresa.models import empresa
 from apps.planCuenta.models import PlanCuenta
+
+from .templatetags.decimal_filters import to_decimal
 
 
 def create_plan_articulo(request):
@@ -154,8 +156,16 @@ def plan_articulo_list(request):
 
 
 def factura_cargando(request, pk):
-    # Redirige primero a la animación, luego al PDF
-    return render(request, 'factura/cargando.html', {'factura_pk': pk})
+    """
+    Vista que muestra una página de carga antes de generar el PDF de factura.
+    """
+    factura = get_object_or_404(Factura, pk=pk)
+    context = {
+        'factura': factura,
+        'factura_pk': factura.id,  # Asegurarnos de pasar el ID correcto
+        'pdf_url': reverse('factura_generar_pdf', args=[factura.id])
+    }
+    return render(request, 'factura/cargando.html', context)
 def factura_list(request):
     """
     Vista para listar todas las facturas junto con sus detalles.
@@ -241,7 +251,17 @@ def notas_create(request):
             'message': f'No se encontró una tasa registrada para la moneda de configuración ({moneda_configuracion.nombreMoneda}).'
         }, status=400)
 
-    tasa_configuracion_valor = Decimal(tasa_configuracion.montoTasa)  # Convertir a Decimal
+    # Convertir a Decimal de forma segura (acepta cadenas con comas/miles)
+    try:
+        raw_tasa = str(tasa_configuracion.montoTasa or '0').replace('.', '').replace(',', '.')
+        tasa_configuracion_valor = to_decimal(raw_tasa)
+    except (InvalidOperation, ValueError):
+        return JsonResponse({
+            'success': False,
+            'message': f'Valor de tasa inválido: {tasa_configuracion.montoTasa}'
+        }, status=400)
+
+    tasa_configuracion_valor = to_decimal(tasa_configuracion.montoTasa)  # Convertir a Decimal
     print(f"Tasa de configuración ({moneda_configuracion.nombreMoneda}): {tasa_configuracion_valor}")
 
     if request.method == 'POST':
@@ -551,10 +571,15 @@ def factura_create_notas(request, nota_id=None):
         facturas_creadas = []
         with transaction.atomic():
             for nota in notas:
-                # Crear la factura
+                # Verificar si ya existe una factura para esta nota (relación OneToOne)
+                if hasattr(nota, 'factura'):
+                    # Ya existe una factura para esta nota, saltar a la siguiente
+                    continue
+                
+                # Crear la factura - solo establecer campos directos del modelo
                 factura = Factura.objects.create(
                     numeroFactura=generar_numero_factura_unico(nota),
-                    nota=nota,
+                    nota=nota,  # Establecer la relación OneToOne con la nota
                     estado='GENERADA'
                 )
 
@@ -579,11 +604,15 @@ def factura_create_notas(request, nota_id=None):
 
                 facturas_creadas.append(factura)
 
+        # Redirigir a la página de carga para la primera factura creada
+        if facturas_creadas:
+            return redirect('factura_cargando', pk=facturas_creadas[0].id)
+        
+        # Si no se crearon facturas (todas ya existían)
         return JsonResponse({
-            'success': True,
-            'message': 'Facturas creadas exitosamente.',
-            'facturas': [factura.numeroFactura for factura in facturas_creadas]
-        })
+            'success': False,
+            'message': 'No se crearon nuevas facturas. Todas las notas ya tienen facturas asociadas.'
+        }, status=400)
 
     except Exception as e:
         import traceback
@@ -695,7 +724,7 @@ def pago_create(request, pk=None):
             'message': f'No se encontró una tasa registrada para la moneda de configuración ({moneda_configuracion.nombreMoneda}).'
         }, status=400)
 
-    tasa_configuracion_valor = Decimal(tasa_configuracion.montoTasa)  # Convertir a Decimal
+    tasa_configuracion_valor = to_decimal(tasa_configuracion.montoTasa)  # Convertir a Decimal
     print(f"Tasa de configuración ({moneda_configuracion.nombreMoneda}): {tasa_configuracion_valor}")
 
     # Calcular el saldo pendiente de cada nota
@@ -720,7 +749,15 @@ def pago_create(request, pk=None):
         })
 
     if request.method == 'POST':
-        form = PagoForm(request.POST)
+        # Procesar el campo monto para convertirlo a formato decimal
+        post_data = request.POST.copy()
+        monto_str = post_data.get('monto', '')
+        if monto_str:
+            # Reemplazar: quitar puntos de mil y cambiar coma decimal por punto
+            monto_str = monto_str.replace('.', '').replace(',', '.')
+            post_data['monto'] = monto_str
+
+        form = PagoForm(post_data)        
         if form.is_valid():
             try:
                 # Iniciar una transacción atómica
@@ -855,9 +892,9 @@ def pago_create(request, pk=None):
                                     inscripcion.estadoPago = 'PARCIAL'
                                     inscripcion.save()
                                 case _ if nota_relacionada.idCuota:
-                                     cuota = nota_relacionada.idCuota
-                                     cuota.estadoPago = 'PARCIAL'
-                                     cuota.save()
+                                    cuota = nota_relacionada.idCuota
+                                    cuota.estadoPago = 'PARCIAL'
+                                    cuota.save()
                                 case _ if nota_relacionada.idSolicitud:
                                     solicitud = nota_relacionada.idSolicitud
                                     solicitud.estadoPago = 'PARCIAL'
@@ -884,37 +921,8 @@ def pago_create(request, pk=None):
                                 'referencia': pago.referencia
                             }
                         })      
-                            # Caso 2: El pago fue exitoso, la deuda fue saldada y se cerró la nota
-                    if saldo_nota - monto_pago_convertido == 0:
-                        pago.idNota.estado = 'PAGADO'
-                        pago.idNota.save()
-
-                        # Verificar el tipo de asociación de la nota usando las relaciones
-                        nota_relacionada = NotaRelacionada.objects.filter(idNota=pago.idNota).first()
-                        if nota_relacionada:
-                            match nota_relacionada:
-                                case _ if nota_relacionada.idInscripcion:
-                                    inscripcion = nota_relacionada.idInscripcion
-                                    inscripcion.estadoPago = 'PAGADO'
-                                    inscripcion.save()
-                                case _ if nota_relacionada.idCuota:
-                                    cuota = nota_relacionada.idCuota
-                                    cuota.estadoPago = 'PAGADO'
-                                    cuota.save()
-                                case _ if nota_relacionada.idSolicitud:
-                                    solicitud = nota_relacionada.idSolicitud
-                                    solicitud.estadoPago = 'PAGADO'
-                                    solicitud.save()
-                                case _ if nota_relacionada.idHonorario:
-                                    honorario = nota_relacionada.idHonorario
-                                    honorario.estadoPago = 'PAGADO'
-                                    honorario.save()
-                                case _:
-                                    print("Tipo de asociación desconocido")
-                        else:
-                            print("No se encontró una relación para la nota.")
-
-                      # Caso 2: El pago fue exitoso, la deuda fue saldada y se cerró la nota
+                    else:
+                        # Caso 2: El pago fue exitoso, la deuda fue saldada y se cerró la nota
                         if saldo_nota - monto_pago_convertido == 0:
                             pago.idNota.estado = 'PAGADO'
                             pago.idNota.save()
@@ -964,20 +972,64 @@ def pago_create(request, pk=None):
                             else:
                                 print("No se encontró una relación para la nota.")
 
-                            return JsonResponse({
-                                'success': True,
-                                'message': 'Pago creado exitosamente y asiento contable generado. La nota ha sido pagada en su totalidad. Ya puede facturar.',
-                                'redirect_url': reverse('factura_create', args=[pago.idNota.idNota]),
-                                'relaciones': relaciones,  # Enviar las llaves relacionadas
-                                'pago': {
-                                    'idPago': pago.idPago,
-                                    'idNota': pago.idNota.numeroNota,
-                                    'monto': f"{float(pago.monto):.2f} {pago.idTasa.idMoneda.simboloMoneda}",
-                                    'fechaPago': pago.fechaPago.strftime('%d/%m/%Y'),
-                                    'formaPago': pago.formaPago,
-                                    'referencia': pago.referencia
-                                }
-                            })
+                             # GENERAR FACTURA AUTOMÁTICAMENTE
+                    factura_generada = False
+                    factura_id = None
+                    try:
+                        factura = Factura.objects.create(
+                            numeroFactura=generar_numero_factura_unico(pago.idNota),
+                            idPersona=pago.idNota.idPersona,
+                            idEmpresa=pago.idNota.idEmpresa,
+                            fechaEmision=datetime.now().date(),
+                            totalVenta=pago.idNota.totalNota,
+                            subtotalExento=pago.idNota.subtotalExento,
+                            subtotalGravado=pago.idNota.subtotalGravado,
+                            iva=pago.idNota.iva,
+                            ivaRetenido=pago.idNota.ivaRetenido,
+                            islrRetenido=pago.idNota.islrRetenido,
+                            descuento=pago.idNota.descuento,
+                            estado='GENERADA'
+                        )
+                        FacturaDetalle.objects.create(
+                            idFactura=factura,
+                            idNota=pago.idNota,
+                            tipoItem=pago.idNota.tipoArticulo,
+                            descripcion=f"Nota {pago.idNota.numeroNota}",
+                            cantidad=1,
+                            precioUnitario=pago.idNota.totalNota,
+                            exento=pago.idNota.subtotalExento > 0,
+                            descuentoItem=pago.idNota.descuento,
+                            subtotal=pago.idNota.subtotalGravado + pago.idNota.subtotalExento,
+                            ivaItem=pago.idNota.iva,
+                            totalItem=pago.idNota.totalNota
+                        )
+                        # Actualizar estado de la nota
+                        pago.idNota.estado = 'FACTURADO'
+                        pago.idNota.save()
+                        
+                        factura_generada = True
+                        factura_id = factura.idFactura
+                    except Exception as e:
+                        print(f"Error al generar factura automáticamente: {str(e)}")
+                        # Si hay error, mantener el estado PAGADO y no FACTURADO
+                        pass
+
+                    return JsonResponse({
+                        'success': True,
+                        'message': 'Pago creado exitosamente. La nota ha sido pagada en su totalidad y facturada automáticamente.',
+                        'redirect_url': reverse('factura_cargando', args=[factura_id]) if factura_generada else reverse('factura_list'),
+                        'factura_generada': factura_generada,
+                        'factura_id': factura_id,
+                        'relaciones': relaciones,
+                        'pago': {
+                            'idPago': pago.idPago,
+                            'idNota': pago.idNota.numeroNota,
+                            'monto': f"{float(pago.monto):.2f} {pago.idTasa.idMoneda.simboloMoneda}",
+                            'fechaPago': pago.fechaPago.strftime('%d/%m/%Y'),
+                            'formaPago': pago.formaPago,
+                            'referencia': pago.referencia
+                        }
+                    })
             except ValueError as e:
                 print(f"Error de valor: {e}")
                 return JsonResponse({
@@ -1508,10 +1560,22 @@ def factura_generar_pdf(request, pk):
     p.setFont("Helvetica", 10)
     p.drawString(40, y, f"Fecha de Emisión: {factura.fechaEmision.strftime('%d/%m/%Y')}")
     y -= 16
-    cliente = factura.idPersona if factura.idPersona else factura.idEmpresa
-    nombre_cliente = getattr(cliente, 'nombreCompleto', getattr(cliente, 'nombreEmpresa', ''))
-    rif_cliente = getattr(cliente, 'cedula', getattr(cliente, 'rif', ''))
-    direccion_cliente = getattr(cliente, 'direccion', getattr(cliente, 'direccionEmpresa', ''))
+    
+    nombre_cliente = "N/A"
+    rif_cliente = "N/A"
+    direccion_cliente = "N/A"
+
+    # Obtener información del cliente 
+    if hasattr(nota, 'idPersona') and nota.idPersona:
+        nombre_cliente = getattr(nota.idPersona, 'nombreCompleto', 
+                                f"{getattr(nota.idPersona, 'nombres', '')} {getattr(nota.idPersona, 'apellidos', '')}".strip())
+        rif_cliente = getattr(nota.idPersona, 'cedula', 'N/A')
+        direccion_cliente = getattr(nota.idPersona, 'direccion', 'N/A')
+    # Si no hay persona, intentar obtener información de la empresa
+    elif hasattr(nota, 'idEmpresa') and nota.idEmpresa:
+        nombre_cliente = getattr(nota.idEmpresa, 'nombreEmpresa', 'N/A')
+        rif_cliente = getattr(nota.idEmpresa, 'rif', 'N/A')
+        direccion_cliente = getattr(nota.idEmpresa, 'direccionEmpresa', 'N/A')
     p.drawString(40, y, f"Cliente: {nombre_cliente}")
     y -= 16
     p.drawString(40, y, f"RIF/Cédula: {rif_cliente}")
