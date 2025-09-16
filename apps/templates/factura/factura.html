@@ -35,8 +35,7 @@
     {% endfor %}
   {% endif %}
 
-  <form method="POST" id="facturaForm" action="{% url 'factura_create' %}" class="text-dark needs-validation" autocomplete="off" novalidate>
-    {% csrf_token %}
+  <form method="POST" id="facturaForm" action="{% url 'factura_create' nota_id=nota.idNota %}" class="text-dark needs-validation" autocomplete="off" novalidate>    {% csrf_token %}
 
     <div class="form-row">
       <div class="form-row">
@@ -217,9 +216,9 @@
         <label for="estadoFactura">Estado:</label>
         <select id="estado" name="estado" class="form-control text-dark" required>
           <option value="" disabled selected>Seleccione el estado...</option>
-          <option value="Pendiente">Pendiente</option>
-          <option value="Pagado">Pagado</option>
-          <option value="Cancelado">Cancelado</option>
+          <option value="PENDIENTE">Pendiente</option>
+          <option value="PAGADO">Pagado</option>
+          <!-- <option value="CANCELADO">Cancelado</option> -->
         </select>
         <div class="invalid-feedback">Por favor seleccione un estado.</div>
       </div>
@@ -513,8 +512,9 @@ document.addEventListener('DOMContentLoaded', function() {
   const formaPago = document.getElementById('formaPago');
   const plazoCreditoInput = document.getElementById('plazoCredito');
   const toggleReadonlyButton = document.getElementById('toggleReadonly');
-  const camposReadonly = ['iva', 'ivaRetenido', 'islrRetenido', 'numeroFactura','descuento' ];
-  
+  const camposReadonly = ['iva', 'ivaRetenido', 'islrRetenido', 'numeroFactura','descuento', 'subtotalExento', 'subtotalGravado', 'totalVenta', 'fechaEmision', 'fechaVencimiento', 'formaPago', 'plazoCredito'];
+  descuento.value = '0.00'; // Inicializar descuento en 0
+
 
   // Interceptar el envío del formulario
   facturaForm.addEventListener('submit', async function (event) {
@@ -549,6 +549,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 <p><strong>Total:</strong> ${result.detalle.totalItem}</p>
             `;
             $('#detalleFacturaModal').modal('show');
+             // Redirigir al enlace proporcionado en el JSON después de cerrar el modal
+        document.getElementById('okButton').addEventListener('click', function () {
+          window.location.href = result.redirect_url; // Usar la URL de redirección del JSON
+        });
+
         }  else {
         // Mostrar errores del servidor
         Swal.fire({

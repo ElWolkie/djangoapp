@@ -10,8 +10,8 @@ class empresaForm(forms.ModelForm):
         cleaned_data = super().clean()
         telefono = cleaned_data.get('telefonoEmpresa')
 
-        # Validar que el teléfono tenga solo números
-        if telefono and not telefono.isdigit():
-            raise forms.ValidationError("El teléfono debe contener solo números.")
+        # Validar que el teléfono tenga solo números o guiones
+        if telefono and not all(char.isdigit() or char == '-' for char in telefono):
+            raise forms.ValidationError("El teléfono debe contener solo números o guiones.")
 
         return cleaned_data

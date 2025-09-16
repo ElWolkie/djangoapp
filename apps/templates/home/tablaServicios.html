@@ -55,12 +55,12 @@
 
 {% block content %}
 <div class="container mt-4">
-  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Lista de Servicios Registradas</h2>
+  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Lista de Servicios</h2>
   <div class="row mb-3">
     <div class="col-md-4">
       <div class="input-group">
         <span class="input-group-text"><i class="fas fa-search"></i></span>
-        <input class="form-control" id="searchInput" type="text" placeholder="Buscar por Nombre o Código">
+        <input class="form-control" id="searchInput" type="text" placeholder="Buscar...">
       </div>
     </div>
     <div class="col-md-4 text-center">
@@ -72,7 +72,7 @@
     </div>
 
     <div class="col-md-4 text-end">
-      <a href="{% url 'reporte_servicios_pdf' %}" class="btn btn-outline-danger btn-sm" target="_blank">
+      <a href="{% url 'reporte_servicios_pdf' %}" class="btn btn-outline-danger" target="_blank">
         <i class="fas fa-file-pdf"></i> Descargar PDF
       </a>
     </div>
@@ -182,7 +182,7 @@
 
 <!-- Modal Registrar Servicio -->
 <div class="modal fade" id="servicioModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-md">
+  <div class="modal-dialog modal-lg">
     <div class="modal-content">
       <div class="modal-header bg-primary text-white">
         <h5 class="modal-title text-white"><i class="fas fa-plus-circle me-2"></i> Registro de Servicio</h5>

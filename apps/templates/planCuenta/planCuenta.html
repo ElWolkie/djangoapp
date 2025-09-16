@@ -5,150 +5,289 @@
 {% block stylesheets %}
 <link rel="stylesheet" href="/static/assets/css/styleForms.css" />
 <link rel="stylesheet" href="/static/assets/css/argon.css" />
-
 <style>
-  #tablaCuentas th, #tablaCuentas td {
-    text-align: center;
-    white-space: nowrap;
+  .plan-container {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 1rem;
+    box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.1);
+    padding: 2rem;
+    margin: 2rem auto;
+    max-width: 700px;
   }
-
-  #tablaCuentas th {
-    font-weight: bold;
+  .plan-header {
+    text-align: center;
+    margin-bottom: 2rem;
+    position: relative;
+    padding-bottom: 1rem;
+  }
+  .plan-header h2 {
+    color: #343a40;
+    font-weight: 700;
+  }
+  .plan-header::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80px;
+    height: 4px;
+    background: linear-gradient(90deg, #ffc107, #fd7e14);
+    border-radius: 2px;
+  }
+  .form-group {
+    margin-bottom: 1.5rem;
+    position: relative;
+  }
+  .form-label {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+  }
+  .form-label i {
+    margin-right: 8px;
+    color: #fd7e14;
+  }
+  .form-control {
+    border-radius: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    border: 1px solid #ced4da;
+    background-color: #fff;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.075);
+    transition: all 0.3s;
+  }
+  .form-control:focus {
+    border-color: #ffc107;
+    box-shadow: 0 0 0 0.25rem rgba(255,193,7,0.25);
+  }
+  .input-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6c757d;
+    z-index: 2;
+  }
+  .input-with-icon {
+    padding-left: 40px;
+  }
+  .btn-submit {
+    background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+    border: none;
+    color: #fff;
+    font-weight: 600;
+    padding: 0.75rem 2rem;
+    border-radius: 0.5rem;
+    transition: all 0.3s;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+  .btn-submit:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    background: linear-gradient(135deg, #fd7e14 0%, #ffc107 100%);
+  }
+  .input-group-btn .btn {
+    border-radius: 0 0.5rem 0.5rem 0;
+    background: #ffc107;
+    color: #343a40;
+    border: 1px solid #ced4da;
+    border-left: none;
+  }
+  .form-check-label {
+    font-weight: normal;
+  }
+  .btn-select {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8rem;
   }
 </style>
 {% endblock stylesheets %}
 
 {% block content %}
-<div class="container mt-5">
-  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Registrar Plan de Cuenta</h2>
+{% if messages %}
+  {% for message in messages %}
+    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+      <i class="fas {% if message.tags == 'success' %}fa-check-circle{% else %}fa-exclamation-circle{% endif %} me-2"></i>
+      {{ message }}
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+  {% endfor %}
+{% endif %}
+<div id="dynamicAlertContainer"></div>
 
-  {% if messages %}
-    {% for message in messages %}
-      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-        {{ message }}
-      </div>
-    {% endfor %}
-  {% endif %}
+<div class="plan-container">
+  <div class="plan-header">
+    <h2><i class="fas fa-file-invoice-dollar text-warning"></i> Registrar Plan de Cuenta</h2>
+    <p class="text-muted">Complete todos los campos para añadir un nuevo plan de cuenta</p>
+  </div>
 
-  <form method="POST" class="mt-3 text-dark needs-validation" autocomplete="off" style="font-weight: bold; max-width: 600px; margin: 0 auto;" id="planCuentaForm" action="{% url 'plan_cuenta_create' %}" novalidate>
+  <form method="POST" class="needs-validation" autocomplete="off" id="planCuentaForm" action="{% url 'plan_cuenta_create' %}" novalidate>
     {% csrf_token %}
 
-    <div class="form-row">
-      <div class="form-group col-md-12">
-        <label for="nombrePlanCuenta">Nombre:</label>
-        <input type="text" id="nombrePlanCuenta" name="nombrePlanCuenta" class="form-control text-dark" placeholder="Ingrese el nombre" maxlength="255" required />
-      </div>
-    </div>
-
-    <div class="form-row">
-      <div class="form-group col-md-6">
-        <label for="tipoPlanCuenta">Tipo:</label>
-        <select id="tipoPlanCuenta" name="tipoPlanCuenta" class="form-control text-dark" required>
-          <option value="" disabled selected>Seleccione...</option>
-          <option value="activo">Activo</option>
-          <option value="pasivo">Pasivo</option>
-          <option value="patrimonio">Patrimonio</option>
-          <option value="ingreso">Ingreso</option>
-          <option value="gasto">Gasto</option>
-        </select>
-      </div>
-
-      <div class="form-group col-md-6">
-        <label for="nivelPlanCuenta">Nivel:</label>
-        <input type="number" id="nivelPlanCuenta" name="nivelPlanCuenta" class="form-control text-dark" placeholder="Ingrese el nivel" min="1" required />
-      </div>
-    </div>
-
-  
-  <div class="form-row">
-    <div class="form-group col-md-6">
-      <label for="cuentaPadre">Cuenta Padre:</label>
+    <div class="form-group">
+      <label for="nombrePlanCuenta" class="form-label">
+        <i class="fas fa-heading"></i> Nombre
+      </label>
       <div class="input-group">
-        <input type="text" id="cuentaPadre" class="form-control text-dark" placeholder="Seleccione una cuenta padre" readonly />
-        <button type="button" id="buscarCuentaPadre" class="btn btn-warning" data-toggle="modal" data-target="#cuentaPadreModal">
-          <i class="fas fa-search"></i>
-        </button>
+        <i class="fas fa-font input-icon"></i>
+        <input type="text" id="nombrePlanCuenta" name="nombrePlanCuenta" 
+               class="form-control input-with-icon" 
+               placeholder="Ingrese el nombre" 
+               maxlength="255" required />
+        <div class="invalid-feedback">Por favor, ingrese un nombre válido.</div>
       </div>
     </div>
-    <div class="form-group col-md-6">
-      <label for="naturalezaPlanCuenta">Naturaleza:</label> &nbsp; &nbsp;<span>¿Modificar?</span>
-      <div class="form-check form-check-inline">
-        <input class="form-check-input" type="radio" name="habilitarNaturaleza" id="habilitarNaturalezaSi" value="si">
-        <label class="form-check-label" for="habilitarNaturalezaSi" style="font-size: 0.9em;">Sí</label>
+
+    <div class="row">
+      <div class="col-md-6">
+        <div class="form-group">
+          <label for="tipoPlanCuenta" class="form-label">
+            <i class="fas fa-list-alt"></i> Tipo
+          </label>
+          <select id="tipoPlanCuenta" name="tipoPlanCuenta" class="form-control" required>
+            <option value="" disabled selected>Seleccione...</option>
+            <option value="activo">Activo</option>
+            <option value="pasivo">Pasivo</option>
+            <option value="patrimonio">Patrimonio</option>
+            <option value="ingreso">Ingreso</option>
+            <option value="gasto">Gasto</option>
+          </select>
+          <div class="invalid-feedback">Por favor, seleccione un tipo.</div>
+        </div>
       </div>
-      <div class="form-check form-check-inline">
-        <input class="form-check-input" type="radio" name="habilitarNaturaleza" id="habilitarNaturalezaNo" value="no" checked>
-        <label class="form-check-label" for="habilitarNaturalezaNo" style="font-size: 0.9em;">No</label>
+
+      <div class="col-md-6">
+        <div class="form-group">
+          <label for="nivelPlanCuenta" class="form-label">
+            <i class="fas fa-layer-group"></i> Nivel
+          </label>
+          <div class="input-group">
+            <i class="fas fa-sort-numeric-up input-icon"></i>
+            <input type="number" id="nivelPlanCuenta" name="nivelPlanCuenta" 
+                   class="form-control input-with-icon"
+                   placeholder="Ingrese el nivel" 
+                   min="1" required />          
+            <div class="invalid-feedback">Por favor, ingrese un nivel válido.</div>
+          </div>
+        </div>
       </div>
-      <!-- Input oculto para almacenar el valor de la naturaleza -->
+    </div>
+
+    <div class="form-group">
+      <label for="cuentaPadre" class="form-label">
+        <i class="fas fa-project-diagram"></i> Cuenta Padre
+      </label>
+      <div class="input-group">
+        <input type="text" id="cuentaPadre" class="form-control" placeholder="Seleccione una cuenta padre" readonly />
+        <div class="input-group-append">
+          <button type="button" id="buscarCuentaPadre" class="btn btn-warning" data-toggle="modal" data-target="#cuentaPadreModal">
+            <i class="fas fa-search"></i>
+          </button>
+        </div>
+        <div class="invalid-feedback">Por favor, ingrese una cuenta válida.</div>
+
+      </div>
+      <input type="hidden" id="cuentaPadreId" name="cuentaPadre" />
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">
+        <i class="fas fa-exchange-alt"></i> Naturaleza
+      </label>
+      <div class="d-flex align-items-center mb-2">
+        <span class="mr-2">¿Modificar?</span>
+        <div class="form-check form-check-inline ml-2">
+          <input class="form-check-input" type="radio" name="habilitarNaturaleza" id="habilitarNaturalezaSi" value="si">
+          <label class="form-check-label" for="habilitarNaturalezaSi">Sí</label>
+        </div>
+        <div class="form-check form-check-inline">
+          <input class="form-check-input" type="radio" name="habilitarNaturaleza" id="habilitarNaturalezaNo" value="no" checked>
+          <label class="form-check-label" for="habilitarNaturalezaNo">No</label>
+        </div>
+      </div>
       <input type="hidden" id="naturalezaPlanCuentaHidden" name="naturalezaPlanCuenta" />
-      <select id="naturalezaPlanCuenta" name="naturalezaPlanCuentaSelect" class="form-control text-dark" disabled required>
+      <select id="naturalezaPlanCuenta" name="naturalezaPlanCuentaSelect" class="form-control" disabled required>
         <option value="" disabled selected>Seleccione...</option>
         <option value="deudora">Deudora</option>
         <option value="acreedora">Acreedora</option>
       </select>
     </div>
-    <input type="hidden" id="cuentaPadreId" name="cuentaPadre" />
+
     <input type="hidden" id="estadoPlanCuenta" name="estadoPlanCuenta" value="True" />
 
-  </div>
-    <div class="text-center">
-      <input type="submit" class="btn btn-warning mt-4" value="Guardar" />
+    <div class="text-center mt-4">
+      <button type="submit" class="btn-submit">
+        <i class="fas fa-save me-2"></i> Guardar
+      </button>
     </div>
   </form>
 </div>
- </div>
 
 <!-- Modal -->
 <div class="modal fade" id="cuentaPadreModal" tabindex="-1" role="dialog" aria-labelledby="cuentaPadreModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered" role="document">
+  <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
     <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="cuentaPadreModalLabel">Seleccionar Cuenta Padre</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+      <div class="modal-header bg-orange text-white">
+        <h5 class="modal-title" id="cuentaPadreModalLabel">
+          <i class="fas fa-search mr-2"></i> Seleccionar Cuenta Padre
+        </h5>
+        <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
       </div>
       <div class="modal-body">
-        <div class="row mb-3">
-          <div class="col-md-8">
-            <div class="input-group">
-              <div class="input-group-prepend">
-                <span class="input-group-text" style="background-color: #bcbcbc; border: none;">
-                  <i class="fas fa-search text-warning"></i>
-                </span>
-              </div>
-              <input class="form-control" id="searchModalInput" type="text" placeholder="Buscar..." onkeyup="filterModalTable()">
-            </div>
+        <div class="input-group mb-3">
+          <div class="input-group-prepend">
+            <span class="input-group-text bg-light">
+              <i class="fas fa-search text-warning"></i>
+            </span>
           </div>
+          <input class="form-control" id="searchModalInput" type="text" placeholder="Buscar cuenta...">
         </div>
-        <table class="table table-sm table-responsive table-striped table-hover" id="tablaCuentas">
-          <thead>
-            <tr>
-              <th style="width: 10%;">Código</th>
-              <th style="width: 20%;">Nombre</th>
-              <th style="width: 10%;">Nivel</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for cuenta in cuentas_padre %}
-                <tr data-id="{{ cuenta.idPlanCuenta }}" data-nombre="{{ cuenta.codigoPlanCuenta }} - {{ cuenta.nombrePlanCuenta }}" data-nivel="{{ cuenta.nivelPlanCuenta }}">
-                    <td>{{ cuenta.codigoPlanCuenta }}</td>
-                    <td>{{ cuenta.nombrePlanCuenta }}</td>
-                    <td>{{ cuenta.nivelPlanCuenta }}</td>
+        <div class="table-responsive">
+          <table class="table table-sm table-striped table-hover" id="tablaCuentas">
+            <thead class="bg-light">
+              <tr>
+                <th style="width: 15%;">Código</th>
+                <th style="width: 60%;">Nombre</th>
+                <th style="width: 10%;">Nivel</th>
+                <th style="width: 15%;">Seleccionar</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for cuenta in cuentas_padre %}
+                <tr data-id="{{ cuenta.idPlanCuenta }}" 
+                    data-nombre="{{ cuenta.codigoPlanCuenta }} - {{ cuenta.nombrePlanCuenta }}" 
+                    data-nivel="{{ cuenta.nivelPlanCuenta }}">
+                  <td>{{ cuenta.codigoPlanCuenta }}</td>
+                  <td>{{ cuenta.nombrePlanCuenta }}</td>
+                  <td>{{ cuenta.nivelPlanCuenta }}</td>
+                  <td>
+                    <button class="btn btn-sm btn-warning btn-select">
+                      <i class="fas fa-check"></i> Elegir
+                    </button>
+                  </td>
                 </tr>
-            {% endfor %}
-        </tbody>
-        </table>
-        <p id="mensajeSinRegistros" class="text-center text-muted" style="display: none;">No hay registros disponibles</p>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <p id="mensajeSinRegistros" class="text-center text-muted my-4" style="display: none;">
+          <i class="fas fa-info-circle mr-2"></i> No se encontraron registros
+        </p>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">
+          <i class="fas fa-times mr-2"></i> Cerrar
+        </button>
       </div>
     </div>
   </div>
 </div>
 {% endblock content %}
+
 {% block javascripts %}
 <script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
 <script>
@@ -234,25 +373,53 @@
       }
     });
 
-    // Agregar evento de clic a las filas de la tabla
-    tablaCuentas.addEventListener('click', function (event) {
-      const fila = event.target.closest('tr'); // Obtener la fila clickeada
-      if (fila) {
+    // Selección de cuenta padre desde el modal
+    document.addEventListener('click', function(event) {
+      if (event.target.classList.contains('btn-select') || event.target.closest('.btn-select')) {
+        const button = event.target.closest('.btn-select');
+        const fila = button.closest('tr');
         const cuentaId = fila.getAttribute('data-id');
         const cuentaNombre = fila.getAttribute('data-nombre');
 
-        // Actualizar los campos con los datos seleccionados
         cuentaPadreInput.value = cuentaNombre;
         cuentaPadreIdInput.value = cuentaId;
-
-        // Validar el campo de cuenta padre
         cuentaPadreInput.classList.remove('is-invalid');
         cuentaPadreInput.classList.add('is-valid');
-
-        // Cerrar el modal
+        
         $('#cuentaPadreModal').modal('hide');
       }
     });
+
+    // Filtrado de tabla en modal
+    function filterModalTable() {
+      const input = document.getElementById('searchModalInput');
+      const filter = input.value.toUpperCase();
+      const table = document.getElementById('tablaCuentas');
+      const tr = table.getElementsByTagName('tr');
+      let visibleCount = 0;
+
+      for (let i = 0; i < tr.length; i++) {
+        const tdCodigo = tr[i].getElementsByTagName('td')[0];
+        const tdNombre = tr[i].getElementsByTagName('td')[1];
+        if (tdCodigo && tdNombre) {
+          const txtValueCodigo = tdCodigo.textContent || tdCodigo.innerText;
+          const txtValueNombre = tdNombre.textContent || tdNombre.innerText;
+          if (txtValueCodigo.toUpperCase().indexOf(filter) > -1 || 
+              txtValueNombre.toUpperCase().indexOf(filter) > -1) {
+            tr[i].style.display = '';
+            visibleCount++;
+          } else {
+            tr[i].style.display = 'none';
+          }
+        }
+      }
+      
+      mensajeSinRegistros.style.display = visibleCount === 0 ? 'block' : 'none';
+    }
+
+    // Inicializar el filtrado
+    document.getElementById('searchModalInput').addEventListener('keyup', filterModalTable);
+    filterModalTable(); // Aplicar filtro inicial
 
     // Manejar el envío del formulario con validaciones
     planCuentaForm.addEventListener('submit', function (event) {
@@ -299,16 +466,16 @@
 
       // Si hay errores, no enviar el formulario
       if (!isValid) {
-        Swal.fire({
-          icon: 'error',
-          title: 'Formulario incompleto',
-          text: 'Por favor, complete todos los campos requeridos antes de enviar.',
-          confirmButtonText: 'Aceptar',
-          customClass: {
-            confirmButton: 'btn btn-warning',
-          },
-          buttonsStyling: false,
-        });
+        // Swal.fire({
+        //   icon: 'error',
+        //   title: 'Formulario incompleto',
+        //   text: 'Por favor, complete todos los campos requeridos antes de enviar.',
+        //   confirmButtonText: 'Aceptar',
+        //   customClass: {
+        //     confirmButton: 'btn btn-warning',
+        //   },
+        //   buttonsStyling: false,
+        // });
         return;
       }
 
@@ -369,5 +536,14 @@
         });
     });
   });
+  // Activar mayúsculas en inputs
+function activarMayusculasInputs() {
+    document.addEventListener('input', function(e) {
+      if (e.target.tagName === 'INPUT' && !e.target.type.match(/password|hidden|email/)) {
+        e.target.value = e.target.value.toUpperCase();
+      }
+    });
+  }
+  activarMayusculasInputs();  
 </script>
 {% endblock javascripts %}

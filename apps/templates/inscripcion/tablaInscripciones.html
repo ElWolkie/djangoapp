@@ -1,6 +1,8 @@
 {% extends 'layouts/base.html' %}
 {% load static %}
-{% load dict_extras %}
+
+{% load inscripcion_dict_extras %}
+
 {% block title %}Listado de Inscripciones{% endblock title %}
 
 {% block stylesheets %}
@@ -70,31 +72,56 @@
     background-color: #fb6340;
     border-color: #fb6340;
 }
+
+/* Estilos para el modal de detalles */
+.details-modal .modal-content {
+  border-radius: 15px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+.details-modal .modal-header {
+  background: linear-gradient(135deg, #5e72e4 0%, #825ee4 100%);
+  color: white;
+  border-radius: 15px 15px 0 0;
+}
+.detail-item {
+  padding: 10px 0;
+  border-bottom: 1px solid #eee;
+  display: flex;
+}
+.detail-label {
+  font-weight: 600;
+  color: #525f7f;
+  min-width: 140px;
+}
+.detail-value {
+  color: #8898aa;
+  flex-grow: 1;
+}
 </style>
 {% endblock stylesheets %}
 
 {% block content %}
 <div class="container mt-4">
-  <h2 class="text-center mb-4">Lista de Inscripciones Registradas</h2>
+  <h2 class="text-center mb-4">Lista de Inscripciones</h2>
 
   <div class="row mb-3">
     <div class="col-md-4">
       <div class="input-group">
         <span class="input-group-text"><i class="fas fa-search"></i></span>
-        <input id="searchInput" class="form-control" type="text" placeholder="Buscar inscripciones...">
+        <input id="searchInput" class="form-control" type="text" placeholder="Buscar...">
       </div>
     </div>
     
     <div class="col-md-4 text-center">
-      {% if perms.home.add_inscripcion %}
+      {% if perms.inscripcion.add_inscripcion %}
       <a href="{% url 'inscripcion_modal' %}" class="btn btn-warning">
-        <i class="fas fa-plus-circle me-1"></i> Nueva Inscripción
+        <i class="fas fa-plus-circle me-1"></i> Registrar Inscripción
       </a>
       {% endif %}
     </div>
 
     <div class="col-md-4 text-end">
-      <a href="{% url 'reporte_inscripcion_pdf' %}" class="btn btn-outline-danger btn-sm" target="_blank">
+      <a href="{% url 'reporte_inscripcion_pdf' %}" class="btn btn-outline-danger" target="_blank">
         <i class="fas fa-file-pdf"></i> Descargar PDF
       </a>
     </div>
@@ -129,11 +156,9 @@
           <tr>
             <th>ID</th>
             <th>Cédula</th>
-            <th>Cohorte</th>
-            <th>Tipo Formación</th>
             <th>Formación</th>
+            <th>Cohorte</th>
             <th>Estado</th>
-            <th>Fecha</th>
             <th class="actions-column">Acciones</th>
           </tr>
         </thead>
@@ -142,9 +167,8 @@
           <tr>
             <td>{{ inscripcion.idInscripcion }}</td>
             <td>{{ inscripcion.idPersona.cedula }}</td>
-            <td>{{ inscripcion.idCohorte.nombreCohorte }}</td>
-            <td>{{ inscripcion.idTF.nombreTipoFormacion }}</td>
             <td>{{ inscripcion.idFormacion.nombreFormacion }}</td>
+            <td>{{ inscripcion.idCohorte.nombreCohorte }}</td>
             <td>
               {% if inscripcion.is_active %}
                 <span class="badge bg-success text-white"><i class="fas fa-check-circle me-1"></i> Activo</span>
@@ -152,57 +176,173 @@
                 <span class="badge bg-danger text-white"><i class="fas fa-times-circle me-1"></i> Inactivo</span>
               {% endif %}
             </td>
-            <td>{{ inscripcion.fechaInscripcion|date:"d/m/Y" }}</td>
 
             <td class="actions-column">
               <div class="d-flex gap-2">
-                {% if perms.home.change_inscripcion %}
+                <!-- Botón Ver más -->
+                {% if perms.inscripcion.view_inscripcion %}
+                  <button class="btn btn-info btn-sm view-details-btn"
+                          data-bs-toggle="modal"
+                          data-bs-target="#detailsModal"
+                          data-id="{{ inscripcion.idInscripcion }}"
+                          data-cedula="{{ inscripcion.idPersona.cedula }}"
+                          data-nombres="{{ inscripcion.idPersona.nombres }}"
+                          data-apellidos="{{ inscripcion.idPersona.apellidos }}"
+                          data-cohorte="{{ inscripcion.idCohorte.nombreCohorte }}"
+                          data-tipo-formacion="{{ inscripcion.idTF.nombreTipoFormacion }}"
+                          data-formacion="{{ inscripcion.idFormacion.nombreFormacion }}"
+                          data-estado="{% if inscripcion.is_active %}Activo{% else %}Inactivo{% endif %}"
+                          data-fecha="{{ inscripcion.fechaInscripcion|date:'d/m/Y' }}"
+                          title="Ver más">
+                    <i class="fas fa-eye"></i>
+                  </button>
+                {% endif %}
+                
+                {% if perms.inscripcion.change_inscripcion %}
                 <button class="btn btn-primary btn-sm"
                         data-bs-toggle="modal"
                         data-bs-target="#editInscripcionModal"
-                        data-url="{% url 'edit_inscripcion' inscripcion.idInscripcion %}">
+                        data-url="{% url 'edit_inscripcion' inscripcion.idInscripcion %}"
+                        title="Editar">
                   <i class="fas fa-edit"></i>
                 </button>
                 {% endif %}
-                {% if inscripcion.is_active and perms.home.change_inscripcion %}
+                
+                {% if inscripcion.is_active and perms.inscripcion.change_inscripcion %}
                 <button class="btn btn-outline-warning btn-sm"
                         data-bs-toggle="modal"
                         data-bs-target="#deleteInscripcionModal"
-                        data-url="{% url 'desactivar_inscripcion' inscripcion.idInscripcion %}">
+                        data-url="{% url 'desactivar_inscripcion' inscripcion.idInscripcion %}"
+                        title="Desactivar">
                   <i class="fas fa-user-slash"></i>
                 </button>
                 {% endif %}
-                {% if not inscripcion.is_active and perms.home.change_inscripcion %}
+                
+                {% if not inscripcion.is_active and perms.inscripcion.change_inscripcion %}
                 <button class="btn btn-success btn-sm"
                         data-bs-toggle="modal"
                         data-bs-target="#reactivateInscripcionModal"
-                        data-url="{% url 'reactivate_inscripcion' inscripcion.idInscripcion %}">
+                        data-url="{% url 'reactivate_inscripcion' inscripcion.idInscripcion %}"
+                        title="Reactivar">
                   <i class="fas fa-redo"></i>
                 </button>
                 {% endif %}
+                
                 {% if inscripcion.idInscripcion %}
-                <button class="btn btn-info btn-sm"
-                        data-bs-toggle="modal"
-                        data-bs-target="#requisitosInscripcionModal"
-                        data-url="{% url 'guardar_requisitos_inscripcion' inscripcion.idInscripcion %}">
-                  <i class="fas fa-clipboard-check"></i>
-                </button>
+                  {% if perms.inscripcion.change_inscripcion or perms.inscripcion.view_inscripcion %}
+                    <button class="btn btn-light btn-sm"
+                            data-bs-toggle="modal"
+                            data-bs-target="#requisitosInscripcionModal"
+                            data-url="{% url 'guardar_requisitos_inscripcion' inscripcion.idInscripcion %}"
+                            title="Ver Requisitos">
+                      <i class="fas fa-clipboard-check text-dark"></i>
+                    </button>
+                  {% endif %}
                 {% endif %}
               </div>
             </td>
           </tr>
         {% empty %}
           <tr>
-            <td colspan="9" class="text-center py-4">No hay inscripciones registradas.</td>
+            <td colspan="6" class="text-center py-4">No hay inscripciones registradas.</td>
           </tr>
         {% endfor %}
         </tbody>
       </table>
     </div>
   </div>
+<!-- Controles de paginación -->
+<div class="pagination-container text-center mt-4">
+  <nav aria-label="Page navigation">
+    <ul class="pagination justify-content-center">
+      {% if inscripciones.has_previous %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ inscripciones.previous_page_number }}" aria-label="Anterior">
+            <span aria-hidden="true">&laquo;</span>
+          </a>
+        </li>
+      {% endif %}
+
+      {% for num in inscripciones.paginator.page_range %}
+        {% if num == 1 or num == inscripciones.paginator.num_pages or num >= inscripciones.number|add:"-2" and num <= inscripciones.number|add:"2" %}
+          <li class="page-item {% if inscripciones.number == num %}active{% endif %}">
+            <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+          </li>
+        {% elif num == inscripciones.number|add:"-3" or num == inscripciones.number|add:"3" %}
+          <li class="page-item disabled"><span class="page-link">...</span></li>
+        {% endif %}
+      {% endfor %}
+
+      {% if inscripciones.has_next %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ inscripciones.next_page_number }}" aria-label="Siguiente">
+            <span aria-hidden="true">&raquo;</span>
+          </a>
+        </li>
+      {% endif %}
+    </ul>
+  </nav>
+</div>
 </div>
 
-{# ─── Modales ─── #}
+{# ─── MODALES ─── #}
+<!-- Modal de Detalles -->
+ {% if perms.inscripcion.view_inscripcion %}
+<div class="modal fade details-modal" id="detailsModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title text-white">Detalles de la Inscripción</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="detail-item">
+          <div class="detail-label">ID:</div>
+          <div class="detail-value" id="detail-id"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Cédula:</div>
+          <div class="detail-value" id="detail-cedula"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Nombre:</div>
+          <div class="detail-value" id="detail-nombres"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Apellido:</div>
+          <div class="detail-value" id="detail-apellidos"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Cohorte:</div>
+          <div class="detail-value" id="detail-cohorte"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Tipo Formación:</div>
+          <div class="detail-value" id="detail-tipo-formacion"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Formación:</div>
+          <div class="detail-value" id="detail-formacion"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Estado:</div>
+          <div class="detail-value" id="detail-estado"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Fecha:</div>
+          <div class="detail-value" id="detail-fecha"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 {% if perms.inscripcion.change_inscripcion %}
 <div class="modal fade" id="editInscripcionModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
@@ -271,8 +411,10 @@
     <div class="modal-content">
       <form id="requisitosInscripcionForm" method="post">
       <div class="modal-header bg-primary text-white">
-        <h5 class="modal-title"><i class="fas fa-clipboard-check me-2"></i> Requisitos de la Inscripción</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <h5 class="modal-title text-white"><i class="fas fa-clipboard-check me-2"></i>&nbsp Requisitos de la Inscripción</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
       </div>
       <div class="modal-body">
         <!-- Aquí se cargará el formulario dinámicamente -->
@@ -317,8 +459,41 @@ $(function(){
     globalMessagesContainer.html(messageHtml);
   }
 
+  // MODAL DE DETALLES
+  $('#detailsModal').on('show.bs.modal', function(event) {
+    const button = $(event.relatedTarget);
+    const modal = $(this);
+    
+    // Obtener datos
+    const id = button.data('id');
+    const cedula = button.data('cedula');
+    const nombres = button.data('nombres');
+    const apellidos = button.data('apellidos');
+    const cohorte = button.data('cohorte');
+    const tipoFormacion = button.data('tipo-formacion');
+    const formacion = button.data('formacion');
+    const estado = button.data('estado');
+    const fecha = button.data('fecha');
+    
+    // Insertar datos en el modal
+    modal.find('#detail-id').text(id);
+    modal.find('#detail-cedula').text(cedula);
+    modal.find('#detail-nombres').text(nombres);
+    modal.find('#detail-apellidos').text(apellidos);
+    modal.find('#detail-cohorte').text(cohorte);
+    modal.find('#detail-tipo-formacion').text(tipoFormacion);
+    modal.find('#detail-formacion').text(formacion);
+    modal.find('#detail-fecha').text(fecha);
+    
+    // Estado con badge
+    const estadoHtml = estado === "Activo" 
+      ? '<span class="badge bg-success text-white"><i class="fas fa-check-circle me-1"></i> Activo</span>'
+      : '<span class="badge bg-danger text-white"><i class="fas fa-times-circle me-1"></i> Inactivo</span>';
+    modal.find('#detail-estado').html(estadoHtml);
+  });
+
   // MODAL DE EDICIÓN
-  {% if perms.home.change_inscripcion %}
+  {% if perms.inscripcion.change_inscripcion %}
   $('#editInscripcionModal')
     .on('show.bs.modal', e => {
       const url = $(e.relatedTarget).data('url'),
@@ -497,54 +672,7 @@ $(function(){
         }
     }
 
-    function setupPagination() {
-        const rows = table.getElementsByTagName('tr');
-        const totalPages = Math.ceil((rows.length - 1) / rowsPerPage);
 
-        pagination.innerHTML = '';
-
-        // Botón Anterior
-        const prevLi = document.createElement('li');
-        prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
-        prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Anterior">&laquo;</a>`;
-        prevLi.addEventListener('click', (e) => {
-            e.preventDefault();
-            if (currentPage > 1) currentPage--;
-            displayRows();
-            setupPagination();
-        });
-        pagination.appendChild(prevLi);
-
-        // Botones de Páginas
-        for (let i = 1; i <= totalPages; i++) {
-            const li = document.createElement('li');
-            li.className = `page-item ${i === currentPage ? 'active' : ''}`;
-            li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
-            li.addEventListener('click', (e) => {
-                e.preventDefault();
-                currentPage = i;
-                displayRows();
-                setupPagination();
-            });
-            pagination.appendChild(li);
-        }
-
-        // Botón Siguiente
-        const nextLi = document.createElement('li');
-        nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
-        nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Siguiente">&raquo;</a>`;
-        nextLi.addEventListener('click', (e) => {
-            e.preventDefault();
-            if (currentPage < totalPages) currentPage++;
-            displayRows();
-            setupPagination();
-        });
-        pagination.appendChild(nextLi);
-    }
-
-    displayRows();
-    setupPagination();
-});
 // Mostrar el formulario al hacer clic en "Editar requisitos"
 $(document).on('click', '#mostrarFormularioRequisitos', function() {
   $('#requisitosEntregadosView').hide();

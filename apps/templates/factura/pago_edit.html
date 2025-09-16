@@ -1,0 +1,142 @@
+{% extends 'layouts/base2.html' %}
+{% load static %}
+{% block title %}Editar Pago{% endblock title %}
+
+{% block stylesheets %}
+<link rel="stylesheet" href="{% static 'assets/css/styleForms.css' %}">
+<link rel="stylesheet" href="{% static 'assets/css/argon.css' %}">
+<style>
+  #tablaNotas th, #tablaNotas td, #tablaCuentas th, #tablaCuentas td {
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  #tablaNotas th, #tablaCuentas th {
+    font-weight: bold;
+  }
+  #bancos {
+  transition: opacity 0.3s ease;
+}
+
+.hidden {
+  opacity: 0;
+  pointer-events: none; /* Evita la interacción mientras se oculta */
+}
+</style>
+{% endblock stylesheets %}
+
+{% block content %}
+<div class="container mt-5">
+  <h2 class="text-center text-dark mb-4">Editar Pago</h2>
+  <form method="POST" class="mt-3 text-dark needs-validation" autocomplete="off" style="font-weight: bold; max-width: 800px; margin: 0 auto;" id="pagoEditForm" novalidate>
+    {% csrf_token %}
+
+    <!-- Nota -->
+    <div class="form-group mb-3">
+      <label for="idNota">Nota:</label>
+      <select id="idNota" name="idNota" class="form-control" required>
+        {% for nota in notas %}
+
+  <option value="{{ nota.pk }}" {% if pago.idNota.pk == nota.pk %}selected{% endif %}>
+                        {{ nota.numeroNota }} - 
+                        {% if nota.idPersona %}
+                        {{ nota.idPersona.nombreCompleto }}
+                        {% elif nota.idEmpresa %}
+                        {{ nota.idEmpresa.nombreEmpresa }}
+                        {% else %}
+                        Cliente no especificado
+                        {% endif %}
+  </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- Monto -->
+    <div class="form-group mb-3">
+      <label for="monto">Monto:</label>
+      <input type="number" id="monto" name="monto" class="form-control" value="{{ pago.monto }}" step="0.0001" min="0" required>
+    </div>
+
+    <!-- Moneda -->
+    <div class="form-group mb-3">
+      <label for="idTasa">Moneda:</label>
+      <select id="idTasa" name="idTasa" class="form-control" required>
+        <option value="" disabled>Seleccione una moneda...</option>
+        {% for tasa in tasas %}
+          <option value="{{ tasa.idTasa }}" {% if pago.idTasa.idTasa == tasa.idTasa %}selected{% endif %}>
+            {{ tasa.idMoneda__nombreMoneda }} | Tasa: {{ tasa.montoTasa }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- Forma de Pago -->
+    <div class="form-group mb-3">
+      <label for="formaPago">Forma de Pago:</label>
+      <select id="formaPago" name="formaPago" class="form-control" required>
+        <option value="" disabled>Seleccione la forma de pago...</option>
+        <option value="EFECTIVO" {% if pago.formaPago == 'EFECTIVO' %}selected{% endif %}>Efectivo</option>
+        <option value="TRANSFERENCIA" {% if pago.formaPago == 'TRANSFERENCIA' %}selected{% endif %}>Transferencia</option>
+        <option value="TARJETA" {% if pago.formaPago == 'TARJETA' %}selected{% endif %}>Tarjeta</option>
+        <option value="CHEQUE" {% if pago.formaPago == 'CHEQUE' %}selected{% endif %}>Cheque</option>
+      </select>
+    </div>
+
+    <!-- Cuenta Bancaria -->
+    <div class="form-group mb-3" id="bancosDiv">
+      <label for="idCuentaBanco">Cuenta Bancaria:</label>
+      <select id="idCuentaBanco" name="idCuentaBanco" class="form-control" {% if pago.formaPago == 'EFECTIVO' %}disabled{% endif %}>
+        <option value="" disabled>Seleccione una cuenta bancaria...</option>
+        {% for cuenta in cuentas_banco %}
+          <option value="{{ cuenta.pk }}" {% if pago.idCuentaBanco and pago.idCuentaBanco.pk == cuenta.pk %}selected{% endif %}>
+            {{ cuenta.banco.nombreBanco }} - {{ cuenta.numeroCuentaBanco }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- Referencia -->
+    <div class="form-group mb-3">
+      <label for="referencia">Referencia:</label>
+      <input type="text" id="referencia" name="referencia" class="form-control" value="{{ pago.referencia|default_if_none:'' }}" maxlength="100">
+    </div>
+
+    <!-- Observaciones -->
+    <div class="form-group mb-3">
+      <label for="observaciones">Observaciones:</label>
+      <textarea id="observaciones" name="observaciones" class="form-control" rows="3">{{ pago.observaciones|default_if_none:'' }}</textarea>
+    </div>
+
+    <!-- Fecha de Pago -->
+    <div class="form-group mb-3">
+      <label for="fechaPago">Fecha de Pago:</label>
+      <input type="date" id="fechaPago" name="fechaPago" class="form-control" value="{{ pago.fechaPago|date:'Y-m-d' }}" max="{{ today_date }}" required>
+    </div>
+
+    <div class="text-center">
+      <input type="submit" class="btn btn-warning mt-4" value="Guardar Cambios" />
+      <a href="{% url 'pago_list' %}" class="btn btn-secondary mt-4">Cancelar</a>
+    </div>
+  </form>
+</div>
+{% endblock content %}
+
+{% block javascripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  // Deshabilita cuenta bancaria si es efectivo
+  const formaPago = document.getElementById('formaPago');
+  const cuentaBanco = document.getElementById('idCuentaBanco');
+  function toggleBanco() {
+    if (formaPago.value === 'EFECTIVO') {
+      cuentaBanco.disabled = true;
+      cuentaBanco.value = '';
+    } else {
+      cuentaBanco.disabled = false;
+    }
+  }
+  formaPago.addEventListener('change', toggleBanco);
+  toggleBanco();
+});
+</script>
+{% endblock javascripts %}

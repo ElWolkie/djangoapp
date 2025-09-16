@@ -5,68 +5,197 @@
 {% block stylesheets %}
 <link rel="stylesheet" href="/static/assets/css/styleForms.css" />
 <link rel="stylesheet" href="/static/assets/css/argon.css" />
+<style>
+  .asiento-container {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 1rem;
+    box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.1);
+    padding: 2rem;
+    margin: 2rem auto;
+    max-width: 700px;
+  }
+  .asiento-header {
+    text-align: center;
+    margin-bottom: 2rem;
+    position: relative;
+    padding-bottom: 1rem;
+  }
+  .asiento-header h2 {
+    color: #343a40;
+    font-weight: 700;
+  }
+  .asiento-header::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80px;
+    height: 4px;
+    background: linear-gradient(90deg, #ffc107, #fd7e14);
+    border-radius: 2px;
+  }
+  .form-group {
+    margin-bottom: 1.5rem;
+    position: relative;
+  }
+  .form-label {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+  }
+  .form-label i {
+    margin-right: 8px;
+    color: #fd7e14;
+  }
+  .form-control {
+    border-radius: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    border: 1px solid #ced4da;
+    background-color: #fff;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.075);
+    transition: all 0.3s;
+  }
+  .form-control:focus {
+    border-color: #ffc107;
+    box-shadow: 0 0 0 0.25rem rgba(255,193,7,0.25);
+  }
+  .btn-submit {
+    background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+    border: none;
+    color: #fff;
+    font-weight: 600;
+    padding: 0.75rem 2rem;
+    border-radius: 0.5rem;
+    transition: all 0.3s;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+  .btn-submit:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    background: linear-gradient(135deg, #fd7e14 0%, #ffc107 100%);
+  }
+  textarea.form-control {
+    min-height: 100px;
+  }
+</style>
 {% endblock stylesheets %}
 
 {% block content %}
-<div class="container mt-5">
-  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Registrar Asiento Contable</h2>
+<div class="asiento-container">
+  <div class="asiento-header">
+    <h2><i class="fas fa-file-invoice-dollar text-warning"></i> Registrar Asiento Contable</h2>
+    <p class="text-muted">Complete todos los campos para añadir un nuevo asiento contable</p>
+  </div>
 
   {% if messages %}
     {% for message in messages %}
       <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        <i class="fas {% if message.tags == 'success' %}fa-check-circle{% else %}fa-exclamation-circle{% endif %} me-2"></i>
         {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
       </div>
     {% endfor %}
   {% endif %}
 
-  <form method="POST" class="mt-3 text-dark needs-validation" autocomplete="off" style="font-weight: bold; max-width: 600px; margin: 0 auto;" id="asientoForm" action="{% url 'asiento_contable_create' %}" novalidate>
+  <form method="POST" class="needs-validation" autocomplete="off" id="asientoForm" action="{% url 'asiento_contable_create' %}" novalidate>
     {% csrf_token %}
 
-    <div class="form-row">
-      <div class="form-group col-md-12">
-        <label for="numeroAsiento">Número de Asiento:</label>
-        <input type="text" id="numeroAsiento" name="numeroAsiento" class="form-control text-dark" placeholder="Ingrese el número de asiento" maxlength="50" required />
+    <div class="form-group">
+      <label for="numeroAsiento" class="form-label">
+        <i class="fas fa-hashtag"></i> Número de Asiento
+      </label>
+      <input type="text" id="numeroAsiento" name="numeroAsiento" 
+             class="form-control" 
+             placeholder="Ingrese el número de asiento" 
+             maxlength="50" required />
+      <div class="invalid-feedback">Por favor, ingrese un número válido.</div>
+    </div>
+
+    <div class="row">
+      <div class="col-md-6">
+        <div class="form-group">
+          <label for="fechaAsiento" class="form-label">
+            <i class="fas fa-calendar-day"></i> Fecha
+          </label>
+          <input type="date" id="fechaAsiento" name="fechaAsiento" 
+                 class="form-control" required />
+          <div class="invalid-feedback">Por favor, seleccione una fecha.</div>
+        </div>
+      </div>
+
+      <div class="col-md-6">
+        <div class="form-group">
+          <label for="idPeriodo" class="form-label">
+            <i class="fas fa-calendar-alt"></i> Periodo Contable
+          </label>
+          <select id="idPeriodo" name="idPeriodo" class="form-control" required>
+            <option value="" disabled selected>Seleccione...</option>
+            {% for periodo in periodos %}
+            <option value="{{ periodo.idPeriodo }}">{{ periodo.nombrePeriodo }}</option>
+            {% endfor %}
+          </select>
+          <div class="invalid-feedback">Por favor, seleccione un periodo.</div>
+        </div>
       </div>
     </div>
 
-    <div class="form-row">
-      <div class="form-group col-md-6">
-        <label for="fechaAsiento">Fecha:</label>
-        <input type="date" id="fechaAsiento" name="fechaAsiento" class="form-control text-dark" required />
-      </div>
-
-      <div class="form-group col-md-6">
-        <label for="idPeriodo"> Período Contable:</label>
-        <select id="idPeriodo" name="idPeriodo" class="form-control text-dark" required>
-          <option value="" disabled selected>Seleccione...</option>
-          {% for periodo in periodos %}
-          <option value="{{ periodo.idPeriodo }}">{{ periodo.nombrePeriodo }}</option>
-          {% endfor %}
-        </select>
-      </div>
+    <div class="form-group">
+      <label for="conceptoAsiento" class="form-label">
+        <i class="fas fa-comment-alt"></i> Concepto
+      </label>
+      <textarea id="conceptoAsiento" name="conceptoAsiento" 
+                class="form-control" 
+                placeholder="Ingrese el concepto del asiento" 
+                rows="3" required></textarea>
+      <div class="invalid-feedback">Por favor, ingrese un concepto válido.</div>
     </div>
 
-    <div class="form-row">
-      <div class="form-group col-md-12">
-        <label for="conceptoAsiento">Concepto:</label>
-        <textarea id="conceptoAsiento" name="conceptoAsiento" class="form-control text-dark" placeholder="Ingrese el concepto del asiento" rows="3" required></textarea>
-      </div>
-    </div>
-
-    <div class="text-center">
-      <input type="submit" class="btn btn-warning mt-4" value="Guardar" />
+    <div class="text-center mt-4">
+      <button type="submit" class="btn-submit">
+        <i class="fas fa-save me-2"></i> Guardar
+      </button>
     </div>
   </form>
 </div>
 {% endblock content %}
+
 {% block javascripts %}
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
   document.addEventListener('DOMContentLoaded', function () {
     const asientoForm = document.getElementById('asientoForm');
+    const inputs = asientoForm.querySelectorAll('input, select, textarea');
+
+    // Validación en tiempo real
+    inputs.forEach(input => {
+      input.addEventListener('input', function() {
+        if (this.checkValidity()) {
+          this.classList.remove('is-invalid');
+          this.classList.add('is-valid');
+        } else {
+          this.classList.remove('is-valid');
+          this.classList.add('is-invalid');
+        }
+      });
+    });
 
     asientoForm.addEventListener('submit', function (event) {
-      event.preventDefault(); // Evitar el envío tradicional del formulario
+      event.preventDefault();
+      
+      let isValid = true;
+      inputs.forEach(input => {
+        if (!input.checkValidity()) {
+          input.classList.add('is-invalid');
+          isValid = false;
+        }
+      });
+      
+      if (!isValid) {
+        return;
+      }
 
       const formData = new FormData(asientoForm);
 
@@ -80,7 +209,6 @@
         .then((response) => response.json())
         .then((data) => {
           if (data.success) {
-            // Mostrar alerta de éxito
             Swal.fire({
               icon: 'success',
               title: 'Registro exitoso',
@@ -91,11 +219,9 @@
               },
               buttonsStyling: false,
             }).then(() => {
-              // Redirigir a la URL de detalle_asiento_create
               window.location.href = data.redirect_url;
             });
           } else {
-            // Mostrar errores si el registro falla
             Swal.fire({
               icon: 'error',
               title: 'Error en el registro',

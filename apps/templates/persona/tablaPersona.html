@@ -55,18 +55,42 @@
     background-color: #fb6340;
     border-color: #fb6340;
 }
+
+.details-modal .modal-content {
+  border-radius: 15px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+.details-modal .modal-header {
+  background: linear-gradient(135deg, #5e72e4 0%, #825ee4 100%);
+  color: white;
+  border-radius: 15px 15px 0 0;
+}
+.detail-item {
+  padding: 10px 0;
+  border-bottom: 1px solid #eee;
+  display: flex;
+}
+.detail-label {
+  font-weight: 600;
+  color: #525f7f;
+  min-width: 120px;
+}
+.detail-value {
+  color: #8898aa;
+  flex-grow: 1;
+}
 </style>
 {% endblock stylesheets %}
 
 {% block content %}
 <div class="container mt-4">
-  <h2 class="text-center mb-4">Lista de {{ tipo_texto }} Registrados</h2>
+  <h2 class="text-center mb-4">Lista de {{ tipo_texto }}</h2>
 
   <div class="row mb-3">
     <div class="col-md-4">
       <div class="input-group">
         <span class="input-group-text"><i class="fas fa-search"></i></span>
-        <input id="searchInput" class="form-control" type="text" placeholder="Buscar personas…">
+        <input id="searchInput" class="form-control" type="text" placeholder="Buscar...">
       </div>
     </div>
     <div class="col-md-4 text-end">
@@ -111,9 +135,6 @@
             <th>Nombres</th>
             <th>Apellidos</th>
             <th>Teléfono</th>
-            <th>Correo</th>
-            <th>RIF</th>
-            <th>Dirección</th>
             <th>Tipos</th>
             <th>Estado</th>
             <th class="actions-column">Acciones</th>
@@ -126,9 +147,6 @@
             <td>{{ persona.nombres }}</td>
             <td>{{ persona.apellidos }}</td>
             <td>{{ persona.telefono|default:"—" }}</td>
-            <td>{{ persona.correo|default:"—" }}</td>
-            <td>{{ persona.rif|default:"—" }}</td>
-            <td>{{ persona.direccion }}</td>
             <td>
               {% for tp in persona.personatp_set.all %}
                 <span class="badge bg-info text-dark">{{ tp.idTP.nombreTP }}</span>
@@ -150,13 +168,32 @@
                 <!-- En la columna de acciones (td class="actions-column") -->
               <td class="actions-column">
                 <div class="d-flex gap-2">
+                  {# Botón Ver mas #}
+                  {% if perms.persona.view_personas %}
+                    {% if not persona.es_superuser or persona.es_superuser and user.is_superuser and user.idPersona.id == persona.idPersona %}
+                      <button class="btn btn-info btn-sm view-details-btn"
+                              data-bs-toggle="modal"
+                              data-bs-target="#detailsModal"
+                              data-id="{{ persona.idPersona }}"
+                              data-nombres="{{ persona.nombres }}"
+                              data-apellidos="{{ persona.apellidos }}"
+                              data-rif="{{ persona.rif|default:'Sin especificar' }}"
+                              data-direccion="{{ persona.direccion|default:'Sin especificar' }}"
+                              data-correo="{{ persona.correo|default:'Sin especificar' }}"
+                              title="Ver más">
+                        <i class="fas fa-eye"></i>
+                      </button>
+                    {% endif %}
+                  {% endif %}
+
                   {# Botón Editar #}
                   {% if perms.persona.change_personas %}
                     {% if not persona.es_superuser or persona.es_superuser and user.is_superuser and user.idPersona.id == persona.idPersona %}
                       <button class="btn btn-primary btn-sm"
                               data-bs-toggle="modal"
                               data-bs-target="#editPersonaModal"
-                              data-url="{% url 'edit_persona' persona.idPersona %}">
+                              data-url="{% url 'edit_persona' persona.idPersona %}"
+                              title="Editar">
                         <i class="fas fa-edit"></i>
                       </button>
                     {% endif %}
@@ -168,7 +205,8 @@
                       <button class="btn btn-outline-warning btn-sm"
                               data-bs-toggle="modal"
                               data-bs-target="#deletePersonaModal"
-                              data-url="{% url 'desactivar_persona' persona.idPersona %}">
+                              data-url="{% url 'desactivar_persona' persona.idPersona %}"
+                              title="Desactivar">
                         <i class="fas fa-user-slash"></i>
                       </button>
                     {% endif %}
@@ -180,7 +218,8 @@
                       <button class="btn btn-success btn-sm"
                               data-bs-toggle="modal"
                               data-bs-target="#reactivatePersonaModal"
-                              data-url="{% url 'reactivate_persona' persona.idPersona %}">
+                              data-url="{% url 'reactivate_persona' persona.idPersona %}"
+                              title="Reactivar">
                         <i class="fas fa-redo"></i>
                       </button>
                     {% endif %}
@@ -202,6 +241,46 @@
 </div>
 
 {# ─── MODALES ─── #}
+{% if perms.persona.view_personas %}
+<div class="modal fade details-modal" id="detailsModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title text-white">Detalles de la Persona</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="detail-item">
+          <div class="detail-label">Nombres:</div>
+          <div class="detail-value" id="detail-nombres"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Apellidos:</div>
+          <div class="detail-value" id="detail-apellidos"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Rif:</div>
+          <div class="detail-value" id="detail-rif"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Dirección:</div>
+          <div class="detail-value" id="detail-direccion"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Correo:</div>
+          <div class="detail-value" id="detail-correo"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 {% if perms.persona.change_personas %}
 <div class="modal fade" id="editPersonaModal" tabindex="-1">
   <div class="modal-dialog modal-lg">
@@ -488,6 +567,28 @@ $(function(){
     });
 });
 
+  //Modal ver mas
+  $('#detailsModal').on('show.bs.modal', function(event) {
+    const button = $(event.relatedTarget);
+    const modal = $(this);
+    
+    // Obtener datos de los atributos data-*
+    const nombres = button.data('nombres');
+    const apellidos = button.data('apellidos');
+    const rif = button.data('rif');
+    const direccion = button.data('direccion');
+    const correo = button.data('correo');
+    
+    // Insertar datos en el modal
+    modal.find('#detail-nombres').text(nombres);
+    modal.find('#detail-apellidos').text(apellidos);
+    modal.find('#detail-rif').text(rif);
+    modal.find('#detail-direccion').text(direccion);
+    modal.find('#detail-correo').text(correo);
+    
+    // Actualizar título del modal
+    modal.find('.modal-title').text(`Detalles de ${nombres} ${apellidos}`);
+  });
 
   // Al abrir modal Reactivar
   $('#reactivatePersonaModal').on('show.bs.modal', e => {

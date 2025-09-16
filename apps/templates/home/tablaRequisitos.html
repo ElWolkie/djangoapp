@@ -55,13 +55,13 @@
 
 {% block content %}
 <div class="container mt-4">
-  <h2 class="text-center mb-4">Lista de Requisitos Registrados</h2>
+  <h2 class="text-center mb-4">Lista de Requisitos</h2>
 
   <div class="row mb-3">
     <div class="col-md-4">
       <div class="input-group">
         <span class="input-group-text"><i class="fas fa-search"></i></span>
-        <input class="form-control" id="searchInput" type="text" placeholder="Buscar por Nombre...">
+        <input class="form-control" id="searchInput" type="text" placeholder="Buscar...">
       </div>
     </div>
     <div class="col-md-4 text-center">
@@ -73,7 +73,7 @@
     </div>
 
     <div class="col-md-4 text-end">
-      <a href="{% url 'reporte_requisitos_pdf' %}" class="btn btn-outline-danger btn-sm" target="_blank">
+      <a href="{% url 'reporte_requisitos_pdf' %}" class="btn btn-outline-danger" target="_blank">
         <i class="fas fa-file-pdf"></i> Descargar PDF
       </a>    
     </div>
@@ -299,7 +299,9 @@ document.addEventListener("DOMContentLoaded", function() {
     $('#globalMessages').prepend(`
       <div class="alert alert-${type} alert-dismissible fade show" role="alert">
         ${text}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+            <i class="fas fa-times"></i>
+          </button>
       </div>`);
   }
 

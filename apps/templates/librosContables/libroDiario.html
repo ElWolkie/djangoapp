@@ -1,0 +1,484 @@
+{% extends 'layouts/base2.html' %}
+{% load static %}
+
+{% block title %}Libro Diario{% endblock title %}
+
+{% block stylesheets %}
+<link rel="stylesheet" href="{% static 'assets/css/styleForms.css' %}">
+<link rel="stylesheet" href="{% static 'assets/css/argon.css' %}">
+<style>
+  :root {
+    --primary-gradient: linear-gradient(135deg, #5e72e4 0%, #825ee4 100%);
+    --secondary-gradient: linear-gradient(135deg, #fe8330 0%, #fb6340 100%);
+    --success-color: #2dce89;
+    --danger-color: #f5365c;
+    --warning-color: #fb6340;
+    --info-color: #11cdef;
+  }
+  
+  body {
+    background-color: #f8f9fe;
+  }
+  
+  .container-balance {
+    max-width: 1200px;
+    margin: 2rem auto;
+    padding: 2rem;
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  }
+  
+  .header-balance {
+    text-align: center;
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 2px solid #e9ecef;
+  }
+  
+  .header-balance h2 {
+    color: #5e72e4;
+    font-weight: 600;
+    margin-bottom: 1rem;
+  }
+  
+  .filters-container {
+    background: white;
+    border-radius: 10px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+    margin-bottom: 2rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 1rem;
+  }
+  
+  .input-group-text {
+    background: var(--primary-gradient);
+    color: white;
+    border: none;
+  }
+  
+  .totals-container {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  
+  .total-card {
+    flex: 1;
+    min-width: 250px;
+    background: white;
+    border-radius: 10px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+    text-align: center;
+    transition: transform 0.3s ease;
+  }
+  
+  .total-card:hover {
+    transform: translateY(-5px);
+  }
+  
+  .total-card h5 {
+    font-size: 1.1rem;
+    color: #525f7f;
+    margin-bottom: 0.5rem;
+  }
+  
+  .total-value {
+    font-size: 1.8rem;
+    font-weight: 700;
+  }
+  
+  .total-debe .total-value {
+    color: var(--success-color);
+  }
+  
+  .total-haber .total-value {
+    color: var(--danger-color);
+  }
+  
+  .table-container {
+    background: white;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+  }
+  
+  .table-balance {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+  
+  .table-balance thead {
+    background: var(--primary-gradient);
+    color: white;
+  }
+  
+  .table-balance thead th {
+    padding: 1.2rem 1.5rem;
+    font-weight: 600;
+    text-align: center;
+  }
+  
+  .table-balance tbody tr {
+    transition: background-color 0.2s ease;
+  }
+  
+  .table-balance tbody tr:hover {
+    background-color: #f8f9fe;
+  }
+  
+  .table-balance tbody td {
+    padding: 1.2rem 1.5rem;
+    text-align: center;
+    border-bottom: 1px solid #e9ecef;
+  }
+  
+  .table-balance tbody tr:last-child td {
+    border-bottom: none;
+  }
+  
+  .highlight-debe {
+    background-color: rgba(45, 206, 137, 0.1);
+    font-weight: 600;
+    color: var(--success-color);
+  }
+  
+  .highlight-haber {
+    background-color: rgba(245, 54, 92, 0.1);
+    font-weight: 600;
+    color: var(--danger-color);
+  }
+  
+  .btn-icon {
+    padding: 0.5rem;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+  }
+  
+  .actions-column {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+  
+  @media (max-width: 992px) {
+    .filters-container {
+      grid-template-columns: 1fr;
+    }
+  }
+  
+  @media (max-width: 768px) {
+    .totals-container {
+      flex-direction: column;
+    }
+    
+    .table-balance thead {
+      display: none;
+    }
+    
+    .table-balance, 
+    .table-balance tbody, 
+    .table-balance tr, 
+    .table-balance td {
+      display: block;
+      width: 100%;
+    }
+    
+    .table-balance tr {
+      margin-bottom: 1.5rem;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+    }
+    
+    .table-balance td {
+      text-align: right;
+      padding-left: 50%;
+      position: relative;
+      border-bottom: 1px solid #e9ecef;
+    }
+    
+    .table-balance td:last-child {
+      border-bottom: none;
+    }
+    
+    .table-balance td::before {
+      content: attr(data-label);
+      position: absolute;
+      left: 0;
+      width: 50%;
+      padding-left: 1.5rem;
+      font-weight: 600;
+      text-align: left;
+      color: #525f7f;
+    }
+    
+    .actions-column {
+      justify-content: flex-end;
+    }
+  }
+</style>
+{% endblock stylesheets %}
+
+{% block content %}
+<div class="container-balance">
+  <div class="header-balance">
+    <h2>Libro Diario</h2>
+    <p class="text-muted">Registro cronológico de transacciones</p>
+  </div>
+
+  <div class="filters-container">
+    <div class="input-group">
+      <span class="input-group-text"><i class="fas fa-search"></i></span>
+      <input id="searchInput" class="form-control" type="text" placeholder="Buscar por número de asiento, concepto o cuenta...">
+    </div>
+    
+    <div class="input-group">
+      <span class="input-group-text"><i class="fas fa-calendar-alt"></i></span>
+      <input id="startDate" class="form-control" type="date" placeholder="Fecha inicio">
+      <input id="endDate" class="form-control" type="date" placeholder="Fecha fin">
+    </div>
+    
+    <button id="filterButton" class="btn btn-warning">
+      <i class="fas fa-filter me-1"></i> Filtrar
+    </button>
+  </div>
+
+  <div class="totals-container">
+    <div class="total-card total-debe">
+      <h5>Total Debe</h5>
+      <div class="total-value" id="totalDebe">0.00</div>
+    </div>
+    
+    <div class="total-card total-haber">
+      <h5>Total Haber</h5>
+      <div class="total-value" id="totalHaber">0.00</div>
+    </div>
+  </div>
+
+  <div id="globalMessages">
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+    {% endfor %}
+  </div>
+
+  <div class="table-container">
+    <table id="libroDiarioTable" class="table-balance">
+      <thead>
+        <tr>
+          <th>Número de Asiento</th>
+          <th>Fecha</th>
+          <th>Concepto</th>
+          <th>Cuenta</th>
+          <th>Debe</th>
+          <th>Haber</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for asiento in asientos %}
+          {% for detalle in asiento.detalles.all %}
+            <tr>
+              <td data-label="Número de Asiento">{{ asiento.numeroAsiento }}</td>
+              <td data-label="Fecha">{{ asiento.fechaAsiento|date:"d/m/Y" }}</td>
+              <td data-label="Concepto">
+                <button class="btn btn-info btn-sm" data-bs-toggle="modal" data-bs-target="#conceptoModal" data-concepto="{{ asiento.conceptoAsiento }}">
+                  <i class="fas fa-eye"></i> Ver
+                </button>
+              </td>
+              <td data-label="Cuenta">{{ detalle.idPlanCuenta.nombrePlanCuenta }}</td>
+              <td data-label="Debe" class="highlight-debe">{{ detalle.debe|floatformat:2 }}</td>
+              <td data-label="Haber" class="highlight-haber">{{ detalle.haber|floatformat:2 }}</td>
+              <td data-label="Acciones" class="actions-column">
+                <div class="d-flex gap-2">
+                  <button class="btn btn-primary btn-icon" data-bs-toggle="modal" data-bs-target="#editAsientoModal" data-url="{% url 'editar_asiento_detalle' asiento.idAsiento %}">
+                    <i class="fas fa-edit"></i>
+                  </button>
+                  <button class="btn btn-outline-warning btn-icon" data-bs-toggle="modal" data-bs-target="#deleteAsientoModal" data-url="{% url 'detalle_asiento_create' asiento.idAsiento %}">
+                    <i class="fas fa-trash-alt"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        {% empty %}
+        <tr>
+          <td colspan="7" class="text-center py-4">No hay asientos registrados.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal para mostrar el concepto -->
+<div class="modal fade" id="conceptoModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-info text-white">
+        <h5 class="modal-title"><i class="fas fa-eye me-2"></i> Concepto del Asiento</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p id="conceptoContent" class="text-dark"></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modales existentes -->
+<div class="modal fade" id="editAsientoModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title text-white"><i class="fas fa-edit me-2"></i> Editar Asiento</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body" id="editAsientoContent">
+        <div class="text-center py-4 text-muted">Cargando formulario…</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="deleteAsientoModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-warning text-dark">
+        <h5 class="modal-title text-white"><i class="fas fa-trash-alt me-2"></i> Confirmar Eliminación</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">¿Seguro que deseas eliminar este asiento?</div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button id="confirmDeleteAsiento" class="btn btn-warning">Eliminar</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}
+
+{% block javascripts %}
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const table = document.getElementById('libroDiarioTable');
+    const searchInput = document.getElementById('searchInput');
+    const startDate = document.getElementById('startDate');
+    const endDate = document.getElementById('endDate');
+    const filterButton = document.getElementById('filterButton');
+    const totalDebe = document.getElementById('totalDebe');
+    const totalHaber = document.getElementById('totalHaber');
+    const conceptoModal = document.getElementById('conceptoModal');
+    const conceptoContent = document.getElementById('conceptoContent');
+
+    function parseDMY(dateStr) {
+      const parts = dateStr.split('/');
+      if (parts.length !== 3) return null;
+      return new Date(parts[2], parts[1] - 1, parts[0]);
+    }
+
+    function updateTotals() {
+      let totalDebeValue = 0;
+      let totalHaberValue = 0;
+      const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+
+      for (let i = 0; i < rows.length; i++) {
+        if (rows[i].style.display !== 'none') {
+          const cells = rows[i].getElementsByTagName('td');
+          totalDebeValue += parseFloat(cells[4].textContent) || 0;
+          totalHaberValue += parseFloat(cells[5].textContent) || 0;
+        }
+      }
+
+      totalDebe.textContent = totalDebeValue.toFixed(2);
+      totalHaber.textContent = totalHaberValue.toFixed(2);
+      
+      animateValue(totalDebe, 0, totalDebeValue, 1500);
+      animateValue(totalHaber, 0, totalHaberValue, 1500);
+    }
+
+    function animateValue(element, start, end, duration) {
+      let startTimestamp = null;
+      const step = (timestamp) => {
+        if (!startTimestamp) startTimestamp = timestamp;
+        const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+        const value = Math.floor(progress * (end - start) + start);
+        element.textContent = value.toFixed(2);
+        if (progress < 1) {
+          window.requestAnimationFrame(step);
+        }
+      };
+      window.requestAnimationFrame(step);
+    }
+
+    function filterTable() {
+      const filter = searchInput.value.toLowerCase();
+      const start = startDate.value ? new Date(startDate.value) : null;
+      const end = endDate.value ? new Date(endDate.value) : null;
+      const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+
+      for (let i = 0; i < rows.length; i++) {
+        const cells = rows[i].getElementsByTagName('td');
+        if (cells.length === 0) continue;
+
+        const date = parseDMY(cells[1].textContent.trim());
+        let match = true;
+
+        // Filtro de fechas
+        if (start && (!date || date < start)) match = false;
+        if (end && (!date || date > end)) match = false;
+
+        // Filtro de búsqueda
+        let found = false;
+        for (let j = 0; j < cells.length - 1; j++) {
+          if (cells[j].textContent.toLowerCase().includes(filter)) {
+            found = true;
+            break;
+          }
+        }
+        if (filter && !found) match = false;
+
+        rows[i].style.display = match ? '' : 'none';
+      }
+
+      updateTotals();
+    }
+
+    table.addEventListener('click', function (e) {
+      const button = e.target.closest('button[data-bs-target="#conceptoModal"]');
+      if (button) {
+        conceptoContent.textContent = button.getAttribute('data-concepto');
+        new bootstrap.Modal(conceptoModal).show();
+      }
+    });
+
+    filterButton.addEventListener('click', filterTable);
+    searchInput.addEventListener('input', filterTable);
+    startDate.addEventListener('change', filterTable);
+    endDate.addEventListener('change', filterTable);
+
+    updateTotals();
+  });
+</script>
+{% endblock javascripts %}

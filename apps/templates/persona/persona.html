@@ -73,7 +73,7 @@
   }
   
   textarea.form-control {
-      min-height: 120px;
+      min-height: 150px;  /* Aumentado de 120px a 150px */
       resize: vertical;
   }
   
@@ -90,7 +90,8 @@
       align-items: center;
       justify-content: center;
       margin: 0 auto;
-      width: 200px;
+      width: 200px;  /* Tamaño normalizado */
+      font-size: 1rem; /* Tamaño de fuente adecuado */
   }
   
   .btn-submit:hover {
@@ -185,17 +186,31 @@
       margin-right: 5px;
       color: #fd7e14;
   }
+  
+  /* Nuevos estilos para mejorar la distribución */
+  .form-section {
+      margin-bottom: 2rem;
+  }
+  
+  .form-footer {
+      margin-top: 2rem;
+      text-align: center;
+  }
+  /* Oculta la descripción de la cédula sin eliminarla del DOM */
+  .cedula-type-info {
+      display: none !important;
+  }
 </style>
 {% endblock stylesheets %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="mt-4">
   <div class="persona-form">
     <div class="form-header">
       <h2><i class="fas fa-user-plus text-warning"></i> Registro de {{tipo_texto}}</h2>
       <p class="text-muted">Complete todos los campos para registrar una nueva persona</p>
     </div>
-    
+
     {% if messages %}
       {% for message in messages %}
         <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
@@ -207,48 +222,50 @@
         </div>
       {% endfor %}
     {% endif %}
-    
+
     <form method="POST" autocomplete="off" id="registroPersona" action="{% url 'persona_modal' %}">
       {% csrf_token %}
+
       <!-- Checkboxes ocultos -->
       <div style="display: none;">
-          <input type="checkbox" name="tipoPersona" id="tipoUsuario" value="1">
-          <input type="checkbox" name="tipoPersona" id="tipoCliente" value="2">
-          <input type="checkbox" name="tipoPersona" id="tipoProveedor" value="3">
+        <input type="checkbox" name="tipoPersona" id="tipoUsuario" value="1">
+        <input type="checkbox" name="tipoPersona" id="tipoCliente" value="2">
+        <input type="checkbox" name="tipoPersona" id="tipoProveedor" value="3">
       </div>
 
       <div class="row">
           <!-- Columna izquierda -->
           <div class="col-md-6">
-              <div class="form-group">
-                  <label for="tipo_cedula" class="form-label">
-                    <i class="fas fa-id-card form-icon"></i> Cédula
-                  </label>
-                  
-                  <div class="input-group">
-                    <select id="tipo_cedula" name="tipo_cedula" class="form-select cedula-select" required>
-                      <option value="V" selected>Venezolano</option>
-                      <option value="J">Jurídico</option>
-                      <option value="G">Gubernamental</option>
-                      <option value="E">Extranjero</option>
-                      <option value="P">Pasaporte</option>
-                    </select>
-                    <input type="text" id="numero_cedula" name="numero_cedula"
-                           class="form-control cedula-input" 
-                           placeholder="12345678" maxlength="8" 
-                           oninput="this.value = this.value.replace(/[^0-9]/g, '')"
-                           required>
-                  </div>
-                  
-                  <div class="cedula-type-info">
-                    <i class="fas fa-info-circle"></i>
-                    <span id="cedula-type-description">Venezolano (V-)</span>
-                  </div>
-                  
-                  <!-- Campo oculto para el valor combinado -->
-                  <input type="hidden" id="cedula" name="cedula">
+            <div class="form-group cedula-input-group">
+              <label for="tipo_cedula" class="form-label">
+                <i class="fas fa-id-card form-icon"></i> Cédula
+              </label>
+              <div class="input-group">
+                <select id="tipo_cedula" name="tipo_cedula" class="form-select cedula-select" required>
+                  <option value="V" selected>Venezolano</option>
+                  <option value="E">Extranjero</option>
+                  <option value="P">Pasaporte</option>
+                </select>
+                <input type="text" id="numero_cedula" name="numero_cedula"
+                       class="form-control cedula-input" 
+                       placeholder="12345678" maxlength="8" 
+                       oninput="this.value = this.value.replace(/[^0-9]/g, '')"
+                       >
               </div>
-              
+              <div id="cedula-type-description" class="text-muted mt-2"></div>
+
+            </div>
+            
+            <div class="form-group rif-input-group">
+              <label for="rif" class="form-label">
+                <i class="fas fa-building form-icon"></i> RIF
+              </label>
+              <div class="input-group">
+                <i class="fas fa-file-invoice-dollar input-icon"></i>
+                <input type="text" id="rif" name="rif" class="form-control input-with-icon" 
+                       placeholder="J-12345678-9" maxlength="20">
+              </div>
+            </div>
               <div class="form-group">
                   <label for="nombres" class="form-label">
                     <i class="fas fa-signature form-icon"></i> Nombres
@@ -274,6 +291,8 @@
 
           <!-- Columna derecha -->
           <div class="col-md-6">
+     
+              
               <div class="form-group">
                   <label for="telefono" class="form-label">
                     <i class="fas fa-phone-alt form-icon"></i> Teléfono
@@ -295,41 +314,30 @@
                            placeholder="example@tudominio.com" required>
                   </div>
               </div>
+        
+    
 
-              <div class="form-group">
-                  <label for="rif" class="form-label">
-                    <i class="fas fa-building form-icon"></i> RIF
-                  </label>
-                  <div class="input-group">
-                    <i class="fas fa-file-invoice-dollar input-icon"></i>
-                    <input type="text" id="rif" name="rif" class="form-control input-with-icon" 
-                           placeholder="J-12345678-9" maxlength="20" required>
-                  </div>
-                  <div class="rif-format mt-2">
-                    <i class="fas fa-info-circle"></i> Formato: J-XXXXXXXX-X
-                  </div>
-              </div>
-          </div>
-      </div>
-
+      <!-- DIRECCIÓN -->
       <div class="form-divider">
         <span><i class="fas fa-map-marker-alt me-2"></i> Dirección</span>
       </div>
-
       <div class="form-group">
         <div class="input-group">
           <i class="fas fa-home input-icon"></i>
-          <textarea id="direccion" name="direccion" class="form-control input-with-icon" 
+          <textarea id="direccion" name="direccion" class="form-control input-with-icon"
                     placeholder="Ingrese la dirección completa" rows="4"></textarea>
         </div>
       </div>
-
+    </div>
+  </div>
       <!-- Campo oculto -->
       <input type="hidden" id="estadoPersona" name="estadoPersona" value="ACTIVO">
 
-      <button type="submit" class="btn-submit">
-        <i class="fas fa-save me-2"></i> Guardar
-      </button>
+      <div class="form-footer">
+        <button type="submit" class="btn-submit">
+          <i class="fas fa-save me-2"></i> Guardar
+        </button>
+      </div>
     </form>
   </div>
 </div>
@@ -362,245 +370,421 @@
 </div>
 {% endblock content %}
 
+
 {% block javascripts %}
 <script src="/static/assets/js/validacionesPersona.js"></script>
 <script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
 <script>
-  document.addEventListener("DOMContentLoaded", function() {
-    // ————— 1) Lógica de tipo de cédula, combineCedula(), validación RIF mejorada, animación —————
+document.addEventListener("DOMContentLoaded", function() {
+  const cedulaTypes = {
+    'V': 'Venezolano (V-)',
+    'J': 'Jurídico (J-)',
+    'G': 'Gubernamental (G-)',
+    'E': 'Extranjero (E-)',
+    'P': 'Pasaporte (P-)'
+  };
+  
+  const tipoCedulaSelect = document.getElementById('tipo_cedula');
+  const numeroCedulaInput = document.getElementById('numero_cedula');
+  const rifInput = document.getElementById('rif');
+  const cedulaDescription = document.getElementById('cedula-type-description');
 
-    const cedulaTypes = {
-      'V': 'Venezolano (V-)',
-      'J': 'Jurídico (J-)',
-      'G': 'Gubernamental (G-)',
-      'E': 'Extranjero (E-)',
-      'P': 'Pasaporte (P-)'
-    };
-    const tipoCedulaSelect = document.getElementById('tipo_cedula');
-    const cedulaDescription = document.getElementById('cedula-type-description');
+  function calcularDigitoVerificador(rifBaseNumerico) {
+    const multiplicadores = [4, 3, 2, 7, 6, 5, 4, 3, 2];
+    let suma = 0;
 
-    function updateCedulaDescription() {
-      const selectedType = tipoCedulaSelect.value;
-      cedulaDescription.textContent = cedulaTypes[selectedType];
-    }
-    tipoCedulaSelect.addEventListener('change', updateCedulaDescription);
-    updateCedulaDescription();
-
-    function combineCedula() {
-      const tipo = tipoCedulaSelect.value;
-      const numero = document.getElementById('numero_cedula').value;
-      return `${tipo}-${numero}`;
+    for (let i = 0; i < multiplicadores.length; i++) {
+      suma += parseInt(rifBaseNumerico[i]) * multiplicadores[i];
     }
 
-    // Validación mejorada de RIF: ahora acepta V-, J-, G- o E- al inicio
-    const rifInput = document.getElementById('rif');
-    rifInput.addEventListener('input', function() {
-      // Acepta: V-XXXXXXXX-X, J-XXXXXXXX-X, G-XXXXXXXX-X, E-XXXXXXXX-X
-      const rifRegex = /^[VvJjGgEePp]-[0-9]{8}-[0-9]{1}$/;
-      if (this.value && !rifRegex.test(this.value)) {
-        this.setCustomValidity('Formato inválido. Use V/J/G/E/P-XXXXXXXX-X');
-      } else {
-        this.setCustomValidity('');
+    const resto = suma % 11;
+    const digito = 11 - resto;
+    return digito === 10 || digito === 11 ? 0 : digito;
+  }
+
+  function generarRif(tipo, cedula) {
+  const tipoMapeo = {
+    V: 1,
+    E: 2,
+    J: 3,
+    P: 4,
+    G: 5
+  };
+
+  if (!tipoMapeo[tipo]) {
+    throw new Error("Tipo de persona inválido");
+  }
+
+  // Normalizar tipo y cédula
+  const letra = tipo.toUpperCase().charAt(0);
+  const numeroCedula = cedula.replace(/\D/g, '').padStart(8, '0'); // 8 dígitos, con ceros si falta
+
+  const baseNumerico = `${tipoMapeo[letra]}${numeroCedula}`;
+  const digito = calcularDigitoVerificador(baseNumerico);
+
+  // Formato: X-XXXXXXXX-X
+  return `${letra}-${numeroCedula}-${digito}`;
+}
+
+  // Función para actualizar la descripción del tipo de cédula
+  function updateCedulaDescription() {
+    const selectedType = tipoCedulaSelect.value;
+    cedulaDescription.textContent = cedulaTypes[selectedType];
+  }
+  
+  tipoCedulaSelect.addEventListener('change', updateCedulaDescription);
+  updateCedulaDescription();
+
+  // Función para habilitar/deshabilitar campos según el tipo de cédula
+  function toggleCedulaAndRifFields() {
+    const tipoCedula = tipoCedulaSelect.value;
+
+    if (tipoCedula === "V") {
+      // Venezolano: habilitar ambos campos
+      numeroCedulaInput.disabled = false;
+      rifInput.disabled = false;
+    } else if (["E", "P"].includes(tipoCedula)) {
+      // Personas naturales o pasaporte: habilitar cédula, deshabilitar RIF
+      numeroCedulaInput.disabled = false;
+      rifInput.disabled = true;
+      rifInput.value = ""; // Limpiar el campo RIF
+    } else if (["J", "G"].includes(tipoCedula)) {
+      // Personas jurídicas: habilitar RIF, deshabilitar cédula
+      numeroCedulaInput.disabled = true;
+      numeroCedulaInput.value = ""; // Limpiar el campo cédula
+      rifInput.disabled = false;
+    }
+  }
+  
+  // Generar RIF cuando cambia el número de cédula
+  numeroCedulaInput.addEventListener("input", function() {
+    const tipo = tipoCedulaSelect.value;
+    const cedula = numeroCedulaInput.value;
+    try {
+      const rifGenerado = generarRif(tipo, cedula);
+      rifInput.value = rifGenerado;
+    } catch (e) {
+      rifInput.value = "";
+    }
+  });
+  
+  tipoCedulaSelect.addEventListener("change", toggleCedulaAndRifFields);
+  // Inicializar la visibilidad de los campos al cargar la página
+  toggleCedulaAndRifFields();
+
+  // Función para combinar cédula
+  function combineCedula() {
+    const tipo = tipoCedulaSelect.value;
+    const numero = numeroCedulaInput.value;
+    return `${tipo}-${numero}`;
+  }
+
+  // Validación mejorada de RIF
+  rifInput.addEventListener("input", function() {
+    const rifRegex = /^[VvJjGgEePp]-[0-9]{8}-[0-9]{1}$/;
+    if (this.value && !rifRegex.test(this.value)) {
+      this.setCustomValidity('Formato inválido. Use V/J/G/E/P-XXXXXXXX-X');
+    } else {
+      this.setCustomValidity('');
+    }
+  });
+
+  // Pequeña animación en los inputs al enfocar/blur
+  document.querySelectorAll('.form-control').forEach(input => {
+    input.addEventListener('focus', function() {
+      this.parentElement.parentElement.style.transform = 'translateY(-3px)';
+      this.parentElement.parentElement.style.transition = 'transform 0.3s';
+    });
+    
+    input.addEventListener('blur', function() {
+      this.parentElement.parentElement.style.transform = 'none';
+    });
+  });
+
+  // Carga del modal “Registrar Tipo de Persona”
+  $('#tipoPersonaModal').on('show.bs.modal', function(e) {
+    var modal = $(this);
+    $.ajax({
+      url: '/persona/tipoPersona.html',
+      method: 'GET',
+      success: function(data) {
+        modal.find('.modal-body').html(data);
+      },
+      error: function() {
+        modal.find('.modal-body').html('<div class="alert alert-danger">Error al cargar el formulario</div>');
       }
     });
+  });
 
-    // Pequeña animación en los inputs al enfocar/blur
-    document.querySelectorAll('.form-control').forEach(input => {
-      input.addEventListener('focus', function() {
-        this.parentElement.parentElement.style.transform = 'translateY(-3px)';
-        this.parentElement.parentElement.style.transition = 'transform 0.3s';
-      });
-      input.addEventListener('blur', function() {
-        this.parentElement.parentElement.style.transform = 'none';
-      });
-    });
-
-    // Carga del modal “Registrar Tipo de Persona”
-    $('#tipoPersonaModal').on('show.bs.modal', function(e) {
-      var modal = $(this);
-      $.ajax({
-        url: '/persona/tipoPersona.html',
-        method: 'GET',
-        success: function(data) {
-          modal.find('.modal-body').html(data);
-        }
-      });
-    });
-
-    // Procesar formulario de TipoPersona dentro del modal
-    $(document).on('submit', '#registroForm', function(e) {
-      e.preventDefault();
-      var form = $(this);
-      var modal = $('#tipoPersonaModal');
-      var messagesContainer = $('#modalMessages');
-      messagesContainer.empty();
-      $.ajax({
-        url: "{% url 'tipo_persona_modal' %}",
-        method: 'POST',
-        data: form.serialize(),
-        headers: {
-          'X-CSRFToken': form.find('input[name="csrfmiddlewaretoken"]').val()
-        },
-        success: function(response) {
-          if (response.success) {
-            messagesContainer.append(
-              '<div class="alert alert-success alert-dismissible fade show" role="alert">'
-              + response.message +
-              '</div>'
-            );
-            setTimeout(function() { modal.modal('hide'); }, 1000);
-            var select = $('#tipoPersona');
-            select.append('<option value="' + response.idTP + '">' + response.nombreTP + '</option>');
-            select.val(response.idTP);
-          } else {
-            if (response.errors) {
-              for (var field in response.errors) {
-                messagesContainer.append(
-                  '<div class="alert alert-danger alert-dismissible fade show" role="alert">' +
-                  response.errors[field] +
-                  '</div>'
-                );
-              }
-            } else if (response.message) {
+  // Procesar formulario de TipoPersona dentro del modal
+  $(document).on('submit', '#registroTipoPersonaForm', function(e) {
+    e.preventDefault();
+    var form = $(this);
+    var modal = $('#tipoPersonaModal');
+    var messagesContainer = $('#modalMessages');
+    messagesContainer.empty();
+    
+    $.ajax({
+      url: "{% url 'tipo_persona_modal' %}",
+      method: 'POST',
+      data: form.serialize(),
+      headers: {
+        'X-CSRFToken': form.find('input[name="csrfmiddlewaretoken"]').val()
+      },
+      success: function(response) {
+        if (response.success) {
+          messagesContainer.append(
+            '<div class="alert alert-success alert-dismissible fade show" role="alert">'
+            + response.message +
+            '</div>'
+          );
+          setTimeout(function() { modal.modal('hide'); }, 1000);
+          var select = $('#tipoPersona');
+          select.append('<option value="' + response.idTP + '">' + response.nombreTP + '</option>');
+          select.val(response.idTP);
+        } else {
+          if (response.errors) {
+            for (var field in response.errors) {
               messagesContainer.append(
                 '<div class="alert alert-danger alert-dismissible fade show" role="alert">' +
-                response.message +
+                response.errors[field] +
                 '</div>'
               );
             }
+          } else if (response.message) {
+            messagesContainer.append(
+              '<div class="alert alert-danger alert-dismissible fade show" role="alert">' +
+              response.message +
+              '</div>'
+            );
           }
-        },
-        error: function(xhr, status, error) {
-          messagesContainer.append(
-            '<div class="alert alert-danger alert-dismissible fade show" role="alert">Error al enviar el formulario. Inténtelo de nuevo.</div>'
-          );
-          console.error('AJAX Error:', error);
         }
-      });
-    });
-
-
-    // ————— 2) Marcar el checkbox “tipoPersona” oculto según idTP —————
-    const params = new URLSearchParams(window.location.search);
-    const idTP = params.get("idTP");  // “1”, “2” o “3”
-    if (idTP) {
-      const checkbox = document.querySelector(`input[name="tipoPersona"][value="${idTP}"]`);
-      if (checkbox) {
-        checkbox.checked = true;
+      },
+      error: function(xhr, status, error) {
+        messagesContainer.append(
+          '<div class="alert alert-danger alert-dismissible fade show" role="alert">Error al enviar el formulario. Inténtelo de nuevo.</div>'
+        );
+        console.error('AJAX Error:', error);
       }
+    });
+  });
+
+  // Marcar el checkbox “tipoPersona” oculto según idTP
+  const params = new URLSearchParams(window.location.search);
+  const idTP = params.get("idTP");  // “1”, “2” o “3”
+  if (idTP) {
+    const checkbox = document.querySelector(`input[name="tipoPersona"][value="${idTP}"]`);
+    if (checkbox) {
+      checkbox.checked = true;
+    }
+  }
+
+  // Listener de envío del formulario principal
+  const form = document.getElementById("registroPersona");
+  form.addEventListener("submit", function(e) {
+    e.preventDefault();
+
+    // Validar que la cédula (número) no esté vacía si está habilitada
+    if (!numeroCedulaInput.disabled && !numeroCedulaInput.value) {
+      Swal.fire({
+        icon: "error",
+        title: "Cédula incompleta",
+        text: "Por favor ingrese el número de cédula",
+        confirmButtonColor: "#ffc107",
+      });
+      return;
     }
 
+    // Validar que el RIF no esté vacío si está habilitado
+    if (!rifInput.disabled && !rifInput.value) {
+      Swal.fire({
+        icon: "error",
+        title: "RIF incompleto",
+        text: "Por favor ingrese el RIF",
+        confirmButtonColor: "#ffc107",
+      });
+      return;
+    }
 
-    // ————— 3) Listener de envío del formulario principal —————
-    const form = document.getElementById("registroPersona");
-    form.addEventListener("submit", function(e) {
-      e.preventDefault();
+    // Crear FormData y agregar la cédula combinada
+    const formData = new FormData(form);
+    formData.set('cedula', combineCedula());
 
-      // Validar que la cédula (número) no esté vacía
-      const numeroCedula = document.getElementById('numero_cedula').value;
-      if (!numeroCedula) {
-        Swal.fire({
-          icon: "error",
-          title: "Cédula incompleta",
-          text: "Por favor ingrese el número de cédula",
-          confirmButtonColor: "#ffc107",
-        });
-        return;
-      }
+    fetch(form.action + (idTP ? `?idTP=${idTP}` : ''), {  
+      method: "POST",
+      body: formData,
+      headers: {
+        "X-Requested-With": "XMLHttpRequest",
+      },
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        if (data.success) {
+          const cedulaCompleta = combineCedula();
+          const tipoPersonaSeleccionados = Array.from(
+            document.querySelectorAll('input[name="tipoPersona"]:checked')
+          ).map(checkbox => checkbox.value);
 
-      // Crear FormData y agregar la cédula combinada
-      const formData = new FormData(form);
-      formData.set('cedula', combineCedula());
-
-      fetch(form.action + (idTP ? `?idTP=${idTP}` : ''), {  
-        method: "POST",
-        body: formData,
-        headers: {
-          "X-Requested-With": "XMLHttpRequest",
-        },
-      })
-        .then((response) => response.json())
-        .then((data) => {
-          if (data.success) {
-            const cedulaCompleta = combineCedula();
-            const tipoPersonaSeleccionados = Array.from(
-              document.querySelectorAll('input[name="tipoPersona"]:checked')
-            ).map(checkbox => checkbox.value);
-
-            // Construir las opciones de redirección según el tipo de persona
-            const opciones = [];
-            if (tipoPersonaSeleccionados.includes("2")) {
-              opciones.push({ text: "Solicitud", value: `/solicitud/solicitud.html?cedula=${cedulaCompleta}` });
-              opciones.push({ text: "Inscripción", value: `/inscripcion/inscripcion.html?cedula=${cedulaCompleta}` });
-            }
-            if (tipoPersonaSeleccionados.includes("3")) {
-              opciones.push({ text: "Honorario", value: `/honorario/honorario2.html?cedula=${cedulaCompleta}` });
-            }
-            if (tipoPersonaSeleccionados.includes("1")) {
-              opciones.push({ 
-                  text: "Usuario", 
-                  value: "{% url 'registrar_usuario' %}?cedula=" + cedulaCompleta 
-              });
-            }
-
-            // Si solo hay un tipo seleccionado, redirigir directamente
-            if (opciones.length === 1) {
-              window.location.href = opciones[0].value;
-              return;
-            }
-
-            // Mostrar SweetAlert con las opciones de redirección
-            Swal.fire({
-              title: "Registro exitoso",
-              text: "¿Qué quieres hacer ahora?",
-              icon: "success",
-              input: "select",
-              inputOptions: opciones.reduce((acc, opcion) => {
-                acc[opcion.value] = opcion.text;
-                return acc;
-              }, {}),
-              inputPlaceholder: "Selecciona una opción",
-              showCancelButton: true,
-              confirmButtonText: "Ir",
-              cancelButtonText: "Cancelar",
-              customClass: {
-                confirmButton: "btn btn-warning",
-                cancelButton: "btn btn-secondary",
-              },
-              buttonsStyling: false,
-            }).then((result) => {
-              if (result.isConfirmed && result.value) {
-                window.location.href = result.value;
-              } else {
-                // Si el usuario cancela, redirigir a la lista de personas
-                window.location.href = "{% url 'seleccionar_tipo_consulta' %}?tipo=" + (idTP || '');
-              }
-            });
-          } else {
-            // Si hubo errores de validación en el servidor, muestra el SweetAlert
-            Swal.fire({
-              icon: "error",
-              title: "Error en el registro",
-              html: Object.values(data.errors)
-                .map((error) => `<p class="text-center">${error}</p>`)
-                .join(""),
-              confirmButtonColor: "#ffc107",
-              confirmButtonText: "Entendido",
+          // Construir las opciones de redirección según el tipo de persona
+          const opciones = [];
+          if (tipoPersonaSeleccionados.includes("2")) {
+            opciones.push({ text: "Solicitud", value: `/solicitud/solicitud.html?cedula=${cedulaCompleta}` });
+            opciones.push({ text: "Inscripción", value: `/inscripcion/inscripcion.html?cedula=${cedulaCompleta}` });
+          }
+          if (tipoPersonaSeleccionados.includes("3")) {
+            opciones.push({ text: "Honorario", value: `/honorario/honorario2.html?cedula=${cedulaCompleta}` });
+          }
+          if (tipoPersonaSeleccionados.includes("1")) {
+            opciones.push({ 
+                text: "Usuario", 
+                value: "{% url 'registrar_usuario' %}?cedula=" + cedulaCompleta 
             });
           }
-        })
-        .catch((error) => {
-          console.error("Error:", error);
+
+          // Si solo hay un tipo seleccionado, redirigir directamente
+          if (opciones.length === 1) {
+            window.location.href = opciones[0].value;
+            return;
+          }
+
+          // Mostrar SweetAlert con las opciones de redirección
+          Swal.fire({
+            title: "Registro exitoso",
+            text: "¿Qué quieres hacer ahora?",
+            icon: "success",
+            input: "select",
+            inputOptions: opciones.reduce((acc, opcion) => {
+              acc[opcion.value] = opcion.text;
+              return acc;
+            }, {}),
+            inputPlaceholder: "Selecciona una opción",
+            showCancelButton: true,
+            confirmButtonText: "Ir",
+            cancelButtonText: "Cancelar",
+            customClass: {
+              confirmButton: "btn btn-warning",
+              cancelButton: "btn btn-secondary",
+            },
+            buttonsStyling: false,
+          }).then((result) => {
+            if (result.isConfirmed && result.value) {
+              window.location.href = result.value;
+            } else {
+              // Si el usuario cancela, redirigir a la lista de personas
+              window.location.href = "{% url 'seleccionar_tipo_consulta' %}?tipo=" + (idTP || '');
+            }
+          });
+        } else {
+          // Si hubo errores de validación en el servidor, muestra el SweetAlert
           Swal.fire({
             icon: "error",
-            title: "Error inesperado",
-            text: "Ocurrió un error al procesar la solicitud.",
+            title: "Error en el registro",
+            html: Object.values(data.errors)
+              .map((error) => `<p class="text-center">${error}</p>`)
+              .join(""),
             confirmButtonColor: "#ffc107",
             confirmButtonText: "Entendido",
           });
+        }
+      })
+      .catch((error) => {
+        console.error("Error:", error);
+        Swal.fire({
+          icon: "error",
+          title: "Error inesperado",
+          text: "Ocurrió un error al procesar la solicitud.",
+          confirmButtonColor: "#ffc107",
+          confirmButtonText: "Entendido",
         });
-    });
+      });
+  });
+});
+// Validación personalizada para el teléfono
+  document.addEventListener('input', function(e) {
+    const input = e.target;
+    if (input.id === 'telefono') {
+      // Permitir solo números y guión
+      input.value = input.value.replace(/[^0-9\-]/g, '');
 
-  }); // Fin de DOMContentLoaded
+      // Formatear como xxxx-xxxxxxx
+      let digits = input.value.replace(/\D/g, '');
+      if (digits.length > 4) {
+        input.value = digits.substring(0, 4) + '-' + digits.substring(4, 11);
+      } else {
+        input.value = digits;
+      }
+
+      // Validar formato xxxx-xxxxxxx
+      const telefonoRegex = /^\d{4}-\d{7}$/;
+      if (!telefonoRegex.test(input.value)) {
+        input.setCustomValidity('El teléfono debe tener el formato xxxx-xxxxxxx.');
+      } else {
+        input.setCustomValidity('');
+      }
+    }
+  });
+
+function activarValidaciones() {
+  document.addEventListener('input', function(e) {
+    const input = e.target;
+    if (input.tagName !== 'INPUT') return;
+
+    const valor = input.value;
+    let nuevo = valor;
+
+    // Caracteres prohibidos generales (salvo '-' para RIF)
+    const proh = /["',:_+]/g;
+
+    if (input.id === 'rif') {
+      // RIF (formato X-XXXXXXXX-X):
+      // 1) Convertir a mayúsculas
+      // 2) Permitir solo A–Z, 0–9 y guiones
+      nuevo = valor
+        .toUpperCase()
+        .replace(/[^A-Z0-9-]/g, '');
+
+    } else if (input.type === 'email') {
+      // Email: eliminar todo excepto letras, dígitos, @, punto y caracteres especiales permitidos
+      nuevo = valor
+        .replace(/[^A-Za-z0-9@.!#$%&'*+/=?^_`{|}~\-]/g, '')
+        // evitar más de una arroba
+        .replace(/^([^@]*)@(.+)@(.+)$/, '$1@$2$3');
+
+    } else {
+      // Otros inputs:
+      // 1) Convertir a mayúsculas (si no es #correo)
+      // 2) Eliminar caracteres prohibidos y puntos
+      if (input.id !== 'correo') {
+        nuevo = valor.toUpperCase();
+      }
+      nuevo = nuevo.replace(proh, '').replace(/\./g, '');
+    }
+
+    if (nuevo !== valor) {
+      input.value = nuevo;
+    }
+  });
+}
+
+// Validación final al enviar el formulario
+document
+  .getElementById('registroPersona')
+  .addEventListener('submit', function(e) {
+    const rif = document.getElementById('rif').value;
+    const patronRif = /^[A-Z]-\d{8}-\d$/;
+    if (!patronRif.test(rif)) {
+      e.preventDefault();
+      alert('RIF inválido. Debe tener el formato X-XXXXXXXX-X');
+    }
+  });
+
+activarValidaciones();
+//Validar <textarea> en mayusculas con acentos, comillas, guiones, puntos y ñ.
+document.querySelectorAll("textarea").forEach(function(textarea) {
+  textarea.addEventListener("input", function() {
+    this.value = this.value.toUpperCase().replace(/[^A-Z0-9ÑñÁÉÍÓÚáéíóú\s.,-]/g, '');
+  });
+});
+
 </script>
 {% endblock javascripts %}

@@ -33,24 +33,53 @@
 
   .pagination-container {
     margin-top: 1rem !important;
-}
+  }
 
-.pagination {
+  .pagination {
     --bs-pagination-padding-x: 0.75rem;
     --bs-pagination-padding-y: 0.375rem;
     --bs-pagination-font-size: 0.875rem;
-}
+  }
 
-.page-link {
+  .page-link {
     min-width: 32px;
     text-align: center;
     border-radius: 4px !important;
-}
+  }
 
-.page-item.active .page-link {
+  .page-item.active .page-link {
     background-color: #fb6340;
     border-color: #fb6340;
-}
+  }
+  
+  /* Estilos para el modal de detalles */
+  .details-modal .modal-content {
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  }
+  .details-modal .modal-header {
+    background: linear-gradient(135deg, #5e72e4 0%, #825ee4 100%);
+    color: white;
+    border-radius: 15px 15px 0 0;
+  }
+  .detail-item {
+    padding: 10px 0;
+    border-bottom: 1px solid #eee;
+    display: flex;
+  }
+  .detail-label {
+    font-weight: 600;
+    color: #525f7f;
+    min-width: 120px;
+  }
+  .detail-value {
+    color: #8898aa;
+    flex-grow: 1;
+  }
+  .detail-value.bold {
+    font-weight: 600;
+    color: #333;
+  }
 </style>
 {% endblock stylesheets %}
 
@@ -62,19 +91,19 @@
     <div class="col-md-4">
       <div class="input-group">
         <span class="input-group-text"><i class="fas fa-search"></i></span>
-        <input class="form-control" id="searchInput" type="text" placeholder="Buscar por Nombre...">
+        <input class="form-control" id="searchInput" type="text" placeholder="Buscar...">
       </div>
     </div>
     <div class="col-md-4 text-center">
       {% if perms.home.add_formacion %}
-        <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#formacionModal">
-          <i class="fas fa-plus-circle me-1"></i> Registrar Formación
-        </button>
+      <a href="{% url 'formacion_modal' %}" class="btn btn-warning">
+        <i class="fas fa-plus-circle me-1"></i> Registrar Formación
+      </a>
       {% endif %}
     </div>
 
     <div class="col-md-4 text-end">
-      <a href="{% url 'reporte_formaciones_pdf' %}" class="btn btn-outline-danger btn-sm" target="_blank">
+      <a href="{% url 'reporte_formaciones_pdf' %}" class="btn btn-outline-danger" target="_blank">
         <i class="fas fa-file-pdf"></i> Descargar PDF
       </a>
     </div>
@@ -115,7 +144,6 @@
             <th>Valor</th>
             <th>Duración</th>
             <th>Estado</th>
-            <th>Fecha</th>
             <th class="actions-column">Acciones</th>
           </tr>
         </thead>
@@ -125,7 +153,7 @@
             <td>{{ formacion.idFormacion }}</td>
             <td>{{ formacion.idTF.nombreTipoFormacion }}</td>
             <td>{{ formacion.nombreFormacion }}</td>
-            <td>{{ formacion.valorFormacion }}</td>
+            <td>{{ formacion.valorInscripcion }}</td>
             <td>{{ formacion.duracion }}</td>
             <td>
               {% if formacion.estadoFormacion|upper == "ACTIVO" %}
@@ -138,9 +166,25 @@
               </span>
               {% endif %}
             </td>
-            <td>{{ formacion.fechaFormacion|date:"d/m/Y" }}</td>
             <td class="actions-column">
               <div class="d-flex gap-2">
+                {% if perms.home.view_formacion %}
+                  <!-- Botón para ver detalles -->
+                  <button class="btn btn-info btn-sm view-details-btn"
+                          data-bs-toggle="modal"
+                          data-bs-target="#detailsModal"
+                          data-id="{{ formacion.idFormacion }}"
+                          data-nombre="{{ formacion.nombreFormacion }}"
+                          data-tipo="{{ formacion.idTF.nombreTipoFormacion }}"
+                          data-valor="{{ formacion.valorInscripcion }}"
+                          data-duracion="{{ formacion.duracion }}"
+                          data-estado="{{ formacion.estadoFormacion }}"
+                          data-fecha="{{ formacion.fechaFormacion|date:'d/m/Y' }}"
+                          title="Ver más">
+                    <i class="fas fa-eye"></i>
+                  </button>
+                {% endif %}
+
                 {% if perms.home.change_formacion %}
                   <button class="btn btn-primary btn-sm"
                           data-bs-toggle="modal"
@@ -150,6 +194,7 @@
                     <i class="fas fa-edit"></i>
                   </button>
                 {% endif %}
+
                 {% if formacion.estadoFormacion|upper == "ACTIVO" and perms.home.delete_formacion %}
                   <button class="btn btn-outline-warning btn-sm"
                           data-bs-toggle="modal"
@@ -184,9 +229,33 @@
 
 {# ─── Modales ─── #}
 
+<!-- Modal de Detalles -->
+<div class="modal fade details-modal" id="detailsModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title text-white">Detalles de la Formación</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p><strong>Nombre:</strong> <span id="modalNombre"></span></p>
+        <p><strong>Tipo:</strong> <span id="modalTipo"></span></p>
+        <p><strong>Valor:</strong> <span id="modalValor"></span></p>
+        <p><strong>Duración:</strong> <span id="modalDuracion"></span></p>
+        <p><strong>Estado:</strong> <span id="modalEstado"></span></p>
+        <p><strong>Fecha:</strong> <span id="modalFecha"></span></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
 <!-- Modal: Registrar Formación -->
 <div class="modal fade" id="formacionModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-md">
+  <div class="modal-dialog modal-lg">
     <div class="modal-content">
       <div class="modal-header bg-primary text-white">
         <h5 class="modal-title text-white"><i class="fas fa-plus-circle me-2"></i> Registro de Formación</h5>
@@ -203,7 +272,7 @@
 
 <!-- Modal: Editar Formación -->
 <div class="modal fade" id="editFormacionModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-md">
+  <div class="modal-dialog modal-lg">
     <div class="modal-content">
       <div class="modal-header bg-primary text-white">
         <h5 class="modal-title text-white"><i class="fas fa-edit me-2"></i> Editar Formación</h5>
@@ -233,6 +302,7 @@
         <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
         <form id="deleteFormacionForm" method="post">
           {% csrf_token %}
+          <input type="hidden" name="next" value="{{ request.get_full_path }}">
           <button type="submit" class="btn btn-warning">Inhabilitar</button>
         </form>
       </div>
@@ -254,7 +324,8 @@
       <div class="modal-footer">
         <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
         <form id="reactivateFormacionForm" method="post">
-          {% csrf_token %}
+          {% csrf_token %}          
+          <input type="hidden" name="next" value="">
           <button type="submit" class="btn btn-success">Reactivar</button>
         </form>
       </div>
@@ -269,110 +340,49 @@
 
 <script>
 document.addEventListener("DOMContentLoaded", function() {
-  // Helper para cargar contenido en modales
-  function loadInModal(modalId, urlFn, contentSel) {
-    $(modalId).on('show.bs.modal', function(e) {
-      const $c = $(this).find(contentSel);
-      $c.html('<div class="text-center py-4"><div class="spinner-border text-primary"></div></div>');
-      $.get(urlFn(e)).done(html => $c.html(html));
+  const modalConfig = [
+    { id: '#formacionModal', url: () => "{% url 'formacion_modal' %}", content: '#registrarFormacionContent' },
+    { id: '#editFormacionModal', url: e => $(e.relatedTarget).data('url'), content: '#editFormacionContent' }
+  ];
+
+  modalConfig.forEach(({ id, url, content }) => {
+    $(id).on('show.bs.modal', function(e) {
+      const $content = $(this).find(content);
+      $content.html('<div class="text-center py-4"><div class="spinner-border text-primary"></div></div>');
+      $.get(url(e)).done(html => $content.html(html));
     }).on('hidden.bs.modal', function() {
-      $(contentSel).empty();
+      $(content).empty();
     });
-  }
-
-  // Cargar modales principales
-  loadInModal(
-    '#formacionModal',
-    () => "{% url 'formacion_modal' %}",
-    '#registrarFormacionContent'
-  );
-
-  loadInModal(
-    '#editFormacionModal',
-    e => $(e.relatedTarget).data('url'),
-    '#editFormacionContent'
-  );
-
-  // Configurar acciones de desactivación/reactivación
-  $('#deleteFormacionModal').on('show.bs.modal', function(e) {
-    const button = $(e.relatedTarget);
-    $('#deleteFormacionForm').attr('action', button.data('url'));
   });
 
-  $('#reactivateFormacionModal').on('show.bs.modal', function(e) {
-    const button = $(e.relatedTarget);
-    $('#reactivateFormacionForm').attr('action', button.data('url'));
+['deleteFormacionModal', 'reactivateFormacionModal'].forEach(modalId => {
+    const modalSel = `#${modalId}`;
+    const formSel  = modalId === 'deleteFormacionModal'
+                     ? '#deleteFormacionForm'
+                     : '#reactivateFormacionForm';
+
+    $(modalSel).on('show.bs.modal', function(e) {
+      const btnUrl = $(e.relatedTarget).data('url');
+      const nextParam = encodeURIComponent(window.location.href);
+
+      // action completo
+      const actionFull = btnUrl + '?next=' + nextParam;
+      $(formSel).attr('action', actionFull);
+
+      // también actualizamos el hidden next por si tu backend lo lee desde POST
+      $(formSel).find('input[name=next]').val(window.location.href);
+    });
   });
 
-  // Manejar envío de formularios
-  function handleFormSubmit(formSelector, modalId) {
-    $(document).on('submit', formSelector, function(e) {
-      e.preventDefault();
-      const $form = $(this);
-      
-      if (!highlightInvalidInputs(formSelector)) return false;
+  // 2) Reutilizamos tu función genérica de envío AJAX
+  handleFormSubmit('#deleteFormacionForm',   '#deleteFormacionModal');
+  handleFormSubmit('#reactivateFormacionForm','#reactivateFormacionModal');
 
-      $.ajax({
-        url: $form.attr('action'),
-        method: $form.attr('method'),
-        data: $form.serialize(),
-        success: function(response) {
-          handleFormResponse(response, modalId);
-        },
-        error: function() {
-          Swal.fire('Error', 'Error al procesar la solicitud', 'error');
-        }
-      });
-    });
-  }
-
-  // Registrar handlers para formularios
-  handleFormSubmit('#formacionForm', '#formacionModal');
-  handleFormSubmit('#editFormacionForm', '#editFormacionModal');
-
-  // Función para manejar respuestas del servidor
-  function handleFormResponse(response, modalId) {
-    const modal = $(modalId);
-    const messagesContainer = modal.find('.modal-body');
-    
-    messagesContainer.find('.alert').remove();
-    
-    if (response.success) {
-      modal.modal('hide');
-      showGlobalMessage(response.message, 'success');
-      setTimeout(() => location.reload(), 1500);
-    } else {
-      if (response.errors?.__all__) {
-        Swal.fire({
-          title: 'Error de registro',
-          text: response.errors.__all__.join('\n'),
-          icon: 'error',
-          confirmButtonText: 'OK'
-        });
-      }
-      $.each(response.errors, function(field, errors) {
-        if (field !== "__all__") {
-          messagesContainer.prepend(
-            `<div class="alert alert-danger alert-dismissible fade show" role="alert">
-              ${errors.join(', ')}
-              <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
-                <i class="fas fa-times"></i>
-              </button>
-            </div>`
-          );
-        }
-      });
-    }
-  }
-
-  // Función para validación de campos
-  function highlightInvalidInputs(formSelector) {
+  function validateInputs(formSelector) {
     const form = document.querySelector(formSelector);
     if (!form) return false;
-    
-    let valid = true;
-    let firstInvalid = null;
-    
+
+    let valid = true, firstInvalid = null;
     form.querySelectorAll('[data-required]').forEach(input => {
       if (!input.value.trim()) {
         input.classList.add('is-invalid');
@@ -394,7 +404,39 @@ document.addEventListener("DOMContentLoaded", function() {
     return valid;
   }
 
-  // Función para mensajes globales
+  function handleResponse(response, modalId) {
+    const modal = $(modalId);
+    const messagesContainer = modal.find('.modal-body');
+    messagesContainer.find('.alert').remove();
+
+    if (response.success) {
+      modal.modal('hide');
+      showGlobalMessage(response.message, 'success');
+      setTimeout(() => location.reload(), 1500);
+    } else {
+      if (response.errors?.__all__) {
+        Swal.fire({
+          title: 'Error de registro',
+          text: response.errors.__all__.join('\n'),
+          icon: 'error',
+          confirmButtonText: 'OK'
+        });
+      }
+      Object.entries(response.errors).forEach(([field, errors]) => {
+        if (field !== "__all__") {
+          messagesContainer.prepend(
+            `<div class="alert alert-danger alert-dismissible fade show" role="alert">
+              ${errors.join(', ')}
+              <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>`
+          );
+        }
+      });
+    }
+  }
+
   function showGlobalMessage(message, type) {
     const container = $('#globalMessages');
     const alertClass = {
@@ -407,21 +449,35 @@ document.addEventListener("DOMContentLoaded", function() {
       <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
         ${message}
         <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
-            <i class="fas fa-times"></i>
-          </button>
+          <i class="fas fa-times"></i>
+        </button>
       </div>
     `);
   }
 
-  // Filtrado de tabla
-  $('#searchInput').on('keyup', function() {
-    const filter = this.value.toUpperCase();
-    $('#formacionesTable tbody tr').each(function() {
-      $(this).toggle($(this).text().toUpperCase().includes(filter));
-    });
+  $('#detailsModal').on('show.bs.modal', function(event) {
+    const button = $(event.relatedTarget);
+    const modal = $(this);
+    const data = ['id', 'nombre', 'tipo', 'valor', 'duracion', 'estado', 'fecha'].reduce((acc, key) => {
+      acc[key] = button.data(key);
+      return acc;
+    }, {});
+
+    modal.find('#detail-nombre').text(data.nombre);
+    modal.find('#detail-id').text(data.id);
+    modal.find('#detail-tipo').text(data.tipo);
+    modal.find('#detail-valor').text(data.valor);
+    modal.find('#detail-duracion').text(data.duracion);
+    modal.find('#detail-fecha').text(data.fecha);
+    modal.find('#detail-estado').html(
+      `<span class="badge ${data.estado.toUpperCase() === "ACTIVO" ? 'bg-success' : 'bg-danger'} text-white">${data.estado}</span>`
+    );
   });
 
-  // Manejar acciones de eliminación/reactivación
+  handleFormSubmit('#formacionForm', '#formacionModal');
+  handleFormSubmit('#editFormacionForm', '#editFormacionModal');
+
+ 
   window.manageFormacion = function(id, action) {
     const isDelete = action === 'delete';
     const url = isDelete 
@@ -438,38 +494,27 @@ document.addEventListener("DOMContentLoaded", function() {
         confirmButton: isDelete ? 'btn btn-danger' : 'btn btn-success',
         cancelButton: 'btn btn-secondary'
       }
-    }).then((result) => {
+    }).then(result => {
       if (result.isConfirmed) {
         $.ajax({
           url: url,
           method: 'POST',
-          data: {
-            csrfmiddlewaretoken: '{{ csrf_token }}'
-          },
-          success: function(response) {
-            if(response.success) {
+          data: { csrfmiddlewaretoken: '{{ csrf_token }}' },
+          success: response => {
+            if (response.success) {
               showGlobalMessage(response.message, 'success');
               setTimeout(() => location.reload(), 1500);
             } else {
               Swal.fire('Error', response.message, 'error');
             }
           },
-          error: function() {
-            Swal.fire('Error', 'Error de conexión', 'error');
-          }
+          error: () => Swal.fire('Error', 'Error de conexión', 'error')
         });
       }
     });
-  }
+  };
 });
 </script>
-
-<style>
-  .is-invalid {
-    border-color: #dc3545 !important;
-    box-shadow: 0 0 0 0.2rem rgba(220,53,69,.25);
-  }
-</style>
 
 <script>
   document.addEventListener('DOMContentLoaded', function () {
@@ -542,6 +587,42 @@ document.addEventListener("DOMContentLoaded", function() {
 
     displayRows();
     setupPagination();
+
+    // Scroll horizontal
+  const wrap = document.querySelector('.table-responsive');
+  if(wrap){
+    wrap.addEventListener('wheel', e=>{
+      if(e.deltaY){
+        e.preventDefault();
+        wrap.scrollLeft += e.deltaY;
+      }
+    });
+  }
+  const searchInput = document.getElementById("searchInput");
+
+  searchInput.addEventListener("keyup", function () {
+    const filter = searchInput.value.toUpperCase();
+    const rows = table.querySelectorAll("tbody tr");
+
+    rows.forEach((row) => {
+      const text = row.textContent || row.innerText;
+      row.style.display = text.toUpperCase().includes(filter) ? "" : "none";
+    });
+  });
 });
+</script>
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const detailsModal = document.getElementById("detailsModal");
+    detailsModal.addEventListener("show.bs.modal", function (event) {
+      const button = event.relatedTarget; // Botón que activó el modal
+      document.getElementById("modalNombre").textContent = button.getAttribute("data-nombre");
+      document.getElementById("modalTipo").textContent = button.getAttribute("data-tipo");
+      document.getElementById("modalValor").textContent = button.getAttribute("data-valor");
+      document.getElementById("modalDuracion").textContent = button.getAttribute("data-duracion");
+      document.getElementById("modalEstado").textContent = button.getAttribute("data-estado");
+      document.getElementById("modalFecha").textContent = button.getAttribute("data-fecha");
+    });
+  });
 </script>
 {% endblock javascripts %}

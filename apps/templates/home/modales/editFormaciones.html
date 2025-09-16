@@ -1,95 +1,348 @@
+
+{% load static %}
+
 {% block stylesheets %}
 <link rel="stylesheet" href="/static/assets/css/styleForms.css" />
 <link rel="stylesheet" href="/static/assets/css/argon.css" />
+<style>
+  .formacion-container {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 1rem;
+    box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.1);
+    padding: 2rem;
+    margin: 2rem auto;
+    max-width: 700px;
+  }
+  .formacion-header {
+    text-align: center;
+    margin-bottom: 2rem;
+    position: relative;
+    padding-bottom: 1rem;
+  }
+  .formacion-header h2 {
+    color: #343a40;
+    font-weight: 700;
+  }
+  .formacion-header::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80px;
+    height: 4px;
+    background: linear-gradient(90deg, #ffc107, #fd7e14);
+    border-radius: 2px;
+  }
+  .form-group {
+    margin-bottom: 1.5rem;
+    position: relative;
+  }
+  .form-label {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+  }
+  .form-label i {
+    margin-right: 8px;
+    color: #fd7e14;
+  }
+  .form-control {
+    border-radius: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    border: 1px solid #ced4da;
+    background-color: #fff;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.075);
+    transition: all 0.3s;
+  }
+  .form-control:focus {
+    border-color: #ffc107;
+    box-shadow: 0 0 0 0.25rem rgba(255,193,7,0.25);
+  }
+  .input-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6c757d;
+    z-index: 2;
+  }
+  .input-with-icon {
+    padding-left: 40px;
+  }
+  .btn-submit {
+    background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+    border: none;
+    color: #fff;
+    font-weight: 600;
+    padding: 0.75rem 2rem;
+    border-radius: 0.5rem;
+    transition: all 0.3s;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+  .btn-submit:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    background: linear-gradient(135deg, #fd7e14 0%, #ffc107 100%);
+  }
+</style>
 {% endblock stylesheets %}
 
 {% block content %}
-<div class="mt-5">
-  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Editar Formación</h2>
-  <form method="POST" id="editFormacionForm" action="{% url 'edit_formacion' formacion.pk %}" class="mt-3 text-dark" autocomplete="off">
+{% if messages %}
+  {% for message in messages %}
+    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+      <i class="fas {% if message.tags == 'success' %}fa-check-circle{% else %}fa-exclamation-circle{% endif %} me-2"></i>
+      {{ message }}
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+  {% endfor %}
+{% endif %}
+<div id="dynamicAlertContainer"></div>
+
+<div class="formacion-container">
+  <div class="formacion-header">
+    <h2><i class="fas fa-graduation-cap text-warning"></i> Editar Formación</h2>
+    <p class="text-muted">Complete todos los campos para editar la formación</p>
+  </div>
+
+  <form method="POST" id="editFormacionForm" action="{% url 'edit_formacion' formacion.pk %}"
+        class="needs-validation" novalidate autocomplete="off">
     {% csrf_token %}
-    <div class="form-group">
-      <label for="idTF">Tipo de Formación:</label>
-      <select id="idTF" name="idTF" class="form-control text-dark mx-auto" required>
-        {% for tipo in tipos_formacion %}
-        <option value="{{ tipo.idTF }}" {% if tipo.idTF == formacion.idTF.idTF %}selected{% endif %}>{{ tipo.nombreTipoFormacion }}</option>
-        {% endfor %}
-        <div class="invalid-feedback">Por favor, seleccione un tipo de formación.</div>
+
+    <div class="row">
+      <!-- Tipo de Formación -->
+      <div class="col-md-6">
+        <div class="form-group">
+          <label for="idTF" class="form-label">
+            <i class="fas fa-list-alt"></i> Tipo de Formación
+          </label>
+          <select id="idTF" name="idTF" class="form-control" data-required="true" required>
+            <option value="" disabled>Seleccione...</option>
+            {% for tipo in tipos_formacion %}
+              <option value="{{ tipo.idTF }}" {% if formacion.idTF.idTF == tipo.idTF %}selected{% endif %}>{{ tipo.nombreTipoFormacion }}</option>
+            {% endfor %}
+          </select>
+          <div class="invalid-feedback">Por favor, seleccione un tipo de formación.</div>
+        </div>
+      </div>
+      <!-- Nombre -->
+      <div class="col-md-6">
+        <div class="form-group">
+          <label for="nombreFormacion" class="form-label">
+            <i class="fas fa-heading"></i> Nombre
+          </label>
+          <div class="input-group">
+            <i class="fas fa-font input-icon"></i>
+            <input type="text" id="nombreFormacion" name="nombreFormacion"
+                   class="form-control input-with-icon"
+                   placeholder="Ingrese el nombre"
+                   maxlength="40" data-required="true" required
+                   value="{{ formacion.nombreFormacion }}">
+            <div class="invalid-feedback">Por favor, ingrese un nombre válido.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+      <!--ACOMODAR LOS DIVS O USAR CSS PARA MOSTRAR LOS DIV CLASS INVALID-FEEDBACK-->
+    <div class="row">
+      <!-- Valor -->
+      <div class="col-md-6">
+        <div class="form-group">
+          <label for="valorInscripcion" class="form-label">
+            <i class="fas fa-dollar-sign"></i> Valor de Inscripción
+          </label>
+          <div class="input-group">
+            <i class="fas fa-coins input-icon"></i>
+            <input type="text" inputmode="decimal"  pattern="[0-9]+(\.[0-9]{3})*,[0-9]{2}" id="valorInscripcion" name="valorInscripcion"
+                   class="form-control input-with-icon"
+                   placeholder="Ingrese el valor"
+                   maxlength="20" data-required="true" required
+                   value="{{ formacion.valorInscripcion }}">
+          </div>
+          <div class="invalid-feedback">Por favor, ingrese un valor válido.</div>
+        </div>
+      </div>
+<!-- Duración (estructura inmutable) -->
+<div class="col-md-6">
+  <div class="form-group">
+    <label for="cantidad" class="form-label">
+      <i class="fas fa-clock"></i> Duración
+    </label>
+    <div class="input-group">
+      <i class="fas fa-hourglass-half input-icon"></i>
+
+      <input type="text" id="cantidad" name="cantidad"
+             class="form-control input-with-icon"
+             placeholder="Duración"
+             maxlength="14" data-required="true" required
+             style="max-width: 180px;">
+
+      <select id="unidadDuracion" name="unidadDuracion"
+              class="form-control ms-2" style="max-width: 120px;">
+        <option value="HORAS">Horas</option>
+        <option value="DÍAS">Días</option>
+        <option value="SEMANAS">Semanas</option>
+        <option value="MESES">Meses</option>
+        <option value="AÑOS">Años</option>
       </select>
-    </div>
-    <div class="form-group">
-      <label for="nombreFormacion">Nombre:</label>
-      <input type="text" id="nombreFormacion" name="nombreFormacion" class="form-control text-dark mx-auto" maxlength="40" value="{{ formacion.nombreFormacion }}" data-required="true">
-      <div class="invalid-feedback">Por favor, ingrese un nombre válido.</div>
-    </div> 
-    <div class="form-group">
-      <label for="valorFormacion">Valor:</label>
-      <input type="text" id="valorFormacion" name="valorFormacion" class="form-control text-dark mx-auto" placeholder="Ingrese el valor de la formación" maxlength="20" value="{{ formacion.valorFormacion }}" data-required="true">
-      <div class="invalid-feedback">Por favor, ingrese un valor válido.</div>
-    </div>
-    <div class="form-group">
-      <label for="duracion">Duración:</label>
-      <input type="text" id="duracion" name="duracion" class="form-control text-dark mx-auto" value="{{ formacion.duracion }}" data-required="true">
+
+      <input type="hidden" id="duracion" name="duracion"
+             value="{{ formacion.duracion }}">
       <div class="invalid-feedback">Por favor, ingrese una duración válida.</div>
     </div>
-    <input type="hidden" id="estadoFormacion" name="estadoFormacion" value="{{ formacion.estadoFormacion }}">
-
-    <div class="text-center">
-      <button type="submit" class="btn btn-warning">Guardar</button>
-    </div>
-  </form>
+  </div>
 </div>
+
+<script>
+  (function(){
+    const cantidadInput  = document.getElementById("cantidad");
+    const unidadSelect   = document.getElementById("unidadDuracion");
+    const hiddenDuracion = document.getElementById("duracion");
+
+    if (!cantidadInput || !unidadSelect || !hiddenDuracion) {
+      console.warn("Duración: falta algún elemento en el DOM.");
+      return;
+    }
+
+    // ► 1. Bandera para evitar 'dirty' hasta terminar de poblar
+    let isInit = true;
+
+    // ► 2. Función que une cantidad + unidad en el hidden
+    function updateHidden() {
+      const c = cantidadInput.value.trim();
+      const u = unidadSelect.value;
+      hiddenDuracion.value = c ? `${c} ${u}` : "";
+    }
+
+    // ► 3. Lectura inicial robusta
+    const initial = hiddenDuracion.value.trim();
+    if (initial) {
+      // Regex: uno o más dígitos + espacio + resto
+      const m = initial.match(/^(\d+)\s+(.+)$/);
+      if (m) {
+        cantidadInput.value = m[1];
+
+        // Buscamos la opción cuyo value coincida (ignoramos mayúsculas/acentos)
+        const buscada = m[2].toUpperCase();
+        Array.from(unidadSelect.options).forEach(opt => {
+          if (opt.value.toUpperCase() === buscada) {
+            unidadSelect.value = opt.value;
+          }
+        });
+      }
+    }
+
+    // Llamada tras parseo para que el hidden refleje el valor correcto
+    updateHidden();
+
+    // ► 4. Listeners (solo disparan dirty al cambiar tras init)
+    cantidadInput.addEventListener("input", () => {
+      updateHidden();
+      if (!isInit) cantidadInput.dispatchEvent(new Event("change"));
+    });
+
+    unidadSelect.addEventListener("change", () => {
+      updateHidden();
+      if (!isInit) unidadSelect.dispatchEvent(new Event("change"));
+    });
+
+    // ► 5. Fin de la inicialización
+    isInit = false;
+  })();
+</script>
+      
+    <!-- Cuota -->
+    <div class="col-md-6 mx-auto">
+      <div class="form-group">
+        <label for="duracion" class="form-label">
+          <i class="fas fa-clock"></i> ¿Tiene Pagos en Cuotas?
+        </label>
+        <div class="d-flex justify-content-center">
+          <div class="form-check form-check-inline me-3">
+            <input class="form-check-input" type="radio" id="pagosCuotasSi" name="tieneCuotas" value="True"
+              {% if formacion.tieneCuotas %}checked{% endif %}>
+            <label class="form-check-label" for="pagosCuotasSi">Sí</label>
+          </div>
+          <div class="form-check form-check-inline ms-3">
+            <input class="form-check-input" type="radio" id="pagosCuotasNo" name="tieneCuotas" value="False"
+              {% if not formacion.tieneCuotas %}checked{% endif %}>
+            <label class="form-check-label" for="pagosCuotasNo">No</label>
+          </div>
+        </div>
+        <div class="invalid-feedback">Por favor, ingrese una duración válida.</div>
+      </div>
+    </div>
+
+    <input type="hidden" id="estadoFormacion" name="estadoFormacion" value="{{ formacion.estadoFormacion|default:'ACTIVO' }}">
+
+    <div class="text-center mt-4">
+      <button type="submit" class="btn-submit">
+        <i class="fas fa-save me-2"></i> Editar
+      </button>
+    </div>
+    </form>
+    </div>
+    </div>
 {% endblock content %}
 
 {% block javascripts %}
+<script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
 <script>
-    // Activar mayúsculas en inputs
-    function activarMayusculasInputs() {
-      document.addEventListener('input', function(e) {
-        if (e.target.tagName === 'INPUT' && !e.target.type.match(/password|hidden|email/)) {
-          e.target.value = e.target.value.toUpperCase();
+  // Función principal que activa validaciones y formateo
+  function activarValidacionFormacion() {
+    // 1) Mayúsculas en inputs, excepto valorInscripcion
+    document.querySelectorAll('input').forEach(function(input) {
+      if (!/password|hidden|email/.test(input.type) && input.id !== 'valorInscripcion') {
+        input.addEventListener('input', function() {
+          this.value = this.value.toUpperCase();
+        });
+      }
+    });
+
+    // 2) Validación de Bootstrap
+    var forms = document.querySelectorAll('.needs-validation');
+    Array.prototype.forEach.call(forms, function(form) {
+      form.addEventListener('submit', function(event) {
+        if (!form.checkValidity()) {
+          event.preventDefault();
+          event.stopPropagation();
         }
-      });
+        form.classList.add('was-validated');
+      }, false);
+    });
+
+    // 3) Formateo de valorInscripcion
+    const input = document.getElementById('valorInscripcion');
+    if (!input) return;
+
+    const formatearValor = (valor) => {
+      let raw = valor.replace(/[^\d]/g, '');
+      if (!raw) return '';
+      while (raw.length < 3) raw = '0' + raw;
+      const intPart = raw.slice(0, raw.length - 2);
+      const decimalPart = raw.slice(-2);
+      const formattedInt = parseInt(intPart, 10).toLocaleString('es-VE');
+      return `${formattedInt},${decimalPart}`;
+    };
+
+    // Listener de input
+    input.addEventListener('input', function () {
+      this.value = formatearValor(this.value);
+    });
+
+    // Formatear valor inicial
+    if (input.value) {
+      input.value = formatearValor(input.value);
     }
-    activarMayusculasInputs();
+  }
 
-    document.addEventListener("DOMContentLoaded", function() {
-    // Validar solo letras
-    document.getElementById("nombreFormacion").addEventListener("input", function() {
-      this.value = this.value.replace(/[^a-zA-Z\s]/g, '');
-      if (this.value.length > 100) {
-        this.value = this.value.slice(0, 100);
-      }
-    });
-        //Validar solo números y punto
-        document.getElementById("valorFormacion").addEventListener("input", function() {
-      this.value = this.value.replace(/[^0-9.]/g, '');
-      if (this.value.length > 20) {
-        this.value = this.value.slice(0, 20);
-      }
-    });
+  // Ejecutar al cargar la página
+  document.addEventListener('DOMContentLoaded', activarValidacionFormacion);
 
-    document.getElementById("duracion").addEventListener("input", function() {
-      this.value = this.value.replace(/[^a-zA-Z0-9ñÑ ^]+$/, '');
-      if (this.value.length > 6) {
-        this.value = this.value.slice(0, 6);
-      }
-    });
-
-    // Validaciones de Bootstrap
-    (function() {
-      'use strict';
-      var forms = document.querySelectorAll('.needs-validation');
-      Array.prototype.slice.call(forms).forEach(function(form) {
-        form.addEventListener('submit', function(event) {
-          if (!form.checkValidity()) {
-            event.preventDefault();
-            event.stopPropagation();
-          }
-          form.classList.add('was-validated');
-        }, false);
-      });
-    })();
-  });
+  // Si usas Bootstrap Modal
+  document.getElementById('editFormacionModal')?.addEventListener('shown.bs.modal', activarValidacionFormacion);
 </script>
 {% endblock javascripts %}

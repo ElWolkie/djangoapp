@@ -55,13 +55,13 @@
 
 {% block content %}
 <div class="container mt-4">
-  <h2 class="text-center mb-4">Lista de Tasas Cambiarias Registradas</h2>
+  <h2 class="text-center mb-4">Lista de Tasas Cambiarias</h2>
 
   <div class="row mb-3">
     <div class="col-md-4">
       <div class="input-group">
         <span class="input-group-text"><i class="fas fa-search"></i></span>
-        <input class="form-control" id="searchInput" type="text" placeholder="Buscar por Moneda o Monto...">
+        <input class="form-control" id="searchInput" type="text" placeholder="Buscar...">
       </div>
     </div>
     <div class="col-md-8 text-end">
@@ -106,7 +106,7 @@
             <th>ID</th>
             <th>Moneda</th>
             <th>Monto</th>
-            <th>Fecha</th>
+            <th>Fecha | Hora</th>
             <th>Estado</th>
             <th class="actions-column">Acciones</th>
           </tr>
@@ -117,7 +117,7 @@
             <td>{{ tasa.idTasa }}</td>
             <td>{{ tasa.idMoneda.nombreMoneda }} {{ tasa.idMoneda.simboloMoneda }}</td>
             <td>{{ tasa.montoTasa }}</td>
-            <td>{{ tasa.fechaTasa|date:"d/m/Y" }}</td>
+            <td>{{ tasa.fechaTasa|date:"d/m/Y | h:i A" }}</td>
             <td>
               {% if tasa.estadoTasa|upper == "ACTIVO" %}
                 <span class="badge bg-success text-white">
@@ -182,7 +182,7 @@
 
 <!-- Modal: Registrar Tasa -->
 <div class="modal fade" id="tasaModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-md">
+  <div class="modal-dialog modal-lg">
     <div class="modal-content">
       <div class="modal-header bg-primary text-white">
         <h5 class="modal-title text-white"><i class="fas fa-plus-circle me-2 text-white"></i> Registro de Tasa Cambiaria</h5>

@@ -68,19 +68,19 @@
 
 {% block content %}
 <div class="container mt-4">
-  <h2 class="text-center mb-4"></i>Registro de Egresos</h2>
+  <h2 class="text-center mb-4"></i>Tabla de Egresos</h2>
 
   <div class="row mb-3">
     <div class="col-md-4">
       <div class="input-group">
         <span class="input-group-text"><i class="fas fa-search"></i></span>
-        <input class="form-control" id="searchInput" type="text" placeholder="Buscar egresos...">
+        <input class="form-control" id="searchInput" type="text" placeholder="Buscar...">
       </div>
     </div>
     <div class="col-md-4 text-end">
       {% if perms.home.add_movimiento %}
       <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#movimientoModal">
-        <i class="fas fa-plus-circle me-1"></i> Nuevo Egreso
+        <i class="fas fa-plus-circle me-1"></i> Registrar Egreso
       </button>
       {% endif %}
     </div>

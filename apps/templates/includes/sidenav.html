@@ -1,57 +1,8 @@
-{% block stylesheets %}
-
-<link rel="stylesheet" href="/static/assets/css/sidenav.css" />
-
-<style>
-  /* Evitar que se comprima el contenido al hacer scroll */
-.sidenav {
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-}
-
-/* Scroll moderno */
-.sidenav-scroll {
-    scrollbar-width: thin;
-    scrollbar-color: #888 #f1f1f1;
-    padding-right: 6px;
-}
-
-/* WebKit scrollbar (Chrome, Edge, Safari) */
-.sidenav-scroll::-webkit-scrollbar {
-    width: 8px;
-}
-
-.sidenav-scroll::-webkit-scrollbar-track {
-    background: #f1f1f1;
-}
-
-.sidenav-scroll::-webkit-scrollbar-thumb {
-    background-color: #888;
-    border-radius: 10px;
-}
-
-.sidenav-scroll::-webkit-scrollbar-thumb:hover {
-    background: #555;
-}
-
-/* Asegura que las palabras no se separen feo */
-.nav-link-text {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-</style>
-
 {% load static %}
 {% load i18n %}
 
-{% endblock stylesheets %}
-
 <nav class="sidenav navbar navbar-vertical  fixed-left  navbar-expand-xs navbar-light bg-white" id="sidenav-main">
   
-
   <div class="scrollbar-inner">
     <div class="sidenav-header align-items-center">
       <a class="navbar-brand" href="/">
@@ -173,10 +124,18 @@
                               </a>
                             </li>
                           {% endif %}
-                          </ul>  
-                        </div>  
+
+                          {% if perms.home.view_cuotaformacion or perms.home.add_cuotaformacion %}
+                          <li class="nav-item">  
+                            <a class="nav-link" href="{% url 'consultar_cuota_formacion' %}" style="padding-left: 30px;"><i class="ni ni-bullet-list-67 text-orange"></i>
+                              <span class="nav-link-text">Cuota
+                            </a>
+                          </li>
+                    {% endif %}  
                       </li> 
                     {% endif %}
+                        </ul>  
+                        </div>
                     
                     {% if perms.home.view_materia or perms.home.add_materia %}
                       <li class="nav-item">  
@@ -302,69 +261,7 @@
                   </a>
                 <div id="menu4" class="collapse ml-3">
                   <ul class="nav flex-column">
-                    {% comment %} {% if perms.home.view_movimiento or perms.home.add_movimiento or perms.tipoingreso.view_tipoingreso or perms.home.add_tipoingreso or perms.home.view_tipomovimiento or perms.home.add_tipomovimiento %}
-                    <li class="nav-item">  
-                      <a class="nav-link" href="#" id="ingresoDropdown" data-toggle="collapse" data-target="#ingresoMenu" aria-expanded="false" aria-controls="ingresoMenu" style="padding-left: 15px;">  
-                        <i class="ni  ni-caps-small text-orange"></i>
-                        <span class="nav-link-text">Ingreso
-                      </a>  
-                      <div id="ingresoMenu" class="collapse ml-3">  
-                        <ul class="nav flex-column">
-                          {% if perms.home.view_movimiento or perms.home.add_movimiento %}
-                            <li class="nav-item">  
-                              <a class="nav-link" href="{% url 'tabla_ingresos' %}" style="padding-left: 30px;"><i class="ni ni-fat-add  text-orange"></i>
-                                <span class="nav-link-text">Consultar
-                              </a>  
-                            </li>
-                          {% endif %}
-
-                          {% if perms.home.add_tipoingreso or perms.home.add_tipoingreso or perms.home.view_tipomovimiento or perms.home.add_tipomovimiento %}
-                            <li class="nav-item">  
-                              <a class="nav-link" href="{% url 'tabla_tipoIngresos' %}" style="padding-left: 30px;"><i class="ni ni-bullet-list-67 text-orange"></i>
-                                <span class="nav-link-text">Tipo de Ingreso
-                              </a>  
-                            </li>
-                          {% endif %}  
-                        </ul>  
-                      </div>  
-                    </li> 
-                    {% endif %} {% endcomment %}
-
-                    {% comment %} {% if perms.home.view_movimiento or perms.home.add_movimiento or perms.tipoingreso.view_tipoingreso or perms.home.add_tipoingreso or perms.home.view_tipomovimiento or perms.home.add_tipomovimiento %}
-                    <li class="nav-item">  
-                      <a class="nav-link" href="#" id="egresoDropdown" data-toggle="collapse" data-target="#egresoMenu" aria-expanded="false" aria-controls="egresoMenu" style="padding-left: 15px;">  
-                        <i class="fas fa-hand-holding-usd text-orange"></i>
-                        <span class="nav-link-text">Egresos
-                      </a>  
-                      <div id="egresoMenu" class="collapse ml-3">  
-                        <ul class="nav flex-column">
-                          {% if perms.home.view_movimiento or perms.home.add_movimiento %}
-                            <li class="nav-item">  
-                              <a class="nav-link" href="{% url 'tabla_egresos' %}" style="padding-left: 30px;"><i class="ni ni-fat-add  text-orange"></i>
-                                <span class="nav-link-text">Consultar
-                              </a>  
-                            </li>
-                          {% endif %}
-                          
-                          {% if perms.home.add_tipoingreso or perms.home.add_tipoingreso or perms.home.view_tipomovimiento or perms.home.add_tipomovimiento %}
-                            <a class="nav-link" href="{% url 'tabla_tipoEgresos' %}" style="padding-left: 30px;"><i class="ni ni-bullet-list-67 text-orange"></i>
-                              <span class="nav-link-text">Tipo de Egreso
-                            </a>  
-                          </li>
-                          {% endif %}  
-                        </ul>  
-                      </div>  
-                    </li> 
-                    {% endif %} {% endcomment %}
                     
-                    {% comment %} {% if perms.home.view_denominacion or perms.home.add_denominacion %}
-                    <li class="nav-item">
-                      <a class="nav-link" href="{% url 'tabla_denominaciones' %}" style="padding-left: 15px;"> <i class="ni ni-archive-2 text-orange"></i>
-                        <span class="nav-link-text">Denominaciones
-                      </a>
-                    </li>
-                    {% endif %} {% endcomment %}
-
                     {% if perms.home.view_moneda or perms.home.add_moneda %}
                     <li class="nav-item">
                       <a class="nav-link" href="{% url 'tabla_monedas' %}" style="padding-left: 15px;"> <i class="fas fa-money-bill-wave text-orange"></i>
@@ -504,6 +401,18 @@
                       </a>
                     </li>
                   {% endif %}
+
+                    {% if user.is_superuser %}
+                      <li class="nav-item">
+                          <a class="nav-link" 
+                            href="{% url 'bitacora_list' %}" 
+                            style="padding-left: 15px;">
+                            <i class="ni ni-bag-17 text-orange"></i>
+                            <span class="nav-link-text">Bitacora
+                          </a>
+                        </li>
+                    {% endif %}
+                  
                 </ul>
               </div>
             </li>
@@ -526,37 +435,10 @@
         </ul>
         <!-- Divider -->
         <hr class="my-3">
-        <!-- Heading -->
-
-        <script>
-          document.addEventListener("DOMContentLoaded", function () {
-              var dropdownTrigger = document.getElementById("personaDropdown");
-              var dropdownMenu = document.getElementById("personaMenu");
-
-              // Evento cuando el dropdown se abre
-              dropdownTrigger.addEventListener("click", function () {
-                  if (!dropdownMenu.classList.contains("show")) {
-                      dropdownTrigger.classList.add("active-dropdown");
-                  } else {
-                      dropdownTrigger.classList.remove("active-dropdown");
-                  }
-              });
-
-              // Evento cuando el dropdown se cierra
-              dropdownMenu.addEventListener("hidden.bs.collapse", function () {
-                  dropdownTrigger.classList.remove("active-dropdown");
-              });
-          });
-        </script>
-       
+        <!-- Heading -->      
       </div>
     </div>
   </div>
 </nav>
 
-{% comment %} PARA VER LOS PERMISOS {% endcomment %}
-
-{% comment %} from django.contrib.auth.models import Permission
-permisos = Permission.objects.filter(content_type__app_label='home')
-for p in permisos:
-    print(p.codename, "-", p.name) {% endcomment %}
+{% comment %} <script src="{% static 'assets/js/sidenav.js' %}" defer></script> {% endcomment %}

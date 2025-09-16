@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+{% load static %}
 
 <head>
   <meta charset="utf-8" />
@@ -17,6 +18,8 @@
   <!-- Page plugins -->
   <!-- Argon CSS -->
   <link rel="stylesheet" href="/static/assets/css/argon.css?v=1.2.0" type="text/css">
+<link rel="stylesheet" href="{% static 'assets/css/sidenav.css' %}">
+
 
   <!-- Specific CSS goes HERE -->
   {% block stylesheets %}
@@ -36,7 +39,6 @@
     {% block content %}{% endblock content %}
 
   </div>
-
   {% include "includes/scripts.html" %}
 
   <!-- Specific JS goes HERE --> 
@@ -44,6 +46,8 @@
   <script src="/static/assets/js/jquery-3.6.0.min.js"></script>
   <script src="/static/assets/js/bootstrap.bundle.min.js"></script>
   <script src="/static/assets/js/argon.js?v=1.2.0"></script>
+  <script src="{% static 'assets/js/sidenav.js' %}"></script>
+
 {% endblock javascripts %}
 </body>
 

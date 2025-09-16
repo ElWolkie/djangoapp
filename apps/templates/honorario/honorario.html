@@ -111,8 +111,29 @@
 {% block javascripts %}
 <script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
 <script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
-
 <script>
+  // Validación de romano y mayúsculas
+  document.getElementById("nombreCohorte").addEventListener("input", function() {
+    this.value = this.value.toUpperCase().replace(/[^MDCLXVI]/g, '');
+    var valid = /^M{0,3}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})$/.test(this.value);
+    this.classList.toggle("is-invalid", this.value && !valid);
+    document.getElementById("roman-error").textContent = valid ? "" : "Ej.: VIII, XIX, MMXXIII";
+  });
+  // Bootstrap validation
+  (function(){'use strict';
+    var forms = document.querySelectorAll('.needs-validation');
+    Array.prototype.slice.call(forms).forEach(f=>{
+      f.addEventListener('submit', e=>{
+        if (!f.checkValidity()) {
+          e.preventDefault(); e.stopPropagation();
+        }
+        f.classList.add('was-validated');
+      }, false);
+    });
+  })();
+</script>
+<script>
+
 // Datos iniciales
 const cohortes = [
     {% for cohorte in cohortes %}

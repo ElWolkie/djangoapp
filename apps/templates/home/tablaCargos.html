@@ -59,13 +59,13 @@
 
 {% block content %}
 <div class="container mt-4">
-  <h2 class="text-center mb-4">Lista de Tipos de Cargos</h2>
+  <h2 class="text-center mb-4">Lista de Cargos</h2>
 
   <div class="row mb-3">
     <div class="col-md-4">
       <div class="input-group">
-        <span class="input-group-text"><i class="fas fa-search text-warning"></i></span>
-        <input class="form-control" id="searchInput" type="text" placeholder="Buscar por Nombre…" onkeyup="filterTable()">
+        <span class="input-group-text"><i class="fas fa-search"></i></span>
+        <input class="form-control" id="searchInput" type="text" placeholder="Buscar..." onkeyup="filterTable()">
       </div>
     </div>
 
@@ -78,7 +78,7 @@
     </div>
 
     <div class="col-md-4 text-end">
-      <a href="{% url 'reporte_cargos_pdf' %}" class="btn btn-outline-danger btn-sm" target="_blank">
+      <a href="{% url 'reporte_cargos_pdf' %}" class="btn btn-outline-danger" target="_blank">
         <i class="fas fa-file-pdf me-1"></i> Descargar PDF
       </a>
     </div>

@@ -1,5 +1,51 @@
 from django import forms
-from .models import Factura, FacturaDetalle, Pago, ParametroTributario
+from .models import Nota, Factura, FacturaDetalle, Pago, ParametroTributario, PlanArticulo
+
+class NotaForm(forms.ModelForm):
+    """
+    Formulario para la creación y edición de Notas (Cobro/Pago).
+    Incluye validaciones específicas para los campos relacionados.
+    """
+    class Meta:
+        model = Nota
+        fields = '__all__'
+        widgets = {
+            'idPersona': forms.Select(attrs={'class': 'form-control'}),
+            'idEmpresa': forms.Select(attrs={'class': 'form-control'}),
+            'tipoArticulo': forms.Select(attrs={'class': 'form-control'}),
+            'numeroNota': forms.TextInput(attrs={'class': 'form-control'}),
+            'fechaEmision': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'fechaVencimiento': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'formaPago': forms.TextInput(attrs={'class': 'form-control'}),
+            'subtotalExento': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'subtotalGravado': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'iva': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'ivaRetenido': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'islrRetenido': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'descuento': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'totalNota': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'estado': forms.Select(attrs={'class': 'form-control'}),
+            'observaciones': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        }
+
+    def clean(self):
+        """
+        Validaciones personalizadas para el formulario de Nota.
+        """
+        cleaned_data = super().clean()
+        subtotal_exento = cleaned_data.get('subtotalExento')
+        subtotal_gravado = cleaned_data.get('subtotalGravado')
+        iva = cleaned_data.get('iva')
+        total_nota = cleaned_data.get('totalNota')
+
+        # Validar que el total de la nota sea consistente con los subtotales y el IVA
+        if total_nota is not None and subtotal_exento is not None and subtotal_gravado is not None and iva is not None:
+            calculado = subtotal_exento + subtotal_gravado + iva
+            if total_nota != calculado:
+                self.add_error('totalNota', "El total de la nota no coincide con la suma de los subtotales y el IVA.")
+
+        return cleaned_data
+
 
 class FacturaForm(forms.ModelForm):
     """
@@ -10,13 +56,9 @@ class FacturaForm(forms.ModelForm):
         model = Factura
         fields = '__all__'
         widgets = {
-            'idPersona': forms.Select(attrs={'class': 'form-control'}),
-            'idEmpresa': forms.Select(attrs={'class': 'form-control'}),
-            'idPeriodo': forms.Select(attrs={'class': 'form-control'}),
-            'idAsiento': forms.Select(attrs={'class': 'form-control'}),
-            'idTasa': forms.Select(attrs={'class': 'form-control'}),
+            'numeroFactura': forms.TextInput(attrs={'class': 'form-control'}),
+            'fechaEmision': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'estado': forms.Select(attrs={'class': 'form-control'}),
-            'observaciones': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
 
     def clean(self):
@@ -24,18 +66,7 @@ class FacturaForm(forms.ModelForm):
         Validaciones personalizadas para el formulario de Factura.
         """
         cleaned_data = super().clean()
-        fecha_emision = cleaned_data.get('fechaEmision')
-        fecha_vencimiento = cleaned_data.get('fechaVencimiento')
-
-        # Validar que la fecha de vencimiento sea posterior a la fecha de emisión
-        if fecha_vencimiento and fecha_emision and fecha_vencimiento < fecha_emision:
-            raise forms.ValidationError("La fecha de vencimiento no puede ser anterior a la fecha de emisión.")
-
-        # Validar que el total de la venta sea mayor a 0
-        total_venta = cleaned_data.get('totalVenta')
-        if total_venta is not None and total_venta <= 0:
-            raise forms.ValidationError("El total de la venta debe ser mayor a 0.")
-
+        # No se requiere validación adicional aquí, ya que los cálculos se manejan en el modelo Nota asociado.
         return cleaned_data
 
 
@@ -51,6 +82,11 @@ class FacturaDetalleForm(forms.ModelForm):
             'idFactura': forms.Select(attrs={'class': 'form-control'}),
             'tipoItem': forms.TextInput(attrs={'class': 'form-control'}),
             'descripcion': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+            'cantidad': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'precioUnitario': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'subtotal': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'ivaItem': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'totalItem': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
         }
 
     def clean(self):
@@ -60,18 +96,12 @@ class FacturaDetalleForm(forms.ModelForm):
         cleaned_data = super().clean()
         cantidad = cleaned_data.get('cantidad')
         precio_unitario = cleaned_data.get('precioUnitario')
-
-        # Validar que la cantidad y el precio unitario sean mayores a 0
-        if cantidad is not None and cantidad <= 0:
-            raise forms.ValidationError("La cantidad debe ser mayor a 0.")
-        if precio_unitario is not None and precio_unitario <= 0:
-            raise forms.ValidationError("El precio unitario debe ser mayor a 0.")
+        subtotal = cleaned_data.get('subtotal')
 
         # Validar que el subtotal sea igual a cantidad * precio_unitario
-        subtotal = cleaned_data.get('subtotal')
         if cantidad and precio_unitario and subtotal is not None:
             if subtotal != cantidad * precio_unitario:
-                raise forms.ValidationError("El subtotal debe ser igual a la cantidad multiplicada por el precio unitario.")
+                self.add_error('subtotal', "El subtotal debe ser igual a la cantidad multiplicada por el precio unitario.")
 
         return cleaned_data
 
@@ -83,14 +113,13 @@ class PagoForm(forms.ModelForm):
     """
     class Meta:
         model = Pago
-        fields = '__all__'
+        exclude = ['idAsiento']  # Excluir el campo idAsiento
         widgets = {
-            'idFactura': forms.Select(attrs={'class': 'form-control'}),
-            'idAsiento': forms.Select(attrs={'class': 'form-control'}),
+            'idNota': forms.Select(attrs={'class': 'form-control'}),
             'idCuentaBanco': forms.Select(attrs={'class': 'form-control'}),
-            'idMoneda': forms.Select(attrs={'class': 'form-control'}),
             'formaPago': forms.TextInput(attrs={'class': 'form-control'}),
             'referencia': forms.TextInput(attrs={'class': 'form-control'}),
+            'monto': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'observaciones': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
 
@@ -103,11 +132,15 @@ class PagoForm(forms.ModelForm):
 
         # Validar que el monto sea mayor a 0
         if monto is not None and monto <= 0:
-            raise forms.ValidationError("El monto del pago debe ser mayor a 0.")
+            self.add_error('monto', "El monto del pago debe ser mayor a 0.")
 
         return cleaned_data
-    
+
+
 class ParametroTributarioForm(forms.ModelForm):
+    """
+    Formulario para la creación y edición de Parámetros Tributarios.
+    """
     class Meta:
         model = ParametroTributario
         fields = [
@@ -125,11 +158,30 @@ class ParametroTributarioForm(forms.ModelForm):
         }
 
     def clean(self):
+        """
+        Validaciones personalizadas para el formulario de Parámetro Tributario.
+        """
         cleaned_data = super().clean()
         fecha_inicio = cleaned_data.get('fecha_inicio')
         fecha_fin = cleaned_data.get('fecha_fin')
 
+        # Validar que la fecha de fin no sea anterior a la fecha de inicio
         if fecha_fin and fecha_inicio and fecha_fin < fecha_inicio:
-            raise forms.ValidationError("La fecha de fin no puede ser anterior a la fecha de inicio.")
+            self.add_error('fecha_fin', "La fecha de fin no puede ser anterior a la fecha de inicio.")
 
         return cleaned_data
+
+
+class PlanArticuloForm(forms.ModelForm):
+    """
+    Formulario para la creación y edición de Planes de Artículo.
+    """
+    class Meta:
+        model = PlanArticulo
+        fields = ['tipoArticulo']  # Excluir 'idPlanCuenta' porque se asigna directamente en la vista
+        widgets = {
+            'tipoArticulo': forms.Select(attrs={'class': 'form-control'}),
+        }
+        labels = {
+            'tipoArticulo': 'Tipo de Artículo',
+        }

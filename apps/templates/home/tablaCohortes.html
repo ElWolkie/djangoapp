@@ -1,7 +1,7 @@
 {% extends 'layouts/base.html' %}
 {% load static %}
 
-{% block title %}Listado de Cohortes Registradas{% endblock title %}
+{% block title %}Listado de Cohortes{% endblock title %}
 
 {% block stylesheets %}
 <link rel="stylesheet" href="{% static 'assets/css/styleForms.css' %}" />
@@ -55,13 +55,13 @@
 
 {% block content %}
 <div class="container mt-4">
-  <h2 class="text-center mb-4">Lista de Cohortes Registradas</h2>
+  <h2 class="text-center mb-4">Lista de Cohortes</h2>
 
   <div class="row mb-3">
     <div class="col-md-4">
       <div class="input-group">
         <span class="input-group-text"><i class="fas fa-search"></i></span>
-        <input class="form-control" id="searchInput" type="text" placeholder="Buscar por Nombre…">
+        <input class="form-control" id="searchInput" type="text" placeholder="Buscar...">
       </div>
     </div>
     <div class="col-md-4 text-center">
@@ -72,7 +72,7 @@
       {% endif %}
     </div>
     <div class="col-md-4 text-end">
-      <a href="{% url 'reporte_cohortes_pdf' %}" class="btn btn-outline-danger btn-sm" target="_blank">
+      <a href="{% url 'reporte_cohortes_pdf' %}" class="btn btn-outline-danger" target="_blank">
         <i class="fas fa-file-pdf"></i> Descargar PDF
       </a>
     </div>

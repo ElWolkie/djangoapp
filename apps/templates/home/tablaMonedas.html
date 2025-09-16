@@ -56,19 +56,19 @@
 
 {% block content %}
 <div class="container mt-4">
-  <h2 class="text-center mb-4">Lista de Monedas Registradas</h2>
+  <h2 class="text-center mb-4">Lista de Monedas</h2>
 
   <div class="row mb-3">
     <div class="col-md-4">
       <div class="input-group">
         <span class="input-group-text"><i class="fas fa-search"></i></span>
-        <input class="form-control" id="searchInput" type="text" placeholder="Buscar por Nombre o Símbolo">
+        <input class="form-control" id="searchInput" type="text" placeholder="Buscar...">
       </div>
     </div>
     <div class="col-md-4 text-end">
       {% if perms.home.add_moneda %}
           <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#monedaModal">
-            <i class="fas fa-plus-circle me-1"></i> Registrar
+            <i class="fas fa-plus-circle me-1"></i> Registrar Moneda
           </button>
 
         <button class="btn btn-warning ms-2"
@@ -81,7 +81,7 @@
     </div>
 
     <div class="col-md-4 text-end">
-            <a href="{% url 'reporte_monedas_pdf' %}" class="btn btn-outline-danger btn-sm" target="_blank">
+            <a href="{% url 'reporte_monedas_pdf' %}" class="btn btn-outline-danger" target="_blank">
         <i class="fas fa-file-pdf"></i> Descargar PDF
       </a>
     </div>
@@ -127,7 +127,7 @@
         <tbody>
           {% for moneda in monedas %}
           <tr>
-            <td>{{ moneda.idMoneda }}</td>
+            <td>{{ forloop.counter }}</td>
             <td>{{ moneda.nombreMoneda }}</td>
             <td>{{ moneda.simboloMoneda }}</td>
             <td>{{ moneda.fechaMoneda|date:"d/m/Y" }}</td>
@@ -198,7 +198,8 @@
       </div>
       <div class="modal-body">
         <p>Esto <b><strong>recargará todas las monedas existentes en el mundo</strong></b> desde el servicio externo.<br> Recuerde que las monedas se añadirán inactivas. 
-          <br><br>¿Deseas continuar?</p>
+          <br><br>¿Deseas continuar?
+          <br><br>Este proceso puede tardar unos minutos dependiendo de la conexión y el número de monedas a actualizar.</p>
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -215,7 +216,7 @@
 
 <!-- Modal Registrar -->
 <div class="modal fade" id="monedaModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-md">
+  <div class="modal-dialog modal-lg">
     <div class="modal-content">
       <div class="modal-header bg-primary text-white">
         <h5 class="modal-title text-white"><i class="fas fa-plus-circle me-2"></i> Registro de Moneda</h5>

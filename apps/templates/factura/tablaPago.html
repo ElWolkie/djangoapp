@@ -1,0 +1,480 @@
+{% extends 'layouts/base2.html' %}
+{% load static %}
+
+{% block title %}Listado de Pagos{% endblock title %}
+
+{% block stylesheets %}
+<link rel="stylesheet" href="{% static 'assets/css/styleForms.css' %}">
+<link rel="stylesheet" href="{% static 'assets/css/argon.css' %}">
+<style>
+  .btn-purple {
+    background-color: #6f42c1 !important;
+    color: white !important;
+    border-color: #6f42c1 !important;
+  }
+  .btn-purple:hover {
+    background-color: #5a32a3 !important;
+    border-color: #5a32a3 !important;
+  }
+  .actions-column .btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+    transition: all 0.3s ease;
+  }
+  .badge {
+    font-size: 0.85em;
+    padding: 0.5em 0.75em;
+  }
+  .modal-dialog { max-width: 600px; }
+  .modal.fade.show {
+    display: block !important;
+    background-color: rgba(0,0,0,0.5);
+  }
+  .is-invalid {
+    border-color: #dc3545 !important;
+    box-shadow: 0 0 0 0.2rem rgba(220,53,69,.25);
+  }
+
+  .pagination-container {
+    margin-top: 1rem !important;
+  }
+
+  .pagination {
+    --bs-pagination-padding-x: 0.75rem;
+    --bs-pagination-padding-y: 0.375rem;
+    --bs-pagination-font-size: 0.875rem;
+  }
+
+  .page-link {
+    min-width: 32px;
+    text-align: center;
+    border-radius: 4px !important;
+  }
+
+  .page-item.active .page-link {
+    background-color: #fb6340;
+    border-color: #fb6340;
+  }
+
+  /* Estilos para el modal de detalles */
+  .details-modal .modal-content {
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  }
+  .details-modal .modal-header {
+    background: linear-gradient(135deg, #5e72e4 0%, #825ee4 100%);
+    color: white;
+    border-radius: 15px 15px 0 0;
+  }
+  .detail-item {
+    padding: 10px 0;
+    border-bottom: 1px solid #eee;
+    display: flex;
+  }
+  .detail-label {
+    font-weight: 600;
+    color: #525f7f;
+    min-width: 120px;
+  }
+  .detail-value {
+    color: #8898aa;
+    flex-grow: 1;
+  }
+  .detail-value.bold {
+    font-weight: 600;
+    color: #333;
+  }
+  
+  /* Estilos específicos para pagos */
+  .pago-status {
+    display: inline-block;
+    padding: 0.35em 0.65em;
+    font-size: 0.75em;
+    font-weight: 700;
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: baseline;
+    border-radius: 0.375rem;
+  }
+  .status-completado {
+    background-color: #2dce89;
+    color: white;
+  }
+  .status-pendiente {
+    background-color: #fb6340;
+    color: white;
+  }
+</style>
+{% endblock stylesheets %}
+
+{% block content %}
+<div class="container mt-5">
+  <h2 class="text-center text-dark mb-4">Lista de Pagos</h2>
+
+  <div class="row mb-3">
+    <div class="col-md-4">
+      <div class="input-group">
+        <span class="input-group-text"><i class="fas fa-search"></i></span>
+        <input id="searchInput" class="form-control" type="text" placeholder="Buscar…">
+      </div>
+    </div>
+    <div class="col-md-4 text-end">
+      {% if perms.factura.add_pago %}
+        <a href="{% url 'pago_create' %}" class="btn btn-warning">
+          <i class="fas fa-plus-circle me-1"></i> Registrar Pago
+        </a>
+      {% endif %}
+    </div>
+    <div class="col-md-4 text-end">
+        <a href="{% url 'reporte_pagos_pdf' %}" class="btn btn-outline-danger" target="_blank">
+          <i class="fas fa-file-pdf"></i> Descargar PDF
+        </a>
+    </div>
+  </div>
+
+  <div id="globalMessages">
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+      {% endfor %}
+    {% endif %}
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="table-responsive">
+      <table class="table table-striped table-hover align-middle text-gray-dark" id="pagosTable">
+        <thead class="table-light">
+          <tr>
+            <th>ID Pago</th>
+            <th>Factura</th>
+            <th>Monto</th>
+            <th>Fecha de Pago</th>
+            <th>Forma de Pago</th>
+            <th>Referencia</th>
+            <th class="actions-column">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for pago in pagos %}
+          <tr>
+            <td class="fw-bold">{{ pago.idPago }}</td>
+            <td>{{ pago.idFactura.numeroFactura }}</td>
+            <td>{{ pago.monto }}</td>
+            <td>{{ pago.fechaPago|date:"d/m/Y" }}</td>
+            <td>{{ pago.formaPago }}</td>
+            <td>{{ pago.referencia|default:"—" }}</td>
+            <td class="actions-column">
+              <div class="d-flex gap-2">
+                <button class="btn btn-info btn-sm"
+                        data-bs-toggle="modal"
+                        data-bs-target="#detailsModal"
+                        data-id="{{ pago.idPago }}"
+                        data-factura="{{ pago.idFactura.numeroFactura }}"
+                        data-monto="{{ pago.monto }}"
+                        data-fecha="{{ pago.fechaPago|date:'d/m/Y' }}"
+                        data-forma="{{ pago.formaPago }}"
+                        data-referencia="{{ pago.referencia|default:'—' }}"
+                        data-observaciones="{{ pago.observaciones|default:'—' }}"
+                        data-estado="{{ pago.estado|default:'Pendiente' }}"
+                        title="Ver detalles">
+                  <i class="fas fa-eye"></i>
+                </button>
+                {% if perms.factura.change_pago %}
+                  <a href="{% url 'pago_edit' pago.idPago %}" class="btn btn-primary btn-sm" title="Editar">
+                    <i class="fas fa-edit"></i>
+                  </a>
+                {% endif %}
+                {% if perms.factura.delete_pago %}
+                  <button class="btn btn-outline-danger btn-sm"
+                          data-bs-toggle="modal"
+                          data-bs-target="#deletePagoModal"
+                          data-url="{% url 'pago_delete' pago.idPago %}"
+                          title="Eliminar">
+                    <i class="fas fa-trash"></i>
+                  </button>
+
+                {% endif %}
+                  <a href="{% url 'pago_pdf' pago.idPago %}" class="btn btn-danger btn-sm" title="Descargar PDF" target="_blank">
+                    <i class="fas fa-file-pdf"></i>
+                  </a>
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="7" class="text-center py-4">No hay pagos registrados.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    
+    <!-- Paginación -->
+    <div class="pagination-container d-flex justify-content-center py-3">
+      <ul class="pagination">
+        {% if pagos.has_previous %}
+          <li class="page-item">
+            <a class="page-link" href="?page=1" aria-label="Primera">
+              <span aria-hidden="true">&laquo;&laquo;</span>
+            </a>
+          </li>
+          <li class="page-item">
+            <a class="page-link" href="?page={{ pagos.previous_page_number }}" aria-label="Anterior">
+              <span aria-hidden="true">&laquo;</span>
+            </a>
+          </li>
+        {% endif %}
+        
+        {% for num in pagos.paginator.page_range %}
+          {% if pagos.number == num %}
+            <li class="page-item active"><a class="page-link" href="#">{{ num }}</a></li>
+          {% elif num > pagos.number|add:'-3' and num < pagos.number|add:'3' %}
+            <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+          {% endif %}
+        {% endfor %}
+        
+        {% if pagos.has_next %}
+          <li class="page-item">
+            <a class="page-link" href="?page={{ pagos.next_page_number }}" aria-label="Siguiente">
+              <span aria-hidden="true">&raquo;</span>
+            </a>
+          </li>
+          <li class="page-item">
+            <a class="page-link" href="?page={{ pagos.paginator.num_pages }}" aria-label="Última">
+              <span aria-hidden="true">&raquo;&raquo;</span>
+            </a>
+          </li>
+        {% endif %}
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Ver Detalles -->
+<div class="modal fade details-modal" id="detailsModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title text-white">Detalles de Pago</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="detail-item">
+          <div class="detail-label">ID Pago:</div>
+          <div class="detail-value bold" id="detail-id"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Factura:</div>
+          <div class="detail-value" id="detail-factura"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Monto:</div>
+          <div class="detail-value" id="detail-monto"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Fecha de Pago:</div>
+          <div class="detail-value" id="detail-fecha"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Forma de Pago:</div>
+          <div class="detail-value" id="detail-forma"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Referencia:</div>
+          <div class="detail-value" id="detail-referencia"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Observaciones:</div>
+          <div class="detail-value" id="detail-observaciones"></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Estado:</div>
+          <div class="detail-value" id="detail-estado"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Eliminar Pago -->
+<div class="modal fade" id="deletePagoModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title"><i class="fas fa-trash me-2"></i> Confirmar Eliminación</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">¿Seguro que deseas eliminar este pago?</div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <form id="deletePagoForm" method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-danger">Eliminar</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}
+
+{% block javascripts %}
+<script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
+<script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // Filtrado de tabla por texto
+  $('#searchInput').on('keyup', function() {
+    const filter = this.value.toUpperCase();
+    $('#pagosTable tbody tr').each(function() {
+      $(this).toggle($(this).text().toUpperCase().includes(filter));
+    });
+  });
+
+  // Configurar el modal de detalles
+  $('#detailsModal').on('show.bs.modal', function(event) {
+    const button = $(event.relatedTarget);
+    const modal = $(this);
+    
+    // Obtener datos de los atributos data-*
+    const id = button.data('id');
+    const factura = button.data('factura');
+    const monto = button.data('monto');
+    const fecha = button.data('fecha');
+    const forma = button.data('forma');
+    const referencia = button.data('referencia');
+    const observaciones = button.data('observaciones');
+    const estado = button.data('estado');
+    
+    // Insertar datos en el modal
+    modal.find('#detail-id').text(id);
+    modal.find('#detail-factura').text(factura);
+    modal.find('#detail-monto').text(monto);
+    modal.find('#detail-fecha').text(fecha);
+    modal.find('#detail-forma').text(forma);
+    modal.find('#detail-referencia').text(referencia);
+    modal.find('#detail-observaciones').text(observaciones);
+    
+    // Formatear estado
+    let estadoHtml;
+    if (estado === 'Completado') {
+      estadoHtml = '<span class="pago-status status-completado">Completado</span>';
+    } else {
+      estadoHtml = '<span class="pago-status status-pendiente">Pendiente</span>';
+    }
+    modal.find('#detail-estado').html(estadoHtml);
+  });
+
+  // Configurar el modal de eliminación
+  $('#deletePagoModal').on('show.bs.modal', function(event) {
+    const button = $(event.relatedTarget);
+    const url = button.data('url');
+    $('#deletePagoForm').attr('action', url);
+  });
+
+  // Manejar el envío del formulario de eliminación
+  $('#deletePagoForm').on('submit', function(e) {
+    e.preventDefault();
+    const form = $(this);
+    
+    $.ajax({
+      url: form.attr('action'),
+      method: form.attr('method'),
+      data: form.serialize(),
+      success: function(response) {
+        if (response.success) {
+          $('#deletePagoModal').modal('hide');
+          location.reload();
+        } else {
+          alert(response.message || 'Error al eliminar el pago');
+        }
+      },
+      error: function() {
+        alert('Error en el servidor');
+      }
+    });
+  });
+});
+</script>
+<script>
+  $(document).ready(function() {
+    // Paginación
+    const table = document.getElementById('pagosTable');
+    const paginationContainer = document.createElement('div');
+    paginationContainer.className = 'pagination-container mt-3';
+    table.parentNode.insertBefore(paginationContainer, table.nextSibling);
+
+    const pagination = document.createElement('ul');
+    pagination.className = 'pagination justify-content-center';
+    paginationContainer.appendChild(pagination);
+
+    const rowsPerPage = 10; // Número de filas por página
+    let currentPage = 1;
+
+    function displayRows() {
+      const rows = table.getElementsByTagName('tr');
+      const start = (currentPage - 1) * rowsPerPage + 1; // Ignorar encabezado
+      const end = start + rowsPerPage;
+      for (let i = 1; i < rows.length; i++) {
+        rows[i].style.display = i >= start && i < end ? '' : 'none';
+      }
+    }
+
+    function setupPagination() {
+      const rows = table.getElementsByTagName('tr');
+      const totalPages = Math.ceil((rows.length - 1) / rowsPerPage); // Ignorar encabezado
+      pagination.innerHTML = '';
+
+      const prevLi = document.createElement('li');
+      prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+      prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Anterior">&laquo;</a>`;
+      prevLi.addEventListener('click', e => {
+        e.preventDefault();
+        if (currentPage > 1) currentPage--;
+        displayRows();
+        setupPagination();
+      });
+      pagination.appendChild(prevLi);
+
+      for (let i = 1; i <= totalPages; i++) {
+        const li = document.createElement('li');
+        li.className = `page-item ${i === currentPage ? 'active' : ''}`;
+        li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+        li.addEventListener('click', e => {
+          e.preventDefault();
+          currentPage = i;
+          displayRows();
+          setupPagination();
+        });
+        pagination.appendChild(li);
+      }
+
+      const nextLi = document.createElement('li');
+      nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+      nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Siguiente">&raquo;</a>`;
+      nextLi.addEventListener('click', e => {
+        e.preventDefault();
+        if (currentPage < totalPages) currentPage++;
+        displayRows();
+        setupPagination();
+      });
+      pagination.appendChild(nextLi);
+    }
+
+    displayRows();
+    setupPagination();
+  });
+</script>
+{% endblock javascripts %}

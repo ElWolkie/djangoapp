@@ -1,59 +1,203 @@
+{% load static %}
+
 {% block stylesheets %}
 <link rel="stylesheet" href="/static/assets/css/styleForms.css" />
 <link rel="stylesheet" href="/static/assets/css/argon.css" />
+<style>
+  .materia-container {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 1rem;
+    box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.1);
+    padding: 2rem;
+    margin: 2rem auto;
+    max-width: 700px;
+  }
+  .materia-header {
+    text-align: center;
+    margin-bottom: 2rem;
+    position: relative;
+    padding-bottom: 1rem;
+  }
+  .materia-header h2 {
+    color: #343a40;
+    font-weight: 700;
+  }
+  .materia-header::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80px;
+    height: 4px;
+    background: linear-gradient(90deg, #ffc107, #fd7e14);
+    border-radius: 2px;
+  }
+  .form-group {
+    margin-bottom: 1.5rem;
+    position: relative;
+  }
+  .form-label {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+  }
+  .form-label i {
+    margin-right: 8px;
+    color: #fd7e14;
+  }
+  .form-control {
+    border-radius: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    border: 1px solid #ced4da;
+    background-color: #fff;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.075);
+    transition: all 0.3s;
+  }
+  .form-control:focus {
+    border-color: #ffc107;
+    box-shadow: 0 0 0 0.25rem rgba(255,193,7,0.25);
+  }
+  .input-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6c757d;
+    z-index: 2;
+  }
+  .input-with-icon {
+    padding-left: 40px;
+  }
+  .btn-submit {
+    background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+    border: none;
+    color: #fff;
+    font-weight: 600;
+    padding: 0.75rem 2rem;
+    border-radius: 0.5rem;
+    transition: all 0.3s;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+  .btn-submit:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    background: linear-gradient(135deg, #fd7e14 0%, #ffc107 100%);
+  }
+  .alert-container {
+    max-width: 700px;
+    margin: 0 auto;
+  }
+</style>
 {% endblock stylesheets %}
+
 {% block content %}
-{% if messages %}
+<div class="alert-container">
+  {% if messages %}
     {% for message in messages %}
       <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        <i class="fas {% if message.tags == 'success' %}fa-check-circle{% else %}fa-exclamation-circle{% endif %} me-2"></i>
         {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
       </div>
     {% endfor %}
   {% endif %}
-<div class=" mt-5">
-  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Registrar Materia</h2>
-  <form method="POST" class="mt-3 text-dark" autocomplete="off" style="font-weight: bold; max-width: 600px; margin: 0 auto;" id="materiaForm" action="{% url 'materia_modal' %}">  
-    {% csrf_token %}  
+</div>
+
+<div class="materia-container">
+  <div class="materia-header">
+    <h2><i class="fas fa-book text-warning"></i> Registrar Materia</h2>
+    <p class="text-muted">Complete todos los campos para añadir una nueva materia</p>
+  </div>
+
+  <form method="POST" id="materiaForm" action="{% url 'materia_modal' %}"
+        class="needs-validation" novalidate autocomplete="off">
+    {% csrf_token %}
     
-    <div class="form-row">  
-      <div class="form-group col-md-6">  
-        <label for="idOferta">Formación Académica:</label>  
-        <div class="input-group"> <!-- Usar input-group para alinear botón y select -->  
-            <select id="idFormacion" name="idFormacion" class="form-control text-dark" tabindex="1" data-required="true" >  
-                <option value="" disabled selected>Seleccione...</option>  
-                {% for formacion  in formaciones %}  
-                    <option value="{{ formacion.idFormacion }}" class="text-orange">{{ formacion.nombreFormacion }}</option>          
-                {% endfor %}
-            </select>  
-            <div class="invalid-feedback">Por favor, seleccione una formación.</div>  
-        </div>  
+    <div class="row">
+      <!-- Formación Académica -->
+      <div class="col-md-12">
+        <div class="form-group">
+          <label for="idFormacion" class="form-label">
+            <i class="fas fa-graduation-cap"></i> Formación Académica
+          </label>
+          <select id="idFormacion" name="idFormacion" class="form-control" data-required="true" required>
+            <option value="" disabled selected>Seleccione una formación...</option>
+            {% for formacion in formaciones %}
+              <option value="{{ formacion.idFormacion }}" class="text-orange">
+                {{ formacion.nombreFormacion }}
+              </option>
+            {% endfor %}
+          </select>
+          <div class="invalid-feedback">Por favor, seleccione una formación.</div>
+        </div>
+      </div>
     </div>
-      
-      <div class="form-group col-md-6">  
-        <label for="nombreMateria">Nombre:</label>  
-        <input type="text" id="nombreMateria" name="nombreMateria" class="form-control text-dark" placeholder="Ingrese un nombre" tabindex="3" maxlength="100" data-required="true" />  
-        <div class="invalid-feedback">Por favor, ingrese un nombre válido.</div>
-        <input type="hidden" id="estadoMateria" name="estadoMateria" class="form-control text-dark" value="ACTIVO" />  
-        
-      </div>  
     
-    </div>  
+    <div class="row">
+      <!-- Nombre de la Materia -->
+      <div class="col-md-12">
+        <div class="form-group">
+          <label for="nombreMateria" class="form-label">
+            <i class="fas fa-heading"></i> Nombre de la Materia
+          </label>
+          <div class="input-group">
+            <i class="fas fa-font input-icon"></i>
+            <input type="text" id="nombreMateria" name="nombreMateria"
+                   class="form-control input-with-icon"
+                   placeholder="Ingrese el nombre de la materia"
+                   maxlength="100" data-required="true" required>
+          </div>
+          <div class="invalid-feedback">Por favor, ingrese un nombre válido.</div>
+        </div>
+      </div>
+    </div>
     
-    <div class="text-center">  
-      <input type="submit" class="btn btn-warning mt-4" value="Guardar" />  
-    </div>  
+    <input type="hidden" id="estadoMateria" name="estadoMateria" value="ACTIVO">
+    
+    <div class="text-center mt-4">
+      <button type="submit" class="btn-submit">
+        <i class="fas fa-save me-2"></i> Registrar
+      </button>
+    </div>
   </form>
+</div>
 {% endblock content %}
 
 {% block javascripts %}
 <script>
+  // Activar mayúsculas en inputs
   function activarMayusculasInputs() {
     document.addEventListener('input', function(e) {
-      if (e.target.tagName === 'INPUT' && !e.target.type.match(/password|hidden|email/)) {
+      if (e.target.tagName === 'INPUT' && !/password|hidden|email/.test(e.target.type)) {
         e.target.value = e.target.value.toUpperCase();
       }
     });
   }
   activarMayusculasInputs();
-  </script>
+
+  document.addEventListener("DOMContentLoaded", function() {
+    // Validación de solo letras para el nombre
+    document.getElementById("nombreMateria").addEventListener("input", function() {
+      this.value = this.value.replace(/[^A-Z\s]/g, '').slice(0,100);
+    });
+
+    // Validación de Bootstrap
+    (function() {
+      'use strict';
+      var forms = document.querySelectorAll('.needs-validation');
+      Array.prototype.slice.call(forms).forEach(function(form) {
+        form.addEventListener('submit', function(event) {
+          if (!form.checkValidity()) {
+            event.preventDefault();
+            event.stopPropagation();
+          }
+          form.classList.add('was-validated');
+        }, false);
+      });
+    })();
+  });
+</script>
 {% endblock javascripts %}
