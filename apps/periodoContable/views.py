@@ -11,6 +11,7 @@ from reportlab.platypus import Table, TableStyle
 from reportlab.lib import colors
 import os
 from apps.home.models import Configuracion
+from django.db import transaction
 
 @login_required(login_url='login')
 @permission_required("periodoContable.view_periodocontable", raise_exception=True)
@@ -31,7 +32,27 @@ def periodo_contable_create(request):
     if request.method == 'POST':
         form = periodoContableForm(request.POST)
         if form.is_valid():
-            form.save()
+            # Verificar si ya existe un periodo activo
+            periodo_activo_actual = periodoContable.objects.filter(estadoPeriodo=True).first()
+            
+            # Guardar el nuevo periodo
+            nuevo_periodo = form.save(commit=False)
+            
+            # Si el nuevo periodo está activo y ya existe uno activo, mostrar advertencia
+            if nuevo_periodo.estadoPeriodo and periodo_activo_actual:
+                # Guardar el nuevo período como inactivo temporalmente
+                nuevo_periodo.estadoPeriodo = False
+                nuevo_periodo.save()
+                
+                return JsonResponse({
+                    'success': False, 
+                    'warning': True,
+                    'message': f'Ya existe un período activo ({periodo_activo_actual.nombrePeriodo}). ¿Desea desactivarlo y activar este nuevo período?',
+                    'periodo_activo_actual': periodo_activo_actual.idPeriodo,
+                    'periodo_id': nuevo_periodo.idPeriodo
+                })
+            
+            nuevo_periodo.save()
             return JsonResponse({'success': True, 'message': 'Periodo Contable registrado exitosamente.'})
         else:
             return JsonResponse({'success': False, 'errors': form.errors})
@@ -49,7 +70,24 @@ def periodo_contable_edit(request, id):
     if request.method == 'POST':
         form = periodoContableForm(request.POST, instance=periodo)
         if form.is_valid():
-            form.save()
+            periodo_editado = form.save(commit=False)
+            
+            # Si se está activando este período
+            if periodo_editado.estadoPeriodo and not periodo.estadoPeriodo:
+                # Buscar el período activo actual
+                periodo_activo_actual = periodoContable.objects.filter(estadoPeriodo=True).first()
+                
+                # Si existe un período activo actual y es diferente al que se está editando
+                if periodo_activo_actual and periodo_activo_actual.idPeriodo != periodo.idPeriodo:
+                    return JsonResponse({
+                        'success': False, 
+                        'warning': True,
+                        'message': f'Ya existe un período activo ({periodo_activo_actual.nombrePeriodo}). ¿Desea desactivarlo y activar este período?',
+                        'periodo_activo_actual': periodo_activo_actual.idPeriodo,
+                        'periodo_id': periodo.idPeriodo
+                    })
+            
+            periodo_editado.save()
             return JsonResponse({'success': True, 'message': 'Periodo Contable actualizado exitosamente.'})
         else:
             return JsonResponse({'success': False, 'errors': form.errors})
@@ -75,9 +113,18 @@ def periodo_contable_edit(request, id):
 def desactivar_periodo_contable(request, id):
     periodo = get_object_or_404(periodoContable, idPeriodo=id)
     if request.method == 'POST':
+        # Verificar si es el único periodo activo
+        periodos_activos = periodoContable.objects.filter(estadoPeriodo=True)
+        
+        if periodos_activos.count() == 1 and periodos_activos.first().idPeriodo == periodo.idPeriodo:
+            return JsonResponse({
+                'success': False, 
+                'message': 'No puede desactivar el único período activo. Debe crear un nuevo período primero.'
+            })
+        
         periodo.estadoPeriodo = False
         periodo.save()
-        return JsonResponse({'success': True, 'message': f'⛔ Periodo Contable {getattr(periodo, "nombrePeriodo", periodo.pk)} desactivado'})
+        return JsonResponse({'success': True, 'message': f'Periodo Contable {getattr(periodo, "nombrePeriodo", periodo.pk)} desactivado'})
     return JsonResponse({'success': False, 'message': 'Solicitud no válida.'}, status=400)
 
 @login_required(login_url='login')
@@ -85,9 +132,55 @@ def desactivar_periodo_contable(request, id):
 def reactivar_periodo_contable(request, id):
     periodo = get_object_or_404(periodoContable, idPeriodo=id)
     if request.method == 'POST':
+        # Buscar el período activo actual
+        periodo_activo_actual = periodoContable.objects.filter(estadoPeriodo=True).first()
+        
+        # Si existe un período activo actual
+        if periodo_activo_actual:
+            # Desactivar el período activo actual
+            periodo_activo_actual.estadoPeriodo = False
+            periodo_activo_actual.save()
+        
+        # Activar el período seleccionado
         periodo.estadoPeriodo = True
         periodo.save()
-        return JsonResponse({'success': True, 'message': f'✅ Periodo Contable {getattr(periodo, "nombrePeriodo", periodo.pk)} activado'})
+        
+        mensaje = f'Periodo Contable {getattr(periodo, "nombrePeriodo", periodo.pk)} activado'
+        if periodo_activo_actual:
+            mensaje += f'. Se desactivó el período {periodo_activo_actual.nombrePeriodo}'
+            
+        return JsonResponse({'success': True, 'message': mensaje})
+    return JsonResponse({'success': False, 'message': 'Solicitud no válida.'}, status=400)
+
+# Nueva view para manejar la confirmación de cambio de período activo
+@login_required(login_url='login')
+@permission_required("periodoContable.change_periodocontable", raise_exception=True)
+def confirmar_cambio_periodo(request):
+    if request.method == 'POST':
+        periodo_id = request.POST.get('periodo_id')
+        periodo_activo_actual_id = request.POST.get('periodo_activo_actual_id')
+        
+        try:
+            with transaction.atomic():
+                # Desactivar el período activo actual
+                if periodo_activo_actual_id:
+                    periodo_activo_actual = periodoContable.objects.get(idPeriodo=periodo_activo_actual_id)
+                    periodo_activo_actual.estadoPeriodo = False
+                    periodo_activo_actual.save()
+                
+                # Activar el nuevo período
+                nuevo_periodo = periodoContable.objects.get(idPeriodo=periodo_id)
+                nuevo_periodo.estadoPeriodo = True
+                nuevo_periodo.save()
+                
+                return JsonResponse({
+                    'success': True, 
+                    'message': f'Período {nuevo_periodo.nombrePeriodo} activado correctamente. ' +
+                              (f'Período {periodo_activo_actual.nombrePeriodo} desactivado.' if periodo_activo_actual_id else '')
+                })
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': f'Error: {str(e)}'})
+    
     return JsonResponse({'success': False, 'message': 'Solicitud no válida.'}, status=400)
 
 

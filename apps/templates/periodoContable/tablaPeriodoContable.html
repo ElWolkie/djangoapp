@@ -244,7 +244,70 @@
 <script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
 <script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
 <script>
-document.addEventListener('DOMContentLoaded', () => {
+// Función para mostrar advertencia de cambio de período activo
+function mostrarAdvertenciaCambioPeriodo(mensaje, periodoId, periodoActivoActualId) {
+  Swal.fire({
+    title: '¿Está seguro?',
+    html: mensaje,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Sí, continuar',
+    cancelButtonText: 'Cancelar',
+    customClass: {
+      confirmButton: 'btn btn-warning',
+      cancelButton: 'btn btn-secondary'
+    },
+    buttonsStyling: false
+  }).then((result) => {
+    if (result.isConfirmed) {
+      // Realizar el cambio de período
+      const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+      
+      const formData = new FormData();
+      formData.append('periodo_id', periodoId);
+      if (periodoActivoActualId) {
+        formData.append('periodo_activo_actual_id', periodoActivoActualId);
+      }
+      
+      fetch("{% url 'confirmar_cambio_periodo' %}", {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': csrftoken,
+        },
+        body: formData
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          Swal.fire({
+            title: 'Éxito',
+            text: data.message,
+            icon: 'success',
+            confirmButtonText: 'OK',
+            customClass: { confirmButton: 'btn btn-success' },
+            buttonsStyling: false
+          }).then(() => location.reload());
+        } else {
+          Swal.fire('Error', data.message, 'error');
+        }
+      })
+      .catch(error => Swal.fire('Error', 'Ocurrió un error en el servidor.', 'error'));
+    }
+  });
+}
+
+// Función para activar mayúsculas en inputs
+function activarMayusculasInputs() {
+  document.addEventListener('input', function(e) {
+    if (e.target.tagName === 'INPUT' && !e.target.type.match(/password|hidden|email|date/)) {
+      e.target.value = e.target.value.toUpperCase();
+    }
+  });
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  activarMayusculasInputs();
+  
   // Helper para cargar formularios en modales
   const loadInModal = (modalId, urlGetter, contentId) => {
     $(modalId)
@@ -266,7 +329,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!form) return false;
     let valid = true;
     let firstInvalid = null;
-    form.querySelectorAll('[data-required]').forEach(input => {
+    form.querySelectorAll('[required]').forEach(input => {
       if (!input.value.trim()) {
         input.classList.add('is-invalid');
         if (!firstInvalid) firstInvalid = input;
@@ -292,11 +355,23 @@ document.addEventListener('DOMContentLoaded', () => {
       e.preventDefault();
       const $form = $(this);
       if (!highlightInvalidInputs(formSelector)) return false;
+      
       $.ajax({
         url: $form.attr('action'),
         method: $form.attr('method'),
         data: $form.serialize(),
-        success: (response) => handleFormResponse(response, modalId),
+        success: (response) => {
+          if (response.warning) {
+            // Mostrar advertencia de cambio de período
+            mostrarAdvertenciaCambioPeriodo(
+              response.message, 
+              response.periodo_id, 
+              response.periodo_activo_actual
+            );
+          } else {
+            handleFormResponse(response, modalId);
+          }
+        },
         error: () => Swal.fire('Error', 'Error al procesar la solicitud', 'error')
       });
     });
@@ -313,6 +388,7 @@ document.addEventListener('DOMContentLoaded', () => {
     $(modalId).on('show.bs.modal', e => {
       $(formId).attr('action', $(e.relatedTarget).data('url'));
     });
+    
     // Manejar el submit y mostrar alerta en globalMessages según respuesta JSON
     $(document).on('submit', formId, function(e) {
       e.preventDefault();
@@ -326,35 +402,26 @@ document.addEventListener('DOMContentLoaded', () => {
           if (response.success) {
             showGlobalMessage(response.message, 'success');
             setTimeout(() => {
-              $('#globalMessages .alert').alert('close');
-            }, 10000);
-            setTimeout(() => {
               location.reload();
-            }, 2500);
+            }, 1500);
           } else {
             showGlobalMessage(response.message || 'Ocurrió un error.', 'error');
-            setTimeout(() => {
-              $('#globalMessages .alert').alert('close');
-            }, 10000);
           }
         },
         error: function() {
           $(modalId).modal('hide');
           showGlobalMessage('Ocurrió un error en el servidor.', 'error');
-          setTimeout(() => {
-            $('#globalMessages .alert').alert('close');
-          }, 10000);
         }
       });
     });
   });
-  // NO interceptar el submit: dejar que el POST sea tradicional
 
   // Manejar respuestas del servidor
   const handleFormResponse = (response, modalId) => {
     const modal = $(modalId);
     const messagesContainer = modal.find('.modal-body');
     messagesContainer.find('.alert').remove();
+    
     if (response.success) {
       modal.modal('hide');
       showGlobalMessage(response.message, 'success');
@@ -391,6 +458,7 @@ document.addEventListener('DOMContentLoaded', () => {
       error: 'alert-danger',
       warning: 'alert-warning'
     }[type] || 'alert-info';
+    
     container.html(`
       <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
         ${message}
@@ -399,61 +467,65 @@ document.addEventListener('DOMContentLoaded', () => {
         </button>
       </div>
     `);
+    
+    // Auto-cerrar después de 5 segundos
+    setTimeout(() => {
+      container.find('.alert').alert('close');
+    }, 5000);
   };
 
-// Función para manejar la eliminación y reactivación de registros
-window.managePeriodo = function(id, action) {
-  const confirmMessage = action === 'delete'
-    ? '¿Está seguro de eliminar este registro?'
-    : (action === 'reactivate'
-        ? '¿Está seguro de reactivar este registro?'
-        : '¿Está seguro de realizar esta acción?');
+  // Función para manejar la eliminación y reactivación de registros
+  window.managePeriodo = function(id, action) {
+    const confirmMessage = action === 'delete'
+      ? '¿Está seguro de eliminar este registro?'
+      : (action === 'reactivate'
+          ? '¿Está seguro de reactivar este registro?'
+          : '¿Está seguro de realizar esta acción?');
 
-  Swal.fire({
-    title: confirmMessage,
-    icon: action === 'delete' ? 'warning' : 'question',
-    showCancelButton: true,
-    confirmButtonText: action === 'delete' ? 'Eliminar' : 'Reactivar',
-    cancelButtonText: 'Cancelar',
-    customClass: {
-      confirmButton: action === 'delete' ? 'btn btn-danger' : 'btn btn-success',
-      cancelButton: 'btn btn-secondary'
-    },
-    buttonsStyling: false,
-  }).then((result) => {
-    if (result.isConfirmed) {
-      const url = action === 'delete'
-        ? "{% url 'periodo_contable_delete' 0 %}".replace('0', id)
-        : "{% url 'periodo_contable_reactivate' 0 %}".replace('0', id);
+    Swal.fire({
+      title: confirmMessage,
+      icon: action === 'delete' ? 'warning' : 'question',
+      showCancelButton: true,
+      confirmButtonText: action === 'delete' ? 'Eliminar' : 'Reactivar',
+      cancelButtonText: 'Cancelar',
+      customClass: {
+        confirmButton: action === 'delete' ? 'btn btn-danger' : 'btn btn-success',
+        cancelButton: 'btn btn-secondary'
+      },
+      buttonsStyling: false,
+    }).then((result) => {
+      if (result.isConfirmed) {
+        const url = action === 'delete'
+          ? "{% url 'periodo_contable_delete' 0 %}".replace('0', id)
+          : "{% url 'periodo_contable_reactivate' 0 %}".replace('0', id);
 
-      const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
-      fetch(url, {
-        method: 'POST',
-        headers: {
-          'X-CSRFToken': csrftoken,
-        },
-      })
-      .then(response => response.json())
-      .then(data => {
-        if (data.success) {
-          Swal.fire({
-            title: action === 'delete' ? 'Eliminado' : 'Reactivado',
-            text: data.message,
-            icon: 'success',
-            confirmButtonText: 'OK',
-            customClass: { confirmButton: 'btn btn-warning' },
-            buttonsStyling: false,
-          }).then(() => location.reload());
-        } else {
-          Swal.fire('Error', data.message, 'error');
-        }
-      })
-      .catch(error => Swal.fire('Error', 'Ocurrió un error en el servidor.', 'error'));
-    }
-  });
-}
-});
+        fetch(url, {
+          method: 'POST',
+          headers: {
+            'X-CSRFToken': csrftoken,
+          },
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            Swal.fire({
+              title: action === 'delete' ? 'Eliminado' : 'Reactivado',
+              text: data.message,
+              icon: 'success',
+              confirmButtonText: 'OK',
+              customClass: { confirmButton: 'btn btn-warning' },
+              buttonsStyling: false,
+            }).then(() => location.reload());
+          } else {
+            Swal.fire('Error', data.message, 'error');
+          }
+        })
+        .catch(error => Swal.fire('Error', 'Ocurrió un error en el servidor.', 'error'));
+      }
+    });
+  };
 
   // Filtrado de tabla
   $('#searchInput').on('keyup', function() {
@@ -462,83 +534,82 @@ window.managePeriodo = function(id, action) {
       $(this).toggle($(this).text().toUpperCase().includes(filter));
     });
   });
+});
 
+// Paginación
+document.addEventListener('DOMContentLoaded', function () {
+  const table = document.getElementById('periodosTable');
+  if (!table) return;
+  
+  const pagination = document.createElement('ul');
+  pagination.className = 'pagination justify-content-center';
+  table.parentNode.appendChild(pagination);
 
-</script>
-<script>
-  document.addEventListener('DOMContentLoaded', function () {
-    const table = document.getElementById('periodosTable');
-    const pagination = document.createElement('ul');
-    pagination.className = 'pagination justify-content-center';
-    table.parentNode.appendChild(pagination);
+  const rowsPerPage = 10;
+  let currentPage = 1;
 
-    const rowsPerPage = 10; // Número de filas por página
-    let currentPage = 1;
+  function displayRows() {
+    const rows = table.getElementsByTagName('tr');
+    const start = (currentPage - 1) * rowsPerPage + 1;
+    const end = start + rowsPerPage;
 
-    // Función para mostrar las filas de la página actual
-    function displayRows() {
-      const rows = table.getElementsByTagName('tr');
-      const start = (currentPage - 1) * rowsPerPage + 1; // Ignorar encabezado
-      const end = start + rowsPerPage;
+    for (let i = 1; i < rows.length; i++) {
+      rows[i].style.display = i >= start && i < end ? '' : 'none';
+    }
+  }
 
-      for (let i = 1; i < rows.length; i++) {
-        rows[i].style.display = i >= start && i < end ? '' : 'none';
+  function setupPagination() {
+    const rows = table.getElementsByTagName('tr');
+    const totalPages = Math.ceil((rows.length - 1) / rowsPerPage);
+
+    pagination.innerHTML = '';
+
+    // Botón "Anterior"
+    const prevLi = document.createElement('li');
+    prevLi.className = 'page-item' + (currentPage === 1 ? ' disabled' : '');
+    prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Anterior"><span aria-hidden="true">&laquo;</span></a>`;
+    prevLi.addEventListener('click', function (e) {
+      e.preventDefault();
+      if (currentPage > 1) {
+        currentPage--;
+        displayRows();
+        setupPagination();
       }
+    });
+    pagination.appendChild(prevLi);
+
+    // Botones de páginas
+    for (let i = 1; i <= totalPages; i++) {
+      const li = document.createElement('li');
+      li.className = 'page-item' + (i === currentPage ? ' active' : '');
+      li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+      li.addEventListener('click', function (e) {
+        e.preventDefault();
+        currentPage = i;
+        displayRows();
+        setupPagination();
+      });
+      pagination.appendChild(li);
     }
 
-    // Función para configurar la paginación
-    function setupPagination() {
-      const rows = table.getElementsByTagName('tr');
-      const totalPages = Math.ceil((rows.length - 1) / rowsPerPage);
-
-      pagination.innerHTML = '';
-
-      // Botón "Anterior"
-      const prevLi = document.createElement('li');
-      prevLi.className = 'page-item' + (currentPage === 1 ? ' disabled' : '');
-      prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Anterior"><span aria-hidden="true">&laquo;</span></a>`;
-      prevLi.addEventListener('click', function (e) {
-        e.preventDefault();
-        if (currentPage > 1) {
-          currentPage--;
-          displayRows();
-          setupPagination();
-        }
-      });
-      pagination.appendChild(prevLi);
-
-      // Botones de páginas
-      for (let i = 1; i <= totalPages; i++) {
-        const li = document.createElement('li');
-        li.className = 'page-item' + (i === currentPage ? ' active' : '');
-        li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
-        li.addEventListener('click', function (e) {
-          e.preventDefault();
-          currentPage = i;
-          displayRows();
-          setupPagination();
-        });
-        pagination.appendChild(li);
+    // Botón "Siguiente"
+    const nextLi = document.createElement('li');
+    nextLi.className = 'page-item' + (currentPage === totalPages ? ' disabled' : '');
+    nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Siguiente"><span aria-hidden="true">&raquo;</span></a>`;
+    nextLi.addEventListener('click', function (e) {
+      e.preventDefault();
+      if (currentPage < totalPages) {
+        currentPage++;
+        displayRows();
+        setupPagination();
       }
+    });
+    pagination.appendChild(nextLi);
+  }
 
-      // Botón "Siguiente"
-      const nextLi = document.createElement('li');
-      nextLi.className = 'page-item' + (currentPage === totalPages ? ' disabled' : '');
-      nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Siguiente"><span aria-hidden="true">&raquo;</span></a>`;
-      nextLi.addEventListener('click', function (e) {
-        e.preventDefault();
-        if (currentPage < totalPages) {
-          currentPage++;
-          displayRows();
-          setupPagination();
-        }
-      });
-      pagination.appendChild(nextLi);
-    }
-
-    // Inicializar la tabla y la paginación
-    displayRows();
-    setupPagination();
-  });
+  // Inicializar la tabla y la paginación
+  displayRows();
+  setupPagination();
+});
 </script>
 {% endblock javascripts %}

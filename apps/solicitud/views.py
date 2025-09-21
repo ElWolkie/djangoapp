@@ -19,6 +19,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.platypus import Table, TableStyle
 from reportlab.lib import colors
 import os
+
 #SOLICITUD
 @login_required(login_url='login')
 @permission_required("solicitud.add_solicitud", raise_exception=True)
@@ -32,7 +33,7 @@ def solicitud_modal(request):
             return JsonResponse({
                     'success': True,
                     'message': 'Registro exitoso.',
-                    'redirect_url': reverse('nota_create') + f"?solicitud={solicitud.montoTotal}&idP={solicitud.idPersona.idPersona}&idS={idSolicitud}"
+                    'redirect_url': reverse('nota_administrativa_create') + f"?solicitud={solicitud.montoTotal}&idP={solicitud.idPersona.idPersona}&idS={idSolicitud}"
                 })
         else:
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':

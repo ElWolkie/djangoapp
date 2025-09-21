@@ -222,7 +222,7 @@ def generar_numero_nota():
 
 
 @transaction.atomic
-def notas_create(request):
+def nota_create(request):
     personas = Personas.objects.all()
     empresas = empresa.objects.all()
     tasas = Tasa.objects.select_related('idMoneda') \
@@ -409,7 +409,195 @@ def notas_create(request):
         'inscripciones': inscripciones
     })
 
+@transaction.atomic
+def nota_administrativa_create(request):
+    personas = Personas.objects.all()
+    empresas = empresa.objects.all()
+    tasas = Tasa.objects.select_related('idMoneda') \
+        .values('idMoneda__idMoneda', 'idMoneda__nombreMoneda') \
+        .annotate(ultima_idTasa=Max('idTasa'), ultima_tasa=Max('montoTasa'))
+    cuentas_plan = PlanCuenta.objects.filter(estadoPlanCuenta=True).order_by('codigoPlanCuenta')
+    numero_nota = generar_numero_nota()  # Generar el número de nota
+    empresas = empresa.objects.all()
+    cuotas = InscripcionCuota.objects.filter(estadoPago='EN ESPERA').order_by('idCuota')
+    solicitudes = Solicitud.objects.filter(estadoSolicitud='ACTIVO').order_by('idSoli')
+    honorarios = Honorario.objects.filter(estadoHonorario='ACTIVO').order_by('idHonorario')
+    inscripciones = Inscripcion.objects.filter(is_active=True).order_by('idInscripcion')
+    
+    # Obtener la moneda de configuración
+    configuracion = Configuracion.objects.first()
+    if not configuracion:
+        return JsonResponse({
+            'success': False,
+            'message': 'No se encontró una configuración activa en el sistema.'
+        }, status=400)
+    moneda_configuracion = configuracion.moneda
+    tasa_configuracion = Tasa.objects.filter(idMoneda=moneda_configuracion).order_by('-idTasa').first()
 
+    if not tasa_configuracion:
+        return JsonResponse({
+            'success': False,
+            'message': f'No se encontró una tasa registrada para la moneda de configuración ({moneda_configuracion.nombreMoneda}).'
+        }, status=400)
+
+    # Convertir a Decimal de forma segura (acepta cadenas con comas/miles)
+    try:
+        raw_tasa = str(tasa_configuracion.montoTasa or '0').replace('.', '').replace(',', '.')
+        tasa_configuracion_valor = to_decimal(raw_tasa)
+    except (InvalidOperation, ValueError):
+        return JsonResponse({
+            'success': False,
+            'message': f'Valor de tasa inválido: {tasa_configuracion.montoTasa}'
+        }, status=400)
+
+    tasa_configuracion_valor = to_decimal(tasa_configuracion.montoTasa)  # Convertir a Decimal
+    print(f"Tasa de configuración ({moneda_configuracion.nombreMoneda}): {tasa_configuracion_valor}")
+
+    if request.method == 'POST':
+        form = NotaForm(request.POST)
+        if form.is_valid():
+            try:
+                nota = form.save(commit=False)
+
+                # Verificar si hay un periodo contable activo
+                periodo_activo = periodoContable.objects.filter(estadoPeriodo=True).first()
+                if not periodo_activo:
+                    periodo_activo = periodoContable.objects.order_by('-idPeriodo').first()
+                if not periodo_activo:
+                    return JsonResponse({
+                        'success': False,
+                        'message': 'No hay ningún periodo contable registrado o activo en el sistema. '
+                                   'Por favor, registre o active un periodo contable antes de continuar.'
+                    }, status=400)
+
+                # Crear el asiento contable
+                try:
+                    asiento = AsientoContable.objects.create(
+                        numeroAsiento=f"NOTA-ADM-{numero_nota}",  # Diferenciar con prefijo ADM
+                        fechaAsiento=nota.fechaEmision,
+                        conceptoAsiento=f"Asiento para la nota administrativa {numero_nota}",
+                        idPeriodo=periodo_activo
+                    )
+                except Exception as e:
+                    return JsonResponse({
+                        'success': False,
+                        'message': f'Error al crear el asiento contable: {str(e)}. '
+                                   'Por favor, revise los datos ingresados e inténtelo nuevamente.'
+                    }, status=500)
+
+                # Crear los detalles del asiento contable
+                try:
+                    # Consultar los registros más recientes de PlanArticulo para el tipo de artículo seleccionado
+                    plan_articulos = PlanArticulo.objects.filter(tipoArticulo=nota.tipoArticulo).order_by('-fecha')
+
+                    # Filtrar para obtener un registro para el debe (tipo=1) y otro para el haber (tipo=0)
+                    plan_articulo_debe = plan_articulos.filter(tipo=1).first()
+                    plan_articulo_haber = plan_articulos.filter(tipo=0).first()
+
+                    # Validar que se hayan encontrado ambos registros
+                    if not plan_articulo_debe or not plan_articulo_haber:
+                        return JsonResponse({
+                            'success': False,
+                            'message': 'No se encontraron cuentas contables válidas para el tipo de artículo seleccionado. '
+                                    'Por favor, revise la configuración de los planes de artículo.'
+                        }, status=400)
+
+                    # Crear los detalles del asiento contable usando los registros encontrados
+                    DetalleAsiento.objects.create(
+                        idAsiento=asiento,
+                        idPlanCuenta=plan_articulo_debe.idPlanCuenta,
+                        debe=nota.totalNota,
+                        haber=0.00
+                    )
+                    DetalleAsiento.objects.create(
+                        idAsiento=asiento,
+                        idPlanCuenta=plan_articulo_haber.idPlanCuenta,
+                        debe=0.00,
+                        haber=nota.totalNota
+                    )
+                except Exception as e:
+                    return JsonResponse({
+                        'success': False,
+                        'message': f'Error al crear los detalles del asiento contable: {str(e)}. '
+                                'Por favor, revise las cuentas contables seleccionadas.'
+                    }, status=500)
+
+                # Asociar el asiento contable a la nota
+                nota.idAsiento = asiento
+                nota.numeroNota = f"ADM-{numero_nota}"  # Prefijo para notas administrativas
+                nota.save()
+
+                # Crear la relación en NotaRelacionada solo si alguno de los IDs está presente
+                crear_relacion_nota(nota, request)
+
+                id_inscripcion = request.POST.get('idInscripcion')
+                print(f"ID Inscripcion recibido: {id_inscripcion}")
+
+                if id_inscripcion:
+                    inscripcion = Inscripcion.objects.filter(idInscripcion=id_inscripcion).first()
+                    if inscripcion:
+                        nota.idInscripcion = inscripcion
+                        nota.save()
+                        inscripcion.estadoPago = 'PENDIENTE'
+                        inscripcion.save()
+                    else:
+                        print("No se encontró una inscripción con el ID proporcionado.")
+                else:
+                    print("ID Inscripcion no proporcionado en el formulario.")
+                                
+                # Si todo es exitoso, retornar una respuesta JSON
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Nota administrativa creada exitosamente.',
+                    'lista': reverse('nota_administrativa_list'),
+                    'pagar': f"{reverse('pago_create')}?nota={nota.idNota}",
+                    'nota': {
+                        'idNota': nota.idNota,
+                        'numeroNota': nota.numeroNota,
+                        'tipoOperacion': nota.tipoOperacion,
+                        'tipoArticulo': nota.tipoArticulo,
+                        'totalNota': float(nota.totalNota),
+                        'estado': nota.estado
+                    }
+                })
+            except Exception as e:
+                import traceback
+                print(f"Error inesperado al crear la nota o el asiento contable: {e}")
+                print(traceback.format_exc())
+                return JsonResponse({
+                    'success': False,
+                    'message': f'Ocurrió un error inesperado: {str(e)}. '
+                               'Por favor, contacte al administrador del sistema si el problema persiste.'
+                }, status=500)
+        else:
+            return JsonResponse({
+                'success': False,
+                'message': 'El formulario contiene errores. Por favor, corríjalos e inténtelo nuevamente.',
+                'errors': form.errors
+            }, status=400)
+    else:
+        form = NotaForm()
+    return render(request, 'factura/nota_administrativa.html', {
+        'form': form,
+        'personas': personas,
+        'empresas': empresas,
+        'monedas': tasas,
+        'cuentas_plan': cuentas_plan,
+        'numero_nota': numero_nota,
+        'cuotas': cuotas,
+        'solicitudes': solicitudes,
+        'honorarios': honorarios,
+        'inscripciones': inscripciones
+    })
+
+def nota_administrativa_list(request):
+    # Filtrar solo notas administrativas por el prefijo en el número
+    notas = Nota.objects.filter(numeroNota__startswith='ADM-').order_by('-fechaEmision')
+    
+    return render(request, 'factura/tablaNotas_administrativas.html', {
+        'notas': notas,
+    })
+    
 def obtener_cuotas(request):
     id_persona = request.GET.get('idPersona')
     id_inscripcion = request.GET.get('idInscripcion')
