@@ -7,8 +7,7 @@
 <link rel="stylesheet" href="{% static 'assets/css/styleForms.css' %}">
 <link rel="stylesheet" href="{% static 'assets/css/argon.css' %}">
 <style>
-  /* Contenedor principal para aislar estilos */
-  .page-libro-mayor {
+  :root {
     --primary-gradient: linear-gradient(135deg, #5e72e4 0%, #825ee4 100%);
     --secondary-gradient: linear-gradient(135deg, #fe8330 0%, #fb6340 100%);
     --success-color: #2dce89;
@@ -17,51 +16,58 @@
     --info-color: #11cdef;
   }
 
-  .page-libro-mayor .container-balance {
-    max-width: 1200px;
+  body {
+    background-color: #f8f9fe;
+  }
+
+  .container-balance {
+    max-width: 1500px;
     margin: 2rem auto;
     padding: 2rem;
     background: white;
     border-radius: 15px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
   }
-  
-  .page-libro-mayor .header-balance {
+
+  .header-balance {
     text-align: center;
     margin-bottom: 2rem;
     padding-bottom: 1.5rem;
     border-bottom: 2px solid #e9ecef;
   }
-  
-  .page-libro-mayor .header-balance h2 {
+
+  .header-balance h2 {
     color: #5e72e4;
     font-weight: 600;
     margin-bottom: 1rem;
   }
-  
-  .page-libro-mayor .filters-container {
+
+  .filters-container {
     background: white;
     border-radius: 10px;
-    padding: 15px;
+    padding: 1.5rem;
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
     margin-bottom: 2rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 1rem;
   }
-  
-  .page-libro-mayor .input-group-text {
+
+  .input-group-text {
     background: var(--primary-gradient);
     color: white;
     border: none;
   }
-  
-  .page-libro-mayor .totals-container {
+
+  .totals-container {
     display: flex;
     justify-content: space-between;
     margin-bottom: 2rem;
     flex-wrap: wrap;
     gap: 1rem;
   }
-  
-  .page-libro-mayor .total-card {
+
+  .total-card {
     flex: 1;
     min-width: 250px;
     background: white;
@@ -71,143 +77,146 @@
     text-align: center;
     transition: transform 0.3s ease;
   }
-  
-  .page-libro-mayor .total-card:hover {
+
+  .total-card:hover {
     transform: translateY(-5px);
   }
-  
-  .page-libro-mayor .total-card h5 {
+
+  .total-card h5 {
     font-size: 1.1rem;
     color: #525f7f;
     margin-bottom: 0.5rem;
   }
-  
-  .page-libro-mayor .total-value {
+
+  .total-value {
     font-size: 1.8rem;
     font-weight: 700;
   }
-  
-  .page-libro-mayor .total-debe .total-value {
+
+  .total-debe .total-value {
     color: var(--success-color);
   }
-  
-  .page-libro-mayor .total-haber .total-value {
+
+  .total-haber .total-value {
     color: var(--danger-color);
   }
-  
-  .page-libro-mayor .table-container {
+
+  .table-container {
     background: white;
     border-radius: 10px;
     overflow: hidden;
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
   }
-  
-  .page-libro-mayor .table-balance {
+
+  .table-balance {
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
   }
-  
-  .page-libro-mayor .table-balance thead {
+
+  .table-balance thead {
     background: var(--primary-gradient);
     color: white;
   }
-  
-  .page-libro-mayor .table-balance thead th {
+
+  .table-balance thead th {
     padding: 1.2rem 1.5rem;
     font-weight: 600;
     text-align: center;
   }
-  
-  .page-libro-mayor .table-balance tbody tr {
+
+  .table-balance tbody tr {
     transition: background-color 0.2s ease;
   }
-  
-  .page-libro-mayor .table-balance tbody tr:hover {
+
+  .table-balance tbody tr:hover {
     background-color: #f8f9fe;
   }
-  
-  .page-libro-mayor .table-balance tbody td {
+
+  .table-balance td {
+    text-align: left; /* Cambiar alineación a la izquierda */
     padding: 1.2rem 1.5rem;
-    text-align: center;
     border-bottom: 1px solid #e9ecef;
   }
-  
-  .page-libro-mayor .table-balance tbody tr:last-child td {
+
+  .table-balance tbody tr:last-child td {
     border-bottom: none;
   }
-  
-  .page-libro-mayor .highlight-debe {
+
+  .highlight-debe {
     background-color: rgba(45, 206, 137, 0.1);
     font-weight: 600;
     color: var(--success-color);
   }
-  
-  .page-libro-mayor .highlight-haber {
+
+  .highlight-haber {
     background-color: rgba(245, 54, 92, 0.1);
     font-weight: 600;
     color: var(--danger-color);
   }
-  
-  .page-libro-mayor .saldo-badge {
-    display: inline-block;
-    padding: 0.5rem 1.2rem;
-    border-radius: 50px;
-    font-weight: 600;
-    font-size: 0.95rem;
+
+  .btn-icon {
+    padding: 0.5rem;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
   }
-  
-  .page-libro-mayor .saldo-deudor {
-    background-color: rgba(45, 206, 137, 0.15);
-    color: var(--success-color);
+
+  .actions-column {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
   }
-  
-  .page-libro-mayor .saldo-acreedor {
-    background-color: rgba(245, 54, 92, 0.15);
-    color: var(--danger-color);
+
+  .hidden-row {
+    display: none;
   }
-  
-  .page-libro-mayor .saldo-cero {
-    background-color: rgba(134, 142, 150, 0.15);
-    color: #525f7f;
+
+  @media (max-width: 992px) {
+    .filters-container {
+      grid-template-columns: 1fr;
+    }
   }
-  
+
   @media (max-width: 768px) {
-    .page-libro-mayor .totals-container {
+    .totals-container {
       flex-direction: column;
     }
-    
-    .page-libro-mayor .table-balance thead {
+
+    .table-balance thead {
       display: none;
     }
-    
-    .page-libro-mayor .table-balance, 
-    .page-libro-mayor .table-balance tbody, 
-    .page-libro-mayor .table-balance tr, 
-    .page-libro-mayor .table-balance td {
+
+    .table-balance, 
+    .table-balance tbody, 
+    .table-balance tr, 
+    .table-balance td {
       display: block;
       width: 100%;
     }
-    
-    .page-libro-mayor .table-balance tr {
+
+    .table-balance tr {
       margin-bottom: 1.5rem;
       border-radius: 10px;
       overflow: hidden;
       box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
     }
-    
-    .page-libro-mayor .table-balance td {
+
+    .table-balance td {
       text-align: right;
       padding-left: 50%;
       position: relative;
       border-bottom: 1px solid #e9ecef;
     }
-    
-    .page-libro-mayor .table-balance td:last-child {
+
+    .table-balance td:last-child {
       border-bottom: none;
     }
-    
-    .page-libro-mayor .table-balance td::before {
+
+    .table-balance td::before {
       content: attr(data-label);
       position: absolute;
       left: 0;
@@ -217,104 +226,242 @@
       text-align: left;
       color: #525f7f;
     }
-  }
-  .pagination-container {
-    margin-top: 1rem !important;
-  }
-  .pagination {
-    --bs-pagination-padding-x: 0.75rem;
-    --bs-pagination-padding-y: 0.375rem;
-    --bs-pagination-font-size: 0.875rem;
-  }
-  .page-link {
-    min-width: 32px;
-    text-align: center;
-    border-radius: 4px !important;
-  }
-  .page-item.active .page-link {
-    background-color: #fb6340;
-    border-color: #fb6340;
+
+    .actions-column {
+      justify-content: flex-end;
+    }
   }
 </style>
 {% endblock stylesheets %}
 
 {% block content %}
-<!-- Contenedor principal para aislar estilos -->
-<div class="page-libro-mayor">
-  <div class="container-balance">
-    <div class="header-balance">
-      <h2>Libro Mayor</h2>
-      <p class="text-muted">Resumen de movimientos por cuenta</p>
-    </div>
+<div class="container-balance w-100">
+  <div class="header-balance">
+    <h2>Libro Mayor</h2>
+    <p class="text-muted">Estructura jerárquica de cuentas contables</p>
+  </div>
 
-    <div class="filters-container">
-      <div class="input-group">
-        <span class="input-group-text"><i class="fas fa-search"></i></span>
-        <input id="searchInput" class="form-control" type="text" placeholder="Buscar por código o nombre de cuenta...">
+  <div class="filters-container">
+    <form method="get">
+      <div class="row">
+        <div class="col-md-6">
+          <div class="input-group">
+            <span class="input-group-text"><i class="fas fa-search"></i></span>
+            <input id="searchInput" name="search" class="form-control" type="text" placeholder="Buscar por código o nombre de cuenta..." value="{{ search_query }}">
+          </div>
+        </div>
+        <div class="col-md-6">
+          <select name="periodo" class="form-select">
+            {% for periodo in periodos %}
+              <option value="{{ periodo.idPeriodo }}" {% if periodo == periodo_seleccionado %}selected{% endif %}>
+                {{ periodo.nombrePeriodo }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-12 mt-3 text-end">
+          <button type="submit" class="btn btn-primary">Filtrar</button>
+        </div>
       </div>
+    </form>
+  </div>
+
+  <div class="totals-container">
+    <div class="total-card total-debe">
+      <h5>Total Debe</h5>
+      <div class="total-value">{{ total_debe|floatformat:2 }}</div>
+    </div>
+    <div class="total-card total-haber">
+      <h5>Total Haber</h5>
+      <div class="total-value">{{ total_haber|floatformat:2 }}</div>
     </div>
   </div>
 
-    <div class="totals-container">
-      <div class="total-card total-debe">
-        <h5>Total Debe</h5>
-        <div class="total-value" id="totalDebe">0.00</div>
-      </div>
-      
-      <div class="total-card total-haber">
-        <h5>Total Haber</h5>
-        <div class="total-value" id="totalHaber">0.00</div>
-      </div>
-    </div>
+  <div class="table-container ">
+  <table class="table-balance">
+  <thead>
+    <tr>
+      <th>Código</th>
+      <th>Nombre de Cuenta</th>
+      <th>Fecha</th>
+      <th>Concepto</th>
+      <th>Debe</th>
+      <th>Haber</th>
+      <th>Saldo</th>
+      <th>Naturaleza</th>
+      <th>Acciones</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for page in cuentas_data %}
+      {% for item in page %}
+        {% if item.tipo == 'cuenta' %}
+        <!-- Fila de cuenta principal -->
+        <tr class="toggle-row" data-target="saldo-{{ item.data.cuenta.codigoPlanCuenta }}" 
+            style="background-color: #ee6815cb; color: rgb(65, 65, 65); cursor: pointer;" 
+            title="Haz clic aquí para visualizar el saldo de inicio y fin de esta cuenta">
+          <td>{{ item.data.cuenta.codigoPlanCuenta }}</td>
+          <td colspan="6">{{ item.data.cuenta.nombrePlanCuenta }}</td>
+          <td>
+            {% if item.data.naturaleza_final == "Deudor" %}
+              <span class="badge bg-success">Deudor</span>
+            {% elif item.data.naturaleza_final == "Acreedor" %}
+              <span class="badge bg-danger">Acreedor</span>
+            {% else %}
+              <span class="badge bg-secondary">Saldado</span>
+            {% endif %}
+          </td>
+          <td></td>
+        </tr>
 
-    <div class="table-container">
-      <table id="libroMayorTable" class="table-balance">
-        <thead>
-          <tr>
-            <th>Código de Cuenta</th>
-            <th>Nombre de Cuenta</th>
-            <th>Total Debe</th>
-            <th>Total Haber</th>
-            <th>Saldo</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for cuenta in cuentas %}
-            <tr>
-              <td data-label="Código de Cuenta">{{ cuenta.codigoPlanCuenta }}</td>
-              <td data-label="Nombre de Cuenta">{{ cuenta.nombrePlanCuenta }}</td>
-              <td data-label="Total Debe" class="highlight-debe">{{ cuenta.total_debe|default:0|floatformat:2 }}</td>
-              <td data-label="Total Haber" class="highlight-haber">{{ cuenta.total_haber|default:0|floatformat:2 }}</td>
-              <td data-label="Saldo">
-                {% with debe=cuenta.total_debe|default:0 haber=cuenta.total_haber|default:0 %}
-                  {% if debe > haber %}
-                    <span class="saldo-badge saldo-deudor">
-                      Deudor: {{ debe|floatformat:2 }}
-                    </span>
-                  {% elif haber > debe %}
-                    <span class="saldo-badge saldo-acreedor">
-                      Acreedor: {{ haber|floatformat:2 }}
-                    </span>
-                  {% else %}
-                    <span class="saldo-badge saldo-cero">Saldo Cero</span>
-                  {% endif %}
+        <!-- Fila de saldos (inicial y final) -->
+        <tr id="saldo-{{ item.data.cuenta.codigoPlanCuenta }}" class="hidden-row" style="background-color: #c7ffe6;">
+          <td colspan="2" class="text-end fw-bold">Saldo Inicial:</td>
+          <td colspan="2">
+            <span class="fw-bold">
+              {{ item.data.saldo_inicial|floatformat:2 }}
+            </span>
+          </td>
+          <td colspan="2" class="text-end fw-bold">Saldo Final:</td>
+          <td>
+            <span class="fw-bold {% if item.data.saldo_final > 0 %}saldo-deudor{% elif item.data.saldo_final < 0 %}saldo-acreedor{% else %}saldo-cero{% endif %}">
+              {{ item.data.saldo_final|floatformat:2 }}
+            </span>
+          </td>
+          <td>
+            {% if item.data.naturaleza_final == "Deudor" %}
+              <span class="badge bg-success">Deudor</span>
+            {% elif item.data.naturaleza_final == "Acreedor" %}
+              <span class="badge bg-danger">Acreedor</span>
+            {% else %}
+              <span class="badge bg-secondary">Saldado</span>
+            {% endif %}
+          </td>
+          <td></td>
+        </tr>
+        {% elif item.tipo == 'detalle' %}
+        <!-- Fila de detalle/movimiento -->
+        <tr style="background-color: white;">
+          <td></td>
+          <td></td>
+          <td>{{ item.data.fecha|date:"d/m/Y" }}</td>
+          <td>{{ item.data.concepto }}</td>
+          <td class="highlight-debe">{{ item.data.debe|floatformat:2 }}</td>
+          <td class="highlight-haber">{{ item.data.haber|floatformat:2 }}</td>
+          <td class="{% if item.data.saldo > 0 %}saldo-deudor{% elif item.data.saldo < 0 %}saldo-acreedor{% else %}saldo-cero{% endif %}">
+            {{ item.data.saldo|floatformat:2 }}
+          </td>
+          <td>
+            {% if item.data.saldo > 0 %}
+              <span class="badge bg-success">Deudor</span>
+            {% elif item.data.saldo < 0 %}
+              <span class="badge bg-danger">Acreedor</span>
+            {% else %}
+              <span class="badge bg-secondary">Saldado</span>
+            {% endif %}
+          </td>
+          <td>
+            {% with button_shown=False %}
+            {% for record in related_records %}
+              {% if record.data.id_asiento == item.data.id_asiento and not button_shown %}
+                <button class="btn btn-info btn-sm" data-bs-toggle="modal" data-bs-target="#modal-{{ item.data.id_asiento }}">
+                  <i class="fas fa-eye"></i>
+                </button>
+                {% with button_shown=True %}
                 {% endwith %}
-              </td>
-            </tr>
-          {% empty %}
-          <tr>
-            <td colspan="5" class="text-center py-4">No hay cuentas registradas.</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-    <div class="pagination-container mt-3"></div>
+              {% endif %}
+            {% endfor %}
+            {% endwith %}
+          </td>
+        </tr>
+        {% endif %}
+      {% endfor %}
+    {% endfor %}
+  </tbody>
+</table>
+  </div>
+
+  <div class="pagination-container mt-3">
+    <nav aria-label="Page navigation">
+      <ul class="pagination justify-content-center">
+        {% if cuentas_data.has_previous %}
+          <li class="page-item">
+            <a class="page-link" href="?page={{ cuentas_data.previous_page_number }}&search={{ search_query }}&periodo={{ periodo_seleccionado.idPeriodo }}" aria-label="Anterior">
+              <span aria-hidden="true">&laquo;</span>
+            </a>
+          </li>
+        {% else %}
+          <li class="page-item disabled">
+            <span class="page-link">&laquo;</span>
+          </li>
+        {% endif %}
+
+        {% for num in cuentas_data.paginator.page_range %}
+          {% if cuentas_data.number == num %}
+            <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+          {% else %}
+            <li class="page-item"><a class="page-link" href="?page={{ num }}&search={{ search_query }}&periodo={{ periodo_seleccionado.idPeriodo }}">{{ num }}</a></li>
+          {% endif %}
+        {% endfor %}
+
+        {% if cuentas_data.has_next %}
+          <li class="page-item">
+            <a class="page-link" href="?page={{ cuentas_data.next_page_number }}&search={{ search_query }}&periodo={{ periodo_seleccionado.idPeriodo }}" aria-label="Siguiente">
+              <span aria-hidden="true">&raquo;</span>
+            </a>
+          </li>
+        {% else %}
+          <li class="page-item disabled">
+            <span class="page-link">&raquo;</span>
+          </li>
+        {% endif %}
+      </ul>
+    </nav>
   </div>
 </div>
+
+<!-- Modals for related records -->
+{% for record in related_records %}
+<div class="modal fade" id="modal-{{ record.data.id_asiento }}" tabindex="-1" aria-labelledby="modalLabel-{{ record.data.id_asiento }}" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalLabel-{{ record.data.id_asiento }}">Movimientos Relacionados</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Cuenta</th>
+              <th>Debe</th>
+              <th>Haber</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for movimiento in record.data.movimientos_completos %}
+            <tr>
+              <td>{{ movimiento.cuenta }}</td>
+              <td>{{ movimiento.debe }}</td>
+              <td>{{ movimiento.haber }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" aria-label="Close">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endfor %}
 {% endblock content %}
 
 {% block javascripts %}
+<script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
+<script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
+<script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
 <script>
   document.addEventListener('DOMContentLoaded', function () {
     const table = document.getElementById('libroMayorTable');
@@ -468,8 +615,81 @@
 
     document.getElementById('searchInput').addEventListener('input', filterTable);
 
+    // Llamar a las funciones iniciales
     displayRows();
     setupPagination();
+      } // Cierre correcto del document.addEventListener
+
+  }); // Cierre correcto del document.addEventListener
+</script>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const searchInput = document.getElementById('searchInput');
+    const table = document.querySelector('.table-balance tbody');
+
+    searchInput.addEventListener('input', function () {
+      const filter = searchInput.value.toLowerCase();
+      const rows = table.getElementsByTagName('tr');
+
+      for (let i = 0; i < rows.length; i++) {
+        const cells = rows[i].getElementsByTagName('td');
+        let match = false;
+
+        for (let j = 0; j < cells.length; j++) {
+          if (cells[j].textContent.toLowerCase().includes(filter)) {
+            match = true;
+            break;
+          }
+        }
+
+        rows[i].style.display = match ? '' : 'none';
+      }
+    });
   });
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const rows = document.querySelectorAll('.toggle-row');
+
+  rows.forEach(row => {
+    row.addEventListener('click', function () {
+      const targetId = this.getAttribute('data-target');
+      const targetRow = document.getElementById(targetId);
+
+      if (targetRow) {
+        targetRow.classList.toggle('hidden-row');
+      }
+    });
+  });
+
+  // Manejar la apertura de modales
+  const modalButtons = document.querySelectorAll('[data-bs-toggle="modal"]');
+
+  modalButtons.forEach(button => {
+    button.addEventListener('click', function () {
+      const modalId = this.getAttribute('data-bs-target');
+      const modal = document.querySelector(modalId);
+
+      if (modal) {
+        const modalInstance = new bootstrap.Modal(modal);
+        modalInstance.show();
+      }
+    });
+  });
+
+  // Solución para eliminar la sombra activa al cerrar el modal
+  const closeModalButtons = document.querySelectorAll('.btn-close, .btn-secondary');
+
+  closeModalButtons.forEach(button => {
+    button.addEventListener('click', function () {
+      const backdrop = document.querySelector('.modal-backdrop');
+      if (backdrop) {
+        backdrop.remove();
+      }
+    });
+  });
+});
 </script>
 {% endblock javascripts %}
