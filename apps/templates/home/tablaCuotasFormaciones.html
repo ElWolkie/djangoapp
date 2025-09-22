@@ -184,9 +184,13 @@
 
                 {% if perms.home.change_cuotaformacion %}
                   <!-- Botón para editar -->
-                  <a href="{% url 'edit_cuota_formacion' cuota.idCuota %}" class="btn btn-primary btn-sm" title="Editar">
-                    <i class="fas fa-edit"></i>
-                  </a>
+                    <button class="btn btn-primary btn-sm edit-cuota-btn"
+                            data-bs-toggle="modal"
+                            data-bs-target="#editCuotaModal"
+                            data-url="{% url 'edit_cuota_formacion' cuota.idCuota %}"
+                            title="Editar">
+                      <i class="fas fa-edit"></i>
+                    </button>
                 {% endif %}
 
                 {% if cuota.is_active and perms.home.delete_cuotaformacion %}
@@ -396,6 +400,49 @@ $(document).ready(function() {
         : '<span class="badge bg-danger text-white">Inactivo</span>'
     );
   });
+
+  // Modal Editar Cuota
+$('#editCuotaModal').on('show.bs.modal', function(e) {
+  const button = $(e.relatedTarget);
+  const url = button.data('url');
+  const modal = $(this);
+  
+  modal.find('.modal-body').html('<div class="text-center py-4"><div class="spinner-border text-primary" role="status"></div></div>');
+  
+  $.get(url)
+    .done(function(html) {
+      modal.find('.modal-body').html(html);
+    })
+    .fail(function() {
+      modal.find('.modal-body').html('<div class="text-center py-4 text-danger">Error al cargar el formulario.</div>');
+    });
+});
+
+// Manejar el envío del formulario via AJAX
+$(document).on('submit', '#editCuotaFormacionForm', function(e) {
+  e.preventDefault();
+  const form = $(this);
+  const modal = $('#editCuotaModal');
+  
+  $.ajax({
+    url: form.attr('action'),
+    type: 'POST',
+    data: form.serialize(),
+    success: function(response) {
+      if (response.success) {
+        modal.modal('hide');
+        showGlobalMessage(response.message, 'success');
+        setTimeout(() => location.reload(), 1500);
+      } else {
+        // Mostrar errores de validación
+        modal.find('.modal-body').html(response.html);
+      }
+    },
+    error: function() {
+      Swal.fire('Error', 'Error de conexión con el servidor', 'error');
+    }
+  });
+});
 
   // Configuración de modales de desactivar y reactivar
   $('#deleteCuotaModal, #reactivateCuotaModal').on('show.bs.modal', function(e) {

@@ -1094,21 +1094,68 @@ def formacion_modal(request):
 @permission_required("home.change_formacion", raise_exception=True)
 def edit_formacion(request, pk):
     formacion = get_object_or_404(Formacion, pk=pk)
+
+    def normalize_money(value: str) -> str:
+        """ Normaliza distintas entradas a un string con punto decimal '1234.56'. """
+        if not value:
+            return ''
+        s = str(value).strip()
+        # detectar última coma o punto como separador decimal
+        last_dot = s.rfind('.')
+        last_comma = s.rfind(',')
+        if last_dot == -1 and last_comma == -1:
+            # no hay separadores -> entero
+            digits = ''.join(ch for ch in s if ch.isdigit())
+            return f"{digits}.00" if digits else ''
+        last_sep = max(last_dot, last_comma)
+        decimal_sep = s[last_sep]
+        int_part = s[:last_sep]
+        dec_part = s[last_sep+1:]
+        int_digits = ''.join(ch for ch in int_part if ch.isdigit())
+        dec_digits = ''.join(ch for ch in dec_part if ch.isdigit())
+        if dec_digits == '':
+            dec_digits = '00'
+        elif len(dec_digits) == 1:
+            dec_digits = dec_digits + '0'
+        else:
+            dec_digits = dec_digits[:2]
+        if int_digits == '':
+            int_digits = '0'
+        return f"{int_digits}.{dec_digits}"
+
+    def is_ajax_request(req):
+        # compatible con Django: comprueba header X-Requested-With
+        return req.META.get('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest'
+
     if request.method == 'POST':
         post_data = request.POST.copy()
-        valor = post_data.get('valorInscripcion', '')
-        valor = valor.replace('.', '').replace(',', '.')
-        post_data['valorInscripcion'] = valor
-        
+
+        # --- Valor: normalizar para que el backend reciba "1234.56" ---
+        raw_valor = post_data.get('valorInscripcion', '').strip()
+        if raw_valor:
+            post_data['valorInscripcion'] = normalize_money(raw_valor)
+
+        # --- Duración: si vienen cantidad + unidad, construir duracion (por seguridad) ---
+        cantidad = post_data.get('cantidad', '').strip()
+        unidad = post_data.get('unidadDuracion', '').strip()
+        if cantidad and unidad:
+            post_data['duracion'] = f"{cantidad} {unidad}"
+
         form = FormacionForm(post_data, instance=formacion)
-        
+
         if form.is_valid():
             form.save()
-            # Agregar mensaje de éxito y redirigir
+            # Respuesta para AJAX -> JSON; si no es AJAX, redirigir normal
+            if is_ajax_request(request):
+                return JsonResponse({'success': True, 'message': 'Formación actualizada exitosamente.'})
             messages.success(request, 'Formación actualizada exitosamente.')
             return redirect('tabla_formaciones')  # Ajusta con tu nombre de URL
         else:
-            # Para mostrar errores en el modal sin redirigir
+            # Form inválido -> si es AJAX devolvemos errores en JSON para mostrar en modal
+            errors = {field: list(errors) for field, errors in form.errors.items()}
+            if is_ajax_request(request):
+                return JsonResponse({'success': False, 'errors': errors, 'message': 'Errores de validación.'}, status=400)
+            # Si no es AJAX devolvemos la plantilla con errores (comportamiento original)
             tipos_formacion = TipoFormacion.objects.all()
             return render(request, 'home/modales/editFormaciones.html', {
                 'form': form,
