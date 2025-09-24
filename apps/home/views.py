@@ -309,9 +309,6 @@ def editar_usuario(request, pk):
             usuario.is_staff = form.cleaned_data.get('is_staff', False)
             usuario.is_superuser = form.cleaned_data.get('is_superuser', False)
 
-            # Guardar cambios
-            usuario.save()  # Esto disparará la señal post_save
-            
             # Manejar seguridad
             nueva_pregunta = form.cleaned_data.get('nueva_pregunta')
             nueva_respuesta = form.cleaned_data.get('nueva_respuesta')
@@ -319,20 +316,28 @@ def editar_usuario(request, pk):
                 usuario.preguntaSeguridad = nueva_pregunta
                 usuario.respuestaSeguridad = nueva_respuesta
             
+            # Guardar cambios
             usuario.save()
             
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return JsonResponse({
                     'success': True,
-                    'message': 'Usuario actualizado exitosamente!'
+                    'message': 'Usuario actualizado exitosamente!',
+                    'redirect_url': reverse('lista_usuarios')
                 })
-            return redirect('lista_usuarios')
+            else:
+                messages.success(request, 'Usuario actualizado exitosamente!')
+                return redirect('lista_usuarios')
         else:
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                # Mejor formato para errores
+                errors = {}
+                for field, error_list in form.errors.items():
+                    errors[field] = [str(error) for error in error_list]
+                
                 return JsonResponse({
                     'success': False,
-                    'message': 'Error en el formulario',
-                    'errors': form.errors.get_json_data()
+                    'errors': errors
                 }, status=400)
             return render(request, 'home/modales/editar_usuario.html', {
                 'form': form,
@@ -364,7 +369,7 @@ def desactivar_usuario(request, pk):
     if request.method == 'POST':
         usuario.is_active = False
         usuario.save()
-        messages.success(request, f'✅ Usuario {usuario.idPersona.nombres} desactivado')
+        messages.success(request, f'Usuario {usuario.idPersona.nombres} desactivado')
         return redirect(request.POST.get('next', 'lista_usuarios'))
 
 @login_required(login_url='login')
@@ -373,7 +378,7 @@ def eliminar_usuario(request, pk):
     usuario = get_object_or_404(Usuarios, pk=pk)
     
     if not request.user.is_superuser:
-        messages.error(request, "❌ Solo superusuarios pueden eliminar permanentemente")
+        messages.error(request, "Solo superusuarios pueden eliminar permanentemente")
         return redirect('lista_usuarios')
     
     if request.method == 'POST':
@@ -1755,7 +1760,7 @@ def edit_materias(request, pk):
         form = MateriaForm(request.POST, instance=instance)
         if form.is_valid():
             form.save()
-            return JsonResponse({'success': True, 'message': 'Edición exitosa.'})
+            return JsonResponse({'success': True, 'message': 'Materia actualizada'})
         else:
             errors = {field: error for field, error in form.errors.items()}
             return JsonResponse({'success': False, 'errors': errors})

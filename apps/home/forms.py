@@ -34,13 +34,17 @@ class UsuarioForm(forms.ModelForm):
         choices=NUEVAS_PREGUNTAS,
         required=False,
         label="Cambiar pregunta de seguridad",
-        widget=forms.Select(attrs={'class': 'form-control'}))
+        widget=forms.Select(attrs={
+            'class': 'form-control input-with-icon',
+            'style': 'padding-left: 40px;'  # ESPACIO PARA EL ICONO
+        }))
     
     nueva_respuesta = forms.CharField(
         required=False,
         label="Nueva respuesta",
         widget=forms.TextInput(attrs={
-            'class': 'form-control',
+            'class': 'form-control input-with-icon',
+            'style': 'padding-left: 40px;',  # ESPACIO PARA EL ICONO
             'placeholder': 'Ingrese nueva respuesta',
             'maxlength': '255'
         }))
@@ -49,8 +53,16 @@ class UsuarioForm(forms.ModelForm):
         model = Usuarios
         fields = ['is_active', 'is_staff', 'is_superuser', 'preguntaSeguridad', 'respuestaSeguridad']
         widgets = {
-            'preguntaSeguridad': forms.TextInput(attrs={'readonly': True, 'class': 'form-control'}),
-            'respuestaSeguridad': forms.TextInput(attrs={'readonly': True, 'class': 'form-control'}),
+            'preguntaSeguridad': forms.TextInput(attrs={
+                'readonly': True, 
+                'class': 'form-control input-with-icon',
+                'style': 'padding-left: 40px;'  # ESPACIO PARA EL ICONO
+            }),
+            'respuestaSeguridad': forms.TextInput(attrs={
+                'readonly': True, 
+                'class': 'form-control input-with-icon',
+                'style': 'padding-left: 40px;'  # ESPACIO PARA EL ICONO
+            }),
         }
 
     def __init__(self, *args, **kwargs):
