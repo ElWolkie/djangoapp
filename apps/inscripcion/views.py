@@ -1,16 +1,14 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from django.http import JsonResponse, HttpResponse, HttpResponseRedirect
-from django.views.decorators.csrf import csrf_exempt
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required, user_passes_test, permission_required
+from django.shortcuts import render, get_object_or_404
+from django.contrib.auth.decorators import login_required, permission_required
 from django.template import loader
 from django.db.models import Exists, OuterRef
 from django.db.models import Count
 from django.db import models
-from django.db.models import OuterRef, Subquery, Max, Count, Sum, Q, Prefetch
+from django.db.models import OuterRef, Count, Q
 from django.urls import reverse
 from django.contrib import messages
-from django.template.loader import render_to_string
 from .forms import InscripcionForm
 from .models import Inscripcion, CuotaFormacion, InscripcionCuota
 from apps.persona.models import Personas

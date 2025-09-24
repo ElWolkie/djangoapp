@@ -74,30 +74,52 @@ def honorario_modal(request):
 @permission_required("honorario.change_honorario", raise_exception=True)
 def edit_honorario(request, pk):
     instance = get_object_or_404(Honorario, pk=pk)
+
     if request.method == 'POST':
         form = HonorarioForm(request.POST, instance=instance)
         if form.is_valid():
-            form.save()
-            return JsonResponse({'success': True, 'message': 'Honorario actualizado.'})
+            honorario = form.save()
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Honorario actualizado correctamente',
+                    'redirect_url': reverse('tabla_honorarios')
+                })
+            else:
+                messages.success(request, 'Honorario actualizado correctamente.')
+                return redirect('tabla_honorarios')
         else:
-            errors = {field: error for field, error in form.errors.items()}
-            return JsonResponse({'success': False, 'errors': errors})
+            # Form inválido: si es AJAX devolvemos JSON con los errores
+            errors = {field: error[0] for field, error in form.errors.get_json_data().items()}
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': False,
+                    'errors': errors
+                }, status=400)
+            else:
+                # Para requests normales, no perder los errores: continuamos al render con el form inválido
+                messages.error(request, 'Corrija los errores en el formulario.')
+                # NO redirigir ni recrear form; lo pasamos al render más abajo
+
     else:
+        # GET request - crear form con instancia
         form = HonorarioForm(instance=instance)
-        # Obtener datos relacionados para los dropdowns
-        personas = Personas.objects.all()
-        cargos = Cargo.objects.all()
-        materias = Materia.objects.all()
-        cohortes = Cohorte.objects.all()
-        
-    return render(request, 'honorario/editHonorario.html', {
+
+    personas = Personas.objects.all()
+    cargos = Cargo.objects.all()
+    materias = Materia.objects.all()
+    cohortes = Cohorte.objects.all()
+
+    context = {
         'form': form,
         'honorario': instance,
         'personas': personas,
         'cargos': cargos,
         'materias': materias,
         'cohortes': cohortes
-    })
+    }
+
+    return render(request, 'honorario/editHonorario.html', context)
 
 @login_required(login_url='login')
 @permission_required("honorario.change_honorario", raise_exception=True)
@@ -132,6 +154,7 @@ def reactivate_honorario(request, pk):
 @login_required(login_url='login')
 @permission_required("honorario.view_honorario", raise_exception=True)
 def tabla_honorarios(request):
+    honorarios = Honorario.objects.all().order_by('-idHonorario')
     mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
     search_query = request.GET.get('search', '').strip()  # Obtener el término de búsqueda
 

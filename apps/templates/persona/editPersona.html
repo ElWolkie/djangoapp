@@ -4,213 +4,147 @@
 <link rel="stylesheet" href="/static/assets/css/styleForms.css" />
 <link rel="stylesheet" href="/static/assets/css/argon.css" />
 <style>
-    .persona-form {
-      background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-      border-radius: 1rem;
-      box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.1);
-      padding: 2rem;
-      margin: 2rem auto;
-      max-width: 900px;
+  .persona-container {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 1rem;
+    box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.1);
+    padding: 1.5rem; /* Reducido de 2rem */
+    margin: 0.5rem auto; /* Reducido de 2rem */
+    max-width: 95%; /* Cambiado de 900px a porcentaje */
+    width: 100%;
   }
-  
-  .form-header {
-      text-align: center;
-      margin-bottom: 2rem;
-      position: relative;
-      padding-bottom: 1rem;
+  .persona-header {
+    text-align: center;
+    margin-bottom: 1.5rem; /* Reducido de 2rem */
+    position: relative;
+    padding-bottom: 1rem;
   }
-  
-  .form-header h2 {
-      color: #343a40;
-      font-weight: 700;
-      margin-bottom: 0.5rem;
+  .persona-header h2 {
+    color: #343a40;
+    font-weight: 700;
+    font-size: 1.3rem; /* Ligeramente más grande para mejor proporción */
+    margin-bottom: 0.5rem;
   }
-  
-  .form-header::after {
-      content: '';
-      position: absolute;
-      bottom: 0;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 80px;
-      height: 4px;
-      background: linear-gradient(90deg, #ffc107, #fd7e14);
-      border-radius: 2px;
+  .persona-header p {
+    margin-bottom: 0;
   }
-  
-  .form-icon {
-      color: #6c757d;
-      margin-right: 10px;
-      font-size: 1.2rem;
+  .persona-header::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80px;
+    height: 4px;
+    background: linear-gradient(90deg, #ffc107, #fd7e14);
+    border-radius: 2px;
   }
-  
   .form-group {
-      margin-bottom: 1.5rem;
+    margin-bottom: 1.2rem; /* Reducido de 1.5rem */
+    position: relative;
   }
-  
   .form-label {
-      font-weight: 600;
-      color: #495057;
-      margin-bottom: 0.5rem;
-      display: flex;
-      align-items: center;
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    font-size: 0.95rem; /* Ligeramente más pequeño */
   }
-  
+  .form-label i {
+    margin-right: 8px;
+    color: #fd7e14;
+    font-size: 0.9rem; /* Ajustado para mejor proporción */
+  }
   .form-control {
-      border-radius: 0.5rem;
-      padding: 0.75rem 1.25rem;
-      border: 1px solid #ced4da;
-      transition: all 0.3s;
-      background-color: #fff;
-      box-shadow: inset 0 1px 2px rgba(0,0,0,0.075);
+    border-radius: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    border: 1px solid #ced4da;
+    background-color: #fff;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.075);
+    transition: all 0.3s;
+    height: 48px;
+    font-size: 0.95rem; /* Ajustado para mejor proporción */
   }
-  
   .form-control:focus {
-      border-color: #ffc107;
-      box-shadow: 0 0 0 0.25rem rgba(255, 193, 7, 0.25);
+    border-color: #ffc107;
+    box-shadow: 0 0 0 0.25rem rgba(255,193,7,0.25);
   }
-  
-  textarea.form-control {
-      min-height: 150px;  /* Aumentado de 120px a 150px */
-      resize: vertical;
-  }
-  
-  .btn-submit {
-      background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
-      border: none;
-      color: #fff;
-      font-weight: 600;
-      padding: 0.75rem 2rem;
-      border-radius: 0.5rem;
-      transition: all 0.3s;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin: 0 auto;
-      width: 200px;  /* Tamaño normalizado */
-      font-size: 1rem; /* Tamaño de fuente adecuado */
-  }
-  
-  .btn-submit:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
-      background: linear-gradient(135deg, #fd7e14 0%, #ffc107 100%);
-  }
-  
-  .btn-submit i {
-      margin-right: 8px;
-  }
-  
-  .form-divider {
-      position: relative;
-      text-align: center;
-      margin: 2rem 0;
-  }
-  
-  .form-divider::before {
-      content: '';
-      position: absolute;
-      top: 50%;
-      left: 0;
-      right: 0;
-      height: 1px;
-      background: linear-gradient(90deg, transparent, #dee2e6, transparent);
-  }
-  
-  .form-divider span {
-      position: relative;
-      background: #f8f9fa;
-      padding: 0 15px;
-      color: #6c757d;
-      font-weight: 600;
-      z-index: 1;
-  }
-  
-  .input-group {
-      position: relative;
-      display: flex;
-  }
-  
-  .cedula-select {
-      flex: 0 0 120px;
-      border-radius: 0.5rem 0 0 0.5rem !important;
-      border-right: none;
-      background-color: #fff;
-  }
-  
-  .cedula-input {
-      flex: 1;
-      border-radius: 0 0.5rem 0.5rem 0 !important;
-  }
-  
   .input-icon {
-      position: absolute;
-      left: 12px;
-      top: 50%;
-      transform: translateY(-50%);
-      color: #6c757d;
-      z-index: 2;
-  }
-  
-  .input-with-icon {
-      padding-left: 40px;
-  }
-  
-  .rif-format {
-      background: #fff9db;
-      border-radius: 0.5rem;
-      padding: 0.5rem 1rem;
-      font-size: 0.85rem;
-      border: 1px dashed #ffd43b;
-      margin-top: 0.5rem;
-      display: inline-block;
-  }
-  
-  .rif-format i {
-      color: #fd7e14;
-      margin-right: 5px;
-  }
-  
-  .cedula-type-info {
-      font-size: 0.85rem;
-      margin-top: 0.5rem;
-      color: #6c757d;
-      display: flex;
-      align-items: center;
-  }
-  
-  .cedula-type-info i {
-      margin-right: 5px;
-      color: #fd7e14;
-  }
-  
-  /* Nuevos estilos para mejorar la distribución */
-  .form-section {
-      margin-bottom: 2rem;
-  }
-  
-  .form-footer {
-      margin-top: 2rem;
-      text-align: center;
-  }
-  /* Oculta la descripción de la cédula sin eliminarla del DOM */
-  .cedula-type-info {
-      display: none !important;
-  }
-  .required-field::after {
-    content: " *";
-    color: red;
-  }
-  .optional-field::after {
-    content: " (Opcional)";
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
     color: #6c757d;
-    font-size: 0.85em;
-    font-weight: normal;
+    z-index: 2;
+    font-size: 0.9rem; /* Ajustado para mejor proporción */
   }
-  .form-control:read-only {
-    background-color: #939597;
+  .input-with-icon {
+    padding-left: 40px;
+  }
+  .btn-submit {
+    background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+    border: none;
+    color: #fff;
+    font-weight: 600;
+    padding: 0.75rem 2rem;
+    border-radius: 0.5rem;
+    transition: all 0.3s;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    font-size: 1rem;
+  }
+  .btn-submit:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    background: linear-gradient(135deg, #fd7e14 0%, #ffc107 100%);
+  }
+  /* Campos de solo lectura */
+  .readonly-field {
+    display: block;
+    width: 100%;
+    height: 48px;
+    padding: 0.75rem 1.25rem;
+    font-size: 0.95rem;
+    font-weight: 400;
+    line-height: 1.5;
+    color: #495057;
+    background-color: #e9ecef;
+    background-clip: padding-box;
+    border: 1px solid #ced4da;
+    border-radius: 0.5rem;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.075);
     opacity: 0.8;
+    display: flex;
+    align-items: center;
+  }
+  .readonly-field.with-icon {
+    padding-left: 40px;
+  }
+  /* Validación visual */
+  .was-validated .form-control:invalid,
+  .form-control.is-invalid {
+    border-color: #dc3545;
+    box-shadow: 0 0 0 0.25rem rgba(220,53,69,.15);
+  }
+  .was-validated .form-control:valid,
+  .form-control.is-valid {
+    border-color: #198754;
+    box-shadow: 0 0 0 0.25rem rgba(25,135,84,.15);
+  }
+  /* Ajuste para checkboxes */
+  .form-check {
+    margin-bottom: 0.4rem; /* Reducido de 0.5rem */
+  }
+  .form-check-input:checked {
+    background-color: #fd7e14;
+    border-color: #fd7e14;
+  }
+  .form-check-input:focus {
+    border-color: #ffc107;
+    box-shadow: 0 0 0 0.25rem rgba(255,193,7,0.25);
+  }
+  .form-check-label {
+    font-size: 0.95rem; /* Ajustado para mejor proporción */
   }
   .tipo-persona-error {
     width: 100%;
@@ -219,26 +153,51 @@
     color: #dc3545;
     display: none;
   }
+  .required-field::after {
+    content: " *";
+    color: red;
+  }
+  /* Ajustes para el contenedor del modal */
+  .modal-body {
+    padding: 0.5rem; /* Reducir el padding del cuerpo del modal */
+  }
+  .btn-submit:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.btn-submit:focus-visible {
+  outline: 2px solid #fd7e14;
+  outline-offset: 2px;
+}
 </style>
 {% endblock stylesheets %}
 
 {% block content %}
-<h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Editar Persona</h2>
+<div class="persona-container">
+  <div class="persona-header">
+    <h2><i class="fas fa-user-edit text-warning"></i> Editar Persona</h2>
+    <p class="text-muted">Modifique los campos editables y guarde los cambios</p>
+  </div>
   
   {% if messages %}
     {% for message in messages %}
-      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+      <div class="alert alert-{{ message.tags }} alert-dismissible fade show mb-3" role="alert">
         {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
       </div>
     {% endfor %}
   {% endif %}
   
-  <form method="POST" class="mt-4 text-dark needs-validation" autocomplete="off" style="font-weight: bold;" id="editPersonaForm" action="{% url 'edit_persona' persona.idPersona %}" novalidate>
+  <form method="POST" id="editPersonaForm" action="{% url 'edit_persona' persona.idPersona %}" class="needs-validation" novalidate autocomplete="off">
     {% csrf_token %}
     <div class="row">
-      <div class="col-md-6">
+      <!-- Tipo de Persona -->
+      <div class="col-md-12">
         <div class="form-group">
-          <label for="tipoPersona" class="required-field">Tipo de Persona:</label>
+          <label class="form-label required-field">
+            <i class="fas fa-users"></i> Tipo de Persona
+          </label>
           <div class="row">
             {% for tp in tipos_persona %}
               <div class="col-md-4">
@@ -259,103 +218,163 @@
           </div>
           <div class="tipo-persona-error" id="tipoPersonaError">Debe seleccionar al menos un tipo de persona.</div>
         </div>
-
+      </div>
+      
+      <!-- Cédula (solo visualización) -->
+      <div class="col-md-6">
         <div class="form-group">
-          <label for="nombres" class="required-field">Nombres:</label>
-          <div class="input-group">
-            <input type="text" id="nombres" name="nombres" class="form-control text-dark" value="{{persona.nombres}}" placeholder="Ingrese su nombre" tabindex="3" maxlength="100" readonly />
+          <label class="form-label required-field">
+            <i class="fas fa-id-card"></i> Cédula
+          </label>
+          <div class="input-group position-relative">
+            <i class="fas fa-id-card input-icon"></i>
+            <div class="readonly-field with-icon">
+              {{persona.cedula}}
+            </div>
           </div>
-          <small class="form-text text-muted">Este campo no se puede editar.</small>
+          <input type="hidden" name="cedula" value="{{persona.cedula}}">
         </div>
-
+      </div>
+      
+      <!-- RIF (solo visualización) -->
+      <div class="col-md-6">
         <div class="form-group">
-          <label for="telefono" class="required-field">Teléfono:</label>
-          <div class="input-group">
-            <input type="text" id="telefono" name="telefono" class="form-control text-dark" value="{{persona.telefono}}" placeholder="0412-000-0000" tabindex="5" maxlength="15" required />
+          <label class="form-label required-field">
+            <i class="fas fa-building"></i> RIF
+          </label>
+          <div class="input-group position-relative">
+            <i class="fas fa-building input-icon"></i>
+            <div class="readonly-field with-icon">
+              {{persona.rif}}
+            </div>
+          </div>
+          <input type="hidden" name="rif" value="{{persona.rif}}">
+        </div>
+      </div>
+      
+      <!-- Nombres (solo visualización) -->
+      <div class="col-md-6">
+        <div class="form-group">
+          <label class="form-label required-field">
+            <i class="fas fa-signature"></i> Nombres
+          </label>
+          <div class="input-group position-relative">
+            <i class="fas fa-user input-icon"></i>
+            <div class="readonly-field with-icon">
+              {{persona.nombres}}
+            </div>
+          </div>
+          <input type="hidden" name="nombres" value="{{persona.nombres}}">
+        </div>
+      </div>
+      
+      <!-- Apellidos (solo visualización) -->
+      <div class="col-md-6">
+        <div class="form-group">
+          <label class="form-label required-field">
+            <i class="fas fa-signature"></i> Apellidos
+          </label>
+          <div class="input-group position-relative">
+            <i class="fas fa-user input-icon"></i>
+            <div class="readonly-field with-icon">
+              {{persona.apellidos}}
+            </div>
+          </div>
+          <input type="hidden" name="apellidos" value="{{persona.apellidos}}">
+        </div>
+      </div>
+      
+      <!-- Teléfono (editable) -->
+      <div class="col-md-6">
+        <div class="form-group">
+          <label for="telefono" class="form-label required-field">
+            <i class="fas fa-phone"></i> Teléfono
+          </label>
+          <div class="input-group position-relative">
+            <i class="fas fa-phone input-icon"></i>
+            <input type="text" id="telefono" name="telefono" class="form-control input-with-icon" 
+                   value="{{persona.telefono}}" placeholder="0412-000-0000" maxlength="15" required />
             <div class="invalid-feedback">Por favor, ingrese un número de teléfono válido.</div>
           </div>
         </div>
       </div>
       
+      <!-- Correo Electrónico (editable) -->
       <div class="col-md-6">
         <div class="form-group">
-          <label for="cedula" class="required-field">Cédula:</label>
-          <div class="input-group">
-            <input type="text" id="cedula" name="cedula" class="form-control text-dark" value="{{persona.cedula}}" placeholder="Ingrese su cédula" tabindex="2" maxlength="8" readonly />
-          </div>
-          <small class="form-text text-muted">Este campo no se puede editar.</small>
-        </div>
-        
-        <div class="form-group">
-          <label for="apellidos" class="required-field">Apellidos:</label>
-          <div class="input-group">
-            <input type="text" id="apellidos" name="apellidos" class="form-control text-dark" value="{{persona.apellidos}}" placeholder="Ingrese su apellido" tabindex="4" maxlength="100" readonly />
-          </div>
-          <small class="form-text text-muted">Este campo no se puede editar.</small>
-        </div>
-        
-        <div class="form-group">
-          <label for="correo" class="required-field">Correo Electrónico:</label>
-          <div class="input-group">
-            <input type="email" id="correo" name="correo" class="form-control text-dark" value="{{persona.correo}}" placeholder="example@gmail.com" tabindex="6" maxlength="254" required />
+          <label for="correo" class="form-label required-field">
+            <i class="fas fa-envelope"></i> Correo Electrónico
+          </label>
+          <div class="input-group position-relative">
+            <i class="fas fa-envelope input-icon"></i>
+            <input type="email" id="correo" name="correo" class="form-control input-with-icon" 
+                   value="{{persona.correo}}" placeholder="example@gmail.com" maxlength="254" required />
             <div class="invalid-feedback">Por favor, ingrese un correo electrónico válido.</div>
           </div>
         </div>
       </div>
-
+      
+      <!-- Dirección (editable) -->
       <div class="col-md-12">
         <div class="form-group">
-          <label for="rif" class="required-field">RIF:</label>
-          <div class="input-group">
-            <input type="text" id="rif" name="rif" class="form-control text-dark" value="{{persona.rif}}" tabindex="3" maxlength="20" readonly />
-          </div>
-          <small class="form-text text-muted">Este campo no se puede editar.</small>
-        </div>
-        
-        <div class="form-group">
-          <label for="direccion" class="required-field">Dirección:</label>
-          <div class="input-group">
-            <input type="text" id="direccion" name="direccion" class="form-control text-dark" value="{{persona.direccion}}" tabindex="3" maxlength="255" required />
+          <label for="direccion" class="form-label required-field">
+            <i class="fas fa-map-marker-alt"></i> Dirección
+          </label>
+          <div class="input-group position-relative">
+            <i class="fas fa-map-marker-alt input-icon"></i>
+            <input type="text" id="direccion" name="direccion" class="form-control input-with-icon" 
+                   value="{{persona.direccion}}" maxlength="255" required />
             <div class="invalid-feedback">Por favor, ingrese una dirección.</div>
           </div>
         </div>
       </div>
     </div>
     
-    <input type="hidden" id="estadoPersona" name="estadoPersona" class="form-control text-dark" value="ACTIVO" />
+    <input type="hidden" id="estadoPersona" name="estadoPersona" value="ACTIVO" />
     
-    <div class="text-center">
-      <input type="submit" class="btn btn-warning mt-4" value="Guardar" />
+    <div class="text-center mt-3"> <!-- Reducido de mt-4 -->
+      <button type="submit" class="btn-submit">
+        <i class="fas fa-save me-2"></i> Guardar
+      </button>
     </div>
   </form>
-
-<!-- Modal -->
-<div class="modal fade" id="editPersonaModal" tabindex="-1" role="dialog" aria-labelledby="editPersonaModalLabel" aria-hidden="true">
-  <div class="modal-dialog" role="document">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="editPersonaModalLabel">Registro de Persona</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
-      <div class="modal-body">
-        <!-- Contenedor para los mensajes -->
-        <div id="modalMessages"></div>
-        <!-- El contenido del formulario se cargará aquí -->
-      </div>
-    </div>
-  </div>
 </div>
-
 {% endblock content %}
 
 {% block javascripts %}
 <script src="/static/assets/js/validacionesPersona.js"></script>
 <script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+// Validaciones específicas para el formulario de edición
+document.addEventListener("DOMContentLoaded", function() {
+  // Validar teléfono en formato 0412-000-0000
+  document.getElementById("telefono").addEventListener("input", function() {
+    let value = this.value.replace(/\D/g, '');
+    if (value.length > 4) {
+      value = value.substring(0, 4) + '-' + value.substring(4, 7) + '-' + value.substring(7, 11);
+    }
+    this.value = value;
+  });
+
+  // Validar que no se ingresen caracteres especiales en la dirección
+  document.getElementById("direccion").addEventListener("input", function() {
+    this.value = this.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ0-9\s.,#\-]/g, '');
+  });
+
+  // Validación de formulario
+  document.getElementById("editPersonaForm").addEventListener("submit", function(e) {
+    // Validar checkboxes de tipo de persona
+    const checkboxes = document.querySelectorAll('input[name="tipoPersona"]:checked');
+    if (checkboxes.length === 0) {
+      e.preventDefault();
+      document.getElementById("tipoPersonaError").style.display = "block";
+      // Desplazarse al error
+      document.getElementById("tipoPersonaError").scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  });
+});
+
+// Resto del código JavaScript para el envío AJAX
 $(document).ready(function() {
   // Función para validar los checkboxes de tipo de persona
   function validateTipoPersona() {
@@ -401,19 +420,6 @@ $(document).ready(function() {
     // Si es válido, enviar por AJAX
     const formData = new FormData(this);
     
-    // Validación adicional del RIF
-    const rifVal = formData.get('rif') || '';
-    const rifPat = /^[A-Z]-\d{8}-\d$/;
-    if (rifVal && !rifPat.test(rifVal)) {
-      Swal.fire({
-        icon: 'error',
-        title: 'RIF inválido',
-        text: 'El RIF debe tener el formato X-12345678-9',
-        confirmButtonColor: '#ffc107'
-      });
-      return;
-    }
-
     // Enviar por AJAX
     $.ajax({
       url: $(this).attr('action'),
@@ -438,9 +444,7 @@ $(document).ready(function() {
             $('#editPersonaModal').modal('hide');
             
             // Si hay una función de callback para actualizar la tabla, ejecutarla
-            if (typeof updatePersonasTable === 'function') {
-              updatePersonasTable();
-            }
+            window.location.reload();
           });
         } else {
           // Mostrar errores de validación del servidor
@@ -474,70 +478,6 @@ $(document).ready(function() {
   $('input[name="tipoPersona"]').change(function() {
     validateTipoPersona();
   });
-
-  // Validación personalizada para el teléfono
-  $('#telefono').on('input', function(e) {
-    const input = e.target;
-    // Permitir solo números y guión
-    input.value = input.value.replace(/[^0-9\-]/g, '');
-
-    // Formatear como xxxx-xxxxxxx
-    let digits = input.value.replace(/\D/g, '');
-    if (digits.length > 4) {
-      input.value = digits.substring(0, 4) + '-' + digits.substring(4, 11);
-    } else {
-      input.value = digits;
-    }
-
-    // Validar formato xxxx-xxxxxxx
-    const telefonoRegex = /^\d{4}-\d{7}$/;
-    if (input.value && !telefonoRegex.test(input.value)) {
-      input.setCustomValidity('El teléfono debe tener el formato xxxx-xxxxxxx.');
-    } else {
-      input.setCustomValidity('');
-    }
-  });
-
-  // Validación para evitar caracteres no deseados
-  function activarValidaciones() {
-    $('input:not([readonly])').on('input', function(e) {
-      const input = e.target;
-      const valor = input.value;
-      let nuevo = valor;
-
-      // Caracteres prohibidos generales (salvo '-' para RIF)
-      const proh = /["',:_+]/g;
-
-      if (input.id === 'rif') {
-        // RIF (formato X-XXXXXXXX-X):
-        // 1) Convertir a mayúsculas
-        // 2) Permitir solo A–Z, 0–9 y guiones
-        nuevo = valor
-          .toUpperCase()
-          .replace(/[^A-Z0-9-]/g, '');
-      } else if (input.type === 'email') {
-        // Email: eliminar todo excepto letras, dígitos, @, punto y caracteres especiales permitidos
-        nuevo = valor
-          .replace(/[^A-Za-z0-9@.!#$%&'*+/=?^_`{|}~\-]/g, '')
-          // evitar más de una arroba
-          .replace(/^([^@]*)@(.+)@(.+)$/, '$1@$2$3');
-      } else {
-        // Otros inputs:
-        // 1) Convertir a mayúsculas (si no es #correo)
-        // 2) Eliminar caracteres prohibidos y puntos
-        if (input.id !== 'correo') {
-          nuevo = valor.toUpperCase();
-        }
-        nuevo = nuevo.replace(proh, '').replace(/\./g, '');
-      }
-
-      if (nuevo !== valor) {
-        input.value = nuevo;
-      }
-    });
-  }
-
-  activarValidaciones();
 });
 </script>
 {% endblock javascripts %}

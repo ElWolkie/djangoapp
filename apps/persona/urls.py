@@ -10,6 +10,7 @@ urlpatterns = [
     path('deletePersona/<int:pk>/', views.delete_persona, name='delete_persona'),
     path('desactivar_persona/<int:pk>/', views.desactivar_persona, name='desactivar_persona'),
     path('reactivatePersona/<int:pk>/', views.reactivate_persona, name='reactivate_persona'),
+    path('reporte_personas_pdf/', views.reporte_personas_pdf, name='reporte_personas_pdf'),
     path('tabla_persona/', views.tabla_persona, name='tabla_persona'),
 
     #Ruta especifica para TipoPersona
