@@ -134,27 +134,41 @@ def detalle_asiento_create(request, pk):
     """
     asiento = get_object_or_404(AsientoContable, pk=pk)
     planes_cuenta = PlanCuenta.objects.filter(estadoPlanCuenta=True)  # Obtén solo los planes de cuenta activos
+    detalles = asiento.detalles.select_related('idPlanCuenta').all()  # Obtener los detalles del asiento
+
+    # Transformar los detalles para incluir los atributos necesarios
+    detalles_data = [
+        {
+            'codigoPlanCuenta': detalle.idPlanCuenta.codigoPlanCuenta,
+            'nombrePlanCuenta': detalle.idPlanCuenta.nombrePlanCuenta,
+            'debe': detalle.debe,
+            'haber': detalle.haber,
+        }
+        for detalle in detalles
+    ]
+
     if request.method == 'POST':
         form = DetalleAsientoForm(request.POST)
         if form.is_valid():
+            if detalles.count() >= 2 and not request.POST.get('confirmar', False):
+                return JsonResponse({
+                    'success': False,
+                    'confirm_required': True,
+                    'message': 'El asiento ya posee dos registros de detalles asociados. ¿Desea continuar?'
+                })
             try:
                 detalle = form.save(commit=False)
                 detalle.idAsiento = asiento
                 detalle.save()
                 return JsonResponse({
                     'success': True,
-                    'message': 'Detalle de asiento registrado correctamente.',
-                    'redirect_url': reverse('asiento_contable_list')  # Cambiar a la lista de asientos
+                    'message': 'Detalle registrado exitosamente.',
+                    'redirect_url': reverse('asiento_contable_list')
                 })
             except Exception as e:
-                if 'duplicate' in str(e).lower():
-                    return JsonResponse({
-                        'success': False,
-                        'error': 'Ya existe un registro con los mismos datos. Por favor, verifica la información.'
-                    })
                 return JsonResponse({
                     'success': False,
-                    'error': f'Ocurrió un error inesperado: {str(e)}'
+                    'errors': str(e)
                 })
         else:
             return JsonResponse({
@@ -163,10 +177,12 @@ def detalle_asiento_create(request, pk):
             })
     else:
         form = DetalleAsientoForm()
+
     return render(request, 'asientoContable/detalleAsiento.html', {
         'form': form,
         'asiento': asiento,
         'planes_cuenta': planes_cuenta,  # Pasa los planes de cuenta al contexto
+        'detalles': detalles_data,  # Pasa los detalles transformados al contexto
         'titulo': 'Agregar Detalle'
     })
 
