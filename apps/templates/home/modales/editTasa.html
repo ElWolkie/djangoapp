@@ -3,28 +3,93 @@
 <link rel="stylesheet" href="{% static 'assets/css/styleForms.css' %}" />
 <link rel="stylesheet" href="{% static 'assets/css/argon.css' %}" />
 <style>
-/* Estilos específicos para Tasa (basados en inscripcion) */
-.tasa-container {
-  background: linear-gradient(135deg,#f8f9fa 0%,#e9ecef 100%);
-  border-radius:1rem;
-  box-shadow:0 .5rem 1.5rem rgba(0,0,0,.1);
-  padding:1.5rem;
-  margin:.5rem auto;
-  max-width:95%;
-  width:100%;
+  .tasa-container {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 1rem;
+    box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.1);
+    padding: 2rem;
+    margin: 2rem auto;
+    max-width: 700px;
+  }
+  .tasa-header {
+    text-align: center;
+    margin-bottom: 2rem;
+    position: relative;
+    padding-bottom: 1rem;
+  }
+  .tasa-header h2 {
+    color: #343a40;
+    font-weight: 700;
+  }
+  .tasa-header::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80px;
+    height: 4px;
+    background: linear-gradient(90deg, #ffc107, #fd7e14);
+    border-radius: 2px;
+  }
+  .form-group {
+    margin-bottom: 1.5rem;
+    position: relative;
+  }
+  .form-label {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+  }
+  .form-label i {
+    margin-right: 8px;
+    color: #fd7e14;
+  }
+  .form-control {
+    border-radius: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    border: 1px solid #ced4da;
+    background-color: #fff;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.075);
+    transition: all 0.3s;
+  }
+  .form-control:focus {
+    border-color: #ffc107;
+    box-shadow: 0 0 0 0.25rem rgba(255,193,7,0.25);
+  }
+  .input-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6c757d;
+    z-index: 2;
+  }
+  .input-with-icon {
+    padding-left: 40px;
+  }
+  .btn-submit {
+    background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+    border: none;
+    color: #fff;
+    font-weight: 600;
+    padding: 0.75rem 2rem;
+    border-radius: 0.5rem;
+    transition: all 0.3s;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+  .btn-submit:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    background: linear-gradient(135deg, #fd7e14 0%, #ffc107 100%);
+  }
+  .invalid-feedback { 
+    display:none; 
+    font-size:80%; 
+    margin-top:.25rem; 
 }
-.tasa-header { text-align:center; margin-bottom:1.2rem; position:relative; padding-bottom:1rem; }
-.tasa-header h2 { color:#343a40; font-weight:700; font-size:1.3rem; }
-.form-group { margin-bottom:1.2rem; position:relative; }
-.form-label { font-weight:600; color:#495057; display:flex; align-items:center; }
-.form-label i { margin-right:8px; color:#fd7e14; }
-.form-control { border-radius:0.5rem; padding:0.75rem 1.25rem; border:1px solid #ced4da; background:#fff; height:48px; }
-.input-icon { position:absolute; left:12px; top:50%; transform:translateY(-50%); color:#6c757d; pointer-events:none; z-index:2; font-size:0.95rem; }
-.input-with-icon { padding-left:40px; }
-.btn-submit { background: linear-gradient(135deg,#ffc107,#fd7e14); border:none !important; color:#fff !important; font-weight:600; padding:.65rem 1.75rem; border-radius:.5rem; }
-.invalid-feedback { display:none; color:#dc3545; font-size:80%; margin-top:.25rem; }
-.form-control.is-invalid + .invalid-feedback { display:block; }
-#alert-container, #globalMessages, #modalMessages { margin-bottom:.8rem; }
 </style>
 {% endblock stylesheets %}
 
@@ -48,7 +113,7 @@
     {% endfor %}
   {% endif %}
 
-  <form method="POST" id="editTasaForm" action="{% url 'edit_tasa' tasa.idTasa %}" autocomplete="off" style="font-weight:bold; max-width:760px; margin:0 auto;">
+  <form method="POST" id="editTasaForm" action="{% url 'edit_tasa' tasa.idTasa %}" class="needs-validation" novalidate autocomplete="off" style="font-weight:bold; max-width:760px; margin:0 auto;">
     {% csrf_token %}
 
     <div class="form-row">
@@ -57,12 +122,16 @@
         <div class="input-group position-relative">
           <!-- ICON interno para el select -->
           <i class="fas fa-coins input-icon"></i>
-          <select id="idMoneda" name="idMoneda" class="form-control input-with-icon text-dark" tabindex="1" required>
-            <option value="" disabled selected>Seleccione..</option>
+          <select id="idMoneda" class="form-control text-dark" tabindex="1" disabled>
+            <option value="" selected>Seleccione..</option>
             {% for moneda in monedas %}
-              <option value="{{ moneda.idMoneda }}" {% if moneda.idMoneda == tasa.idMoneda_id %}selected{% endif %}>{{ moneda.nombreMoneda }}</option>
+              <option value="{{ moneda.idMoneda }}" class="text-orange"
+                {% if moneda.idMoneda == tasa.idMoneda_id %}selected{% endif %}>
+                {{ moneda.nombreMoneda }}
+              </option>
             {% endfor %}
           </select>
+          <input type="hidden" name="idMoneda" value="{{ tasa.idMoneda_id }}" required>
         </div>
       </div>
 
@@ -71,8 +140,8 @@
         <div class="input-group position-relative">
           <!-- ICON interno para el input -->
           <i class="fas fa-dollar-sign input-icon"></i>
-          <input type="text" id="montoTasa" name="montoTasa" class="form-control input-with-icon text-dark" value="{{tasa.montoTasa}}" placeholder="64,86" tabindex="3" maxlength="50" required />
-          <div class="invalid-feedback">Por favor, ingrese un monto válido (ej.: 64.86 o 1.234,56).</div>
+          <input type="text" id="montoTasa" name="montoTasa" class="form-control input-with-icon text-dark" value="{{tasa.montoTasa}}" placeholder="64,86" tabindex="3" maxlength="40"  required />
+          <div class="invalid-feedback">Por favor, ingrese un monto válido (ej.: 1,00 o 1.234,56).</div>
         </div>
         <input type="hidden" id="estadoTasa" name="estadoTasa" value="ACTIVO" />
       </div>
@@ -87,78 +156,60 @@
 
 {% block javascripts %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-  const monto = document.getElementById('montoTasa');
+// Validación y formato español en montoTasa
+document.getElementById("montoTasa").addEventListener("input", function() {
+  const input = this;
+  const raw = input.value;
+  const oldPos = input.selectionStart;
 
-  if (monto) {
-    monto.setAttribute('inputmode','decimal');
-
-    monto.addEventListener('input', function() {
-      // permitir dígitos, puntos y comas; bloquear letras
-      let v = this.value.replace(/[^0-9\.,]/g, '');
-      // normalizar: reducir múltiples separadores
-      v = v.replace(/,+/g, ',');
-      v = v.replace(/,/g, '.'); // para parseo
-      const parts = v.split('.');
-      if (parts.length > 2) {
-        v = parts[0] + '.' + parts.slice(1).join('');
-      }
-      this.value = v;
-      this.classList.remove('is-invalid');
-    });
-
-    monto.addEventListener('blur', function() {
-      let v = this.value.trim();
-      if (!v) return;
-      v = v.replace(/\s+/g, '').replace(/,/g, '.').replace(/[^0-9.]/g,'');
-      if (v === '') return;
-      const num = parseFloat(v);
-      if (isNaN(num)) {
-        this.classList.add('is-invalid');
-      } else {
-        this.value = num.toFixed(2);
-        this.classList.remove('is-invalid');
-      }
-    });
+  // ❌ Bloquear letras desde el inicio
+  if (/[A-Za-z]/.test(raw)) {
+    input.value = raw.replace(/[A-Za-z]/g, '');
+    return;
   }
 
-  $(document).on('submit', '#editTasaForm', function(e) {
-    e.preventDefault();
-    const form = $(this);
-    const $btn = form.find('input[type="submit"]').prop('disabled', true);
-    const originalVal = form.find('input[type="submit"]').val();
+  // Contar dígitos antes del cursor
+  const digitsBefore = raw.slice(0, oldPos).replace(/[^0-9]/g, '').length;
 
-    let invalid = false;
-    if (!$('#idMoneda').val()) { $('#idMoneda').addClass('is-invalid'); invalid = true; } else { $('#idMoneda').removeClass('is-invalid'); }
-    if (!monto.value || monto.value.trim() === '') { monto.classList.add('is-invalid'); invalid = true; }
-    if (invalid) { $btn.prop('disabled', false); return; }
+  // Limpiar y parsear
+  const cleaned = raw
+    .replace(/\./g, '')
+    .replace(/,/g, '.')
+    .replace(/[^0-9.]/g, '');
+  const num = parseFloat(cleaned);
+  if (isNaN(num)) return;
 
-    $.ajax({
-      url: form.attr('action'),
-      method: form.attr('method'),
-      data: form.serialize(),
-      success: function(response) {
-        const messagesContainer = $('#modalMessages');
-        messagesContainer.empty();
-        if (response.success) {
-          messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
-          $('#tasaModal').modal('hide');
-          setTimeout(function(){ location.reload(); }, 600);
-        } else {
-          const errors = response.errors || {};
-          for (const field in errors) {
-            messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + errors[field] + '</div>');
-          }
-        }
-      },
-      error: function(xhr, status, err) {
-        $('#modalMessages').html('<div class="alert alert-danger">Error en el servidor: ' + (xhr.statusText || err) + '</div>');
-      },
-      complete: function() {
-        $btn.prop('disabled', false).val(originalVal);
-      }
-    });
+  // Formatear en estilo español
+  const formatted = num.toLocaleString('es-VE', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
   });
+
+  // Calcular nueva posición del cursor
+  let newPos = 0, counted = 0;
+  for (let i = 0; i < formatted.length; i++) {
+    if (/[0-9]/.test(formatted[i])) counted++;
+    if (counted === digitsBefore) {
+      newPos = i + 1;
+      break;
+    }
+  }
+  if (counted < digitsBefore) newPos = formatted.length;
+
+  input.value = formatted;
+  input.setSelectionRange(newPos, newPos);
+});
+
+// Validación de formulario
+var forms = document.querySelectorAll('.needs-validation');
+Array.prototype.slice.call(forms).forEach(function(form) {
+  form.addEventListener('submit', function(event) {
+    if (!form.checkValidity()) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    form.classList.add('was-validated');
+  }, false);
 });
 </script>
 {% endblock javascripts %}
