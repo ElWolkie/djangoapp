@@ -261,6 +261,7 @@ def nota_create(request):
             'message': f'Valor de tasa inválido: {tasa_configuracion.montoTasa}'
         }, status=400)
 
+    tasa_configuracion_id= tasa_configuracion.idTasa
     tasa_configuracion_valor = to_decimal(tasa_configuracion.montoTasa)  # Convertir a Decimal
     print(f"Tasa de configuración ({moneda_configuracion.nombreMoneda}): {tasa_configuracion_valor}")
 
@@ -406,7 +407,10 @@ def nota_create(request):
         'cuotas': cuotas,
         'solicitudes': solicitudes,
         'honorarios': honorarios,
-        'inscripciones': inscripciones
+        'inscripciones': inscripciones,
+        'tasa_configuracion_valor': tasa_configuracion_valor,
+        'tasa_configuracion_id': tasa_configuracion_id,
+        'moneda_configuracion': moneda_configuracion,
     })
 
 @transaction.atomic

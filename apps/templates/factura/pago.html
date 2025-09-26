@@ -424,7 +424,7 @@ select.input-with-icon.form-select {
             </thead>
             <tbody>
               {% for nota in notas %}
-              <tr data-id="{{ nota.idNota }}" data-nombre="{{ nota.numeroNota }}" data-deuda="{{ nota.saldoPendiente }}">
+              <tr data-id="{{ nota.idNota }}" data-nombre="{{ nota.numeroNota }}" data-deuda="{{ nota.saldoPendiente }}"  data-moneda-simbolo="{{ nota.idTasa.idMoneda.simbolo }}">
                 <td>{{ nota.idNota }}</td>
                 <td>{{ nota.numeroNota }}</td>
                 <td>
@@ -435,9 +435,10 @@ select.input-with-icon.form-select {
                   {% else %}
                     N/A
                   {% endif %}
+                
                 </td>
-                <td>{{ nota.totalNota|default:"0.00" }}</td>
-                <td>{{ nota.saldoPendiente|default:"0.00" }}</td>
+                <td>{{ nota.totalNota|default:"0.00" }} {{ nota.idTasa.idMoneda.simboloMoneda }}</td>
+                <td>{{ nota.saldoPendiente|floatformat:2|default:"0.00" }} {{ nota.idTasa.idMoneda.simboloMoneda }}</td>
               </tr>
               {% endfor %}
             </tbody>
@@ -626,13 +627,14 @@ document.addEventListener('DOMContentLoaded', function () {
           const idNota = fila.getAttribute('data-id');
           const nombreNota = fila.getAttribute('data-nombre');
           const deudaNota = fila.getAttribute('data-deuda');
+          const monedaSimbolo = fila.getAttribute('data-moneda-simbolo'); 
 
           document.getElementById('notaInput').value = nombreNota;
           document.getElementById('idNota').value = idNota;
 
           const deudaElement = document.getElementById('deudaNota');
           if (deudaElement) {
-            deudaElement.textContent = `Deuda actual: ${deudaNota}`;
+            deudaElement.textContent = `Deuda actual: ${deudaNota} ${monedaSimbolo}`;
           }
 
           if (typeof $ === 'function' && $('#notaModal').modal) {
