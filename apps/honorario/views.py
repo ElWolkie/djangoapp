@@ -19,13 +19,79 @@ from reportlab.platypus import Table, TableStyle
 from reportlab.lib import colors
 import os
 from django.db import IntegrityError
+from .templatetags.decimal_filters import to_decimal
+from decimal import Decimal, InvalidOperation as DecimalInvalidOperation
+
+def safe_decimal(value):
+    if value is None or value == '':
+        return Decimal('0.00')
+    s = str(value).strip()
+    # Normalizar separadores:
+    # Si contiene coma y punto: asumimos puntos miles y coma decimal -> eliminar puntos, cambiar coma por punto
+    if ',' in s and '.' in s:
+        s = s.replace('.', '').replace(',', '.')
+    else:
+        # Si sólo tiene comas: convertir comas a punto
+        if ',' in s and '.' not in s:
+            s = s.replace(',', '.')
+        # Si tiene múltiples puntos (p. ej. "1.234.567") eliminar todos menos el último como separador decimal
+        elif '.' in s and s.count('.') > 1:
+            parts = s.split('.')
+            dec = parts[-1]
+            intpart = ''.join(parts[:-1])
+            s = intpart + '.' + dec
+    # Quitar espacios y cualquier otro carácter no numérico excepto punto y signo
+    s = s.replace(' ', '')
+    import re
+    s = re.sub(r'[^0-9\.\-]', '', s)
+    try:
+        return Decimal(s)
+    except DecimalInvalidOperation:
+        raise ValueError(f"Valor decimal inválido: {value}")
 
 #HONORARIO
 @login_required(login_url='login')
 @permission_required("honorario.add_honorario", raise_exception=True)
 def honorario_modal(request):
     if request.method == 'POST':
-        form = HonorarioForm(request.POST)
+        # Normalizar datos entrantes para que el Form procese números correctos
+        data = request.POST.copy()
+
+        # Normalizar horas: aceptar "HH:MM" o minutos como entero
+        horas_raw = (data.get('horas') or '').strip()
+        if horas_raw:
+            try:
+                if ':' in horas_raw:
+                    parts = [p for p in horas_raw.split(':') if p != '']
+                    if len(parts) >= 2:
+                        h = int(parts[0])
+                        m = int(parts[1])
+                    else:
+                        h = int(parts[0])
+                        m = 0
+                    minutos = max(0, h * 60 + m)
+                else:
+                    # quitar no dígitos y convertir
+                    import re
+                    digits = re.sub(r'\D', '', horas_raw)
+                    minutos = int(digits) if digits != '' else 0
+                data['horas'] = str(minutos)
+            except Exception:
+                # dejar valor original para que el form produzca el error correspondiente
+                pass
+
+        # Normalizar monto: aceptar formatos "1.234,56", "1234.56", "1 234,56"
+        monto_raw = (data.get('monto') or '').strip()
+        if monto_raw:
+            try:
+                d = safe_decimal(monto_raw).quantize(Decimal('0.01'))
+                # enviar como string con punto decimal (ej: "1234.56")
+                data['monto'] = format(d, 'f')
+            except Exception:
+                # dejar valor original para que el form devuelva error
+                pass
+
+        form = HonorarioForm(data)
         if form.is_valid():
             try:
                 honorario = form.save()
@@ -76,7 +142,36 @@ def edit_honorario(request, pk):
     instance = get_object_or_404(Honorario, pk=pk)
 
     if request.method == 'POST':
-        form = HonorarioForm(request.POST, instance=instance)
+        # Normalizar igual que en creación
+        data = request.POST.copy()
+
+        horas_raw = (data.get('horas') or '').strip()
+        if horas_raw:
+            try:
+                if ':' in horas_raw:
+                    parts = [p for p in horas_raw.split(':') if p != '']
+                    if len(parts) >= 2:
+                        h = int(parts[0]); m = int(parts[1])
+                    else:
+                        h = int(parts[0]); m = 0
+                    minutos = max(0, h * 60 + m)
+                else:
+                    import re
+                    digits = re.sub(r'\D', '', horas_raw)
+                    minutos = int(digits) if digits != '' else 0
+                data['horas'] = str(minutos)
+            except Exception:
+                pass
+
+        monto_raw = (data.get('monto') or '').strip()
+        if monto_raw:
+            try:
+                d = safe_decimal(monto_raw).quantize(Decimal('0.01'))
+                data['monto'] = format(d, 'f')
+            except Exception:
+                pass
+
+        form = HonorarioForm(data, instance=instance)
         if form.is_valid():
             honorario = form.save()
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -90,16 +185,18 @@ def edit_honorario(request, pk):
                 return redirect('tabla_honorarios')
         else:
             # Form inválido: si es AJAX devolvemos JSON con los errores
-            errors = {field: error[0] for field, error in form.errors.get_json_data().items()}
+            try:
+                errors = {field: error[0] for field, error in form.errors.get_json_data().items()}
+            except Exception:
+                errors = {k: v for k, v in form.errors.items()}
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return JsonResponse({
                     'success': False,
                     'errors': errors
                 }, status=400)
             else:
-                # Para requests normales, no perder los errores: continuamos al render con el form inválido
                 messages.error(request, 'Corrija los errores en el formulario.')
-                # NO redirigir ni recrear form; lo pasamos al render más abajo
+                # se seguirá al render con el form inválido abajo
 
     else:
         # GET request - crear form con instancia
