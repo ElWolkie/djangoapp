@@ -2,8 +2,8 @@ from rest_framework import generics
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.db.models import Sum
-from apps.home.models import Personas, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Denominacion, Banco, Moneda, Tasa, TipoIngreso, Formacion, TipoFormacion
-from .serializers import PersonaSerializer, TipoPersonaSerializer, PersonaTPSerializer, FormacionSerializer, TPFormacionSerializer, MateriaSerializer, CohorteSerializer, CargoSerializer, HonorarioSerializer, RequisitoSerializer, ServicioSerializer, TramiteSerializer, SolicitudSerializer, DenominacionSerializer, BancoSerializer, MonedaSerializer, TasaSerializer, TipoIngresoSerializer, AsientoContableSerializer, PlanCuentaSerializer, PeriodoContableSerializer  # Importa ambos serializadores
+from apps.home.models import Personas, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Moneda, Tasa, Formacion, TipoFormacion
+from .serializers import PersonaSerializer, TipoPersonaSerializer, PersonaTPSerializer, FormacionSerializer, TPFormacionSerializer, MateriaSerializer, CohorteSerializer, CargoSerializer, HonorarioSerializer, RequisitoSerializer, ServicioSerializer, TramiteSerializer, SolicitudSerializer, MonedaSerializer, TasaSerializer, AsientoContableSerializer, PlanCuentaSerializer, PeriodoContableSerializer  # Importa ambos serializadores
 from apps.persona.models import PersonaTP, TipoPersona
 from apps.honorario.models import Honorario
 from apps.solicitud.models import Solicitud
@@ -73,14 +73,6 @@ class SolicitudListCreate(generics.ListCreateAPIView):
     queryset = Solicitud.objects.all()  # Usa el modelo TramSolicitudite
     serializer_class = SolicitudSerializer  # Usa el serializador SolicitudSerializer
 
-class DenominacionListCreate(generics.ListCreateAPIView):
-    queryset = Denominacion.objects.all()  # Usa el modelo Denominacion
-    serializer_class = DenominacionSerializer  # Usa el serializador DenominacionSerializer
-
-class BancoListCreate(generics.ListCreateAPIView):
-    queryset = Banco.objects.all()  # Usa el modelo Banco
-    serializer_class = BancoSerializer  # Usa el serializador BancoSerializer
-
 class MonedaListCreate(generics.ListCreateAPIView):
     queryset = Moneda.objects.all()  # Usa el modelo Moneda
     serializer_class = MonedaSerializer  # Usa el serializador MonedaSerializer
@@ -88,10 +80,6 @@ class MonedaListCreate(generics.ListCreateAPIView):
 class TasaListCreate(generics.ListCreateAPIView):
     queryset = Tasa.objects.all()  # Usa el modelo Tasa
     serializer_class = TasaSerializer  # Usa el serializador TasaSerializer
-
-class TipoIngresoListCreate(generics.ListCreateAPIView):
-    queryset = TipoIngreso.objects.all()  # Usa el modelo TipoIngreso
-    serializer_class = TipoIngresoSerializer  # Usa el serializador TipoIngresoSerializer
 
 # Vistas para contabilidad
 class LibroDiarioAPIView(APIView):

@@ -1,11 +1,12 @@
 from rest_framework import serializers
-from apps.home.models import Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Denominacion, Banco, Moneda, Tasa, TipoIngreso, Formacion, TipoFormacion
+from apps.home.models import Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Moneda, Tasa, Formacion, TipoFormacion
 from apps.persona.models import Personas, PersonaTP, TipoPersona
 from apps.honorario.models import Honorario
 from apps.solicitud.models import Solicitud
 from apps.asientoContable.models import AsientoContable, DetalleAsiento
 from apps.planCuenta.models import PlanCuenta
 from apps.periodoContable.models import periodoContable
+from apps.cuentaBanco.models import Banco
 
         
 class TipoPersonaSerializer(serializers.ModelSerializer):
@@ -91,15 +92,10 @@ class SolicitudSerializer(serializers.ModelSerializer):
         model = Solicitud  # Usa el modelo de home
         fields = ['idSoli', 'idPersona', 'idTramite', 'idServicio', 'montoTotal', 'estadoSolicitud', 'fechaEntrega', 'fechaSolicitud']
 
-class DenominacionSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Denominacion  # Usa el modelo de home
-        fields = ['idDenominacion', 'nombreDenominacion', 'estadoDenominacion', 'fechaDenominacion']
-
 class BancoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Banco  # Usa el modelo de home
-        fields = ['idBanco', 'nombreBanco', 'codBanco', 'codContable', 'estadoBanco', 'fechaBanco']
+        fields = ['idBanco', 'nombreBanco', 'codLocalBanco', 'codSwiftBanco', 'cuentaPadre', 'codigoPlanCuenta', 'estadoBanco', 'fechaBanco']
 
 class MonedaSerializer(serializers.ModelSerializer):
     class Meta:
@@ -110,11 +106,6 @@ class TasaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Tasa  # Usa el modelo de home
         fields = ['idTasa', 'idMoneda', 'montoTasa', 'estadoTasa', 'fechaTasa']
-
-class TipoIngresoSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = TipoIngreso  # Usa el modelo de home
-        fields = ['idTipoIngreso', 'nombreTipoIngreso', 'estadoTipoIngreso', 'fechaTipoIngreso']
 
 # Serializers para contabilidad
 class PeriodoContableSerializer(serializers.ModelSerializer):

@@ -1,8 +1,7 @@
 from django import forms  
-from .models import  Usuarios, Formacion, TipoFormacion, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Denominacion, Banco, Moneda, Tasa, TipoMovimiento, Movimiento, Configuracion, CuotaFormacion
+from .models import  Usuarios, Formacion, TipoFormacion, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Moneda, Tasa, Configuracion, CuotaFormacion
 from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
-
 
 class AsignarGrupoForm(forms.Form):
     grupos = forms.ModelMultipleChoiceField(
@@ -175,6 +174,7 @@ class CuotaFormacionForm(forms.ModelForm):
         if orden <= 0:
             raise forms.ValidationError("El orden debe ser un número positivo.")
         return orden
+    
 class MateriaForm(forms.ModelForm):  
     estadoMateria = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
 
@@ -199,7 +199,6 @@ class CohorteForm(forms.ModelForm):
     class Meta:  
         model = Cohorte  
         fields = ['idCohorte', 'nombreCohorte', 'estadoCohorte']
-
 
 class CargoForm(forms.ModelForm):  
     estadoCargo = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
@@ -262,33 +261,6 @@ class TramiteForm(forms.ModelForm):
             raise ValidationError("Ya existe un tramite con ese nombre.")
         return nombre 
 
-
-class DenominacionForm(forms.ModelForm):  
-    estadoDenominacion = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
-
-    class Meta:  
-        model = Denominacion  
-        fields = ['idDenominacion', 'nombreDenominacion', 'estadoDenominacion']
-    
-    def clean_nombreDenominacion(self):
-        nombre = self.cleaned_data['nombreDenominacion'].strip()
-        # Si es edición y no cambió, lo devolvemos directamente
-        if self.instance.pk and nombre.lower() == self.instance.nombreDenominacion.lower():
-            return nombre
-        # Si cambió, comprobamos unicidad
-        if Denominacion.objects.filter(nombreDenominacion__iexact=nombre).exists():
-            raise ValidationError("Ya existe una Denominación con ese nombre.")
-        return nombre
-
-
-class BancoForm(forms.ModelForm):  
-    estadoBanco = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
-
-    class Meta:  
-        model = Banco
-        fields = ['idBanco', 'codBanco', 'codContable', 'nombreBanco', 'estadoBanco']
-
-
 class MonedaForm(forms.ModelForm):  
     estadoMoneda = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  
 
@@ -303,59 +275,6 @@ class TasaForm(forms.ModelForm):
     class Meta:  
         model = Tasa
         fields = ['idTasa', 'idMoneda', 'montoTasa','estadoTasa']  
-
-
-class TipoMovimientoForm(forms.ModelForm):
-    class Meta:
-        model = TipoMovimiento
-        fields = ['nombreTipoMovimiento', 'estadoTipoMovimiento', 'naturaleza']
-        widgets = {
-            'naturaleza': forms.HiddenInput(),
-            'estadoTipoMovimiento': forms.HiddenInput()
-        }
-
-    def __init__(self, *args, **kwargs):
-        # Recibir naturaleza desde la vista
-        self.naturaleza = kwargs.pop('naturaleza', None)
-        super().__init__(*args, **kwargs)
-        
-        # Forzar valor de naturaleza si se provee
-        if self.naturaleza:
-            self.fields['naturaleza'].initial = self.naturaleza
-  
-
-class MovimientoForm(forms.ModelForm):
-    class Meta:
-        model = Movimiento
-        fields = ['idTipoMovimiento', 'idDenominacion', 'idBanco', 'idTasa', 'naturaleza', 'tipoPago', 'referencia', 'monto', 'descripcion', 'estadoMovimiento']
-        widgets = {
-            'naturaleza': forms.HiddenInput(),
-        }
-
-    def __init__(self, *args, **kwargs):
-        naturaleza = kwargs.pop('naturaleza', None)
-        super().__init__(*args, **kwargs)
-
-        if naturaleza:
-            self.fields['naturaleza'].initial = naturaleza
-
-        if naturaleza and 'idTipoMovimiento' in self.fields:
-            self.fields['idTipoMovimiento'].queryset = TipoMovimiento.objects.filter(
-                naturaleza=naturaleza
-            )
-
-    def clean(self):
-        cleaned_data = super().clean()
-        tipo_pago = cleaned_data.get('tipoPago')
-
-        if tipo_pago == 'digital':
-            if not cleaned_data.get('idBanco'):
-                self.add_error('idBanco', 'Este campo es obligatorio para pagos digitales.')
-            if not cleaned_data.get('referencia'):
-                self.add_error('referencia', 'Este campo es obligatorio para pagos digitales.')
-
-        return cleaned_data
-
 
 class ConfiguracionForm(forms.ModelForm):
     nombreInstitucion = forms.CharField(

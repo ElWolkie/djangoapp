@@ -31,7 +31,6 @@ urlpatterns = [
     path('actualizar-monedas/', views.actualizar_monedas_api, name='actualizar_monedas_api'),
     path('monedas/', views.tabla_monedas, name='tabla_monedas'),
     path('actualizar-bancos/', views.actualizar_bancos_api, name='actualizar_bancos_api'),
-    path('bancos/', views.tabla_bancos, name='tabla_bancos'),
 
     # Specific route for tipoFormacion modal
     path('tipoFormacionModal/', views.tipoFormacion_modal, name='tipoFormacion_modal'),
@@ -121,24 +120,6 @@ urlpatterns = [
     path('tablaTramites/', views.tabla_tramites, name='tabla_tramites'),
     path('reporte-tramites/', views.reporte_tramites_pdf, name='reporte_tramites_pdf'),
 
-    # Specific route for denominacion modal
-    path('denominacionModal/', views.denominacion_modal, name='denominacion_modal'),
-    path('editDenominacion/<int:pk>/', views.edit_denominacion, name='edit_denominacion'),
-    path('deleteDenominacion/<int:pk>/', views.delete_denominacion, name='delete_denominacion'),
-    path('desactivar_denominacion/<int:pk>/', views.desactivar_denominacion, name='desactivar_denominacion'),
-    path('reactivateDenominacion/<int:pk>/', views.reactivate_denominacion, name='reactivate_denominacion'),
-    path('tablaDenominaciones/', views.tabla_denominaciones, name='tabla_denominaciones'),
-    path('reporte-denominaciones/', views.reporte_denominaciones_pdf, name='reporte_denominaciones_pdf'),
-
-
-    # Specific route for banco modal
-    path('bancoModal/', views.banco_modal, name='banco_modal'),
-    path('editBanco/<int:pk>/', views.edit_banco, name='edit_banco'),
-    path('deleteBanco/<int:pk>/', views.delete_banco, name='delete_banco'),
-    path('desactivar_banco/<int:pk>/', views.desactivar_banco, name='desactivar_banco'),
-    path('reactivateBanco/<int:pk>/', views.reactivate_banco, name='reactivate_banco'),
-    path('tablaBancos/', views.tabla_bancos, name='tabla_bancos'),
-
     # Specific route for moneda modal
     path('monedaModal/', views.moneda_modal, name='moneda_modal'),
     path('editMoneda/<int:pk>/', views.edit_moneda, name='edit_moneda'),
@@ -156,54 +137,6 @@ urlpatterns = [
     path('reactivateTasa/<int:pk>/', views.reactivate_tasa, name='reactivate_tasa'),
     path('tablaTasas/', views.tabla_tasas, name='tabla_tasas'),
     path('reporte-tasas/', views.reporte_tasas_pdf, name='reporte_tasas_pdf'),
-
-
-
-    # Ruta espicifica para tipoIngreso modal
-    path('tipoMovimientoModal/', views.tipoMovimiento_modal, name='tipoMovimiento_modal'),
-    path('editTipoMovimiento/<int:pk>/', views.edit_tipoMovimiento, name='edit_tipoMovimiento'),
-    path('editTipoMovimiento/delete/<int:pk>/', views.delete_tipoMovimiento, name='delete_tipoMovimiento'),
-    path('editTipoMovimiento/reactivate/<int:pk>/', views.reactivate_tipoMovimiento, name='reactivate_tipoMovimiento'),
-    path('desactivar_tipoMovimiento/<int:pk>/', views.desactivar_tipoMovimiento, name='desactivar_tipoMovimiento'),
-    path('tabla_tipoMovimiento/', views.tabla_tipoMovimiento, name='tabla_tipoMovimiento'),
-    
-    # Ruta espicifica para tipoEgreso modal
-    path('tipo-egresos/', views.tabla_tipoEgresos, name='tabla_tipoEgresos'),
-    path('tipoEgresoModal/', views.tipoEgreso_modal, name='tipoEgreso_modal'),
-    path('editTipoEgresos/<int:pk>/', views.edit_tipoEgresos, name='edit_tipoEgresos'),
-    path('delete_tipoEgreso/<int:pk>/', views.delete_tipoEgreso, name='delete_tipoEgreso'),
-    path('reactivate_tipoEgreso/<int:pk>/', views.reactivate_tipoEgreso, name='reactivate_tipoEgreso'),
-    path('desactivar_tipoEgreso/<int:pk>/', views.desactivar_tipoEgreso, name='desactivar_tipoEgreso'),
-
-    # Ruta espicifica para Egresos
-    path('egresos/', views.tabla_egreso, name='tabla_egresos'),
-    path('Egreso_Modal/', views.egreso_modal, name='egreso_modal'),
-    path('editEgreso/<str:naturaleza>/<int:idMovimiento>/', views.edit_egreso, name='edit_egreso'),
-    path('delete_Egreso/<int:pk>/', views.delete_egreso, name='delete_egreso'),
-    path('reactivate_Egreso/<int:pk>/', views.reactivate_egreso, name='reactivate_egreso'),
-    path('desactivar_Egreso/<int:pk>/', views.desactivar_egreso, name='desactivar_egreso'),
-
-    # Ruta espicifica para tipoIngreso modal
-    path('tipo-ingresos/', views.tabla_tipoIngresos, name='tabla_tipoIngresos'),
-    path('tipoIngresoModal/', views.tipoIngreso_modal, name='tipoIngreso_modal'),
-    path('editTipoIngresos/<int:pk>/', views.edit_tipoIngresos, name='edit_tipoIngresos'),
-    path('delete_tipoIngreso/<int:pk>/', views.delete_tipoIngreso, name='delete_tipoIngreso'),
-    path('reactivate_tipoIngreso/<int:pk>/', views.reactivate_tipoIngreso, name='reactivate_tipoIngreso'),
-    path('desactivar_tipoIngreso/<int:pk>/', views.desactivar_tipoIngreso, name='desactivar_tipoIngreso'),
-
-    #Ruta espicifica para Ingresos
-    path('ingresos/', views.tabla_ingreso, name='tabla_ingresos'),
-    path('Ingreso_Modal/', views.ingreso_modal, name='ingreso_modal'),
-    path('editIngreso/<str:naturaleza>/<int:idMovimiento>/', views.edit_ingreso, name='edit_ingreso'),
-    path('delete_Ingreso/<int:pk>/', views.delete_ingreso, name='delete_ingreso'),
-    path('reactivate_Ingreso/<int:pk>/', views.reactivate_ingreso, name='reactivate_ingreso'),
-    path('desactivar_Ingreso/<int:pk>/', views.desactivar_ingreso, name='desactivar_ingreso'),
-
-    # Ruta espicifica para Movimimientos
-    path('movimientoModal/', views.movimiento_modal, name='movimiento_modal'),
-    path('editMovimiento/<int:pk>/', views.edit_movimiento, name='edit_movimiento'),
-    path('deleteMovimiento/<int:pk>/', views.delete_movimiento, name='delete_movimiento'),
-    path('reactivateMovimiento/<int:pk>/', views.reactivate_movimiento, name='reactivate_movimiento'),
 
     # Ruta espicifica para Errores
     path('403/', views.page_403, name='page-403'),

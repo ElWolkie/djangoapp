@@ -438,7 +438,7 @@
       $('#bancoModal').on('show.bs.modal', function(e) {
         const $content = $('#registrarBancoContent');
         $content.html('<div class="text-center py-4"><div class="spinner-border text-primary"></div></div>');
-        $.get("{% url 'banco_modal' %}")
+        $.get("{% url 'banco_create' %}")
           .done(function(html) { $content.html(html); })
           .fail(function() { $content.html('<div class="text-danger p-3">Error al cargar el formulario.</div>'); });
       });

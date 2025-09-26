@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -7,12 +7,9 @@ import {
   Dimensions,
   Animated,
   StatusBar,
-  TouchableOpacity,
-  ActivityIndicator,
 } from 'react-native';
-import { useNavigation, DrawerActions, NavigationProp } from '@react-navigation/native';
+import { useNavigation, NavigationProp } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { getIngresos, getEgresos } from '../api';
 
 const { width } = Dimensions.get('window');
 
@@ -25,49 +22,20 @@ type RootStackParamList = {
 };
 
 export default function DashboardScreen() {
-  // Animaciones de entrada para las cards
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
-  const cardsAnim = useRef([
-    new Animated.Value(0),
-    new Animated.Value(0),
-    new Animated.Value(0),
-    new Animated.Value(0),
-  ]).current;
 
-  const [totalIngresos, setTotalIngresos] = useState(0);
-  const [totalEgresos, setTotalEgresos] = useState(0);
-  const [loadingFinanzas, setLoadingFinanzas] = useState(true);
+  // Animaciones para las cards (ahora solo 2 cards)
+  const cardsAnim = useRef([new Animated.Value(0), new Animated.Value(0)]).current;
 
   useEffect(() => {
-    fetchFinanzas();
+    // Solo animaciones de entrada
     Animated.stagger(120, [
       Animated.spring(cardsAnim[0], { toValue: 1, useNativeDriver: true }),
       Animated.spring(cardsAnim[1], { toValue: 1, useNativeDriver: true }),
-      Animated.spring(cardsAnim[2], { toValue: 1, useNativeDriver: true }),
-      Animated.spring(cardsAnim[3], { toValue: 1, useNativeDriver: true }),
-      Animated.spring(cardsAnim[4], { toValue: 1, useNativeDriver: true }),
-      Animated.spring(cardsAnim[5], { toValue: 1, useNativeDriver: true }),
     ]).start();
   }, []);
 
-  const fetchFinanzas = async () => {
-    try {
-      const [ingresosData, egresosData] = await Promise.all([
-        getIngresos(),
-        getEgresos(),
-      ]);
-      const totalIng = ingresosData.reduce((sum: number, item: any) => sum + item.total_ingreso, 0);
-      const totalEgr = egresosData.reduce((sum: number, item: any) => sum + item.total_egreso, 0);
-      setTotalIngresos(totalIng);
-      setTotalEgresos(totalEgr);
-    } catch (error) {
-      console.error('Error fetching financial data:', error);
-    } finally {
-      setLoadingFinanzas(false);
-    }
-  };
-
-  // Datos simulados
+  // Datos (sin finanzas / contabilidad)
   const stats = [
     {
       title: 'Solicitudes activas',
@@ -82,20 +50,6 @@ export default function DashboardScreen() {
       icon: 'truck-fast',
       color: '#2dce89',
       subtitle: 'Más pedido: Certificado',
-    },
-    {
-      title: 'Total Ingresos',
-      value: loadingFinanzas ? '...' : `$${totalIngresos.toFixed(2)}`,
-      icon: 'trending-up',
-      color: '#28a745',
-      subtitle: 'Ingresos totales',
-    },
-    {
-      title: 'Total Egresos',
-      value: loadingFinanzas ? '...' : `$${totalEgresos.toFixed(2)}`,
-      icon: 'trending-down',
-      color: '#dc3545',
-      subtitle: 'Egresos totales',
     },
   ];
 
@@ -238,37 +192,37 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 2,
   },
-sectionContainer: {
-  marginTop: 32,
-  width: '94%',
-  backgroundColor: '#fff',
-  borderRadius: 16,
-  padding: 18,
-  alignItems: 'center',
-  shadowColor: '#4f8cff',
-  shadowOffset: { width: 0, height: 4 },
-  shadowOpacity: 0.10,
-  shadowRadius: 8,
-  elevation: 4,
-},
-sectionTitle: {
-  fontSize: 18,
-  fontWeight: 'bold',
-  color: '#4f8cff',
-  marginBottom: 10,
-},
-sectionButton: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  backgroundColor: '#4f8cff',
-  paddingVertical: 10,
-  paddingHorizontal: 18,
-  borderRadius: 30,
-  marginTop: 6,
-},
-sectionButtonText: {
-  color: '#fff',
-  fontWeight: 'bold',
-  fontSize: 16,
-},
+  sectionContainer: {
+    marginTop: 32,
+    width: '94%',
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 18,
+    alignItems: 'center',
+    shadowColor: '#4f8cff',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.10,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#4f8cff',
+    marginBottom: 10,
+  },
+  sectionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#4f8cff',
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 30,
+    marginTop: 6,
+  },
+  sectionButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
 });
