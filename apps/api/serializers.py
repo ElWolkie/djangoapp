@@ -2,12 +2,13 @@ from rest_framework import serializers
 from apps.home.models import Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Moneda, Tasa, Formacion, TipoFormacion
 from apps.persona.models import Personas, PersonaTP, TipoPersona
 from apps.honorario.models import Honorario
+from apps.inscripcion.models import Inscripcion
 from apps.solicitud.models import Solicitud
 from apps.asientoContable.models import AsientoContable, DetalleAsiento
 from apps.planCuenta.models import PlanCuenta
 from apps.periodoContable.models import periodoContable
 from apps.cuentaBanco.models import Banco
-
+from django.db.models import Sum
         
 class TipoPersonaSerializer(serializers.ModelSerializer):
     class Meta:
@@ -68,9 +69,41 @@ class CargoSerializer(serializers.ModelSerializer):
         fields = ['idCargo', 'nombreCargo', 'estadoCargo', 'fechaCargo']
 
 class HonorarioSerializer(serializers.ModelSerializer):
+    idPersona = PersonaSerializer(read_only=True)
+    idCargo = CargoSerializer(read_only=True)
+    idMateria = MateriaSerializer(read_only=True)
+    idCohorte = CohorteSerializer(read_only=True)
+
     class Meta:
-        model = Honorario  # Usa el modelo de home
-        fields = ['idHonorario', 'idContrato', 'horas', 'estadoHonorario', 'fechaHonorario']
+        model = Honorario
+        fields = ['idHonorario','idPersona','idCargo','idCohorte','idMateria','horas','estadoHonorario','fechaHonorario','monto']
+
+class InscripcionSerializer(serializers.ModelSerializer):
+    montoTotal = serializers.SerializerMethodField()
+    saldoPendiente = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Inscripcion
+        fields = [
+            'idInscripcion',
+            'idPersona',
+            'idCohorte',
+            'idTF',
+            'idFormacion',
+            'fechaInscripcion',
+            'estadoPago',
+            'montoPagado',
+            'montoTotal',
+            'saldoPendiente',
+            'is_active',
+        ]
+
+    def get_montoTotal(self, obj):
+        return float(obj.montoTotal)
+
+    def get_saldoPendiente(self, obj):
+        return float(obj.saldoPendiente)
+
 
 class RequisitoSerializer(serializers.ModelSerializer):
     class Meta:

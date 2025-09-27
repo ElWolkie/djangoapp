@@ -18,6 +18,10 @@ type RootStackParamList = {
   Formaciones: undefined;
   TipoFormaciones: undefined;
   Materias: undefined;
+  Cohortes: undefined;
+  Cargos: undefined;
+  Honorarios: undefined;
+  Inscripciones: undefined;
   // Agrega aquí otras pantallas si es necesario
 };
 

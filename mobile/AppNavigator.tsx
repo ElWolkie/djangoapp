@@ -1,5 +1,4 @@
-// AppNavigator.tsx
-import React, { useContext, useState } from 'react';
+import React, { useContext } from 'react';
 import {
   createDrawerNavigator,
   DrawerContentScrollView,
@@ -11,6 +10,10 @@ import PantallaPersonas from './src/screens/personas';
 import PantallaFormaciones from './src/screens/formaciones';
 import PantallaTPFormaciones from './src/screens/tipoFormaciones';
 import PantallaMaterias from './src/screens/materias';
+import PantallaCohortes from './src/screens/cohortes';
+import PantallaCargos from './src/screens/cargos';
+import PantallaHonorarios from './src/screens/honorarios';
+import PantallaInscripciones from './src/screens/inscripciones';
 import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { ReloadContext } from './src/contexts/ReloadContext';
@@ -18,11 +21,6 @@ import { ReloadContext } from './src/contexts/ReloadContext';
 const Drawer = createDrawerNavigator();
 
 function CustomDrawerContent(props: any) {
-
-  const navigateTo = (screenName: string) => {
-    props.navigation.navigate(screenName);
-  };
-
   return (
     <DrawerContentScrollView {...props} contentContainerStyle={{ flex: 1 }}>
       <View style={styles.drawerHeader}>
@@ -47,7 +45,6 @@ function CustomDrawerContent(props: any) {
 }
 
 export default function AppNavigator() {
-  // Usamos ReloadContext para triggerReload (botón funcional)
   const { triggerReload } = useContext(ReloadContext);
 
   const renderReloadButton = () => (
@@ -82,6 +79,38 @@ export default function AppNavigator() {
           drawerIcon: ({ color, size }) => <Icon name="account-group" color={color} size={size} />,
           title: 'Gestión de Personas',
         }}
+      />
+      <Drawer.Screen
+        name="Cohortes"
+        component={PantallaCohortes}
+        options={{
+          drawerIcon: ({ color, size }) => <Icon name="calendar-multiple" color={color} size={size} />,
+          title: 'Cohortes',
+        }}
+      />
+      <Drawer.Screen
+        name="Cargos"
+        component={PantallaCargos}
+        options={{
+          drawerIcon: ({ color, size }) => <Icon name="briefcase" color={color} size={size} />,
+          title: 'Cargos',
+        }}
+      />
+      <Drawer.Screen
+        name="Honorarios"
+        component={PantallaHonorarios}
+        options={{
+          drawerIcon: ({ color, size }) => <Icon name="currency-usd" color={color} size={size} />,
+          title: 'Honorarios',
+        }}
+      />
+      <Drawer.Screen 
+        name="Inscripciones"
+        component={PantallaInscripciones}
+        options={{ 
+          drawerIcon: ({color,size}) => <Icon name="clipboard-list" color={color} size={size} />,
+          title: 'Inscripciones' 
+        }} 
       />
       <Drawer.Screen
         name="Formaciones"

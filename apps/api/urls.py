@@ -16,8 +16,8 @@ urlpatterns = [
 
     path('cohorte/', views.CohorteListCreate.as_view(), name='cohorte-list'),
     path('cargo/', views.CargoListCreate.as_view(), name='cargo-list'),
-    # path('contrato/', views.ContratoListCreate.as_view(), name='contrato-list'),
     path('honorario/', views.HonorarioListCreate.as_view(), name='honorario-list'),
+    path('inscripcion/', views.InscripcionListCreate.as_view(), name='inscripcion-list'),
     path('requisito/', views.RequisitoListCreate.as_view(), name='requisito-list'),
     path('servicio/', views.ServicioListCreate.as_view(), name='servicio-list'),
     path('tramite/', views.TramiteListCreate.as_view(), name='tramite-list'),
