@@ -424,7 +424,7 @@ select.input-with-icon.form-select {
             </thead>
             <tbody>
               {% for nota in notas %}
-              <tr data-id="{{ nota.idNota }}" data-nombre="{{ nota.numeroNota }}" data-deuda="{{ nota.saldoPendiente }}"  data-moneda-simbolo="{{ nota.idTasa.idMoneda.simbolo }}">
+              <tr data-id="{{ nota.idNota }}" data-nombre="{{ nota.numeroNota }}" data-deuda="{{ nota.saldoPendiente }}"  data-moneda-simbolo="{{ nota.simbolo_moneda }}">
                 <td>{{ nota.idNota }}</td>
                 <td>{{ nota.numeroNota }}</td>
                 <td>
@@ -437,7 +437,14 @@ select.input-with-icon.form-select {
                   {% endif %}
                 
                 </td>
-                <td>{{ nota.totalNota|default:"0.00" }} {{ nota.idTasa.idMoneda.simboloMoneda }}</td>
+                <td>
+                  {{ nota.totalNota|default:"0.00" }}
+                  {% if nota.simbolo_moneda %}
+                  {{ nota.simbolo_moneda }}
+                  {% else %}
+                  (Sin símbolo)
+                  {% endif %}
+                </td>
                 <td>{{ nota.saldoPendiente|floatformat:2|default:"0.00" }} {{ nota.idTasa.idMoneda.simboloMoneda }}</td>
               </tr>
               {% endfor %}
@@ -688,12 +695,22 @@ document.addEventListener('DOMContentLoaded', function () {
       const tasaPago = parseFloat((tasaTexto.split('Tasa: ')[1] || '').trim()) || 1;
 
       const montoConvertido = ((monto * tasaPago) / tasaConfiguracion).toFixed(2);
+
+      // Prints para depuración
+      console.log('Monto ingresado:', monto);
+      console.log('Deuda actual:', deuda);
+      console.log('Tasa seleccionada:', tasaPago);
+      console.log('Tasa configuración:', tasaConfiguracion);
+      console.log('Monto convertido:', montoConvertido);
+
       if (parseFloat(montoConvertido) > deuda) {
-        montoInput.classList.add('is-invalid');
-        montoInput.setCustomValidity('El monto no puede superar la deuda actual.');
+      montoInput.classList.add('is-invalid');
+      montoInput.setCustomValidity('El monto no puede superar la deuda actual.');
+      console.log('El monto supera la deuda actual.');
       } else {
-        montoInput.classList.remove('is-invalid');
-        montoInput.setCustomValidity('');
+      montoInput.classList.remove('is-invalid');
+      montoInput.setCustomValidity('');
+      console.log('El monto es válido.');
       }
     }
 
@@ -759,6 +776,53 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 
+ function actualizarDeudaConvertida(deudaNota, monedaDeudaSimbolo) {
+  const tasaSelect = document.getElementById('idTasa');
+  const deudaElement = document.getElementById('deudaNota');
+  const tasaConfiguracion = parseFloat(document.getElementById('tasaConfiguracion').value) || 1;
+
+  if (tasaSelect && deudaElement) {
+    const tasaOption = tasaSelect.options[tasaSelect.selectedIndex] || {};
+    const tasaTexto = tasaOption.textContent || '';
+    const tasaPago = parseFloat((tasaTexto.split('Tasa: ')[1] || '').trim()) || 1;
+    const monedaSeleccionada = tasaOption.textContent.split('|')[0].trim();
+
+    console.log(`[PASO 0] deudaNota: ${deudaNota}, monedaDeudaSimbolo: ${monedaDeudaSimbolo}, tasaConfiguracion: ${tasaConfiguracion}, tasaPago: ${tasaPago}, monedaSeleccionada: ${monedaSeleccionada}`);
+
+    if (monedaSeleccionada === monedaDeudaSimbolo) {
+      console.log(`[PASO 1] Moneda seleccionada igual a moneda de deuda. No se realiza conversión.`);
+      deudaElement.textContent = `Deuda actual: ${deudaNota} ${monedaSeleccionada}`;
+      return;
+    }
+
+    // PASO 2 CORRECTO: Convertir a moneda nacional (Bolívares)
+    const deudaEnMonedaNacional = parseFloat(deudaNota) * tasaConfiguracion;
+    console.log(`[PASO 2] Formula: deudaEnMonedaNacional = deudaNota * tasaConfiguracion = ${deudaNota} * ${tasaConfiguracion} = ${deudaEnMonedaNacional}`);
+
+    // PASO 3: Si la moneda seleccionada es diferente, aplicar la tasa de pago
+    let deudaConvertida;
+    if (monedaSeleccionada !== 'Bolivar') {
+      // Si la moneda destino NO es Bolívar, aplicar conversión
+      deudaConvertida = (deudaEnMonedaNacional / tasaPago).toFixed(2);
+      console.log(`[PASO 3] Conversión a ${monedaSeleccionada}: deudaEnMonedaNacional / tasaPago = ${deudaEnMonedaNacional} / ${tasaPago} = ${deudaConvertida}`);
+    } else {
+      // Si la moneda destino ES Bolívar, ya está convertida
+      deudaConvertida = deudaEnMonedaNacional.toFixed(2);
+      console.log(`[PASO 3] Moneda destino es Bolívar, usar valor directo: ${deudaConvertida}`);
+    }
+
+    deudaElement.textContent = `Deuda actual: ${deudaNota} ${monedaDeudaSimbolo} | Convertida: ${deudaConvertida} ${monedaSeleccionada}`;
+  }
+}
+// Añadir un evento para actualizar la deuda convertida al cambiar la moneda seleccionada
+document.getElementById('idTasa').addEventListener('change', function () {
+  const deudaTexto = document.getElementById('deudaNota').textContent.split(':')[1].trim();
+  const deudaNota = parseFloat(deudaTexto.split(' ')[0]);
+  const monedaDeudaSimbolo = deudaTexto.split(' ')[1];
+  actualizarDeudaConvertida(deudaNota, monedaDeudaSimbolo);
+});
+
+  
   function manejarFormaPago() {
     const formaPagoSelect = document.getElementById('formaPago');
     const bancosDiv = document.getElementById('bancos');

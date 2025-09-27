@@ -892,11 +892,16 @@ def pago_create(request, pk=None):
     if pk:
         notas = Nota.objects.filter(idNota=pk, estado__in=['PENDIENTE', 'PARCIAL']).order_by('numeroNota')
     else:
-        notas = Nota.objects.exclude(estado='PAGADO').order_by('numeroNota')  # Excluir Notas pagadas
+        # Traer las notas excluyendo las pagadas y agregando el símbolo de la moneda
+        notas = Nota.objects.select_related('idTasa__idMoneda').exclude(estado='PAGADO').order_by('numeroNota')
+        # Agregar el símbolo de la moneda a cada nota
+        for nota in notas:
+            nota.simbolo_moneda = nota.idTasa.idMoneda.simboloMoneda if hasattr(nota.idTasa, 'idMoneda') and hasattr(nota.idTasa.idMoneda, 'simboloMoneda') else ""
+            print(f"Nota {nota.numeroNota} símbolo moneda: {nota.simbolo_moneda}")
 
     cuentas_banco = CuentaBanco.objects.filter(estado=True).order_by('idCuentaBanco')  # Filtrar cuentas bancarias activas
     tasas = Tasa.objects.select_related('idMoneda') \
-        .values('idMoneda__idMoneda', 'idMoneda__nombreMoneda') \
+        .values('idMoneda__idMoneda', 'idMoneda__nombreMoneda', 'idMoneda__simboloMoneda') \
         .annotate(ultima_idTasa=Max('idTasa'), ultima_tasa=Max('montoTasa'))
     cuentas_plan = PlanCuenta.objects.filter(estadoPlanCuenta=True).order_by('codigoPlanCuenta')
 
@@ -924,11 +929,13 @@ def pago_create(request, pk=None):
     for nota in notas:
         pagos_relacionados = Pago.objects.filter(idNota=nota)
         total_pagado = sum(
-            Decimal(pago.monto) * Decimal(pago.idTasa.montoTasa) / tasa_configuracion_valor
-            if pago.idTasa.idMoneda != moneda_configuracion else Decimal(pago.monto)
+            round(
+            Decimal(pago.monto) * Decimal(pago.idTasa.montoTasa) / tasa_configuracion_valor,
+            2
+            ) if pago.idTasa.idMoneda != moneda_configuracion else round(Decimal(pago.monto), 2)
             for pago in pagos_relacionados
         )
-        saldo_pendiente = Decimal(nota.totalNota) - total_pagado
+        saldo_pendiente = round(Decimal(nota.totalNota) - total_pagado, 2)
         print(f"Nota {nota.numeroNota}: Total Nota: {nota.totalNota}, Total Pagado: {total_pagado}, Saldo Pendiente: {saldo_pendiente}")
         notas_data.append({
             'idNota': nota.idNota,
@@ -937,7 +944,9 @@ def pago_create(request, pk=None):
             'saldoPendiente': saldo_pendiente,  # Ya está en la moneda de configuración
             'idPersona': nota.idPersona.cedula if nota.idPersona else "N/A",  # Incluye la cédula del cliente
             'idEmpresa': nota.idEmpresa.nombreEmpresa if nota.idEmpresa else "N/A",  # Incluye la nombre de la empresa
-            'estado': nota.estado
+            'estado': nota.estado,
+            'simbolo_moneda': moneda_configuracion.simboloMoneda  # Usar el símbolo de la moneda de configuración
+
         })
 
     if request.method == 'POST':
@@ -1253,7 +1262,9 @@ def pago_create(request, pk=None):
         'cuentas_plan': cuentas_plan,
         'monedas': tasas,
         'tasa_configuracion_valor': tasa_configuracion_valor  # Tasa de configuración
+
     })
+
 @transaction.atomic
 def pago_edit(request, pk):
     """
