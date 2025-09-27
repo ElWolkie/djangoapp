@@ -235,9 +235,10 @@
                 <input type="text" id="personaInput" class="form-control text-dark" placeholder="Seleccione una persona" readonly />
                 <button type="button" id="buscarPersona" class="btn btn-outline-warning" data-toggle="modal" data-target="#personaModal">
                   <i class="fas fa-search"></i>
-                </button>
+                </button>              
+                <div class="invalid-feedback">Por favor seleccione una persona.</div>
+
               </div>
-              <div class="invalid-feedback">Por favor seleccione una persona.</div>
             </div>
             <input type="hidden" id="idPersona" name="idPersona" />
           </div>
@@ -373,17 +374,13 @@
       <!-- FILA 5: Moneda | Subtotales -->
       <div class="row g-3 align-items-end w-100">
         <div class="col-md-6">
-          <label for="idTasa" class="form-label">Moneda:</label>
-          <div class="field-wrap">
-            <select id="idTasa" name="idTasa" class="form-select large" required>
-              {% for moneda in monedas %}
-                <option value="{{ moneda.ultima_idTasa }}" {% if moneda.idMoneda__nombreMoneda == "DOLAR" %}selected{% endif %}>
-                  {{ moneda.idMoneda__nombreMoneda }}{% if moneda.ultima_tasa %} | Tasa: {{ moneda.ultima_tasa }}{% else %} - Sin tasa{% endif %}
-                </option>
-              {% endfor %}
-            </select>
-            <div class="invalid-feedback">Por favor seleccione una moneda.</div>
-          </div>
+           <!-- Moneda definida en la configuración -->
+            <label for="idTasa" class="form-label">Moneda del Sistema:</label>
+            <div class="field-wrap">
+              <input type="text"  class="form-control text-dark" title="Los montos se veran reflejados en esta moneda. Tasa actual: {{ tasa_configuracion_valor }}" value="{{ moneda_configuracion }}" readonly />
+              <input type="text" id="idTasa" name="idTasa" class="form-control text-dark" value="{{ tasa_configuracion_id }}"  hidden/>
+              <div class="invalid-feedback">Por favor ingrese una moneda válida.</div>
+            </div>
         </div>
 
         <div class="col-md-6">
