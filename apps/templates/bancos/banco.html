@@ -153,12 +153,13 @@
           <input type="text" id="cuentaPadre" class="form-control input-with-icon" placeholder="Seleccione una cuenta contable" readonly required />
           <button type="button" id="buscarCuentaPadre" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#cuentaPadreModal">
             <i class="fas fa-search"></i>
-          </button>
-        </div>
-        <input type="hidden" id="cuentaPadreId" name="cuentaPadre" />
-        <div class="invalid-feedback">
+          </button>  
+          <div class="invalid-feedback">
           Por favor seleccione una cuenta contable válida.
         </div>
+        </div>
+        <input type="hidden" id="cuentaPadreId" name="cuentaPadre" />
+      
       </div>
 
       <div class="row">
@@ -172,10 +173,10 @@
               <input type="text" id="codLocalBanco" name="codLocalBanco" 
                      class="form-control input-with-icon" 
                      placeholder="Ej: 0102" maxlength="10" required />
-            </div>
-            <div class="invalid-feedback">
+             <div class="invalid-feedback">
               Por favor ingrese un código local válido.
             </div>
+          </div>
           </div>
         </div>
         
@@ -189,9 +190,9 @@
               <input type="text" id="codSwiftBanco" name="codSwiftBanco" 
                      class="form-control input-with-icon" 
                      placeholder="Ej: BACVVEMM" maxlength="11" required />
-            </div>
-            <div class="invalid-feedback">
-              Por favor ingrese un código SWIFT válido.
+              <div class="invalid-feedback">
+                 Por favor ingrese un código SWIFT válido.
+              </div>
             </div>
           </div>
         </div>
@@ -206,9 +207,9 @@
           <input type="text" id="nombreBanco" name="nombreBanco" 
                  class="form-control input-with-icon" 
                  placeholder="Ej: Banco de Venezuela" maxlength="100" required />
-        </div>
-        <div class="invalid-feedback">
-          Por favor ingrese un nombre válido.
+            <div class="invalid-feedback">
+            Por favor ingrese un nombre válido.
+          </div>
         </div>
       </div>
 
