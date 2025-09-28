@@ -406,44 +406,10 @@ def cuenta_banco_create(request):
                         'message': 'El plan de cuenta crédito no existe'
                     }, status=400)
 
-                # Crear plan de cuenta si no existe
-                if not cuenta.planCuenta_id:
-                    try:
-                        nombre_producto = {
-                            'corriente': "CUENTAS CORRIENTES",
-                            'ahorro': "CUENTAS DE AHORRO",
-                            'plazo_fijo': "DEPÓSITOS A PLAZO",
-                            'prestamo': "PRÉSTAMOS BANCARIOS",
-                            'inversion': "FONDOS DE INVERSIÓN"
-                        }.get(cuenta.tipoProducto, "OTRAS CUENTAS")
-                        
-                        cuenta_producto, created = PlanCuenta.objects.get_or_create(
-                            nombrePlanCuenta=nombre_producto,
-                            tipoPlanCuenta=cuenta.banco.codigoPlanCuenta.tipoPlanCuenta,
-                            nivelPlanCuenta=cuenta.banco.codigoPlanCuenta.nivelPlanCuenta + 1,
-                            cuentaPadre=cuenta.banco.codigoPlanCuenta,
-                            defaults={'codigoPlanCuenta': _generate_product_code(cuenta)}
-                        )
-                        
-                        new_code = _generate_account_code(cuenta, cuenta_producto)
-                        
-                        plan_cuenta = PlanCuenta.objects.create(
-                            codigoPlanCuenta=new_code,
-                            nombrePlanCuenta=f"{cuenta.get_tipoProducto_display()} {cuenta.numeroCuentaBanco}",
-                            tipoPlanCuenta=cuenta.banco.codigoPlanCuenta.tipoPlanCuenta,
-                            nivelPlanCuenta=cuenta_producto.nivelPlanCuenta + 1,
-                            cuentaPadre=cuenta_producto
-                        )
-                        cuenta.planCuenta = plan_cuenta
-                        print(f"Nuevo plan de cuenta creado: {plan_cuenta.idPlanCuenta}")
-                    except Exception as e:
-                        print(f"Error creando plan de cuenta: {e}")
-                        return JsonResponse({
-                            'success': False,
-                            'message': f'Error al crear plan de cuenta: {str(e)}'
-                        }, status=400)
+                # La cuenta bancaria será hija directa del banco (no se crea plan de cuenta de producto)
+                # Asignar el plan de cuenta padre directamente del banco
+                # Si tu modelo requiere que planCuenta sea obligatorio, asegúrate que el formulario lo provea
 
-                # Guardar la cuenta bancaria
                 cuenta.save()
                 print(f"Cuenta bancaria guardada ID: {cuenta.idCuentaBanco}")
 
@@ -508,43 +474,6 @@ def cuenta_banco_create(request):
             'cuentas_plan': cuentas_plan,
             'titulo': 'Nueva Cuenta Bancaria'
         })
-
-def _generate_product_code(cuenta):
-    try:
-        last_product = PlanCuenta.objects.filter(
-            cuentaPadre=cuenta.banco.codigoPlanCuenta
-        ).aggregate(Max('codigoPlanCuenta'))
-        
-        if last_product['codigoPlanCuenta__max']:
-            last_num = int(last_product['codigoPlanCuenta__max'][-2:])
-            new_code = f"{cuenta.banco.codigoPlanCuenta.codigoPlanCuenta}{last_num + 1:02d}"
-        else:
-            new_code = f"{cuenta.banco.codigoPlanCuenta.codigoPlanCuenta}01"
-        
-        print(f"[DEBUG] Código de producto generado correctamente: {new_code}")
-        return new_code
-    except Exception as e:
-        print(f"[ERROR] Error al generar el código de producto: {e}")
-        raise
-
-
-def _generate_account_code(cuenta, cuenta_producto):
-    try:
-        last_account = PlanCuenta.objects.filter(
-            cuentaPadre=cuenta_producto
-        ).aggregate(Max('codigoPlanCuenta'))
-        
-        if last_account['codigoPlanCuenta__max']:
-            last_num = int(last_account['codigoPlanCuenta__max'][-2:])
-            new_code = f"{cuenta_producto.codigoPlanCuenta}{last_num + 1:02d}"
-        else:
-            new_code = f"{cuenta_producto.codigoPlanCuenta}01"
-        
-        print(f"[DEBUG] Código de cuenta bancaria generado correctamente: {new_code}")
-        return new_code
-    except Exception as e:
-        print(f"[ERROR] Error al generar el código de cuenta bancaria: {e}")
-        raise
 
 def cuenta_banco_update(request, pk):
     cuenta = get_object_or_404(CuentaBanco, pk=pk)
