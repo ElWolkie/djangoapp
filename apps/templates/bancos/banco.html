@@ -285,12 +285,14 @@
 {% block javascripts %}
   <script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
   <script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
+  <script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
   <script>
     document.addEventListener('DOMContentLoaded', function () {
       const cuentaPadreInput = document.getElementById('cuentaPadre');
       const cuentaPadreIdInput = document.getElementById('cuentaPadreId');
       const tablaCuentas = document.getElementById('tablaCuentas');
       const searchModalInput = document.getElementById('searchModalInput');
+      const bancoForm = document.getElementById('bancoForm');
 
       // Manejar clic en botón de selección
       tablaCuentas.addEventListener('click', function (event) {
@@ -391,7 +393,6 @@
 
 
       // Validar formulario antes de enviar
-      const bancoForm = document.getElementById('bancoForm');
       bancoForm.addEventListener('submit', function (event) {
         let valid = true;
         
@@ -422,6 +423,79 @@
       }, false);
        displayRows();
     setupPagination();
+
+    bancoForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+
+      let valid = true;
+      const fields = [
+        { id: 'cuentaPadreId', msg: 'Por favor seleccione una cuenta contable válida.' },
+        { id: 'codLocalBanco', msg: 'Por favor ingrese un código local válido.' },
+        { id: 'codSwiftBanco', msg: 'Por favor ingrese un código SWIFT válido.' },
+        { id: 'nombreBanco', msg: 'Por favor ingrese un nombre válido.' }
+      ];
+
+      fields.forEach(field => {
+        const input = document.getElementById(field.id);
+        if (!input.value.trim()) {
+          input.classList.add('is-invalid');
+          const feedback = input.nextElementSibling;
+          if (feedback) feedback.textContent = field.msg;
+          valid = false;
+        } else {
+          input.classList.remove('is-invalid');
+          input.classList.add('is-valid');
+        }
+      });
+
+      if (!valid) return;
+
+      const formData = new FormData(bancoForm);
+      const submitBtn = bancoForm.querySelector('button[type="submit"]');
+      const originalBtnContent = submitBtn.innerHTML;
+      submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Guardando...';
+      submitBtn.disabled = true;
+
+      fetch(bancoForm.action, {
+        method: 'POST',
+        body: formData,
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            Swal.fire({
+              icon: 'success',
+              title: 'Éxito',
+              text: 'El banco ha sido registrado correctamente.',
+              confirmButtonText: 'Aceptar',
+              customClass: { confirmButton: 'btn btn-warning' },
+
+            }).then(() => {
+              window.location.reload();
+            });
+          } else {
+            Swal.fire({
+              icon: 'error',
+              title: 'Error',
+              text: data.message || 'Ocurrió un error al registrar el banco.',
+              confirmButtonText: 'Aceptar'
+            });
+          }
+        })
+        .catch(error => {
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Ocurrió un error inesperado.',
+            confirmButtonText: 'Aceptar'
+          });
+        })
+        .finally(() => {
+          submitBtn.innerHTML = originalBtnContent;
+          submitBtn.disabled = false;
+        });
+    });
     });
   </script>
 {% endblock javascripts %}
