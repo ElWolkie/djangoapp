@@ -48,7 +48,7 @@
     {% endfor %}
   {% endif %}
 
-  <form method="POST" id="editMonedaForm" action="{% url 'edit_moneda' moneda.idMoneda %}" autocomplete="off" style="font-weight:bold; max-width:700px; margin:0 auto;">
+  <form method="POST" id="editMonedaForm" action="{% url 'edit_moneda' moneda.idMoneda %}" autocomplete="off" style="font-weight:bold; max-width:700px; margin:0 auto;" class="needs-validation" novalidate>
     {% csrf_token %}
 
     <div class="form-group text-center">
@@ -57,8 +57,8 @@
         <!-- ICON interno -->
         <i class="fas fa-language input-icon"></i>
         <input type="text" id="nombreMoneda" name="nombreMoneda" class="form-control input-with-icon text-dark mx-auto" value="{{moneda.nombreMoneda}}" placeholder="Ingrese un nombre" tabindex="3" maxlength="100" required style="width:50%;" />
-      </div>
       <div class="invalid-feedback">Por favor, ingrese un nombre válido (solo letras).</div>
+      </div>
     </div>
 
     <div class="form-group text-center">
@@ -67,8 +67,8 @@
         <!-- ICON interno -->
         <i class="fas fa-font input-icon"></i>
         <input type="text" id="simboloMoneda" name="simboloMoneda" class="form-control input-with-icon text-dark mx-auto" value="{{moneda.simboloMoneda}}" placeholder="Ingrese símbolo (ej. $)" tabindex="3" maxlength="10" required style="width:50%;" />
-      </div>
       <div class="invalid-feedback">Por favor, ingrese un símbolo válido.</div>
+      </div>
       <input type="hidden" id="estadoMoneda" name="estadoMoneda" value="ACTIVO" />
     </div>
 
@@ -80,6 +80,8 @@
 {% endblock content %}
 
 {% block javascripts %}
+<script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
+<script src="{% static 'assets/js/form-validation.js' %}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   const nombre = document.getElementById('nombreMoneda');
