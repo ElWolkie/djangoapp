@@ -1,5 +1,5 @@
 // src/screens/LoginScreen.tsx
-import React, { useState, useRef, useEffect, useContext } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -17,7 +17,7 @@ import {
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import api from '../api/api';
-import { AuthContext } from '../contexts/AuthContext';
+import { storeTokens } from '../api/auth'; // tu helper
 
 type RootStackParamList = {
   Login: undefined;
@@ -32,7 +32,7 @@ interface LoginScreenProps {
 const { width } = Dimensions.get('window');
 
 export default function LoginScreen({ navigation }: LoginScreenProps) {
-  const [cedula, setCedula] = useState(''); // guardamos solo dígitos
+  const [cedula, setCedula] = useState(''); // aquí guardaremos sólo dígitos
   const [password, setPassword] = useState('');
   const [focusField, setFocusField] = useState<'cedula' | 'password' | null>(null);
   const [errors, setErrors] = useState<{ cedula?: string; password?: string }>({});
@@ -40,8 +40,6 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
   const [loading, setLoading] = useState(false);
   const formAnim = useRef(new Animated.Value(0)).current;
   const logoAnim = useRef(new Animated.Value(0)).current;
-
-  const { loginWithTokens } = useContext(AuthContext);
 
   useEffect(() => {
     Animated.parallel([
@@ -70,9 +68,20 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
     return String(raw).replace(/\D+/g, '');
   };
 
-  // Intenta obtener tokens desde endpoints y shapes
+  /**
+   * Intenta obtener tokens desde varios endpoints y shapes.
+   * - Primero prueba token_cedula (tu endpoint personalizado)
+   * - Luego prueba token (simplejwt)
+   * - Para cada endpoint prueba diferentes nombres de campo
+   */
   const tryObtainToken = async (digits: string, passwordValue: string) => {
-    const endpoints = ['/api/token_cedula/', '/api/token/'];
+    // endpoints por orden de preferencia
+    const endpoints = [
+      '/api/token_cedula/', // tu endpoint específico
+      '/api/token/',        // fallback a simplejwt
+    ];
+
+    // shapes posibles que el backend podría aceptar
     const payloadCandidates: Record<string, any>[] = [
       { cedula: digits, password: passwordValue },
       { username: digits, password: passwordValue },
@@ -88,6 +97,8 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         try {
           const res = await api.post(url, payload);
           const d = res?.data ?? {};
+
+          // varias formas comunes de respuesta: { access, refresh } o { token } o { access_token }
           const access = d.access ?? d.access_token ?? d.token ?? null;
           const refresh = d.refresh ?? d.refresh_token ?? null;
 
@@ -95,89 +106,27 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
             return { access, refresh, raw: d, usedUrl: url, usedPayload: payload };
           }
 
+          // algunos endpoints devuelven estructura diferente: e.g. { data: { access, refresh } }
           if (d.data && (d.data.access || d.data.token)) {
-            return {
-              access: d.data.access ?? d.data.token,
-              refresh: d.data.refresh ?? null,
-              raw: d,
-              usedUrl: url,
-              usedPayload: payload,
-            };
+            return { access: d.data.access ?? d.data.token, refresh: d.data.refresh ?? null, raw: d, usedUrl: url, usedPayload: payload };
           }
 
+          // si llegamos aquí no reconocimos la respuesta, lo guardamos y seguimos intentando
           lastError = { url, payload, response: d };
         } catch (err: any) {
+          // guarda para debug y prueba siguiente candidate
           lastError = err;
+          // si hay respuesta del servidor con mensajes de error detallados, retornarla para mostrar al usuario
           if (err?.response?.data) {
+            // Si es error de validación del backend, regresamos ese detalle inmediatamente
             return { error: err.response.data, rawErr: err, usedUrl: url, usedPayload: payload };
           }
+          // si no, simplemente seguimos probando
         }
       }
     }
 
     return { error: lastError ?? 'No response' };
-  };
-
-  // Buscar perfil en persona/usuario usando la cédula (no requiere endpoint /api/me/)
-  const fetchProfileIfNeeded = async (maybeUser: any, accessToken?: string, digitsForLookup?: string) => {
-    if (maybeUser && typeof maybeUser === 'object' && (maybeUser.displayName || maybeUser.nombres || maybeUser.name || maybeUser.username || maybeUser.email)) {
-      return maybeUser;
-    }
-
-    const prevAuth = api.defaults.headers.common['Authorization'];
-
-    try {
-      if (accessToken) api.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
-
-      if (digitsForLookup) {
-        // 1) Buscar en personas
-        const r = await api.get(`/api/personas/?cedula=${encodeURIComponent(digitsForLookup)}`).catch(() => null);
-        if (r && r.data) {
-          const persona = Array.isArray(r.data) ? (r.data[0] ?? null) : (r.data ?? null);
-          if (persona) {
-            const maybeName =
-              persona.displayName ??
-              persona.nombre ??
-              persona.nombres ??
-              (`${persona.nombre || persona.nombres || ''} ${persona.apellido || persona.apellidos || ''}`.trim()) ??
-              persona.full_name ??
-              null;
-
-            const userObj = { displayName: maybeName || `Usuario ${persona.id ?? ''}`, persona };
-            if (prevAuth) api.defaults.headers.common['Authorization'] = prevAuth;
-            else delete api.defaults.headers.common['Authorization'];
-            return userObj;
-          }
-        }
-
-        // 2) Buscar en usuario relacionado (endpoint list)
-        const ru = await api.get(`/api/usuario/?idPersona__cedula=${encodeURIComponent(digitsForLookup)}`).catch(() => null);
-        if (ru && ru.data) {
-          const usuario = Array.isArray(ru.data) ? (ru.data[0] ?? null) : (ru.data ?? null);
-          if (usuario) {
-            const persona = usuario.idPersona ?? usuario.persona ?? null;
-            const maybeName =
-              usuario.displayName ??
-              persona?.nombre ??
-              persona?.nombres ??
-              `${persona?.nombre || persona?.nombres || ''} ${persona?.apellido || persona?.apellidos || ''}`.trim() ??
-              usuario.username ??
-              null;
-            const userObj = { displayName: maybeName || `Usuario ${usuario.id ?? ''}`, usuario, persona };
-            if (prevAuth) api.defaults.headers.common['Authorization'] = prevAuth;
-            else delete api.defaults.headers.common['Authorization'];
-            return userObj;
-          }
-        }
-      }
-    } catch (e) {
-      // ignore
-    } finally {
-      if (prevAuth) api.defaults.headers.common['Authorization'] = prevAuth;
-      else delete api.defaults.headers.common['Authorization'];
-    }
-
-    return null;
   };
 
   const handleLogin = async () => {
@@ -197,38 +146,41 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         return;
       }
 
-      // opción: verificar-cedula (no crítico)
+      // opcional: llamar verificar-cedula para feedback (no crítico)
       try {
         await api.get(`/api/verificar-cedula/?cedula=${encodeURIComponent(digits)}`).catch(() => null);
-      } catch {}
+      } catch { /* noop */ }
 
       const result = await tryObtainToken(digits, password);
 
-      if (!result) {
+      if (result == null) {
         Alert.alert('Error', 'No se obtuvo respuesta del servidor.');
         setLoading(false);
         return;
       }
 
       if ((result as any).error) {
+        // si backend devolvió detalles en err.response.data, intenta mostrarlos
         const e = (result as any).error;
-        const textErr =
-          e.detail ||
-          e.non_field_errors?.join?.(', ') ||
-          Object.entries(e).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join('; ') : String(v)}`).join('\n') ||
-          String(e);
-        Alert.alert('Error de autenticación', textErr);
+        // e puede ser objeto con keys, por ejemplo: { idPersona: ["This field is required."] } o { detail: "..." }
+        if (typeof e === 'object') {
+          // buscar messages útiles
+          const textErr =
+            e.detail ||
+            e.non_field_errors?.join?.(', ') ||
+            Object.entries(e).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join('; ') : String(v)}`).join('\n') ||
+            JSON.stringify(e);
+          Alert.alert('Error de autenticación', textErr);
+        } else {
+          Alert.alert('Error de conexión', String(e));
+        }
         setLoading(false);
         return;
       }
 
+      // si recibimos tokens
       const access = (result as any).access as string | undefined;
       const refresh = (result as any).refresh as string | undefined;
-      let returnedUser = (result as any).user ?? (result as any).raw?.user ?? null;
-
-      if (!returnedUser && access) {
-        returnedUser = await fetchProfileIfNeeded(null, access, digits);
-      }
 
       if (!access) {
         Alert.alert('Error', 'El servidor no devolvió token de acceso válido.');
@@ -236,15 +188,10 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         return;
       }
 
-      // Usa loginWithTokens del AuthContext (se encargará de persistir tokens + user)
-      try {
-        await loginWithTokens(access, refresh ?? null, returnedUser ?? null);
-      } catch (e) {
-        // si falla guardar, aún seguimos pero informamos
-        console.warn('loginWithTokens fallo', e);
-      }
+      // Guardar tokens
+      await storeTokens(access, refresh ?? null, (result as any).user ?? null);
 
-      // navegar al Main
+      // navegar al Main (reset para evitar volver al login)
       navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
     } catch (err: any) {
       console.error('Login error', err);
@@ -258,36 +205,13 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <Image style={styles.bgImage} source={require('../../assets/frontImg.jpg')} blurRadius={3} />
       <View style={styles.overlay} />
-      <Animated.View
-        style={[
-          styles.logoContainer,
-          {
-            transform: [
-              {
-                scale: logoAnim.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] }),
-              },
-              {
-                translateY: logoAnim.interpolate({ inputRange: [0, 1], outputRange: [-40, 0] }),
-              },
-            ],
-            opacity: logoAnim,
-          },
-        ]}
-      >
+      <Animated.View style={[styles.logoContainer, { transform: [{ scale: logoAnim.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] }) }, { translateY: logoAnim.interpolate({ inputRange: [0, 1], outputRange: [-40, 0] }) }], opacity: logoAnim }]}>
         <Text style={styles.logoTitle}>FUNDACIÓN UPTYAB</Text>
         <Text style={styles.logoSubtitle}>Trámites académicos</Text>
       </Animated.View>
 
-      <Animated.View
-        style={[
-          styles.form,
-          {
-            opacity: formAnim,
-            transform: [{ translateY: formAnim.interpolate({ inputRange: [0, 1], outputRange: [80, 0] }) }],
-          },
-        ]}
-      >
-        <View style={[styles.inputContainer, focusField === 'cedula' && styles.inputContainerFocused, errors.cedula && styles.inputContainerError]}>
+      <Animated.View style={[ styles.form, { opacity: formAnim, transform: [{ translateY: formAnim.interpolate({ inputRange: [0,1], outputRange: [80,0] }) }] } ]}>
+        <View style={[ styles.inputContainer, focusField === 'cedula' && styles.inputContainerFocused, errors.cedula && styles.inputContainerError ]}>
           <Icon name="card-account-details" size={24} color={focusField === 'cedula' ? '#4f8cff' : errors.cedula ? '#e63946' : '#aaa'} style={styles.inputIcon} />
           <TextInput
             style={styles.inputs}
@@ -308,7 +232,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         </View>
         {errors.cedula && <Text style={styles.errorText}>{errors.cedula}</Text>}
 
-        <View style={[styles.inputContainer, focusField === 'password' && styles.inputContainerFocused, errors.password && styles.inputContainerError]}>
+        <View style={[ styles.inputContainer, focusField === 'password' && styles.inputContainerFocused, errors.password && styles.inputContainerError ]}>
           <Icon name="lock" size={24} color={focusField === 'password' ? '#4f8cff' : errors.password ? '#e63946' : '#aaa'} style={styles.inputIcon} />
           <TextInput
             style={styles.inputs}
@@ -316,10 +240,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
             secureTextEntry
             placeholderTextColor="#aaa"
             value={password}
-            onChangeText={(text) => {
-              setPassword(text);
-              if (errors.password) setErrors({ ...errors, password: undefined });
-            }}
+            onChangeText={(text) => { setPassword(text); if (errors.password) setErrors({ ...errors, password: undefined }); }}
             onFocus={() => setFocusField('password')}
             onBlur={() => setFocusField(null)}
             returnKeyType="done"

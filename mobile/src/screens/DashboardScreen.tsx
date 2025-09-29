@@ -1,5 +1,5 @@
 // src/screens/DashboardScreen.tsx
-import React, { useRef, useEffect, useState, useContext, JSX } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -11,10 +11,9 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import api from '../api/api';
-import { AuthContext } from '../contexts/AuthContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import api from '../api/api'; // asegúrate que esta ruta coincide con la tuya
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width * 0.9 - 24) / 2;
@@ -36,17 +35,8 @@ type RootStackParamList = {
   Tasas: undefined;
 };
 
-type Stat = {
-  title: string;
-  value: number | string;
-  icon: string;
-  color: string;
-  subtitle: string;
-};
-
-export default function DashboardScreen(): JSX.Element {
+export default function DashboardScreen() {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
-  const { user } = useContext(AuthContext);
 
   // Anims
   const cardsAnim = useRef([
@@ -60,7 +50,7 @@ export default function DashboardScreen(): JSX.Element {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Stats
+  // Datos en tiempo real
   const [solicitudesCount, setSolicitudesCount] = useState<number | null>(null);
   const [solicitudesLastDate, setSolicitudesLastDate] = useState<string | null>(null);
 
@@ -83,6 +73,7 @@ export default function DashboardScreen(): JSX.Element {
     else setGreeting({ title: '¡Buenas noches!', emoji: '🌙' });
   }, []);
 
+  // Helpers para fechas y extracción
   const tryParseDate = (v: any): Date | null => {
     if (!v && v !== 0) return null;
     try {
@@ -123,6 +114,7 @@ export default function DashboardScreen(): JSX.Element {
   };
 
   useEffect(() => {
+    // entrada animada suave
     Animated.stagger(90, cardsAnim.map(a => Animated.spring(a, { toValue: 1, useNativeDriver: true }))).start();
   }, []);
 
@@ -143,6 +135,7 @@ export default function DashboardScreen(): JSX.Element {
         const honorarios = Array.isArray(honRes.data) ? honRes.data : [];
         const cohortes = Array.isArray(cohRes.data) ? cohRes.data : [];
 
+        // SOLICITUDES: contar activas (fallback)
         const solicitudesActivas = solicitudes.filter((s: any) => {
           if (typeof s.is_active === 'boolean') return s.is_active === true;
           const estado = (s.estadoSolicitud ?? s.estado ?? '').toString().toUpperCase();
@@ -151,6 +144,7 @@ export default function DashboardScreen(): JSX.Element {
         });
         setSolicitudesCount(solicitudesActivas.length);
 
+        // fecha más reciente
         const solicitudDates: Date[] = [];
         const candidateKeys = ['fechaSolicitud','fecha','fechaRegistro','created','created_at','fecha_solicitud'];
         for (const s of solicitudes) {
@@ -162,6 +156,7 @@ export default function DashboardScreen(): JSX.Element {
         const latestSolicitud = solicitudDates.length ? new Date(Math.max(...solicitudDates.map(d => d.getTime()))) : null;
         setSolicitudesLastDate(latestSolicitud ? formatDate(latestSolicitud) : null);
 
+        // SERVICIOS: activos + top
         const serviciosActivos = servicios.filter((s: any) => {
           if (typeof s.is_active === 'boolean') return s.is_active === true;
           const estado = (s.estadoServicio ?? s.estado ?? '').toString().toUpperCase();
@@ -172,6 +167,7 @@ export default function DashboardScreen(): JSX.Element {
         const servicioNames = servicios.map((s: any) => (s.nombreServicio ?? s.nombre ?? s.title ?? '—').toString());
         setServiciosTop(mostFrequent(servicioNames) ?? null);
 
+        // HONORARIOS: cantidad y horas
         setHonorariosCount(honorarios.length);
         const totalHoras = honorarios.reduce((acc: number, h: any) => {
           const cand = h.horas ?? h.horasHonorario ?? h.horas_totales ?? h.hours ?? 0;
@@ -180,6 +176,7 @@ export default function DashboardScreen(): JSX.Element {
         }, 0);
         setHonorariosHoras(totalHoras);
 
+        // COHORTES: cantidad y reciente
         setCohortesCount(cohortes.length);
         let bestCoh: { date?: Date | null, name?: string } | null = null;
         for (const c of cohortes) {
@@ -201,7 +198,7 @@ export default function DashboardScreen(): JSX.Element {
     fetchData();
   }, []);
 
-  const stats: Stat[] = [
+  const stats = [
     {
       title: 'Solicitudes activas',
       value: solicitudesCount ?? '—',
@@ -231,58 +228,23 @@ export default function DashboardScreen(): JSX.Element {
       subtitle: cohortesRecent ? `${cohortesRecent} — Más reciente` : 'Más reciente: —',
     },
   ];
-
-  // Nombre del usuario para mostrar en el header
+    // Nombre del usuario para mostrar en el header
   const [userNameDisplay, setUserNameDisplay] = useState<string | null>(null);
 
   useEffect(() => {
-    const resolveName = async () => {
-      // primero intento con AuthContext.user
-      if (user) {
-        const name =
-          (user.displayName as string | undefined) ??
-          (user.nombres as string | undefined) ??
-          (user.nombre as string | undefined) ??
-          (user.persona && (user.persona.nombres || user.persona.nombre)) ??
-          null;
-        if (name) {
-          setUserNameDisplay(name);
-          return;
-        }
-      }
-
-      // fallback: leer myapp-user o myapp-tokens
+    const loadUserName = async () => {
       try {
-        const rawUser = await AsyncStorage.getItem('myapp-user');
-        if (rawUser) {
-          const parsed = JSON.parse(rawUser);
-          if (parsed?.displayName) {
-            setUserNameDisplay(parsed.displayName);
-            return;
-          }
-        }
-        const tokensRaw = await AsyncStorage.getItem('myapp-tokens');
-        if (tokensRaw) {
-          const parsed = JSON.parse(tokensRaw);
-          const u = parsed?.user;
-          const name =
-            (u?.displayName as string | undefined) ??
-            (u?.nombres as string | undefined) ??
-            (u?.nombre as string | undefined) ??
-            (u?.persona && (u.persona.nombres || u.persona.nombre)) ??
-            null;
-          if (name) {
-            setUserNameDisplay(name);
-            return;
-          }
-        }
+        const raw = await AsyncStorage.getItem('myapp-user');
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        if (parsed?.displayName) setUserNameDisplay(parsed.displayName);
       } catch (e) {
         // noop
       }
     };
+    loadUserName();
+  }, []);
 
-    resolveName();
-  }, [user]);
 
   if (loading) {
     return (
@@ -326,7 +288,7 @@ export default function DashboardScreen(): JSX.Element {
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.cardsRow}>
-          {stats.map((item: Stat, idx: number) => (
+          {stats.map((item, idx) => (
             <Animated.View
               key={item.title}
               style={[
@@ -366,7 +328,10 @@ export default function DashboardScreen(): JSX.Element {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f7fa' },
+  container: {
+    flex: 1,
+    backgroundColor: '#f5f7fa',
+  },
   header: {
     backgroundColor: '#4f8cff',
     paddingTop: 48,
@@ -381,10 +346,29 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.18,
     shadowRadius: 12,
   },
-  headerTitle: { color: '#fff', fontSize: 26, fontWeight: '800', letterSpacing: 0.3 },
-  headerSubtitle: { color: '#e7f0ff', fontSize: 13, marginTop: 6, fontWeight: '600' },
-  scrollContent: { alignItems: 'center', paddingVertical: 24 },
-  cardsRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 12, width: '94%' },
+  headerTitle: {
+    color: '#fff',
+    fontSize: 26,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  headerSubtitle: {
+    color: '#e7f0ff',
+    fontSize: 13,
+    marginTop: 6,
+    fontWeight: '600',
+  },
+  scrollContent: {
+    alignItems: 'center',
+    paddingVertical: 24,
+  },
+  cardsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 12,
+    width: '94%',
+  },
   card: {
     width: CARD_WIDTH,
     backgroundColor: '#fff',
@@ -398,10 +382,41 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 6,
   },
-  iconCircle: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
-  cardTitle: { fontSize: 12, color: '#7b7b93', fontWeight: '700', textAlign: 'center', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.4 },
-  cardValue: { fontSize: 26, fontWeight: '800', color: '#22223b', marginBottom: 4, textAlign: 'center' },
-  cardSubtitle: { fontSize: 12, color: '#4f8cff', textAlign: 'center', marginTop: 2 },
+  iconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  cardTitle: {
+    fontSize: 12,
+    color: '#7b7b93',
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  cardValue: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#22223b',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  cardSubtitle: {
+    fontSize: 12,
+    color: '#4f8cff',
+    textAlign: 'center',
+    marginTop: 2,
+  },
   sectionContainer: {
     marginTop: 20,
     width: '94%',
@@ -415,7 +430,24 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
-  sectionTitle: { fontSize: 15, fontWeight: '700', color: '#4f8cff', marginBottom: 8 },
-  sectionButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#4f8cff', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 20, marginTop: 6 },
-  sectionButtonText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#4f8cff',
+    marginBottom: 8,
+  },
+  sectionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#4f8cff',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    marginTop: 6,
+  },
+  sectionButtonText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 14,
+  },
 });
