@@ -2,6 +2,7 @@ from django.urls import path
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from . import views
 from .endpoints import verificar_cedula  # Nueva función
+from .views import CedulaTokenObtainView  # Nueva función
 
 urlpatterns = [
     path('personas/', views.PersonaListCreate.as_view(), name='persona-list'),
@@ -24,9 +25,11 @@ urlpatterns = [
     path('solicitud/', views.SolicitudListCreate.as_view(), name='solicitud-list'),
     path('moneda/', views.MonedaListCreate.as_view(), name='moneda-list'),
     path('tasa/', views.TasaListCreate.as_view(), name='tasa-list'),
+    path('usuario/', views.UsuarioListCreate.as_view(), name='usuario-list'),
 
     path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),  # Solo permite POST
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),  # Solo permite POST
+    path('token_cedula/', CedulaTokenObtainView.as_view(), name='token_obtain_pair'),
 
     # URLs para contabilidad
     path('libro-diario/', views.LibroDiarioAPIView.as_view(), name='libro-diario'),

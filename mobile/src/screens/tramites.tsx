@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -18,52 +18,31 @@ import api from '../api/api';
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = width - 24;
 
-interface Formacion {
-  idFormacion: number;
-  nombreFormacion: string;
+interface Tramite {
+  idTramite: number;
+  nombreTramite: string;
+  diasTramite: string;
+  precioTramite: string;
+  estadoTramite: 'ACTIVO' | 'INACTIVO';
+  fechaTramite: string;
 }
 
-interface Materia {
-  idMateria: number;
-  idFormacion: number; // Solo el ID, no el objeto completo
-  nombreMateria: string;
-  estadoMateria: 'ACTIVO' | 'INACTIVO';
-  fechaMateria: string;
-  nombreFormacion?: string; // Lo agregaremos después
-}
-
-export default function PantallaMaterias() {
-  const [materias, setMaterias] = useState<Materia[]>([]);
-  const [formaciones, setFormaciones] = useState<Formacion[]>([]);
-  const [mostradas, setMostradas] = useState<Materia[]>([]);
+export default function PantallaTramites() {
+  const [tramites, setTramites] = useState<Tramite[]>([]);
+  const [mostradas, setMostradas] = useState<Tramite[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchText, setSearchText] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
-  const [selectedMateria, setSelectedMateria] = useState<Materia | null>(null);
+  const [selectedTramite, setSelectedTramite] = useState<Tramite | null>(null);
   const [animValues, setAnimValues] = useState<Animated.Value[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Cargar formaciones primero
-        const resFormaciones = await api.get<Formacion[]>('/api/formaciones/');
-        setFormaciones(resFormaciones.data);
-
-        // Luego cargar materias
-        const resMaterias = await api.get<Materia[]>('/api/materias/');
-        
-        // Enriquecer las materias con el nombre de la formación
-        const materiasConFormacion = resMaterias.data.map(materia => {
-          const formacion = resFormaciones.data.find(f => f.idFormacion === materia.idFormacion);
-          return {
-            ...materia,
-            nombreFormacion: formacion ? formacion.nombreFormacion : 'N/A'
-          };
-        });
-
-        setMaterias(materiasConFormacion);
-        setMostradas(materiasConFormacion);
+        const res = await api.get<Tramite[]>('/api/tramite/');
+        setTramites(res.data);
+        setMostradas(res.data);
       } catch (err: any) {
         setError(err.message);
       } finally {
@@ -75,13 +54,14 @@ export default function PantallaMaterias() {
   }, []);
 
   useEffect(() => {
-    const filtradas = materias.filter(m =>
-      m.nombreMateria.toLowerCase().includes(searchText.toLowerCase()) ||
-      (m.nombreFormacion || '').toLowerCase().includes(searchText.toLowerCase()) ||
-      m.estadoMateria.toLowerCase().includes(searchText.toLowerCase())
+    const filtradas = tramites.filter(t =>
+      t.nombreTramite.toLowerCase().includes(searchText.toLowerCase()) ||
+      t.diasTramite.toLowerCase().includes(searchText.toLowerCase()) ||
+      t.precioTramite.toLowerCase().includes(searchText.toLowerCase()) ||
+      t.estadoTramite.toLowerCase().includes(searchText.toLowerCase())
     );
     setMostradas(filtradas);
-  }, [searchText, materias]);
+  }, [searchText, tramites]);
 
   useEffect(() => {
     const values = mostradas.map(() => new Animated.Value(0));
@@ -96,22 +76,59 @@ export default function PantallaMaterias() {
     }
   }, [animValues]);
 
-  const formatDate = (dateString: string) => {
-    if (!dateString) return 'N/A';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('es-ES', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
+  // Función mejorada para formatear el precio
+  const formatPrecio = (precio: string) => {
+    if (!precio) return '0,00';
+    
+    try {
+      // Si ya tiene el formato correcto (con coma), devolverlo tal cual
+      if (precio.includes(',')) {
+        return precio;
+      }
+      
+      // Si tiene punto decimal, convertirlo a formato con coma
+      if (precio.includes('.')) {
+        const partes = precio.split('.');
+        // Formatear la parte entera con separadores de miles
+        const parteEntera = partes[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+        const parteDecimal = partes[1] || '00';
+        return `${parteEntera},${parteDecimal.padEnd(2, '0')}`;
+      }
+      
+      // Si es un número entero sin decimales
+      const numero = parseFloat(precio);
+      if (!isNaN(numero)) {
+        const parteEntera = Math.floor(numero).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+        return `${parteEntera},00`;
+      }
+      
+      return precio;
+    } catch (error) {
+      return precio;
+    }
   };
 
-  const openModal = (m: Materia) => {
-    setSelectedMateria(m);
+  const formatDate = (dateString: string) => {
+    if (!dateString || dateString === 'N/A') return 'N/A';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return 'Fecha inválida';
+      return date.toLocaleDateString('es-ES', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+    } catch (error) {
+      return 'Fecha inválida';
+    }
+  };
+
+  const openModal = (t: Tramite) => {
+    setSelectedTramite(t);
     setModalVisible(true);
   };
 
-  const renderItem = ({ item, index }: { item: Materia; index: number }) => {
+  const renderItem = ({ item, index }: { item: Tramite; index: number }) => {
     const anim = animValues[index] || new Animated.Value(1);
 
     return (
@@ -123,26 +140,34 @@ export default function PantallaMaterias() {
         }
       ]}>
         <View style={styles.header}>
-          <Text style={styles.name}>{item.nombreMateria}</Text>
+          <Text style={styles.name}>{item.nombreTramite}</Text>
           <View style={[
             styles.badge,
-            item.estadoMateria === 'ACTIVO' ? styles.badgeActive : styles.badgeInactive
+            item.estadoTramite === 'ACTIVO' ? styles.badgeActive : styles.badgeInactive
           ]}>
             <Text style={styles.badgeText}>
-              {item.estadoMateria === 'ACTIVO' ? 'Activo' : 'Inactivo'}
+              {item.estadoTramite === 'ACTIVO' ? 'Activo' : 'Inactivo'}
             </Text>
           </View>
         </View>
 
         <View style={styles.row}>
-          <Icon name="book-education" size={16} color="#666" />
+          <Icon name="calendar-clock" size={16} color="#666" />
           <Text style={styles.detailText}>
-            <Text style={styles.label}>Formación: </Text>
-            {item.nombreFormacion || 'N/A'}
+            <Text style={styles.label}>Días de respuesta: </Text>
+            {item.diasTramite || 'N/A'}
           </Text>
         </View>
 
-        <Text style={styles.dateText}>Registrado: {formatDate(item.fechaMateria)}</Text>
+        <View style={styles.row}>
+          <Icon name="cash" size={16} color="#666" />
+          <Text style={styles.detailText}>
+            <Text style={styles.label}>Precio: </Text>
+            {formatPrecio(item.precioTramite)}
+          </Text>
+        </View>
+
+        <Text style={styles.dateText}>Registrado: {formatDate(item.fechaTramite)}</Text>
 
         <TouchableOpacity style={styles.button} onPress={() => openModal(item)}>
           <Icon name="chevron-right" size={24} color="#fff" />
@@ -161,12 +186,12 @@ export default function PantallaMaterias() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Materias Registradas</Text>
+      <Text style={styles.title}>Trámites Registrados</Text>
 
       <View style={styles.searchWrapper}>
         <Icon name="magnify" size={24} color="#666" />
         <TextInput
-          placeholder="Buscar por materia, formación..."
+          placeholder="Buscar por nombre, días, precio..."
           value={searchText}
           onChangeText={setSearchText}
           style={styles.searchInput}
@@ -176,11 +201,11 @@ export default function PantallaMaterias() {
 
       <FlatList
         data={mostradas}
-        keyExtractor={m => m.idMateria.toString()}
+        keyExtractor={t => t.idTramite.toString()}
         renderItem={renderItem}
         contentContainerStyle={{ paddingBottom: 24 }}
         showsVerticalScrollIndicator={false}
-        ListEmptyComponent={<Text style={styles.emptyText}>No hay materias registradas.</Text>}
+        ListEmptyComponent={<Text style={styles.emptyText}>No hay trámites registrados.</Text>}
       />
 
       <Modal
@@ -193,13 +218,13 @@ export default function PantallaMaterias() {
       >
         <View style={styles.modalContent}>
           <ScrollView>
-            <Text style={styles.modalTitle}>{selectedMateria?.nombreMateria}</Text>
-            {selectedMateria && ([
-              ['ID', selectedMateria.idMateria.toString()],
-              ['Nombre', selectedMateria.nombreMateria],
-              ['Formación', selectedMateria.nombreFormacion || 'N/A'],
-              ['Estado', selectedMateria.estadoMateria],
-              ['Fecha de Registro', formatDate(selectedMateria.fechaMateria)]
+            <Text style={styles.modalTitle}>{selectedTramite?.nombreTramite}</Text>
+            {selectedTramite && ([
+              ['Nombre', selectedTramite.nombreTramite],
+              ['Días de Respuesta', selectedTramite.diasTramite],
+              ['Precio', formatPrecio(selectedTramite.precioTramite)],
+              ['Estado', selectedTramite.estadoTramite],
+              ['Fecha de Registro', formatDate(selectedTramite.fechaTramite)]
             ] as [string, string][]).map(([lbl, val]) => (
               <View key={lbl} style={styles.detailRow}>
                 <Text style={styles.detailLabel}>{lbl}:</Text>
