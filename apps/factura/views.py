@@ -1134,7 +1134,7 @@ def pago_create(request, pk=None):
 
                     # Obtener el plan de cuenta según la forma de pago
                     if pago.formaPago == 'EFECTIVO':
-                        plan_cuenta_debe = PlanCuenta.objects.filter(codigoPlanCuenta='110101').first()
+                        plan_cuenta_debe = PlanCuenta.objects.filter(codigoPlanCuenta='11000101').first()
                         print(f"Plan de cuenta para pagos en efectivo: {plan_cuenta_debe}")
                         if not plan_cuenta_debe:
                             return JsonResponse({

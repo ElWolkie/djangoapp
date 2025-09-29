@@ -1105,96 +1105,115 @@ document.addEventListener('DOMContentLoaded', function() {
 
 document.addEventListener('DOMContentLoaded', function () {
     const pagoForm = document.getElementById('pagoForm');
-
     if (pagoForm) {
-        pagoForm.addEventListener('submit', function (event) {
-            event.preventDefault(); // Evitar el envío predeterminado del formulario
+      pagoForm.addEventListener('submit', function (event) {
+        event.preventDefault(); // Evitar el envío predeterminado del formulario
 
-            const formData = new FormData(pagoForm);
+        const formData = new FormData(pagoForm);
 
-            fetch(pagoForm.action, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest', // Indicar que es una solicitud AJAX
-                },
-            })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Error en la respuesta del servidor');
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    if (data.success) {
-                        // Mostrar mensaje de éxito con estructura antigua
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Pago registrado exitosamente',
-                            html: `
-                                <p><strong>ID Pago:</strong> ${data.pago.idPago}</p>
-                                <p><strong>Nota:</strong> ${data.pago.idNota}</p>
-                                <p><strong>Monto:</strong> ${data.pago.monto}</p>
-                                <p><strong>Fecha de Pago:</strong> ${data.pago.fechaPago}</p>
-                                <p><strong>Forma de Pago:</strong> ${data.pago.formaPago}</p>
-                                <p><strong>Referencia:</strong> ${data.pago.referencia || 'N/A'}</p>
-                                <p class="text-success">${data.message}</p>
-                            `,
-                            showCancelButton: true,
-                            confirmButtonText: 'Generar Factura',
-                            confirmButtonColor: '#28a745',
-                            cancelButtonText: 'Volver a Pagos',
-                            cancelButtonColor: '#6c757d',
-                            allowOutsideClick: false,
-                            allowEscapeKey: false,
-                            allowEnterKey: false
-                        }).then((result) => {
-                            if (result.isConfirmed) {
-                                // Redirigir a la generación de factura
-                                const notaId = document.getElementById('idNota').value;
-                                window.location.href = `/factura/facturas/nueva/${notaId}/`;
-                            } else if (result.dismiss === Swal.DismissReason.cancel) {
-                                // Redirigir a la lista de pagos
-                                window.location.href = "{% url 'pago_list' %}";
-                            }
-                        });
-                    } else if (data.errors && Object.keys(data.errors).length > 0) {
-                      // Mostrar mensaje de error con los errores del formulario
-                      const errorMessages = Object.entries(data.errors)
-                        .map(([field, messages]) => `<p><strong>${field}:</strong> ${messages.join(', ')}</p>`)
-                        .join('');
-
-                      Swal.fire({
-                        icon: 'error',
-                        title: 'Errores en el formulario',
-                        html: `
-                          <p>${data.message || 'El formulario contiene errores. Por favor, corríjalos e inténtelo nuevamente.'}</p>
-                          ${errorMessages}
-                        `,
-                        confirmButtonText: 'Aceptar',
-                        confirmButtonColor: '#dc3545',
-                      });
-                    } else {
-                        // Mostrar mensaje de error genérico
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Error al registrar el pago',
-                            text: data.message || 'Ocurrió un error inesperado.',
-                            confirmButtonText: 'Aceptar',
-                            confirmButtonColor: '#dc3545',
-                        });
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error inesperado',
-                        text: 'Ocurrió un error al procesar la solicitud.',
-                        confirmButtonText: 'Aceptar',
-                        confirmButtonColor: '#dc3545',
-                    });
+        fetch(pagoForm.action, {
+          method: 'POST',
+          body: formData,
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+          },
+        })
+          .then(response => {
+            if (!response.ok) {
+              throw new Error('Error en la respuesta del servidor');
+            }
+            return response.json();
+          })
+          .then(data => {
+            // ALERTAS PERSONALIZADAS SEGÚN LA LÓGICA DE TU SISTEMA
+            if (data.success) {
+              // Si el mensaje indica que la nota fue pagada en su totalidad
+              if (data.message && data.message.includes('La nota ha sido pagada en su totalidad')) {
+                Swal.fire({
+                  icon: 'success',
+                  title: 'Pago registrado exitosamente',
+                  html: `
+                    <p><strong>ID Pago:</strong> ${data.pago.idPago}</p>
+                    <p><strong>Nota:</strong> ${data.pago.idNota}</p>
+                    <p><strong>Monto:</strong> ${data.pago.monto}</p>
+                    <p><strong>Fecha de Pago:</strong> ${data.pago.fechaPago}</p>
+                    <p><strong>Forma de Pago:</strong> ${data.pago.formaPago}</p>
+                    <p><strong>Referencia:</strong> ${data.pago.referencia || 'N/A'}</p>
+                    <p class="text-success">${data.message}</p>
+                  `,
+                  showConfirmButton: true,
+                  confirmButtonText: 'Generar Factura',
+                  confirmButtonColor: '#28a745',
+                  allowOutsideClick: false,
+                  allowEscapeKey: false,
+                  allowEnterKey: false
+                }).then((result) => {
+                  if (result.isConfirmed) {
+                    // Redirigir a la generación de factura
+                    const notaId = document.getElementById('idNota').value;
+                    window.location.href = `/factura/facturas/nueva/${notaId}/`;
+                  }
                 });
+                } else {
+                // Si el pago fue exitoso pero la nota no está pagada completamente
+                Swal.fire({
+                  icon: 'warning',
+                  title: 'Pago registrado exitosamente',
+                  html: `
+                  <p><strong>ID Pago:</strong> ${data.pago.idPago}</p>
+                  <p><strong>Nota:</strong> ${data.pago.idNota}</p>
+                  <p><strong>Monto:</strong> ${data.pago.monto}</p>
+                  <p><strong>Fecha de Pago:</strong> ${data.pago.fechaPago}</p>
+                  <p><strong>Forma de Pago:</strong> ${data.pago.formaPago}</p>
+                  <p><strong>Referencia:</strong> ${data.pago.referencia || 'N/A'}</p>
+                  <p class="text-danger">${data.message}</p>
+                  `,
+                  confirmButtonText: 'Realizar otro pago',
+                  customClass: {
+                  confirmButton: 'btn btn-warning',
+                  },
+                  buttonsStyling: false,
+                }).then(() => {
+                  window.location.reload();
+                });
+                }
+              } else if (data.errors && Object.keys(data.errors).length > 0) {
+              // Mostrar mensaje de error con los errores del formulario
+              const errorMessages = Object.entries(data.errors)
+                .map(([field, messages]) => `<p><strong>${field}:</strong> ${messages.join(', ')}</p>`)
+                .join('');
+
+              Swal.fire({
+                icon: 'error',
+                title: 'Errores en el formulario',
+                html: `
+                  <p>${data.message || 'El formulario contiene errores. Por favor, corríjalos e inténtelo nuevamente.'}</p>
+                  ${errorMessages}
+                `,
+                confirmButtonText: 'Aceptar',
+                confirmButtonColor: '#dc3545',
+              });
+            } else {
+              // Mostrar mensaje de error genérico
+              Swal.fire({
+                icon: 'error',
+                title: 'Error al registrar el pago',
+                text: data.message || 'Ocurrió un error inesperado.',
+                confirmButtonText: 'Aceptar',
+                confirmButtonColor: '#dc3545',
+              });
+            }
+          })
+          .catch(error => {
+            console.error('Error:', error);
+            Swal.fire({
+              icon: 'error',
+              title: 'Error inesperado',
+              text: 'Ocurrió un error al procesar la solicitud.',
+              confirmButtonText: 'Aceptar',
+              confirmButtonColor: '#dc3545',
+            });
+          });
         });
     }
 });
