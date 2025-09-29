@@ -60,6 +60,7 @@ class Banco(models.Model):
         """
         # Asignar automáticamente el tipo de cuenta basado en la cuenta padre
         tipo_cuenta_padre = self.cuentaPadre.tipoPlanCuenta
+        naturaleza_cuenta_padre = self.cuentaPadre.naturalezaPlanCuenta
 
         if not self.codigoPlanCuenta:
             # Crear subcuenta para este banco específico
@@ -69,6 +70,7 @@ class Banco(models.Model):
                 codigoPlanCuenta=new_code,
                 nombrePlanCuenta=f"{self.nombreBanco} ({tipo_cuenta_padre})",
                 tipoPlanCuenta=tipo_cuenta_padre,
+                naturalezaPlanCuenta=naturaleza_cuenta_padre,
                 nivelPlanCuenta=self.cuentaPadre.nivelPlanCuenta + 1,
                 cuentaPadre=self.cuentaPadre
             )
@@ -157,79 +159,42 @@ class CuentaBanco(models.Model):
 
     def __str__(self):
         return f"{self.numeroCuentaBanco} - {self.banco.nombreBanco} ({self.get_tipoProducto_display()})"
-
+    
     def save(self, *args, **kwargs):
         """
         Genera automáticamente la cuenta contable asociada a la cuenta bancaria.
+        La cuenta contable será hija directa de la cuenta contable del banco.
         """
         if not self.planCuenta_id:
-            # Obtener nombres específicos según el tipo de producto
-            nombre_producto = {
-                'corriente': "CUENTAS CORRIENTES",
-                'ahorro': "CUENTAS DE AHORRO",
-                'plazo_fijo': "DEPÓSITOS A PLAZO",
-                'prestamo': "PRÉSTAMOS BANCARIOS",
-                'inversion': "FONDOS DE INVERSIÓN"
-            }.get(self.tipoProducto, "OTRAS CUENTAS")
-            
-            # Buscar o crear la cuenta de producto específico
-            cuenta_producto, created = PlanCuenta.objects.get_or_create(
-                nombrePlanCuenta=nombre_producto,
-                tipoPlanCuenta=self.banco.codigoPlanCuenta.tipoPlanCuenta,
-                nivelPlanCuenta=self.banco.codigoPlanCuenta.nivelPlanCuenta + 1,
-                cuentaPadre=self.banco.codigoPlanCuenta,
-                defaults={
-                    'codigoPlanCuenta': self._generate_product_code()
-                }
-            )
-            
-            # Crear subcuenta para esta cuenta específica
-            new_code = self._generate_account_code(cuenta_producto)
-            
+            # Crear subcuenta para esta cuenta específica, hija directa del banco
+            new_code = self._generate_account_code(self.banco.codigoPlanCuenta)
             plan_cuenta = PlanCuenta.objects.create(
                 codigoPlanCuenta=new_code,
                 nombrePlanCuenta=f"{self.get_tipoProducto_display()} {self.numeroCuentaBanco}",
                 tipoPlanCuenta=self.banco.codigoPlanCuenta.tipoPlanCuenta,
-                nivelPlanCuenta=cuenta_producto.nivelPlanCuenta + 1,
-                cuentaPadre=cuenta_producto
+                naturalezaPlanCuenta=self.banco.codigoPlanCuenta.naturalezaPlanCuenta,  # La naturaleza se hereda de la cuenta padre
+                nivelPlanCuenta=self.banco.codigoPlanCuenta.nivelPlanCuenta + 1,
+                cuentaPadre=self.banco.codigoPlanCuenta
             )
             self.planCuenta = plan_cuenta
-        
-        super().save(*args, **kwargs)
-    def _generate_product_code(self):
-            """Genera código para la categoría de producto bancario"""
-            try:
-                last_product = PlanCuenta.objects.filter(
-                    cuentaPadre=self.banco.codigoPlanCuenta
-                ).aggregate(Max('codigoPlanCuenta'))
-                
-                if last_product['codigoPlanCuenta__max']:
-                    last_num = int(last_product['codigoPlanCuenta__max'][-2:])
-                    new_code = f"{self.banco.codigoPlanCuenta.codigoPlanCuenta}{last_num + 1:02d}"
-                else:
-                    new_code = f"{self.banco.codigoPlanCuenta.codigoPlanCuenta}01"
-                
-                print(f"[DEBUG] Código de producto generado correctamente: {new_code}")
-                return new_code
-            except Exception as e:
-                print(f"[ERROR] Error al generar el código de producto: {e}")
-                raise
 
-    def _generate_account_code(self, cuenta_producto):
-            """Genera código para la cuenta bancaria específica"""
-            try:
-                last_account = PlanCuenta.objects.filter(
-                    cuentaPadre=cuenta_producto
-                ).aggregate(Max('codigoPlanCuenta'))
-                
-                if last_account['codigoPlanCuenta__max']:
-                    last_num = int(last_account['codigoPlanCuenta__max'][-2:])
-                    new_code = f"{cuenta_producto.codigoPlanCuenta}{last_num + 1:02d}"
-                else:
-                    new_code = f"{cuenta_producto.codigoPlanCuenta}01"
-                
-                print(f"[DEBUG] Código de cuenta bancaria generado correctamente: {new_code}")
-                return new_code
-            except Exception as e:
-                print(f"[ERROR] Error al generar el código de cuenta bancaria: {e}")
-                raise
+        super().save(*args, **kwargs)
+
+    def _generate_account_code(self, cuenta_padre):
+        """Genera código para la cuenta bancaria específica, hija directa del banco"""
+        try:
+            last_account = PlanCuenta.objects.filter(
+                cuentaPadre=cuenta_padre
+            ).aggregate(Max('codigoPlanCuenta'))
+            
+            if last_account['codigoPlanCuenta__max']:
+                last_num = int(last_account['codigoPlanCuenta__max'][-2:])
+                new_code = f"{cuenta_padre.codigoPlanCuenta}{last_num + 1:02d}"
+            else:
+                new_code = f"{cuenta_padre.codigoPlanCuenta}01"
+            
+            print(f"[DEBUG] Código de cuenta bancaria generado correctamente: {new_code}")
+            return new_code
+        except Exception as e:
+            print(f"[ERROR] Error al generar el código de cuenta bancaria: {e}")
+            raise

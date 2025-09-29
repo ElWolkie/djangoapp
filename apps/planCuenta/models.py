@@ -74,62 +74,114 @@ class PlanCuenta(models.Model):
         ordering = ['codigoPlanCuenta']
 
     def __str__(self):
-        return f"{self.codigoPlanCuenta} - {self.nombrePlanCuenta}"
-
+                return f"{self.codigoPlanCuenta} - {self.nombrePlanCuenta}"
+    
     def save(self, *args, **kwargs):
         """
         Sobrescribe el método save para generar automáticamente códigos contables
-        basados en la jerarquía y tipo de cuenta.
+        basados en la jerarquía y tipo de cuenta según PCGR.
         """
         if not self.codigoPlanCuenta:
             if self.cuentaPadre:
                 # Generar código para subcuenta
-                last_child = PlanCuenta.objects.filter(
-                    cuentaPadre=self.cuentaPadre
-                ).aggregate(Max('codigoPlanCuenta'))
-                
-                if last_child['codigoPlanCuenta__max']:
-                    last_code = last_child['codigoPlanCuenta__max']
-                    prefix = last_code[:-2]
-                    last_num = int(last_code[-2:])
-                    self.codigoPlanCuenta = f"{prefix}{last_num + 1:02d}"
-                else:
-                    self.codigoPlanCuenta = f"{self.cuentaPadre.codigoPlanCuenta}01"
-                
-                self.nivelPlanCuenta = self.cuentaPadre.nivelPlanCuenta + 1
+                self._generate_child_code()
             else:
                 # Generar código para cuenta principal
-                prefix = self._get_prefix_for_type()
-                last_main = PlanCuenta.objects.filter(
-                    cuentaPadre__isnull=True,
-                    tipoPlanCuenta=self.tipoPlanCuenta
-                ).aggregate(Max('codigoPlanCuenta'))
-                
-                if last_main['codigoPlanCuenta__max']:
-                    last_num = int(last_main['codigoPlanCuenta__max'][1:])
-                    self.codigoPlanCuenta = f"{prefix}{last_num + 1:02d}"
-                else:
-                    self.codigoPlanCuenta = f"{prefix}101"
-                
-                self.nivelPlanCuenta = 1
-                if not self.naturalezaPlanCuenta:
-                    naturaleza_map = {
-                        'activo': 'deudora',
-                        'gasto': 'deudora',
-                        'pasivo': 'acreedora',
-                        'patrimonio': 'acreedora',
-                        'ingreso': 'acreedora',
-                    }
-                    self.naturalezaPlanCuenta = naturaleza_map.get(self.tipoPlanCuenta)
+                self._generate_main_code()
+            
+            # Asignar naturaleza automáticamente si no está definida
+            if not self.naturalezaPlanCuenta:
+                self._assign_nature()
+        
         super().save(*args, **kwargs)
+
+    def _generate_child_code(self):
+        """Genera código para subcuenta basado en la cuenta padre según PCGR"""
+        # Obtener el último hijo de la misma cuenta padre
+        last_child = PlanCuenta.objects.filter(
+            cuentaPadre=self.cuentaPadre
+        ).order_by('-codigoPlanCuenta').first()
+        
+        if last_child:
+            # Incrementar el último código
+            last_code = last_child.codigoPlanCuenta
+            
+            # Calcular la longitud base según el código del padre
+            parent_code_length = len(self.cuentaPadre.codigoPlanCuenta)
+            
+            # Verificar que el último código tenga al menos la longitud del padre + 2 dígitos
+            if len(last_code) >= parent_code_length + 2:
+                base_code = last_code[:parent_code_length]
+                last_num = int(last_code[parent_code_length:parent_code_length + 2])
+                new_num = last_num + 1
+                self.codigoPlanCuenta = f"{base_code}{new_num:02d}"
+            else:
+                # Si no tiene los dígitos suficientes, empezar desde 01
+                self.codigoPlanCuenta = f"{self.cuentaPadre.codigoPlanCuenta}01"
+        else:
+            # Primer hijo de esta cuenta padre
+            self.codigoPlanCuenta = f"{self.cuentaPadre.codigoPlanCuenta}01"
+        
+        self.nivelPlanCuenta = self.cuentaPadre.nivelPlanCuenta + 1
+
+    def _generate_main_code(self):
+        """Genera código para cuenta principal según PCGR (4 dígitos)"""
+        prefix = self._get_prefix_for_type()
+        
+        # Obtener la última cuenta principal del mismo tipo
+        last_main = PlanCuenta.objects.filter(
+            cuentaPadre__isnull=True,
+            tipoPlanCuenta=self.tipoPlanCuenta
+        ).order_by('-codigoPlanCuenta').first()
+        
+        if last_main:
+            # Extraer el número del grupo (ej: "1100" -> 100, "1200" -> 200)
+            last_code = last_main.codigoPlanCuenta
+            
+            if len(last_code) == 4:
+                # Código ya tiene formato PCGR (4 dígitos)
+                group_num = int(last_code[1:])  # Ignora el primer dígito (tipo)
+                new_group_num = group_num + 100  # Incrementa en 100 para nuevo grupo
+                
+                # Validar que no exceda el rango (máximo 9900)
+                if new_group_num > 9900:
+                    raise ValueError("No se pueden crear más grupos para este tipo de cuenta")
+                    
+                self.codigoPlanCuenta = f"{prefix}{new_group_num:03d}"
+            else:
+                # Si el código tiene formato antiguo, migrar al nuevo
+                if len(last_code) == 3:
+                    # Formato antiguo: "101" -> convertirlo a "1100"
+                    group_num = int(last_code[1:]) * 100
+                else:
+                    group_num = 100
+                    
+                new_group_num = group_num + 100
+                self.codigoPlanCuenta = f"{prefix}{new_group_num:03d}"
+        else:
+            # Primera cuenta de este tipo: 1100, 2100, 3100, 4100, 5100
+            self.codigoPlanCuenta = f"{prefix}100"
+        
+        self.nivelPlanCuenta = 1
 
     def _get_prefix_for_type(self):
         """Devuelve el prefijo numérico según el tipo de cuenta"""
         type_prefix_map = {
             'activo': '1',
-            'pasivo': '2',
+            'pasivo': '2', 
             'patrimonio': '3',
             'ingreso': '4',
             'gasto': '5'
         }
         return type_prefix_map.get(self.tipoPlanCuenta, '0')
+
+    def _assign_nature(self):
+        """Asigna naturaleza automáticamente según el tipo"""
+        naturaleza_map = {
+            'activo': 'deudora',
+            'gasto': 'deudora', 
+            'pasivo': 'acreedora',
+            'patrimonio': 'acreedora',
+            'ingreso': 'acreedora',
+        }
+        self.naturalezaPlanCuenta = naturaleza_map.get(self.tipoPlanCuenta)
