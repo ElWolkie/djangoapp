@@ -165,7 +165,7 @@
           <tr>
             <td class="fw-bold">{{ pago.idPago }}</td>
             <td>{{ pago.idNota.numeroNota }}</td>
-            <td>{{ pago.monto|floatformat:2 }} {{ pago.idTasa.idMoneda.simbolo }}</td>
+            <td>{{ pago.monto|floatformat:2 }} {{ pago.idTasa.idMoneda.simboloMoneda }}</td>
             <td>{{ pago.fechaPago|date:"d/m/Y" }}</td>
             <td>{{ pago.formaPago }}</td>
             <td>{{ pago.referencia|default:"—" }}</td>
