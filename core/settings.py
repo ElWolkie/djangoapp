@@ -93,6 +93,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "apps.bitacora.middleware.AuditMiddleware",
+    'apps.api.middleware.DisableCSRFForPublicAPI'
     # 'debug_toolbar.middleware.DebugToolbarMiddleware',
 ]
 

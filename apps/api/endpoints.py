@@ -1,17 +1,65 @@
+# En api/endpoints.py o en tu archivo de vistas
 from rest_framework.decorators import api_view
+from rest_framework.views import APIView
 from rest_framework.response import Response
-from apps.home.models import Personas, Usuarios
+from rest_framework import status
+from rest_framework.permissions import AllowAny
+
+from apps.persona.models import Personas
+from apps.home.models import Usuarios
+import logging
+
+from apps.persona.serializers import PersonaCreateSerializer
+
+from rest_framework.authentication import SessionAuthentication
+
+from apps.persona.serializers import PersonaCreateSerializer
+
+logger = logging.getLogger(__name__)
+
+
+class PersonaPublicRegisterView(APIView):
+    authentication_classes = [] # Le dice a DRF: "No intentes autenticar esta petición".
+    permission_classes = [AllowAny]   # Le dice a DRF: "Cualquiera tiene permiso para acceder".
+
+    def post(self, request, *args, **kwargs):
+        # ... el resto de tu función post se queda exactamente igual
+        logger.info(f"📥 Datos recibidos para registro de persona: {request.data}")
+        
+        serializer = PersonaCreateSerializer(data=request.data)
+        
+        if serializer.is_valid():
+            try:
+                # El método .save() llamará internamente a nuestro método create() en el serializer
+                persona_creada = serializer.save()
+                
+                # Preparamos la respuesta usando los datos del serializer post-creación
+                # El serializer automáticamente convierte el objeto 'persona_creada' a JSON
+                response_data = serializer.data
+                response_data['mensaje'] = 'Persona registrada exitosamente'
+                
+                logger.info(f"📤 Enviando respuesta exitosa: {response_data}")
+                return Response(response_data, status=status.HTTP_201_CREATED)
+                
+            except Exception as e:
+                logger.error(f"❌ Error interno durante la creación de la persona: {str(e)}", exc_info=True)
+                return Response({
+                    'error': 'Ocurrió un error inesperado al guardar los datos.',
+                    'codigo': 'ERROR_INTERNO'
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        else:
+            # Si los datos no son válidos, el serializer.errors contendrá los detalles
+            logger.warning(f"⚠️ Datos de registro inválidos: {serializer.errors}")
+            return Response({
+                'error': 'Datos inválidos. Por favor, revisa los campos.',
+                'detalles': serializer.errors,
+                'codigo': 'VALIDATION_ERROR'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
 
 @api_view(['GET'])
 def verificar_cedula(request):
-    """
-    Endpoint para verificar cédula
-    Parámetros GET:
-    - cedula: Cédula a verificar
-    Retorna JSON con:
-    - existe: boolean (si la cédula existe en Personas)
-    - usuario_existe: boolean (si ya tiene usuario asociado)
-    """
     cedula = request.GET.get('cedula', '')
     response_data = {
         'existe': False,

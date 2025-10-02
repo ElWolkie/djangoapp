@@ -309,7 +309,7 @@ export default function DashboardScreen() {
           ))}
         </View>
 
-        <View style={styles.sectionContainer}>
+        {/* <View style={styles.sectionContainer}>
           <Text style={styles.sectionTitle}>Atajos rápidos</Text>
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <View style={[styles.sectionButton, { marginRight: 10 }]}>
@@ -321,7 +321,7 @@ export default function DashboardScreen() {
               <Text style={[styles.sectionButtonText, { marginLeft: 8 }]}>Formaciones</Text>
             </View>
           </View>
-        </View>
+        </View> */}
       </ScrollView>
     </View>
   );

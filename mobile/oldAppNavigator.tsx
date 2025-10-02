@@ -43,7 +43,9 @@ function CustomDrawerContent(props: any) {
 
   /* ---------- GESTIÓN ACADÉMICA ---------- */
   const [openAcademica, setOpenAcademica] = useState(false);
+  const [openFormaciones, setOpenFormaciones] = useState(false);
   const animAcademica = useRef(new Animated.Value(0)).current;
+  const animForm = useRef(new Animated.Value(0)).current;
 
   const toggleAcademica = () => {
     const toValue = openAcademica ? 0 : 1;
@@ -56,14 +58,53 @@ function CustomDrawerContent(props: any) {
     }).start();
   };
 
+  const toggleFormaciones = () => {
+    const toValue = openFormaciones ? 0 : 1;
+    setOpenFormaciones(!openFormaciones);
+    Animated.timing(animForm, { 
+      toValue, 
+      duration: 300, 
+      easing: Easing.out(Easing.cubic), 
+      useNativeDriver: false 
+    }).start();
+  };
+
   /* ---------- GESTIONAR TRÁMITE ---------- */
   const [openTramPanel, setOpenTramPanel] = useState(false);
+  const [openTramSub, setOpenTramSub] = useState(false);
   const animTramPanel = useRef(new Animated.Value(0)).current;
+  const animTramSub = useRef(new Animated.Value(0)).current;
 
   const toggleTramPanel = () => {
     const toValue = openTramPanel ? 0 : 1;
     setOpenTramPanel(!openTramPanel);
     Animated.timing(animTramPanel, { 
+      toValue, 
+      duration: 300, 
+      easing: Easing.out(Easing.cubic), 
+      useNativeDriver: false 
+    }).start();
+  };
+
+  const toggleTramSub = () => {
+    const toValue = openTramSub ? 0 : 1;
+    setOpenTramSub(!openTramSub);
+    Animated.timing(animTramSub, { 
+      toValue, 
+      duration: 300, 
+      easing: Easing.out(Easing.cubic), 
+      useNativeDriver: false 
+    }).start();
+  };
+
+  /* ---------- FINANZAS ---------- */
+  const [openFinanzas, setOpenFinanzas] = useState(false);
+  const animFinanzas = useRef(new Animated.Value(0)).current;
+
+  const toggleFinanzas = () => {
+    const toValue = openFinanzas ? 0 : 1;
+    setOpenFinanzas(!openFinanzas);
+    Animated.timing(animFinanzas, { 
       toValue, 
       duration: 300, 
       easing: Easing.out(Easing.cubic), 
@@ -82,7 +123,19 @@ function CustomDrawerContent(props: any) {
     inputRange: [0,1], 
     outputRange: ['0deg','180deg'] 
   });
+  const rotateForm = animForm.interpolate({ 
+    inputRange: [0,1], 
+    outputRange: ['0deg','180deg'] 
+  });
   const rotateTramPanel = animTramPanel.interpolate({ 
+    inputRange: [0,1], 
+    outputRange: ['0deg','180deg'] 
+  });
+  const rotateTramSub = animTramSub.interpolate({ 
+    inputRange: [0,1], 
+    outputRange: ['0deg','180deg'] 
+  });
+  const rotateFin = animFinanzas.interpolate({ 
     inputRange: [0,1], 
     outputRange: ['0deg','180deg'] 
   });
@@ -93,9 +146,24 @@ function CustomDrawerContent(props: any) {
     outputRange: [0, 1000] // Valor suficientemente alto
   });
 
+  const formacionesMaxHeight = animForm.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 200]
+  });
+
   const tramPanelMaxHeight = animTramPanel.interpolate({
     inputRange: [0, 1],
     outputRange: [0, 800]
+  });
+
+  const tramSubMaxHeight = animTramSub.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 150]
+  });
+
+  const finanzasMaxHeight = animFinanzas.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 200]
   });
 
   // displayName fallback
@@ -129,7 +197,7 @@ function CustomDrawerContent(props: any) {
           labelStyle={styles.drawerLabel}
         />
 
-        {/* ACORDEÓN: ACADEMICA - ahora SIN sub-acordeón (solo acordeón principal) */} 
+        {/* ACORDEÓN: ACADEMICA - SOLUCIÓN SIMPLIFICADA */}
         <View style={styles.sectionContainer}>
           <TouchableOpacity 
             style={styles.accordionHeader} 
@@ -149,29 +217,42 @@ function CustomDrawerContent(props: any) {
             styles.accordionContent, 
             { maxHeight: academicaMaxHeight }
           ]}>
-            {/* Antes había un sub-acordeón (Formaciones) — lo comenté/eliminé para simplificar */}
-            {/* Mantengo Inscripciones visible dentro del acordeón para consistencia */}
-            
-            {/* Formaciones y TipoFormaciones comentados (puedo reactivar luego si deseas) */}
-            {/*
-            <DrawerItem
-              label="Formaciones"
-              icon={({ color, size }) => <Icon name="school" color={color} size={size} />}
-              onPress={() => navigateTo('Formaciones')}
-              labelStyle={styles.submenuText}
-              style={styles.submenuItem}
-            />
-            <DrawerItem
-              label="Tipo Formaciones"
-              icon={({ color, size }) => <Icon name="format-list-bulleted" color={color} size={size} />}
-              onPress={() => navigateTo('TipoFormaciones')}
-              labelStyle={styles.submenuText}
-              style={styles.submenuItem}
-            />
-            */}
+            {/* Sub-acordeón Formaciones */}
+            <TouchableOpacity 
+              style={styles.subAccordionHeader} 
+              onPress={toggleFormaciones}
+              activeOpacity={0.7}
+            >
+              <View style={styles.subAccordionTitleRow}>
+                <Icon name="school" size={18} color="#4f8cff" />
+                <Text style={styles.subAccordionTitle}>Formaciones</Text>
+              </View>
+              <Animated.View style={{ transform: [{ rotate: rotateForm }] }}>
+                <Icon name="chevron-down" size={20} color="#4f8cff" />
+              </Animated.View>
+            </TouchableOpacity>
 
-            {/* Otros items académicos (comentados excepto Inscripciones) */}
-            {/*
+            <Animated.View style={[
+              styles.subAccordionContent,
+              { maxHeight: formacionesMaxHeight }
+            ]}>
+              <DrawerItem
+                label="Formaciones"
+                icon={({ color, size }) => <Icon name="school" color={color} size={size} />}
+                onPress={() => navigateTo('Formaciones')}
+                labelStyle={styles.submenuText}
+                style={styles.submenuItem}
+              />
+              <DrawerItem
+                label="Tipo Formaciones"
+                icon={({ color, size }) => <Icon name="format-list-bulleted" color={color} size={size} />}
+                onPress={() => navigateTo('TipoFormaciones')}
+                labelStyle={styles.submenuText}
+                style={styles.submenuItem}
+              />
+            </Animated.View>
+
+            {/* Otros items académicos */}
             <DrawerItem
               label="Materias"
               icon={({ color, size }) => <Icon name="book-open-variant" color={color} size={size} />}
@@ -200,9 +281,6 @@ function CustomDrawerContent(props: any) {
               labelStyle={styles.submenuText}
               style={styles.submenuItem}
             />
-            */}
-
-            {/* Inscripciones queda activo */}
             <DrawerItem
               label="Inscripciones"
               icon={({ color, size }) => <Icon name="clipboard-list" color={color} size={size} />}
@@ -213,7 +291,7 @@ function CustomDrawerContent(props: any) {
           </Animated.View>
         </View>
 
-        {/* TRÁMITE - ahora SIN sub-acordeón (solo acordeón principal) */} 
+        {/* TRÁMITE - SOLUCIÓN SIMPLIFICADA */}
         <View style={styles.sectionContainer}>
           <TouchableOpacity 
             style={styles.accordionHeader} 
@@ -233,24 +311,41 @@ function CustomDrawerContent(props: any) {
             styles.accordionContent, 
             { maxHeight: tramPanelMaxHeight }
           ]}>
-            {/* Sub-acordeón eliminado: dejo Solicitudes visible aquí y comento el resto */}
-            <DrawerItem
-              label="Solicitudes"
-              icon={({ color, size }) => <Icon name="file-document" color={color} size={size} />}
-              onPress={() => navigateTo('Solicitudes')}
-              labelStyle={styles.submenuText}
-              style={styles.submenuItem}
-            />
+            {/* Sub-acordeón Trámite */}
+            <TouchableOpacity 
+              style={styles.subAccordionHeader} 
+              onPress={toggleTramSub}
+              activeOpacity={0.7}
+            >
+              <View style={styles.subAccordionTitleRow}>
+                <Icon name="file-certificate" size={18} color="#4f8cff" />
+                <Text style={styles.subAccordionTitle}>Trámite</Text>
+              </View>
+              <Animated.View style={{ transform: [{ rotate: rotateTramSub }] }}>
+                <Icon name="chevron-down" size={20} color="#4f8cff" />
+              </Animated.View>
+            </TouchableOpacity>
 
-            {/* Trámites, Servicios y Requisitos comentados por ahora */}
-            {/*
-            <DrawerItem
-              label="Trámites"
-              icon={({ color, size }) => <Icon name="file-certificate" color={color} size={size} />}
-              onPress={() => navigateTo('Tramites')}
-              labelStyle={styles.submenuText}
-              style={styles.submenuItem}
-            />
+            <Animated.View style={[
+              styles.subAccordionContent,
+              { maxHeight: tramSubMaxHeight }
+            ]}>
+              <DrawerItem
+                label="Solicitudes"
+                icon={({ color, size }) => <Icon name="file-document" color={color} size={size} />}
+                onPress={() => navigateTo('Solicitudes')}
+                labelStyle={styles.submenuText}
+                style={styles.submenuItem}
+              />
+              <DrawerItem
+                label="Trámites"
+                icon={({ color, size }) => <Icon name="file-certificate" color={color} size={size} />}
+                onPress={() => navigateTo('Tramites')}
+                labelStyle={styles.submenuText}
+                style={styles.submenuItem}
+              />
+            </Animated.View>
+
             <DrawerItem
               label="Servicio Expedito"
               icon={({ color, size }) => <Icon name="truck-fast" color={color} size={size} />}
@@ -265,12 +360,10 @@ function CustomDrawerContent(props: any) {
               labelStyle={styles.submenuText}
               style={styles.submenuItem}
             />
-            */}
           </Animated.View>
         </View>
 
-        {/* FINANZAS - comentado por completo (no lo necesitamos ahora) */}
-        {/*
+        {/* FINANZAS - SOLUCIÓN SIMPLIFICADA */}
         <View style={styles.sectionContainer}>
           <TouchableOpacity 
             style={styles.accordionHeader} 
@@ -306,13 +399,12 @@ function CustomDrawerContent(props: any) {
             />
           </Animated.View>
         </View>
-        */}
 
         {/* Espacio para empujar el logout hacia abajo */}
         <View style={styles.spacer} />
       </DrawerContentScrollView>
 
-      {/* Botón de cerrar sesión fuera del ScrollView */} 
+      {/* Botón de cerrar sesión fuera del ScrollView */}
       <View style={styles.logoutContainer}>
         <DrawerItem
           label="Cerrar Sesión"

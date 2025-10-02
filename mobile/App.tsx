@@ -4,6 +4,7 @@ import * as React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import LoginScreen from './src/screens/LoginScreen';
+import RegisterScreen from './src/screens/RegisterScreen';
 import AppNavigator from './AppNavigator';
 import PantallaPersonas from './src/screens/personas';
 import PantallaFormaciones from './src/screens/formaciones';
@@ -24,6 +25,7 @@ import { ReloadProvider } from './src/contexts/ReloadContext';
 
 export type RootStackParamList = {
   Login: undefined;
+  Register: undefined;
   Main: undefined;
   Personas: undefined;
   Formaciones: undefined;
@@ -51,6 +53,7 @@ export default function App() {
         <NavigationContainer>
           <Stack.Navigator initialRouteName="Login">
             <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="Register" component={RegisterScreen} options={{ headerShown: false }} />
             <Stack.Screen name="Main" component={AppNavigator} options={{ headerShown: false }} />
             <Stack.Screen name="Personas" component={PantallaPersonas} options={{ title: 'Mi Sistema' }} />
             <Stack.Screen name="Formaciones" component={PantallaFormaciones} options={{ title: 'Formaciones' }} />

@@ -19,9 +19,14 @@ import type { StackNavigationProp } from '@react-navigation/stack';
 import api from '../api/api';
 import { storeTokens } from '../api/auth'; // tu helper
 
+// NOTE: Ajusté los nombres para compatibilidad con diferentes navegators
 type RootStackParamList = {
   Login: undefined;
   Main: undefined;
+  Register: { form?: any } | undefined; // coincide con App.tsx (Register -> RegisterScreen.tsx)
+  RegisterPerson: { form?: any } | undefined; // alternativa
+  RegisterScreen: { form?: any } | undefined; // alternativa
+  RegisterUser: { person: any } | undefined;
 };
 type LoginScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Login'>;
 
@@ -29,7 +34,7 @@ interface LoginScreenProps {
   navigation: LoginScreenNavigationProp;
 }
 
-const { width } = Dimensions.get('window');
+const { width: screenWidth } = Dimensions.get('window');
 
 export default function LoginScreen({ navigation }: LoginScreenProps) {
   const [cedula, setCedula] = useState(''); // aquí guardaremos sólo dígitos
@@ -72,16 +77,9 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
    * Intenta obtener tokens desde varios endpoints y shapes.
    * - Primero prueba token_cedula (tu endpoint personalizado)
    * - Luego prueba token (simplejwt)
-   * - Para cada endpoint prueba diferentes nombres de campo
    */
   const tryObtainToken = async (digits: string, passwordValue: string) => {
-    // endpoints por orden de preferencia
-    const endpoints = [
-      '/api/token_cedula/', // tu endpoint específico
-      '/api/token/',        // fallback a simplejwt
-    ];
-
-    // shapes posibles que el backend podría aceptar
+    const endpoints = ['/api/token_cedula/', '/api/token/'];
     const payloadCandidates: Record<string, any>[] = [
       { cedula: digits, password: passwordValue },
       { username: digits, password: passwordValue },
@@ -98,7 +96,6 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
           const res = await api.post(url, payload);
           const d = res?.data ?? {};
 
-          // varias formas comunes de respuesta: { access, refresh } o { token } o { access_token }
           const access = d.access ?? d.access_token ?? d.token ?? null;
           const refresh = d.refresh ?? d.refresh_token ?? null;
 
@@ -106,22 +103,16 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
             return { access, refresh, raw: d, usedUrl: url, usedPayload: payload };
           }
 
-          // algunos endpoints devuelven estructura diferente: e.g. { data: { access, refresh } }
           if (d.data && (d.data.access || d.data.token)) {
             return { access: d.data.access ?? d.data.token, refresh: d.data.refresh ?? null, raw: d, usedUrl: url, usedPayload: payload };
           }
 
-          // si llegamos aquí no reconocimos la respuesta, lo guardamos y seguimos intentando
           lastError = { url, payload, response: d };
         } catch (err: any) {
-          // guarda para debug y prueba siguiente candidate
           lastError = err;
-          // si hay respuesta del servidor con mensajes de error detallados, retornarla para mostrar al usuario
           if (err?.response?.data) {
-            // Si es error de validación del backend, regresamos ese detalle inmediatamente
             return { error: err.response.data, rawErr: err, usedUrl: url, usedPayload: payload };
           }
-          // si no, simplemente seguimos probando
         }
       }
     }
@@ -146,7 +137,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         return;
       }
 
-      // opcional: llamar verificar-cedula para feedback (no crítico)
+      // opcional: llamada para verificar-cedula (no crítica)
       try {
         await api.get(`/api/verificar-cedula/?cedula=${encodeURIComponent(digits)}`).catch(() => null);
       } catch { /* noop */ }
@@ -160,11 +151,8 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
       }
 
       if ((result as any).error) {
-        // si backend devolvió detalles en err.response.data, intenta mostrarlos
         const e = (result as any).error;
-        // e puede ser objeto con keys, por ejemplo: { idPersona: ["This field is required."] } o { detail: "..." }
         if (typeof e === 'object') {
-          // buscar messages útiles
           const textErr =
             e.detail ||
             e.non_field_errors?.join?.(', ') ||
@@ -178,7 +166,6 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         return;
       }
 
-      // si recibimos tokens
       const access = (result as any).access as string | undefined;
       const refresh = (result as any).refresh as string | undefined;
 
@@ -188,7 +175,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         return;
       }
 
-      // Guardar tokens
+      // Guardar tokens y usuario (ajusta storeTokens a tu helper)
       await storeTokens(access, refresh ?? null, (result as any).user ?? null);
 
       // navegar al Main (reset para evitar volver al login)
@@ -201,6 +188,39 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
     }
   };
 
+  // NUEVO: navegar directo a la pantalla "Register" (registrada en App.tsx)
+  const openRegister = () => {
+    const cedulaDigits = normalizeCedulaToDigits(cedula);
+    const prefill = { form: { cedula: cedulaDigits } };
+    console.log('openRegister fired — prefill:', prefill);
+
+    // Navegar a la ruta que registraste en App.tsx: "Register"
+    navigation.navigate('Register' as any, prefill);
+
+    // Verificación rápida: si la navegación no ocurre por alguna razón,
+    // avisamos al desarrollador (esto rara vez se mostrará en producción).
+    setTimeout(() => {
+      // intenta detectar si la ruta actual sigue siendo Login; esto es heurístico
+      // y solo para feedback rápido durante desarrollo.
+      try {
+        const state = (navigation as any).getState?.();
+        const current = state?.routes?.[state.index]?.name;
+        if (current === 'Login') {
+          Alert.alert(
+            'Registro',
+            'No se pudo navegar a "Register". Verifica que la ruta "Register" esté registrada en tu Stack Navigator (App.tsx).'
+          );
+        }
+      } catch (e) {
+        // noop
+      }
+    }, 300);
+  };
+
+  // Responsive width para PC: si pantalla ancha, usar caja más estrecha y centrada
+  const isWide = screenWidth >= 1000;
+  const formWidth = isWide ? 560 : Math.min(720, screenWidth * 0.88);
+
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <Image style={styles.bgImage} source={require('../../assets/frontImg.jpg')} blurRadius={3} />
@@ -210,7 +230,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         <Text style={styles.logoSubtitle}>Trámites académicos</Text>
       </Animated.View>
 
-      <Animated.View style={[ styles.form, { opacity: formAnim, transform: [{ translateY: formAnim.interpolate({ inputRange: [0,1], outputRange: [80,0] }) }] } ]}>
+      <Animated.View style={[ styles.form, { width: formWidth, opacity: formAnim, transform: [{ translateY: formAnim.interpolate({ inputRange: [0,1], outputRange: [80,0] }) }] } ]}>
         <View style={[ styles.inputContainer, focusField === 'cedula' && styles.inputContainerFocused, errors.cedula && styles.inputContainerError ]}>
           <Icon name="card-account-details" size={24} color={focusField === 'cedula' ? '#4f8cff' : errors.cedula ? '#e63946' : '#aaa'} style={styles.inputIcon} />
           <TextInput
@@ -265,6 +285,15 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
             )}
           </TouchableOpacity>
         </Animated.View>
+
+        {/* Registrarse: ahora navega DIRECTO a la pantalla de registro (Register) */}
+        <View style={styles.registerRow}>
+          <Text style={styles.registerHint}>¿No estás registrado?</Text>
+          <TouchableOpacity style={styles.registerButton} onPress={openRegister} activeOpacity={0.85}>
+            <Icon name="account-plus" size={18} color="#fff" style={{ marginRight: 8 }} />
+            <Text style={styles.registerText}>Registrarse</Text>
+          </TouchableOpacity>
+        </View>
       </Animated.View>
     </KeyboardAvoidingView>
   );
@@ -277,7 +306,7 @@ const styles = StyleSheet.create({
   logoContainer: { alignItems: 'center', marginBottom: 40 },
   logoTitle: { color: '#fff', fontWeight: 'bold', fontSize: 26, textAlign: 'center', letterSpacing: 1 },
   logoSubtitle: { color: '#fff', fontWeight: '600', fontSize: 16, textAlign: 'center', marginTop: 2 },
-  form: { width: width * 0.88, backgroundColor: 'rgba(255,255,255,0.96)', borderRadius: 22, padding: 26, alignItems: 'center', elevation: 10 },
+  form: { width: screenWidth * 0.88, backgroundColor: 'rgba(255,255,255,0.96)', borderRadius: 22, padding: 26, alignItems: 'center', elevation: 10 },
   inputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 30, height: 50, marginBottom: 10, width: '100%', paddingHorizontal: 12, borderWidth: 1.2, borderColor: 'transparent' },
   inputContainerFocused: { borderColor: '#4f8cff' },
   inputContainerError: { borderColor: '#e63946' },
@@ -289,4 +318,8 @@ const styles = StyleSheet.create({
   buttonContainer: { height: 48, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 10, width: '100%', borderRadius: 30, backgroundColor: 'transparent' },
   loginButton: { backgroundColor: '#4f8cff' },
   loginText: { color: 'white', fontWeight: 'bold', fontSize: 17 },
+  registerRow: { width: '100%', marginTop: 4, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  registerHint: { color: '#555', fontSize: 14 },
+  registerButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#2b8cff', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 24 },
+  registerText: { color: '#fff', fontWeight: '700', fontSize: 14 },
 });
