@@ -1755,6 +1755,37 @@ function setCurrencyField(id, monto) {
   
   // NUEVO: Inicializar campos de moneda con formato correcto
   calcularMontos();
+  manejarSeleccionDesdeParametros();
+  function manejarSeleccionDesdeParametros() {
+  const urlParams = new URLSearchParams(window.location.search);
+
+  // Lista de parámetros y sus configuraciones
+  const parametros = [
+    { key: 'idP', tablaId: 'tablaPersonas', inputId: 'personaInput', hiddenInputId: 'idPersona' },
+    { key: 'id', tablaId: 'tablaInscripciones', inputId: 'inscripcion', hiddenInputId: 'idInscripcion' },
+    { key: 'idH', tablaId: 'tablaHonorarios', inputId: 'honorario', hiddenInputId: 'idHonorario' },
+    { key: 'idS', tablaId: 'tablaSolicitudes', inputId: 'solicitud', hiddenInputId: 'idSolicitud' },
+    { key: 'idC', tablaId: 'tablaCuotas', inputId: 'cuota', hiddenInputId: 'idCuota' }
+  ];
+
+  parametros.forEach(param => {
+    const valor = urlParams.get(param.key);
+    if (valor) {
+      const fila = document.querySelector(`#${param.tablaId} tr[data-id="${valor}"]`);
+      if (fila) {
+        const nombre = fila.getAttribute('data-nombre');
+        document.getElementById(param.inputId).value = nombre;
+        document.getElementById(param.hiddenInputId).value = valor;
+      } else {
+        console.warn(`No se encontró una fila en la tabla ${param.tablaId} con data-id="${valor}"`);
+      }
+    }
+  });
+}
+
+// Llamar a la función al cargar la página
+document.addEventListener('DOMContentLoaded', manejarSeleccionDesdeParametros);
 });
+
 </script>
 {% endblock javascripts %}

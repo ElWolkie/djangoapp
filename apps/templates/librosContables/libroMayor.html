@@ -346,8 +346,20 @@
           <td></td>
           <td>{{ item.data.fecha|date:"d/m/Y" }}</td>
           <td>{{ item.data.concepto }}</td>
-          <td class="highlight-debe">{{ item.data.debe|floatformat:2 }}</td>
-          <td class="highlight-haber">{{ item.data.haber|floatformat:2 }}</td>
+            <td class="highlight-debe">
+            {% if item.data.debe > 0 %}
+              {{ item.data.debe|floatformat:2 }}
+            {% else %}
+              &nbsp;
+            {% endif %}
+            </td>
+            <td class="highlight-haber">
+            {% if item.data.haber > 0 %}
+              {{ item.data.haber|floatformat:2 }}
+            {% else %}
+              &nbsp;
+            {% endif %}
+            </td>
           <td class="{% if item.data.saldo > 0 %}saldo-deudor{% elif item.data.saldo < 0 %}saldo-acreedor{% else %}saldo-cero{% endif %}">
             {{ item.data.saldo|floatformat:2 }}
           </td>
