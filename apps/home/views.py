@@ -46,6 +46,7 @@ from django.utils import timezone
 from collections import Counter
 
 from apps.bitacora.signals import registrar_login_fallido
+from apps.home.utils import to_decimal
 
 @login_required(login_url='login')
 def contabilidad(request):
@@ -699,7 +700,7 @@ def registrar_cuota_formacion(request, idFormacion=None):
                 })
             
             # Convertir valor a decimal
-            valor = request.POST['valorCuota'].replace('.', '').replace(',', '.')
+            valor = to_decimal(request.POST['valorCuota'])
             
             # Crear instancia de CuotaFormacion
             cuota = CuotaFormacion(
@@ -810,7 +811,7 @@ def edit_cuota_formacion(request, pk):
         post_data['idFormacion'] = str(cuota.idFormacion_id)
 
         valor = post_data.get('valorCuota', '')
-        post_data['valorCuota'] = valor.replace('.', '').replace(',', '.')
+        post_data['valorCuota'] = str(to_decimal(valor))
 
         form = CuotaFormacionForm(post_data, instance=cuota)
         if form.is_valid():

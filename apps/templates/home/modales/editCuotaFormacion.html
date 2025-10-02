@@ -233,73 +233,463 @@
 {% endblock content %}
 
 {% block javascripts %}
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
+<script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
+<script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
 <script>
-document.addEventListener("DOMContentLoaded", function() {
-  // Convertir a mayúsculas (excepto valorCuota)
-  document.querySelectorAll('input').forEach(input => {
-    if (!/password|hidden|email/.test(input.type) && input.id !== 'valorCuota') {
-      input.addEventListener('input', e => {
-        e.target.value = e.target.value.toUpperCase();
+$(document).ready(function () {
+  const apiUrl = "{% url 'api_cuotas' %}";
+
+  // Eliminar la funcionalidad de selección de fila en el modal de cuotas
+  $('#cuotasTable').off('click keydown', '.cuota-row');
+  $('#cuotasTable').off('click', '.seleccionarCuota');
+
+  // Obtener referencia al modal de formaciones
+  const formacionModalEl = document.getElementById('formacionModal');
+
+  // Obtener idFormacion de la URL si está presente
+  const urlParams = new URLSearchParams(window.location.search);
+  const idFormacionFromUrl = window.location.pathname.split('/').filter(Boolean).pop();
+
+  if (idFormacionFromUrl && !isNaN(idFormacionFromUrl)) {
+    // Configurar el input y el botón "Ver cuotas" automáticamente
+    $('#idFormacion').val(idFormacionFromUrl);
+
+    // Mostrar automáticamente las cuotas para la formación recibida
+    $('#verCuotas').trigger('click');
+  } else {
+    // Configurar el botón "Buscar formación" para abrir el modal
+    $('#abrirModalFormacion').on('click', function() {
+      const modal = new bootstrap.Modal(document.getElementById('formacionModal'));
+      modal.show();
+
+      // Limpiar búsqueda al abrir el modal
+      $('#searchFormacionInput').val('');
+      filterTable('formacionesTable', 'searchFormacionInput');
+    });
+  }
+
+  // Configurar botón "Ver cuotas" usando jQuery para evitar problemas de referencia
+  $('#verCuotas').on('click', async function() {
+    const idForm = $('#idFormacion').val();
+    if (!idForm) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Seleccione una formación',
+        text: 'Para ver las cuotas, primero debe seleccionar una formación.',
+        confirmButtonText: 'Aceptar',
+        customClass: { confirmButton: 'btn btn-warning' },
+        buttonsStyling: false
+      }).then(() => {
+        const modal = new bootstrap.Modal(document.getElementById('formacionModal'));
+        modal.show();
       });
+      return;
+    }
+
+    const modal = new bootstrap.Modal(document.getElementById('cuotaModal'));
+    modal.show();
+
+    // Limpiar búsqueda al abrir el modal
+    $('#searchCuotasInput').val('');
+
+    const $tbody = $('#cuotasTbody');
+    $tbody.html('<tr><td colspan="7" class="text-center py-4"><i class="fas fa-spinner fa-spin fa-2x"></i><p class="mt-2">Cargando cuotas...</p></td></tr>');
+
+    const data = await getCuotasFromServer(idForm);
+    if (data && Array.isArray(data.results)) {
+      renderCuotasIntoModal(data.results);
+    } else {
+      $tbody.html('<tr><td colspan="7" class="text-center text-danger py-4">Error al cargar las cuotas. Intente de nuevo.</td></tr>');
     }
   });
 
-  // Validación para nombreCuota: solo letras, números y espacios
-  const nombreInput = document.getElementById('nombreCuota');
-  if (nombreInput) {
-    nombreInput.addEventListener('input', function() {
-      this.value = this.value.replace(/[^A-ZÁÉÍÓÚÑ0-9\s]/g, '');
-    });
+  async function getCuotasFromServer(formacionId) {
+    const url = `${apiUrl}?formacion_id=${encodeURIComponent(formacionId)}`;
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        credentials: 'same-origin',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      });
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (error) {
+      console.error('Fetch error:', error);
+      return null;
+    }
   }
 
-  // Validación para orden: solo dígitos
-  const ordenInput = document.getElementById('orden');
-  if (ordenInput) {
-    ordenInput.addEventListener('input', function() {
-      this.value = this.value.replace(/\D/g, '');
-    });
+  function renderCuotasIntoModal(cuotasArray) {
+    const $tbody = $('#cuotasTbody');
+    $tbody.empty();
+    if (!Array.isArray(cuotasArray) || cuotasArray.length === 0) {
+      $tbody.append('<tr><td colspan="7" class="text-center text-muted py-4">No se encontraron cuotas para esta formación.</td></tr>');
+    } else {
+      cuotasArray.forEach(c => $tbody.append(buildCuotaRow(c)));
+    }
+    if (pagCuotas) pagCuotas.refresh();
   }
 
-  // Formateo de valor monetario
-  const inputValor = document.getElementById('valorCuota');
-  if (inputValor) {
-    inputValor.setAttribute('inputmode', 'numeric');
-    inputValor.setAttribute('autocomplete', 'off');
+  function buildCuotaRow(c) {
+    const isActive = c.is_active ? '<span class="badge bg-success text-white"><i class="fas fa-check-circle me-1"></i> Activo</span>' : '<span class="badge bg-danger text-white"><i class="fas fa-times-circle me-1"></i> Inactivo</span>';
+    return `
+      <tr class="cuota-row" tabindex="0">
+        <td>${c.id || ''}</td>
+        <td>${c.nombre || ''}</td>
+        <td>${c.tipo_display || c.tipo || ''}</td>
+        <td>${c.valor || ''}</td>
+        <td>${c.orden || ''}</td>
+        <td>${isActive}</td>
+        <td><button type="button" class="btn btn-sm btn-outline-primary seleccionarCuota">Seleccionar</button></td>
+      </tr>
+    `;
+  }
+
+  // -------------------------
+  // Función global de filtrado (igual que en tu plantilla cuenta banco)
+  // -------------------------
+  window.filterTable = function(tableId, inputId) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    const filter = input.value.toUpperCase();
+    const table = document.getElementById(tableId);
+    if (!table) return;
+    const tbody = table.tBodies[0];
+    const tr = tbody ? tbody.getElementsByTagName('tr') : [];
+    let visibleCount = 0;
+
+    for (let i = 0; i < tr.length; i++) {
+      const td = tr[i].getElementsByTagName('td');
+      let match = false;
+      if (td.length > 0) {
+        for (let j = 0; j < td.length; j++) {
+          if (td[j].textContent.toUpperCase().indexOf(filter) > -1) {
+            match = true;
+            break;
+          }
+        }
+      }
+      if (match) {
+        tr[i].style.display = '';
+        visibleCount++;
+      } else {
+        tr[i].style.display = 'none';
+      }
+    }
+
+    // Mostrar mensaje si no hay registros
+    let mensajeId = '';
+    if (tableId === 'formacionesTable') mensajeId = 'mensajeSinRegistrosFormacion';
+    else if (tableId === 'cuotasTable') mensajeId = 'mensajeSinRegistrosCuotas';
+    const mensaje = document.getElementById(mensajeId);
+    if (mensaje) mensaje.style.display = visibleCount === 0 ? 'block' : 'none';
     
-    const formatearValor = function() {
-      let nums = this.value.replace(/\D/g, '');
-      if (nums.length === 0) {
-        this.value = '';
+    // Actualizar paginación
+    if (tableId === 'formacionesTable' && pagFormaciones) pagFormaciones.refresh();
+    else if (tableId === 'cuotasTable' && pagCuotas) pagCuotas.refresh();
+  };
+
+  // -------------------------
+  // PAGINACIÓN REUTILIZABLE (tu implementación)
+  // -------------------------
+  function initTablePagination(tableSelector, containerSelector, rowsPerPage) {
+    const table = document.querySelector(tableSelector);
+    const container = document.querySelector(containerSelector);
+    if (!table || !container) return null;
+    let currentPage = 1;
+
+    const getVisibleRows = () => Array.from(table.querySelectorAll('tbody tr')).filter(r => r.style.display !== 'none' && r.querySelector('td'));
+
+    const displayRows = () => {
+      const visibleRows = getVisibleRows();
+      const start = (currentPage - 1) * rowsPerPage;
+      const end = start + rowsPerPage;
+      visibleRows.forEach((r, i) => { r.style.display = (i >= start && i < end) ? '' : 'none'; });
+    };
+
+    const setupPagination = () => {
+      const visibleRows = getVisibleRows();
+      const totalPages = Math.max(1, Math.ceil(visibleRows.length / rowsPerPage));
+      container.innerHTML = '';
+      if (visibleRows.length <= rowsPerPage) {
+        visibleRows.forEach(r => r.style.display = '');
         return;
       }
-      
-      while (nums.length < 3) nums = '0' + nums;
-      const intPart = nums.slice(0, -2);
-      const decPart = nums.slice(-2);
-      const formattedInt = parseInt(intPart, 10).toLocaleString('es-VE');
-      this.value = `${formattedInt},${decPart}`;
+
+      let paginationHTML = '<ul class="pagination">';
+      paginationHTML += `<li class="page-item ${currentPage === 1 ? 'disabled' : ''}"><a class="page-link" href="#" data-page="${currentPage - 1}">&laquo;</a></li>`;
+      for (let i = 1; i <= totalPages; i++) {
+        paginationHTML += `<li class="page-item ${i === currentPage ? 'active' : ''}"><a class="page-link" href="#" data-page="${i}">${i}</a></li>`;
+      }
+      paginationHTML += `<li class="page-item ${currentPage === totalPages ? 'disabled' : ''}"><a class="page-link" href="#" data-page="${currentPage + 1}">&raquo;</a></li>`;
+      paginationHTML += '</ul>';
+      container.innerHTML = paginationHTML;
+      displayRows();
     };
-    
-    inputValor.addEventListener('input', formatearValor);
-    
-    // Formatear valor inicial si existe
-    if (inputValor.value) {
-      formatearValor.call(inputValor);
+
+    container.addEventListener('click', e => {
+      e.preventDefault();
+      const target = e.target.closest('.page-link');
+      if (!target || target.closest('.disabled')) return;
+      currentPage = parseInt(target.dataset.page, 10);
+      setupPagination();
+    });
+
+    return {
+      refresh: () => { currentPage = 1; setupPagination(); }
+    };
+  }
+
+  const pagFormaciones = initTablePagination('#formacionesTable', '#pagFormaciones', 5);
+  const pagCuotas = initTablePagination('#cuotasTable', '#pagCuotas', 6);
+  if (pagFormaciones) pagFormaciones.refresh();
+
+  // Observadores TBODY para refrescar paginación cuando cambian filas
+  const tbodyForm = document.querySelector('#formacionesTbody');
+  if (tbodyForm && pagFormaciones) {
+    const moF = new MutationObserver(function(){ pagFormaciones.refresh(); });
+    moF.observe(tbodyForm, { childList: true, subtree: false });
+  }
+  const tbodyCuotas = document.querySelector('#cuotasTbody');
+  if (tbodyCuotas && pagCuotas) {
+    const moC = new MutationObserver(function(){ pagCuotas.refresh(); });
+    moC.observe(tbodyCuotas, { childList: true, subtree: false });
+  }
+
+  // -------------------------
+  // HELPERS: build row, render, fetch
+  // -------------------------
+  function buildCuotaRow(c) {
+    const isActive = c.is_active ? '<span class="badge bg-success text-white"><i class="fas fa-check-circle me-1"></i> Activo</span>' : '<span class="badge bg-danger text-white"><i class="fas fa-times-circle me-1"></i> Inactivo</span>';
+    const nombre = (c.nombre || '').toString().replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    const tipo_display = c.tipo_display || c.tipo || '';
+    return `
+      <tr class="cuota-row" tabindex="0"
+          data-id="${c.id||''}"
+          data-nombre="${nombre}"
+          data-tipocuota="${c.tipo||''}"
+          data-valor="${(c.valor||'')}"
+          data-orden="${(c.orden||'')}"
+          data-formacion-nombre="${(c.formacion_nombre||'')}">
+        <td>${c.id||''}</td>
+        <td>${c.nombre||''}</td>
+        <td>${tipo_display}</td>
+        <td>${c.valor||''}</td>
+        <td>${c.orden||''}</td>
+        <td>${isActive}</td>
+      </tr>
+    `;
+  }
+
+  function renderCuotasIntoModal(cuotasArray) {
+    const $tbody = $('#cuotasTbody');
+    $tbody.empty();
+    if (!Array.isArray(cuotasArray) || cuotasArray.length === 0) {
+      $tbody.append('<tr><td colspan="7" class="text-center text-muted py-4">No se encontraron cuotas para esta formación.</td></tr>');
+    } else {
+      cuotasArray.forEach(c => $tbody.append(buildCuotaRow(c)));
+    }
+    if (pagCuotas) pagCuotas.refresh();
+  }
+
+  async function getCuotasFromServer(formacionId) {
+    const url = `${apiUrl}?formacion_id=${encodeURIComponent(formacionId)}`;
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        credentials: 'same-origin',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      });
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (error) {
+      console.error('Fetch error:', error);
+      return null;
     }
   }
 
-  // Validación de Bootstrap
-  var forms = document.querySelectorAll('.needs-validation');
-  Array.prototype.slice.call(forms).forEach(function(form) {
-    form.addEventListener('submit', function(event) {
-      if (!form.checkValidity()) {
-        event.preventDefault();
-        event.stopPropagation();
-      }
-      form.classList.add('was-validated');
-    }, false);
+  function completarFormularioDesdeFila($tr) {
+    $('#nombreCuota').val($tr.data('nombre') || '');
+    $('#tipoCuota').val($tr.data('tipocuota') || '');
+    $('#orden').val($tr.data('orden') || '');
+    const valor = String($tr.data('valor') || '').replace('.', ',');
+    $('#valorCuota').val(valor).trigger('input');
+    if (!$('#idCuota').length) {
+      $('<input>').attr({type: 'hidden', id: 'idCuota', name: 'idCuota', value: $tr.data('id')}).appendTo('#editCuotaFormacionForm');
+    } else {
+      $('#idCuota').val($tr.data('id'));
+    }
+    const modal = bootstrap.Modal.getInstance(cuotaModalEl);
+    if (modal) modal.hide();
+  }
+
+  // Selección de formación desde modal
+  $('#formacionesTable').on('click keydown', '.formacion-row', function (e) {
+    if (e.type === 'keydown' && e.key !== 'Enter') return;
+    e.preventDefault();
+    $('#idFormacion').val($(this).data('id'));
+    $('#nombreFormacion').val($(this).data('nombre')).removeClass('is-invalid').addClass('is-valid');
+    const modal = bootstrap.Modal.getInstance(formacionModalEl);
+    if (modal) modal.hide();
   });
+
+  // Búsqueda rápida dentro del modal de cuotas
+  $('#limpiarFiltroCuotas').on('click', function () {
+    $('#searchCuotasInput').val('');
+    filterTable('cuotasTable','searchCuotasInput');
+  });
+
+  // -------------------------
+  // FORMATO Y VALIDACIONES
+  // -------------------------
+   (function activarValidaciones() {
+    $('input[type="text"]:not(#valorCuota), textarea').on('input', function() {
+      this.value = this.value.toUpperCase();
+    });
+
+    // -----------------------
+    // Helpers formato moneda (sistema formaciones.html)
+    // -----------------------
+    function normalizeCurrencyString(str) {
+      if (str == null) return '';
+      let s = String(str).trim();
+      if (!s) return '';
+      s = s.replace(/\s+/g, '');
+      if (s.indexOf(',') !== -1 && s.indexOf('.') !== -1) {
+        s = s.replace(/\./g, '').replace(/,/g, '.');
+      } else if (s.indexOf(',') !== -1 && s.indexOf('.') === -1) {
+        s = s.replace(/,/g, '.');
+      } else {
+        const parts = s.split('.');
+        if (parts.length > 2) {
+          const dec = parts.pop();
+          s = parts.join('') + '.' + dec;
+        }
+      }
+      s = s.replace(/[^0-9\.\-]/g, '');
+      return s;
+    }
+
+    function formatCurrencyInputValueFromDigits(rawDigits) {
+      if (!rawDigits) return '0,00';
+      const num = parseInt(rawDigits, 10) / 100;
+      return num.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    // -----------------------
+    // valorCuota: formato y normalización (sistema formaciones.html)
+    // -----------------------
+    const valorInput = document.getElementById('valorCuota');
+    if (valorInput) {
+      // cambiar a texto para permitir coma visual
+      valorInput.type = 'text';
+
+      // inicializar visual
+      if (!valorInput.value || valorInput.value === '0' || valorInput.value === '0.00') {
+        valorInput.value = '0,00';
+      } else {
+        const norm = normalizeCurrencyString(valorInput.value) || '0.00';
+        valorInput.value = Number(norm).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      }
+
+      // input handler que mantiene formato 0,00 y actualiza valid state
+      valorInput.addEventListener('input', function (e) {
+        // permitir solo dígitos en la edición interna
+        const onlyDigits = this.value.replace(/[^\d]/g, '');
+        this.value = formatCurrencyInputValueFromDigits(onlyDigits);
+        const normalized = normalizeCurrencyString(this.value);
+        const ok = normalized !== '' && !isNaN(Number(normalized)) && Number(normalized) >= 0;
+        this.classList.toggle('is-invalid', !ok);
+        this.classList.toggle('is-valid', ok);
+      });
+
+      // Blur: asegurar formato
+      valorInput.addEventListener('blur', function () {
+        const normalized = normalizeCurrencyString(this.value) || '0.00';
+        const num = parseFloat(normalized) || 0;
+        this.value = num.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      });
+    }
+
+    // Validación para nombreCuota: solo letras, números y espacios
+    $('#nombreCuota').on('input', function() {
+      this.value = this.value.replace(/[^A-ZÁÉÍÓÚÑ0-9\s]/g, '');
+    });
+
+    // Validación para orden: solo dígitos
+    $('#orden').on('input', function() {
+      this.value = this.value.replace(/\D/g, '').slice(0, 2);
+    });
+  })();
+
+  // -------------------------
+  // ENVÍO AJAX DEL FORMULARIO
+  // -------------------------
+  $('#editCuotaFormacionForm').on('submit', function(e) {
+    e.preventDefault();
+    if (!this.checkValidity()) {
+      e.stopPropagation();
+      $(this).addClass('was-validated');
+      return;
+    }
+    $(this).removeClass('was-validated');
+
+    const formData = new FormData(this);
+    const valorCuotaFormatted = $('#valorCuota').val().replace(/\./g, '').replace(',', '.');
+    formData.set('valorCuota', valorCuotaFormatted);
+
+    fetch(this.action, {
+      method: 'POST',
+      body: formData,
+      credentials: 'same-origin',
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(res => res.json().then(data => ({ ok: res.ok, data })))
+    .then(({ ok, data }) => {
+      const opts = {
+        icon: data.success ? 'success' : 'error',
+        title: data.message || (data.success ? 'Operación exitosa' : 'Ocurrió un error'),
+        confirmButtonText: 'Aceptar',
+        customClass: { confirmButton: 'btn btn-warning' },
+        buttonsStyling: false
+      };
+
+      if (data.success) {
+        Object.assign(opts, {
+          showCancelButton: true,
+          confirmButtonText: 'Añadir otra cuota',
+          cancelButtonText: 'Ir a la tabla',
+          customClass: { confirmButton: 'btn btn-success', cancelButton: 'btn btn-primary' }
+        });
+        Swal.fire(opts).then(result => {
+          if (result.isConfirmed) {
+            window.location.reload();
+          } else {
+            window.location.href = data.redirect_url || '/tablaCuotaFormacion/';
+          }
+        });
+      } else {
+        if (data.errors) {
+            let errorText = Object.values(data.errors).map(err => `<li>${err[0]}</li>`).join('');
+            opts.html = `<ul class="text-start">${errorText}</ul>`;
+        }
+        Swal.fire(opts);
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error de Conexión',
+        text: 'No se pudo procesar la solicitud. Verifique su conexión e intente de nuevo.',
+        confirmButtonText: 'Aceptar',
+        customClass: { confirmButton: 'btn btn-danger' },
+        buttonsStyling: false
+      });
+    });
+  });
+
 });
 </script>
 {% endblock javascripts %}
