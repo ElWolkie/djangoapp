@@ -55,10 +55,10 @@ except:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
-            'NAME': 'fundacion_wd60',
-            'USER': 'fundacion_wd60_user',
-            'PASSWORD': '1EMHMTgUIBUyrSjAEyFh8YhRBLkNYnqN',
-            'HOST': 'dpg-cvuo37re5dus73cedrc0-a.oregon-postgres.render.com',
+            'NAME': 'fundacion_dmcx',
+            'USER': 'fundacion_dmcx_user',
+            'PASSWORD': 'yV6IdbCTBxsFLENwFD4tzMOoxprzaVek',
+            'HOST': 'dpg-d3fk7lqli9vc73dv2ieg-a.oregon-postgres.render.com',
             'PORT': '5432',
             'OPTIONS': {'sslmode': 'require'},
         }
