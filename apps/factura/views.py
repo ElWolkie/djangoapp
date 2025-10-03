@@ -958,7 +958,7 @@ def pago_create(request, pk=None):
         notas = Nota.objects.filter(idNota=pk, estado__in=['PENDIENTE', 'PARCIAL']).order_by('numeroNota')
     else:
         # Traer las notas excluyendo las pagadas y agregando el símbolo de la moneda
-        notas = Nota.objects.select_related('idTasa__idMoneda').exclude(estado='PAGADO').order_by('numeroNota')
+        notas = Nota.objects.select_related('idTasa__idMoneda').exclude(estado__in=['PAGADO', 'FACTURADO']).order_by('numeroNota')
         # Agregar el símbolo de la moneda a cada nota
         for nota in notas:
             nota.simbolo_moneda = nota.idTasa.idMoneda.simboloMoneda if hasattr(nota.idTasa, 'idMoneda') and hasattr(nota.idTasa.idMoneda, 'simboloMoneda') else ""
