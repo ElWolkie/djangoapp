@@ -199,7 +199,7 @@ def factura_list(request):
 # Notas
 def nota_list(request):
     """
-    Vista para listar todos los pagos.
+    Vista para listar todas las notas.
     """
     notas = Nota.objects.all()
     return render(request, 'factura/tablaNotas.html', {'notas': notas})
