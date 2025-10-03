@@ -1,129 +1,325 @@
-{% extends 'layouts/base2.html' %}
-
-{% block title %}Registrar Asiento Contable{% endblock title %}
+{% load static %}
 
 {% block stylesheets %}
 <link rel="stylesheet" href="/static/assets/css/styleForms.css" />
 <link rel="stylesheet" href="/static/assets/css/argon.css" />
+<style>
+  /* Copiado / adaptado del estilo persona que pediste */
+  .persona-container {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 1rem;
+    box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.1);
+    padding: 1.5rem;
+    margin: 0.5rem auto;
+    max-width: 95%;
+    width: 100%;
+  }
+  .persona-header {
+    text-align: center;
+    margin-bottom: 1.5rem;
+    position: relative;
+    padding-bottom: 1rem;
+  }
+  .persona-header h2 {
+    color: #343a40;
+    font-weight: 700;
+    font-size: 1.3rem;
+    margin-bottom: 0.5rem;
+  }
+  .persona-header p { margin-bottom: 0; }
+  .persona-header::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80px;
+    height: 4px;
+    background: linear-gradient(90deg, #ffc107, #fd7e14);
+    border-radius: 2px;
+  }
+
+  .form-group { margin-bottom: 1.2rem; position: relative; }
+  .form-label { font-weight: 600; color: #495057; margin-bottom: 0.5rem; display:flex; align-items:center; font-size:0.95rem; }
+  .form-label i { margin-right:8px; color: #fd7e14; font-size:0.9rem; }
+
+  .form-control {
+    border-radius: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    border: 1px solid #ced4da;
+    background-color: #fff;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.075);
+    transition: all 0.3s;
+    height: 48px;
+    font-size: 0.95rem;
+  }
+  .form-control:focus { border-color: #ffc107; box-shadow: 0 0 0 0.25rem rgba(255,193,7,0.25); }
+
+  .input-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6c757d;
+    z-index: 2;
+    font-size: 0.9rem;
+  }
+  .input-with-icon { padding-left: 40px; }
+
+  .btn-submit {
+    background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+    border: none;
+    color: #fff;
+    font-weight: 600;
+    padding: 0.75rem 2rem;
+    border-radius: 0.5rem;
+    transition: all 0.3s;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    font-size: 1rem;
+  }
+  .btn-submit:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    background: linear-gradient(135deg, #fd7e14 0%, #ffc107 100%);
+  }
+
+  /* Campos de solo lectura */
+  .readonly-field {
+    display: block;
+    width: 100%;
+    height: 48px;
+    padding: 0.75rem 1.25rem;
+    font-size: 0.95rem;
+    font-weight: 400;
+    line-height: 1.5;
+    color: #495057;
+    background-color: #e9ecef;
+    background-clip: padding-box;
+    border: 1px solid #ced4da;
+    border-radius: 0.5rem;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.075);
+    opacity: 0.95;
+    display:flex;
+    align-items:center;
+  }
+  .readonly-field.with-icon { padding-left: 40px; }
+
+  /* Validación visual */
+  .was-validated .form-control:invalid,
+  .form-control.is-invalid {
+    border-color: #dc3545;
+    box-shadow: 0 0 0 0.25rem rgba(220,53,69,.15);
+  }
+  .was-validated .form-control:valid,
+  .form-control.is-valid {
+    border-color: #198754;
+    box-shadow: 0 0 0 0.25rem rgba(25,135,84,.15);
+  }
+
+  /* Ajustes modal */
+  .modal-body { padding: 0.75rem 1rem; }
+  .btn-submit:focus { outline: none; box-shadow: none; }
+  .btn-submit:focus-visible { outline: 2px solid #fd7e14; outline-offset: 2px; }
+
+  /* Small helper for textarea height */
+  textarea.form-control { min-height: 120px; max-height: 220px; }
+
+  .btn-submit:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.btn-submit:focus-visible {
+  outline: 2px solid #fd7e14;
+  outline-offset: 2px;
+}
+</style>
 {% endblock stylesheets %}
 
 {% block content %}
-<div class="container mt-5">
-  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Modificar Asiento Contable</h2>
+<div class="persona-container">
+  <div class="persona-header">
+    <h2><i class="fas fa-receipt text-warning"></i> Editar Asiento Contable</h2>
+    <p class="text-muted">Modifique los campos y guarde los cambios</p>
+  </div>
 
   {% if messages %}
     {% for message in messages %}
-      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+      <div class="alert alert-{{ message.tags }} alert-dismissible fade show mb-3" role="alert">
         {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
       </div>
     {% endfor %}
   {% endif %}
 
-  <form method="POST" class="mt-3 text-dark needs-validation" autocomplete="off" style="font-weight: bold; max-width: 600px; margin: 0 auto;" id="asientoForm" action="{% url 'editar_asiento' asiento.idAsiento %}" novalidate>
+  <form method="POST" id="asientoForm" class="needs-validation" novalidate autocomplete="off" action="{% url 'editar_asiento' asiento.idAsiento %}">
     {% csrf_token %}
+    <div id="formMessages"></div>
 
-    <div class="form-row">
-      <div class="form-group col-md-12">
-        <label for="numeroAsiento">Número de Asiento:</label>
-        <input type="text" id="numeroAsiento" name="numeroAsiento" class="form-control text-dark" value="{{ asiento.numeroAsiento }}" placeholder="Ingrese el número de asiento" maxlength="50" readonly />
+    <div class="row">
+      <!-- Número (solo visualización) -->
+      <div class="col-md-12">
+        <div class="form-group">
+          <label class="form-label"><i class="fas fa-hashtag"></i> Número de Asiento</label>
+          <div class="input-group position-relative">
+            <i class="fas fa-hashtag input-icon"></i>
+            <input type="text" id="numeroAsiento" name="numeroAsiento"
+                   class="form-control readonly-field with-icon"
+                   value="{{ asiento.numeroAsiento }}" readonly>
+          </div>
+        </div>
       </div>
+
+      <!-- Fecha y Periodo -->
+      <div class="col-md-6">
+        <div class="form-group">
+          <label for="fechaAsiento" class="form-label"><i class="fas fa-calendar-alt"></i> Fecha</label>
+          <div class="input-group position-relative">
+            <i class="fas fa-calendar-alt input-icon"></i>
+            <input type="date" id="fechaAsiento" name="fechaAsiento" class="form-control input-with-icon" value="{{ asiento.fechaAsiento|date:'Y-m-d' }}" required>
+            <div class="invalid-feedback">Ingrese una fecha válida.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-6">
+        <div class="form-group">
+          <label for="idPeriodo" class="form-label"><i class="fas fa-calendar-check"></i> Período Contable</label>
+          <div class="input-group position-relative">
+            <i class="fas fa-calendar-check input-icon"></i>
+            <select id="idPeriodo" name="idPeriodo" class="form-control input-with-icon" required>
+              <option value="" disabled {% if not asiento.idPeriodo %}selected{% endif %}>Seleccione...</option>
+              {% for periodo in periodos %}
+                <option value="{{ periodo.idPeriodo }}" {% if periodo.idPeriodo|stringformat:"s" == asiento.idPeriodo.idPeriodo|stringformat:"s" %}selected{% endif %}>{{ periodo.nombrePeriodo }}</option>
+              {% endfor %}
+            </select>
+            <div class="invalid-feedback">Seleccione un período.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Concepto -->
+      <div class="col-md-12">
+        <div class="form-group">
+          <label for="conceptoAsiento" class="form-label"><i class="fas fa-file-alt"></i> Concepto</label>
+          <div class="input-group position-relative">
+            <i class="fas fa-file-alt input-icon"></i>
+            <textarea id="conceptoAsiento" name="conceptoAsiento" class="form-control input-with-icon" placeholder="Ingrese el concepto del asiento" required>{{ asiento.conceptoAsiento }}</textarea>
+            <div class="invalid-feedback">Ingrese el concepto del asiento.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Montos: ahora ocultos (no visibles ni editables en la UI) -->
+      <input type="hidden" name="montoDebe" value="{{ asiento.montoDebe }}">
+      <input type="hidden" name="montoHaber" value="{{ asiento.montoHaber }}">
+
     </div>
 
-    <div class="form-row">
-      <div class="form-group col-md-6">
-        <label for="fechaAsiento">Fecha:</label>
-        <input type="date" id="fechaAsiento" name="fechaAsiento" class="form-control text-dark" value="{{ asiento.fechaAsiento|date:'Y-m-d' }}" required />
-      </div>
-
-      <div class="form-group col-md-6">
-        <label for="idPeriodo">Periodo Contable:</label>
-        <select id="idPeriodo" name="idPeriodo" class="form-control text-dark" required>
-          <option value="" disabled selected>Seleccione...</option>
-          {% for periodo in periodos %}
-          <option value="{{ periodo.idPeriodo }}" {% if periodo.idPeriodo|stringformat:"s" == asiento.idPeriodo.idPeriodo|stringformat:"s" %}selected{% endif %}>{{ periodo.nombrePeriodo }}</option>
-          {% endfor %}
-        </select>
-      </div>
-    </div>
-
-    <div class="form-row">
-      <div class="form-group col-md-12">
-        <label for="conceptoAsiento">Concepto:</label>
-        <textarea id="conceptoAsiento" name="conceptoAsiento" class="form-control text-dark" placeholder="Ingrese el concepto del asiento" rows="3" required>{{ asiento.conceptoAsiento }}</textarea>
-      </div>
-    </div>
-
-    <div class="text-center">
-      <input type="submit" class="btn btn-warning mt-4" value="Guardar" />
+    <div class="text-center mt-3">
+      <button type="submit" class="btn-submit">
+        <i class="fas fa-save me-2"></i> Guardar
+      </button>
     </div>
   </form>
 </div>
 {% endblock content %}
+
 {% block javascripts %}
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
 <script>
-  document.addEventListener('DOMContentLoaded', function () {
-    const asientoForm = document.getElementById('asientoForm');
+document.addEventListener('DOMContentLoaded', function () {
+  const asientoForm = document.getElementById('asientoForm');
+  const messagesContainer = document.getElementById('formMessages');
 
-    asientoForm.addEventListener('submit', function (event) {
-      event.preventDefault(); // Evitar el envío tradicional del formulario
+  // Activar mayúsculas para inputs de texto y textarea (no aplica a date/email)
+  document.addEventListener('input', function(e) {
+    const t = e.target;
+    if (!t) return;
+    if ((t.tagName === 'INPUT' && !t.type.match(/email|date|hidden|number/)) || t.tagName === 'TEXTAREA') {
+      t.value = t.value.toUpperCase();
+    }
+  });
 
-      const formData = new FormData(asientoForm);
-
-      fetch(asientoForm.action, {
-        method: 'POST',
-        body: formData,
-        headers: {
-          'X-Requested-With': 'XMLHttpRequest',
-        },
-      })
-        .then((response) => response.json())
-        .then((data) => {
-          if (data.success) {
-            // Mostrar alerta de éxito
-            Swal.fire({
-              icon: 'success',
-              title: 'Registro exitoso',
-              text: data.message,
-              confirmButtonText: 'Ir a Detalles',
-              customClass: {
-                confirmButton: 'btn btn-warning',
-              },
-              buttonsStyling: false,
-            }).then(() => {
-              // Redirigir a la URL de detalle_asiento_create
-              window.location.href = data.redirect_url;
-            });
-          } else {
-            // Mostrar errores si el registro falla
-            Swal.fire({
-              icon: 'error',
-              title: 'Error en el registro',
-              html: Object.values(data.errors)
-                .map((error) => `<p>${error}</p>`)
-                .join(''),
-              confirmButtonText: 'Aceptar',
-              customClass: {
-                confirmButton: 'btn btn-warning',
-              },
-              buttonsStyling: false,
-            });
-          }
-        })
-        .catch((error) => {
-          console.error('Error:', error);
-          Swal.fire({
-            icon: 'error',
-            title: 'Error inesperado',
-            text: 'Ocurrió un error al procesar la solicitud.',
-            confirmButtonText: 'Aceptar',
-            customClass: {
-              confirmButton: 'btn btn-warning',
-            },
-            buttonsStyling: false,
-          });
-        });
+  // Validación visual en tiempo real (bootstrap-like)
+  asientoForm.querySelectorAll('input:not([type=hidden]), textarea, select').forEach(function(input) {
+    input.addEventListener('input', function () {
+      if (this.checkValidity()) {
+        this.classList.remove('is-invalid');
+        this.classList.add('is-valid');
+      } else {
+        this.classList.remove('is-valid');
+        this.classList.add('is-invalid');
+      }
     });
   });
+
+  // Envío por AJAX usando fetch
+  asientoForm.addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    messagesContainer.innerHTML = '';
+
+    if (!asientoForm.checkValidity()) {
+      asientoForm.classList.add('was-validated');
+      // focus al primer inválido
+      const firstInvalid = asientoForm.querySelector(':invalid');
+      if (firstInvalid) firstInvalid.focus();
+      return;
+    }
+
+    const submitBtn = asientoForm.querySelector('.btn-submit');
+    const originalHtml = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Guardando...';
+
+    const formData = new FormData(asientoForm);
+
+    fetch(asientoForm.action, {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        Swal.fire({
+          icon: 'success',
+          title: '¡Hecho!',
+          text: data.message || 'Asiento actualizado correctamente.',
+          confirmButtonText: 'OK',
+          customClass: { confirmButton: 'btn btn-warning' },
+          buttonsStyling: false
+        }).then(() => {
+          if (data.redirect_url) {
+            window.location.href = data.redirect_url;
+          } else {
+            location.reload();
+          }
+        });
+      } else {
+        // mostrar errores
+        if (data.errors) {
+          const html = Object.entries(data.errors).map(([k,v]) => {
+            const msg = Array.isArray(v) ? v.join('<br>') : v;
+            return `<div class="alert alert-danger mb-2">${msg}</div>`;
+          }).join('');
+          messagesContainer.innerHTML = html;
+        } else {
+          messagesContainer.innerHTML = `<div class="alert alert-danger">Error: ${data.message || 'No se pudo guardar.'}</div>`;
+        }
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      messagesContainer.innerHTML = `<div class="alert alert-danger">Ocurrió un error en el servidor.</div>`;
+    })
+    .finally(() => {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = originalHtml;
+    });
+  });
+});
 </script>
 {% endblock javascripts %}

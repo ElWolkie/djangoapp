@@ -16,15 +16,16 @@
     border-color: #5a32a3 !important;
   }
   .actions-column .btn-sm {
-    padding: 0.25rem 0.5rem;
-    font-size: 0.875rem;
+    padding: 0.35rem 0.6rem; /* un poco más grande para que no se vean pequeños */
+    font-size: 0.95rem;
     transition: all 0.3s ease;
   }
+  .actions-column .btn { display:inline-flex; align-items:center; justify-content:center; }
   .badge {
     font-size: 0.85em;
     padding: 0.5em 0.75em;
   }
-  .modal-dialog { max-width: 600px; }
+  .modal-dialog { max-width: 900px; } /* modal de edición más amplio */
   .modal.fade.show {
     display: block !important;
     background-color: rgba(0,0,0,0.5);
@@ -53,13 +54,13 @@
   
   /* Estilos para el modal de detalles */
   .details-modal .modal-content {
-    border-radius: 15px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
   }
   .details-modal .modal-header {
     background: linear-gradient(135deg, #5e72e4 0%, #825ee4 100%);
     color: white;
-    border-radius: 15px 15px 0 0;
+    border-radius: 12px 12px 0 0;
   }
   .detail-item {
     padding: 10px 0;
@@ -79,6 +80,14 @@
     font-weight: 600;
     color: #333;
   }
+
+  /* Estilos modal edición (coherente con resto de modales) */
+  .edit-modal .modal-content { border-radius: 12px; }
+  .edit-modal .modal-header { background: linear-gradient(135deg,#5e72e4,#825ee4); color:#fff; }
+  .edit-modal .form-label { font-weight:600; color:#495057; }
+  .btn-submit { background: linear-gradient(135deg,#ffc107 0%,#fd7e14 100%); color:#fff; border:none; }
+  .btn-submit:focus { outline:none; box-shadow:none; }
+  .btn-submit:focus-visible { outline:2px solid #fd7e14; outline-offset:2px; }
 </style>
 {% endblock stylesheets %}
 
@@ -107,13 +116,11 @@
       </div>
     </div>
     <div class="col-md-4 text-center">
-      <!-- Botón de registro con estilo naranja como en formaciones -->
       {% if perms.asientoContable.add_asientocontable %}
         <a href="{% url 'asiento_contable_create' %}" class="btn btn-warning">
           <i class="fas fa-plus-circle me-1"></i> Registrar Asiento
         </a>
       {% endif %}
-
     </div>
     <div class="col-md-4 text-end">
       <a href="{% url 'reporte_asientos_pdf' %}" class="btn btn-outline-danger" target="_blank">
@@ -122,10 +129,8 @@
     </div>
   </div>
 
-  <!-- Tarjeta con sombra como en formaciones -->
   <div class="card shadow-sm">
     <div class="table-responsive">
-      <!-- Tabla con estilo gris oscuro y cabecera clara -->
       <table class="table table-striped table-hover align-middle text-gray-dark" id="asientosTable">
         <thead class="table-light">
           <tr>
@@ -139,17 +144,9 @@
           <tr>
             <td>{{ asiento.numeroAsiento }}</td>
             <td>{{ asiento.idPeriodo }}</td>
-            <!-- <td>
-              {% if asiento.estadoAsiento %}
-                <span class="badge bg-success text-white">Activo</span>
-              {% else %}
-                <span class="badge bg-danger text-white">Inactivo</span>
-              {% endif %}
-            </td> -->
             <td class="actions-column">
               <div class="d-flex gap-2">
-                <!-- Botón para ver detalles -->
-                {% if perms.asientoContable.add_asientocontable %}
+                {% if perms.asientoContable.view_asientocontable %}
                   <button class="btn btn-info btn-sm"
                           data-bs-toggle="modal"
                           data-bs-target="#detailsModal"
@@ -164,20 +161,23 @@
                   </button>
                 {% endif %}
 
-                {% if perms.asientoContable.add_asientocontable %}
-                  {% if asiento.idAsiento %}
-                  <a href="{% url 'editar_asiento' asiento.idAsiento %}" class="btn btn-primary btn-sm" title="Editar">
+                {% if perms.asientoContable.change_asientocontable %}
+                  <!-- Abrir edición en modal (AJAX) -->
+                  <button type="button"
+                          class="btn btn-primary btn-sm"
+                          data-bs-toggle="modal"
+                          data-bs-target="#editAsientoModal"
+                          data-url="{% url 'editar_asiento' asiento.idAsiento %}"
+                          title="Editar">
                     <i class="fas fa-edit"></i>
-                  </a>
-                  {% endif %}
+                  </button>
                 {% endif %}
-                
               </div>
             </td>
           </tr>
           {% empty %}
           <tr>
-            <td colspan="6" class="text-center py-4">No hay asientos contables disponibles</td>
+            <td colspan="3" class="text-center py-4">No hay asientos contables disponibles</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -185,13 +185,12 @@
     </div>
   </div>
   
-  <!-- Paginación -->
   <div class="pagination-container mt-4">
     <ul class="pagination justify-content-center" id="pagination"></ul>
   </div>
 </div>
 
-<!-- Modal: Ver Detalles (estilo naranja) -->
+<!-- Modal: Ver Detalles -->
 <div class="modal fade details-modal" id="detailsModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -223,7 +222,6 @@
           <div class="detail-value" id="detail-estado"></div>
         </div>
         
-        <!-- Detalle de transacciones -->
         <div class="mt-4">
           <h6 class="text-center mb-3" style="color: #fd7e14;"><i class="fas fa-receipt me-2"></i> Detalle de Transacciones</h6>
           <div class="table-responsive">
@@ -232,12 +230,11 @@
                 <tr>
                   <th>Código</th>
                   <th>Cuenta</th>
-                  <th>Debe</th>
-                  <th>Haber</th>
+                  <th class="text-end">Debe</th>
+                  <th class="text-end">Haber</th>
                 </tr>
               </thead>
               <tbody>
-                <!-- Los datos se cargarán dinámicamente -->
               </tbody>
             </table>
           </div>
@@ -252,6 +249,25 @@
     </div>
   </div>
 </div>
+
+<!-- Modal: Editar Asiento (cargado por AJAX) -->
+<div class="modal fade edit-modal" id="editAsientoModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-gradient-primary text-white">
+        <h5 class="modal-title text-white"><i class="fas fa-edit me-2"></i> Editar Asiento Contable</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body" id="editAsientoContent">
+        <div class="text-center py-4 text-muted">
+          <div class="spinner-border text-primary" role="status"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock content %}
 
 {% block javascripts %}
@@ -260,12 +276,11 @@
 <script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  // Configurar el modal de detalles
+  // Detalles modal
   $('#detailsModal').on('show.bs.modal', function(event) {
     const button = $(event.relatedTarget);
     const modal = $(this);
     
-    // Obtener datos de los atributos data-*
     const id = button.data('id');
     const numero = button.data('numero');
     const fecha = button.data('fecha');
@@ -273,36 +288,25 @@ document.addEventListener('DOMContentLoaded', function () {
     const concepto = button.data('concepto');
     const estado = button.data('estado');
     
-    // Insertar datos en el modal
     modal.find('#detail-numero').text(numero);
     modal.find('#detail-numero-value').text(numero);
     modal.find('#detail-fecha').text(fecha);
     modal.find('#detail-periodo').text(periodo);
     modal.find('#detail-concepto').text(concepto);
     
-    // Formatear estado
-    let estadoHtml;
-    if (estado) {
-      estadoHtml = '<span class="badge bg-success text-white">Activo</span>';
-    } else {
-      estadoHtml = '<span class="badge bg-danger text-white">Inactivo</span>';
-    }
+    let estadoHtml = estado ? '<span class="badge bg-success text-white">Activo</span>' : '<span class="badge bg-danger text-white">Inactivo</span>';
     modal.find('#detail-estado').html(estadoHtml);
     
-    // Cargar detalles de transacciones
     loadDetalleAsiento(id);
   });
 
-  // Función para cargar detalles de transacciones
   function loadDetalleAsiento(asientoId) {
     const tableBody = document.querySelector('#detalleAsientoTable tbody');
     const emptyMessage = document.getElementById('detalleAsientoEmptyMessage');
 
-    // Limpiar la tabla antes de cargar nuevos datos
     tableBody.innerHTML = '';
     emptyMessage.style.display = 'none';
 
-    // Realizar la solicitud AJAX
     fetch(`asiento-contable/${asientoId}/detalles/`)
       .then(response => response.json())
       .then(data => {
@@ -328,7 +332,7 @@ document.addEventListener('DOMContentLoaded', function () {
       });
   }
 
-  // Filtrado de tabla por texto
+  // Filtrado sencilla
   $('#searchInput').on('keyup', function() {
     const filter = this.value.toUpperCase();
     $('#asientosTable tbody tr').each(function() {
@@ -336,45 +340,35 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   });
 
-  // Configuración de paginación
+  // Paginación
   const table = document.getElementById('asientosTable');
   const pagination = document.getElementById('pagination');
   const rowsPerPage = 10;
   let currentPage = 1;
 
-  // Función para mostrar las filas de la página actual
   function displayRows() {
     const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
     const start = (currentPage - 1) * rowsPerPage;
     const end = start + rowsPerPage;
-
     for (let i = 0; i < rows.length; i++) {
       rows[i].style.display = i >= start && i < end ? '' : 'none';
     }
   }
 
-  // Función para configurar la paginación
   function setupPagination() {
     const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
-    const totalPages = Math.ceil(rows.length / rowsPerPage);
-
+    const totalPages = Math.max(1, Math.ceil(rows.length / rowsPerPage));
     pagination.innerHTML = '';
 
-    // Botón "Anterior"
     const prevLi = document.createElement('li');
     prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
     prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Anterior">&laquo;</a>`;
     prevLi.addEventListener('click', function(e) {
       e.preventDefault();
-      if (currentPage > 1) {
-        currentPage--;
-        displayRows();
-        setupPagination();
-      }
+      if (currentPage > 1) { currentPage--; displayRows(); setupPagination(); }
     });
     pagination.appendChild(prevLi);
 
-    // Botones de páginas
     for (let i = 1; i <= totalPages; i++) {
       const li = document.createElement('li');
       li.className = `page-item ${i === currentPage ? 'active' : ''}`;
@@ -388,24 +382,104 @@ document.addEventListener('DOMContentLoaded', function () {
       pagination.appendChild(li);
     }
 
-    // Botón "Siguiente"
     const nextLi = document.createElement('li');
     nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
     nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Siguiente">&raquo;</a>`;
     nextLi.addEventListener('click', function(e) {
       e.preventDefault();
-      if (currentPage < totalPages) {
-        currentPage++;
-        displayRows();
-        setupPagination();
-      }
+      if (currentPage < totalPages) { currentPage++; displayRows(); setupPagination(); }
     });
     pagination.appendChild(nextLi);
   }
 
-  // Inicializar la tabla y la paginación
   displayRows();
   setupPagination();
+
+  // ---------------------------
+  // Cargar formulario de edición dentro del modal (AJAX)
+  // ---------------------------
+  $('#editAsientoModal').on('show.bs.modal', function(e) {
+    const btn = $(e.relatedTarget);
+    const url = btn.data('url');
+    const $content = $('#editAsientoContent');
+
+    $content.html(`
+      <div class="text-center py-4 text-muted">
+        <div class="spinner-border text-primary" role="status"></div>
+      </div>
+    `);
+
+    // GET del formulario parcial (la vista debe devolver el HTML del formulario)
+    $.get(url)
+      .done(function(html) {
+        $content.html(html);
+
+        // Si el formulario que vino ya tiene JS para submit AJAX, se usará.
+        // Si no, añadimos aquí un handler general que envía el form por AJAX y espera JsonResponse.
+        const form = $content.find('form').first();
+        if (form.length) {
+          // evitar duplicar manejadores
+          form.off('submit').on('submit', function(ev) {
+            ev.preventDefault();
+            const $f = $(this);
+            const $btn = $f.find('button[type="submit"]').prop('disabled', true);
+            const originalHtml = $btn.html();
+
+            // Validación básica HTML5
+            if (!$f[0].checkValidity()) {
+              $f.addClass('was-validated');
+              $btn.prop('disabled', false).html(originalHtml);
+              return;
+            }
+
+            $.ajax({
+              url: $f.attr('action'),
+              method: $f.attr('method') || 'POST',
+              data: $f.serialize(),
+              success: function(resp) {
+                if (resp.success) {
+                  $('#editAsientoModal').modal('hide');
+                  Swal.fire({
+                    title: 'Éxito',
+                    text: resp.message || 'Actualizado correctamente',
+                    icon: 'success',
+                    confirmButtonText: 'OK',
+                    customClass: { confirmButton: 'btn btn-warning' },
+                    buttonsStyling: false
+                  }).then(() => location.reload());
+                } else {
+                  // mostrar errores
+                  let htmlErr = '';
+                  if (resp.errors) {
+                    Object.values(resp.errors).forEach(v => {
+                      htmlErr += `<div class="alert alert-danger">${v}</div>`;
+                    });
+                  } else {
+                    htmlErr = `<div class="alert alert-danger">${resp.message || 'Error desconocido'}</div>`;
+                  }
+                  $content.prepend(htmlErr);
+                }
+              },
+              error: function() {
+                $content.prepend('<div class="alert alert-danger">Error en el servidor. Intente nuevamente.</div>');
+              },
+              complete: function() {
+                $btn.prop('disabled', false).html(originalHtml);
+              }
+            });
+          });
+        }
+      })
+      .fail(function() {
+        $content.html('<div class="alert alert-danger">Error al cargar el formulario. Intente nuevamente.</div>');
+      });
+  });
+
+  // Limpiar contenido al cerrar el modal
+  $('#editAsientoModal').on('hidden.bs.modal', function() {
+    $('#editAsientoContent').empty();
+  });
+
 });
 </script>
 {% endblock javascripts %}

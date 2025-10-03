@@ -1,187 +1,530 @@
-{# templates/bancos/modales/editCuentaBanco.html #}
-<form method="POST"
-      id="editCuentaForm"
-      class="mt-3 text-dark needs-validation"
-      autocomplete="off"
-      style="font-weight:bold; max-width:600px; margin:0 auto;"
-      action="{% url 'cuenta_banco_update' cuenta.idCuentaBanco %}"
-      novalidate>
+{% load static %}
+
+{% block stylesheets %}
+<link rel="stylesheet" href="/static/assets/css/styleForms.css" />
+<link rel="stylesheet" href="/static/assets/css/argon.css" />
+<style>
+  .honorario-container {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 1rem;
+    box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.1);
+    padding: 1.5rem;
+    margin: 0.5rem auto;
+    max-width: 95%;
+    width: 100%;
+  }
+  .honorario-header {
+    text-align: center;
+    margin-bottom: 1.5rem;
+    position: relative;
+    padding-bottom: 1rem;
+  }
+  .honorario-header h2 {
+    color: #343a40;
+    font-weight: 700;
+    font-size: 1.3rem;
+    margin-bottom: 0.5rem;
+  }
+  .honorario-header p {
+    margin-bottom: 0;
+  }
+  .honorario-header::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80px;
+    height: 4px;
+    background: linear-gradient(90deg, #ffc107, #fd7e14);
+    border-radius: 2px;
+  }
+  .form-group {
+    margin-bottom: 1.2rem;
+    position: relative;
+  }
+  .form-label {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    font-size: 0.95rem;
+  }
+  .form-label i {
+    margin-right: 8px;
+    color: #fd7e14;
+    font-size: 0.9rem;
+  }
+  .form-control {
+    border-radius: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    border: 1px solid #ced4da;
+    background-color: #fff;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.075);
+    transition: all 0.3s;
+    height: 48px;
+    font-size: 0.95rem;
+    color: #0b1220; /* más oscuro dentro */
+  }
+  .form-control:focus {
+    border-color: #ffc107;
+    box-shadow: 0 0 0 0.25rem rgba(255,193,7,0.25);
+  }
+  .input-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6c757d;
+    z-index: 2;
+    font-size: 0.9rem;
+  }
+  .input-with-icon {
+    padding-left: 40px;
+  }
+  .btn-submit {
+    background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+    border: none;
+    color: #fff;
+    font-weight: 600;
+    padding: 0.75rem 2rem;
+    border-radius: 0.5rem;
+    transition: all 0.3s;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    font-size: 1rem;
+  }
+  .btn-submit:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    background: linear-gradient(135deg, #fd7e14 0%, #ffc107 100%);
+  }
+  .readonly-field {
+    display: block;
+    width: 100%;
+    height: 48px;
+    padding: 0.75rem 1.25rem;
+    font-size: 0.95rem;
+    font-weight: 400;
+    line-height: 1.5;
+    color: #495057;
+    background-color: #e9ecef;
+    background-clip: padding-box;
+    border: 1px solid #ced4da;
+    border-radius: 0.5rem;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.075);
+    opacity: 0.9;
+    display: flex;
+    align-items: center;
+  }
+  .readonly-field.with-icon {
+    padding-left: 40px;
+  }
+  .invalid-feedback {
+    display: none;
+    width: 100%;
+    margin-top: 0.25rem;
+    font-size: 80%;
+    color: #dc3545;
+  }
+  .was-validated .form-control:invalid ~ .invalid-feedback,
+  .was-validated .form-select:invalid ~ .invalid-feedback {
+    display: block;
+  }
+  .btn-submit:focus { outline: none; box-shadow: none; }
+  .btn-submit:focus-visible { outline: 2px solid #fd7e14; outline-offset: 2px; }
+
+  /* helper grid to reduce vertical scroll */
+  .row-compact { display:flex; gap:1rem; flex-wrap:wrap; }
+  .col-6-compact { flex: 1 1 calc(50% - 1rem); min-width:220px; }
+  .col-full { width:100%; }
+  .modal-table { max-height:320px; overflow:auto; }
+  .hint { font-size:0.85rem; color:#6c757d; margin-top:6px; }
+</style>
+{% endblock stylesheets %}
+
+{% block content %}
+<div class="honorario-container">
+  <div class="honorario-header">
+    <h2><i class="fas fa-university text-warning"></i> Editar Cuenta Bancaria</h2>
+    <p class="text-muted">Revise y confirme los datos. Los campos protegidos no pueden ser modificados desde la interfaz.</p>
+  </div>
+
+  <form method="POST"
+        id="editCuentaForm"
+        class="needs-validation"
+        action="{% url 'cuenta_banco_update' cuenta.idCuentaBanco %}"
+        novalidate autocomplete="off">
     {% csrf_token %}
 
     {% if is_post_error_page and form.non_field_errors %}
-        <div class="alert alert-danger">
-            {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
-        </div>
+      <div class="alert alert-danger mb-3">
+        {% for error in form.non_field_errors %}<p class="mb-0">{{ error }}</p>{% endfor %}
+      </div>
     {% endif %}
 
-    <div class="form-group mb-3">
-        <label for="bancoEdit">Banco:</label>
-        <div class="input-group">
-            <input type="text"
-                   id="bancoEdit"
-                   class="form-control text-dark {% if form.banco.errors %}is-invalid{% endif %}"
-                   readonly required
-                   placeholder="Seleccione un banco"
-                   value="{{ cuenta.banco.nombreBanco }}">
-            {% comment %} <button type="button"
-                    class="btn btn-warning"
-                    data-bs-toggle="modal"
-                    data-bs-target="#bancoSelectorModal">
-                <i class="fas fa-search"></i>
-            </button> {% endcomment %}
+    <div class="row-compact">
+      <!-- Banco (visible readonly + hidden enviado) -->
+      <div class="col-6-compact form-group">
+        <label class="form-label"><i class="fas fa-university"></i> Banco</label>
+        <div style="position:relative;">
+          <i class="fas fa-university input-icon"></i>
+          <div class="readonly-field with-icon" id="bancoVis">{{ cuenta.banco.nombreBanco }}</div>
+          <input type="hidden" id="bancoHidden" name="banco" value="{{ cuenta.banco.idBanco }}">
         </div>
-        <input type="hidden"
-               id="bancoIdEdit"
-               name="banco"
-               value="{{ cuenta.banco.idBanco }}">
+        <div class="hint">Para cambiar el banco use el selector (si aplica).</div>
         {% if form.banco.errors %}
-            <div class="invalid-feedback d-block">
-                {% for error in form.banco.errors %}<span>{{ error }}</span><br>{% endfor %}
-            </div>
-        {% else %}
-            <div class="invalid-feedback">Seleccione un banco válido.</div>
+          <div class="invalid-feedback d-block">
+            {% for error in form.banco.errors %}{{ error }}<br>{% endfor %}
+          </div>
         {% endif %}
-    </div>
+      </div>
 
-    <div class="form-group mb-3">
-        <label for="{{ form.numeroCuentaBanco.id_for_label }}">Número de Cuenta:</label>
-        <input type="text"
-               name="{{ form.numeroCuentaBanco.name }}"
-               id="{{ form.numeroCuentaBanco.id_for_label }}"
-               class="form-control text-dark {% if form.numeroCuentaBanco.errors %}is-invalid{% endif %}"
-               maxlength="30"
-               required
-               readonly
-               value="{{ form.numeroCuentaBanco.value|default:cuenta.numeroCuentaBanco }}">
+      <!-- Número de cuenta (visible readonly + hidden enviado) -->
+      <div class="col-6-compact form-group">
+        <label class="form-label"><i class="fas fa-hashtag"></i> Número de cuenta</label>
+        <div style="position:relative;">
+          <i class="fas fa-hashtag input-icon"></i>
+          <div class="readonly-field with-icon" id="numeroVis">{{ cuenta.numeroCuentaBanco }}</div>
+          <input type="hidden" id="numeroHidden" name="{{ form.numeroCuentaBanco.name }}" value="{{ form.numeroCuentaBanco.value|default:cuenta.numeroCuentaBanco }}">
+        </div>
         {% if form.numeroCuentaBanco.errors %}
-            <div class="invalid-feedback d-block">
-                {% for error in form.numeroCuentaBanco.errors %}<span>{{ error }}</span><br>{% endfor %}
-            </div>
-        {% else %}
-            <div class="invalid-feedback">Ingrese un número de cuenta válido.</div>
+          <div class="invalid-feedback d-block">
+            {% for error in form.numeroCuentaBanco.errors %}{{ error }}<br>{% endfor %}
+          </div>
         {% endif %}
+      </div>
     </div>
 
-    {% if form.moneda %}
-    <div class="form-group mb-3">
-        <label for="{{ form.moneda.id_for_label }}">{{ form.moneda.label }}:</label>
-        {{ form.moneda }}
+    <div class="row-compact mt-3">
+      <!-- Moneda (select render manualmente) -->
+      {% if form.moneda %}
+      <div class="col-6-compact form-group">
+        <label class="form-label"><i class="fas fa-coins"></i> {{ form.moneda.label }}</label>
+        <div style="position:relative;">
+          <i class="fas fa-coins input-icon"></i>
+          <select name="{{ form.moneda.name }}" id="{{ form.moneda.id_for_label }}" class="form-control input-with-icon" {% if form.moneda.field.required %}required{% endif %}>
+            <option value="" disabled {% if not form.moneda.value %}selected{% endif %}>Seleccione..</option>
+            {% for val,label in form.moneda.field.choices %}
+                {% if val != "" %}
+                <option value="{{ val }}" {% if val|stringformat:"s" == form.moneda.value|stringformat:"s" %}selected{% endif %}>{{ label }}</option>
+                {% endif %}
+            {% endfor %}
+            </select>
+
+        </div>
         {% if form.moneda.errors %}
-            <div class="invalid-feedback d-block">
-                {% for error in form.moneda.errors %}<span>{{ error }}</span><br>{% endfor %}
-            </div>
-        {% else %}
-            <div class="invalid-feedback" readonly>Seleccione una moneda.</div>
+          <div class="invalid-feedback d-block">
+            {% for error in form.moneda.errors %}{{ error }}<br>{% endfor %}
+          </div>
         {% endif %}
-    </div>
-    {% endif %}
+      </div>
+      {% endif %}
 
-    <div class="form-group mb-3">
-        <label for="{{ form.tipoProducto.id_for_label }}">{{ form.tipoProducto.label }}:</label>
-        {{ form.tipoProducto }}
+      <!-- Tipo de producto (select render manualmente) -->
+      <div class="col-6-compact form-group">
+        <label class="form-label"><i class="fas fa-box"></i> {{ form.tipoProducto.label }}</label>
+        <div style="position:relative;">
+          <i class="fas fa-box input-icon"></i>
+          <select name="{{ form.tipoProducto.name }}" id="{{ form.tipoProducto.id_for_label }}" class="form-control input-with-icon" {% if form.tipoProducto.field.required %}required{% endif %}>
+            <option value="" disabled {% if not form.tipoProducto.value %}selected{% endif %}>Seleccione..</option>
+            {% for val,label in form.tipoProducto.field.choices %}
+              <option value="{{ val }}" {% if val|stringformat:"s" == form.tipoProducto.value|stringformat:"s" %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
         {% if form.tipoProducto.errors %}
-            <div class="invalid-feedback d-block">
-                {% for error in form.tipoProducto.errors %}<span>{{ error }}</span><br>{% endfor %}
-            </div>
-        {% else %}
-            <div class="invalid-feedback">Seleccione un tipo de producto.</div>
+          <div class="invalid-feedback d-block">
+            {% for error in form.tipoProducto.errors %}{{ error }}<br>{% endfor %}
+          </div>
         {% endif %}
+      </div>
     </div>
-    
-    {% if form.tipoCuenta %}
-    <div class="form-group mb-3">
-        <label for="{{ form.tipoCuenta.id_for_label }}">{{ form.tipoCuenta.label }}:</label>
-        {{ form.tipoCuenta }}
+
+    <div class="row-compact mt-3">
+      <!-- Tipo cuenta (select render manualmente, si existe) -->
+      {% if form.tipoCuenta %}
+      <div class="col-6-compact form-group">
+        <label class="form-label"><i class="fas fa-list-alt"></i> {{ form.tipoCuenta.label }}</label>
+        <div style="position:relative;">
+          <i class="fas fa-list-alt input-icon"></i>
+          <select name="{{ form.tipoCuenta.name }}" id="{{ form.tipoCuenta.id_for_label }}" class="form-control input-with-icon" {% if form.tipoCuenta.field.required %}required{% endif %}>
+            <option value="" disabled {% if not form.tipoCuenta.value %}selected{% endif %}>Seleccione..</option>
+            {% for val,label in form.tipoCuenta.field.choices %}
+              <option value="{{ val }}" {% if val|stringformat:"s" == form.tipoCuenta.value|stringformat:"s" %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
         {% if form.tipoCuenta.errors %}
-            <div class="invalid-feedback d-block">
-                {% for error in form.tipoCuenta.errors %}<span>{{ error }}</span><br>{% endfor %}
-            </div>
-        {% else %}
-            <div class="invalid-feedback">Seleccione una clasificación contable.</div>
+          <div class="invalid-feedback d-block">
+            {% for error in form.tipoCuenta.errors %}{{ error }}<br>{% endfor %}
+          </div>
         {% endif %}
-    </div>
-    {% endif %}
+      </div>
+      {% endif %}
 
-    <div class="form-group mb-3">
-        <label for="{{ form.saldoDisponible.id_for_label }}">Saldo Disponible:</label>
-        <input type="number"
-               name="{{ form.saldoDisponible.name }}"
-               id="{{ form.saldoDisponible.id_for_label }}"
-               step="0.01"
-               class="form-control text-dark {% if form.saldoDisponible.errors %}is-invalid{% endif %}"
-               required
-               value="{{ form.saldoDisponible.value|default:cuenta.saldoDisponible|stringformat:".2f" }}">
+      <!-- Saldo disponible (editable, visible + hidden sync) -->
+      <div class="col-6-compact form-group">
+        <label class="form-label"><i class="fas fa-wallet"></i> Saldo disponible</label>
+        <div style="position:relative;">
+          <i class="fas fa-wallet input-icon"></i>
+          <input id="saldoVis" type="text" class="form-control input-with-icon" value="{{ form.saldoDisponible.value|default:cuenta.saldoDisponible|stringformat:'.2f' }}" placeholder="0.00" required>
+          <input id="saldoHidden" type="hidden" name="{{ form.saldoDisponible.name }}" value="{{ form.saldoDisponible.value|default:cuenta.saldoDisponible|stringformat:'.2f' }}">
+        </div>
         {% if form.saldoDisponible.errors %}
-            <div class="invalid-feedback d-block">
-                {% for error in form.saldoDisponible.errors %}<span>{{ error }}</span><br>{% endfor %}
-            </div>
+          <div class="invalid-feedback d-block">
+            {% for error in form.saldoDisponible.errors %}{{ error }}<br>{% endfor %}
+          </div>
         {% else %}
-            <div class="invalid-feedback">Ingrese un saldo válido.</div>
+          <div class="hint">Ingrese un valor numérico (se guardará con 2 decimales).</div>
         {% endif %}
+      </div>
     </div>
-    
-    {% if form.fechaApertura %}
-    <div class="form-group mb-3">
-        <label for="{{ form.fechaApertura.id_for_label }}">{{ form.fechaApertura.label }}:</label>
-        <input type="date"
-            name="{{ form.fechaApertura.name }}"
-            id="{{ form.fechaApertura.id_for_label }}"
-            class="form-control text-dark {% if form.fechaApertura.errors %}is-invalid{% endif %}"
-            readonly
-            value="{{ form.fechaApertura.value|default:cuenta.fechaApertura|date:'Y-m-d' }}">
-        {% if form.fechaApertura.errors %}
-            <div class="invalid-feedback d-block">
-                {% for error in form.fechaApertura.errors %}<span>{{ error }}</span><br>{% endfor %}
-            </div>
-        {% else %}
-            <div class="invalid-feedback">Ingrese una fecha de apertura válida.</div>
-        {% endif %}
-    </div>
-    {% endif %}
 
-    {% if 'estado' not in form.fields %}
-    <input type="hidden"
-           name="estado"
-           value="{{ cuenta.estado|lower }}">
-    {% else %}
-         <input type="hidden" name="estado" value="{{ form.estado.value|default:cuenta.estado|lower }}">
-    {% endif %}
+    <div class="row-compact mt-3">
+      <!-- Fecha apertura (visible readonly + hidden) -->
+      {% if form.fechaApertura %}
+      <div class="col-6-compact form-group">
+        <label class="form-label"><i class="fas fa-calendar-alt"></i> {{ form.fechaApertura.label }}</label>
+        <div style="position:relative;">
+          <i class="fas fa-calendar-alt input-icon"></i>
+          <div class="readonly-field with-icon" id="fechaVis">{{ form.fechaApertura.value|default:cuenta.fechaApertura|date:'Y-m-d' }}</div>
+          <input type="hidden" id="fechaHidden" name="{{ form.fechaApertura.name }}" value="{{ form.fechaApertura.value|default:cuenta.fechaApertura|date:'Y-m-d' }}">
+        </div>
+      </div>
+      {% endif %}
+
+      <input type="hidden" name="estado" value="{{ form.estado.value|default:cuenta.estado|lower }}">
+    </div>
 
     <div class="text-center mt-4">
-        <button type="submit" class="btn btn-warning">
-            <i class="fas fa-save me-1"></i> Guardar Cambios
-        </button>
+      <button type="submit" class="btn-submit">
+        <i class="fas fa-save me-2"></i> Guardar
+      </button>
     </div>
-</form>
+  </form>
+</div>
 
+<!-- Modal: Selector de Banco (opcional, si quieres permitir cambiar banco) -->
 <div class="modal fade" id="bancoSelectorModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered" role="document">
+  <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Seleccionar Banco</h5>
-        <button type="button" class="btn btn-sm btn-icon-only text-dark"
-                data-bs-dismiss="modal">
-          <i class="fas fa-times"></i>
-        </button>
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title"><i class="fas fa-university me-2"></i> Seleccionar Banco</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
       </div>
       <div class="modal-body">
-        <input id="searchBanco" class="form-control text-dark mb-2"
-               placeholder="Buscar..."
-               onkeyup="filterTable('searchBanco','tablaBancoSel')">
-        <table class="table table-sm table-hover" id="tablaBancoSel">
-          <thead>
-            <tr><th>Código</th><th>Nombre</th></tr>
-          </thead>
-          <tbody>
-            {% for b in bancos %}
-            <tr data-id="{{ b.idBanco }}" data-nombre="{{ b.nombreBanco }}">
-              <td>{{ b.codLocalBanco }}</td>
-              <td>{{ b.nombreBanco }}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+        <input id="searchBanco" class="form-control mb-2" placeholder="Buscar..." />
+        <div class="modal-table">
+          <table class="table table-sm table-hover" id="tablaBancoSel">
+            <thead><tr><th>Código</th><th>Nombre</th></tr></thead>
+            <tbody>
+              {% for b in bancos %}
+              <tr class="select-banco-row" data-id="{{ b.idBanco }}" data-nombre="{{ b.nombreBanco }}">
+                <td>{{ b.codLocalBanco }}</td>
+                <td>{{ b.nombreBanco }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
 </div>
+{% endblock content %}
+
+{% block javascripts %}
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  // Protected pairs: visible element id and hidden field id
+  const protectedPairs = [
+    { vis: 'bancoVis', hidden: 'bancoHidden' },
+    { vis: 'numeroVis', hidden: 'numeroHidden' },
+    { vis: 'fechaVis', hidden: 'fechaHidden' }
+  ];
+
+  // Store originals and observe tampering
+  protectedPairs.forEach(pair => {
+    const vis = document.getElementById(pair.vis);
+    const hid = document.getElementById(pair.hidden);
+    if (!vis || !hid) return;
+    vis.dataset.original = (vis.textContent || vis.value || '').trim();
+    hid.dataset.original = (hid.value || '').trim();
+    // Observe attribute changes (rare) and revert
+    const mo = new MutationObserver(() => {
+      if ((vis.textContent || vis.value || '').trim() !== vis.dataset.original) {
+        restorePair(pair);
+        showTempAlert('No está permitido modificar campos protegidos manualmente.', 'warning');
+      }
+    });
+    mo.observe(vis, { attributes: true, characterData: true, childList: true, subtree: true });
+  });
+
+  // Saldo visible / hidden sync and validation
+  const saldoVis = document.getElementById('saldoVis');
+  const saldoHidden = document.getElementById('saldoHidden');
+
+  function showFieldError(el, msg) {
+    el.classList.add('is-invalid');
+    let fb = el.parentNode.querySelector('.invalid-feedback');
+    if (!fb) {
+      fb = document.createElement('div');
+      fb.className = 'invalid-feedback d-block';
+      el.parentNode.appendChild(fb);
+    }
+    fb.textContent = msg;
+  }
+  function hideFieldError(el) {
+    el.classList.remove('is-invalid');
+    const fb = el.parentNode.querySelector('.invalid-feedback');
+    if (fb) fb.style.display = 'none';
+  }
+
+  if (saldoVis && saldoHidden) {
+    // allow typing but sanitize input
+    saldoVis.addEventListener('input', function() {
+      // allow digits, dots, minus
+      this.value = this.value.replace(/[^0-9.\-]/g,'');
+      hideFieldError(this);
+    });
+
+    saldoVis.addEventListener('blur', function() {
+      let v = this.value.trim();
+      if (v === '') {
+        // keep existing hidden if empty
+        return;
+      }
+      // Normalize: remove multiple dots except last
+      const parts = v.split('.');
+      if (parts.length > 2) {
+        v = parts[0] + '.' + parts.slice(1).join('');
+      }
+      const n = parseFloat(v);
+      if (isNaN(n)) {
+        showFieldError(this, 'Ingrese un saldo válido.');
+        return;
+      }
+      saldoHidden.value = n.toFixed(2);
+      this.value = n.toFixed(2);
+      hideFieldError(this);
+    });
+  }
+
+  // Selector banco modal row click
+  document.querySelectorAll('.select-banco-row').forEach(row => {
+    row.addEventListener('click', function() {
+      const id = this.dataset.id;
+      const nombre = this.dataset.nombre;
+      const vis = document.getElementById('bancoVis');
+      const hid = document.getElementById('bancoHidden');
+      if (vis && hid) {
+        vis.textContent = nombre;
+        hid.value = id;
+        // update originals to allow this intentional change
+        vis.dataset.original = nombre;
+        hid.dataset.original = id;
+      }
+      const modalEl = document.getElementById('bancoSelectorModal');
+      if (modalEl) {
+        const bsModal = bootstrap.Modal.getInstance(modalEl);
+        if (bsModal) bsModal.hide();
+      }
+    });
+  });
+
+  // Search in banco modal
+  const searchBanco = document.getElementById('searchBanco');
+  if (searchBanco) {
+    searchBanco.addEventListener('input', function() {
+      const q = this.value.trim().toUpperCase();
+      document.querySelectorAll('#tablaBancoSel tbody tr').forEach(tr => {
+        tr.style.display = tr.textContent.toUpperCase().includes(q) ? '' : 'none';
+      });
+    });
+  }
+
+  // Restore helper
+  function restorePair(pair) {
+    const vis = document.getElementById(pair.vis);
+    const hid = document.getElementById(pair.hidden);
+    if (vis && hid && hid.dataset.original !== undefined) {
+      // restore hidden to original and visible accordingly
+      hid.value = hid.dataset.original;
+      if (vis.tagName === 'INPUT' || vis.tagName === 'SELECT' || vis.tagName === 'TEXTAREA') {
+        vis.value = hid.dataset.original;
+      } else {
+        vis.textContent = hid.dataset.original;
+      }
+    }
+  }
+
+  // Temporary alert helper
+  function showTempAlert(msg, type='warning') {
+    const container = document.createElement('div');
+    container.className = `alert alert-${type} alert-dismissible fade show mb-3`;
+    container.role = 'alert';
+    container.innerHTML = `${msg} <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>`;
+    const parent = document.querySelector('.honorario-container');
+    parent.insertBefore(container, parent.firstChild);
+    setTimeout(()=> { try{ container.remove(); }catch(e){} }, 5000);
+  }
+
+  // On submit: bootstrap validation + check hidden originals
+  const form = document.getElementById('editCuentaForm');
+  form.addEventListener('submit', function(e) {
+    // perform native/Bootstrap validation
+    if (!form.checkValidity()) {
+      form.classList.add('was-validated');
+      e.preventDefault(); e.stopPropagation();
+      return;
+    }
+
+    // check protected hidden fields not tampered
+    const tampered = protectedPairs.filter(pair => {
+      const hid = document.getElementById(pair.hidden);
+      if (!hid) return false;
+      const original = hid.dataset.original !== undefined ? String(hid.dataset.original).trim() : null;
+      return original !== null && String(hid.value).trim() !== original;
+    });
+
+    if (tampered.length) {
+      e.preventDefault(); e.stopPropagation();
+      tampered.forEach(restorePair);
+      showTempAlert('Se detectaron cambios no autorizados en campos protegidos. El formulario no pudo enviarse.', 'danger');
+      return false;
+    }
+
+    // sync saldo visible -> hidden if present
+    if (saldoVis && saldoHidden) {
+      const v = saldoVis.value.replace(/[^0-9.\-]/g,'');
+      const n = parseFloat(v);
+      if (isNaN(n)) {
+        e.preventDefault(); e.stopPropagation();
+        showFieldError(saldoVis, 'Ingrese un saldo válido.');
+        return false;
+      }
+      saldoHidden.value = n.toFixed(2);
+    }
+
+    // all good -> allow submit
+  });
+
+  // Ensure originals set (in case autofill)
+  window.setTimeout(() => {
+    protectedPairs.forEach(pair => {
+      const vis = document.getElementById(pair.vis);
+      const hid = document.getElementById(pair.hidden);
+      if (vis && hid && hid.dataset.original !== undefined) {
+        if (vis.tagName === 'INPUT' || vis.tagName === 'SELECT' || vis.tagName === 'TEXTAREA') {
+          vis.value = hid.dataset.original;
+        } else {
+          vis.textContent = hid.dataset.original;
+        }
+      }
+    });
+  }, 150);
+
+});
+</script>
+{% endblock javascripts %}

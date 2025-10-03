@@ -16,11 +16,6 @@
       background-color: #5a32a3 !important;
       border-color: #5a32a3 !important;
     }
-    .actions-column .btn-sm {
-      padding: 0.25rem 0.5rem;
-      font-size: 0.875rem;
-      transition: all 0.3s ease;
-    }
     .badge {
       font-size: 0.85em;
       padding: 0.5em 0.75em;
@@ -47,26 +42,26 @@
       border: 2px solid #f1f1f1;
     }
 
-.pagination-container {
-    margin-top: 1rem !important;
-}
+    .pagination-container {
+        margin-top: 1rem !important;
+    }
 
-.pagination {
-    --bs-pagination-padding-x: 0.75rem;
-    --bs-pagination-padding-y: 0.375rem;
-    --bs-pagination-font-size: 0.875rem;
-}
+    .pagination {
+        --bs-pagination-padding-x: 0.75rem;
+        --bs-pagination-padding-y: 0.375rem;
+        --bs-pagination-font-size: 0.875rem;
+    }
 
-.page-link {
-    min-width: 32px;
-    text-align: center;
-    border-radius: 4px !important;
-}
+    .page-link {
+        min-width: 32px;
+        text-align: center;
+        border-radius: 4px !important;
+    }
 
-.page-item.active .page-link {
-    background-color: #fb6340;
-    border-color: #fb6340;
-}
+    .page-item.active .page-link {
+        background-color: #fb6340;
+        border-color: #fb6340;
+    }
   </style>
 {% endblock stylesheets %}
 
@@ -146,38 +141,42 @@
               {% endif %}
             </td>
             <td>{{ plan.fechaPlanCuenta|date:"d/m/Y" }}</td>
-<td class="actions-column">
-  <div class="d-flex gap-2">
-    {% if plan.idPlanCuenta %}
-      {% if perms.planCuenta.change_plancuenta %}
-        <a href="{% url 'editar_plan' plan.idPlanCuenta %}" class="btn btn-primary btn-sm" title="Editar">
-          <i class="fas fa-edit"></i>
-        </a>
-      {% endif %}
-    {% endif %}
-    {% if plan.estadoPlanCuenta %}
-      {% if perms.planCuenta.change_plancuenta %}
-        <button class="btn btn-outline-warning btn-sm"
-                data-bs-toggle="modal"
-                data-bs-target="#deletePlanCuentaModal"
-                data-url="{% url 'desactivar_plan' plan.idPlanCuenta %}"
-                title="Inhabilitar">
-          <i class="fas fa-user-slash"></i>
-        </button>
-      {% endif %}
-    {% else %}
-      {% if perms.planCuenta.change_plancuenta %}
-        <button class="btn btn-success btn-sm"
-                data-bs-toggle="modal"
-                data-bs-target="#reactivatePlanCuentaModal"
-                data-url="{% url 'reactivar_plan' plan.idPlanCuenta %}"
-                title="Reactivar">
-          <i class="fas fa-redo"></i>
-        </button>
-      {% endif %}
-    {% endif %}
-  </div>
-</td>
+            <td class="actions-column">
+              <div class="d-flex gap-2">
+                {% if perms.planCuenta.change_plancuenta %}
+                  {# Ahora abrimos el formulario de edición en modal (AJAX) en vez de navegación #}
+                  <button type="button"
+                          class="btn btn-primary btn-sm"
+                          data-bs-toggle="modal"
+                          data-bs-target="#editPlanModal"
+                          data-url="{% url 'editar_plan' plan.idPlanCuenta %}"
+                          title="Editar">
+                    <i class="fas fa-edit"></i>
+                  </button>
+                {% endif %}
+                {% if plan.estadoPlanCuenta %}
+                  {% if perms.planCuenta.change_plancuenta %}
+                    <button class="btn btn-outline-warning btn-sm"
+                            data-bs-toggle="modal"
+                            data-bs-target="#deletePlanCuentaModal"
+                            data-url="{% url 'desactivar_plan' plan.idPlanCuenta %}"
+                            title="Inhabilitar">
+                      <i class="fas fa-user-slash"></i>
+                    </button>
+                  {% endif %}
+                {% else %}
+                  {% if perms.planCuenta.change_plancuenta %}
+                    <button class="btn btn-success btn-sm"
+                            data-bs-toggle="modal"
+                            data-bs-target="#reactivatePlanCuentaModal"
+                            data-url="{% url 'reactivar_plan' plan.idPlanCuenta %}"
+                            title="Reactivar">
+                      <i class="fas fa-redo"></i>
+                    </button>
+                  {% endif %}
+                {% endif %}
+              </div>
+            </td>
           </tr>
           {% empty %}
           <tr>
@@ -190,16 +189,35 @@
   </div>
 </div>
 
+<!-- Modal: Editar Plan (cargado por AJAX) -->
+<div class="modal fade" id="editPlanModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title text-white"><i class="fas fa-edit me-2"></i> Editar Plan de Cuenta</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body" id="editPlanContent">
+        <div class="text-center py-4 text-muted">
+          <div class="spinner-border text-primary" role="status"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Modal: Inhabilitar Plan de Cuenta -->
 <div class="modal fade" id="deletePlanCuentaModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header bg-warning text-dark">
-              <h5 class="modal-title text-dark"><i class="fas fa-book me-2"></i> Confirmar Inhabilitación</h5>
-              <button type="button" class="btn btn-sm btn-icon-only text-dark" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
-                <i class="fas fa-times"></i>
-              </button>
-            </div>
+        <h5 class="modal-title text-dark"><i class="fas fa-book me-2"></i> Confirmar Inhabilitación</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-dark" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
       <div class="modal-body">
         ¿Seguro que deseas inhabilitar este plan de cuenta?
       </div>
@@ -249,66 +267,66 @@ document.addEventListener('DOMContentLoaded', function () {
     const table = document.getElementById('planesTable');
     const rows = Array.from(table.querySelectorAll('tbody tr'));
     const searchInput = document.getElementById('searchInput');
-    
+
     // Crear contenedor de paginación
     const paginationContainer = document.createElement('div');
     paginationContainer.className = 'pagination-container mt-3';
     table.parentNode.insertBefore(paginationContainer, table.nextSibling);
-    
+
     const pagination = document.createElement('ul');
     pagination.className = 'pagination justify-content-center';
     paginationContainer.appendChild(pagination);
-    
+
     // Configuración
     const rowsPerPage = 5;
     let currentPage = 1;
     let filteredRows = rows;
-    
+
     // Función para renderizar la tabla
     function render() {
         // Ocultar todas las filas
         rows.forEach(row => row.style.display = 'none');
-        
+
         // Calcular rango para la página actual
         const startIndex = (currentPage - 1) * rowsPerPage;
         const endIndex = Math.min(startIndex + rowsPerPage, filteredRows.length);
-        
+
         // Mostrar solo las filas de la página actual
         for (let i = startIndex; i < endIndex; i++) {
             filteredRows[i].style.display = '';
         }
-        
+
         // Actualizar paginación
         setupPagination();
     }
-    
+
     // Función para filtrar filas
     function filterRows() {
         const query = searchInput.value.trim().toUpperCase();
-        
+
         if (!query) {
             filteredRows = rows;
             return;
         }
-        
+
         filteredRows = rows.filter(row => {
             const cells = row.querySelectorAll('td');
             let rowText = '';
-            
+
             // Concatenar todo el texto de la fila
             cells.forEach(cell => {
                 rowText += cell.textContent.toUpperCase() + ' ';
             });
-            
+
             return rowText.includes(query);
         });
     }
-    
+
     // Función para configurar la paginación
     function setupPagination() {
         const totalPages = Math.ceil(filteredRows.length / rowsPerPage);
         pagination.innerHTML = '';
-        
+
         // Botón Anterior
         const prevLi = document.createElement('li');
         prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
@@ -321,17 +339,17 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
         pagination.appendChild(prevLi);
-        
+
         // Botones de Páginas
         const maxVisiblePages = 5;
         let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
         let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
-        
+
         // Ajustar si no hay suficientes páginas al inicio
         if (endPage - startPage + 1 < maxVisiblePages) {
             startPage = Math.max(1, endPage - maxVisiblePages + 1);
         }
-        
+
         for (let i = startPage; i <= endPage; i++) {
             const li = document.createElement('li');
             li.className = `page-item ${i === currentPage ? 'active' : ''}`;
@@ -343,7 +361,7 @@ document.addEventListener('DOMContentLoaded', function () {
             });
             pagination.appendChild(li);
         }
-        
+
         // Botón Siguiente
         const nextLi = document.createElement('li');
         nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
@@ -357,14 +375,14 @@ document.addEventListener('DOMContentLoaded', function () {
         });
         pagination.appendChild(nextLi);
     }
-    
+
     // Evento de búsqueda
     searchInput.addEventListener('input', function() {
         filterRows();
         currentPage = 1;
         render();
     });
-    
+
     // Scroll horizontal con rueda
     const wrapper = document.querySelector('.table-responsive');
     if (wrapper) {
@@ -375,28 +393,28 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
     }
-    
+
     // Inicializar
     render();
-    
+
     // Configurar modales de acción
     // Modal para desactivar
     $('#deletePlanCuentaModal').on('show.bs.modal', function(e) {
         const url = $(e.relatedTarget).data('url');
         $('#deletePlanCuentaForm').attr('action', url);
     });
-    
+
     // Modal para reactivar
     $('#reactivatePlanCuentaModal').on('show.bs.modal', function(e) {
         const url = $(e.relatedTarget).data('url');
         $('#reactivatePlanCuentaForm').attr('action', url);
     });
-    
+
     // Manejar envío de formularios modales
     $('#deletePlanCuentaForm, #reactivatePlanCuentaForm').on('submit', function(e) {
         e.preventDefault();
         const form = $(this);
-        
+
         $.ajax({
             url: form.attr('action'),
             method: 'POST',
@@ -415,8 +433,40 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
     });
+
+    // ---------------------------
+    // Cargar formulario de edición dentro del modal (AJAX)
+    // ---------------------------
+    $('#editPlanModal').on('show.bs.modal', function(e) {
+      const btn = $(e.relatedTarget);
+      const url = btn.data('url');
+      const $content = $('#editPlanContent');
+
+      // mostrar spinner mientras carga
+      $content.html(`
+        <div class="text-center py-4 text-muted">
+          <div class="spinner-border text-primary" role="status"></div>
+        </div>
+      `);
+
+      // GET del formulario parcial (la vista debe devolver el HTML)
+      $.get(url)
+        .done(function(html) {
+          $content.html(html);
+
+          // después de insertar el HTML, opcional: si el formulario dentro del modal usa AJAX,
+          // ya debería tener sus propios handlers; si no, puedes delegar handlers aquí.
+        })
+        .fail(function() {
+          $content.html('<div class="alert alert-danger">Error al cargar el formulario. Intente nuevamente.</div>');
+        });
+    });
+
+    // Limpiar contenido al cerrar para liberar memoria y evitar mostrar formulario viejo
+    $('#editPlanModal').on('hidden.bs.modal', function() {
+      $('#editPlanContent').empty();
+    });
+
 });
 </script>
-
-
 {% endblock javascripts %}

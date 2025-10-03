@@ -1,138 +1,219 @@
-{% block stylesheets %}
+{% load static %}
+
 <link rel="stylesheet" href="/static/assets/css/styleForms.css" />
 <link rel="stylesheet" href="/static/assets/css/argon.css" />
-{% endblock stylesheets %}
 
-{% block content %}
-<div class="mt-5">
-  <h2 class="text-center text-dark">Modificar Periodo Contable</h2>
+<style>
+/* Estilos en la misma línea del honorario/empresa que hemos usado */
+.periodo-container {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-radius: 1rem;
+  box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.08);
+  padding: 1.25rem;
+  margin: 0.5rem auto;
+  max-width: 720px;
+}
+.periodo-header {
+  text-align: center;
+  margin-bottom: 1rem;
+  position: relative;
+  padding-bottom: .6rem;
+}
+.periodo-header h2 { color: #343a40; font-weight: 800; font-size: 1.15rem; margin-bottom:.25rem; }
+.periodo-header p { margin:0; color:#6b7280; font-size:.92rem; }
+.periodo-header::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 50%;
+  transform: translateX(-50%);
+  width: 80px; height: 4px;
+  background: linear-gradient(90deg,#ffc107,#fd7e14);
+  border-radius: 3px;
+}
 
-  <!-- Contenedor para los mensajes -->
-  <div id="formMessages"></div>
+/* Grid: dos columnas en escritorio, 1 en móvil */
+.form-grid { display:grid; grid-template-columns:repeat(2, 1fr); gap: 1rem; }
+@media (max-width: 767px) { .form-grid { grid-template-columns: 1fr; } }
 
-  <form method="POST" class="mt-3 text-dark needs-validation" autocomplete="off" style="max-width: 600px; margin: 0 auto;" id="periodoContableForm" action="{% url 'periodo_contable_edit'  periodo.idPeriodo %}" novalidate>
+.form-group { position: relative; margin-bottom: .8rem; }
+.form-label { display:flex; align-items:center; gap:.5rem; font-weight:700; color:#374151; margin-bottom:.35rem; }
+.form-label i { color:#fd7e14; }
+
+.input-icon { position:absolute; left:12px; top:50%; transform:translateY(-50%); color:#6c757d; z-index:2; font-size:.95rem; }
+.input-with-icon { padding-left:40px !important; }
+
+.form-control {
+  border-radius:.6rem; padding:.6rem 1rem; border:1px solid #d1d5db; background:#fff;
+  min-height:44px; box-sizing:border-box; transition: box-shadow .18s, border-color .18s;
+  color:#111827; font-weight:600;
+}
+.form-control:focus { outline:none; border-color:#ffc107; box-shadow:0 0 0 .18rem rgba(255,193,7,0.12); }
+textarea.form-control { min-height:100px; padding-top:.8rem; padding-bottom:.8rem; }
+
+.btn-submit {
+  background: linear-gradient(135deg,#ffc107 0%,#fd7e14 100%);
+  border: none; color:#fff; font-weight:700; padding:.65rem 1.4rem; border-radius:.6rem;
+  box-shadow:0 6px 14px rgba(253,126,20,0.14);
+}
+.btn-submit:hover { transform: translateY(-2px); }
+
+/* Feedback */
+.invalid-feedback { display:none; color:#dc3545; font-weight:600; margin-top:.25rem; }
+.was-validated .form-control:invalid ~ .invalid-feedback { display:block; }
+
+.form-note { font-size:.85rem; color:#6b7280; margin-top:.25rem; }
+</style>
+
+<div class="periodo-container">
+  <div class="periodo-header">
+    <h2><i class="fas fa-calendar-alt text-warning me-2"></i> Editar Período Contable</h2>
+    <p class="text-muted">Ajusta nombre y fechas del período. Las fechas deben ser coherentes.</p>
+  </div>
+
+  <div id="modalMessages"></div>
+
+  <form method="POST"
+        id="editPeriodoForm"
+        class="needs-validation"
+        action="{% url 'periodo_contable_edit' periodo.idPeriodo %}"
+        autocomplete="off"
+        novalidate>
     {% csrf_token %}
 
-    <div class="form-row">
-      <div class="form-group col-md-6">
-        <label for="nombrePeriodo">Nombre:</label>
-        <input type="text" id="nombrePeriodo" name="nombrePeriodo" class="form-control text-dark" value="{{ periodo.nombrePeriodo }}" placeholder="Ingrese el nombre del periodo" maxlength="255" required />
+    <div class="form-grid">
+      <div class="form-group">
+        <label for="nombrePeriodo" class="form-label"><i class="fas fa-tag"></i> Nombre</label>
+        <div style="position:relative;">
+          <i class="fas fa-tag input-icon"></i>
+          <input type="text"
+                 id="nombrePeriodo"
+                 name="nombrePeriodo"
+                 class="form-control input-with-icon"
+                 maxlength="255"
+                 required
+                 value="{{ periodo.nombrePeriodo|default_if_none:'' }}"
+                 placeholder="Nombre del período" />
+        </div>
+        <div class="invalid-feedback">Nombre del periodo obligatorio.</div>
       </div>
-      <div class="form-group col-md-6">
-        <label for="fechaInicioPeriodo">Fecha de Inicio:</label>
-        <input type="date" id="fechaInicioPeriodo" name="fechaInicioPeriodo" class="form-control text-dark" value="{{ periodo.fechaInicioPeriodo|date:'Y-m-d' }}" required />
+
+      <div class="form-group">
+        <label for="fechaInicioPeriodo" class="form-label"><i class="fas fa-calendar-plus"></i> Fecha Inicio</label>
+        <div style="position:relative;">
+          <i class="fas fa-calendar-plus input-icon"></i>
+          <input type="date"
+                 id="fechaInicioPeriodo"
+                 name="fechaInicioPeriodo"
+                 class="form-control input-with-icon"
+                 required
+                 value="{{ periodo.fechaInicioPeriodo|date:'Y-m-d' }}" />
+        </div>
+        <div class="invalid-feedback">Fecha inicio obligatoria.</div>
       </div>
+
+      <div class="form-group">
+        <label for="fechaFinPeriodo" class="form-label"><i class="fas fa-calendar-minus"></i> Fecha Fin</label>
+        <div style="position:relative;">
+          <i class="fas fa-calendar-minus input-icon"></i>
+          <input type="date"
+                 id="fechaFinPeriodo"
+                 name="fechaFinPeriodo"
+                 class="form-control input-with-icon"
+                 required
+                 value="{{ periodo.fechaFinPeriodo|date:'Y-m-d' }}" />
+        </div>
+        <div class="invalid-feedback">Fecha fin obligatoria (debe ser igual o posterior a la inicio).</div>
+      </div>
+
+      {# ocultamos/ocupiamos el estado; no mostrarlo #}
+      <input type="hidden" name="estadoPeriodo" value="{{ periodo.estadoPeriodo|yesno:'True,False' }}" />
     </div>
 
-    <div class="form-row">
-      <div class="form-group col-md-6">
-        <label for="fechaFinPeriodo">Fecha de Fin:</label>
-        <input type="date" id="fechaFinPeriodo" name="fechaFinPeriodo" class="form-control text-dark" value="{{ periodo.fechaFinPeriodo|date:'Y-m-d'  }}" required />
-      </div>
-
-      <div class="form-group col-md-6">
-        <input type="hidden" id="estadoPlanCuenta" name="estadoPlanCuenta" value="True" />
-      </div>
-    </div>
-
-    <div class="text-center">
-      <input type="submit" class="btn btn-warning mt-4" value="Guardar" />
+    <div class="text-center mt-3">
+      <button type="submit" class="btn-submit"><i class="fas fa-save me-2"></i> Guardar</button>
     </div>
   </form>
 </div>
 
 <script>
-      function activarMayusculasInputs() {
-      document.addEventListener('input', function(e) {
-        if (e.target.tagName === 'INPUT' && !e.target.type.match(/password|hidden|email/)) {
-          e.target.value = e.target.value.toUpperCase();
-        }
-      });
-    }
-    activarMayusculasInputs();
-    
-    document.addEventListener('DOMContentLoaded', function () {
-      const form = document.getElementById('periodoContableForm');
-      const inputs = form.querySelectorAll('input');
-  
-      // Validar campos al enviar el formulario
-      form.addEventListener('submit', function (event) {
-        let isValid = true;
-  
-        inputs.forEach(function (input) {
-          if (!input.checkValidity()) {
-            input.classList.add('is-invalid');
-            input.classList.remove('is-valid');
-            isValid = false;
-          } else {
-            input.classList.add('is-valid');
-            input.classList.remove('is-invalid');
-          }
-        });
-  
-        if (!isValid) {
-          event.preventDefault();
-          event.stopPropagation();
-        }
-  
-        form.classList.add('was-validated');
-      });
-  
-      // Validar campos en tiempo real
-      inputs.forEach(function (input) {
-        input.addEventListener('input', function () {
-          if (input.checkValidity()) {
-            input.classList.add('is-valid');
-            input.classList.remove('is-invalid');
-          } else {
-            input.classList.add('is-invalid');
-            input.classList.remove('is-valid');
-          }
-        });
-      });
-    });
-  
-    // Interceptar el envío del formulario de registro con AJAX
-    $(document).off('submit', '#periodoContableForm').on('submit', '#periodoContableForm', function (e) {
-      e.preventDefault();
-      var form = $(this);
-      var messagesContainer = $('#formMessages');
-      messagesContainer.empty();
-  
-      if (!form[0].checkValidity()) {
-        form.addClass('was-validated');
-        return;
+(function(){
+  function activarMayusculasInputs() {
+    document.addEventListener('input', function(e){
+      const el = e.target;
+      if (!el) return;
+      if ((el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') && el.type !== 'date' && el.type !== 'email' && el.type !== 'password' && el.type !== 'hidden') {
+        // evita convertir inputs de tipo date/email/hidden
+        const start = el.selectionStart, end = el.selectionEnd;
+        el.value = el.value.toUpperCase();
+        try { el.setSelectionRange(start, end); } catch (err) {}
       }
-  
-      $.ajax({
-        url: form.attr('action'),
-        method: form.attr('method'),
-        data: form.serialize(),
-        success: function (response) {
-          if (response.success) {
-            Swal.fire({
-              title: 'Éxito',
-              text: response.message,
-              icon: 'success',
-              confirmButtonText: 'OK',
-              customClass: { confirmButton: 'btn btn-warning' },
-              buttonsStyling: false,
-            }).then(() => {
-              location.reload();
-            });
+    });
+  }
+
+  function fechasCoherentes() {
+    const inicio = document.getElementById('fechaInicioPeriodo');
+    const fin = document.getElementById('fechaFinPeriodo');
+    if (!inicio || !fin) return true;
+    const vInicio = inicio.value;
+    const vFin = fin.value;
+    if (!vInicio || !vFin) return true;
+    const dInicio = new Date(vInicio);
+    const dFin = new Date(vFin);
+    return dFin >= dInicio;
+  }
+
+  function attachDateValidation() {
+    const inicio = document.getElementById('fechaInicioPeriodo');
+    const fin = document.getElementById('fechaFinPeriodo');
+
+    [inicio, fin].forEach(el => {
+      if (!el) return;
+      el.addEventListener('change', function(){
+        const form = document.getElementById('editPeriodoForm');
+        if (!fechasCoherentes()) {
+          // marcar invalido el campo fin
+          fin.setCustomValidity('La fecha fin debe ser igual o posterior a la fecha inicio.');
+          form.classList.add('was-validated');
+        } else {
+          fin.setCustomValidity('');
+          // quitar clases invalid/valid según correspondan
+          if (fin.checkValidity()) {
+            fin.classList.remove('is-invalid');
+            fin.classList.add('is-valid');
           } else {
-            // Mostrar errores
-            if (response.errors) {
-              $.each(response.errors, function (field, error) {
-                messagesContainer.append('<div class="alert alert-danger">' + error + '</div>');
-              });
-            }
+            fin.classList.remove('is-valid');
           }
-        },
-        error: function (error) {
-          console.log(error);
         }
       });
     });
-  </script>
-{% endblock content %}
+  }
+
+  // Previene envío nativo si las fechas no son coherentes.
+  document.addEventListener('submit', function(e){
+    const form = e.target;
+    if (form && form.id === 'editPeriodoForm') {
+      if (!fechasCoherentes()) {
+        e.preventDefault();
+        e.stopPropagation();
+        const fin = document.getElementById('fechaFinPeriodo');
+        if (fin) fin.classList.add('is-invalid');
+        // mostrar mensaje simple en modalMessages
+        const container = document.getElementById('modalMessages');
+        if (container) {
+          container.innerHTML = '<div class="alert alert-danger">La fecha final debe ser igual o posterior a la fecha de inicio.</div>';
+        }
+      }
+    }
+  }, true);
+
+  // Inicialización local
+  document.addEventListener('DOMContentLoaded', function(){
+    activarMayusculasInputs();
+    attachDateValidation();
+    // si el form se cargó dentro del modal ya con valores, forzamos una validación de fechas
+    const container = document.getElementById('modalMessages');
+    if (container) container.innerHTML = '';
+  });
+
+})();
+</script>

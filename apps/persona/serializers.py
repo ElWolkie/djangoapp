@@ -7,8 +7,6 @@ import logging
 logger = logging.getLogger(__name__)
 
 class PersonaCreateSerializer(serializers.Serializer):
-    # --- ¡AQUÍ ESTÁ LA MAGIA! ---
-    # Marcamos estos campos como de solo escritura.
     # Se usarán para la validación y creación, pero no se incluirán en la respuesta.
     tipo_cedula = serializers.ChoiceField(choices=['V', 'E', 'P'], required=True, write_only=True)
     numero_cedula = serializers.CharField(max_length=20, required=True, write_only=True)

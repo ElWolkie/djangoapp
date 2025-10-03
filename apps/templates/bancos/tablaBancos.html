@@ -156,7 +156,7 @@
           <tr>
             <th>Nombre</th>
             <th title="Código utilizado para transferencias nacionales.">Código Local</th>
-            <th title="Código utilizado para transferencias internacionales.">Código SWIFT</th>
+            {% comment %} <th title="Código utilizado para transferencias internacionales.">Código SWIFT</th> {% endcomment %}
             <th>Estado</th>
             <th class="actions-column">Acciones</th>
           </tr>
@@ -166,7 +166,7 @@
           <tr>
             <td class="text-start">{{ banco.nombreBanco }}</td>
             <td class="text-start">{{ banco.codLocalBanco }}</td>
-            <td class="text-start">{{ banco.codSwiftBanco }}</td>
+            {% comment %} <td class="text-start">{{ banco.codSwiftBanco }}</td> {% endcomment %}
             <td class="text-start">
               {% if banco.estadoBanco %}
                 <span class="badge bg-success text-white">Activo</span>
