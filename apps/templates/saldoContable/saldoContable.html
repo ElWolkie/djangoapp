@@ -131,6 +131,49 @@
   .hidden {
     display: none;
   }
+
+  /* Estilos para validación visual */
+  .is-valid {
+    border-color: #28a745 !important;
+    box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.25) !important;
+  }
+
+  .is-invalid {
+    border-color: #dc3545 !important;
+    box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25) !important;
+  }
+
+  .was-validated .form-control:valid,
+  .was-validated .form-select:valid {
+    border-color: #28a745;
+  }
+
+  .was-validated .form-control:invalid,
+  .was-validated .form-select:invalid {
+    border-color: #dc3545;
+  }
+
+  /* Asegurar que los mensajes de error se muestren solo cuando sea necesario */
+  .invalid-feedback {
+    display: none;
+  }
+
+  .was-validated .form-control:invalid ~ .invalid-feedback,
+  .was-validated .form-select:invalid ~ .invalid-feedback,
+  .form-control.is-invalid ~ .invalid-feedback,
+  .form-select.is-invalid ~ .invalid-feedback {
+    display: block;
+  }
+
+  /* Para grupos de input con validación */
+  .input-group.has-validation .form-control.is-invalid {
+    z-index: 3;
+  }
+  /* Estilos para resaltado de campos sin modificar */
+  .input-not-modified {
+    border: 2px solid #ffc107 !important;
+    background-color: #fffbf0 !important;
+  }
 </style>
 {% endblock stylesheets %}
 
@@ -170,80 +213,93 @@
     {% csrf_token %}
 
     <div class="row">
-  <div class="col-md-6">
-    <!-- Campo Periodo Contable -->
-    <div class="select-group">
-      <label for="id_id_periodo">
-        <i class="fas fa-calendar-alt me-2"></i> Periodo Contable
-      </label>
-      <select id="id_id_periodo"
-              name="id_periodo"
-              class="styled-select">
-        <option value="" disabled selected>Seleccione un periodo inactivo</option>
-        {% for periodo in periodos %}
-          <option value="{{ periodo.idPeriodo }}"
-            {% if form.data.id_periodo == periodo.idPeriodo|stringformat:"s" %}
-              selected
-            {% endif %}>
-            {{ periodo.nombrePeriodo }}
-            ({{ periodo.fechaInicioPeriodo|date:"d/m/Y" }} -
-            {{ periodo.fechaFinPeriodo|date:"d/m/Y" }})
-          </option>
-        {% endfor %}
-      </select>
-      {% if form.id_periodo.errors %}
-        <div class="invalid-feedback d-block">
-          {% for error in form.id_periodo.errors %}{{ error }}{% endfor %}
+      <div class="col-md-6">
+        <!-- Campo Periodo Contable -->
+        <div class="select-group">
+          <label for="id_id_periodo">
+            <i class="fas fa-calendar-alt me-2"></i> Periodo Contable
+          </label>
+          <div class="input-group has-validation">
+            <select id="id_id_periodo"
+                    name="id_periodo"
+                    class="form-select styled-select" required>
+              <option value="" disabled selected>Seleccione un periodo inactivo</option>
+              {% for periodo in periodos %}
+                <option value="{{ periodo.idPeriodo }}"
+                  {% if form.data.id_periodo == periodo.idPeriodo|stringformat:"s" %}
+                    selected
+                  {% endif %}>
+                  {{ periodo.nombrePeriodo }}
+                  ({{ periodo.fechaInicioPeriodo|date:"d/m/Y" }} -
+                  {{ periodo.fechaFinPeriodo|date:"d/m/Y" }})
+                </option>
+              {% endfor %}
+            </select>
+            <div class="invalid-feedback">Por favor seleccione un periodo contable.</div>
+          </div>
+          {% if form.id_periodo.errors %}
+            <div class="invalid-feedback d-block">
+              {% for error in form.id_periodo.errors %}{{ error }}{% endfor %}
+            </div>
+          {% endif %}
         </div>
-      {% endif %}
-    </div>
-  </div>
+      </div>
 
-  <div class="col-md-6">
-    <!-- Campo Plan de Cuenta -->
-    <div class="select-group">
-      <label for="id_plan_cuenta">
-        <i class="fas fa-book me-2"></i> Plan de Cuenta
-      </label>
-      <select id="id_plan_cuenta"
-              name="id_plan_cuenta"
-              class="styled-select">
-        <option value="" disabled selected>Seleccione un plan de cuenta</option>
-        {% for cuenta in planes_cuenta %}
-          <option value="{{ cuenta.idPlanCuenta }}"
-            {% if form.data.id_plan_cuenta == cuenta.idPlanCuenta|stringformat:"s" %}
-              selected
-            {% endif %}>
-            {{ cuenta.codigoPlanCuenta }} - {{ cuenta.nombrePlanCuenta }}
-          </option>
-        {% endfor %}
-      </select>
-      {% if form.id_plan_cuenta.errors %}
-        <div class="invalid-feedback d-block">
-          {% for error in form.id_plan_cuenta.errors %}{{ error }}{% endfor %}
+      <div class="col-md-6">
+        <!-- Campo Plan de Cuenta -->
+        <div class="select-group">
+          <label for="id_plan_cuenta">
+            <i class="fas fa-book me-2"></i> Plan de Cuenta
+          </label>
+          <div class="input-group has-validation">
+            <select id="id_plan_cuenta"
+                    name="id_plan_cuenta"
+                    class="form-select styled-select" required>
+              <option value="" disabled selected>Seleccione un plan de cuenta</option>
+              {% for cuenta in planes_cuenta %}
+                <option value="{{ cuenta.idPlanCuenta }}"
+                  {% if form.data.id_plan_cuenta == cuenta.idPlanCuenta|stringformat:"s" %}
+                    selected
+                  {% endif %}>
+                  {{ cuenta.codigoPlanCuenta }} - {{ cuenta.nombrePlanCuenta }}
+                </option>
+              {% endfor %}
+            </select>
+            <div class="invalid-feedback">Por favor seleccione un plan de cuenta.</div>
+          </div>
+          {% if form.id_plan_cuenta.errors %}
+            <div class="invalid-feedback d-block">
+              {% for error in form.id_plan_cuenta.errors %}{{ error }}{% endfor %}
+            </div>
+          {% endif %}
         </div>
-      {% endif %}
+      </div>
     </div>
-  </div>
-</div> <!-- Cierre correcto del primer row -->
+
     <div class="row">
       <div class="col-md-6">
         <div class="input-group">
           <label for="saldo_inicial">
             <i class="fas fa-money-bill-wave me-2"></i> Saldo Inicial
           </label>
-          <div class="input-group">
+          <div class="input-group has-validation">
             <span class="input-group-text bg-light">$</span>
-            <input type="number"
+            <input type="text"
                    id="saldo_inicial"
                    name="saldo_inicial"
                    value="{{ form.data.saldo_inicial }}"
                    class="form-control"
                    placeholder="0.00"
                    step="0.01"
-                   min="0">
+                   min="0"
+                   required>
+            <div class="invalid-feedback" id="saldo_inicial_error">Por favor ingrese un saldo inicial válido.</div>
           </div>
-          <div class="invalid-feedback">Por favor ingrese un saldo inicial válido.</div>
+          {% if form.saldo_inicial.errors %}
+            <div class="invalid-feedback d-block">
+              {% for error in form.saldo_inicial.errors %}{{ error }}{% endfor %}
+            </div>
+          {% endif %}
         </div>
       </div>
 
@@ -252,18 +308,25 @@
           <label for="saldo_final">
             <i class="fas fa-coins me-2"></i> Saldo Final
           </label>
-          <div class="input-group">
+          <div class="input-group has-validation">
             <span class="input-group-text bg-light">$</span>
-            <input type="number"
+            <input type="text"
                    id="saldo_final"
                    name="saldo_final"
                    value="{{ form.data.saldo_final }}"
                    class="form-control"
                    placeholder="0.00"
                    step="0.01"
-                   min="0">
+                   min="0"
+                   required>
+            <div class="invalid-feedback" id="saldo_final_error_default">Por favor ingrese un saldo final válido.</div>
+            <div class="invalid-feedback" id="saldo_final_error_validation" style="display: none;">El saldo final no puede ser menor al saldo inicial.</div>
           </div>
-          <div class="invalid-feedback">Por favor ingrese un saldo final válido.</div>
+          {% if form.saldo_final.errors %}
+            <div class="invalid-feedback d-block">
+              {% for error in form.saldo_final.errors %}{{ error }}{% endfor %}
+            </div>
+          {% endif %}
         </div>
       </div>
     </div>
@@ -284,6 +347,8 @@
     const planCuentaSelect = document.getElementById('id_plan_cuenta');
     const saldoInicialInput = document.getElementById('saldo_inicial');
     const saldoFinalInput = document.getElementById('saldo_final');
+    const saldoFinalErrorDefault = document.getElementById('saldo_final_error_default');
+    const saldoFinalErrorValidation = document.getElementById('saldo_final_error_validation');
     let saldosExistentes = {};
 
     // --- Filtro de búsqueda para selects ---
@@ -367,30 +432,170 @@
       }
     }
 
+    // -------------------------
+    // FORMATO Y VALIDACIONES PARA SALDOS
+    // -------------------------
+    
+    // Helpers formato moneda
+    function normalizeCurrencyString(str) {
+      if (str == null) return '';
+      let s = String(str).trim();
+      if (!s) return '';
+      s = s.replace(/\s+/g, '');
+      if (s.indexOf(',') !== -1 && s.indexOf('.') !== -1) {
+        s = s.replace(/\./g, '').replace(/,/g, '.');
+      } else if (s.indexOf(',') !== -1 && s.indexOf('.') === -1) {
+        s = s.replace(/,/g, '.');
+      } else {
+        const parts = s.split('.');
+        if (parts.length > 2) {
+          const dec = parts.pop();
+          s = parts.join('') + '.' + dec;
+        }
+      }
+      s = s.replace(/[^0-9\.\-]/g, '');
+      return s;
+    }
+
+    function formatCurrencyInputValueFromDigits(rawDigits) {
+      if (!rawDigits) return '0,00';
+      const num = parseInt(rawDigits, 10) / 100;
+      return num.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    // Verificar si el valor es cero (0,00 o 0.00)
+    function isZeroValue(value) {
+      const normalized = normalizeCurrencyString(value);
+      return normalized === '0' || normalized === '0.00' || normalized === '0,00';
+    }
+
+    // Configurar inputs de saldo como moneda
+    function setupCurrencyInput(inputElement) {
+      // Inicializar visual
+      if (!inputElement.value || inputElement.value === '0' || inputElement.value === '0.00') {
+        inputElement.value = '0,00';
+      } else {
+        const norm = normalizeCurrencyString(inputElement.value) || '0.00';
+        inputElement.value = Number(norm).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      }
+
+      // Aplicar estilo amarillo si el valor es cero
+      if (isZeroValue(inputElement.value)) {
+        inputElement.classList.add('input-not-modified');
+      }
+
+      // input handler que mantiene formato 0,00 y actualiza valid state
+      inputElement.addEventListener('input', function (e) {
+        // permitir solo dígitos en la edición interna
+        const onlyDigits = this.value.replace(/[^\d]/g, '');
+        this.value = formatCurrencyInputValueFromDigits(onlyDigits);
+        const normalized = normalizeCurrencyString(this.value);
+        const ok = normalized !== '' && !isNaN(Number(normalized)) && Number(normalized) >= 0;
+        this.classList.toggle('is-invalid', !ok);
+        this.classList.toggle('is-valid', ok);
+        
+        // Remover resaltado cuando el usuario modifica el campo
+        this.classList.remove('input-not-modified');
+      });
+
+      // Blur: asegurar formato
+      inputElement.addEventListener('blur', function () {
+        const normalized = normalizeCurrencyString(this.value) || '0.00';
+        const num = parseFloat(normalized) || 0;
+        this.value = num.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        
+        // Aplicar estilo amarillo si el valor vuelve a ser cero
+        if (isZeroValue(this.value)) {
+          this.classList.add('input-not-modified');
+        } else {
+          this.classList.remove('input-not-modified');
+        }
+      });
+    }
+
+    // Aplicar formato a ambos campos de saldo
+    if (saldoInicialInput) {
+      setupCurrencyInput(saldoInicialInput);
+    }
+    if (saldoFinalInput) {
+      setupCurrencyInput(saldoFinalInput);
+    }
+
     function validarSaldos() {
-      const saldoInicial = parseFloat(saldoInicialInput.value) || 0;
-      const saldoFinal = parseFloat(saldoFinalInput.value) || 0;
-      if (saldoFinal < saldoInicial) {
-        saldoFinalInput.setCustomValidity(
-          'El saldo final no puede ser menor al saldo inicial'
-        );
+      const saldoInicial = parseFloat(normalizeCurrencyString(saldoInicialInput.value)) || 0;
+      const saldoFinal = parseFloat(normalizeCurrencyString(saldoFinalInput.value)) || 0;
+      
+      // Verificar si el saldo final es 0,00 (campo vacío)
+      const isSaldoFinalZero = isZeroValue(saldoFinalInput.value);
+      
+      // Si el saldo final es 0,00, mostrar error por defecto
+      if (isSaldoFinalZero) {
+        saldoFinalErrorDefault.style.display = 'block';
+        saldoFinalErrorValidation.style.display = 'none';
         saldoFinalInput.classList.add('is-invalid');
         return false;
       }
-      saldoFinalInput.setCustomValidity('');
-      saldoFinalInput.classList.remove('is-invalid');
-      return true;
+      // Si el saldo final es menor al inicial, mostrar error de validación
+      else if (saldoFinal < saldoInicial) {
+        saldoFinalErrorDefault.style.display = 'none';
+        saldoFinalErrorValidation.style.display = 'block';
+        saldoFinalInput.classList.add('is-invalid');
+        return false;
+      } else {
+        // Si todo está bien, ocultar ambos mensajes y remover clase invalid
+        saldoFinalErrorDefault.style.display = 'none';
+        saldoFinalErrorValidation.style.display = 'none';
+        saldoFinalInput.classList.remove('is-invalid');
+        return true;
+      }
     }
 
+    // Validación en tiempo real
     saldoFinalInput.addEventListener('change', validarSaldos);
+    saldoFinalInput.addEventListener('input', function() {
+      if (this.value) {
+        validarSaldos();
+      }
+    });
+
+
+    // Validación en tiempo real para campos requeridos
+    [periodoSelect, planCuentaSelect, saldoInicialInput, saldoFinalInput].forEach(field => {
+      field.addEventListener('change', function() {
+        if (this.value && this.checkValidity()) {
+          this.classList.remove('is-invalid');
+          this.classList.add('is-valid');
+        }
+      });
+    });
 
     form.addEventListener('submit', function(e) {
       e.preventDefault();
-      if (!form.checkValidity() || !validarSaldos()) {
+      
+      // Validar campos requeridos antes de enviar
+      let formIsValid = true;
+      
+      [periodoSelect, planCuentaSelect, saldoInicialInput, saldoFinalInput].forEach(field => {
+        if (!field.value) {
+          field.classList.add('is-invalid');
+          field.classList.remove('is-valid');
+          formIsValid = false;
+        } else {
+          field.classList.remove('is-invalid');
+          field.classList.add('is-valid');
+        }
+      });
+
+      // Validación específica de saldos
+      const saldosValid = validarSaldos();
+      
+      if (!formIsValid || !saldosValid) {
         e.stopPropagation();
         form.classList.add('was-validated');
         return;
       }
+
+      // Si todo está válido, enviar el formulario
       const formData = new FormData(form);
       fetch("{% url 'saldo_contable_create' %}", {
         method: 'POST',
@@ -463,5 +668,37 @@
       });
     });
   });
+</script>
+
+<!-- SCRIPT DE VALIDACIÓN DE BOOTSTRAP (igual que en solicitud.html) -->
+<script>
+  (function() {
+    'use strict';
+    var forms = document.querySelectorAll('.needs-validation');
+    
+    Array.prototype.slice.call(forms).forEach(function(form) {
+      form.addEventListener('submit', function(event) {
+        if (!form.checkValidity()) {
+          event.preventDefault();
+          event.stopPropagation();
+          
+          // Marcar todos los campos requeridos como invalid
+          form.querySelectorAll(':required').forEach(function(input) {
+            if (!input.value) {
+              input.classList.add('is-invalid');
+            }
+          });
+        }
+        
+        form.querySelectorAll('select:required').forEach(function(select) {
+          if (!select.value) {
+            select.classList.add('is-invalid');
+          }
+        });
+
+        form.classList.add('was-validated');
+      }, false);
+    });
+  })();
 </script>
 {% endblock javascripts %}
