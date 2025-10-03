@@ -312,7 +312,7 @@ select.input-with-icon.form-select {
             <select id="idTasa" name="idTasa" class="form-select large" required>
 
               {% for moneda in monedas %}
-                <option value="{{ moneda.ultima_idTasa }}">{{ moneda.idMoneda__nombreMoneda }}{% if moneda.ultima_tasa %} | Tasa: {{ moneda.ultima_tasa }}{% else %} - Sin tasa{% endif %}</option>
+                <option value="{{ moneda.ultima_idTasa }}" data-moneda-seleccionada="{{ moneda.idMoneda__nombreMoneda }}">{{ moneda.idMoneda__nombreMoneda }}{% if moneda.ultima_tasa %} | Tasa: {{ moneda.ultima_tasa }}{% else %} - Sin tasa{% endif %}</option>
               {% endfor %}
             </select>
           </div>
@@ -426,6 +426,17 @@ select.input-with-icon.form-select {
         </button>
       </div>
       <div class="modal-body">
+         <!-- Barra de búsqueda para el modal de notas -->
+        <div class="mb-3">
+          <div class="input-group mb-3">
+            <div class="input-group-prepend">
+              <span class="input-group-text bg-light">
+                <i class="fas fa-search text-warning"></i>
+              </span>
+            </div>
+            <input type="text" id="searchNotaInput" class="form-control" placeholder="Buscar nota por cliente, número o deuda...">
+          </div>
+        </div>
         <div class="table-responsive">
           <table class="table table-sm table-striped table-hover" id="tablaNotas">
             <thead>
@@ -490,6 +501,17 @@ select.input-with-icon.form-select {
         </button>
       </div>
       <div class="modal-body">
+           <!-- Barra de búsqueda para el modal de cuentas bancarias -->
+        <div class="mb-3">
+          <div class="input-group mb-3">
+            <div class="input-group-prepend">
+              <span class="input-group-text bg-light">
+                <i class="fas fa-search text-warning"></i>
+              </span>
+            </div>
+            <input type="text" id="searchCuentaInput" class="form-control" placeholder="Buscar cuenta por banco, número o moneda...">
+          </div>
+        </div>
         <div class="table-responsive">
           <table class="table table-sm table-striped table-hover" id="tablaCuentas">
             <thead>
@@ -497,14 +519,16 @@ select.input-with-icon.form-select {
                 <th>ID</th>
                 <th>Banco</th>
                 <th>Número de Cuenta</th>
+                <th>Moneda</th>
               </tr>
             </thead>
             <tbody>
               {% for cuenta in cuentas_banco %}
-              <tr data-id="{{ cuenta.idCuentaBanco }}" data-nombre="{{ cuenta.numeroCuentaBanco }}" data-plan="{{ cuenta.planCuenta.idPlanCuenta }}">
+              <tr data-id="{{ cuenta.idCuentaBanco }}" data-nombre="{{ cuenta.numeroCuentaBanco }}" data-plan="{{ cuenta.planCuenta.idPlanCuenta }}" data-moneda="{{ cuenta.moneda }}">
                 <td>{{ cuenta.idCuentaBanco }}</td>
                 <td>{{ cuenta.banco.nombreBanco }}</td>
                 <td>{{ cuenta.numeroCuentaBanco }}</td>
+                <td>{{ cuenta.moneda.nombreMoneda }}</td>
               </tr>
               {% endfor %}
             </tbody>
@@ -1106,116 +1130,362 @@ document.addEventListener('DOMContentLoaded', function() {
 document.addEventListener('DOMContentLoaded', function () {
     const pagoForm = document.getElementById('pagoForm');
     if (pagoForm) {
-      pagoForm.addEventListener('submit', function (event) {
-        event.preventDefault(); // Evitar el envío predeterminado del formulario
+        pagoForm.addEventListener('submit', function (event) {
+            let valid = true;
 
-        const formData = new FormData(pagoForm);
+            // Validar campos requeridos
+            const requiredFields = [
+                { id: 'notaInput', message: 'Por favor seleccione una nota.' },
+                { id: 'formaPago', message: 'Por favor seleccione una forma de pago.' },
+                { id: 'idTasa', message: 'Por favor seleccione una moneda.' },
+                { id: 'monto', message: 'Por favor ingrese un monto válido.' },
+                { id: 'fechaPago', message: 'Por favor ingrese una fecha de pago válida.' }
+            ];
 
-        fetch(pagoForm.action, {
-          method: 'POST',
-          body: formData,
-          headers: {
-            'X-Requested-With': 'XMLHttpRequest',
-          },
-        })
-          .then(response => {
-            if (!response.ok) {
-              throw new Error('Error en la respuesta del servidor');
-            }
-            return response.json();
-          })
-          .then(data => {
-            // ALERTAS PERSONALIZADAS SEGÚN LA LÓGICA DE TU SISTEMA
-            if (data.success) {
-              // Si el mensaje indica que la nota fue pagada en su totalidad
-              if (data.message && data.message.includes('La nota ha sido pagada en su totalidad')) {
-                Swal.fire({
-                  icon: 'success',
-                  title: 'Pago registrado exitosamente',
-                  html: `
-                    <p><strong>ID Pago:</strong> ${data.pago.idPago}</p>
-                    <p><strong>Nota:</strong> ${data.pago.idNota}</p>
-                    <p><strong>Monto:</strong> ${data.pago.monto}</p>
-                    <p><strong>Fecha de Pago:</strong> ${data.pago.fechaPago}</p>
-                    <p><strong>Forma de Pago:</strong> ${data.pago.formaPago}</p>
-                    <p><strong>Referencia:</strong> ${data.pago.referencia || 'N/A'}</p>
-                    <p class="text-success">${data.message}</p>
-                  `,
-                  showConfirmButton: true,
-                  confirmButtonText: 'Generar Factura',
-                  confirmButtonColor: '#28a745',
-                  allowOutsideClick: false,
-                  allowEscapeKey: false,
-                  allowEnterKey: false
-                }).then((result) => {
-                  if (result.isConfirmed) {
-                    // Redirigir a la generación de factura
-                    const notaId = document.getElementById('idNota').value;
-                    window.location.href = `/factura/facturas/nueva/${notaId}/`;
-                  }
-                });
+            requiredFields.forEach(field => {
+                const input = document.getElementById(field.id);
+                if (!input || !input.value.trim()) {
+                    if (input) {
+                        input.classList.add('is-invalid');
+                        const feedback = input.nextElementSibling;
+                        if (feedback) feedback.textContent = field.message;
+                    }
+                    valid = false;
                 } else {
-                // Si el pago fue exitoso pero la nota no está pagada completamente
-                Swal.fire({
-                  icon: 'warning',
-                  title: 'Pago registrado exitosamente',
-                  html: `
-                  <p><strong>ID Pago:</strong> ${data.pago.idPago}</p>
-                  <p><strong>Nota:</strong> ${data.pago.idNota}</p>
-                  <p><strong>Monto:</strong> ${data.pago.monto}</p>
-                  <p><strong>Fecha de Pago:</strong> ${data.pago.fechaPago}</p>
-                  <p><strong>Forma de Pago:</strong> ${data.pago.formaPago}</p>
-                  <p><strong>Referencia:</strong> ${data.pago.referencia || 'N/A'}</p>
-                  <p class="text-danger">${data.message}</p>
-                  `,
-                  confirmButtonText: 'Realizar otro pago',
-                  customClass: {
-                  confirmButton: 'btn btn-warning',
-                  },
-                  buttonsStyling: false,
-                }).then(() => {
-                  window.location.reload();
-                });
+                    input.classList.remove('is-invalid');
+                    input.classList.add('is-valid');
                 }
-              } else if (data.errors && Object.keys(data.errors).length > 0) {
-              // Mostrar mensaje de error con los errores del formulario
-              const errorMessages = Object.entries(data.errors)
-                .map(([field, messages]) => `<p><strong>${field}:</strong> ${messages.join(', ')}</p>`)
-                .join('');
-
-              Swal.fire({
-                icon: 'error',
-                title: 'Errores en el formulario',
-                html: `
-                  <p>${data.message || 'El formulario contiene errores. Por favor, corríjalos e inténtelo nuevamente.'}</p>
-                  ${errorMessages}
-                `,
-                confirmButtonText: 'Aceptar',
-                confirmButtonColor: '#dc3545',
-              });
-            } else {
-              // Mostrar mensaje de error genérico
-              Swal.fire({
-                icon: 'error',
-                title: 'Error al registrar el pago',
-                text: data.message || 'Ocurrió un error inesperado.',
-                confirmButtonText: 'Aceptar',
-                confirmButtonColor: '#dc3545',
-              });
-            }
-          })
-          .catch(error => {
-            console.error('Error:', error);
-            Swal.fire({
-              icon: 'error',
-              title: 'Error inesperado',
-              text: 'Ocurrió un error al procesar la solicitud.',
-              confirmButtonText: 'Aceptar',
-              confirmButtonColor: '#dc3545',
             });
-          });
+
+            if (!valid) {
+                event.preventDefault();
+                event.stopPropagation();
+                return; // Evitar el envío si hay errores de validación
+            }
+
+            // ...existing code...
+            const formData = new FormData(pagoForm);
+
+            fetch(pagoForm.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Error en la respuesta del servidor');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // ALERTAS PERSONALIZADAS SEGÚN LA LÓGICA DE TU SISTEMA
+                    if (data.success) {
+                      // Si el mensaje indica que la nota fue pagada en su totalidad
+                      if (data.message && data.message.includes('La nota ha sido pagada en su totalidad')) {
+                        Swal.fire({
+                          icon: 'success',
+                          title: 'Pago registrado exitosamente',
+                          html: `
+                            <p><strong>ID Pago:</strong> ${data.pago.idPago}</p>
+                            <p><strong>Nota:</strong> ${data.pago.idNota}</p>
+                            <p><strong>Monto:</strong> ${data.pago.monto}</p>
+                            <p><strong>Fecha de Pago:</strong> ${data.pago.fechaPago}</p>
+                            <p><strong>Forma de Pago:</strong> ${data.pago.formaPago}</p>
+                            <p><strong>Referencia:</strong> ${data.pago.referencia || 'N/A'}</p>
+                            <p class="text-success">${data.message}</p>
+                          `,
+                          showConfirmButton: true,
+                          confirmButtonText: 'Generar Factura',
+                          confirmButtonColor: '#28a745',
+                          allowOutsideClick: false,
+                          allowEscapeKey: false,
+                          allowEnterKey: false
+                        }).then((result) => {
+                          if (result.isConfirmed) {
+                            // Redirigir a la generación de factura
+                            const notaId = document.getElementById('idNota').value;
+                            window.location.href = `/factura/facturas/nueva/${notaId}/`;
+                          }
+                        });
+                        } else {
+                        // Si el pago fue exitoso pero la nota no está pagada completamente
+                        Swal.fire({
+                          icon: 'warning',
+                          title: 'Pago registrado exitosamente',
+                          html: `
+                          <p><strong>ID Pago:</strong> ${data.pago.idPago}</p>
+                          <p><strong>Nota:</strong> ${data.pago.idNota}</p>
+                          <p><strong>Monto:</strong> ${data.pago.monto}</p>
+                          <p><strong>Fecha de Pago:</strong> ${data.pago.fechaPago}</p>
+                          <p><strong>Forma de Pago:</strong> ${data.pago.formaPago}</p>
+                          <p><strong>Referencia:</strong> ${data.pago.referencia || 'N/A'}</p>
+                          <p class="text-danger">${data.message}</p>
+                          `,
+                          confirmButtonText: 'Realizar otro pago',
+                          customClass: {
+                          confirmButton: 'btn btn-warning',
+                          },
+                          buttonsStyling: false,
+                        }).then(() => {
+                          window.location.reload();
+                        });
+                        }
+                      } else if (data.errors && Object.keys(data.errors).length > 0) {
+                      // Mostrar mensaje de error con los errores del formulario
+                      const errorMessages = Object.entries(data.errors)
+                        .map(([field, messages]) => `<p><strong>${field}:</strong> ${messages.join(', ')}</p>`)
+                        .join('');
+
+                      Swal.fire({
+                        icon: 'error',
+                        title: 'Errores en el formulario',
+                        html: `
+                          <p>${data.message || 'El formulario contiene errores. Por favor, corríjalos e inténtelo nuevamente.'}</p>
+                          ${errorMessages}
+                        `,
+                        confirmButtonText: 'Aceptar',
+                        confirmButtonColor: '#dc3545',
+                      });
+                    } else {
+                      // Mostrar mensaje de error genérico
+                      Swal.fire({
+                        icon: 'error',
+                        title: 'Error al registrar el pago',
+                        text: data.message || 'Ocurrió un error inesperado.',
+                        confirmButtonText: 'Aceptar',
+                        confirmButtonColor: '#dc3545',
+                      });
+                    }
+                  })
+                  .catch(error => {
+                    console.error('Error:', error);
+                    Swal.fire({
+                      icon: 'error',
+                      title: 'Error inesperado',
+                      text: 'Ocurrió un error al procesar la solicitud.',
+                      confirmButtonText: 'Aceptar',
+                      confirmButtonColor: '#dc3545',
+                    });
+                  });
         });
     }
 });
+ // Filtrar cuentas por moneda seleccionada
+function filtrarCuentasPorMoneda() {
+  const tasaSelect = document.getElementById('idTasa');
+  const tablaCuentas = document.getElementById('tablaCuentas');
+
+  if (!tasaSelect || !tablaCuentas) {
+    console.warn('No se encontró el select de tasa o la tabla de cuentas para filtrar.');
+    return;
+  }
+
+  const monedaSeleccionada = tasaSelect.options[tasaSelect.selectedIndex].text.split('|')[0].trim();
+  console.log('[Filtro Cuentas] Moneda seleccionada:', monedaSeleccionada);
+
+  const filas = tablaCuentas.querySelectorAll('tbody tr');
+  let cuentasVisibles = 0;
+  const monedasDisponibles = new Set();
+  filas.forEach(fila => {
+    const monedaCuenta = fila.cells[3]?.textContent.trim();
+    if (monedaCuenta) monedasDisponibles.add(monedaCuenta);
+    if (monedaCuenta === monedaSeleccionada) {
+      fila.style.display = '';
+      cuentasVisibles++;
+    } else {
+      fila.style.display = 'none';
+    }
+  });
+  console.log(`[Filtro Cuentas] Cuentas visibles: ${cuentasVisibles} de ${filas.length}`);
+  console.log(`[Filtro Cuentas] Las cuentas están disponibles en las siguientes monedas: ${Array.from(monedasDisponibles).join(', ')}`);
+}
+
+// Agregar evento para filtrar cuando cambie la selección de moneda
+const tasaSelect = document.getElementById('idTasa');
+if (tasaSelect) {
+  tasaSelect.addEventListener('change', function() {
+    console.log('[Filtro Cuentas] Cambio en select de moneda');
+    filtrarCuentasPorMoneda();
+  });
+}
+
+// Filtrar al cargar la página
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('[Filtro Cuentas] Filtrando cuentas por moneda al cargar la página');
+  filtrarCuentasPorMoneda();
+});
+</script>
+<script>
+
+// Paginación y búsqueda para el modal de Nota
+
+document.addEventListener('DOMContentLoaded', function () {
+  const tablaNotas = document.getElementById('tablaNotas');
+  const searchNotaInput = document.getElementById('searchNotaInput');
+  const paginationContainerNota = document.querySelector('#notaModal .pagination-container');
+  const rowsPerPageNota = 10;
+  let currentPageNota = 1;
+
+  function displayRowsNota() {
+    const rows = tablaNotas.getElementsByTagName('tr');
+    const start = (currentPageNota - 1) * rowsPerPageNota;
+    const end = start + rowsPerPageNota;
+    for (let i = 0; i < rows.length; i++) {
+      rows[i].style.display = i >= start && i < end ? '' : 'none';
+    }
+  }
+
+  function setupPaginationNota() {
+    const rows = tablaNotas.getElementsByTagName('tr');
+    const totalPages = Math.ceil(rows.length / rowsPerPageNota);
+    paginationContainerNota.innerHTML = '';
+
+    const prevLi = document.createElement('li');
+    prevLi.className = `page-item ${currentPageNota === 1 ? 'disabled' : ''}`;
+    prevLi.innerHTML = `<a class="page-link" href="#">&laquo;</a>`;
+    prevLi.addEventListener('click', e => {
+      e.preventDefault();
+      if (currentPageNota > 1) currentPageNota--;
+      displayRowsNota();
+      setupPaginationNota();
+    });
+    paginationContainerNota.appendChild(prevLi);
+
+    for (let i = 1; i <= totalPages; i++) {
+      const li = document.createElement('li');
+      li.className = `page-item ${i === currentPageNota ? 'active' : ''}`;
+      li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+      li.addEventListener('click', e => {
+        e.preventDefault();
+        currentPageNota = i;
+        displayRowsNota();
+        setupPaginationNota();
+      });
+      paginationContainerNota.appendChild(li);
+    }
+
+    const nextLi = document.createElement('li');
+    nextLi.className = `page-item ${currentPageNota === totalPages ? 'disabled' : ''}`;
+    nextLi.innerHTML = `<a class="page-link" href="#">&raquo;</a>`;
+    nextLi.addEventListener('click', e => {
+      e.preventDefault();
+      if (currentPageNota < totalPages) currentPageNota++;
+      displayRowsNota();
+      setupPaginationNota();
+    });
+    paginationContainerNota.appendChild(nextLi);
+  }
+
+  searchNotaInput.addEventListener('keyup', function () {
+    const filter = this.value.toUpperCase();
+    const rows = tablaNotas.getElementsByTagName('tr');
+    let visibleRows = 0;
+
+    for (let i = 1; i < rows.length; i++) { // Start from 1 to skip the header
+      const cells = rows[i].getElementsByTagName('td');
+      const match = Array.from(cells).some(cell => cell.textContent.toUpperCase().includes(filter));
+      if (match) {
+        rows[i].style.display = '';
+        visibleRows++;
+      } else {
+        rows[i].style.display = 'none';
+      }
+    }
+
+    const mensajeSinRegistros = document.getElementById('mensajeSinRegistros');
+    mensajeSinRegistros.style.display = visibleRows === 0 ? 'block' : 'none';
+  });
+
+  displayRowsNota();
+  setupPaginationNota();
+
+  // Paginación y búsqueda para el modal de Cuenta Bancaria
+  const tablaCuentas = document.getElementById('tablaCuentas');
+  const searchCuentaInput = document.getElementById('searchCuentaInput');
+  const paginationContainerCuenta = document.querySelector('#cuentaBancoModal .pagination-container');
+  const rowsPerPageCuenta = 10;
+  let currentPageCuenta = 1;
+
+  function displayRowsCuenta() {
+    const rows = Array.from(tablaCuentas.getElementsByTagName('tr')).filter(row => row.style.display !== 'none');
+    const start = (currentPageCuenta - 1) * rowsPerPageCuenta;
+    const end = start + rowsPerPageCuenta;
+    rows.forEach((row, index) => {
+        row.style.display = index >= start && index < end ? '' : 'none';
+    });
+  }
+
+  function setupPaginationCuenta() {
+    const rows = Array.from(tablaCuentas.getElementsByTagName('tr')).filter(row => row.style.display !== 'none');
+    const totalPages = Math.ceil(rows.length / rowsPerPageCuenta);
+    paginationContainerCuenta.innerHTML = '';
+
+    const prevLi = document.createElement('li');
+    prevLi.className = `page-item ${currentPageCuenta === 1 ? 'disabled' : ''}`;
+    prevLi.innerHTML = `<a class="page-link" href="#">&laquo;</a>`;
+    prevLi.addEventListener('click', e => {
+      e.preventDefault();
+      if (currentPageCuenta > 1) currentPageCuenta--;
+      displayRowsCuenta();
+      setupPaginationCuenta();
+    });
+    paginationContainerCuenta.appendChild(prevLi);
+
+    for (let i = 1; i <= totalPages; i++) {
+        const li = document.createElement('li');
+        li.className = `page-item ${i === currentPageCuenta ? 'active' : ''}`;
+        li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+        li.addEventListener('click', e => {
+          e.preventDefault();
+          currentPageCuenta = i;
+          displayRowsCuenta();
+          setupPaginationCuenta();
+        });
+        paginationContainerCuenta.appendChild(li);
+    }
+
+    const nextLi = document.createElement('li');
+    nextLi.className = `page-item ${currentPageCuenta === totalPages ? 'disabled' : ''}`;
+    nextLi.innerHTML = `<a class="page-link" href="#">&raquo;</a>`;
+    nextLi.addEventListener('click', e => {
+      e.preventDefault();
+      if (currentPageCuenta < totalPages) currentPageCuenta++;
+      displayRowsCuenta();
+      setupPaginationCuenta();
+    });
+    paginationContainerCuenta.appendChild(nextLi);
+  }
+
+  searchCuentaInput.addEventListener('keyup', function () {
+    const filter = this.value.toUpperCase();
+    const rows = tablaCuentas.getElementsByTagName('tr');
+    let visibleRows = 0;
+
+    for (let i = 1; i < rows.length; i++) { // Start from 1 to skip the header
+        const cells = rows[i].getElementsByTagName('td');
+        const match = Array.from(cells).some(cell => cell.textContent.toUpperCase().includes(filter));
+        if (match && rows[i].style.display !== 'none') { // Ensure hidden rows stay hidden
+            rows[i].style.display = '';
+            visibleRows++;
+        } else {
+            rows[i].style.display = 'none';
+        }
+    }
+
+    const mensajeSinRegistros = document.getElementById('mensajeSinRegistros');
+    mensajeSinRegistros.style.display = visibleRows === 0 ? 'block' : 'none';
+
+    // Actualizar paginación después del filtrado
+    currentPageCuenta = 1; // Reiniciar a la primera página
+    setupPaginationCuenta();
+    displayRowsCuenta();
+  });
+
+  displayRowsCuenta();
+  setupPaginationCuenta();
+});
+ 
 </script>
 {% endblock javascripts %}

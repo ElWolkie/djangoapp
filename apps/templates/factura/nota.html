@@ -188,11 +188,11 @@
           <div class="field-wrap">
             <div>
               <div class="form-check">
-                <input class="form-check-input" type="radio" name="tipoOperacion" id="ingresoCheckbox" value="ingreso" required>
+                <input class="form-check-input" type="radio" name="tipoOperacion" id="ingresoCheckbox" value="ingreso" checked>
                 <label class="form-check-label small" for="ingresoCheckbox">Cobro</label>
               </div>
               <div class="form-check">
-                <input class="form-check-input" type="radio" name="tipoOperacion" id="egresoCheckbox" value="egreso" required>
+                <input class="form-check-input" type="radio" name="tipoOperacion" id="egresoCheckbox" value="egreso">
                 <label class="form-check-label small" for="egresoCheckbox">Pago</label>
               </div>
             </div>
@@ -858,6 +858,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const personaInput = document.getElementById('personaInput');
   const idPersonaInput = document.getElementById('idPersona');
   const toggleReadonlyButton = document.getElementById('toggleReadonly');
+  const activeGroup = articulosDiv.querySelector('div[style*="display: block"]'); // Obtener el grupo visible
 
   // Campos que pueden ser readonly
   const camposReadonly = [
@@ -1552,21 +1553,43 @@ function setCurrencyField(id, monto) {
       return;
     }
 
-    // Validar selección de artículo activo
-    const activeGroup = articulosDiv.querySelector('div[style*="display: block"]');
-    if (activeGroup) {
-      const hiddenInput = activeGroup.querySelector('input[type="hidden"]');
-      const visibleInput = activeGroup.querySelector('input[type="text"]');
+      console.log('Validando grupo de artículos:', activeGroup ? activeGroup.id : 'Ninguno visible');
 
-      if (!hiddenInput.value) {
-        visibleInput.classList.add('is-invalid');
-        const feedback = activeGroup.querySelector('.invalid-feedback');
-        if (feedback) feedback.style.display = 'block';
-        
-        if (submitButton) submitButton.disabled = false;
-        return;
+      if (activeGroup && activeGroup.id !== 'noAplicaGroup') { // Excluir el grupo "No aplica"
+        const input = activeGroup.querySelector('input[type="text"]'); // Campo de texto visible
+        const hiddenInput = activeGroup.querySelector('input[type="hidden"]'); // Campo oculto
+
+        console.log('Campo oculto valor:', hiddenInput ? hiddenInput.value : 'No encontrado');
+
+        if (!hiddenInput.value) { // Validar si el campo oculto está vacío
+          event.preventDefault(); // Evitar el envío del formulario
+          input.classList.add('is-invalid'); // Agregar clase de error
+          const feedback = activeGroup.querySelector('.invalid-feedback');
+          if (feedback) {
+            feedback.style.display = 'block'; // Mostrar mensaje de error
+          }
+          console.warn('Formulario detenido: falta seleccionar artículo en', activeGroup.id);
+        } else {
+          input.classList.remove('is-invalid'); // Remover clase de error si el campo tiene valor
+          const feedback = activeGroup.querySelector('.invalid-feedback');
+          if (feedback) {
+            feedback.style.display = 'none'; // Ocultar mensaje de error
+          }
+          console.log('Validación de artículo OK en', activeGroup.id);
+        }
       }
-    }
+
+    // Limpiar mensajes de error al modificar los campos
+    articulosDiv.querySelectorAll('input').forEach((input) => {
+      input.addEventListener('input', () => {
+        input.classList.remove('is-invalid');
+        const feedback = input.nextElementSibling;
+        if (feedback && feedback.classList.contains('invalid-feedback')) {
+          feedback.style.display = 'none';
+        }
+        console.log('Input modificado, error limpiado:', input.id);
+      });
+    });
 
     // Validar selección de persona
     if (!idPersonaInput.value) {
@@ -1787,5 +1810,54 @@ function setCurrencyField(id, monto) {
 document.addEventListener('DOMContentLoaded', manejarSeleccionDesdeParametros);
 });
 
+</script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const articulosDiv = document.getElementById('articulos');
+    const notaForm = document.getElementById('notaForm');
+
+    // Validar el grupo de artículos al enviar el formulario
+    notaForm.addEventListener('submit', function (event) {
+      const activeGroup = articulosDiv.querySelector('div[style*="display: block"]'); // Obtener el grupo visible
+      console.log('Validando grupo de artículos:', activeGroup ? activeGroup.id : 'Ninguno visible');
+
+      if (activeGroup && activeGroup.id !== 'noAplicaGroup') { // Excluir el grupo "No aplica"
+        const input = activeGroup.querySelector('input[type="text"]'); // Campo de texto visible
+        const hiddenInput = activeGroup.querySelector('input[type="hidden"]'); // Campo oculto
+
+        console.log('Campo oculto valor:', hiddenInput ? hiddenInput.value : 'No encontrado');
+
+        if (!hiddenInput.value) { // Validar si el campo oculto está vacío
+          event.preventDefault(); // Evitar el envío del formulario
+          input.classList.add('is-invalid'); // Agregar clase de error
+          const feedback = activeGroup.querySelector('.invalid-feedback');
+          if (feedback) {
+            feedback.style.display = 'block'; // Mostrar mensaje de error
+          }
+          console.warn('Formulario detenido: falta seleccionar artículo en', activeGroup.id);
+        } else {
+          input.classList.remove('is-invalid'); // Remover clase de error si el campo tiene valor
+          const feedback = activeGroup.querySelector('.invalid-feedback');
+          if (feedback) {
+            feedback.style.display = 'none'; // Ocultar mensaje de error
+          }
+          console.log('Validación de artículo OK en', activeGroup.id);
+        }
+      }
+    });
+
+    // Limpiar mensajes de error al modificar los campos
+    articulosDiv.querySelectorAll('input').forEach((input) => {
+      input.addEventListener('input', () => {
+        input.classList.remove('is-invalid');
+        const feedback = input.nextElementSibling;
+        if (feedback && feedback.classList.contains('invalid-feedback')) {
+          feedback.style.display = 'none';
+        }
+        console.log('Input modificado, error limpiado:', input.id);
+      });
+    });
+  });
+</script>
 </script>
 {% endblock javascripts %}
