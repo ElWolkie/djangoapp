@@ -56,19 +56,19 @@
 
 {% block content %}
 <div class="container mt-4">
-  <h2 class="text-center mb-4">Lista de Monedas Registradas</h2>
+  <h2 class="text-center mb-4">Lista de Monedas</h2>
 
   <div class="row mb-3">
     <div class="col-md-4">
       <div class="input-group">
         <span class="input-group-text"><i class="fas fa-search"></i></span>
-        <input class="form-control" id="searchInput" type="text" placeholder="Buscar por Nombre o Símbolo">
+        <input class="form-control" id="searchInput" type="text" placeholder="Buscar...">
       </div>
     </div>
     <div class="col-md-4 text-end">
       {% if perms.home.add_moneda %}
           <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#monedaModal">
-            <i class="fas fa-plus-circle me-1"></i> Registrar
+            <i class="fas fa-plus-circle me-1"></i> Registrar Moneda
           </button>
 
         <button class="btn btn-warning ms-2"
@@ -127,7 +127,7 @@
         <tbody>
           {% for moneda in monedas %}
           <tr>
-            <td>{{ moneda.idMoneda }}</td>
+            <td>{{ forloop.counter }}</td>
             <td>{{ moneda.nombreMoneda }}</td>
             <td>{{ moneda.simboloMoneda }}</td>
             <td>{{ moneda.fechaMoneda|date:"d/m/Y" }}</td>
@@ -198,7 +198,8 @@
       </div>
       <div class="modal-body">
         <p>Esto <b><strong>recargará todas las monedas existentes en el mundo</strong></b> desde el servicio externo.<br> Recuerde que las monedas se añadirán inactivas. 
-          <br><br>¿Deseas continuar?</p>
+          <br><br>¿Deseas continuar?
+          <br><br>Este proceso puede tardar unos minutos dependiendo de la conexión y el número de monedas a actualizar.</p>
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -302,17 +303,74 @@
 <script>
   document.addEventListener('DOMContentLoaded', () => {
     const loadInModal = (modalId, urlGetter, contentId) => {
-      $(modalId).on('show.bs.modal', e => {
-        const modal = $(modalId);
-        const url   = urlGetter(e);
-        modal.find(contentId).html('<div class="text-center py-4"><div class="spinner-border text-primary" role="status"/></div>');
-        $.get(url).done(html => modal.find(contentId).html(html));
-      }).on('hidden.bs.modal', () => $(contentId).empty());
-    };
+  $(modalId).on('show.bs.modal', e => {
+    const modal = $(modalId);
+    const url   = urlGetter(e);
+    modal.find(contentId).html('<div class="text-center py-4"><div class="spinner-border text-primary" role="status"/></div>');
+    $.get(url).done(html => {
+      modal.find(contentId).html(html);
+      // Aplicar mayúsculas después de cargar el contenido
+      setTimeout(forzarMayusculasEnFormularios, 100);
+      setTimeout(aplicarValidacionesMoneda, 100);
+    });
+  }).on('hidden.bs.modal', () => $(contentId).empty());
+};
   
     loadInModal('#monedaModal', () => "{% url 'moneda_modal' %}", '#registrarMonedaContent');
     loadInModal('#editMonedaModal', e => $(e.relatedTarget).data('url'), '#editMonedaContent');
-  
+    
+    function forzarMayusculasEnFormularios() {
+  // Aplicar a formularios existentes y futuros (dinámicos)
+  document.querySelectorAll('#registrarMonedaContent input, #editMonedaContent input').forEach(input => {
+    if (input.id === 'nombreMoneda' || input.id === 'simboloMoneda') {
+      input.addEventListener('input', function() {
+        this.value = this.value.toUpperCase();
+      });
+    }
+  });
+}
+function aplicarValidacionesMoneda() {
+  const nombre = document.getElementById('nombreMoneda');
+  const simbolo = document.getElementById('simboloMoneda');
+
+  if (nombre) {
+    nombre.addEventListener('input', function() {
+      this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').toUpperCase();
+      this.classList.remove('is-invalid');
+    });
+  }
+
+  if (simbolo) {
+    simbolo.addEventListener('input', function() {
+      this.value = this.value.replace(/[^0-9A-Za-z\$€¥£\.\,\-\_]/g, '');
+      if (this.value.length > 10) this.value = this.value.slice(0,10);
+      this.classList.remove('is-invalid');
+    });
+  }
+}
+
+// También aplicar cuando se cargue contenido en modales
+const observer = new MutationObserver(function(mutations) {
+  mutations.forEach(function(mutation) {
+    if (mutation.addedNodes.length) {
+      forzarMayusculasEnFormularios();
+    }
+  });
+});
+
+// Observar cambios en los contenedores de modales
+observer.observe(document.getElementById('registrarMonedaContent'), {
+  childList: true,
+  subtree: true
+});
+
+observer.observe(document.getElementById('editMonedaContent'), {
+  childList: true,
+  subtree: true
+});
+
+
+
     // Configurar acción de delete/reactivate en modal
     // Sólo configuramos la URL en el form, sin cargar nada por GET:
       ['delete','reactivate'].forEach(action => {
@@ -335,6 +393,23 @@
     $(document).on('submit', '#monedaForm', function(e) {
       e.preventDefault();
       const form = $(this);
+      const nativeForm = form[0];
+
+      // Validación HTML5: si inválido, mostrar primer error y detener
+      if (!nativeForm.checkValidity()) {
+        nativeForm.classList.add('was-validated');
+        const firstInvalid = nativeForm.querySelector(':invalid');
+        let msg = firstInvalid && (firstInvalid.closest('.form-group')?.querySelector('.invalid-feedback')?.textContent || firstInvalid.validationMessage || 'Por favor corrija el campo.');
+        if (typeof Swal !== 'undefined') {
+          Swal.fire({ icon: 'error', title: 'Error de validación', text: msg, confirmButtonColor: '#ffc107' }).then(()=> firstInvalid && firstInvalid.focus());
+        } else {
+          alert(msg);
+          firstInvalid && firstInvalid.focus();
+        }
+        return;
+      }
+
+      const $btn = form.find('input[type="submit"], button[type="submit"]').prop('disabled', true);
       $.ajax({
         url: form.attr('action'),
         method: form.attr('method'),
@@ -377,6 +452,22 @@
     $(document).on('submit', '#editMonedaForm', function(e) {
       e.preventDefault();
       const form = $(this);
+      const nativeForm = form[0];
+
+      if (!nativeForm.checkValidity()) {
+        nativeForm.classList.add('was-validated');
+        const firstInvalid = nativeForm.querySelector(':invalid');
+        let msg = firstInvalid && (firstInvalid.closest('.form-group')?.querySelector('.invalid-feedback')?.textContent || firstInvalid.validationMessage || 'Por favor corrija el campo.');
+        if (typeof Swal !== 'undefined') {
+          Swal.fire({ icon: 'error', title: 'Error de validación', text: msg, confirmButtonColor: '#ffc107' }).then(()=> firstInvalid && firstInvalid.focus());
+        } else {
+          alert(msg);
+          firstInvalid && firstInvalid.focus();
+        }
+        return;
+      }
+
+      const $btn = form.find('input[type="submit"], button[type="submit"]').prop('disabled', true);
       $.ajax({
         url: form.attr('action'),
         method: form.attr('method'),
@@ -661,6 +752,29 @@ function manageMoneda(id, action) {
 
     displayRows();
     setupPagination();
+});
+</script>
+
+<script>
+//SCRIPT PARA QUE EL MENSAJE DE ALERTA DESAPAREZCA SOLO DE INACTIVOS
+document.addEventListener('DOMContentLoaded', function () {
+  const AUTO_CLOSE_MS = 3000; // <-- 3000 ms = 3s (pon 2000 para 2s)
+
+  document.querySelectorAll('#globalMessages .alert').forEach(alertEl => {
+    // no cerrar automáticamente alert-danger (errores) si prefieres
+    if (alertEl.classList.contains('alert-danger')) return;
+
+    setTimeout(() => {
+      try {
+        // usa la API de Bootstrap para cerrar limpiamente
+        const bsAlert = bootstrap.Alert.getOrCreateInstance(alertEl);
+        bsAlert.close();
+      } catch (e) {
+        // fallback simple
+        alertEl.remove();
+      }
+    }, AUTO_CLOSE_MS);
+  });
 });
 </script>
 {% endblock javascripts %}

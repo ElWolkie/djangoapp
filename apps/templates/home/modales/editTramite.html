@@ -1,136 +1,322 @@
+{% load dias_filters %}
 {% block stylesheets %}
 <link rel="stylesheet" href="/static/assets/css/styleForms.css" />
 <link rel="stylesheet" href="/static/assets/css/argon.css" />
+<style>
+  .tramite-container {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 1rem;
+    box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.1);
+    padding: 2rem;
+    margin: 2rem auto;
+    max-width: 700px;
+  }
+  .tramite-header {
+    text-align: center;
+    margin-bottom: 2rem;
+    position: relative;
+    padding-bottom: 1rem;
+  }
+  .tramite-header h2 {
+    color: #343a40;
+    font-weight: 700;
+  }
+  .tramite-header::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80px;
+    height: 4px;
+    background: linear-gradient(90deg, #ffc107, #fd7e14);
+    border-radius: 2px;
+  }
+  .form-group {
+    margin-bottom: 1.5rem;
+    position: relative;
+  }
+  .form-label {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+  }
+  .form-label i {
+    margin-right: 8px;
+    color: #fd7e14;
+  }
+  .form-control {
+    border-radius: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    border: 1px solid #ced4da;
+    background-color: #fff;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.075);
+    transition: all 0.3s;
+  }
+  .form-control:focus {
+    border-color: #ffc107;
+    box-shadow: 0 0 0 0.25rem rgba(255,193,7,0.25);
+  }
+  .input-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6c757d;
+    z-index: 2;
+  }
+  .input-with-icon {
+    padding-left: 40px;
+  }
+  .btn-submit {
+    background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+    border: none;
+    color: #fff;
+    font-weight: 600;
+    padding: 0.75rem 2rem;
+    border-radius: 0.5rem;
+    transition: all 0.3s;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+  .btn-submit:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    background: linear-gradient(135deg, #fd7e14 0%, #ffc107 100%);
+  }
+  .alert-container {
+    max-width: 700px;
+    margin: 0 auto;
+  }
+  .btn-submit:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.btn-submit:focus-visible {
+  outline: 2px solid #fd7e14;
+  outline-offset: 2px;
+}
+</style>
 {% endblock stylesheets %}
+
 {% block content %}
-{% if messages %}
+<div class="alert-container">
+  {% if messages %}
     {% for message in messages %}
       <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        <i class="fas {% if message.tags == 'success' %}fa-check-circle{% else %}fa-exclamation-circle{% endif %} me-2"></i>
         {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
       </div>
     {% endfor %}
   {% endif %}
-<div class=" mt-5">
-  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Editar Trámite Expedito</h2>
-  <form method="POST" class="mt-3 text-dark" autocomplete="off" style="font-weight: bold; max-width: 600px; margin: 0 auto;" id="editTramiteForm" action="{% url 'edit_tramite' tramite.idTramite %}">  
-    {% csrf_token %}  
+</div>
+
+<div class="tramite-container">
+  <div class="tramite-header">
+    <h2><i class="fas fa-file-contract text-warning"></i> Editar Trámite</h2>
+    <p class="text-muted">Modifique los campos y guarde los cambios</p>
+  </div>
+
+  <form method="POST" id="editTramiteForm" action="{% url 'edit_tramite' tramite.idTramite %}"
+        class="needs-validation" novalidate autocomplete="off">
+    {% csrf_token %}
     
-    <div class="form-row">  
+    <div class="row">
+      <!-- Nombre -->
+      <div class="col-md-12">
+        <div class="form-group">
+          <label for="nombreTramite" class="form-label">
+            <i class="fas fa-heading"></i> Nombre del Trámite
+          </label>
+          <div class="input-group">
+            <i class="fas fa-font input-icon"></i>
+            <input type="text" id="nombreTramite" name="nombreTramite"
+                   class="form-control input-with-icon"
+                   placeholder="Ingrese el nombre del trámite"
+                   maxlength="100" required value="{{ tramite.nombreTramite|default:'' }}">
+            <div class="invalid-feedback">Por favor, ingrese un nombre válido.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="row">
+      <!-- Tiempo de Respuesta -->
+      <div class="col-md-6">
+        <div class="form-group">
+          <label for="diasTramite" class="form-label">
+            <i class="fas fa-clock"></i> Tiempo de Respuesta
+          </label>
+          <div class="input-group">
+            <i class="fas fa-hourglass-half input-icon"></i>
+            <input type="text" id="diasTramiteCantidad" name="diasTramiteCantidad"
+                   class="form-control input-with-icon"
+                   placeholder="Ej: 4"
+                   maxlength="4" data-required="true" required inputmode="numeric" pattern="^[0-9]{1,4}$"
+                   value="{% if tramite.diasTramite %}{{ tramite.diasTramite|solo_digitos }}{% endif %}">
+            <select id="unidadDuracion" name="unidadDuracion" class="form-control ms-2" style="max-width: 140px;">
+              <option value="DÍAS" {% if tramite.diasTramite and "DÍAS" in tramite.diasTramite %}selected{% endif %}>Días</option>
+              <option value="HORAS" {% if tramite.diasTramite and "HORAS" in tramite.diasTramite %}selected{% endif %}>Horas</option>
+              <option value="SEMANAS" {% if tramite.diasTramite and "SEMANAS" in tramite.diasTramite %}selected{% endif %}>Semanas</option>
+              <option value="MESES" {% if tramite.diasTramite and "MESES" in tramite.diasTramite %}selected{% endif %}>Meses</option>
+              <option value="AÑOS" {% if tramite.diasTramite and "AÑOS" in tramite.diasTramite %}selected{% endif %}>Años</option>
+            </select>
+            <input type="hidden" id="diasTramite" name="diasTramite" value="{{ tramite.diasTramite|default:'' }}">
+            <div class="invalid-feedback">Por favor, ingrese el tiempo de respuesta.</div>
+          </div>
+        </div>
+      </div>
       
-      <div class="form-group col-md-6">  
-        <label for="nombreTramite">Nombre:</label>  
-        <input type="text" id="nombreTramite" name="nombreTramite" class="form-control text-dark" value="{{tramite.nombreTramite}}" placeholder="Ingrese un nombre" tabindex="3" maxlength="100" data-required="true" />          
-        <div class="invalid-feedback">
-          Por favor ingrese el precio.
+      <!-- Precio -->
+      <div class="col-md-6">
+        <div class="form-group">
+          <label for="precioTramite" class="form-label">
+            <i class="fas fa-dollar-sign"></i> Precio
+          </label>
+          <div class="input-group">
+            <i class="fas fa-money-bill-wave input-icon"></i>
+            <input type="text" id="precioTramite" name="precioTramite"
+                   class="form-control input-with-icon"
+                   placeholder="Ej: 1.234,56"
+                   maxlength="20" inputmode="decimal" pattern="^[0-9]{1,3}(?:\.[0-9]{3})*,\d{2}$"
+                   value="{{ tramite.precioTramite|default:'' }}" data-required="true" required>
+            <div class="invalid-feedback">Por favor, ingrese un precio válido. Ej: 1.234,56</div>
+          </div>
         </div>
-      </div>  
-      <div class="form-group col-md-6">  
-        <label for="diasTramite">Tiempo de Respuesta:</label>  
-        <input type="text" id="diaTramite" name="diasTramite" class="form-control text-dark" value="{{tramite.diasTramite}}" placeholder="4 días" tabindex="3" maxlength="100" data-required="true" />          
-        <div class="invalid-feedback">
-          Por favor ingrese el tiempo de respuesta.
-        </div>
-      </div>  
-      <div class="form-group col-md-6">  
-        <label for="precioTramite">Precio:</label>  
-        <input type="text" id="precioTramite" name="precioTramite" class="form-control text-dark" value="{{tramite.precioTramite}}" placeholder="4 años" tabindex="3" maxlength="100" data-required="true" />    
-        <input type="hidden" id="estadoTramite" name="estadoTramite" class="form-control text-dark" value="ACTIVO" />        
-        <div class="invalid-feedback">
-          Por favor ingrese el precio.
-        </div>
-      </div>  
-    </div>  
+      </div>
+    </div>
     
-    <div class="text-center">  
-      <input type="submit" class="btn btn-warning mt-4" value="Guardar" />  
-    </div>  
+    <input type="hidden" id="estadoTramite" name="estadoTramite" value="{{ tramite.estadoTramite|default:'ACTIVO' }}">
+    
+    <div class="text-center mt-4">
+      <button type="submit" class="btn-submit">
+        <i class="fas fa-save me-2"></i> Guardar
+      </button>
+    </div>
   </form>
+</div>
 {% endblock content %}
 
 {% block javascripts %}
-
 <script>
-  document.addEventListener("DOMContentLoaded", function() {
-    $('c').on('show.bs.modal', function (e) {
-      var modal = $(this);
-      $.ajax({
-        url: 'apps/home/editTramite.html',
-        method: 'GET',
-        success: function(data) {
-          modal.find('.modal-body').html(data);
-        }
-      });
-    });
-    
+function activarMayusculasInputs() {
+  document.addEventListener('input', function(e) {
+    const input = e.target;
+    if (input.tagName === 'INPUT' && !/password|hidden|email/.test(input.type)) {
+      input.value = input.value.toUpperCase();
+    }
   });
-  // Validar mayusculas en inputs
-    function activarMayusculasInputs() {
-    document.addEventListener('input', function(e) {
-      if (e.target.tagName === 'INPUT' && !e.target.type.match(/password|hidden|email/)) {
-        e.target.value = e.target.value.toUpperCase();
-      }
+}
+activarMayusculasInputs();
+
+
+document.getElementById("precioTramite").addEventListener("keypress", function(e) {
+  if (e.key.match(/[A-Za-z]/)) {
+    e.preventDefault();
+  }
+});
+
+const nombreEl = document.getElementById("nombreTramite");
+if (nombreEl) {
+  let composing = false;
+  nombreEl.addEventListener('compositionstart', () => composing = true);
+  nombreEl.addEventListener('compositionend', () => {
+    composing = false;
+    nombreEl.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+
+  nombreEl.addEventListener("input", function() {
+    if (composing) return;
+    this.value = this.value
+      .toUpperCase()
+      .replace(/[^A-ZÁÉÍÓÚÑ\s]/g, '')
+      .slice(0, 100);
+  });
+}
+
+(function(){
+  const qtyEl = document.getElementById('diasTramiteCantidad');
+  const unidadEl = document.getElementById('unidadDuracion');
+  const hiddenDias = document.getElementById('diasTramite');
+
+  function updateDiasHidden() {
+    if (!hiddenDias) return;
+    const qty = (qtyEl?.value || '').replace(/\D/g, '').slice(0,4);
+    const unit = unidadEl?.value || '';
+    hiddenDias.value = qty ? `${qty} ${unit}` : '';
+  }
+
+  if (qtyEl) {
+    qtyEl.addEventListener('input', function(){
+      this.value = this.value.replace(/\D/g, '').slice(0,4);
+      updateDiasHidden();
     });
   }
-  activarMayusculasInputs();
-  //Validar solo letras 
-  document.getElementById("nombreTramite").addEventListener("input", function() {
-    this.value = this.value.replace(/[^a-zA-Z\s]/g, '');
+  if (unidadEl) unidadEl.addEventListener('change', updateDiasHidden);
 
-    if (this.value.length > 40) {
-        this.value = this.value.slice(0, 35);
-    }
+  const editTramiteForm = document.getElementById('editTramiteForm');
+  if (editTramiteForm) {
+    editTramiteForm.addEventListener('submit', function(e){
+      updateDiasHidden();
+    }, true);
+  }
+  updateDiasHidden();
+})();
+
+document.getElementById("precioTramite").addEventListener("input", function() {
+  const input = this;
+  const raw = input.value;
+  const oldPos = input.selectionStart;
+
+  if (/[A-Za-z]/.test(raw)) {
+    input.value = raw.replace(/[A-Za-z]/g, '');
+    return;
+  }
+
+  const digitsBefore = raw.slice(0, oldPos).replace(/[^0-9]/g, '').length;
+  const cleaned = raw
+    .replace(/\./g, '')
+    .replace(/,/g, '.')
+    .replace(/[^0-9.]/g, '');
+  const num = parseFloat(cleaned);
+  if (isNaN(num)) return;
+
+  const formatted = num.toLocaleString('es-VE', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
   });
-  document.getElementById("duracion").addEventListener("input", function() {
-    this.value = this.value.replace(/[^a-zA-Z0-9ñÑ ^]+$/, '');
 
-    if (this.value.length > 6) {
-        this.value = this.value.slice(0, 6);
+  let newPos = 0, counted = 0;
+  for (let i = 0; i < formatted.length; i++) {
+    if (/[0-9]/.test(formatted[i])) counted++;
+    if (counted === digitsBefore) {
+      newPos = i + 1;
+      break;
     }
+  }
+  if (counted < digitsBefore) {
+    newPos = formatted.length;
+  }
 
+  input.value = formatted;
+  input.setSelectionRange(newPos, newPos);
+});
+
+(function() {
+  'use strict';
+  var forms = document.querySelectorAll('.needs-validation');
+  Array.prototype.slice.call(forms).forEach(function(form) {
+    form.addEventListener('submit', function(event) {
+      if (!form.checkValidity()) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      form.classList.add('was-validated');
+    }, false);
   });
-  
-  
-//Recarga dinamica
-
-$(document).on('submit', '#registroForm', function(e) {
-      e.preventDefault();
-      var form = $(this);
-      $.ajax({
-        url: form.attr('action'),
-        method: form.attr('method'),
-        data: form.serialize(),
-        success: function(response) {
-          var messagesContainer = $('#modalMessages');
-          messagesContainer.empty();
-          if (response.success) {
-            messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
-            $('#tramiteModal').modal('hide');
-            location.reload();  // Recargar la página para ver los cambios
-          } else {
-            // Mostrar errores en el modal
-            var errors = response.errors;
-            for (var field in errors) {
-              messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + errors[field] + '</div>');
-            }
-          }
-        }
-      });
-    });
-
-
-    // Validaciones de Bootstrap
-      (function() {
-              'use strict';
-              var forms = document.querySelectorAll('.needs-validation');
-              Array.prototype.slice.call(forms).forEach(function(form) {
-                form.addEventListener('submit', function(event) {
-                  if (!form.checkValidity()) {
-                    event.preventDefault();
-                    event.stopPropagation();
-                  }
-                  form.classList.add('was-validated');
-                }, false);
-              });
-            })();   
+})();
 </script>
 {% endblock javascripts %}

@@ -102,20 +102,24 @@
 
 {% block content %}
 <div class="container mt-4">
-  <h2 class="text-center mb-4">Lista de Inscripciones Registradas</h2>
+  <h2 class="text-center mb-4">Lista de Inscripciones</h2>
 
   <div class="row mb-3">
     <div class="col-md-4">
       <div class="input-group">
-        <span class="input-group-text"><i class="fas fa-search"></i></span>
-        <input id="searchInput" class="form-control" type="text" placeholder="Buscar inscripciones...">
+         <!-- Buscador directo del bakend NO BORRAR -->
+      <form onsubmit="updateSearchParam(event)" class="d-flex w-100">
+          <span class="input-group-text"><i class="fas fa-search"></i></span>
+          <input type="text" id="searchInput" name="search" class="form-control" placeholder="Buscar..." value="{{ search_query|default:'' }}" title="Recuerda que la busqueda discrimina entre activos/inactivos.">
+          <button type="submit" style="display:none" tabindex="-1" aria-hidden="true"></button>
+      </form>
       </div>
     </div>
     
     <div class="col-md-4 text-center">
       {% if perms.inscripcion.add_inscripcion %}
-      <a href="{% url 'inscripcion_modal' %}" class="btn btn-warning">
-        <i class="fas fa-plus-circle me-1"></i> Nueva Inscripción
+      <a href="{% url 'inscripcion_modal' %}" class="btn btn-warning" title="Registrar nueva inscripción">
+        <i class="fas fa-plus-circle me-1"></i> Registrar Inscripción
       </a>
       {% endif %}
     </div>
@@ -129,7 +133,7 @@
   
     <div class="mb-3">
       <a href="?mostrar_inactivos={% if mostrar_inactivos %}false{% else %}true{% endif %}"
-        class="btn btn-outline-secondary btn-sm">
+        class="btn btn-outline-secondary btn-sm" title="¿No encuentras lo que buscas? Intenta cambiar este filtro.">
         {% if mostrar_inactivos %}
           <i class="fas fa-eye-slash me-1"></i> Ocultar inactivos
         {% else %}
@@ -180,7 +184,7 @@
             <td class="actions-column">
               <div class="d-flex gap-2">
                 <!-- Botón Ver más -->
-                {% if perms.home.view_inscripcion %}
+                {% if perms.inscripcion.view_inscripcion %}
                   <button class="btn btn-info btn-sm view-details-btn"
                           data-bs-toggle="modal"
                           data-bs-target="#detailsModal"
@@ -198,7 +202,7 @@
                   </button>
                 {% endif %}
                 
-                {% if perms.home.change_inscripcion %}
+                {% if perms.inscripcion.change_inscripcion %}
                 <button class="btn btn-primary btn-sm"
                         data-bs-toggle="modal"
                         data-bs-target="#editInscripcionModal"
@@ -208,7 +212,7 @@
                 </button>
                 {% endif %}
                 
-                {% if inscripcion.is_active and perms.home.change_inscripcion %}
+                {% if inscripcion.is_active and perms.inscripcion.change_inscripcion %}
                 <button class="btn btn-outline-warning btn-sm"
                         data-bs-toggle="modal"
                         data-bs-target="#deleteInscripcionModal"
@@ -218,7 +222,7 @@
                 </button>
                 {% endif %}
                 
-                {% if not inscripcion.is_active and perms.home.change_inscripcion %}
+                {% if not inscripcion.is_active and perms.inscripcion.change_inscripcion %}
                 <button class="btn btn-success btn-sm"
                         data-bs-toggle="modal"
                         data-bs-target="#reactivateInscripcionModal"
@@ -229,7 +233,7 @@
                 {% endif %}
                 
                 {% if inscripcion.idInscripcion %}
-                  {% if perms.home.change_inscripcion or perms.home.view_inscripcion %}
+                  {% if perms.inscripcion.change_inscripcion or perms.inscripcion.view_inscripcion %}
                     <button class="btn btn-light btn-sm"
                             data-bs-toggle="modal"
                             data-bs-target="#requisitosInscripcionModal"
@@ -251,10 +255,43 @@
       </table>
     </div>
   </div>
+  <!-- Paginación -->
+<div class="pagination-container text-center mt-4">
+  <nav aria-label="Page navigation">
+    <ul class="pagination justify-content-center">
+      {% if inscripciones.has_previous %}
+        <li class="page-item">
+          <a class="page-link" href="javascript:void(0);" onclick="updatePageParam({{ inscripciones.previous_page_number }})" aria-label="Anterior">
+            <span aria-hidden="true">&laquo;</span>
+          </a>
+        </li>
+      {% endif %}
+
+      {% for num in inscripciones.paginator.page_range %}
+        {% if num == 1 or num == inscripciones.paginator.num_pages or num >= inscripciones.number|add:"-2" and num <= inscripciones.number|add:"2" %}
+          <li class="page-item {% if inscripciones.number == num %}active{% endif %}">
+            <a class="page-link" href="javascript:void(0);" onclick="updatePageParam({{ num }})">{{ num }}</a>
+          </li>
+        {% elif num == inscripciones.number|add:"-3" or num == inscripciones.number|add:"3" %}
+          <li class="page-item disabled"><span class="page-link">...</span></li>
+        {% endif %}
+      {% endfor %}
+
+      {% if inscripciones.has_next %}
+        <li class="page-item">
+          <a class="page-link" href="javascript:void(0);" onclick="updatePageParam({{ inscripciones.next_page_number }})" aria-label="Siguiente">
+            <span aria-hidden="true">&raquo;</span>
+          </a>
+        </li>
+      {% endif %}
+    </ul>
+  </nav>
+</div>
 </div>
 
 {# ─── MODALES ─── #}
 <!-- Modal de Detalles -->
+ {% if perms.inscripcion.view_inscripcion %}
 <div class="modal fade details-modal" id="detailsModal" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -308,6 +345,7 @@
     </div>
   </div>
 </div>
+{% endif %}
 
 {% if perms.inscripcion.change_inscripcion %}
 <div class="modal fade" id="editInscripcionModal" tabindex="-1" aria-hidden="true">
@@ -377,8 +415,10 @@
     <div class="modal-content">
       <form id="requisitosInscripcionForm" method="post">
       <div class="modal-header bg-primary text-white">
-        <h5 class="modal-title"><i class="fas fa-clipboard-check me-2"></i> Requisitos de la Inscripción</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <h5 class="modal-title text-white"><i class="fas fa-clipboard-check me-2"></i>&nbsp Requisitos de la Inscripción</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
       </div>
       <div class="modal-body">
         <!-- Aquí se cargará el formulario dinámicamente -->
@@ -457,7 +497,7 @@ $(function(){
   });
 
   // MODAL DE EDICIÓN
-  {% if perms.home.change_inscripcion %}
+  {% if perms.inscripcion.change_inscripcion %}
   $('#editInscripcionModal')
     .on('show.bs.modal', e => {
       const url = $(e.relatedTarget).data('url'),
@@ -593,14 +633,6 @@ $(function(){
     });
   });
 
-  // FILTRADO DE TABLA
-  $('#searchInput').on('keyup', function(){
-    const v = this.value.toUpperCase();
-    $('#inscripcionesTable tbody tr').each(function(){
-      $(this).toggle($(this).text().toUpperCase().includes(v));
-    });
-  });
-
   // SCROLL HORIZONTAL
   $('.table-responsive').on('wheel', function(e) {
     if(e.originalEvent.deltaY !== 0){
@@ -636,54 +668,7 @@ $(function(){
         }
     }
 
-    function setupPagination() {
-        const rows = table.getElementsByTagName('tr');
-        const totalPages = Math.ceil((rows.length - 1) / rowsPerPage);
 
-        pagination.innerHTML = '';
-
-        // Botón Anterior
-        const prevLi = document.createElement('li');
-        prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
-        prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Anterior">&laquo;</a>`;
-        prevLi.addEventListener('click', (e) => {
-            e.preventDefault();
-            if (currentPage > 1) currentPage--;
-            displayRows();
-            setupPagination();
-        });
-        pagination.appendChild(prevLi);
-
-        // Botones de Páginas
-        for (let i = 1; i <= totalPages; i++) {
-            const li = document.createElement('li');
-            li.className = `page-item ${i === currentPage ? 'active' : ''}`;
-            li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
-            li.addEventListener('click', (e) => {
-                e.preventDefault();
-                currentPage = i;
-                displayRows();
-                setupPagination();
-            });
-            pagination.appendChild(li);
-        }
-
-        // Botón Siguiente
-        const nextLi = document.createElement('li');
-        nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
-        nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Siguiente">&raquo;</a>`;
-        nextLi.addEventListener('click', (e) => {
-            e.preventDefault();
-            if (currentPage < totalPages) currentPage++;
-            displayRows();
-            setupPagination();
-        });
-        pagination.appendChild(nextLi);
-    }
-
-    displayRows();
-    setupPagination();
-});
 // Mostrar el formulario al hacer clic en "Editar requisitos"
 $(document).on('click', '#mostrarFormularioRequisitos', function() {
   $('#requisitosEntregadosView').hide();
@@ -695,8 +680,31 @@ $(document).on('click', '#cancelarEdicionRequisitos', function() {
   $('#requisitosClienteFormContainer').hide();
   $('#requisitosEntregadosView').show();
 });
+});
 </script>
+<script>
+  // Función para actualizar el parámetro 'page' en la URL y recargar la página
+  function updatePageParam(pageNumber) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('page', pageNumber); // Actualiza o añade el parámetro 'page'
+    window.location.href = url.toString(); // Redirige a la nueva URL
+  }
+  function updateSearchParam(event) {
+    event.preventDefault(); // Evita el envío normal del formulario
 
+    const searchInput = document.getElementById('searchInput').value.trim();
+    const url = new URL(window.location.href);
+
+    if (searchInput) {
+      url.searchParams.set('search', searchInput); // Actualiza o añade el parámetro 'search'
+    } else {
+      url.searchParams.delete('search'); // Elimina el parámetro 'search' si está vacío
+    }
+
+    url.searchParams.delete('page'); // Reinicia el parámetro 'page' al realizar una nueva búsqueda
+    window.location.href = url.toString(); // Redirige a la nueva URL
+  }
+</script>
 <style>
   .is-invalid {
     border-color: #dc3545 !important;
@@ -718,4 +726,27 @@ $(document).on('click', '#cancelarEdicionRequisitos', function() {
     border-radius: 4px;
   }
 </style>
+
+<script>
+//SCRIPT PARA QUE EL MENSAJE DE ALERTA DESAPAREZCA SOLO DE INACTIVOS
+document.addEventListener('DOMContentLoaded', function () {
+  const AUTO_CLOSE_MS = 3000; // <-- 3000 ms = 3s (pon 2000 para 2s)
+
+  document.querySelectorAll('#globalMessages .alert').forEach(alertEl => {
+    // no cerrar automáticamente alert-danger (errores) si prefieres
+    if (alertEl.classList.contains('alert-danger')) return;
+
+    setTimeout(() => {
+      try {
+        // usa la API de Bootstrap para cerrar limpiamente
+        const bsAlert = bootstrap.Alert.getOrCreateInstance(alertEl);
+        bsAlert.close();
+      } catch (e) {
+        // fallback simple
+        alertEl.remove();
+      }
+    }, AUTO_CLOSE_MS);
+  });
+});
+</script>
 {% endblock javascripts %}

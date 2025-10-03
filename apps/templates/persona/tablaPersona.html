@@ -84,13 +84,13 @@
 
 {% block content %}
 <div class="container mt-4">
-  <h2 class="text-center mb-4">Lista de {{ tipo_texto }} Registrados</h2>
+  <h2 class="text-center mb-4">Lista de {{ tipo_texto }}</h2>
 
   <div class="row mb-3">
     <div class="col-md-4">
       <div class="input-group">
         <span class="input-group-text"><i class="fas fa-search"></i></span>
-        <input id="searchInput" class="form-control" type="text" placeholder="Buscar personas…">
+        <input id="searchInput" class="form-control" type="text" placeholder="Buscar...">
       </div>
     </div>
     <div class="col-md-4 text-end">
@@ -102,6 +102,11 @@
         </a>
       {% endif %}
     </div>
+
+    <!-- Botón para descargar PDF -->
+    <a href="{% url 'reporte_personas_pdf' %}?tipo={{ tipo_consulta }}" class="btn btn-outline-danger ms-2" target="_blank">
+      <i class="fas fa-file-pdf"></i> Descargar PDF
+    </a>
   </div>
 
   <div class="mb-3">
@@ -240,7 +245,7 @@
   </div>
 </div>
 
-{# ─── MODALES ─── #}
+{# ─── MODALESs ─── #}
 {% if perms.persona.view_personas %}
 <div class="modal fade details-modal" id="detailsModal" tabindex="-1">
   <div class="modal-dialog">
@@ -708,6 +713,29 @@ $(function(){
 
     displayRows();
     setupPagination();
+});
+</script>
+
+<script>
+//SCRIPT PARA QUE EL MENSAJE DE ALERTA DESAPAREZCA SOLO DE INACTIVOS
+document.addEventListener('DOMContentLoaded', function () {
+  const AUTO_CLOSE_MS = 3000; // <-- 3000 ms = 3s (pon 2000 para 2s)
+
+  document.querySelectorAll('#globalMessages .alert').forEach(alertEl => {
+    // no cerrar automáticamente alert-danger (errores) si prefieres
+    if (alertEl.classList.contains('alert-danger')) return;
+
+    setTimeout(() => {
+      try {
+        // usa la API de Bootstrap para cerrar limpiamente
+        const bsAlert = bootstrap.Alert.getOrCreateInstance(alertEl);
+        bsAlert.close();
+      } catch (e) {
+        // fallback simple
+        alertEl.remove();
+      }
+    }, AUTO_CLOSE_MS);
+  });
 });
 </script>
 

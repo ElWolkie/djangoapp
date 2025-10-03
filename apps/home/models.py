@@ -127,8 +127,10 @@ class CuotaFormacion(models.Model):
     valorCuota = models.DecimalField(max_digits=10, decimal_places=2)
     orden = models.PositiveIntegerField(help_text="Orden en que se deben pagar las cuotas")
     fechaCuota = models.DateField(null=True, blank=True, auto_now_add=True)
+    is_active = models.BooleanField(default=True)
 
     def clean(self):
+        # La lógica de validación está bien, no se necesita cambiar.
         qs = CuotaFormacion.objects.filter(
             idFormacion=self.idFormacion,
             nombreCuota__iexact=self.nombreCuota,
@@ -139,7 +141,6 @@ class CuotaFormacion(models.Model):
             qs = qs.exclude(pk=self.pk)
         if qs.exists():
             raise ValidationError("Ya existe una cuota con el mismo idFormacion, nombreCuota, tipoCuota y orden.")
-    is_active = models.BooleanField(default=True )
     
     class Meta:
         verbose_name = "Cuota de Formación"
@@ -238,39 +239,6 @@ class Tramite(models.Model):
         verbose_name = "Tramite"  
         verbose_name_plural = "Tramites"
 
-class Denominacion(models.Model):  
-    idDenominacion = models.AutoField(primary_key=True)
-    nombreDenominacion = models.CharField(max_length=100, unique=True)
-    estadoDenominacion = models.CharField(max_length=10)
-    fechaDenominacion = models.DateField(auto_now_add=True)
-
-    class Meta:  
-        verbose_name = "Denominacion"  
-        verbose_name_plural = "Denominaciones"
-
-class Banco(models.Model):
-    idBanco = models.AutoField(primary_key=True)
-    nombreBanco = models.CharField(max_length=150, unique=True, verbose_name="Nombre del Banco")
-    codBanco = models.CharField(max_length=4, unique=True, db_index=True, verbose_name="Código SUDEBAN")
-    codContable = models.CharField(max_length=10, default='0000', verbose_name="Código Contable")
-    estadoBanco = models.CharField(max_length=10, default='ACTIVO', verbose_name="Estado")
-    fechaBanco = models.DateField(default=timezone.now, verbose_name="Fecha Registro")
-
-    def save(self, *args, **kwargs):
-        # Antes de guardar, verificamos si el nombre ya existe
-        if Banco.objects.exclude(pk=self.pk).filter(nombreBanco__iexact=self.nombreBanco).exists():
-            raise ValidationError("El nombre del Banco ya existe.")
-        
-        super().save(*args, **kwargs)
-        
-    class Meta:
-        verbose_name = "Banco"
-        verbose_name_plural = "Bancos"
-        ordering = ['nombreBanco']
-
-    def __str__(self):
-        return f"{self.nombreBanco} ({self.codBanco})"
-
 class Moneda(models.Model):
     idMoneda = models.AutoField(primary_key=True)
     nombreMoneda = models.CharField(max_length=100, unique=True)
@@ -310,54 +278,6 @@ class Tasa(models.Model):
             qs = qs.exclude(pk=self.pk)
         if qs.exists():
             raise ValidationError("Ya existe una tasa con la misma moneda, monto y fecha/hora.")
-
-
-class TipoIngreso(models.Model):  
-    idTipoIngreso = models.AutoField(primary_key=True)
-    nombreTipoIngreso = models.CharField(max_length=100, unique=True)
-    estadoTipoIngreso = models.CharField(max_length=10)
-    fechaTipoIngreso = models.DateField(auto_now_add=True)
-
-    def clean(self):
-        if TipoIngreso.objects.filter(nombreTipoIngreso__iexact=self.nombreTipoIngreso).exists():
-            raise ValidationError("El nombre del TipoIngreso ya existe.")
-
-    class Meta:  
-        verbose_name = "TipoIngreso"  
-        verbose_name_plural = "TipoIngresos"
-
-class TipoMovimiento(models.Model):  
-    idTipoMovimiento = models.AutoField(primary_key=True)
-    naturaleza = models.CharField(max_length=10)
-    nombreTipoMovimiento = models.CharField(max_length=100, unique=True)
-    estadoTipoMovimiento = models.CharField(max_length=10)
-    fechaTipoMovimiento = models.DateField(auto_now_add=True)
-
-    def clean(self):
-        if TipoMovimiento.objects.filter(nombreTipoMovimiento__iexact=self.nombreTipoMovimiento).exists():
-            raise ValidationError("El nombre del TipoMovimiento ya existe.")
-
-    class Meta:  
-        verbose_name = "TipoMovimiento"  
-        verbose_name_plural = "TipoMovimientos"
-
-class Movimiento(models.Model):  
-    idMovimiento = models.AutoField(primary_key=True)
-    idTipoMovimiento = models.ForeignKey(TipoMovimiento, on_delete=models.CASCADE)
-    idDenominacion = models.ForeignKey(Denominacion, on_delete=models.CASCADE)
-    idBanco = models.ForeignKey(Banco, on_delete=models.CASCADE, null=True, blank=True)
-    idTasa = models.ForeignKey(Tasa, on_delete=models.CASCADE)
-    naturaleza = models.CharField(max_length=10)
-    tipoPago = models.CharField(max_length=100)
-    referencia = models.CharField(max_length=100, null=True, blank=True)
-    monto = models.DecimalField(max_digits=10, decimal_places=2)
-    descripcion = models.TextField()
-    estadoMovimiento = models.CharField(max_length=10)
-    fechaMovimiento = models.DateTimeField(auto_now_add=True)
-
-    class Meta:  
-        verbose_name = "Ingreso"  
-        verbose_name_plural = "Ingresos"
 
 class Configuracion(models.Model):
     idConfig = models.AutoField(primary_key=True, verbose_name="ID Configuración")

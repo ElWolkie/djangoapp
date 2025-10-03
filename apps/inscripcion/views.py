@@ -1,18 +1,16 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from django.http import JsonResponse, HttpResponse, HttpResponseRedirect
-from django.views.decorators.csrf import csrf_exempt
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required, user_passes_test, permission_required
+from django.shortcuts import render, get_object_or_404
+from django.contrib.auth.decorators import login_required, permission_required
 from django.template import loader
 from django.db.models import Exists, OuterRef
 from django.db.models import Count
 from django.db import models
-from django.db.models import OuterRef, Subquery, Max
+from django.db.models import OuterRef, Count, Q
 from django.urls import reverse
 from django.contrib import messages
-from django.template.loader import render_to_string
 from .forms import InscripcionForm
-from .models import Inscripcion, CuotaFormacion
+from .models import Inscripcion, CuotaFormacion, InscripcionCuota
 from apps.persona.models import Personas
 from apps.home.models import Cargo, Cohorte, Materia, TipoFormacion, Formacion, Configuracion
 from apps.requisitoCliente.models import RequisitoCliente
@@ -23,6 +21,8 @@ from reportlab.platypus import Table, TableStyle
 from reportlab.lib import colors
 import os
 import json
+from django.core.paginator import Paginator
+
 @login_required(login_url='login')
 @permission_required("inscripcion.add_inscripcion", raise_exception=True)
 def inscripcion_modal(request):
@@ -36,15 +36,22 @@ def inscripcion_modal(request):
             # Obtener el valor de la formación seleccionada
             formacion = inscripcion.idFormacion
             valor_inscripcion = getattr(formacion, 'valorInscripcion', 0)  # Obtener valor de inscripción
-            
-            # # Generar pagos de cuotas si la formación tiene cuotas activas
-            # if inscripcion.idFormacion.tieneCuotas:
-            #     generar_pagos_cuotas(inscripcion)
+          
+
+            cuotas = inscripcion.idFormacion.cuotas.filter(is_active=True)
+            print(cuotas)  # Verifica las cuotas activas asociadas
+            for cuota in cuotas:
+                InscripcionCuota.objects.create(
+                    idInscripcion=inscripcion,
+                    idCuota=cuota,
+                    estadoPago='EN ESPERA',
+                    montoPagado=0
+                )
 
             return JsonResponse({
                 'success': True,
                 'message': 'Inscripción registrada exitosamente.',
-            'redirect_url': f"{reverse('nota_create')}?inscripcion={valor_inscripcion}&id={inscripcion.idPersona.idPersona}"
+            'redirect_url': f"{reverse('nota_create')}?inscripcion={valor_inscripcion}&idP={inscripcion.idPersona.idPersona}&id={inscripcion.idInscripcion}"
             })
         else:
             errors = {field: error for field, error in form.errors.items()}
@@ -115,20 +122,36 @@ def edit_inscripcion(request, pk):
     # GET: Mostrar formulario de edición (solo para carga inicial)
     form = InscripcionForm(instance=instance)
     
-    # Obtener datos relacionados
+# Obtener TODAS las formaciones activas
+    formaciones = Formacion.objects.filter(estadoFormacion='ACTIVO').annotate(
+        cuotas_activas=Exists(
+            CuotaFormacion.objects.filter(
+                idFormacion=OuterRef('pk'),
+                is_active=True
+            )
+        ),
+        cantidad_cuotas=Count('cuotas', filter=models.Q(cuotas__is_active=True))
+    )
+    
+    # Generar datos para las cuotas
+    for formacion in formaciones:
+        formacion.cuotas_json = json.dumps([
+            {'nombreCuota': cuota.nombreCuota, 'valorCuota': float(cuota.valorCuota)}
+            for cuota in formacion.cuotas.filter(is_active=True)
+        ])
+    
     context = {
-        'form': form,
+        'form': InscripcionForm(instance=instance),
         'inscripcion': instance,
         'personas': Personas.objects.all(),
         'cargos': Cargo.objects.all(),
         'materias': Materia.objects.all(),
         'cohortes': Cohorte.objects.all(),
-        'formaciones': Formacion.objects.all(),
+        'formaciones': formaciones,  # Todas las formaciones activas
         'tipos_formacion': TipoFormacion.objects.all()
     }
     
     return render(request, 'inscripcion/editInscripcion.html', context)
-
 
 @login_required(login_url='login')
 @permission_required("inscripcion.change_inscripcion", raise_exception=True)
@@ -163,8 +186,9 @@ def reactivate_inscripcion(request, pk):
 @permission_required("inscripcion.view_inscripcion", raise_exception=True)
 def tabla_inscripciones(request):
     mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
-    
-    # Filtrar inscripciones según estado
+    search_query = request.GET.get('search', '').strip()  # Obtener el término de búsqueda
+
+    # Filtrar inscripciones según estado (mantenemos tu prefetch y estructura)
     if mostrar:
         inscripciones = Inscripcion.objects.prefetch_related(
             'requisitocliente_set__idRequisito'
@@ -174,10 +198,9 @@ def tabla_inscripciones(request):
             'requisitocliente_set__idRequisito'
         )
     
-    # Preparar diccionario de requisitos entregados
+    # Preparar diccionario de requisitos entregados (mismo lugar que tenías)
     requisitos_entregados_dict = {}
     for inscripcion in inscripciones:
-        # Acceder a los requisitos precargados
         requisitos = [
             rc.idRequisito.nombreRequisito 
             for rc in inscripcion.requisitocliente_set.all()
@@ -185,11 +208,42 @@ def tabla_inscripciones(request):
         ]
         requisitos_entregados_dict[inscripcion.idInscripcion] = requisitos
 
+    # Filtrar por el término de búsqueda si existe BUSCADOR
+    if search_query:
+        inscripciones = inscripciones.filter(
+            Q(idInscripcion__icontains=search_query) |
+            Q(idPersona__cedula__icontains=search_query) |
+            Q(idPersona__nombres__icontains=search_query) |
+            Q(idPersona__apellidos__icontains=search_query) |
+            Q(idCohorte__nombreCohorte__icontains=search_query) |
+            Q(idTF__nombreTipoFormacion__icontains=search_query) |
+            Q(idFormacion__nombreFormacion__icontains=search_query) |
+            Q(estadoPago__icontains=search_query) |
+            Q(montoPagado__icontains=search_query) |
+            Q(fechaInscripcion__icontains=search_query)
+        )
+
+    # Mensajes informativos
+    if mostrar:
+        hay_inactivos = inscripciones.filter(is_active=False).exists()
+        if not hay_inactivos:
+            messages.info(request, 'No hay inscripciones inactivas para mostrar.')
+    else:
+        if not inscripciones.exists():
+            messages.info(request, 'No hay inscripciones activas para mostrar.')
+
+    # Paginación 
+    paginator = Paginator(inscripciones, 10)  # 10 por página
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
     return render(request, 'inscripcion/tablaInscripciones.html', {
-        'inscripciones': inscripciones,
         'requisitos_entregados_dict': requisitos_entregados_dict,
         'mostrar_inactivos': mostrar,
+        'inscripciones': page_obj,  # Pasar el objeto de la página al template
+        'search_query': search_query,  # Pasar el término de búsqueda al template
     })
+
 
 # @login_required(login_url='login')
 # @permission_required("inscripcion.add_pagocuota", raise_exception=True)

@@ -96,28 +96,38 @@
     color: #8898aa;
     flex-grow: 1;
   }
+  .detail-value.bold {
+    font-weight: 600;
+    color: #333;
+  }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container mt-4">
-  <h2 class="text-center mb-4">Lista de Solicitudes Registradas</h2>
+  <h2 class="text-center mb-4">Lista de Solicitudes</h2>
 
   <div class="row mb-3">
     <div class="col-md-4">
       <div class="input-group">
         <span class="input-group-text"><i class="fas fa-search"></i></span>
-        <input id="searchInput" class="form-control" type="text" placeholder="Buscar por solicitante, trámite…">
+        <input id="searchInput" class="form-control" type="text" placeholder="Buscar...">
       </div>
     </div>
-    <div class="col-md-8 text-end">
-        {% if perms.home.add_solicitud %}
+    <div class="col-md-4 text-end">
+        {% if perms.solicitud.add_solicitud %}
           <a href="{% url 'solicitud_modal' %}"
             class="btn btn-warning"
             title="Ir a registro de solicitud">
             <i class="fas fa-plus-circle me-1"></i> Registrar Solicitud
           </a>
         {% endif %}
+    </div>
+
+    <div class="col-md-4 text-end">
+      <a href="{% url 'reporte_solicitudes_pdf' %}" class="btn btn-outline-danger" target="_blank">
+        <i class="fas fa-file-pdf"></i> Descargar PDF
+      </a>
     </div>
   </div>
 
@@ -175,7 +185,7 @@
             <td>
               <div class="d-flex gap-2">
                 <!-- Botón Ver más -->
-                {% if perms.home.view_solicitud %}
+                {% if perms.solicitud.view_solicitud %}
                   <button class="btn btn-info btn-sm view-details-btn"
                           data-bs-toggle="modal"
                           data-bs-target="#detailsModal"
@@ -194,7 +204,7 @@
                   </button>
                 {% endif %}
                 
-                {% if perms.home.change_solicitud %}
+                {% if perms.solicitud.change_solicitud %}
                 <button class="btn btn-primary btn-sm"
                         data-bs-toggle="modal"
                         data-bs-target="#editSolicitudModal"
@@ -204,7 +214,7 @@
                 </button>
                 {% endif %}
 
-                {% if solicitud.estadoSolicitud|upper == "ACTIVO" and perms.home.change_solicitud %}
+                {% if solicitud.estadoSolicitud|upper == "ACTIVO" and perms.solicitud.change_solicitud %}
                 <button class="btn btn-outline-warning btn-sm"
                         data-bs-toggle="modal"
                         data-bs-target="#deleteSolicitudModal"
@@ -214,7 +224,7 @@
                 </button>
                 {% endif %}
 
-                {% if solicitud.estadoSolicitud|upper == "INACTIVO" and perms.home.change_solicitud %}
+                {% if solicitud.estadoSolicitud|upper == "INACTIVO" and perms.solicitud.change_solicitud %}
                 <button class="btn btn-success btn-sm"
                         data-bs-toggle="modal"
                         data-bs-target="#reactivateSolicitudModal"
@@ -224,7 +234,7 @@
                 </button>
                 {% endif %}
 
-                {% if perms.home.view_solicitud or perms.home.change_solicitud %}
+                {% if perms.solicitud.view_solicitud or perms.solicitud.change_solicitud %}
                   <button class="btn btn-light btn-sm"
                           data-bs-toggle="modal"
                           data-bs-target="#requisitosSolicitudModal"
@@ -262,12 +272,12 @@
           <div class="detail-value" id="detail-id"></div>
         </div>
         <div class="detail-item">
-          <div class="detail-label">Solicitante:</div>
-          <div class="detail-value" id="detail-solicitante"></div>
+          <div class="detail-label">Cédula:</div>
+          <div class="detail-value bold" id="detail-cedula"></div>
         </div>
         <div class="detail-item">
-          <div class="detail-label">Cédula:</div>
-          <div class="detail-value" id="detail-cedula"></div>
+          <div class="detail-label">Solicitante:</div>
+          <div class="detail-value" id="detail-solicitante"></div>
         </div>
         <div class="detail-item">
           <div class="detail-label">Trámite:</div>
@@ -279,7 +289,7 @@
         </div>
         <div class="detail-item">
           <div class="detail-label">Monto Total:</div>
-          <div class="detail-value" id="detail-monto"></div>
+          <div class="detail-value bold" id="detail-monto"></div>
         </div>
         <div class="detail-item">
           <div class="detail-label">Estado:</div>
@@ -375,8 +385,10 @@
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
       <div class="modal-header bg-primary text-white">
-        <h5 class="modal-title"><i class="fas fa-clipboard-check me-2"></i> Requisitos de la Solicitud</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <h5 class="modal-title text-white"><i class="fas fa-clipboard-check me-2"></i> Requisitos de la Solicitud</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
       </div>
       <div class="modal-body">
         <!-- Aquí se cargará el listado y formulario dinámicamente -->
@@ -646,6 +658,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
     displayRows();
     setupPagination();
+});
+</script>
+
+<script>
+//SCRIPT PARA QUE EL MENSAJE DE ALERTA DESAPAREZCA SOLO DE INACTIVOS
+document.addEventListener('DOMContentLoaded', function () {
+  const AUTO_CLOSE_MS = 3000; // <-- 3000 ms = 3s (pon 2000 para 2s)
+
+  document.querySelectorAll('#globalMessages .alert').forEach(alertEl => {
+    // no cerrar automáticamente alert-danger (errores) si prefieres
+    if (alertEl.classList.contains('alert-danger')) return;
+
+    setTimeout(() => {
+      try {
+        // usa la API de Bootstrap para cerrar limpiamente
+        const bsAlert = bootstrap.Alert.getOrCreateInstance(alertEl);
+        bsAlert.close();
+      } catch (e) {
+        // fallback simple
+        alertEl.remove();
+      }
+    }, AUTO_CLOSE_MS);
+  });
 });
 </script>
 {% endblock javascripts %}

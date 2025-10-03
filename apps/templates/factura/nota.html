@@ -1,31 +1,173 @@
 {% extends 'layouts/base2.html' %}
+{% load static %}
 
 {% block title %}Registrar Factura{% endblock title %}
 
 {% block stylesheets %}
-<link rel="stylesheet" href="/static/assets/css/styleForms.css" />
-<link rel="stylesheet" href="/static/assets/css/argon.css" />
+<link rel="stylesheet" href="{% static 'assets/css/styleForms.css' %}" />
+<link rel="stylesheet" href="{% static 'assets/css/argon.css' %}" />
 
 <style>
-  #tablaPersonas th, #tablaPersonas td, #tablaEmpresas th, #tablaEmpresas td {
-    text-align: center;
-    white-space: nowrap;
-  }
+/* Card principal */
+.nota-card {
+  background: linear-gradient(135deg,#f8fafc 0%, #eef2f6 100%);
+  border-radius: 1rem;
+  box-shadow: 0 0.75rem 1.5rem rgba(19,38,63,0.06);
+  padding: 1.75rem;
+  margin: 2rem auto;
+  max-width: 1100px;
+  font-weight: 600;
+}
 
-  #tablaPersonas th, #tablaEmpresas th {
-    font-weight: bold;
-  }
+/* Header */
+.nota-header {
+  text-align: center;
+  margin-bottom: 1.25rem;
+  position: relative;
+  padding-bottom: .5rem;
+}
+.nota-header h2 {
+  color: #0f1724;
+  font-weight: 800;
+  margin-bottom: 0.25rem;
+  letter-spacing: -0.2px;
+}
+.nota-header p.sub {
+  color: #6b7280;
+  margin: 0;
+  font-size: .95rem;
+}
+.nota-header::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 50%;
+  transform: translateX(-50%);
+  width: 90px; height: 4px;
+  background: linear-gradient(90deg,#ffc107,#fd7e14);
+  border-radius: 4px;
+}
+
+/* Inputs y selects: alturas uniformes y apariencia moderna */
+.form-control, .form-select {
+  border-radius: .65rem;
+  padding: .55rem .9rem;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  transition: box-shadow .18s ease, border-color .18s ease;
+  min-height: 44px;
+  line-height: 1.2;
+  font-size: .95rem;
+  box-sizing: border-box;
+}
+.form-control:focus, .form-select:focus {
+  outline: none;
+  border-color: #ffc107;
+  box-shadow: 0 0 0 .2rem rgba(255,193,7,0.12);
+}
+
+/* Labels más compactos */
+.form-label { margin-bottom: .35rem; font-weight: 700; color: #374151; }
+
+/* Wrapper para evitar saltos por helper text */
+.field-wrap { display:flex; flex-direction:column; gap: .25rem; }
+.field-wrap .form-text { margin:0; min-height:18px; color:#6b7280; font-weight:500; font-size:.85rem; }
+
+/* Botones de búsqueda (icon) dentro de input-group */
+.input-group .btn {
+  border-radius: 0 .6rem .6rem 0;
+  border: 1px solid #d1d5db;
+  height: 44px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
+
+/* Botón guardar (estilo llamativo) */
+.btn-pago, .btn-guardar {
+  background: linear-gradient(135deg,#ffc107 0%,#fd7e14 100%);
+  border:none;
+  color:#fff;
+  font-weight:700;
+  padding:.7rem 1.4rem;
+  border-radius:.6rem;
+  box-shadow: 0 6px 14px rgba(253,126,20,0.14);
+  transition: transform .18s, box-shadow .18s;
+}
+.btn-pago:hover, .btn-guardar:hover { transform: translateY(-3px); box-shadow: 0 10px 24px rgba(253,126,20,0.18); }
+
+/* Badges y tablas */
+.badge { padding:.45rem .6rem; border-radius:.65rem; font-weight:700; }
+.table-sm th, .table-sm td { vertical-align: middle; font-weight:600; }
+#tablaPersonas th, #tablaPersonas td, #tablaEmpresas th, #tablaEmpresas td {
+  text-align:center;
+  white-space:nowrap;
+}
+#tablaPersonas th, #tablaEmpresas th { font-weight:700; }
+
+/* Modals: visual */
+.modal-content { border-radius:.75rem; overflow:hidden; }
+#tablaPersonas tbody tr:hover, #tablaEmpresas tbody tr:hover,
+#tablaCuotas tbody tr:hover, #tablaInscripciones tbody tr:hover {
+  background: rgba(255,193,7,0.08); cursor: pointer;
+}
+
+/* Campos que se ocultan con transiciones */
+.hidden { opacity:0; pointer-events:none; transform: translateY(-6px); transition: opacity .25s ease, transform .18s ease; }
+.visible { opacity:1; transform: translateY(0); transition: opacity .25s ease, transform .18s ease; }
+
+/* Responsive */
+@media (max-width: 767px) {
+  .nota-card { padding:1rem; margin:1rem; }
+  .input-group .btn { border-radius:.45rem; height:40px; }
+  .form-control, .form-select { min-height:40px; }
+}
+
+/* Helpers de búsqueda */
+.input-group-text.icon-search { background-color: #bcbcbc; border: none; color: #ffb84d; }
+
+/* Ajustes para radios y check groups */
+.form-check { display:inline-flex; align-items:center; margin-right:.5rem; }
+.form-check-input { margin-right:.35rem; }
+
+/* Alinear filas de formulario en pares (labels e inputs) */
+.row.align-items-end > .col-md-6, .row.align-items-center > .col-md-6 {
+  display:flex; flex-direction:column; justify-content:flex-end;
+}
+/* Forzar estilos de validación (asegurar que .is-invalid se vea incluso cuando bootstrap no lo aplica) */
+.form-control.is-valid,
+.form-select.is-valid {
+  border-color: #28a745 !important;
+  box-shadow: 0 0 0 .2rem rgba(40,167,69,.15) !important;
+}
+.form-control.is-invalid,
+.form-select.is-invalid {
+  border-color: #dc3545 !important;
+  box-shadow: 0 0 0 .2rem rgba(220,53,69,.12) !important;
+}
+
+/* Asegurar que invalid-feedback se muestre cuando el select está dentro de .input-group.has-validation */
+.input-group.has-validation .invalid-feedback { display: none; width:100%; }
+.input-group.has-validation .form-select.is-invalid ~ .invalid-feedback,
+.input-group.has-validation .form-control.is-invalid ~ .invalid-feedback {
+  display: block !important;
+}
+
+/* Helper para inputs formateados */
+.format-currency { text-align: right; }
 </style>
 {% endblock stylesheets %}
 
 {% block content %}
 <br>
-<div class="text-right mb-3">
+<div class="text-end mb-3">
   <button type="button" id="toggleReadonly" class="btn btn-secondary">Habilitar edición manual</button>
 </div>
 
-<div class="container mt-5">
-  <h2 class="text-center text-dark mb-4">Registrar Nota</h2>
+<div class="nota-card">
+  <div class="nota-header">
+    <h2><i class="fas fa-file-invoice text-warning me-2"></i> Registrar Nota</h2>
+    <p class="sub">Complete la información para registrar la nota/factura.</p>
+  </div>
 
   {% if messages %}
     {% for message in messages %}
@@ -37,240 +179,324 @@
 
   <form method="POST" id="notaForm" action="{% url 'nota_create' %}" class="text-dark needs-validation" autocomplete="off" novalidate>
     {% csrf_token %}
+    <div class="row g-3">
 
-    <div class="form-row">
-      <div class="form-row">
-        <div class="form-group col-md-4">
-            <label for="tipoFacturaCheckbox" class="form-label small">Tipo de Operación:</label>
-            <div class="form-check ml-3">
-            <input class="form-check-input" type="radio" name="tipoOperacion" id="ingresoCheckbox" value="ingreso" required>
-            <label class="form-check-label small" for="ingresoCheckbox">Cobro</label>
-            </div>
-            <div class="form-check ml-3">
-            <input class="form-check-input" type="radio" name="tipoOperacion" id="egresoCheckbox" value="egreso" required>
-            <label class="form-check-label small" for="egresoCheckbox">Pago</label>
+      <!-- FILA 1: Tipo Operación | Tipo Articulo | Número Nota -->
+      <div class="row g-3 align-items-end w-100">
+        <div class="col-md-2">
+          <label class="form-label small">Tipo de Operación:</label>
+          <div class="field-wrap">
+            <div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="tipoOperacion" id="ingresoCheckbox" value="ingreso" required>
+                <label class="form-check-label small" for="ingresoCheckbox">Cobro</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="tipoOperacion" id="egresoCheckbox" value="egreso" required>
+                <label class="form-check-label small" for="egresoCheckbox">Pago</label>
+              </div>
             </div>
             <div class="invalid-feedback small">Por favor seleccione el tipo de operación.</div>
+          </div>
         </div>
-      
-        <div class="form-group col-md-7 ml-3">
-          <label for="tipoNota">Tipo de Nota:</label>
-          <select id="tipoFactura" name="tipoFactura" class="form-control text-dark" required disabled>
-            <option value="" disabled selected>Seleccione el tipo de factura...</option>
-            
-            <!-- Facturas de Egresos (Pagos) -->
-            <optgroup label="Pagos a Proveedores" class="egreso-options" style="display: none;">
-              <option value="HONORARIO_PROFESOR">Honorarios Profesionales</option>
-              <option value="SERVICIO_GENERAL">Servicios Generales (Internet, Luz, etc.)</option>
-              <option value="COMPRA_BIENES">Compra de Bienes/Materiales</option>
-            </optgroup>
-            
-            <!-- Facturas de Ingresos -->
-            <optgroup label="Ingresos de Estudiantes" class="ingreso-options" style="display: none;">
-              <option value="INSCRIPCION">Inscripción</option>
-              <option value="SOLICITUD">Solicitud de Trámites</option>
-            </optgroup>
-          </select>
-          <div class="invalid-feedback">Por favor seleccione un tipo de factura.</div>
+
+        <div class="col-md-4">
+          <label for="tipoArticulo" class="form-label">Tipo de Nota:</label>
+          <div class="field-wrap">
+            <select id="tipoArticulo" name="tipoArticulo" class="form-select large" required disabled>
+              <option value="" selected>Seleccione el tipo de articulo...</option>
+              <optgroup label="Pagos a Proveedores" class="egreso-options" style="display:none;">
+                <option value="HONORARIO_PROFESOR">Honorarios Profesionales</option>
+                <option value="SERVICIO_GENERAL">Servicios Generales (Internet, Luz, etc.)</option>
+                <option value="COMPRA_BIENES">Compra de Bienes/Materiales</option>
+              </optgroup>
+              <optgroup label="Ingresos de Estudiantes" class="ingreso-options" style="display:none;">
+                <option value="INSCRIPCION">Inscripción</option>
+                <option value="CUOTA">Cuota</option>
+                <option value="SOLICITUD">Solicitud de Trámites</option>
+              </optgroup>
+            </select>
+            <div class="invalid-feedback">Por favor seleccione un tipo de articulo.</div>
+          </div>
+        </div>
+
+        <div class="col-md-6">
+          <label for="numeroNota" class="form-label">Número de Nota:</label>
+          <div class="field-wrap">
+            <input type="text" id="numeroNota" name="numeroNota" class="form-control" value="{{ numero_nota }}" {% if not numero_nota %}required{% else %}readonly{% endif %} />
+            <div class="invalid-feedback">Por favor ingrese un número de nota válido.</div>
+          </div>
         </div>
       </div>
-        <div class="form-group col-md-6 ml-5 d-flex align-items-center">
-          <div class="mr-3">
-            <label for="tipoEntidadCheckbox"  class="form-label small">Tipo de Entidad:</label>
-            <div class="form-check ml-3">
-              <input class="form-check-input" type="radio" name="tipoEntidad" id="personaCheckbox" value="persona"  checked required>
-              <label class="form-check-label small" for="personaCheckbox">Persona</label>
-            </div>
-            <div class="form-check ml-3">
-              <input class="form-check-input" type="radio" name="tipoEntidad" id="empresaCheckbox" value="empresa" required>
-              <label class="form-check-label small" for="empresaCheckbox">Empresa</label>
+
+      <!-- FILA 2: Tipo Entidad (radio) | Persona/Empresa selector -->
+      <div class="row g-3 align-items-end w-100">
+        <div class="col-md-2">
+          <label class="form-label small">Tipo de Entidad:</label>
+          <div class="field-wrap">
+            <div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="tipoEntidad" id="personaCheckbox" value="persona" checked required>
+                <label class="form-check-label small" for="personaCheckbox">Persona</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="tipoEntidad" id="empresaCheckbox" value="empresa" required>
+                <label class="form-check-label small" for="empresaCheckbox">Empresa</label>
+              </div>
             </div>
             <div class="invalid-feedback">Por favor seleccione el tipo de entidad.</div>
           </div>
+        </div>
 
-          <div class="flex-grow-1 ml-2">
-            <div id="personaGroup" style="display: none;">
-              <label for="personaInput">Persona:</label>
+        <div class="col-md-4">
+          <div id="personaGroup" style="display:none;">
+            <label for="personaInput" class="form-label">Persona:</label>
+            <div class="field-wrap">
               <div class="input-group">
                 <input type="text" id="personaInput" class="form-control text-dark" placeholder="Seleccione una persona" readonly />
-                <button type="button" id="buscarPersona" class="btn btn-warning" data-toggle="modal" data-target="#personaModal">
+                <button type="button" id="buscarPersona" class="btn btn-outline-warning" data-toggle="modal" data-target="#personaModal">
                   <i class="fas fa-search"></i>
-                </button>
-              </div>
-              <input type="hidden" id="idPersona" name="idPersona" />
-              <div class="invalid-feedback">Por favor seleccione una persona.</div>
-            </div>
+                </button>              
+                <div class="invalid-feedback">Por favor seleccione una persona.</div>
 
-            <div id="empresaGroup" style="display: none;">
-              <label for="empresaInput">Empresa:</label>
+              </div>
+            </div>
+            <input type="hidden" id="idPersona" name="idPersona" />
+          </div>
+
+          <div id="empresaGroup" style="display:none;">
+            <label for="empresaInput" class="form-label">Empresa:</label>
+            <div class="field-wrap">
               <div class="input-group">
-                <input type="text" id="empresaInput" class="form-control text-dark" placeholder="Seleccione una empresa" readonly />
-                <button type="button" id="buscarEmpresa" class="btn btn-warning" data-toggle="modal" data-target="#empresaModal">
+                <input type="text" id="empresaInput" class="form-control text-dark" placeholder="Seleccione una empresa" readonly  required/>
+                <button type="button" id="buscarEmpresa" class="btn btn-outline-warning" data-toggle="modal" data-target="#empresaModal">
                   <i class="fas fa-search"></i>
                 </button>
               </div>
-              <input type="hidden" id="idEmpresa" name="idEmpresa" />
               <div class="invalid-feedback">Por favor seleccione una empresa.</div>
             </div>
+            <input type="hidden" id="idEmpresa" name="idEmpresa" />
           </div>
         </div>
-    </div>
-    <div class="form-row">
-      <div class="form-group col-md-6">
-        <label for="numeroNota">Número de Nota:</label>
-        <input type="text" id="numeroNota" name="numeroNota" class="form-control text-dark" 
-           value="{{ numero_nota }}" {% if not numero_nota %}required{% else %}readonly{% endif %} />
-        <div class="invalid-feedback">Por favor ingrese un número de factura válido.</div>
-      </div>
-      <div class="form-group col-md-6">
-        <label for="codigoControl">Código de Control:</label>
-        <input type="text" id="codigoControl" name="codigoControl" class="form-control text-dark" placeholder="Ingrese el código de control" maxlength="50" />
-      </div>
-    
-    </div>
-    <div class="form-row">
-     
-      <div class="form-group col-md-6">
-        <label for="fechaEmision">Fecha de Emisión:</label>
-        <input type="date" id="fechaEmision" name="fechaEmision" class="form-control text-dark" max="{{ today_date }}" required />
-        <div class="invalid-feedback">Por favor ingrese una fecha de emisión válida.</div>
-      </div>
-      <div class="form-group col-md-6">
-        <label for="fechaVencimiento">Fecha de Vencimiento:</label>
-        <input type="date" id="fechaVencimiento" name="fechaVencimiento" class="form-control text-dark" />
-      </div>
-    </div>
 
-    <div class="form-row">
-      <div class="form-group col-md-6">
-        <label for="formaPago">Forma de Pago:</label>
-        <select id="formaPago" name="formaPago" class="form-control text-dark" required>
-          <option value="" disabled selected>Seleccione la forma de pago...</option>
-          <option value="contado">Contado</option>
-          <option value="credito">Crédito</option>
-        </select>
-        <div class="invalid-feedback">Por favor seleccione una forma de pago.</div>
-      </div>
-      <div class="form-group col-md-6" id="plazoCreditoGroup" style="display: none;">
-        <label for="plazoCredito">Plazo de Crédito (días):</label>
-        <input type="number" id="plazoCredito" name="plazoCredito" class="form-control text-dark" placeholder="Ingrese el plazo de crédito en días" min="0" />
-        <div class="invalid-feedback">Por favor ingrese un plazo de crédito válido.</div>
-      </div>
-      <div class="form-group col-md-6">
-        <label for="idTasa">Moneda:</label>
-        <select id="idTasa" name="idTasa" class="form-control text-dark" required>
-          
-          <option value="" disabled selected>Seleccione una moneda...</option>
-          {% for moneda in monedas %}
-          
-            <option value="{{ moneda.ultima_idTasa }}">{{ moneda.idMoneda__nombreMoneda }}{% if moneda.ultima_tasa %} | Tasa: {{ moneda.ultima_tasa }}{% else %} - Sin tasa{% endif %}</option>
-          {% endfor %}
-        </select>
-        <div class="invalid-feedback">Por favor seleccione una moneda.</div>
-      </div>
-          
-      <div class="form-group col-md-6">
-        <label for="subtotalExento">Subtotal Exento:</label>
-        <input type="number" id="subtotalExento" name="subtotalExento" class="form-control text-dark" placeholder="Ingrese el subtotal exento" step="0.01" min="0" required />
-        <div class="invalid-feedback">Por favor ingrese un subtotal exento válido.</div>
-      </div>
-  
-      <div class="form-group col-md-6">
-        <label for="subtotalGravado">Subtotal Gravado:</label>
-        <input type="number" id="subtotalGravado" name="subtotalGravado" class="form-control text-dark" placeholder="Ingrese el subtotal gravado" step="0.01" min="0" required />
-        <small id="ivaPercentageHelp" class="form-text text-muted">IVA aplicable: <span id="ivaPercentage">16</span>%</small>
-        <div class="invalid-feedback">Por favor ingrese un subtotal gravado válido.</div>
-    </div>
+        <div id="articulos" class="col-md-6">
+          <div id="noAplicaGroup">
+            <label class="form-label">Articulo:</label>
+            <div class="field-wrap">
+              <div class="input-group">
+                <input type="text" id="noAplica" class="form-control text-dark" placeholder="Seleccione" value="No requiere articulo" readonly required />
+                <button type="button" class="btn btn-success">
+                  <i class="fas fa-check"></i>
+                </button>
+              </div>
+            </div>
+          </div>
 
-    <div class="form-group col-md-6">
-      <label for="iva">IVA:</label>
-      <input type="number" id="iva" name="iva" class="form-control text-dark" placeholder="Ingrese el IVA" step="0.01" min="0" readonly required />
-      <div class="invalid-feedback">Por favor ingrese un IVA válido.</div>
-    </div>
-  
-    
-  <div class="form-group col-md-6">
-    <label for="ivaRetenido">IVA Retenido:</label>
-    <input type="number" id="ivaRetenido" name="ivaRetenido" class="form-control text-dark" placeholder="Ingrese el IVA retenido" step="0.01" min="0" readonly />
-    <small id="ivaRetentionHelp" class="form-text text-muted">Porcentaje de retención: <span id="ivaRetentionPercentage">75</span>%</small>
-  </div>
+          <div id="cuotaGroup" style="display:none;">
+            <label class="form-label">Cuota:</label>
+            <div class="field-wrap">
+              <div class="input-group">
+                <input type="text" id="cuota" class="form-control text-dark" placeholder="Seleccione un plan de cuota" readonly required />
+                <button type="button" id="buscarCuota" class="btn btn-outline-warning" data-toggle="modal" data-target="#cuotaModal">
+                  <i class="fas fa-search"></i>
+                </button>
+              </div>
+              <div class="invalid-feedback">Por favor seleccione una cuota.</div>
+            </div>
+            <input type="hidden" id="idCuota" name="idCuota" />
+          </div>
 
-  <div class="form-group col-md-6">
-    <label for="islrRetenido">ISLR Retenido:</label>
-    <input type="number" id="islrRetenido" name="islrRetenido" class="form-control text-dark" placeholder="Ingrese el ISLR retenido" step="0.01" min="0" readonly />
-    <small id="islrRetentionHelp" class="form-text text-muted">Porcentaje de retención: <span id="islrRetentionPercentage">3</span>%</small>
-  </div>
+          <div id="inscripcionGroup" style="display:none;">
+            <label class="form-label">Inscripción:</label>
+            <div class="field-wrap">
+              <div class="input-group">
+                <input type="text" id="inscripcion" class="form-control " placeholder="Seleccione una inscripcion" readonly required />
+                <button type="button" id="buscarInscripcion" class="btn btn-outline-warning" data-toggle="modal" data-target="#inscripcionModal">
+                  <i class="fas fa-search"></i>
+                </button>
+              </div>
+              <div class="invalid-feedback">Por favor seleccione una inscripción.</div>
+            </div>
+            <input type="hidden" id="idInscripcion" name="idInscripcion" />
+          </div>
 
-      <div class="form-group col-md-6">
-        <label for="descuento">Descuento:</label>
-        <input type="number" id="descuento" name="descuento" class="form-control text-dark" placeholder="Ingrese el descuento" step="0.01" min="0" required />
-        <div class="invalid-feedback">Por favor ingrese un descuento válido.</div>
-      </div>
-      <div class="form-group col-md-6">
-        <label for="totalNota">Total Venta:</label>
-        <input type="number" id="totalNota" name="totalNota" class="form-control text-dark" placeholder="Ingrese el total de la venta" step="0.01" min="0" required />
-        <div class="invalid-feedback">Por favor ingrese un total de venta válido.</div>
+          <div id="honorarioGroup" style="display:none;">
+            <label class="form-label">Honorario:</label>
+            <div class="field-wrap">
+              <div class="input-group">
+                <input type="text" id="honorario" class="form-control text-dark" placeholder="Seleccione un honorario" readonly required />
+                <button type="button" id="buscarHonorario" class="btn btn-outline-warning" data-toggle="modal" data-target="#honorarioModal">
+                  <i class="fas fa-search"></i>
+                </button>
+              </div>
+              <div class="invalid-feedback">Por favor seleccione un Honorario.</div>
+            </div>
+            <input type="hidden" id="idHonorario" name="idHonorario" />
+          </div>
+
+          <div id="solicitudGroup" style="display:none;">
+            <label class="form-label">Solicitud:</label>
+            <div class="field-wrap">
+              <div class="input-group">
+                <input type="text" id="solicitud" class="form-control text-dark" placeholder="Seleccione una solicitud" readonly required />
+                <button type="button" id="buscarSolicitud" class="btn btn-outline-warning" data-toggle="modal" data-target="#solicitudModal">
+                  <i class="fas fa-search"></i>
+                </button>
+              </div>
+              <div class="invalid-feedback">Por favor seleccione una solicitud.</div>
+            </div>
+            <input type="hidden" id="idSolicitud" name="idSolicitud" />
+          </div>
+        </div>
       </div>
 
-      <div class="form-group col-md-6">
-        <label for="idInscripcion">ID Inscripción:</label>
-        <input type="text" id="idInscripcion" name="idInscripcion" class="form-control text-dark" placeholder="Ingrese el ID de inscripción" />
-        <div class="invalid-feedback">Por favor ingrese un ID de inscripción válido.</div>
+      <!-- FILA 3: Forma de pago | Fecha Emisión -->
+      <div class="row g-3 align-items-end w-100">
+        <div class="col-md-6">
+          <label for="formaPago" class="form-label">Forma de Pago:</label>
+          <div class="field-wrap">
+            <select id="formaPago" name="formaPago" class="form-select large" required>
+              <option value="" disabled selected>Seleccione la forma de pago...</option>
+              <option value="contado">Contado</option>
+              <option value="credito">Crédito</option>
+            </select>
+            <div class="invalid-feedback">Por favor seleccione una forma de pago.</div>
+          </div>
+        </div>
+
+        <div class="col-md-6">
+          <label for="fechaEmision" class="form-label">Fecha de Emisión:</label>
+          <div class="field-wrap">
+            <input type="date" id="fechaEmision" name="fechaEmision" class="form-control text-dark" max="{{ today_date }}" required />
+            <div class="invalid-feedback">Por favor ingrese una fecha de emisión válida.</div>
+          </div>
+        </div>
       </div>
 
-      <div class="form-group col-md-6">
-        <label for="idHonorario">ID Honorario:</label>
-        <input type="text" id="idHonorario" name="idHonorario" class="form-control text-dark" placeholder="Ingrese el ID de honorario" />
-        <div class="invalid-feedback">Por favor ingrese un ID de honorario válido.</div>
+      <!-- FILA 4: Fecha Vencimiento | Plazo Crédito -->
+      <div class="row g-3 align-items-end w-100">
+
+        <div class="col-md-6" id="plazoCreditoGroup" style="display:none;">
+          <label for="plazoCredito" class="form-label">Plazo de Crédito (días):</label>
+          <div class="field-wrap">
+            <input type="number" id="plazoCredito" name="plazoCredito" class="form-control text-dark" placeholder="Ingrese el plazo de crédito en días" min="0" />
+            <div class="invalid-feedback">Por favor ingrese un plazo de crédito válido.</div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <label for="fechaVencimiento" class="form-label ">Fecha de Vencimiento:</label>
+          <div class="field-wrap">
+            <input type="date" id="fechaVencimiento" name="fechaVencimiento" class="form-control text-dark" />
+          </div>
+        </div>
+
       </div>
 
-      <div class="form-group col-md-6">
-        <label for="idSolicitud">ID Solicitud:</label>
-        <input type="text" id="idSolicitud" name="idSolicitud" class="form-control text-dark" placeholder="Ingrese el ID de solicitud" />
-        <div class="invalid-feedback">Por favor ingrese un ID de solicitud válido.</div>
+      <!-- FILA 5: Moneda | Subtotales -->
+      <div class="row g-3 align-items-end w-100">
+        <div class="col-md-6">
+           <!-- Moneda definida en la configuración -->
+            <label for="idTasa" class="form-label">Moneda del Sistema:</label>
+            <div class="field-wrap">
+              <input type="text"  class="form-control text-dark" title="Los montos se veran reflejados en esta moneda. Tasa actual: {{ tasa_configuracion_valor }}" value="{{ moneda_configuracion }}" readonly />
+              <input type="text" id="idTasa" name="idTasa" class="form-control text-dark" value="{{ tasa_configuracion_id }}"  hidden/>
+              <div class="invalid-feedback">Por favor ingrese una moneda válida.</div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+          <label for="subtotalExento" class="form-label">Subtotal Exento:</label>
+          <div class="field-wrap">
+            <input type="number" id="subtotalExento" name="subtotalExento" class="form-control text-dark" placeholder="Ingrese el subtotal exento" step="0.01" min="0" required />
+            <div class="invalid-feedback">Por favor ingrese un subtotal exento válido.</div>
+          </div>
+        </div>
       </div>
 
-     
+      <!-- FILA 6: Subtotal Gravado | IVA -->
+      <div class="row g-3 align-items-end w-100">
+        <div class="col-md-6">
+          <label for="subtotalGravado" class="form-label">Subtotal Gravado:</label>
+          <div class="field-wrap">
+            <input type="number" id="subtotalGravado" name="subtotalGravado" class="form-control text-dark" placeholder="Ingrese el subtotal gravado" step="0.01" min="0" required />
+            <small id="ivaPercentageHelp" class="form-text text-muted">IVA aplicable: <span id="ivaPercentage">16</span>%</small>
+            <div class="invalid-feedback">Por favor ingrese un subtotal gravado válido.</div>
+          </div>
+        </div>
+
+        <div class="col-md-6">
+          <label for="iva" class="form-label">IVA:</label>
+          <div class="field-wrap">
+            <input type="number" id="iva" name="iva" class="form-control text-dark" placeholder="Ingrese el IVA" step="0.01" min="0" readonly required />
+            <div class="invalid-feedback">Por favor ingrese un IVA válido.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- FILA 7: Retenciones y descuento/total -->
+      <div class="row g-3 align-items-end w-100">
+        <div class="col-md-6">
+          <label for="ivaRetenido" class="form-label">IVA Retenido:</label>
+          <div class="field-wrap">
+            <input type="number" id="ivaRetenido" name="ivaRetenido" class="form-control text-dark" placeholder="Ingrese el IVA retenido" step="0.01" min="0" readonly />
+            <small id="ivaRetentionHelp" class="form-text text-muted">Porcentaje de retención: <span id="ivaRetentionPercentage">75</span>%</small>
+          </div>
+        </div>
+
+        <div class="col-md-6">
+          <label for="islrRetenido" class="form-label">ISLR Retenido:</label>
+          <div class="field-wrap">
+            <input type="number" id="islrRetenido" name="islrRetenido" class="form-control text-dark" placeholder="Ingrese el ISLR retenido" step="0.01" min="0" readonly />
+            <small id="islrRetentionHelp" class="form-text text-muted">Porcentaje de retención: <span id="islrRetentionPercentage">3</span>%</small>
+          </div>
+        </div>
+      </div>
+
+      <div class="row g-3 align-items-end w-100">
+        <div class="col-md-6">
+          <label for="descuento" class="form-label">Descuento:</label>
+          <div class="field-wrap">
+            <input type="number" id="descuento" name="descuento" class="form-control text-dark" placeholder="Ingrese el descuento" step="0.01" min="0" required />
+            <div class="invalid-feedback">Por favor ingrese un descuento válido.</div>
+          </div>
+        </div>
+
+        <div class="col-md-6">
+          <label for="totalNota" class="form-label">Total Venta:</label>
+          <div class="field-wrap">
+            <input type="number" id="totalNota" name="totalNota" class="form-control text-dark" placeholder="Ingrese el total de la venta" step="0.01" min="0" required />
+            <div class="invalid-feedback">Por favor ingrese un total de venta válido.</div>
+          </div>
+        </div>
+      </div>
 
       <input type="hidden" id="estado" name="estado" value="PENDIENTE" />
-      <div class="form-group col-md-6">
-        <label for="observaciones">Observaciones:</label>
-        <textarea id="observaciones" name="observaciones" class="form-control text-dark" rows="3" placeholder="Ingrese observaciones (opcional)"></textarea>
-      </div>
-        <div class="form-group col-md-6">
-          <label for="planCuentaDebe">Plan de Cuenta (Debe):</label>
-          <div class="input-group">
-            <input type="text" id="planCuentaDebe" class="form-control text-dark" placeholder="Seleccione un plan de cuenta para el Debe" readonly required />
-            <button type="button" id="buscarPlanCuentaDebe" class="btn btn-warning" data-toggle="modal" data-target="#planCuentaDebeModal">
-              <i class="fas fa-search"></i>
-            </button>
+
+      <!-- Observaciones -->
+      <div class="row g-3 mt-2 w-100 ">
+        <div class="col-md-12">
+          <label for="observaciones" class="form-label">Observaciones:</label>
+          <div class="field-wrap">
+            <textarea id="observaciones" name="observaciones" class="form-control text-dark" rows="3" placeholder="Ingrese observaciones (opcional)"></textarea>
           </div>
-          <input type="hidden" id="idPlanCuentaDebe" name="idPlanCuentaDebe" required />
-          <div class="invalid-feedback">Por favor seleccione un plan de cuenta para el Debe.</div>
         </div>
-      
-        <div class="form-group col-md-6">
-          <label for="planCuentaHaber">Plan de Cuenta (Haber):</label>
-          <div class="input-group">
-            <input type="text" id="planCuentaHaber" class="form-control text-dark" placeholder="Seleccione un plan de cuenta para el Haber" readonly required />
-            <button type="button" id="buscarPlanCuentaHaber" class="btn btn-warning" data-toggle="modal" data-target="#planCuentaHaberModal">
-              <i class="fas fa-search"></i>
-            </button>
-          </div>
-          <input type="hidden" id="idPlanCuentaHaber" name="idPlanCuentaHaber" required />
-          <div class="invalid-feedback">Por favor seleccione un plan de cuenta para el Haber.</div>
+
+        <!-- Espacio para futuros campos (plan cuentas etc) -->
+        <div class="col-md-6"></div>
+      </div>
+
+      <!-- BOTÓN GUARDAR -->
+      <div class="row mt-3 w-100">
+        <div class="col-12 text-center">
+          <input type="submit" class="btn-guardar" value="Guardar" />
         </div>
       </div>
-      <div class="text-center mt-4">
-        <a href="{% url 'factura_cargando' %}" class="btn btn-warning">
-          <i class="fas fa-spinner"></i> Generar Factura
-        </a>
-      </div>
-    <div class="text-center">
-      <input type="submit" class="btn btn-warning mt-4" value="Guardar" />
+
     </div>
   </form>
 </div>
+
+<!-- MODALS (preservados tal cual, con small tweaks de clases) -->
 
 <!-- Modal para seleccionar Persona -->
 <div class="modal fade" id="personaModal" tabindex="-1" role="dialog" aria-labelledby="personaModalLabel" aria-hidden="true">
@@ -278,7 +504,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title" id="personaModalLabel">Seleccionar Persona</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+        <button type="button" class="close btn-close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
       </div>
@@ -286,39 +512,37 @@
         <div class="row mb-3">
           <div class="col-md-8">
             <div class="input-group">
-              <div class="input-group-prepend">
-                <span class="input-group-text" style="background-color: #bcbcbc; border: none;">
-                  <i class="fas fa-search text-warning"></i>
-                </span>
-              </div>
-              <input class="form-control" id="searchPersonaInput" type="text" placeholder="Buscar..." onkeyup="filterTable('tablaPersonas', 'searchPersonaInput')">
+              <span class="input-group-text icon-search"><i class="fas fa-search"></i></span>
+              <input class="form-control" id="searchPersonaInput" type="text" placeholder="Buscar..." onkeyup="filterTable('tablaPersonas','searchPersonaInput')">
             </div>
           </div>
         </div>
-        <table class="table table-sm table-responsive table-striped table-hover mx-auto justify-content-center" id="tablaPersonas">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Cédula</th>
-              <th>Nombre</th>
-              <th>Apellidos</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for persona in personas %}
-              <tr data-id="{{ persona.idPersona }}" data-nombre="{{ persona.nombres }} {{ persona.apellidos }}">
-                <td>{{ persona.idPersona }}</td>
-                <td>{{ persona.cedula }}</td>
-                <td>{{ persona.nombres }}</td>
-                <td>{{ persona.apellidos }}</td>
+        <div class="table-responsive">
+          <table class="table table-lg table-striped table-hover" id="tablaPersonas">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Cédula</th>
+                <th>Nombre</th>
+                <th>Apellidos</th>
               </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-        <p id="mensajeSinRegistrosPersona" class="text-center text-muted" style="display: none;">No hay registros disponibles</p>
+            </thead>
+            <tbody>
+              {% for persona in personas %}
+                <tr data-id="{{ persona.idPersona }}" data-nombre="{{ persona.nombres }} {{ persona.apellidos }}">
+                  <td>{{ persona.idPersona }}</td>
+                  <td>{{ persona.cedula }}</td>
+                  <td>{{ persona.nombres }}</td>
+                  <td>{{ persona.apellidos }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <p id="mensajeSinRegistrosPersona" class="text-center text-muted" style="display:none;">No hay registros disponibles</p>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+        <button class="btn btn-secondary" data-dismiss="modal" type="button">Cerrar</button>
       </div>
     </div>
   </div>
@@ -330,7 +554,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title" id="empresaModalLabel">Seleccionar Empresa</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+        <button type="button" class="close btn-close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
       </div>
@@ -338,180 +562,280 @@
         <div class="row mb-3">
           <div class="col-md-8">
             <div class="input-group">
-              <div class="input-group-prepend">
-                <span class="input-group-text" style="background-color: #bcbcbc; border: none;">
-                  <i class="fas fa-search text-warning"></i>
-                </span>
-              </div>
-              <input class="form-control" id="searchEmpresaInput" type="text" placeholder="Buscar..." onkeyup="filterTable('tablaEmpresas', 'searchEmpresaInput')">
+              <span class="input-group-text icon-search"><i class="fas fa-search"></i></span>
+              <input class="form-control" id="searchEmpresaInput" type="text" placeholder="Buscar..." onkeyup="filterTable('tablaEmpresas','searchEmpresaInput')">
             </div>
           </div>
         </div>
-        <table class="table table-sm table-responsive table-striped table-hover" id="tablaEmpresas">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Nombre</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for empresa in empresas %}
-              <tr data-id="{{ empresa.idEmpresa }}" data-nombre="{{ empresa.nombreEmpresa }}">
-                <td>{{ empresa.idEmpresa }}</td>
-                <td>{{ empresa.nombreEmpresa }}</td>
+        <div class="table-responsive">
+          <table class="table table-sm table-striped table-hover" id="tablaEmpresas">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Nombre</th>
               </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-        <p id="mensajeSinRegistrosEmpresa" class="text-center text-muted" style="display: none;">No hay registros disponibles</p>
+            </thead>
+            <tbody>
+              {% for empresa in empresas %}
+                <tr data-id="{{ empresa.idEmpresa }}" data-nombre="{{ empresa.nombreEmpresa }}">
+                  <td>{{ empresa.idEmpresa }}</td>
+                  <td>{{ empresa.nombreEmpresa }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <p id="mensajeSinRegistrosEmpresa" class="text-center text-muted" style="display:none;">No hay registros disponibles</p>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+        <button class="btn btn-secondary" data-dismiss="modal" type="button">Cerrar</button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Modal para seleccionar Plan de Cuenta (Debe) -->
+<!-- Modal para seleccionar Cuota -->
+<div class="modal fade" id="cuotaModal" tabindex="-1" role="dialog" aria-labelledby="cuotaModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:550px;" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="cuotaModalLabel">Seleccionar Cuota</h5>
+        <button type="button" class="close btn-close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+      </div>
+      <div class="modal-body">
+        <div class="row mb-3">
+          <div class="col-md-8">
+            <div class="input-group">
+              <span class="input-group-text icon-search"><i class="fas fa-search"></i></span>
+              <input class="form-control" id="searchCuotaInput" type="text" placeholder="Buscar..." onkeyup="filterTable('tablaCuotas','searchCuotaInput')">
+            </div>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-sm table-striped table-hover" id="tablaCuotas">
+            <thead>
+              <tr>
+                <th>ID Cuota</th><th>ID Inscripción</th><th>Nombre Cuota</th><th>Monto</th><th>Formación</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for cuota in cuotas %}
+                {% for inscripcion in cuota.inscripciones.all %}
+                  <tr data-id="{{ cuota.idCuota }}" data-nombre="{{ cuota.nombreCuota }}" data-valor="{{ cuota.valorCuota }}" data-idIn="{{ inscripcion.idInscripcion }}">
+                    <td>{{ cuota.idCuota }}</td>
+                    <td>{{ inscripcion.idInscripcion }}</td>
+                    <td>{{ cuota.nombreCuota }}</td>
+                    <td>{{ cuota.valorCuota }}</td>
+                    <td>{{ inscripcion.idFormacion.nombreFormacion }}</td>
+                  </tr>
+                {% endfor %}
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <p id="mensajeSinRegistrosCuota" class="text-center text-muted" style="display:none;">No hay registros disponibles</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-dismiss="modal" type="button">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal para seleccionar Inscripción -->
+<div class="modal fade" id="inscripcionModal" tabindex="-1" role="dialog" aria-labelledby="inscripcionModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:550px;" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="inscripcionModalLabel">Seleccionar Inscripción</h5>
+        <button class="close btn-close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+      </div>
+      <div class="modal-body">
+        <div class="row mb-3">
+          <div class="col-md-8">
+            <div class="input-group">
+              <span class="input-group-text icon-search"><i class="fas fa-search"></i></span>
+              <input class="form-control" id="searchInscripcionInput" type="text" placeholder="Buscar..." onkeyup="filterTable('tablaInscripciones','searchInscripcionInput')">
+            </div>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-sm table-striped table-hover" id="tablaInscripciones">
+            <thead>
+              <tr><th>ID</th><th>Tipo Formación</th><th>Formación</th><th>Valor</th><th>Cohorte</th></tr>
+            </thead>
+            <tbody>
+              {% for inscripcion in inscripciones %}
+                <tr data-id="{{ inscripcion.idInscripcion }}" data-valor="{{ inscripcion.idFormacion.valorInscripcion }}" data-nombre="{{ inscripcion.idTF.nombreTipoFormacion }} {{ inscripcion.idFormacion.nombreFormacion }}" data-persona-id="{{ inscripcion.idPersona.idPersona }}">
+                  <td>{{ inscripcion.idInscripcion }}</td>
+                  <td>{{ inscripcion.idTF.nombreTipoFormacion }}</td>
+                  <td>{{ inscripcion.idFormacion.nombreFormacion }}</td>
+                  <td>{{ inscripcion.idFormacion.valorInscripcion }}</td>
+                  <td>{{ inscripcion.idCohorte.nombreCohorte }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <p id="mensajeSinRegistrosInscripcion" class="text-center text-muted" style="display:none;">No hay registros disponibles</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-dismiss="modal" type="button">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal honorarios -->
+<div class="modal fade" id="honorarioModal" tabindex="-1" role="dialog" aria-labelledby="honorarioModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="honorarioModalLabel">Seleccionar Honorario</h5>
+        <button class="close btn-close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+      </div>
+      <div class="modal-body">
+        <div class="row mb-3">
+          <div class="col-md-8">
+            <div class="input-group">
+              <span class="input-group-text icon-search"><i class="fas fa-search"></i></span>
+              <input class="form-control" id="searchHonorarioInput" type="text" placeholder="Buscar..." onkeyup="filterTable('tablaHonorarios','searchHonorarioInput')">
+            </div>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-sm table-striped table-hover" id="tablaHonorarios">
+            <thead><tr><th>ID</th><th>Cargo</th><th>Cohorte</th><th>Materia</th><th>Horas</th><th>Monto</th></tr></thead>
+            <tbody>
+              {% for honorario in honorarios %}
+                <tr data-id="{{ honorario.idHonorario }}" data-valor="{{ honorario.monto }}" data-nombre="{{ honorario.idCargo.nombreCargo }}">
+                  <td>{{ honorario.idHonorario }}</td>
+                  <td>{{ honorario.idCargo.nombreCargo }}</td>
+                  <td>{{ honorario.idCohorte.nombreCohorte }}</td>
+                  <td>{{ honorario.idMateria.nombreMateria }}</td>
+                  <td>{{ honorario.horas }}</td>
+                  <td>{{ honorario.monto }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <p id="mensajeSinRegistrosHonorario" class="text-center text-muted" style="display:none;">No hay registros disponibles</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-dismiss="modal" type="button">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Solicitudes -->
+<div class="modal fade" id="solicitudModal" tabindex="-1" role="dialog" aria-labelledby="solicitudModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:550px;" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="solicitudModalLabel">Seleccionar Solicitud</h5>
+        <button class="close btn-close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+      </div>
+      <div class="modal-body">
+        <div class="row mb-3">
+          <div class="col-md-8">
+            <div class="input-group">
+              <span class="input-group-text icon-search"><i class="fas fa-search"></i></span>
+              <input class="form-control" id="searchSolicitudInput" type="text" placeholder="Buscar..." onkeyup="filterTable('tablaSolicitudes','searchSolicitudInput')">
+            </div>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-sm table-striped table-hover" id="tablaSolicitudes">
+            <thead><tr><th>ID</th><th>Tramite</th><th>Servicio</th><th>Monto Total</th></tr></thead>
+            <tbody>
+              {% for solicitud in solicitudes %}
+                <tr data-id="{{ solicitud.idSoli }}" data-valor="{{ solicitud.montoTotal }}" data-nombre="{{ solicitud.idTramite.nombreTramite }} {{ solicitud.idServicio.nombreServicio }}" data-monto="{{ solicitud.montoTotal }}" data-persona-id="{{ solicitud.idPersona.idPersona }}">
+                  <td>{{ solicitud.idSoli }}</td>
+                  <td>{{ solicitud.idTramite.nombreTramite }}</td>
+                  <td>{{ solicitud.idServicio.nombreServicio }}</td>
+                  <td>{{ solicitud.montoTotal }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <p id="mensajeSinRegistrosSolicitud" class="text-center text-muted" style="display:none;">No hay registros disponibles</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-dismiss="modal" type="button">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Plan de cuenta (Debe) -->
 <div class="modal fade" id="planCuentaDebeModal" tabindex="-1" role="dialog" aria-labelledby="planCuentaDebeModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered" role="document">
     <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="planCuentaDebeModalLabel">Seleccionar Plan de Cuenta (Debe)</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
+      <div class="modal-header"><h5 class="modal-title" id="planCuentaDebeModalLabel">Seleccionar Plan de Cuenta (Debe)</h5>
+        <button class="close btn-close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button></div>
       <div class="modal-body">
-        <div class="row mb-3">
-          <div class="col-md-8">
-            <div class="input-group">
-              <div class="input-group-prepend">
-                <span class="input-group-text" style="background-color: #bcbcbc; border: none;">
-                  <i class="fas fa-search text-warning"></i>
-                </span>
-              </div>
-              <input class="form-control" id="searchPlanCuentaDebeInput" type="text" placeholder="Buscar..." onkeyup="filterTable('tablaPlanCuentaDebe', 'searchPlanCuentaDebeInput')">
-            </div>
-          </div>
-        </div>
-        <table class="table table-sm table-responsive table-striped table-hover" id="tablaPlanCuentaDebe">
-          <thead>
-            <tr>
-              <th>Código</th>
-              <th>Nombre</th>
+        <div class="row mb-3"><div class="col-md-8"><div class="input-group"><span class="input-group-text icon-search"><i class="fas fa-search"></i></span><input class="form-control" id="searchPlanCuentaDebeInput" type="text" placeholder="Buscar..." onkeyup="filterTable('tablaPlanCuentaDebe','searchPlanCuentaDebeInput')"></div></div></div>
+        <div class="table-responsive"><table class="table table-sm table-striped table-hover" id="tablaPlanCuentaDebe"><thead><tr><th>Código</th><th>Nombre</th></tr></thead><tbody>
+          {% for cuenta in cuentas_plan %}
+            <tr data-id="{{ cuenta.idPlanCuenta }}" data-nombre="{{ cuenta.codigoPlanCuenta }} - {{ cuenta.nombrePlanCuenta }}">
+              <td>{{ cuenta.codigoPlanCuenta }}</td><td>{{ cuenta.nombrePlanCuenta }}</td>
             </tr>
-          </thead>
-          <tbody>
-            {% for cuenta in cuentas_plan %}
-              <tr data-id="{{ cuenta.idPlanCuenta }}" data-nombre="{{ cuenta.codigoPlanCuenta }} - {{ cuenta.nombrePlanCuenta }}">
-                <td>{{ cuenta.codigoPlanCuenta }}</td>
-                <td>{{ cuenta.nombrePlanCuenta }}</td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-        <p id="mensajeSinRegistrosDebe" class="text-center text-muted" style="display: none;">No hay registros disponibles</p>
+          {% endfor %}
+        </tbody></table></div>
+        <p id="mensajeSinRegistrosDebe" class="text-center text-muted" style="display:none;">No hay registros disponibles</p>
       </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
-      </div>
+      <div class="modal-footer"><button class="btn btn-secondary" data-dismiss="modal" type="button">Cerrar</button></div>
     </div>
   </div>
 </div>
 
-<!-- Modal para seleccionar Plan de Cuenta (Haber) -->
+<!-- Plan de cuenta (Haber) -->
 <div class="modal fade" id="planCuentaHaberModal" tabindex="-1" role="dialog" aria-labelledby="planCuentaHaberModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered" role="document">
     <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="planCuentaHaberModalLabel">Seleccionar Plan de Cuenta (Haber)</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
+      <div class="modal-header"><h5 class="modal-title" id="planCuentaHaberModalLabel">Seleccionar Plan de Cuenta (Haber)</h5>
+        <button class="close btn-close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button></div>
       <div class="modal-body">
-        <div class="row mb-3">
-          <div class="col-md-8">
-            <div class="input-group">
-              <div class="input-group-prepend">
-                <span class="input-group-text" style="background-color: #bcbcbc; border: none;">
-                  <i class="fas fa-search text-warning"></i>
-                </span>
-              </div>
-              <input class="form-control" id="searchPlanCuentaHaberInput" type="text" placeholder="Buscar..." onkeyup="filterTable('tablaPlanCuentaHaber', 'searchPlanCuentaHaberInput')">
-            </div>
-          </div>
-        </div>
-        <table class="table table-sm table-responsive table-striped table-hover" id="tablaPlanCuentaHaber">
-          <thead>
-            <tr>
-              <th>Código</th>
-              <th>Nombre</th>
+        <div class="row mb-3"><div class="col-md-8"><div class="input-group"><span class="input-group-text icon-search"><i class="fas fa-search"></i></span><input class="form-control" id="searchPlanCuentaHaberInput" type="text" placeholder="Buscar..." onkeyup="filterTable('tablaPlanCuentaHaber','searchPlanCuentaHaberInput')"></div></div></div>
+        <div class="table-responsive"><table class="table table-sm table-striped table-hover" id="tablaPlanCuentaHaber"><thead><tr><th>Código</th><th>Nombre</th></tr></thead><tbody>
+          {% for cuenta in cuentas_plan %}
+            <tr data-id="{{ cuenta.idPlanCuenta }}" data-nombre="{{ cuenta.codigoPlanCuenta }} - {{ cuenta.nombrePlanCuenta }}">
+              <td>{{ cuenta.codigoPlanCuenta }}</td><td>{{ cuenta.nombrePlanCuenta }}</td>
             </tr>
-          </thead>
-          <tbody>
-            {% for cuenta in cuentas_plan %}
-              <tr data-id="{{ cuenta.idPlanCuenta }}" data-nombre="{{ cuenta.codigoPlanCuenta }} - {{ cuenta.nombrePlanCuenta }}">
-                <td>{{ cuenta.codigoPlanCuenta }}</td>
-                <td>{{ cuenta.nombrePlanCuenta }}</td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-        <p id="mensajeSinRegistrosHaber" class="text-center text-muted" style="display: none;">No hay registros disponibles</p>
+          {% endfor %}
+        </tbody></table></div>
+        <p id="mensajeSinRegistrosHaber" class="text-center text-muted" style="display:none;">No hay registros disponibles</p>
       </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
-      </div>
+      <div class="modal-footer"><button class="btn btn-secondary" data-dismiss="modal" type="button">Cerrar</button></div>
     </div>
   </div>
 </div>
 
-<!-- Modal para Detalles de la Factura -->
+<!-- Modal Detalle Nota -->
 <div class="modal fade" id="detalleFacturaModal" tabindex="-1" role="dialog" aria-labelledby="detalleFacturaModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered" role="document">
     <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="detalleFacturaModalLabel">Detalles de la Factura</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
-      <div class="modal-body" id="detalleFacturaModalBody">
-        <!-- Los detalles de la factura se llenarán dinámicamente -->
-      </div>
-      <div class="modal-footer">
-        <button type="button" id="okButton" class="btn btn-secondary" data-dismiss="modal">OK</button>
-        <!-- <button type="button" id="modificarButton" class="btn btn-warning">Modificar Detalles</button> -->
-      </div>
+      <div class="modal-header"><h5 class="modal-title" id="detalleFacturaModalLabel">Detalles de la Nota</h5><button class="close btn-close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button></div>
+      <div class="modal-body" id="detalleFacturaModalBody"><!-- dinámico --></div>
+      <div class="modal-footer"><button id="okButton" class="btn btn-secondary" data-dismiss="modal" type="button">OK</button></div>
     </div>
   </div>
 </div>
 
+{% endblock content %}
+
+{% block javascripts %}
+<script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  // Botón "OK" redirige a factura_list
-  document.getElementById('okButton').addEventListener('click', function () {
-    window.location.href = "{% url 'factura_list' %}";
-  });
-
-  // Botón "Modificar" redirige a factura_detalle_edit
-  document.getElementById('modificarButton').addEventListener('click', function () {
-    const facturaId = "{{ result.detalle.idFactura }}"; // Asegúrate de que este ID esté disponible en el contexto
-    window.location.href = `/facturas/detalles/editar/${facturaId}/`;
-  });
-});
-</script>
-{% endblock content %}
-{% block javascripts %}
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  let parametrosTributarios = {};
+  // ===== REFERENCIAS A ELEMENTOS DEL DOM =====
   const notaForm = document.getElementById('notaForm');
+  if (!notaForm) return;
 
-  // Referencias a los elementos del DOM
+  // Elementos principales del formulario
   const subtotalExento = document.getElementById('subtotalExento');
   const subtotalGravado = document.getElementById('subtotalGravado');
   const descuento = document.getElementById('descuento');
@@ -519,318 +843,331 @@ document.addEventListener('DOMContentLoaded', function() {
   const ivaRetenido = document.getElementById('ivaRetenido');
   const islrRetenido = document.getElementById('islrRetenido');
   const totalNota = document.getElementById('totalNota');
-  const tipoFacturaSelect = document.getElementById('tipoFactura');
+  const tipoArticuloSelect = document.getElementById('tipoArticulo');
   const ingresoCheckbox = document.getElementById('ingresoCheckbox');
   const egresoCheckbox = document.getElementById('egresoCheckbox');
-  const fechaEmision = document.getElementById('fechaEmision');
-  const fechaVencimiento = document.getElementById('fechaVencimiento');
   const formaPago = document.getElementById('formaPago');
   const plazoCreditoInput = document.getElementById('plazoCredito');
-  const toggleReadonlyButton = document.getElementById('toggleReadonly');
-  const camposReadonly = ['iva', 'ivaRetenido', 'islrRetenido', 'numeroNota','descuento', 'subtotalExento', 'subtotalGravado', 'totalNota', 'fechaEmision', 'fechaVencimiento', 'formaPago', 'plazoCredito'];
-  descuento.value = '0.00'; // Inicializar descuento en 0
-
-
-  // Interceptar el envío del formulario
-  notaForm.addEventListener('submit', async function (event) {
-    event.preventDefault(); // Evitar el redireccionamiento por defecto
-
-    const formData = new FormData(notaForm); // Obtener los datos del formulario
-    const submitButton = notaForm.querySelector('input[type="submit"]');
-    submitButton.disabled = true; // Deshabilitar el botón mientras se procesa la solicitud
-
-    try {
-      const response = await fetch(notaForm.action, {
-        method: 'POST',
-        body: formData,
-        headers: {
-          'X-Requested-With': 'XMLHttpRequest', // Indicar que es una solicitud AJAX
-        },
-      });
-
-      const result = await response.json(); // Parsear la respuesta como JSON
-
-      if (response.ok && result.success) {
-            // Mostrar el modal con los detalles de la factura
-            const modalBody = document.getElementById('detalleFacturaModalBody');
-            modalBody.innerHTML = `
-                <p><strong>ID Factura:</strong> ${result.detalle.idFactura}</p>
-                <p><strong>Tipo de Item:</strong> ${result.detalle.tipoItem}</p>
-                <p><strong>Descripción:</strong> ${result.detalle.descripcion}</p>
-                <p><strong>Cantidad:</strong> ${result.detalle.cantidad}</p>
-                <p><strong>Precio Unitario:</strong> ${result.detalle.precioUnitario}</p>
-                <p><strong>Subtotal:</strong> ${result.detalle.subtotal}</p>
-                <p><strong>IVA:</strong> ${result.detalle.ivaItem}</p>
-                <p><strong>Total:</strong> ${result.detalle.totalItem}</p>
-            `;
-            $('#detalleFacturaModal').modal('show');
-             // Redirigir al enlace proporcionado en el JSON después de cerrar el modal
-        document.getElementById('okButton').addEventListener('click', function () {
-          window.location.href = result.redirect_url; // Usar la URL de redirección del JSON
-        });
-
-        }  else {
-        // Mostrar errores del servidor
-        Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: result.message || 'Ocurrió un error al procesar la solicitud.',
-        });
-    
-        // Mostrar errores específicos del formulario (si existen)
-        if (result.errors) {
-          for (const [field, messages] of Object.entries(result.errors)) {
-            const input = document.querySelector(`[name="${field}"]`);
-            if (input) {
-              const feedback = input.nextElementSibling;
-              if (feedback && feedback.classList.contains('invalid-feedback')) {
-                feedback.textContent = messages.join(', ');
-                input.classList.add('is-invalid');
-              }
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error al enviar el formulario:', error);
-      Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: 'Ocurrió un error inesperado. Por favor, inténtelo de nuevo.',
-      });
-    } finally {
-      submitButton.disabled = false; // Habilitar el botón nuevamente
-    }
-  });
-
-  // Limpiar mensajes de error al modificar los campos
-  notaForm.querySelectorAll('input, select, textarea').forEach((input) => {
-    input.addEventListener('input', () => {
-      input.classList.remove('is-invalid');
-      const feedback = input.nextElementSibling;
-      if (feedback && feedback.classList.contains('invalid-feedback')) {
-        feedback.textContent = '';
-      }
-    });
-  });
-    // Botón "OK" redirige a factura_list
-    document.getElementById('okButton').addEventListener('click', function () {
-        window.location.href = "{% url 'factura_list' %}";
-      });
-
-      // // Botón "Modificar" redirige a factura_detalle_edit
-      // document.getElementById('modificarButton').addEventListener('click', function () {
-      //   const facturaId = "{{ result.detalle.idFactura }}"; // Asegúrate de que este ID esté disponible en el contexto
-      //   window.location.href = `/facturas/detalles/editar/${facturaId}/`;
-      // });
-// Obtener el parámetro 'inscripcion' de la URL
-const urlParams = new URLSearchParams(window.location.search);
-const inscripcionValue = urlParams.get('inscripcion');
-const solicitudValue = urlParams.get('solicitud');
-const honorarioValue = urlParams.get('honorario');
-
-// Si el parámetro 'inscripcion' existe
-if (inscripcionValue) {
-  // Asignar el valor al campo 'subtotalExento'
-  subtotalExento.value = parseFloat(inscripcionValue).toFixed(2);
-  subtotalExento.setAttribute('readonly', true); // Establecer en readonly
-
-  // Marcar la opción "Ingreso" en los checkboxes
-  ingresoCheckbox.checked = true;
-
-  // Habilitar el select de tipo de factura
-  tipoFacturaSelect.disabled = false;
-
-  // Mostrar las opciones de ingreso y ocultar las de egreso
-  document.querySelector('.ingreso-options').style.display = 'block';
-  document.querySelector('.egreso-options').style.display = 'none';
-
-  // Seleccionar la opción "Inscripción" en el select
-  setTimeout(() => {
-    tipoFacturaSelect.value = "INSCRIPCION"; // Seleccionar la opción "Inscripción"
-    tipoFacturaSelect.setAttribute('readonly', true); // Establecer en readonly
-  }, 0);
-
-  // Establecer valores por defecto
-  subtotalGravado.value = '0.00'; // Inicializar subtotal gravado en 0
-  subtotalGravado.setAttribute('readonly', true); // Establecer en readonly
-  descuento.value = '0.00'; // Inicializar descuento en 0
-  descuento.setAttribute('readonly', true); // Establecer en readonly
-
-  // Ejecutar los cálculos necesarios
-  calcularMontos();
-}
-
-// Si el parámetro 'solicitud' existe
-if (solicitudValue) {
-  // Asignar el valor al campo 'subtotalExento'
-  subtotalExento.value = parseFloat(solicitudValue).toFixed(2);
-  subtotalExento.setAttribute('readonly', true); // Establecer en readonly
-
-  // Marcar la opción "Ingreso" en los checkboxes
-  ingresoCheckbox.checked = true;
-
-  // Habilitar el select de tipo de factura
-  tipoFacturaSelect.disabled = false;
-
-  // Mostrar las opciones de ingreso y ocultar las de egreso
-  document.querySelector('.ingreso-options').style.display = 'block';
-  document.querySelector('.egreso-options').style.display = 'none';
-
-  // Seleccionar la opción "Inscripción" en el select
-  setTimeout(() => {
-    tipoFacturaSelect.value = "SOLICITUD"; // Seleccionar la opción "Solicitud"
-    tipoFacturaSelect.setAttribute('readonly', true); // Establecer en readonly
-  }, 0);
-
-  // Establecer valores por defecto
-  subtotalGravado.value = '0.00'; // Inicializar subtotal gravado en 0
-  subtotalGravado.setAttribute('readonly', true); // Establecer en readonly
-  descuento.value = '0.00'; // Inicializar descuento en 0
-  descuento.setAttribute('readonly', false); // Establecer en readonly
-  // Hacer editable el campo de IVA retenido
-  descuento.removeAttribute('readonly'); // Eliminar el atributo readonly
-  descuento.readOnly = false; // Asegurarse de que no esté bloqueado
-  // Ejecutar los cálculos necesarios
-  calcularMontos();
-}
-
-// Si el parámetro 'Honorario' existe
-if (honorarioValue) {
-  // Asignar el valor al campo 'subtotalGravado'
-  subtotalGravado.value = parseFloat(honorarioValue).toFixed(2);
-  subtotalGravado.setAttribute('readonly', true); // Establecer en readonly
-
-  // Marcar la opción "Ingreso" en los checkboxes
-  egresoCheckbox.checked = true;
-
-  // Habilitar el select de tipo de factura
-  tipoFacturaSelect.disabled = false;
-
-  // Mostrar las opciones de ingreso y ocultar las de egreso
-  document.querySelector('.ingreso-options').style.display = 'block';
-  document.querySelector('.egreso-options').style.display = 'none';
-
-  // Seleccionar la opción "Inscripción" en el select
-  setTimeout(() => {
-    tipoFacturaSelect.value = "HONORARIO_PROFESOR"; // Seleccionar la opción "Honorario"
-    tipoFacturaSelect.setAttribute('readonly', true); // Establecer en readonly
-  }, 0);
-
-  // Establecer valores por defecto
-  subtotalExento.value = '0.00'; // Inicializar subtotal gravado en 0
-  subtotalExento.setAttribute('readonly', true); // Establecer en readonly
-  descuento.value = '0.00'; // Inicializar descuento en 0
-  descuento.setAttribute('readonly', true); // Establecer en readonly
-
-  // Hacer editable el campo de IVA retenido
-  ivaRetenido.removeAttribute('readonly'); // Eliminar el atributo readonly
-  ivaRetenido.readOnly = false; // Asegurarse de que no esté bloqueado
-  // Ejecutar los cálculos necesarios
-  calcularMontos();
-}
-
-
-
-
-
-// Obtener el parámetro 'id' de la URL
-const idParam = urlParams.get('id');
-
-// Si el parámetro 'id' existe
-if (idParam) {
-  const filaPersona = document.querySelector(`#tablaPersonas tr[data-id="${idParam}"]`);
-  if (filaPersona) {
-    const nombrePersona = filaPersona.getAttribute('data-nombre');
-    document.getElementById('personaInput').value = nombrePersona; // Asignar el nombre al input
-    document.getElementById('idPersona').value = idParam; // Asignar el ID al input oculto
-  }
-}
-
- // Manejar la selección de filas en el modal de Personas
- const tablaPersonas = document.getElementById('tablaPersonas');
-  if (tablaPersonas) {
-    tablaPersonas.addEventListener('click', function(event) {
-      const fila = event.target.closest('tr');
-      if (fila) {
-        const idPersona = fila.getAttribute('data-id');
-        const nombrePersona = fila.getAttribute('data-nombre');
-        document.getElementById('personaInput').value = nombrePersona;
-        document.getElementById('idPersona').value = idPersona;
-        $('#personaModal').modal('hide'); // Cerrar el modal
-      }
-    });
-  }
-
-  // Manejar la selección de filas en el modal de Empresas
-  const tablaEmpresas = document.getElementById('tablaEmpresas');
-  if (tablaEmpresas) {
-    tablaEmpresas.addEventListener('click', function(event) {
-      const fila = event.target.closest('tr');
-      if (fila) {
-        const idEmpresa = fila.getAttribute('data-id');
-        const nombreEmpresa = fila.getAttribute('data-nombre');
-        document.getElementById('empresaInput').value = nombreEmpresa;
-        document.getElementById('idEmpresa').value = idEmpresa;
-        $('#empresaModal').modal('hide'); // Cerrar el modal
-      }
-    });
-  }
-
-  // Manejar la selección de filas en el modal de Plan de Cuenta (Debe)
-  const tablaPlanCuentaDebe = document.getElementById('tablaPlanCuentaDebe');
-  if (tablaPlanCuentaDebe) {
-    tablaPlanCuentaDebe.addEventListener('click', function(event) {
-      const fila = event.target.closest('tr');
-      if (fila) {
-        const idPlanCuentaDebe = fila.getAttribute('data-id');
-        const nombrePlanCuentaDebe = fila.getAttribute('data-nombre');
-        document.getElementById('planCuentaDebe').value = nombrePlanCuentaDebe;
-        document.getElementById('idPlanCuentaDebe').value = idPlanCuentaDebe;
-        $('#planCuentaDebeModal').modal('hide'); // Cerrar el modal
-      }
-    });
-  }
-
-  // Manejar la selección de filas en el modal de Plan de Cuenta (Haber)
-  const tablaPlanCuentaHaber = document.getElementById('tablaPlanCuentaHaber');
-  if (tablaPlanCuentaHaber) {
-    tablaPlanCuentaHaber.addEventListener('click', function(event) {
-      const fila = event.target.closest('tr');
-      if (fila) {
-        const idPlanCuentaHaber = fila.getAttribute('data-id');
-        const nombrePlanCuentaHaber = fila.getAttribute('data-nombre');
-        document.getElementById('planCuentaHaber').value = nombrePlanCuentaHaber;
-        document.getElementById('idPlanCuentaHaber').value = idPlanCuentaHaber;
-        $('#planCuentaHaberModal').modal('hide'); // Cerrar el modal
-      }
-    });
-  }
-   // Referencias a los elementos del DOM para Persona y Empresa
-   const personaCheckbox = document.getElementById('personaCheckbox');
+  const fechaEmision = document.getElementById('fechaEmision');
+  const fechaVencimiento = document.getElementById('fechaVencimiento');
+  const personaCheckbox = document.getElementById('personaCheckbox');
   const empresaCheckbox = document.getElementById('empresaCheckbox');
   const personaGroup = document.getElementById('personaGroup');
   const empresaGroup = document.getElementById('empresaGroup');
+  const articulosDiv = document.getElementById('articulos');
+  const personaInput = document.getElementById('personaInput');
+  const idPersonaInput = document.getElementById('idPersona');
+  const toggleReadonlyButton = document.getElementById('toggleReadonly');
 
-  // Función para actualizar la visibilidad de los campos
+  // Campos que pueden ser readonly
+  const camposReadonly = [
+    'iva', 'ivaRetenido', 'islrRetenido', 'numeroNota', 'descuento',
+    'subtotalExento', 'subtotalGravado', 'totalNota', 'fechaEmision',
+    'fechaVencimiento', 'formaPago', 'plazoCredito'
+  ];
+
+  // Campos de moneda que necesitan normalización (MODIFICADO: ahora todos usan formato 0,00)
+  const currencyIds = [
+    'subtotalExento', 'subtotalGravado', 'iva', 'ivaRetenido', 
+    'islrRetenido', 'descuento', 'totalNota'
+  ];
+
+  // ===== VARIABLES GLOBALES =====
+  let parametrosTributarios = {};
+  let lastError = null;
+
+  // ===== FUNCIONES DE UTILIDAD =====
+  
+  /**
+   * Normaliza una cadena de moneda a formato decimal (MODIFICADO: siempre retorna con punto para cálculos)
+   */
+  function normalizeCurrencyString(str) {
+    if (str == null) return '';
+    let s = String(str).trim();
+    if (!s) return '';
+    s = s.replace(/\s+/g, '');
+    if (s.indexOf(',') !== -1 && s.indexOf('.') !== -1) {
+      s = s.replace(/\./g, '').replace(/,/g, '.');
+    } else if (s.indexOf(',') !== -1 && s.indexOf('.') === -1) {
+      s = s.replace(/,/g, '.');
+    } else {
+      const parts = s.split('.');
+      if (parts.length > 2) {
+        const dec = parts.pop();
+        s = parts.join('') + '.' + dec;
+      }
+    }
+    s = s.replace(/[^0-9\.\-]/g, '');
+    return s;
+  }
+
+  /**
+   * Formatea un número para mostrar con formato 0,00 (MODIFICADO: siempre con coma decimal)
+   */
+  function formatCurrencyInput(input) {
+  // Guardar posición del cursor
+  const cursorPosition = input.selectionStart;
+  const originalValue = input.value;
+  
+  // Remover todo excepto números
+  let rawValue = input.value.replace(/[^\d]/g, '');
+  
+  if (rawValue === '') {
+    input.value = '0,00';
+    return {value: '0.00', cursor: 4};
+  }
+  
+  // Convertir a número con 2 decimales
+  const numberValue = parseInt(rawValue) / 100;
+  
+  // Formatear para mostrar
+  const formatted = numberValue.toLocaleString('es-VE', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+  
+  input.value = formatted;
+  
+  // Calcular nueva posición del cursor
+  let newCursorPos = cursorPosition;
+  const lengthDiff = formatted.length - originalValue.length;
+  
+  if (cursorPosition === originalValue.length) {
+    // Si estaba al final, poner al final
+    newCursorPos = formatted.length;
+  } else if (lengthDiff !== 0) {
+    // Ajustar posición basado en la diferencia de longitud
+    newCursorPos = Math.max(0, cursorPosition + lengthDiff);
+  }
+  
+  return {
+    value: numberValue.toFixed(2),
+    cursor: newCursorPos
+  };
+}
+
+// Aplicar a todos los campos de moneda
+currencyIds.forEach(id => {
+  const input = document.getElementById(id);
+  if (!input) return;
+  
+  // Cambiar a tipo texto
+  input.type = 'text';
+  
+  // Inicializar con formato correcto
+  if (!input.value || input.value === '0.00' || input.value === '0') {
+    input.value = '0,00';
+  } else {
+    // Convertir cualquier formato existente al deseado
+    const num = parseFloat(normalizeCurrencyString(input.value)) || 0;
+    input.value = num.toLocaleString('es-VE', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+  }
+  
+  // Evento de input mejorado
+  input.addEventListener('input', function(e) {
+    // Solo procesar si el usuario está escribiendo
+    if (e.inputType && e.inputType.startsWith('insert')) {
+      const result = formatCurrencyInput(this);
+      
+      // Restaurar posición del cursor después de un breve delay
+      setTimeout(() => {
+        this.setSelectionRange(result.cursor, result.cursor);
+      }, 10);
+      
+      // Actualizar cálculos
+      calcularMontos();
+      if (this.id === 'descuento') validarDescuento();
+    }
+  });
+  
+  // Evento de focus - seleccionar todo para fácil edición
+  input.addEventListener('focus', function() {
+    setTimeout(() => {
+      this.setSelectionRange(0, this.value.length);
+    }, 10);
+  });
+  
+  // Evento de blur - asegurar formato correcto
+  input.addEventListener('blur', function() {
+    const normalized = normalizeCurrencyString(this.value) || '0.00';
+    const num = parseFloat(normalized) || 0;
+    this.value = num.toLocaleString('es-VE', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+  });
+});
+
+// Función auxiliar para establecer valores desde el código
+function setCurrencyField(id, monto) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  
+  const num = Number(monto) || 0;
+  el.value = num.toLocaleString('es-VE', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+  
+  el.classList.toggle('is-valid', num >= 0);
+  el.classList.remove('is-invalid');
+}
+
+  /**
+   * Filtra una tabla según el texto de búsqueda
+   */
+  function filterTable(tableId, inputId) {
+    const input = document.getElementById(inputId);
+    const filter = input.value.toUpperCase();
+    const table = document.getElementById(tableId);
+    const tr = table.getElementsByTagName("tr");
+    
+    for (let i = 0; i < tr.length; i++) {
+      const td = tr[i].getElementsByTagName("td");
+      let found = false;
+      
+      for (let j = 0; j < td.length; j++) {
+        if (td[j].textContent.toUpperCase().indexOf(filter) > -1) {
+          found = true;
+          break;
+        }
+      }
+      tr[i].style.display = found ? "" : "none";
+    }
+  }
+
+  // ===== FUNCIONES DE CONFIGURACIÓN Y ACTUALIZACIÓN DE UI =====
+
+  /**
+   * Establece la fecha actual en el campo de fecha de emisión
+   */
+  function establecerFechaHoy() {
+    const hoy = new Date();
+    const fechaHoy = hoy.toISOString().split('T')[0];
+    if (fechaEmision) fechaEmision.value = fechaHoy;
+  }
+
+  /**
+   * Actualiza la visibilidad de los grupos de entidad (Persona/Empresa)
+   */
   function actualizarVisibilidadEntidad() {
-    if (personaCheckbox.checked) {
+    if (personaCheckbox && personaCheckbox.checked) {
       personaGroup.style.display = 'block';
       empresaGroup.style.display = 'none';
-    } else if (empresaCheckbox.checked) {
+    } else if (empresaCheckbox && empresaCheckbox.checked) {
       personaGroup.style.display = 'none';
       empresaGroup.style.display = 'block';
     }
   }
-  
 
-  // Eventos para cambiar la visibilidad según la selección
-  personaCheckbox.addEventListener('change', actualizarVisibilidadEntidad);
-  empresaCheckbox.addEventListener('change', actualizarVisibilidadEntidad);
+  /**
+   * Actualiza la visibilidad de los grupos de artículos según el tipo seleccionado
+   */
+  function actualizarVisibilidadArticulos() {
+    const tipoArticulo = tipoArticuloSelect?.value;
+    const grupos = ['noAplicaGroup', 'cuotaGroup', 'inscripcionGroup', 'honorarioGroup', 'solicitudGroup'];
+    
+    // Oculta todos los grupos primero
+    grupos.forEach(grupoId => {
+      const grupo = document.getElementById(grupoId);
+      if (grupo) grupo.style.display = 'none';
+    });
 
-  // Inicializar la visibilidad al cargar la página
-  actualizarVisibilidadEntidad();
-  // Obtener parámetros tributarios desde el servidor
+    // Muestra el grupo correspondiente
+    switch (tipoArticulo) {
+      case 'INSCRIPCION':
+        document.getElementById('inscripcionGroup').style.display = 'block';
+        break;
+      case 'SOLICITUD':
+        document.getElementById('solicitudGroup').style.display = 'block';
+        break;
+      case 'HONORARIO_PROFESOR':
+        document.getElementById('honorarioGroup').style.display = 'block';
+        break;
+      case 'CUOTA':
+        document.getElementById('cuotaGroup').style.display = 'block';
+        break;
+      default:
+        document.getElementById('noAplicaGroup').style.display = 'block';
+        break;
+    }
+    
+    calcularMontos();
+  }
+
+  /**
+   * Actualiza las opciones disponibles según el tipo de operación (Ingreso/Egreso)
+   */
+  function actualizarOpciones() {
+    const isIngreso = ingresoCheckbox?.checked;
+    
+    if (tipoArticuloSelect) {
+      tipoArticuloSelect.disabled = !isIngreso && !egresoCheckbox?.checked;
+      
+      document.querySelector('.ingreso-options').style.display = isIngreso ? 'block' : 'none';
+      document.querySelector('.egreso-options').style.display = isIngreso ? 'none' : 'block';
+      
+      if (tipoArticuloSelect.value === '') {
+        tipoArticuloSelect.value = '';
+      }
+    }
+    
+    calcularMontos();
+  }
+
+  /**
+   * Actualiza la visibilidad del campo de plazo de crédito
+   */
+  function actualizarVisibilidadPlazoCredito() {
+    const plazoCreditoGroup = document.getElementById('plazoCreditoGroup');
+    if (!plazoCreditoGroup || !formaPago) return;
+    
+    if (formaPago.value === 'credito') {
+      plazoCreditoGroup.style.display = 'block';
+    } else {
+      plazoCreditoGroup.style.display = 'none';
+      if (plazoCreditoInput) plazoCreditoInput.value = '';
+    }
+  }
+
+  /**
+   * Actualiza la fecha de vencimiento basada en la fecha de emisión y plazo
+   */
+  function actualizarFechaVencimiento() {
+    if (!fechaEmision.value) {
+      fechaVencimiento.value = '';
+      return;
+    }
+    
+    const fecha = new Date(fechaEmision.value);
+    const dias = formaPago.value === 'credito' ? 
+      parseInt(plazoCreditoInput.value) || 0 : 1;
+    
+    fecha.setDate(fecha.getDate() + dias);
+    fechaVencimiento.value = fecha.toISOString().split('T')[0];
+    
+    // Validar que la fecha de vencimiento no sea anterior a la de emisión
+    const fechaEmisionValor = new Date(fechaEmision.value);
+    const fechaVencimientoValor = new Date(fechaVencimiento.value);
+    
+    if (fechaVencimientoValor < fechaEmisionValor) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Fecha inválida',
+        text: 'La fecha de vencimiento no puede ser anterior a la fecha de emisión.',
+      });
+      fechaVencimiento.value = fechaEmision.value;
+    }
+  }
+
+  // ===== FUNCIONES DE CÁLCULO =====
+
+  /**
+   * Obtiene los parámetros tributarios desde el servidor
+   */
   async function obtenerParametrosTributarios() {
     try {
       const response = await fetch('/factura/obtener-parametros-tributarios/');
@@ -846,149 +1183,609 @@ if (idParam) {
     }
   }
 
-  // Obtener un parámetro tributario específico
+  /**
+   * Obtiene un parámetro tributario específico
+   */
   function obtenerParametro(tipo, aplicaA) {
-    return parametrosTributarios[tipo]?.find(p => p.aplica_a === aplicaA) || null;
+    return parametrosTributarios[tipo]?.find((p) => p.aplica_a === aplicaA) || null;
   }
 
-  // Calcular montos de la factura
+  /**
+   * Calcula todos los montos de la nota (IVA, retenciones, total) (MODIFICADO: usa parseFloat con normalizeCurrencyString)
+   */
   function calcularMontos() {
-    const gravado = parseFloat(subtotalGravado.value) || 0;
-    const exento = parseFloat(subtotalExento.value) || 0;
-    const descuentoValor = parseFloat(descuento.value) || 0;
-    const tipoFactura = tipoFacturaSelect.value;
+    const gravado = parseFloat(normalizeCurrencyString(subtotalGravado.value)) || 0;
+    const exento = parseFloat(normalizeCurrencyString(subtotalExento.value)) || 0;
+    const descuentoValor = parseFloat(normalizeCurrencyString(descuento.value)) || 0;
+    const tipoArticulo = tipoArticuloSelect?.value;
 
-    const parametroIva = obtenerParametro('IVA_GENERAL', tipoFactura);
-    const parametroRetencionIva = obtenerParametro('IVA_RETENIDO_SERVICIOS', tipoFactura);
-    const parametroRetencionIslr = egresoCheckbox.checked 
-      ? obtenerParametro(tipoFactura === 'HONORARIO_PROFESOR' ? 'ISLR_HONORARIOS' : 'ISLR_SERVICIOS', tipoFactura) 
+    // Obtener parámetros tributarios
+    const parametroIva = obtenerParametro('IVA_GENERAL', tipoArticulo);
+    const parametroRetencionIva = obtenerParametro('IVA_RETENIDO_SERVICIOS', tipoArticulo);
+    const parametroRetencionIslr = egresoCheckbox?.checked
+      ? obtenerParametro(tipoArticulo === 'HONORARIO_PROFESOR' ? 'ISLR_HONORARIOS' : 'ISLR_SERVICIOS', tipoArticulo)
       : null;
 
-    const porcentajeIva = parametroIva?.porcentaje || 16;
+    // Calcular IVA
+    const porcentajeIva = parametroIva?.porcentaje ?? 16;
     const ivaCalculado = gravado * (porcentajeIva / 100);
-    iva.value = ivaCalculado.toFixed(2);
+    setCurrencyField('iva', ivaCalculado); // MODIFICADO: usa setCurrencyField
 
-    if (egresoCheckbox.checked) {
-      ivaRetenido.value = (ivaCalculado * (parametroRetencionIva?.porcentaje || 0) / 100).toFixed(2);
-      islrRetenido.value = (gravado * (parametroRetencionIslr?.porcentaje || 0) / 100).toFixed(2);
+    // Calcular retenciones si es egreso
+    if (egresoCheckbox?.checked) {
+      setCurrencyField('ivaRetenido', ivaCalculado * (parametroRetencionIva?.porcentaje ?? 0) / 100); // MODIFICADO
+      setCurrencyField('islrRetenido', (gravado + exento) * (parametroRetencionIslr?.porcentaje ?? 0) / 100); // MODIFICADO
     } else {
-      ivaRetenido.value = islrRetenido.value = '0.00';
+      setCurrencyField('ivaRetenido', 0); // MODIFICADO
+      setCurrencyField('islrRetenido', 0); // MODIFICADO
     }
 
-    const total = exento + gravado + ivaCalculado - descuentoValor;
-    totalNota.value = total.toFixed(2);
+    // Calcular total
+    let total = exento + gravado + ivaCalculado - descuentoValor;
+    if (total < 0) total = 0;
+    setCurrencyField('totalNota', total); // MODIFICADO
 
-    document.getElementById('ivaPercentage').textContent = porcentajeIva;
-    if (egresoCheckbox.checked) {
-      document.getElementById('ivaRetentionPercentage').textContent = parametroRetencionIva?.porcentaje || 0;
-      document.getElementById('islrRetentionPercentage').textContent = parametroRetencionIslr?.porcentaje || 0;
+    // Actualizar porcentajes en la UI
+    const ivaPercentageEl = document.getElementById('ivaPercentage');
+    if (ivaPercentageEl) ivaPercentageEl.textContent = porcentajeIva;
+    
+    if (egresoCheckbox?.checked) {
+      const ivaRetentionEl = document.getElementById('ivaRetentionPercentage');
+      const islrRetentionEl = document.getElementById('islrRetentionPercentage');
+      
+      if (ivaRetentionEl) ivaRetentionEl.textContent = parametroRetencionIva?.porcentaje ?? 0;
+      if (islrRetentionEl) islrRetentionEl.textContent = parametroRetencionIslr?.porcentaje ?? 0;
     }
   }
 
-  // Actualizar la fecha de vencimiento según la forma de pago
-  function actualizarFechaVencimiento() {
-    const fecha = new Date(fechaEmision.value);
-    if (!fechaEmision.value) return (fechaVencimiento.value = '');
-    const dias = formaPago.value === 'credito' ? parseInt(plazoCreditoInput.value) || 0 : 1;
-    fecha.setDate(fecha.getDate() + dias);
-    fechaVencimiento.value = fecha.toISOString().split('T')[0];
-  }
+  /**
+   * Valida que el descuento no sea mayor al total y ajusta si es necesario
+   */
+  function validarDescuento() {
+    const rawEx = normalizeCurrencyString(subtotalExento.value) || '0';
+    const rawGr = normalizeCurrencyString(subtotalGravado.value) || '0';
+    const rawI = normalizeCurrencyString(iva.value) || '0';
+    
+    const exento = parseFloat(rawEx) || 0;
+    const gravado = parseFloat(rawGr) || 0;
+    const ivaVal = parseFloat(rawI) || 0;
+    const totalSinDesc = exento + gravado + ivaVal;
 
-  // Validar que la fecha de vencimiento no sea anterior a la fecha de emisión
-  fechaVencimiento.addEventListener('change', () => {
-    const fechaEmisionValor = new Date(fechaEmision.value);
-    const fechaVencimientoValor = new Date(fechaVencimiento.value);
+    let rawDesc = normalizeCurrencyString(descuento.value) || '0';
+    let descuentoValor = parseFloat(rawDesc) || 0;
 
-    if (fechaVencimientoValor < fechaEmisionValor) {
+    // Ajustar descuento si excede el total
+    if (descuentoValor > totalSinDesc) {
+      descuentoValor = totalSinDesc;
+      setCurrencyField('descuento', descuentoValor);
+      
       Swal.fire({
-        icon: 'error',
-        title: 'Fecha inválida',
-        text: 'La fecha de vencimiento no puede ser anterior a la fecha de emisión.',
+        icon: 'warning',
+        title: 'Descuento ajustado',
+        text: 'El descuento no puede ser mayor al total. Se ha ajustado al máximo posible.'
       });
-      fechaVencimiento.value = fechaEmision.value; // Restablecer a la fecha de emisión
     }
-  });
-// Alternar el estado de readonly en los campos
-toggleReadonlyButton.addEventListener('click', () => {
-  const isActivating = toggleReadonlyButton.textContent.includes('Habilitar');
 
-  if (isActivating) {
-    Swal.fire({
-      icon: 'warning',
-      title: 'Advertencia',
-      html: 'Estás activando la habilitación manual.<br><br>Los cálculos automatizados dejarán de funcionar.<br><br>Asegúrate de ingresar los valores correctos.', // Cambiado de 'text' a 'html'
-      showCancelButton: false,
-      confirmButtonColor: '#fb6340',
-      cancelButtonColor: '#fb6340',
-      confirmButtonText: 'Entendido',
-      backdrop: true, // Evitar cierre al hacer clic fuera del modal
-      allowOutsideClick: false, // Deshabilitar clic fuera del modal
-      allowEscapeKey: false, // Deshabilitar tecla Escape
-    }).then(() => {
-      camposReadonly.forEach(campoId => {
-        const campo = document.getElementById(campoId);
-        campo.removeAttribute('readonly');
-      });
-      toggleReadonlyButton.textContent = 'Deshabilitar edición manual';
-      toggleReadonlyButton.classList.remove('btn-secondary');
-      toggleReadonlyButton.classList.add('btn-warning');
-    });
-  } else {
-    camposReadonly.forEach(campoId => {
-      const campo = document.getElementById(campoId);
-      campo.setAttribute('readonly', true);
-    });
-    toggleReadonlyButton.textContent = 'Habilitar edición manual';
-    toggleReadonlyButton.classList.remove('btn-warning');
-    toggleReadonlyButton.classList.add('btn-secondary');
-  }
-});
-  // Actualizar opciones de tipo de factura según el tipo de operación
-  function actualizarOpciones() {
-    const isIngreso = ingresoCheckbox.checked;
-    tipoFacturaSelect.disabled = !isIngreso && !egresoCheckbox.checked;
-    document.querySelector('.ingreso-options').style.display = isIngreso ? 'block' : 'none';
-    document.querySelector('.egreso-options').style.display = isIngreso ? 'none' : 'block';
-    tipoFacturaSelect.value = '';
+    // Actualizar estado visual del campo
+    if (descuento) {
+      descuento.classList.toggle('is-invalid', descuentoValor < 0);
+      descuento.classList.toggle('is-valid', descuentoValor >= 0);
+    }
+
     calcularMontos();
   }
 
-  // Eventos para actualizar cálculos y fechas
-  [subtotalExento, subtotalGravado, descuento, tipoFacturaSelect].forEach(el => {
-    el.addEventListener('input', calcularMontos);
-    el.addEventListener('change', calcularMontos);
+  // ===== MANEJO DE PARÁMETROS URL =====
+
+  /**
+   * Configura el formulario según los parámetros recibidos por URL
+   */
+  function manejarParametro(tipo, valor) {
+    if (!valor) return;
+
+    switch (tipo) {
+      case 'INSCRIPCION':
+        setCurrencyField('subtotalExento', parseFloat(valor) || 0);
+        if (subtotalExento) subtotalExento.setAttribute('readonly', true);
+        
+        if (ingresoCheckbox) ingresoCheckbox.checked = true;
+        if (tipoArticuloSelect) {
+          tipoArticuloSelect.disabled = false;
+          setTimeout(() => {
+            tipoArticuloSelect.value = tipo;
+            tipoArticuloSelect.setAttribute('readonly', true);
+            actualizarVisibilidadArticulos();
+          }, 0);
+        }
+        
+        setCurrencyField('subtotalGravado', 0);
+        if (subtotalGravado) subtotalGravado.setAttribute('readonly', true);
+        setCurrencyField('descuento', 0);
+        if (descuento) descuento.setAttribute('readonly', true);
+        
+        const buscarInscripcion = document.getElementById('buscarInscripcion');
+        if (buscarInscripcion) buscarInscripcion.disabled = true;
+        break;
+
+      case 'SOLICITUD':
+        setCurrencyField('subtotalExento', parseFloat(valor) || 0);
+        if (subtotalExento) subtotalExento.setAttribute('readonly', true);
+        
+        if (ingresoCheckbox) ingresoCheckbox.checked = true;
+        if (tipoArticuloSelect) {
+          tipoArticuloSelect.disabled = false;
+          setTimeout(() => {
+            tipoArticuloSelect.value = tipo;
+            tipoArticuloSelect.setAttribute('readonly', true);
+            actualizarVisibilidadArticulos();
+          }, 0);
+        }
+        
+        setCurrencyField('subtotalGravado', 0);
+        if (subtotalGravado) subtotalGravado.setAttribute('readonly', true);
+        setCurrencyField('descuento', 0);
+        if (descuento) {
+          descuento.removeAttribute('readonly');
+          descuento.readOnly = false;
+        }
+        
+        const buscarSolicitud = document.getElementById('buscarSolicitud');
+        if (buscarSolicitud) buscarSolicitud.disabled = true;
+        break;
+
+      case 'CUOTA':
+        setCurrencyField('subtotalGravado', parseFloat(valor) || 0);
+        if (subtotalGravado) subtotalGravado.setAttribute('readonly', true);
+        
+        if (ingresoCheckbox) ingresoCheckbox.checked = true;
+        if (tipoArticuloSelect) {
+          tipoArticuloSelect.disabled = false;
+          setTimeout(() => {
+            tipoArticuloSelect.value = tipo;
+            tipoArticuloSelect.setAttribute('readonly', true);
+            actualizarVisibilidadArticulos();
+          }, 0);
+        }
+        
+        const buscarCuota = document.getElementById('buscarCuota');
+        if (buscarCuota) buscarCuota.disabled = true;
+        break;
+
+      case 'HONORARIO_PROFESOR':
+        setCurrencyField('subtotalGravado', parseFloat(valor) || 0);
+        if (subtotalGravado) subtotalGravado.setAttribute('readonly', true);
+        
+        if (egresoCheckbox) egresoCheckbox.checked = true;
+        if (tipoArticuloSelect) {
+          tipoArticuloSelect.disabled = false;
+          setTimeout(() => {
+            tipoArticuloSelect.value = tipo;
+            tipoArticuloSelect.setAttribute('readonly', true);
+            actualizarVisibilidadArticulos();
+          }, 0);
+        }
+        
+        setCurrencyField('subtotalExento', 0);
+        if (subtotalExento) subtotalExento.setAttribute('readonly', true);
+        setCurrencyField('descuento', 0);
+        if (descuento) descuento.setAttribute('readonly', true);
+        
+        if (ivaRetenido) {
+          ivaRetenido.removeAttribute('readonly');
+          ivaRetenido.readOnly = false;
+        }
+        
+        const buscarHonorario = document.getElementById('buscarHonorario');
+        if (buscarHonorario) buscarHonorario.disabled = true;
+        break;
+    }
+    
+    calcularMontos();
+  }
+
+  // ===== MANEJO DE FORMATEO DE MONEDA =====
+
+  // Aplicar formateo a campos de moneda (MODIFICADO: simplificado para usar siempre formato 0,00)
+  document.querySelectorAll('input[type="number"]').forEach(input => {
+    if (currencyIds.includes(input.id)) {
+      // Cambiar a tipo texto para permitir comas
+      input.type = 'text';
+      
+      input.addEventListener('input', function () {
+        const raw = this.value.replace(/[^\d,\.]/g, '');
+        const normalized = normalizeCurrencyString(raw);
+        
+        if (normalized === '') {
+          this.value = '';
+          this.classList.remove('is-valid', 'is-invalid');
+          return;
+        }
+        
+        // Mantener hasta 2 decimales
+        let parts = normalized.split('.');
+        if (parts.length === 1) parts.push('00');
+        else if (parts[1].length === 1) parts[1] = parts[1] + '0';
+        else parts[1] = parts[1].slice(0, 2);
+        
+        const reconstructed = parts[0] + '.' + parts[1];
+        this.value = formatCurrencyDisplayFromNumber(reconstructed);
+        
+        // Validar visualmente
+        this.classList.toggle('is-invalid', isNaN(Number(reconstructed)) || Number(reconstructed) < 0);
+        this.classList.toggle('is-valid', !isNaN(Number(reconstructed)) && Number(reconstructed) >= 0);
+        
+        calcularMontos();
+        if (this.id === 'descuento') validarDescuento();
+      });
+      
+      // Formatear valor inicial
+      if (input.value) {
+        const norm = normalizeCurrencyString(input.value);
+        input.value = formatCurrencyDisplayFromNumber(norm || 0);
+      } else {
+        input.value = '0,00';
+      }
+    }
   });
 
-  
-  // Función para actualizar la visibilidad del campo de plazo de crédito
-  function actualizarVisibilidadPlazoCredito() {
-    if (formaPago.value === 'credito') {
-      plazoCreditoGroup.style.display = 'block'; // Mostrar el campo de plazo de crédito
-    } else {
-      plazoCreditoGroup.style.display = 'none'; // Ocultar el campo de plazo de crédito
-      plazoCreditoInput.value = ''; // Limpiar el valor del campo
+  // Validación en tiempo real para campos numéricos que no son moneda
+  notaForm.querySelectorAll('input[type="number"]').forEach(input => {
+    if (!currencyIds.includes(input.id)) {
+      input.addEventListener('input', function () {
+        const val = this.value;
+        
+        if (val === '' || val === null) {
+          this.classList.remove('is-invalid', 'is-valid');
+          return;
+        }
+        
+        const regexTwoDecimals = /^\d+(\.\d{1,2})?$/;
+        const ok = regexTwoDecimals.test(String(val)) && 
+                   Number(val) >= (this.min ? Number(this.min) : -Infinity);
+        
+        this.classList.toggle('is-invalid', !ok);
+        this.classList.toggle('is-valid', ok);
+      });
     }
-  }
-    // Función para establecer la fecha de hoy
-    function establecerFechaHoy() {
-    const hoy = new Date();
-    const fechaHoy = hoy.toISOString().split('T')[0]; // Formato YYYY-MM-DD
-    fechaEmision.value = fechaHoy; // Establecer la fecha de hoy en el campo
+  });
+
+  // Forzar mayúsculas en campos de texto
+  notaForm.querySelectorAll('input, textarea').forEach(el => {
+    if (el.tagName === 'INPUT' && 
+        (el.type === 'email' || el.type === 'number' || 
+         el.type === 'hidden' || el.readOnly)) return;
+         
+    el.addEventListener('input', function () {
+      if (this.tagName === 'TEXTAREA' || this.type === 'text') {
+        this.value = this.value.toUpperCase();
+      }
+    });
+  });
+
+  // Validación visual para selects
+  document.querySelectorAll('select').forEach(sel => {
+    sel.addEventListener('change', function () {
+      if (this.required && (this.value === '' || this.value === null)) {
+        this.classList.add('is-invalid');
+        this.classList.remove('is-valid');
+      } else {
+        this.classList.remove('is-invalid');
+        this.classList.add('is-valid');
+      }
+    });
+  });
+
+  // ===== MANEJO DE MODALES =====
+
+  const modales = [
+    { tabla: 'tablaPersonas', input: 'personaInput', hidden: 'idPersona', modal: 'personaModal' },
+    { tabla: 'tablaEmpresas', input: 'empresaInput', hidden: 'idEmpresa', modal: 'empresaModal' },
+    { tabla: 'tablaCuotas', input: 'cuota', hidden: 'idCuota', modal: 'cuotaModal', gravado: true },
+    { tabla: 'tablaInscripciones', input: 'inscripcion', hidden: 'idInscripcion', modal: 'inscripcionModal', gravado: false },
+    { tabla: 'tablaHonorarios', input: 'honorario', hidden: 'idHonorario', modal: 'honorarioModal', gravado: true },
+    { tabla: 'tablaSolicitudes', input: 'solicitud', hidden: 'idSolicitud', modal: 'solicitudModal', gravado: false }
+  ];
+
+  modales.forEach(({ tabla, input, hidden, modal, gravado }) => {
+    const tablaEl = document.getElementById(tabla);
+    if (!tablaEl) return;
+    
+    tablaEl.addEventListener('click', function (event) {
+      const fila = event.target.closest('tr');
+      if (!fila) return;
+      
+      const id = fila.getAttribute('data-id');
+      const nombre = fila.getAttribute('data-nombre');
+      const valor = fila.getAttribute('data-valor');
+      
+      document.getElementById(input).value = nombre;
+      document.getElementById(hidden).value = id;
+      
+      // Actualizar montos si corresponde
+      if (valor !== null && gravado !== undefined) {
+        const monto = parseFloat(valor) || 0;
+        if (gravado) {
+          setCurrencyField('subtotalGravado', monto);
+        } else {
+          setCurrencyField('subtotalExento', monto);
+        }
+        calcularMontos();
+      }
+      
+      $(`#${modal}`).modal('hide');
+    });
+  });
+
+  // ===== MANEJO DE ENVÍO DEL FORMULARIO =====
+
+  notaForm.addEventListener('submit', async function (event) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+
+    const submitButton = notaForm.querySelector('input[type="submit"], button[type="submit"]');
+    if (submitButton) submitButton.disabled = true;
+
+    notaForm.classList.remove('was-validated');
+
+    // Validación HTML5
+    if (!notaForm.checkValidity()) {
+      notaForm.classList.add('was-validated');
+      const firstInvalid = notaForm.querySelector(':invalid');
+      
+      if (firstInvalid) {
+        firstInvalid.classList.add('is-invalid');
+        const gp = firstInvalid.closest('.field-wrap, .form-group, .input-group');
+        const feedback = gp ? gp.querySelector('.invalid-feedback') : null;
+        const message = (feedback && feedback.textContent.trim()) || 
+                       firstInvalid.validationMessage || 
+                       'Por favor, corrija el campo.';
+        
+        Swal.fire({
+          icon: 'error',
+          title: 'Error de validación',
+          text: message,
+          confirmButtonColor: '#ffc107'
+        }).then(() => firstInvalid.focus());
+      }
+      
+      if (submitButton) submitButton.disabled = false;
+      return;
+    }
+
+    // Validar selección de artículo activo
+    const activeGroup = articulosDiv.querySelector('div[style*="display: block"]');
+    if (activeGroup) {
+      const hiddenInput = activeGroup.querySelector('input[type="hidden"]');
+      const visibleInput = activeGroup.querySelector('input[type="text"]');
+
+      if (!hiddenInput.value) {
+        visibleInput.classList.add('is-invalid');
+        const feedback = activeGroup.querySelector('.invalid-feedback');
+        if (feedback) feedback.style.display = 'block';
+        
+        if (submitButton) submitButton.disabled = false;
+        return;
+      }
+    }
+
+    // Validar selección de persona
+    if (!idPersonaInput.value) {
+      personaInput.classList.add('is-invalid');
+      const feedback = personaInput.nextElementSibling;
+      if (feedback && feedback.classList.contains('invalid-feedback')) {
+        feedback.style.display = 'block';
+      }
+      
+      if (submitButton) submitButton.disabled = false;
+      return;
+    }
+
+    // Preparar FormData con campos normalizados (MODIFICADO: usa normalizeCurrencyString)
+    const formData = new FormData(notaForm);
+    currencyIds.forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      
+      const normalized = normalizeCurrencyString(el.value);
+      formData.set(id, normalized === '' ? '0.00' : normalized);
+    });
+
+    // Enviar formulario
+    try {
+      const response = await fetch(notaForm.action, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        Swal.fire({
+          icon: 'success',
+          title: 'Nota creada exitosamente',
+          text: result.message,
+          showCancelButton: true,
+          confirmButtonText: 'Ver lista de notas',
+          cancelButtonText: 'Pagar',
+          confirmButtonColor: '#28a745',
+          cancelButtonColor: '#ffc107',
+          allowOutsideClick: false,
+        }).then((action) => {
+          if (action.isConfirmed) {
+            window.location.href = result.lista;
+          } else if (action.dismiss === Swal.DismissReason.cancel) {
+            window.location.href = result.pagar;
+          }
+        });
+      } else {
+        // Mostrar errores de campo
+        if (result.errors) {
+          for (const [field, msgs] of Object.entries(result.errors)) {
+            const input = document.querySelector(`[name="${field}"]`);
+            if (input) {
+              input.classList.add('is-invalid');
+              const fb = input.nextElementSibling;
+              if (fb && fb.classList.contains('invalid-feedback')) {
+                fb.textContent = Array.isArray(msgs) ? msgs.join(', ') : (msgs.message || msgs);
+                fb.style.display = 'block';
+              }
+            }
+          }
+        }
+
+        if (result.message) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: result.message,
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error al enviar nota:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Ocurrió un error inesperado.',
+      });
+    } finally {
+      if (submitButton) submitButton.disabled = false;
+    }
+  }, true);
+
+  // ===== BOTÓN TOGGLE READONLY =====
+
+  if (toggleReadonlyButton) {
+    toggleReadonlyButton.addEventListener('click', () => {
+      const isActivating = toggleReadonlyButton.textContent.includes('Habilitar');
+
+      if (isActivating) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Advertencia',
+          html: 'Estás activando la habilitación manual.<br><br>Los cálculos automatizados dejarán de funcionar.<br><br>Asegúrate de ingresar los valores correctos.',
+          showCancelButton: false,
+          confirmButtonColor: '#fb6340',
+          confirmButtonText: 'Entendido',
+          backdrop: true,
+          allowOutsideClick: false,
+          allowEscapeKey: false,
+        }).then(() => {
+          camposReadonly.forEach(campoId => {
+            const campo = document.getElementById(campoId);
+            if (campo) campo.removeAttribute('readonly');
+          });
+          
+          toggleReadonlyButton.textContent = 'Deshabilitar edición manual';
+          toggleReadonlyButton.classList.remove('btn-secondary');
+          toggleReadonlyButton.classList.add('btn-warning');
+        });
+      } else {
+        camposReadonly.forEach(campoId => {
+          const campo = document.getElementById(campoId);
+          if (campo) campo.setAttribute('readonly', true);
+        });
+        
+        toggleReadonlyButton.textContent = 'Habilitar edición manual';
+        toggleReadonlyButton.classList.remove('btn-warning');
+        toggleReadonlyButton.classList.add('btn-secondary');
+      }
+    });
   }
 
-  // Evento para cambiar la visibilidad del campo según la forma de pago seleccionada
-  formaPago.addEventListener('change', actualizarVisibilidadPlazoCredito);
-  [fechaEmision, formaPago, plazoCreditoInput].forEach(el => el.addEventListener('change', actualizarFechaVencimiento));
-  [ingresoCheckbox, egresoCheckbox].forEach(el => el.addEventListener('change', actualizarOpciones));
+  // ===== INICIALIZACIÓN =====
 
-  // Inicializar datos y cálculos
+  // Obtener parámetros de URL
+  const urlParams = new URLSearchParams(window.location.search);
+  manejarParametro('INSCRIPCION', urlParams.get('inscripcion'));
+  manejarParametro('SOLICITUD', urlParams.get('solicitud'));
+  manejarParametro('HONORARIO_PROFESOR', urlParams.get('honorario'));
+  manejarParametro('CUOTA', urlParams.get('cuota'));
+
+  // Configurar eventos
+  if (tipoArticuloSelect) {
+    tipoArticuloSelect.addEventListener('change', actualizarVisibilidadArticulos);
+  }
+
+  if (ingresoCheckbox && egresoCheckbox) {
+    ingresoCheckbox.addEventListener('change', actualizarOpciones);
+    egresoCheckbox.addEventListener('change', actualizarOpciones);
+  }
+
+  if (personaCheckbox && empresaCheckbox) {
+    personaCheckbox.addEventListener('change', actualizarVisibilidadEntidad);
+    empresaCheckbox.addEventListener('change', actualizarVisibilidadEntidad);
+  }
+
+  if (formaPago) {
+    formaPago.addEventListener('change', actualizarVisibilidadPlazoCredito);
+  }
+
+  if (fechaEmision && formaPago && plazoCreditoInput && fechaVencimiento) {
+    [fechaEmision, formaPago, plazoCreditoInput].forEach(el => {
+      el.addEventListener('change', actualizarFechaVencimiento);
+    });
+    
+    fechaVencimiento.addEventListener('change', actualizarFechaVencimiento);
+  }
+
+  if (descuento) {
+    descuento.addEventListener('input', validarDescuento);
+    descuento.addEventListener('change', validarDescuento);
+  }
+
+  // Campos que disparan cálculos
+  [subtotalExento, subtotalGravado, descuento, tipoArticuloSelect].forEach(el => {
+    if (el) {
+      el.addEventListener('input', calcularMontos);
+      el.addEventListener('change', calcularMontos);
+    }
+  });
+
+  // Inicializar UI
   obtenerParametrosTributarios();
+  actualizarVisibilidadEntidad();
   actualizarOpciones();
-  calcularMontos();
-  // Inicializar la visibilidad al cargar la página
   actualizarVisibilidadPlazoCredito();
-  // Llamar a la función al cargar la página
   establecerFechaHoy();
+  actualizarVisibilidadArticulos();
+  
+  // NUEVO: Inicializar campos de moneda con formato correcto
+  calcularMontos();
+  manejarSeleccionDesdeParametros();
+  function manejarSeleccionDesdeParametros() {
+  const urlParams = new URLSearchParams(window.location.search);
+
+  // Lista de parámetros y sus configuraciones
+  const parametros = [
+    { key: 'idP', tablaId: 'tablaPersonas', inputId: 'personaInput', hiddenInputId: 'idPersona' },
+    { key: 'id', tablaId: 'tablaInscripciones', inputId: 'inscripcion', hiddenInputId: 'idInscripcion' },
+    { key: 'idH', tablaId: 'tablaHonorarios', inputId: 'honorario', hiddenInputId: 'idHonorario' },
+    { key: 'idS', tablaId: 'tablaSolicitudes', inputId: 'solicitud', hiddenInputId: 'idSolicitud' },
+    { key: 'idC', tablaId: 'tablaCuotas', inputId: 'cuota', hiddenInputId: 'idCuota' }
+  ];
+
+  parametros.forEach(param => {
+    const valor = urlParams.get(param.key);
+    if (valor) {
+      const fila = document.querySelector(`#${param.tablaId} tr[data-id="${valor}"]`);
+      if (fila) {
+        const nombre = fila.getAttribute('data-nombre');
+        document.getElementById(param.inputId).value = nombre;
+        document.getElementById(param.hiddenInputId).value = valor;
+      } else {
+        console.warn(`No se encontró una fila en la tabla ${param.tablaId} con data-id="${valor}"`);
+      }
+    }
+  });
+}
+
+// Llamar a la función al cargar la página
+document.addEventListener('DOMContentLoaded', manejarSeleccionDesdeParametros);
 });
+
 </script>
 {% endblock javascripts %}

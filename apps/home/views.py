@@ -9,12 +9,14 @@ from django.template import loader
 from django.db.models import OuterRef, Subquery, Max, Count, Sum, Q, Prefetch
 from django.urls import reverse
 from django.contrib import messages
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError, FieldError
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required, permission_required
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
+from django.views.decorators.http import require_POST, require_GET
 from django.contrib.auth.models import Group
 from collections import defaultdict # Para agrupar
+from django.core.paginator import Paginator
 
 from django.core.cache import cache
 from django.db import models  # Para el output_field en Sum
@@ -26,8 +28,8 @@ from reportlab.lib import colors
 from reportlab.platypus import Table, TableStyle
 from django.db.models.functions import ExtractMonth
 
-from .forms import AsignarGrupoForm, UsuarioForm, TipoFormacionForm, FormacionForm, MateriaForm, CohorteForm, CargoForm, RequisitoForm, ServicioForm, TramiteForm, DenominacionForm, BancoForm, MonedaForm, TasaForm, TipoMovimientoForm, MovimientoForm, ConfiguracionForm, CuotaFormacionForm
-from .models import Personas, Usuarios, TipoFormacion, Formacion, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Denominacion, Banco, Moneda, Tasa, Movimiento, TipoMovimiento, Configuracion, CuotaFormacion
+from .forms import AsignarGrupoForm, UsuarioForm, TipoFormacionForm, FormacionForm, MateriaForm, CohorteForm, CargoForm, RequisitoForm, ServicioForm, TramiteForm, MonedaForm, TasaForm, ConfiguracionForm, CuotaFormacionForm
+from .models import Personas, Usuarios, TipoFormacion, Formacion, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Moneda, Tasa, Configuracion, CuotaFormacion, CuotaFormacion
 
 from apps.honorario.models import Honorario
 from apps.solicitud.models import Solicitud
@@ -36,7 +38,15 @@ from apps.empresa.models import empresa
 from apps.persona.models import PersonaTP
 from apps.periodoContable.models import periodoContable
 
+from django.core.paginator import Paginator
+from django.db.models.functions import TruncDate
+from django.utils.timezone import localtime
+from datetime import date, timedelta
+from django.utils import timezone
+from collections import Counter
+
 from apps.bitacora.signals import registrar_login_fallido
+from apps.home.utils import to_decimal
 
 @login_required(login_url='login')
 def contabilidad(request):
@@ -46,27 +56,50 @@ def contabilidad(request):
     except CuentaBanco.DoesNotExist:
         ultima_cuenta = None
 
-    # 2. Última empresa (corregir excepción)
+    # 2. Última empresa
     try:
         ultima_empresa = empresa.objects.latest('fechaEmpresa')
-    except empresa.DoesNotExist:  # ← Excepción corregida
+    except empresa.DoesNotExist:
         ultima_empresa = None
 
-    # 3. Periodo contable
+    # 3. Periodo contable actual (el más reciente por fecha de inicio)
     try:
-        periodo_actual = periodoContable.objects.latest('fechaInicioPeriodo')
+        periodo_actual = periodoContable.objects.filter(estadoPeriodo=True).latest('fechaInicioPeriodo')
     except periodoContable.DoesNotExist:
         periodo_actual = None
+
+    # =========================
+    hoy = date.today()
+    dias_rango = [hoy - timedelta(days=i) for i in range(29, -1, -1)]
+
+    cuentas = CuentaBanco.objects.all()
+
+    fechas_locales = []
+    for c in cuentas:
+        fecha = c.fechaRegistro
+        if isinstance(fecha, datetime):
+            fecha = timezone.localtime(fecha).date()
+        elif isinstance(fecha, date):
+            fecha = fecha
+        fechas_locales.append(fecha)
+
+    conteo_dict = Counter(fechas_locales)
+
+    chart_labels = [d.strftime("%d/%m/%Y") for d in dias_rango]
+    chart_data = [conteo_dict.get(d, 0) for d in dias_rango]
 
     context = {
         'ultima_cuenta': ultima_cuenta,
         'ultima_empresa': ultima_empresa,
         'periodo_actual': periodo_actual,
-        'saldo_contable': "En desarrollo...",
         'total_cuentas': CuentaBanco.objects.count(),
         'total_empresas': empresa.objects.count(),
-        'total_periodos': periodoContable.objects.count()
+        'total_periodos': periodoContable.objects.count(),
+        'periodos_activos': periodoContable.objects.filter(estadoPeriodo=True).count(),
+        'chart_labels': chart_labels,
+        'chart_data': chart_data,
     }
+
     
     return render(request, 'home/index2.html', context)
 
@@ -84,7 +117,7 @@ def home(request):
     }
 
     try:
-        ultima_solicitud = solicitudes.select_related('idServicio').latest('fechaSolicitud')
+        ultima_solicitud = solicitudes.latest('fechaSolicitud')
     except Solicitud.DoesNotExist:
         ultima_solicitud = None
 
@@ -107,29 +140,38 @@ def home(request):
 
     honorarios_data = Honorario.objects.filter(estadoHonorario='ACTIVO').aggregate(
         total=Count('idHonorario'),
-        horas=Sum('horas', output_field=models.IntegerField())
+        horas=Sum('horas')
     )
 
-    chart_data = cache.get('solicitudes_por_mes')
-    if not chart_data:
-        meses = [0]*12
-        solicitudes_por_mes = solicitudes.annotate(
-            month=ExtractMonth('fechaSolicitud')
-        ).values('month').annotate(total=Count('idSoli'))
-        
-        for mes in solicitudes_por_mes:
-            meses[mes['month'] - 1] = mes['total']
-        chart_data = meses
-        cache.set('solicitudes_por_mes', chart_data, 86400)
+    # Últimos 30 días
+    hoy = date.today()
+    dias_rango = [hoy - timedelta(days=i) for i in range(29, -1, -1)]
+
+    fechas_locales = []
+    for s in solicitudes:
+        fecha = s.fechaSolicitud
+        # Si es datetime, convertir a hora local
+        if isinstance(fecha, datetime):
+            fecha = timezone.localtime(fecha).date()
+        # Si ya es date, usarlo tal cual
+        elif isinstance(fecha, date):
+            fecha = fecha
+        fechas_locales.append(fecha)
+
+    conteo_dict = Counter(fechas_locales)
+
+    labels = [d.strftime("%d/%m/%Y") for d in dias_rango]
+    data = [conteo_dict.get(d, 0) for d in dias_rango]
 
     context = {
         **counts,
         'ultima_solicitud': ultima_solicitud.fechaSolicitud if ultima_solicitud else None,
         'servicio_popular': servicio_popular,
-        'total_honorarios': honorarios_data['total'],
+        'total_honorarios': honorarios_data['total'] or 0,
         'total_horas': honorarios_data['horas'] or 0,
         'cohorte_reciente': cohorte_reciente.nombreCohorte if cohorte_reciente else "N/A",
-        'chart_data': chart_data,
+        'chart_labels': labels,
+        'chart_data': data,
     }
 
     return render(request, 'home/index.html', context)
@@ -268,9 +310,6 @@ def editar_usuario(request, pk):
             usuario.is_staff = form.cleaned_data.get('is_staff', False)
             usuario.is_superuser = form.cleaned_data.get('is_superuser', False)
 
-            # Guardar cambios
-            usuario.save()  # Esto disparará la señal post_save
-            
             # Manejar seguridad
             nueva_pregunta = form.cleaned_data.get('nueva_pregunta')
             nueva_respuesta = form.cleaned_data.get('nueva_respuesta')
@@ -278,20 +317,28 @@ def editar_usuario(request, pk):
                 usuario.preguntaSeguridad = nueva_pregunta
                 usuario.respuestaSeguridad = nueva_respuesta
             
+            # Guardar cambios
             usuario.save()
             
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return JsonResponse({
                     'success': True,
-                    'message': 'Usuario actualizado exitosamente!'
+                    'message': 'Usuario actualizado exitosamente!',
+                    'redirect_url': reverse('lista_usuarios')
                 })
-            return redirect('lista_usuarios')
+            else:
+                messages.success(request, 'Usuario actualizado exitosamente!')
+                return redirect('lista_usuarios')
         else:
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                # Mejor formato para errores
+                errors = {}
+                for field, error_list in form.errors.items():
+                    errors[field] = [str(error) for error in error_list]
+                
                 return JsonResponse({
                     'success': False,
-                    'message': 'Error en el formulario',
-                    'errors': form.errors.get_json_data()
+                    'errors': errors
                 }, status=400)
             return render(request, 'home/modales/editar_usuario.html', {
                 'form': form,
@@ -323,7 +370,7 @@ def desactivar_usuario(request, pk):
     if request.method == 'POST':
         usuario.is_active = False
         usuario.save()
-        messages.success(request, f'✅ Usuario {usuario.idPersona.nombres} desactivado')
+        messages.success(request, f'Usuario {usuario.idPersona.nombres} desactivado')
         return redirect(request.POST.get('next', 'lista_usuarios'))
 
 @login_required(login_url='login')
@@ -332,7 +379,7 @@ def eliminar_usuario(request, pk):
     usuario = get_object_or_404(Usuarios, pk=pk)
     
     if not request.user.is_superuser:
-        messages.error(request, "❌ Solo superusuarios pueden eliminar permanentemente")
+        messages.error(request, "Solo superusuarios pueden eliminar permanentemente")
         return redirect('lista_usuarios')
     
     if request.method == 'POST':
@@ -346,11 +393,27 @@ def eliminar_usuario(request, pk):
 @permission_required("home.view_usuarios", login_url='page-403', raise_exception=True)
 def lista_usuarios(request):
     mostrar_inactivos = request.GET.get('mostrar_inactivos', 'false') == 'true'
-    
+
+    # Query base y orden
+    qs = Usuarios.objects.select_related('idPersona').order_by('-fechaUsuario')
+
+    # Aplicar filtro por estado si no se piden inactivos
+    if not mostrar_inactivos:
+        qs = qs.filter(is_active=True)
+
+    # Mensajes informativos (misma lógica que en las otras vistas)
+    if mostrar_inactivos:
+        # comprobar si hay registros inactivos dentro del queryset actual
+        hay_inactivos = qs.filter(is_active=False).exists()
+        if not hay_inactivos:
+            messages.info(request, 'No hay usuarios inactivos para mostrar.')
+    else:
+        # si no mostramos inactivos y no hay usuarios activos
+        if not qs.exists():
+            messages.info(request, 'No hay usuarios activos para mostrar.')
+
     return render(request, 'home/tablaUsuario.html', {
-        'usuarios': Usuarios.objects.select_related('idPersona')
-                                   .filter(is_active=True if not mostrar_inactivos else Q())
-                                   .order_by('-fechaUsuario'),
+        'usuarios': qs,
         'mostrar_inactivos': mostrar_inactivos
     })
 
@@ -621,96 +684,490 @@ def recover_password(request):
 @permission_required("home.add_cuotaformacion", raise_exception=True)
 def registrar_cuota_formacion(request, idFormacion=None):
     if idFormacion:
-        formaciones = Formacion.objects.filter(idFormacion=idFormacion, estadoFormacion='ACTIVO')  # Filtrar por ID si se proporciona
+        formaciones = Formacion.objects.filter(idFormacion=idFormacion, estadoFormacion='ACTIVO')
     else:
-        formaciones = Formacion.objects.filter(estadoFormacion='ACTIVO')  # Filtrar formaciones activas
+        formaciones = Formacion.objects.filter(estadoFormacion='ACTIVO')
     
     if request.method == 'POST':
-        form = CuotaFormacionForm(request.POST)
-        if form.is_valid():
-            try:
-                form.save()
-                return JsonResponse({
-                    'success': True,
-                    'message': "Cuota de formación registrada exitosamente.",
-                    'redirect_url': reverse('consultar_cuota_formacion')  # URL para redirigir
-                })
-            except ValidationError as e:
+        # Crear instancia manualmente en lugar de usar ModelForm
+        try:
+            # Obtener datos del POST
+            id_formacion = request.POST.get('idFormacion')
+            if not id_formacion:
                 return JsonResponse({
                     'success': False,
-                    'message': f"Error: {e.messages}"
+                    'message': "Debe seleccionar una formación."
                 })
-        else:
+            
+            # Convertir valor a decimal
+            valor = to_decimal(request.POST['valorCuota'])
+            
+            # Crear instancia de CuotaFormacion
+            cuota = CuotaFormacion(
+                idFormacion_id=id_formacion,  # Usar _id aquí
+                nombreCuota=request.POST['nombreCuota'],
+                tipoCuota=request.POST['tipoCuota'],
+                valorCuota=valor,
+                orden=request.POST['orden'],
+                # fechaCuota se auto-completa y is_active tiene default
+            )
+            
+            # Validar y guardar
+            cuota.full_clean()
+            cuota.save()
+            
+            return JsonResponse({
+                'success': True,
+                'message': "Cuota de formación registrada exitosamente.",
+                'redirect_url': reverse('consultar_cuota_formacion')
+            })
+            
+        except ValidationError as e:
             return JsonResponse({
                 'success': False,
-                'message': "Por favor, corrija los errores en el formulario."
+                'message': f"Error: {e.messages}"
             })
+            
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'message': f"Error inesperado: {str(e)}"
+            })
+            
     else:
-        form = CuotaFormacionForm()
-    
-    return render(request, 'home/cuotaformacion.html', {
-        'form': form,
-        'formaciones': formaciones,
-        'tipos_cuota': CuotaFormacion.TIPOS_CUOTA,  # Pasar TIPOS_CUOTA al contexto
-    })
-from django.core.paginator import Paginator
+        return render(request, 'home/cuotaformacion.html', {
+            'formaciones': formaciones,
+            'tipos_cuota': CuotaFormacion.TIPOS_CUOTA,
+        })
 
 @login_required(login_url='login')
 @permission_required("home.view_cuotaformacion", raise_exception=True)
 def consultar_cuota_formacion(request):
     mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
-    if mostrar:
-        cuotaFormaciones = CuotaFormacion.objects.select_related('idFormacion').all()
-    else:
-        cuotaFormaciones = CuotaFormacion.objects.select_related('idFormacion').filter(is_active=True)
 
-    # Paginación 
-    paginator = Paginator(cuotaFormaciones, 10)  # 10 cuotas por página
+    # Query base (con select_related para optimizar)
+    qs = CuotaFormacion.objects.select_related('idFormacion').all()
+
+    if not mostrar:
+        qs = qs.filter(is_active=True)
+
+    # Mensajes informativos
+    if mostrar:
+        # ¿hay cuotas inactivas en el queryset actual?
+        hay_inactivos = qs.filter(is_active=False).exists()
+        if not hay_inactivos:
+            messages.info(request, 'No hay cuotas inactivas para mostrar.')
+    else:
+        if not qs.exists():
+            messages.info(request, 'No hay cuotas activas para mostrar.')
+
+    # Paginación
+    paginator = Paginator(qs, 10)  # 10 cuotas por página
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
     return render(request, 'home/tablaCuotasFormaciones.html', {
-        'cuotas': page_obj,  # Pasar el objeto de la página al template
+        'cuotas': page_obj,
         'mostrar_inactivos': mostrar,
     })
 
+@login_required
+@require_GET
+def api_cuotas(request):
+    formacion_id = request.GET.get('formacion_id')
+    
+    # ----> AÑADE ESTA LÍNEA <----
+    print(f"Paso 2: La API recibió la solicitud para formacion_id = {formacion_id}")
+
+    if not formacion_id:
+        return JsonResponse({'results': []}, status=400)
+
+    qs = CuotaFormacion.objects.filter(idFormacion_id=formacion_id)
+
+    # ----> AÑADE ESTA LÍNEA <----
+    print(f"----> Base de datos encontró {qs.count()} cuotas para este ID.")
+
+    data = []
+    for c in qs:
+        data.append({
+            'id': c.idCuota,
+            'nombre': c.nombreCuota,
+            'tipo_valor': c.tipoCuota,
+            'tipo_display': c.get_tipoCuota_display(),
+            'valor': str(c.valorCuota),
+            'orden': c.orden,
+            'is_active': c.is_active,
+        })
+
+    return JsonResponse({'results': data})
+
+#EDITAR CUOTA
+@login_required(login_url='login')
+@permission_required("home.change_cuotaformacion", raise_exception=True)
+def edit_cuota_formacion(request, pk):
+    cuota = get_object_or_404(CuotaFormacion, pk=pk)
+    if request.method == 'POST':
+        post_data = request.POST.copy()
+        post_data['idFormacion'] = str(cuota.idFormacion_id)
+
+        valor = post_data.get('valorCuota', '')
+        post_data['valorCuota'] = str(to_decimal(valor))
+
+        form = CuotaFormacionForm(post_data, instance=cuota)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({
+              'success': True,
+              'message': 'Cuota actualizada correctamente.',
+              'redirect': ('tablaCuotasFormaciones.html')
+            })
+        else:
+            errors = {f: e for f,e in form.errors.items()}
+            return JsonResponse({'success': False, 'errors': errors})
+    else:
+        form = CuotaFormacionForm(instance=cuota)
+        return render(request, 'home/modales/editCuotaFormacion.html', {
+            'form': form, 'cuota': cuota
+        })
+
+# DESACTIVAR CUOTAS
+@login_required(login_url='login')
+@permission_required('home.change_cuotaformacion', raise_exception=True)
+def desactivar_cuota_formacion(request, pk):
+    cuota = get_object_or_404(CuotaFormacion, pk=pk)
+    
+    if request.method == 'POST':
+        cuota.is_active = False
+        cuota.save()
+        
+        response_data = {
+            'success': True,
+            'message': f"Cuota {cuota.nombreCuota} desactivada exitosamente."
+        }
+        
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse(response_data)
+        else:
+            messages.success(request, response_data['message'])
+            return redirect('consultar_cuota_formacion')
+    
+    return JsonResponse({'success': False, 'message': 'Método no permitido'}, status=405)
+
+# REACTIVAR CUOTAS
+@login_required(login_url='login')
+@permission_required('home.change_cuotaformacion', raise_exception=True)
+def activar_cuota_formacion(request, pk):
+    cuota = get_object_or_404(CuotaFormacion, pk=pk)
+    
+    if request.method == 'POST':
+        cuota.is_active = True
+        cuota.save()
+        
+        response_data = {
+            'success': True,
+            'message': f"Cuota {cuota.nombreCuota} activada exitosamente."
+        }
+        
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse(response_data)
+        else:
+            messages.success(request, response_data['message'])
+            return redirect('consultar_cuota_formacion')
+    
+    return JsonResponse({'success': False, 'message': 'Método no permitido'}, status=405)
+
+#REPORTE CUOTAS
+@login_required(login_url='login')
+@permission_required("home.view_cuotaformacion", raise_exception=True)
+def reporte_cuotas_formacion_pdf(request):
+    # Manejo de parámetros de paginación
+    start = int(request.GET.get('start', 1))
+    end = int(request.GET.get('end', 0))
+    cuotas = list(CuotaFormacion.objects.select_related('idFormacion').all())
+    
+    if end == 0 or end > len(cuotas):
+        end = len(cuotas)
+    cuotas = cuotas[start-1:end]
+
+    # Configuración inicial del PDF
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'inline; filename="reporte_cuotas_formacion.pdf"'
+    p = canvas.Canvas(response, pagesize=letter)
+    p.setTitle("Reporte de Cuotas de Formación")
+    width, height = letter
+    logo_width, logo_height, logo_margin = 80, 80, 15  # Reducir tamaño del logo
+
+    # Obtener configuración institucional
+    config = Configuracion.objects.order_by('-fechaConfiguracion').first()
+    logo_path = config.logo.path if config and config.logo else None
+    firma_path = config.firma.path if config and config.firma else None
+    nombre_institucion = config.nombreInstitucion if config else "Institución"
+    rif_institucion = config.rif if config else ""
+    direccion1 = "AV. ALBERTO RAVELL CON AV. INTERCOMUNAL JOSE ANTONIO PAEZ"
+    direccion2 = "LOCAL UPTYAB, INDEPENDENCIA – EDO YARACUY"
+
+    # Definir márgenes seguros
+    min_margin = 30
+    safe_left = min_margin
+    safe_right = width - min_margin
+    safe_width = safe_right - safe_left
+    safe_center = width / 2
+
+    # Funciones para encabezado y pie de página
+    def draw_header():
+        # Logo a la derecha
+        if logo_path and os.path.exists(logo_path):
+            p.drawImage(
+                logo_path,
+                width - logo_width - logo_margin,
+                height - logo_height - logo_margin,
+                width=logo_width,
+                height=logo_height,
+                preserveAspectRatio=True,
+                mask='auto'
+            )
+        
+        # Texto institucional a la izquierda
+        text_top = height - logo_margin - 15
+        p.setFont("Helvetica-Bold", 10)
+        p.drawString(min_margin, text_top, nombre_institucion)
+        p.drawString(min_margin, text_top - 15, f"RIF: {rif_institucion}")
+        p.drawString(min_margin, text_top - 30, direccion1)
+        p.drawString(min_margin, text_top - 45, direccion2)
+        
+        # Título centrado
+        p.setFont("Helvetica-Bold", 11)
+        p.drawCentredString(safe_center, text_top - 85, "REPORTE DE CUOTAS DE FORMACIÓN")
+
+    def draw_footer():
+        # Firma centrada en el pie de página
+        if firma_path and os.path.exists(firma_path):
+            p.drawImage(
+                firma_path,
+                width/2 - 50,
+                60,
+                width=100,
+                height=50,
+                preserveAspectRatio=True,
+                mask='auto'
+            )
+            p.setFont("Helvetica-Oblique", 9)
+            p.drawCentredString(width/2, 35, "Firma autorizada")
+        
+        # Fecha de generación
+        p.setFont("Helvetica", 8)
+        fecha_generacion = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        p.drawString(min_margin, 20, f"Generado el: {fecha_generacion}")
+
+    # Preparar datos de la tabla
+    headers = ["ID", "Formación", "Nombre", "Tipo", "Valor", "Orden", "Estado"]
+    data = [headers]
+    
+    for cuota in cuotas:
+        data.append([
+            str(cuota.idCuota),
+            cuota.idFormacion.nombreFormacion if cuota.idFormacion else "Sin formación",
+            cuota.nombreCuota,
+            cuota.get_tipoCuota_display(),
+            f"{cuota.valorCuota:.2f}",
+            cuota.orden,
+            "Activo" if cuota.is_active else "Inactivo"
+        ])
+    
+    # Configuración de la tabla con espacios aumentados
+    col_widths = [40, 120, 100, 80, 60, 50, 60]  # Anchos ajustados
+    table_width = sum(col_widths)
+    
+    # Espaciado vertical aumentado
+    header_height = 150  # Más espacio para encabezado
+    footer_height = 100  # Más espacio para pie de página
+    row_height = 25  # Aumentar altura de filas
+    cell_padding = 5  # Padding interno en celdas
+    
+    # Calcular espacio disponible
+    available_height = height - header_height - footer_height
+    max_rows_per_page = max(1, int(available_height // row_height))
+    total_rows = len(data) - 1
+    page = 0
+
+    # Generar páginas
+    for start_row in range(0, total_rows, max_rows_per_page):
+        end_row = min(start_row + max_rows_per_page, total_rows)
+        page_data = [data[0]] + data[start_row + 1:end_row + 1]
+        
+        if page > 0:
+            p.showPage()
+        
+        draw_header()
+        y_position = height - header_height
+        
+        # Centrar tabla horizontalmente
+        table_x = safe_left + (safe_width - table_width) / 2
+        table = Table(page_data, colWidths=col_widths, rowHeights=[row_height]*len(page_data))
+        
+        # Estilo de la tabla con más espacio
+        table_style = TableStyle([
+            # Encabezado
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0,0), (-1,0), 9),  # Tamaño reducido
+            ('ALIGN', (0,0), (-1,0), 'CENTER'),
+            ('VALIGN', (0,0), (-1,0), 'MIDDLE'),
+            ('BOTTOMPADDING', (0,0), (-1,0), cell_padding),
+            
+            # Cuerpo de la tabla
+            ('FONTSIZE', (0,1), (-1,-1), 8),  # Tamaño reducido
+            ('ALIGN', (0,1), (-1,-1), 'CENTER'),
+            ('ALIGN', (1,1), (2,-1), 'LEFT'),  # Alinear texto a izquierda
+            ('VALIGN', (0,1), (-1,-1), 'MIDDLE'),
+            ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.lightgrey),
+            ('BOX', (0,0), (-1,-1), 0.5, colors.black),
+            ('TOPPADDING', (0,1), (-1,-1), cell_padding),
+            ('BOTTOMPADDING', (0,1), (-1,-1), cell_padding),
+        ])
+        
+        # Resaltar valores monetarios
+        for i in range(1, len(page_data)):
+            table_style.add('TEXTCOLOR', (4,i), (4,i), colors.HexColor("#007bff"))  # Azul para valores
+            
+        # RESALTAR ESTADOS
+        for i in range(1, len(page_data)):
+            # Obtener valor del estado (columna 6)
+            estado_valor = page_data[i][6].strip().lower()
+            
+            # Determinar color según estado
+            if estado_valor == "activo":
+                color = colors.HexColor("#28a745")  # Verde
+            elif estado_valor == "inactivo":
+                color = colors.HexColor("#dc3545")  # Rojo
+            else:
+                color = colors.black  # Negro para otros valores
+            
+            # Aplicar color a la celda de estado (columna 6)
+            table_style.add('TEXTCOLOR', (6, i), (6, i), color)
+        
+        table.setStyle(table_style)
+        table.wrapOn(p, width, height)
+        table.drawOn(p, table_x, y_position - row_height * len(page_data) - 10)
+        
+        # Información de paginación
+        p.setFont("Helvetica", 8)
+        pagination_text = f"Página {page + 1} - Registros {start_row + 1} a {end_row} de {total_rows}"
+        p.drawCentredString(
+            safe_center, 
+            y_position - row_height * len(page_data) - 25,
+            pagination_text
+        )
+        
+        draw_footer()
+        page += 1
+
+    p.save()
+    return response
 
 # FORMACION
 @login_required(login_url='login')
 @permission_required("home.add_formacion", raise_exception=True)
 def formacion_modal(request):
+    tipos_formacion = TipoFormacion.objects.filter(estadoTipoFormacion='ACTIVO')
     if request.method == 'POST':
-        form = FormacionForm(request.POST)
+        post_data = request.POST.copy()
+        valor = post_data.get('valorInscripcion', '')
+        valor = valor.replace('.', '').replace(',', '.')
+        post_data['valorInscripcion'] = valor
+        form = FormacionForm(post_data)  # Usa solo este formulario
+
         if form.is_valid():
             try:
                 formacion = form.save()
                 messages.success(request, "Formación registrada exitosamente.")
-                
-                # Redirigir según el valor de tieneCuotas
                 if formacion.tieneCuotas:
-                    return redirect('registrar_cuota_formacion', idFormacion=formacion.idFormacion)  # Redirige al registro de cuotas con el ID de la formación
+                    return redirect('registrar_cuota_formacion', idFormacion=formacion.idFormacion)
                 else:
-                    return redirect('tabla_formaciones')  # Redirige a la tabla de formaciones
+                    return redirect('tabla_formaciones')
             except ValidationError as e:
                 messages.error(request, f"Error: {e.messages}")
         else:
             messages.error(request, "Por favor, corrija los errores en el formulario.")
+        return render(request, 'home/formaciones.html', {'form': form, 'tipos_formacion': tipos_formacion})
     else:
         form = FormacionForm()
-        tipos_formacion = TipoFormacion.objects.filter(estadoTipoFormacion='ACTIVO')
         return render(request, 'home/formaciones.html', {'form': form, 'tipos_formacion': tipos_formacion})
+
 @login_required(login_url='login')
 @permission_required("home.change_formacion", raise_exception=True)
 def edit_formacion(request, pk):
     formacion = get_object_or_404(Formacion, pk=pk)
+
+    def normalize_money(value: str) -> str:
+        """ Normaliza distintas entradas a un string con punto decimal '1234.56'. """
+        if not value:
+            return ''
+        s = str(value).strip()
+        # detectar última coma o punto como separador decimal
+        last_dot = s.rfind('.')
+        last_comma = s.rfind(',')
+        if last_dot == -1 and last_comma == -1:
+            # no hay separadores -> entero
+            digits = ''.join(ch for ch in s if ch.isdigit())
+            return f"{digits}.00" if digits else ''
+        last_sep = max(last_dot, last_comma)
+        decimal_sep = s[last_sep]
+        int_part = s[:last_sep]
+        dec_part = s[last_sep+1:]
+        int_digits = ''.join(ch for ch in int_part if ch.isdigit())
+        dec_digits = ''.join(ch for ch in dec_part if ch.isdigit())
+        if dec_digits == '':
+            dec_digits = '00'
+        elif len(dec_digits) == 1:
+            dec_digits = dec_digits + '0'
+        else:
+            dec_digits = dec_digits[:2]
+        if int_digits == '':
+            int_digits = '0'
+        return f"{int_digits}.{dec_digits}"
+
+    def is_ajax_request(req):
+        # compatible con Django: comprueba header X-Requested-With
+        return req.META.get('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest'
+
     if request.method == 'POST':
-        form = FormacionForm(request.POST, instance=formacion)
+        post_data = request.POST.copy()
+
+        # --- Valor: normalizar para que el backend reciba "1234.56" ---
+        raw_valor = post_data.get('valorInscripcion', '').strip()
+        if raw_valor:
+            post_data['valorInscripcion'] = normalize_money(raw_valor)
+
+        # --- Duración: si vienen cantidad + unidad, construir duracion (por seguridad) ---
+        cantidad = post_data.get('cantidad', '').strip()
+        unidad = post_data.get('unidadDuracion', '').strip()
+        if cantidad and unidad:
+            post_data['duracion'] = f"{cantidad} {unidad}"
+
+        form = FormacionForm(post_data, instance=formacion)
+
         if form.is_valid():
             form.save()
-            return JsonResponse({'success': True, 'message': 'Formación actualizada exitosamente.'})
+            # Respuesta para AJAX -> JSON; si no es AJAX, redirigir normal
+            if is_ajax_request(request):
+                return JsonResponse({'success': True, 'message': 'Formación actualizada exitosamente.'})
+            messages.success(request, 'Formación actualizada exitosamente.')
+            return redirect('tabla_formaciones')  # Ajusta con tu nombre de URL
         else:
-            errors = {field: error for field, error in form.errors.items()}
-            return JsonResponse({'success': False, 'errors': errors})
+            # Form inválido -> si es AJAX devolvemos errores en JSON para mostrar en modal
+            errors = {field: list(errors) for field, errors in form.errors.items()}
+            if is_ajax_request(request):
+                return JsonResponse({'success': False, 'errors': errors, 'message': 'Errores de validación.'}, status=400)
+            # Si no es AJAX devolvemos la plantilla con errores (comportamiento original)
+            tipos_formacion = TipoFormacion.objects.all()
+            return render(request, 'home/modales/editFormaciones.html', {
+                'form': form,
+                'formacion': formacion,
+                'tipos_formacion': tipos_formacion
+            })
     else:
         form = FormacionForm(instance=formacion)
         tipos_formacion = TipoFormacion.objects.all()
@@ -721,23 +1178,14 @@ def edit_formacion(request, pk):
         })
 
 @login_required(login_url='login')
-@permission_required("home.change_formacion", raise_exception=True)
-def delete_formacion(request, pk):
-    instance = get_object_or_404(Formacion, pk=pk)
-    instance.estadoFormacion = 'INACTIVO'
-    instance.save()
-    return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
-
-@login_required(login_url='login')
 @permission_required('home.change_formacion', raise_exception=True)
+@require_POST
 def desactivar_formacion(request, pk):
-    Formaciones = get_object_or_404(Formacion, pk=pk)
-    if request.method == 'POST':
-        Formaciones.estadoFormacion = "INACTIVO"
-        Formaciones.save()
-        messages.success(request, f'⛔ Formación {Formaciones.nombreFormacion} desactivada')
-        return redirect(request.POST.get('next', 'tabla_formaciones'))
-    return redirect('tabla_formaciones')
+    formacion = get_object_or_404(Formacion, pk=pk)
+    formacion.estadoFormacion = "INACTIVO"
+    formacion.save(update_fields=['estadoFormacion'])
+    messages.success(request, f'Formación {formacion.nombreFormacion} desactivada')
+    return redirect(request.POST.get('next', 'tabla_formaciones'))
 
 @login_required(login_url='login')
 @permission_required('home.change_formacion', raise_exception=True)
@@ -746,7 +1194,7 @@ def reactivate_formacion(request, pk):
     if request.method == 'POST':
         Formaciones.estadoFormacion = "ACTIVO"
         Formaciones.save()
-        messages.success(request, f'✅ Formación {Formaciones.nombreFormacion} activada')
+        messages.success(request, f'Formación {Formaciones.nombreFormacion} activada')
         return redirect(request.POST.get('next', 'tabla_formaciones'))
     return redirect('tabla_formaciones')
 
@@ -754,20 +1202,77 @@ def reactivate_formacion(request, pk):
 @permission_required("home.view_formacion", raise_exception=True)
 def tabla_formaciones(request):
     mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+    search_query = request.GET.get('search', '').strip()  # Obtener el término de búsqueda
+
+    # Query base con optimizaciones
+    qs = Formacion.objects.select_related('idTF').prefetch_related(
+        Prefetch('cuotas', queryset=CuotaFormacion.objects.order_by('orden'))
+    ).order_by('-fechaFormacion')
+
+    # Filtrar por estado si no se piden inactivos
+    if not mostrar:
+        qs = qs.filter(estadoFormacion='ACTIVO')
+
+    # Aplicar búsqueda si existe
+    if search_query:
+        qs = qs.filter(
+            Q(nombreFormacion__icontains=search_query) |
+            Q(idTF__nombreTipoFormacion__icontains=search_query) |
+            Q(valorInscripcion__icontains=search_query) |
+            Q(duracion__icontains=search_query)
+        )
+
+    # Mensajes informativos según el caso
     if mostrar:
-        formaciones = Formacion.objects.all()
+        # Dentro del queryset ya filtrado por búsqueda (y por tipo/estado si aplica),
+        # comprobamos si hay registros inactivos.
+        hay_inactivos = qs.exclude(estadoFormacion='ACTIVO').exists()
+        if not hay_inactivos:
+            messages.info(request, 'No hay formaciones inactivas para mostrar.')
     else:
-        formaciones = Formacion.objects.filter(estadoFormacion='ACTIVO')
+        # Si no estamos mostrando inactivos comprobamos si hay activos para mostrar
+        if not qs.exists():
+            messages.info(request, 'No hay formaciones activas para mostrar.')
+
+    # Paginación
+    paginator = Paginator(qs, 3)  # ajusta el número por página si quieres
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    # Calcular información de cuotas solo para los objetos en la página
+    for f in page_obj.object_list:
+        cuotas_qs = list(getattr(f, 'cuotas').all())  # prefetch ya aplicado
+        if getattr(f, 'tieneCuotas', False) and cuotas_qs:
+            tipos = {c.tipoCuota for c in cuotas_qs}
+            tipo_display = cuotas_qs[0].get_tipoCuota_display() if len(tipos) == 1 else "Mixto"
+            montos = ", ".join(f"{c.valorCuota:.2f}" for c in cuotas_qs)
+            f.cuotas_count = len(cuotas_qs)
+            f.cuotas_list = montos
+            f.cuotas_tipo = tipo_display
+            f.cuotas_text = f"Sí - {tipo_display} ({f.cuotas_count} cuotas: {montos})"
+        elif getattr(f, 'tieneCuotas', False):
+            f.cuotas_count = 0
+            f.cuotas_list = ""
+            f.cuotas_tipo = ""
+            f.cuotas_text = "Sí - (No hay cuotas registradas)"
+        else:
+            f.cuotas_count = 0
+            f.cuotas_list = ""
+            f.cuotas_tipo = ""
+            f.cuotas_text = "No"
+
     tipo_formaciones = TipoFormacion.objects.filter(estadoTipoFormacion='ACTIVO')
 
     return render(request, 'home/tablaFormaciones.html', {
-        'formaciones': formaciones,
+        'formaciones': page_obj,
         'tipoFormaciones': tipo_formaciones,
         'mostrar_inactivos': mostrar,
+        'search_query': search_query,
     })
 
 @login_required(login_url='login')
 def reporte_formaciones_pdf(request):
+
     # Manejo de parámetros de paginación
     start = int(request.GET.get('start', 1))
     end = int(request.GET.get('end', 0))
@@ -781,6 +1286,7 @@ def reporte_formaciones_pdf(request):
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = 'inline; filename="reporte_formaciones.pdf"'
     p = canvas.Canvas(response, pagesize=letter)
+    p.setTitle("Reporte de Formaciones")
     width, height = letter
     logo_width, logo_height, logo_margin = 80, 80, 15  # Reducir tamaño del logo
 
@@ -856,13 +1362,13 @@ def reporte_formaciones_pdf(request):
             f.idTF.nombreTipoFormacion if f.idTF else "Sin tipo",
             f.nombreFormacion,
             f.duracion,
-            f"${f.valorFormacion:,.2f}" if f.valorFormacion else "-",
+            f"${float(f.valorInscripcion):,.2f}" if f.valorInscripcion is not None else "-",
             f.estadoFormacion,
             f.fechaFormacion.strftime("%d/%m/%Y")
         ])
     
     # Configuración de la tabla con espacios aumentados
-    col_widths = [35, 90, 180, 70, 60, 50, 60]  # Anchos ajustados
+    col_widths = [35, 140, 180, 70, 60, 50, 60]  # Anchos ajustados
     table_width = sum(col_widths)
     
     # Espaciado vertical aumentado
@@ -1001,7 +1507,7 @@ def desactivar_tipoFormacion(request, pk):
     if request.method == 'POST':
         tipoFormaciones.estadoTipoFormacion = "INACTIVO"
         tipoFormaciones.save()
-        messages.success(request, f'⛔ Tipo Formación {tipoFormaciones.nombreTipoFormacion} desactivada')
+        messages.success(request, f'Tipo Formación {tipoFormaciones.nombreTipoFormacion} desactivada')
         return redirect(request.POST.get('next', 'tabla_tipoFormacion'))
     return redirect('tabla_tipoFormacion')
 
@@ -1012,7 +1518,7 @@ def reactivate_tipoFormacion(request, pk):
     if request.method == 'POST':
         tipoFormaciones.estadoTipoFormacion = "ACTIVO"
         tipoFormaciones.save()
-        messages.success(request, f'✅ Tipo Formación {tipoFormaciones.nombreTipoFormacion} activada')
+        messages.success(request, f'Tipo Formación {tipoFormaciones.nombreTipoFormacion} activada')
         return redirect(request.POST.get('next', 'tabla_tipoFormacion'))
     return redirect('tabla_tipoFormacion')
 
@@ -1020,13 +1526,25 @@ def reactivate_tipoFormacion(request, pk):
 @permission_required("home.view_tipoformacion", raise_exception=True)
 def tabla_tipoFormacion(request):
     mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+
+    # Query base
+    qs = TipoFormacion.objects.all()
+
+    if not mostrar:
+        qs = qs.filter(estadoTipoFormacion='ACTIVO')
+
+    # Mensajes informativos
     if mostrar:
-        tipoFormaciones = TipoFormacion.objects.all()
+        # ¿hay inactivos en el queryset actual?
+        hay_inactivos = qs.exclude(estadoTipoFormacion='ACTIVO').exists()
+        if not hay_inactivos:
+            messages.info(request, 'No hay tipos de formación inactivos para mostrar.')
     else:
-        tipoFormaciones = TipoFormacion.objects.filter(estadoTipoFormacion='ACTIVO')
+        if not qs.exists():
+            messages.info(request, 'No hay tipos de formación activos para mostrar.')
 
     return render(request, 'home/tablaTipoFormaciones.html', {
-        'tipoFormaciones': tipoFormaciones,
+        'tipoFormaciones': qs,
         'mostrar_inactivos': mostrar,
     })
 
@@ -1045,6 +1563,7 @@ def reporte_tipo_formacion_pdf(request):
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = 'inline; filename="reporte_tipos_formacion.pdf"'
     p = canvas.Canvas(response, pagesize=letter)
+    p.setTitle("Reporte de Tipos Formaciones")
     width, height = letter
     logo_width, logo_height, logo_margin = 80, 80, 15  # Tamaño reducido del logo
 
@@ -1242,7 +1761,7 @@ def edit_materias(request, pk):
         form = MateriaForm(request.POST, instance=instance)
         if form.is_valid():
             form.save()
-            return JsonResponse({'success': True, 'message': 'Edición exitosa.'})
+            return JsonResponse({'success': True, 'message': 'Materia actualizada'})
         else:
             errors = {field: error for field, error in form.errors.items()}
             return JsonResponse({'success': False, 'errors': errors})
@@ -1271,7 +1790,7 @@ def desactivar_materias(request, pk):
     if request.method == 'POST':
         materias.estadoMateria = "INACTIVO"
         materias.save()
-        messages.success(request, f'⛔ Materia {materias.nombreMateria} desactivada')
+        messages.success(request, f'Materia {materias.nombreMateria} desactivada')
         return redirect(request.POST.get('next', 'tabla_materias'))
     return redirect('tabla_materias')
 
@@ -1282,7 +1801,7 @@ def reactivate_materias(request, pk):
     if request.method == 'POST':
         materias.estadoMateria = "ACTIVO"
         materias.save()
-        messages.success(request, f'✅ Materia {materias.nombreMateria} activada')
+        messages.success(request, f'Materia {materias.nombreMateria} activada')
         return redirect(request.POST.get('next', 'tabla_materias'))
     return redirect('tabla_materias')
 
@@ -1290,15 +1809,26 @@ def reactivate_materias(request, pk):
 @permission_required("home.view_materia", raise_exception=True)
 def tabla_materias(request):
     mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+
+    qs = Materia.objects.all()
+
+    if not mostrar:
+        qs = qs.filter(estadoMateria='ACTIVO')
+
+    # Mensajes informativos
     if mostrar:
-        materias = Materia.objects.all()
+        hay_inactivos = qs.exclude(estadoMateria='ACTIVO').exists()
+        if not hay_inactivos:
+            messages.info(request, 'No hay materias inactivas para mostrar.')
     else:
-        materias = Materia.objects.filter(estadoMateria='ACTIVO')
+        if not qs.exists():
+            messages.info(request, 'No hay materias activas para mostrar.')
 
     return render(request, 'home/tablaMaterias.html', {
-        'materias': materias,
+        'materias': qs,
         'mostrar_inactivos': mostrar,
     })
+
 
 @login_required(login_url='login')
 def reporte_materias_pdf(request):
@@ -1315,6 +1845,7 @@ def reporte_materias_pdf(request):
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = 'inline; filename="reporte_materias.pdf"'
     p = canvas.Canvas(response, pagesize=letter)
+    p.setTitle("Reporte de Materias")
     width, height = letter
     logo_width, logo_height, logo_margin = 80, 80, 15  # Tamaño reducido del logo
 
@@ -1531,7 +2062,7 @@ def desactivar_cohorte(request, pk):
     if request.method == 'POST':
         cohortes.estadoCohorte = "INACTIVO"
         cohortes.save()
-        messages.success(request, f'⛔ Cohorte {cohortes.nombreCohorte} desactivada')
+        messages.success(request, f'Cohorte {cohortes.nombreCohorte} desactivada')
         return redirect(request.POST.get('next', 'tabla_cohortes'))
     return redirect('tabla_cohortes')
 
@@ -1542,7 +2073,7 @@ def reactivate_cohorte(request, pk):
     if request.method == 'POST':
         cohortes.estadoCohorte = "ACTIVO"
         cohortes.save()
-        messages.success(request, f'✅ Cohorte {cohortes.nombreCohorte} activada')
+        messages.success(request, f'Cohorte {cohortes.nombreCohorte} activada')
         return redirect(request.POST.get('next', 'tabla_cohortes'))
     return redirect('tabla_cohortes')
 
@@ -1550,15 +2081,26 @@ def reactivate_cohorte(request, pk):
 @permission_required("home.view_cohorte", raise_exception=True)
 def tabla_cohortes(request):
     mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+
+    qs = Cohorte.objects.all()
+
+    if not mostrar:
+        qs = qs.filter(estadoCohorte='ACTIVO')
+
+    # Mensajes informativos
     if mostrar:
-        cohortes = Cohorte.objects.all()
+        hay_inactivos = qs.exclude(estadoCohorte='ACTIVO').exists()
+        if not hay_inactivos:
+            messages.info(request, 'No hay cohortes inactivas para mostrar.')
     else:
-        cohortes = Cohorte.objects.filter(estadoCohorte='ACTIVO')
+        if not qs.exists():
+            messages.info(request, 'No hay cohortes activas para mostrar.')
 
     return render(request, 'home/tablaCohortes.html', {
-        'cohortes': cohortes,
+        'cohortes': qs.order_by('-idCohorte'),
         'mostrar_inactivos': mostrar,
     })
+
 
 @login_required(login_url='login')
 def reporte_cohortes_pdf(request):
@@ -1575,6 +2117,7 @@ def reporte_cohortes_pdf(request):
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = 'inline; filename="reporte_cohortes.pdf"'
     p = canvas.Canvas(response, pagesize=letter)
+    p.setTitle("Reporte de Cohortes")
     width, height = letter
     logo_width, logo_height, logo_margin = 80, 80, 15  # Tamaño reducido del logo
 
@@ -1783,7 +2326,7 @@ def desactivar_cargo(request, pk):
     if request.method == 'POST':
         cargos.estadoCargo = "INACTIVO"
         cargos.save()
-        messages.success(request, f'⛔ Cargo {cargos.nombreCargo} desactivado')
+        messages.success(request, f'Cargo {cargos.nombreCargo} desactivado')
         return redirect(request.POST.get('next', 'tabla_cargos'))
     return redirect('tabla_cargos')
 
@@ -1794,7 +2337,7 @@ def reactivate_cargo(request, pk):
     if request.method == 'POST':
         cargos.estadoCargo = "ACTIVO"
         cargos.save()
-        messages.success(request, f'✅ Cargo {cargos.nombreCargo} activado')
+        messages.success(request, f'Cargo {cargos.nombreCargo} activado')
         return redirect(request.POST.get('next', 'tabla_cargos'))
     return redirect('tabla_cargos')
 
@@ -1802,14 +2345,26 @@ def reactivate_cargo(request, pk):
 @permission_required("home.view_cargo", raise_exception=True)
 def tabla_cargos(request):
     mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+
+    qs = Cargo.objects.all()
+
+    if not mostrar:
+        qs = qs.filter(estadoCargo='ACTIVO')
+
+    # Mensajes informativos
     if mostrar:
-        cargos = Cargo.objects.all()
+        hay_inactivos = qs.exclude(estadoCargo='ACTIVO').exists()
+        if not hay_inactivos:
+            messages.info(request, 'No hay cargos inactivos para mostrar.')
     else:
-        cargos = Cargo.objects.filter(estadoCargo='ACTIVO')
+        if not qs.exists():
+            messages.info(request, 'No hay cargos activos para mostrar.')
+
     return render(request, 'home/tablaCargos.html', {
-        'cargos': cargos,
+        'cargos': qs,
         'mostrar_inactivos': mostrar,
     })
+
 
 @login_required(login_url='login')
 def reporte_cargos_pdf(request):
@@ -1826,6 +2381,7 @@ def reporte_cargos_pdf(request):
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = 'inline; filename="reporte_cargos.pdf"'
     p = canvas.Canvas(response, pagesize=letter)
+    p.setTitle("Reporte de Cargos")
     width, height = letter
     logo_width, logo_height, logo_margin = 80, 80, 15  # Tamaño reducido del logo
 
@@ -2036,7 +2592,7 @@ def desactivar_requisito(request, pk):
     if request.method == 'POST':
         requisitos.estadoRequisito = "INACTIVO"
         requisitos.save()
-        messages.success(request, f'⛔ Requisito {requisitos.nombreRequisito} desactivado')
+        messages.success(request, f'Requisito {requisitos.nombreRequisito} desactivado')
         return redirect(request.POST.get('next', 'tabla_requisitos'))
     return redirect('tabla_requisitos')
 
@@ -2047,7 +2603,7 @@ def reactivate_requisito(request, pk):
     if request.method == 'POST':
         requisitos.estadoRequisito = "ACTIVO"
         requisitos.save()
-        messages.success(request, f'✅ Requisito {requisitos.nombreRequisito} activado')
+        messages.success(request, f'Requisito {requisitos.nombreRequisito} activado')
         return redirect(request.POST.get('next', 'tabla_requisitos'))
     return redirect('tabla_requisitos')
 
@@ -2055,12 +2611,23 @@ def reactivate_requisito(request, pk):
 @permission_required("home.view_requisito", raise_exception=True)
 def tabla_requisitos(request):
     mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+
+    qs = Requisito.objects.all()
+
+    if not mostrar:
+        qs = qs.filter(estadoRequisito='ACTIVO')
+
+    # Mensajes informativos
     if mostrar:
-        requisitos = Requisito.objects.all()
+        hay_inactivos = qs.exclude(estadoRequisito='ACTIVO').exists()
+        if not hay_inactivos:
+            messages.info(request, 'No hay requisitos inactivos para mostrar.')
     else:
-        requisitos = Requisito.objects.filter(estadoRequisito='ACTIVO')
+        if not qs.exists():
+            messages.info(request, 'No hay requisitos activos para mostrar.')
+
     return render(request, 'home/tablaRequisitos.html', {
-        'requisitos': requisitos,
+        'requisitos': qs.order_by('-idRequisito'),
         'mostrar_inactivos': mostrar,
     })
 
@@ -2079,6 +2646,7 @@ def reporte_requisitos_pdf(request):
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = 'inline; filename="reporte_requisitos.pdf"'
     p = canvas.Canvas(response, pagesize=letter)
+    p.setTitle("Reporte de Requisitos")
     width, height = letter
     logo_width, logo_height, logo_margin = 80, 80, 15  # Tamaño reducido del logo
 
@@ -2287,7 +2855,7 @@ def desactivar_servicio(request, pk):
     if request.method == 'POST':
         servicios.estadoServicio = "INACTIVO"
         servicios.save()
-        messages.success(request, f'⛔ Servicio {servicios.nombreServicio} desactivado')
+        messages.success(request, f'Servicio {servicios.nombreServicio} desactivado')
         return redirect(request.POST.get('next', 'tabla_servicios'))
     return redirect('tabla_servicios')
 
@@ -2298,7 +2866,7 @@ def reactivate_servicio(request, pk):
     if request.method == 'POST':
         servicios.estadoServicio = "ACTIVO"
         servicios.save()
-        messages.success(request, f'✅ Servicio {servicios.nombreServicio} activado')
+        messages.success(request, f'Servicio {servicios.nombreServicio} activado')
         return redirect(request.POST.get('next', 'tabla_servicios'))
     return redirect('tabla_servicios')
 
@@ -2306,12 +2874,23 @@ def reactivate_servicio(request, pk):
 @permission_required("home.view_servicio", raise_exception=True)
 def tabla_servicios(request):
     mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+
+    qs = Servicio.objects.all()
+
+    if not mostrar:
+        qs = qs.filter(estadoServicio='ACTIVO')
+
+    # Mensajes informativos
     if mostrar:
-        servicios = Servicio.objects.all()
+        hay_inactivos = qs.exclude(estadoServicio='ACTIVO').exists()
+        if not hay_inactivos:
+            messages.info(request, 'No hay servicios inactivos para mostrar.')
     else:
-        servicios = Servicio.objects.filter(estadoServicio='ACTIVO')
+        if not qs.exists():
+            messages.info(request, 'No hay servicios activos para mostrar.')
+
     return render(request, 'home/tablaServicios.html', {
-        'servicios': servicios,
+        'servicios': qs,
         'mostrar_inactivos': mostrar,
     })
 
@@ -2330,6 +2909,7 @@ def reporte_servicios_pdf(request):
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = 'inline; filename="reporte_servicios.pdf"'
     p = canvas.Canvas(response, pagesize=letter)
+    p.setTitle("Reporte de Servicios")
     width, height = letter
     logo_width, logo_height, logo_margin = 80, 80, 15  # Tamaño reducido del logo
 
@@ -2552,7 +3132,7 @@ def desactivar_tramite(request, pk):
     if request.method == 'POST':
         tramites.estadoTramite = "INACTIVO"
         tramites.save()
-        messages.success(request, f'⛔ Trámite {tramites.nombreTramite} desactivado')
+        messages.success(request, f' Trámite {tramites.nombreTramite} desactivado')
         return redirect(request.POST.get('next', 'tabla_tramites'))
     return redirect('tabla_tramites')
 
@@ -2563,7 +3143,7 @@ def reactivate_tramite(request, pk):
     if request.method == 'POST':
         tramites.estadoTramite = "ACTIVO"
         tramites.save()
-        messages.success(request, f'✅ Trámite {tramites.nombreTramite} activado')
+        messages.success(request, f' Trámite {tramites.nombreTramite} activado')
         return redirect(request.POST.get('next', 'tabla_tramites'))
     return redirect('tabla_tramites')
 
@@ -2571,12 +3151,23 @@ def reactivate_tramite(request, pk):
 @permission_required("home.view_tramite", raise_exception=True)
 def tabla_tramites(request):
     mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+
+    qs = Tramite.objects.all()
+
+    if not mostrar:
+        qs = qs.filter(estadoTramite='ACTIVO')
+
+    # Mensajes informativos
     if mostrar:
-        tramites = Tramite.objects.all()
+        hay_inactivos = qs.exclude(estadoTramite='ACTIVO').exists()
+        if not hay_inactivos:
+            messages.info(request, 'No hay trámites inactivos para mostrar.')
     else:
-        tramites = Tramite.objects.filter(estadoTramite='ACTIVO')
+        if not qs.exists():
+            messages.info(request, 'No hay trámites activos para mostrar.')
+
     return render(request, 'home/tablaTramites.html', {
-        'tramites': tramites,
+        'tramites': qs.order_by('-idTramite'),
         'mostrar_inactivos': mostrar,
     })
 
@@ -2596,6 +3187,7 @@ def reporte_tramites_pdf(request):
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = 'inline; filename="reporte_tramites.pdf"'
     p = canvas.Canvas(response, pagesize=letter)
+    p.setTitle("Reporte de Tramites")
     width, height = letter
     logo_width, logo_height, logo_margin = 80, 80, 15  # Tamaño reducido del logo
 
@@ -2772,230 +3364,7 @@ def reporte_tramites_pdf(request):
         page += 1
 
     p.save()
-    return response
-
-
-#DENOMINACION
-@login_required(login_url='login')
-@permission_required("home.add_denominacion", raise_exception=True)
-def denominacion_modal(request):
-    denominaciones = Denominacion.objects.filter(estadoDenominacion='ACTIVO')  # Filtrar denominaciones activas
-    if request.method == 'POST':
-        form = DenominacionForm(request.POST)
-        if form.is_valid():
-            form.save()
-            return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
-        else:
-           # print(form.errors)  # esto para depurar errores
-            errors = {field: error for field, error in form.errors.items()}
-            return JsonResponse({'success': False, 'errors': errors})
-    else:
-        form = DenominacionForm()
-    return render(request, 'home/denominacion.html', {
-        'form': form,
-        'denominaciones': denominaciones,
-    })
-
-@login_required(login_url='login')
-@permission_required("home.change_denominacion", raise_exception=True)
-def edit_denominacion(request, pk):
-    instance = get_object_or_404(Denominacion, pk=pk)
-    if request.method == 'POST':
-        form = DenominacionForm(request.POST, instance=instance)
-        if form.is_valid():
-            form.save()
-            return JsonResponse({'success': True, 'message': 'Edición exitosa.'})  # Respuesta JSON
-        else:
-            errors = {field: error for field, error in form.errors.items()}
-            return JsonResponse({'success': False, 'errors': errors})  # Respuesta JSON con errores
-    else:
-        form = DenominacionForm(instance=instance)
-    return render(request, 'home/modales/editDenominacion.html', {'form': form, 'denominacion': instance})
-
-@login_required
-@permission_required('home.change_denominacion', raise_exception=True)
-def desactivar_denominacion(request, pk):
-    denominaciones = get_object_or_404(Denominacion, pk=pk)
-    if request.method == 'POST':
-        denominaciones.estadoDenominacion = "INACTIVO"
-        denominaciones.save()
-        messages.success(request, f'✅ Denominación {denominaciones.nombreDenominacion} desactivada')
-        return redirect(request.POST.get('next', 'tabla_denominaciones'))
-    return redirect('tabla_denominaciones')
-
-@login_required(login_url='login')
-@permission_required("home.change_denominacion", raise_exception=True)
-def delete_denominacion(request, pk):
-    instance = get_object_or_404(Denominacion, pk=pk)
-    instance.estadoDenominacion = 'INACTIVO'
-    instance.save()
-    return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
-
-@login_required(login_url='login')
-@permission_required("home.change_denominacion", raise_exception=True)
-def reactivate_denominacion(request, pk):
-    denominaciones = get_object_or_404(Denominacion, pk=pk)
-    if request.method == 'POST':
-        denominaciones.estadoDenominacion = "ACTIVO"
-        denominaciones.save()
-        messages.success(request, f'✅ Denominación {denominaciones.nombreDenominacion} activada')
-        return redirect(request.POST.get('next', 'tabla_denominaciones'))
-    return redirect('tabla_denominaciones')
-
-@login_required(login_url='login')
-@permission_required("home.view_denominacion", raise_exception=True)
-def tabla_denominaciones(request):
-    mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
-    if mostrar:
-        denominaciones = Denominacion.objects.all()
-    else:
-        denominaciones = Denominacion.objects.filter(estadoDenominacion='ACTIVO')
-    return render(request, 'home/tablaDenominaciones.html', {
-        'denominaciones': denominaciones,
-        'mostrar_inactivos': mostrar,
-    })
-
-@login_required(login_url='login')
-@permission_required("home.view_denominacion", raise_exception=True)
-def reporte_denominaciones_pdf(request):
-    response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = 'attachment; filename="reporte_denominaciones.pdf"'
-    p = canvas.Canvas(response, pagesize=letter)
-    width, height = letter
-    logo_width, logo_height, logo_margin = 100, 100, 15
-
-    config = Configuracion.objects.order_by('-fechaConfiguracion').first()
-    logo_path = config.logo.path if config and config.logo else None
-    nombre_institucion = config.nombreInstitucion if config else "Institución"
-    rif_institucion = config.rif if config else ""
-
-    # Área útil para centrar
-    safe_left = logo_margin + logo_width
-    safe_right = width - logo_margin - logo_width
-    safe_width = safe_right - safe_left
-    safe_center = safe_left + safe_width / 2
-
-    # Mostrar el logo si existe
-    if logo_path and os.path.exists(logo_path):
-        p.drawImage(logo_path, width - logo_width - logo_margin, height - logo_height - logo_margin, width=logo_width, height=logo_height, preserveAspectRatio=True, mask='auto')
-
-    text_top = height - logo_margin - 22
-    p.setFont("Helvetica-Bold", 11)
-    p.drawCentredString(safe_center, text_top, nombre_institucion)
-    p.drawCentredString(safe_center, text_top - 20, f"RIF: {rif_institucion}")
-    p.drawCentredString(safe_center, text_top - 40, "REPORTE DE DENOMINACIONES")
-
-    denominaciones = Denominacion.objects.all()
-    data = [["ID", "Nombre", "Estado", "Fecha"]]
-    for d in denominaciones:
-        data.append([
-            str(d.idDenominacion),
-            d.nombreDenominacion,
-            d.estadoDenominacion,
-            d.fechaDenominacion.strftime("%d/%m/%Y")
-        ])
-    col_widths = [40, 120, 60, 60]
-    table_width = sum(col_widths)
-    x = safe_left + (safe_width - table_width) / 2
-    y = height - logo_margin - 100
-
-    table = Table(data, colWidths=col_widths)
-    table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
-        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0,0), (-1,0), 12),
-        ('BOTTOMPADDING', (0,0), (-1,0), 10),
-        ('BACKGROUND', (0,1), (-1,-1), colors.whitesmoke),
-        ('GRID', (0,0), (-1,-1), 1, colors.black),
-    ]))
-    table.wrapOn(p, width, height)
-    table.drawOn(p, x, y - 25 * len(data))
-    p.showPage()
-    p.save()
-    return response
-
-
-#BANCO
-@login_required(login_url='login')
-@permission_required("home.add_banco", raise_exception=True)
-def banco_modal(request):
-    if request.method == 'POST':
-        form = BancoForm(request.POST)
-        if form.is_valid():
-            form.save()
-            return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
-        else:
-           # print(form.errors)  # esto para depurar errores
-            errors = {field: error for field, error in form.errors.items()}
-            return JsonResponse({'success': False, 'errors': errors})
-    else:
-        form = BancoForm()
-    return render(request, 'home/banco.html', {'form': form})
-
-@login_required(login_url='login')
-@permission_required("home.change_banco", raise_exception=True)
-def edit_banco(request, pk):
-    instance = get_object_or_404(Banco, pk=pk)
-    if request.method == 'POST':
-        form = BancoForm(request.POST, instance=instance)
-        if form.is_valid():
-            form.save()
-            return JsonResponse({'success': True, 'message': 'Edición exitosa.'})  # Respuesta JSON
-        else:
-            errors = {field: error for field, error in form.errors.items()}
-            return JsonResponse({'success': False, 'errors': errors})  # Respuesta JSON con errores
-    else:
-        form = BancoForm(instance=instance)
-    return render(request, 'home/modales/editBanco.html', {'form': form, 'banco': instance})
-
-@login_required
-@permission_required('home.change_moneda', raise_exception=True)
-def desactivar_banco(request, pk):
-    banco = get_object_or_404(Banco, pk=pk)
-    # Actualizamos el estado sin modificar el nombre u otros campos únicos
-    banco.estadoBanco = 'INACTIVO'
-    try:
-        banco.save()  # Aquí se ejecuta la validación en save()
-        return JsonResponse({'success': True, 'message': 'Banco desactivado correctamente. ✅'})
-    except ValidationError as e:
-        # Regresamos el mensaje de error; esto ocurriría si se dispara la validación única
-        return JsonResponse({'success': False, 'message': e.messages})
-
-@login_required(login_url='login')
-@permission_required("home.change_banco", raise_exception=True)
-def delete_banco(request, pk):
-    instance = get_object_or_404(Banco, pk=pk)
-    instance.estadoBanco = 'INACTIVO'
-    instance.save()
-    return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
-
-@login_required(login_url='login')
-@permission_required("home.change_banco", raise_exception=True)
-def reactivate_banco(request, pk):
-    banco = get_object_or_404(Banco, pk=pk)
-    # Actualizamos el estado sin modificar el nombre u otros campos únicos
-    banco.estadoBanco = 'ACTIVO'
-    try:
-        banco.save()  # Aquí se ejecuta la validación en save()
-        return JsonResponse({'success': True, 'message': 'Banco reactivado correctamente. ✅'})
-    except ValidationError as e:
-        # Regresamos el mensaje de error; esto ocurriría si se dispara la validación única
-        return JsonResponse({'success': False, 'message': e.messages})
-
-@login_required
-@permission_required('home.view_banco', raise_exception=True)
-def tabla_bancos(request):
-    mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
-    if mostrar:
-        bancos = Banco.objects.all()
-    else:
-        bancos = Banco.objects.filter(estadoBanco='ACTIVO')
-    return render(request, 'home/tablaBancos.html', {
-        'bancos': bancos,
-        'mostrar_inactivos': mostrar,
-    })
+    return
 
 #MONEDA
 @login_required(login_url='login')
@@ -3041,7 +3410,7 @@ def desactivar_moneda(request, pk):
     if request.method == 'POST':
         moneda.estadoMoneda = "INACTIVO"
         moneda.save()
-        messages.success(request, f'✅ Moneda {moneda.nombreMoneda} desactivada')
+        messages.success(request, f'Moneda {moneda.nombreMoneda} desactivada')
         return redirect(request.POST.get('next', 'tabla_monedas'))
     return redirect('tabla_monedas')
 
@@ -3060,7 +3429,7 @@ def reactivate_moneda(request, pk):
     if request.method == 'POST':
         moneda.estadoMoneda = "ACTIVO"
         moneda.save()
-        messages.success(request, f'✅ Moneda {moneda.nombreMoneda} activada')
+        messages.success(request, f'Moneda {moneda.nombreMoneda} activada')
         return redirect(request.POST.get('next', 'tabla_monedas'))
     return redirect('tabla_monedas')
 
@@ -3068,12 +3437,23 @@ def reactivate_moneda(request, pk):
 @permission_required("home.view_moneda", raise_exception=True)
 def tabla_monedas(request):
     mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+
+    qs = Moneda.objects.all()
+
+    if not mostrar:
+        qs = qs.filter(estadoMoneda='ACTIVO')
+
+    # Mensajes informativos
     if mostrar:
-        monedas = Moneda.objects.all()
+        hay_inactivos = qs.exclude(estadoMoneda='ACTIVO').exists()
+        if not hay_inactivos:
+            messages.info(request, 'No hay monedas inactivas para mostrar.')
     else:
-        monedas = Moneda.objects.filter(estadoMoneda='ACTIVO')
+        if not qs.exists():
+            messages.info(request, 'No hay monedas activas para mostrar.')
+
     return render(request, 'home/tablaMonedas.html', {
-        'monedas': monedas,
+        'monedas': qs,
         'mostrar_inactivos': mostrar,
     })
 
@@ -3092,6 +3472,7 @@ def reporte_monedas_pdf(request):
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = 'inline; filename="reporte_monedas.pdf"'
     p = canvas.Canvas(response, pagesize=letter)
+    p.setTitle("Reporte de Monedas")
     width, height = letter
     logo_width, logo_height, logo_margin = 80, 80, 15  # Tamaño reducido del logo
 
@@ -3299,7 +3680,7 @@ def desactivar_tasa(request, pk):
     if request.method == 'POST':
         tasa.estadoTasa = "INACTIVO"
         tasa.save()
-        messages.success(request, f'✅ Moneda {tasa.idMoneda.nombreMoneda} desactivada')
+        messages.success(request, f'Tasa de {tasa.idMoneda.nombreMoneda} desactivada')
         return redirect(request.POST.get('next', 'tabla_tasas'))
     return redirect('tabla_tasas')
 
@@ -3318,7 +3699,7 @@ def reactivate_tasa(request, pk):
     if request.method == 'POST':
         tasa.estadoTasa = "ACTIVO"
         tasa.save()
-        messages.success(request, f'✅ Moneda {tasa.idMoneda.nombreMoneda} activada')
+        messages.success(request, f'Tasa de {tasa.idMoneda.nombreMoneda} activada')
         return redirect(request.POST.get('next', 'tabla_tasas'))
     return redirect('tabla_tasas')
 
@@ -3326,13 +3707,41 @@ def reactivate_tasa(request, pk):
 @permission_required("home.view_tasa", raise_exception=True)
 def tabla_tasas(request):
     mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+    search_query = request.GET.get('search', '').strip()  # Obtener el término de búsqueda
+
     if mostrar:
         tasas = Tasa.objects.all()
     else:
-        tasas = Tasa.objects.filter(estadoTasa='ACTIVO')
+        tasas = Tasa.objects.filter(estadoTasa='ACTIVO').order_by('-fechaTasa')
+
+    # Filtrar por el término de búsqueda si existe
+    if search_query:
+        tasas = tasas.filter(
+            Q(idMoneda__nombreMoneda__icontains=search_query) |
+            Q(idMoneda__simboloMoneda__icontains=search_query) |
+            Q(montoTasa__icontains=search_query) |
+            Q(estadoTasa__icontains=search_query) |
+            Q(fechaTasa__icontains=search_query)
+        )
+
+    # Mensajes informativos (aplicados sobre el queryset ya filtrado)
+    if mostrar:
+        hay_inactivos = tasas.exclude(estadoTasa='ACTIVO').exists()
+        if not hay_inactivos:
+            messages.info(request, 'No hay tasas inactivas para mostrar.')
+    else:
+        if not tasas.exists():
+            messages.info(request, 'No hay tasas activas para mostrar.')
+
+    # Paginación
+    paginator = Paginator(tasas, 10)  # 10 tasas por página
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
     return render(request, 'home/tablaTasas.html', {
-        'tasas': tasas,
+        'tasas': page_obj,
         'mostrar_inactivos': mostrar,
+        'search_query': search_query,
     })
 
 @login_required(login_url='login')
@@ -3382,699 +3791,6 @@ def reporte_tasas_pdf(request):
     p.showPage()
     p.save()
     return response
-
-
-#TIPO MOVIMIENTO
-@login_required(login_url='login')
-@permission_required("home.add_tipomovimiento", raise_exception=True)
-def tipoMovimiento_modal(request):
-    if request.method == 'POST':
-        form = TipoMovimientoForm(request.POST)
-        if form.is_valid():
-            form.save()
-            return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
-        else:
-           # print(form.errors)  # esto para depurar errores
-            errors = {field: error for field, error in form.errors.items()}
-            return JsonResponse({'success': False, 'errors': errors})
-    else:
-        form = TipoMovimientoForm()
-    return render(request, 'home/tipoMovimiento.html', {'form': form})
-
-@login_required(login_url='login')
-@permission_required("home.change_tipomovimiento", raise_exception=True)
-def edit_tipoMovimiento(request, pk):
-    instance = get_object_or_404(TipoMovimiento, pk=pk)
-    if request.method == 'POST':
-        form = TipoMovimientoForm(request.POST, instance=instance)
-        if form.is_valid():
-            form.save()
-            return JsonResponse({'success': True, 'message': 'Edición exitosa.'})  # Respuesta JSON
-        else:
-            errors = {field: error for field, error in form.errors.items()}
-            return JsonResponse({'success': False, 'errors': errors})  # Respuesta JSON con errores
-    else:
-        form = TipoMovimientoForm(instance=instance)
-    return render(request, 'home/modales/editTipoMovimiento.html', {'form': form, 'TipoMovimiento': instance})
-
-@login_required
-@permission_required('home.change_tipomovimiento', raise_exception=True)
-def desactivar_tipoMovimiento(request, pk):
-    tipoMovimientos = get_object_or_404(TipoMovimiento, pk=pk)
-    if request.method == 'POST':
-        tipoMovimientos.estadoTipoMovimiento = "INACTIVO"
-        tipoMovimientos.save()
-        messages.success(request, f'✅ Movimiento {tipoMovimientos.nombreTipoMovimiento} desactivado')
-        return redirect(request.POST.get('next', 'tabla_tipoMovimiento'))
-    return redirect('tabla_tipoMovimiento')
-
-@login_required(login_url='login')
-@permission_required("home.change_tipomovimiento", raise_exception=True)
-def delete_tipoMovimiento(request, pk):
-    instance = get_object_or_404(TipoMovimiento, pk=pk)
-    instance.estadoTipoMovimiento = 'INACTIVO'
-    instance.save()
-    return JsonResponse({'success': True, 'message': 'Eliminación lógica exitosa.'})
-
-@login_required(login_url='login')
-@permission_required("home.change_tipomovimiento", raise_exception=True)
-def reactivate_tipoMovimiento(request, pk):
-    instance = get_object_or_404(TipoMovimiento, pk=pk)
-    instance.estadoTipoMovimiento = 'ACTIVO'
-    instance.save()
-    return JsonResponse({'success': True, 'message': 'Reactivación exitosa.'})
-
-@login_required(login_url='login')
-@permission_required("home.view_tipomovimiento", raise_exception=True)
-def tabla_tipoMovimiento(request):
-    TipoMovimiento = TipoMovimiento.objects.all()
-    return render(request, 'home/tablaTipoMovimiento.html', {'TipoMovimiento': TipoMovimiento})
-
-#TIPO EGRESO
-@login_required(login_url='login')
-@permission_required("home.view_tipomovimiento", raise_exception=True)
-def tabla_tipoEgresos(request):
-    mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
-    naturaleza = 'egreso'  # Filtro fijo para solo mostrar egresos
-    
-    base_query = TipoMovimiento.objects.filter(naturaleza=naturaleza)
-    
-    if mostrar:
-        tipoMovimientos = base_query.all()
-    else:
-        tipoMovimientos = base_query.filter(estadoTipoMovimiento='ACTIVO')
-    
-    return render(request, 'home/tablaTipoEgresos.html', {
-        'tipoMovimientos': tipoMovimientos,
-        'mostrar_inactivos': mostrar,
-        'naturaleza_actual': naturaleza  # Enviamos la naturaleza al template
-    })
-
-@login_required(login_url='login')
-@permission_required("home.add_tipomovimiento", raise_exception=True)
-def tipoEgreso_modal(request):
-    if request.method == 'POST':
-        form = TipoMovimientoForm(request.POST)
-        if form.is_valid():
-            # Crear instancia pero no guardar aún
-            instance = form.save(commit=False)
-            # Forzar naturaleza egreso
-            instance.naturaleza = 'egreso'
-            # Guardar en base de datos
-            instance.save()
-            return JsonResponse({'success': True, 'message': '✅ Tipo de egreso registrado exitosamente'})
-        else:
-            errors = {field: error.get_json_data()[0]['message'] for field, error in form.errors.items()}
-            return JsonResponse({'success': False, 'errors': errors})
-    
-    # Si es GET, crear form con naturaleza oculta
-    form = TipoMovimientoForm(initial={'naturaleza': 'egreso'})
-    # Ocultar campo naturaleza en el template
-    form.fields['naturaleza'].widget = forms.HiddenInput()
-    
-    return render(request, 'home/tipoMovimiento.html', {'form': form})
-
-@login_required(login_url='login')
-@permission_required("home.change_tipomovimiento", raise_exception=True)
-def edit_tipoEgresos(request, pk):
-    instance = get_object_or_404(TipoMovimiento, pk=pk, naturaleza='egreso')  # Filtro adicional
-    if request.method == 'POST':
-        form = TipoMovimientoForm(request.POST, instance=instance, naturaleza='egreso')  # Fijamos naturaleza
-        if form.is_valid():
-            edited = form.save(commit=False)
-            edited.naturaleza = 'egreso'  # Forzamos naturaleza
-            edited.save()
-            return JsonResponse({'success': True, 'message': 'Tipo de egreso editado correctamente.'})
-        else:
-            errors = {field: error for field, error in form.errors.items()}
-            return JsonResponse({'success': False, 'errors': errors})
-    else:
-        form = TipoMovimientoForm(instance=instance)
-        form.fields['naturaleza'].disabled = True  # Deshabilitar campo en el template
-    return render(request, 'home/modales/editTipoMovimiento.html', {
-        'form': form,
-        'TipoMovimiento': instance,
-        'naturaleza': 'egreso'  # Enviar contexto al template
-    })
-
-@login_required(login_url='login')
-@permission_required('home.change_tipomovimiento', raise_exception=True)
-def desactivar_tipoEgreso(request, pk):
-    egreso = get_object_or_404(TipoMovimiento, pk=pk, naturaleza='egreso')
-    
-    if request.method == 'POST':
-        egreso.estadoTipoMovimiento = "INACTIVO"
-        egreso.save()
-        
-        # Cambia esto para devolver JSON
-        return JsonResponse({
-            'success': True,
-            'message': f'⛔ Egreso "{egreso.nombreTipoMovimiento}" desactivado'
-        })
-    
-    return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
-
-# Reactivar Egreso
-@login_required(login_url='login')
-@permission_required("home.change_tipomovimiento", raise_exception=True)
-def reactivate_tipoEgreso(request, pk):
-    egreso = get_object_or_404(TipoMovimiento, pk=pk, naturaleza='egreso')
-    
-    if request.method == 'POST':
-        egreso.estadoTipoMovimiento = 'ACTIVO'
-        egreso.save()
-        return JsonResponse({
-            'success': True,
-            'message': f'✅ Egreso "{egreso.nombreTipoMovimiento}" reactivado exitosamente'
-        })
-    
-    return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
-
-# Eliminación Física (Opcional - Si necesitas borrado real)
-@login_required(login_url='login')
-@permission_required("home.delete_tipomovimiento", raise_exception=True)
-def delete_tipoEgreso(request, pk):
-    egreso = get_object_or_404(TipoMovimiento, pk=pk, naturaleza='egreso')
-    
-    if request.method == 'POST':
-        try:
-            nombre = egreso.nombreTipoMovimiento
-            egreso.delete()
-            return JsonResponse({
-                'success': True,
-                'message': f'🗑️ Egreso "{nombre}" eliminado permanentemente'
-            })
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': f'Error al eliminar: {str(e)}'
-            }, status=500)
-    
-    return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
-
-#EGRESO
-@login_required(login_url='login')
-@permission_required("home.add_movimiento", raise_exception=True)
-def tabla_egreso(request):
-    mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
-    naturaleza = 'egreso'  # Filtro fijo para solo mostrar egresos
-    
-    base_query = Movimiento.objects.filter(naturaleza=naturaleza)
-    
-    if mostrar:
-        movimientos = base_query.all()
-    else:
-        movimientos = base_query.filter(estadoMovimiento='ACTIVO')
-    
-    return render(request, 'home/tablaEgresos.html', {
-        'movimientos': movimientos,
-        'mostrar_inactivos': mostrar,
-        'naturaleza_actual': naturaleza  # Enviamos la naturaleza al template
-    })
-
-@login_required(login_url='login')
-@permission_required("home.add_movimiento", raise_exception=True)
-def egreso_modal(request):
-    naturaleza = 'egreso'
-    action_url = reverse('egreso_modal')  # Obtiene la URL de la vista actual
-
-    if request.method == 'POST':
-        form = MovimientoForm(request.POST, initial={'naturaleza': naturaleza})
-        if form.is_valid():
-            instance = form.save()
-            return JsonResponse({'success': True, 'message': '✅ Egreso registrado exitosamente'})
-        else:
-            errors = {field: error[0] for field, error in form.errors.items()}
-            print(form.errors)
-            return JsonResponse({'success': False, 'errors': errors})
-
-    else:
-        form = MovimientoForm(initial={'naturaleza': naturaleza})
-
-    tasas = Tasa.objects.select_related('idMoneda') \
-        .values('idMoneda__idMoneda', 'idMoneda__nombreMoneda') \
-        .annotate(ultima_idTasa=Max('idTasa'), ultima_tasa=Max('montoTasa'))
-
-    context = {
-        'form': form,
-        'bancos': Banco.objects.filter(estadoBanco='ACTIVO'),
-        'tipoMovimientos': TipoMovimiento.objects.filter(naturaleza=naturaleza, estadoTipoMovimiento='ACTIVO'),
-        'denominaciones': Denominacion.objects.filter(estadoDenominacion='ACTIVO'),
-        'monedas': tasas,
-        'naturaleza': naturaleza,
-        'action_url': action_url  # Agrega la URL al contexto
-    }
-
-    return render(request, 'home/movimiento.html', context)
-
-@login_required(login_url='login')
-@permission_required("home.change_movimiento", raise_exception=True)
-def edit_egreso(request, naturaleza, idMovimiento):
-    instance = get_object_or_404(Movimiento, idMovimiento=idMovimiento, naturaleza=naturaleza)
-
-    monedas = Moneda.objects.annotate(
-        ultima_tasa_id=Subquery(
-            Tasa.objects.filter(idMoneda=OuterRef('idMoneda'))
-            .order_by('-fechaTasa')
-            .values('idTasa')[:1]
-        ),
-        ultima_tasa_valor=Subquery(
-            Tasa.objects.filter(idMoneda=OuterRef('idMoneda'))
-            .order_by('-fechaTasa')
-            .values('montoTasa')[:1]
-        )
-    )
-
-    if request.method == 'POST':
-        form = MovimientoForm(request.POST, instance=instance, naturaleza=naturaleza)
-        if form.is_valid():
-            edited = form.save(commit=False)
-            edited.naturaleza = naturaleza
-            edited.save()
-            return JsonResponse({'success': True, 'message': f'{naturaleza.title()} actualizado correctamente'})
-        return JsonResponse({'success': False, 'errors': form.errors.get_json_data()})
-
-    form = MovimientoForm(instance=instance)
-    form.fields['naturaleza'].disabled = True
-
-    return render(request, 'home/modales/editMovimiento.html', {
-        'form': form,
-        'movimiento': instance,
-        'naturaleza': naturaleza,
-        'bancos': Banco.objects.filter(estadoBanco='ACTIVO'),
-        'tipoMovimientos': TipoMovimiento.objects.filter(naturaleza=naturaleza, estadoTipoMovimiento='ACTIVO'),
-        'denominaciones': Denominacion.objects.filter(estadoDenominacion='ACTIVO'),
-        'monedas': monedas,
-    })
-
-@login_required(login_url='login')
-@permission_required('home.change_tipomovimiento', raise_exception=True)
-def desactivar_egreso(request, pk):
-    egreso = get_object_or_404(Movimiento, pk=pk, naturaleza='egreso')
-    
-    if request.method == 'POST':
-        egreso.estadoMovimiento = "INACTIVO"
-        egreso.save()
-        
-        # Cambia esto para devolver JSON
-        return JsonResponse({
-            'success': True,
-            'message': f'⛔ Egreso "{egreso.idMovimiento}" desactivado'
-        })
-    
-    return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
-
-# Reactivar Egreso
-@login_required(login_url='login')
-@permission_required("home.change_movimiento", raise_exception=True)
-def reactivate_egreso(request, pk):
-    egreso = get_object_or_404(Movimiento, pk=pk, naturaleza='egreso')
-    
-    if request.method == 'POST':
-        egreso.estadoMovimiento = 'ACTIVO'
-        egreso.save()
-        return JsonResponse({
-            'success': True,
-            'message': f'✅ Egreso "{egreso.idMovimiento}" reactivado exitosamente'
-        })
-    
-    return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
-
-# Eliminación Física (Opcional - Si necesitas borrado real)
-@login_required(login_url='login')
-@permission_required("home.delete_tipomovimiento", raise_exception=True)
-def delete_egreso(request, pk):
-    egreso = get_object_or_404(Movimiento, pk=pk, naturaleza='egreso')
-    
-    if request.method == 'POST':
-        try:
-            nombre = egreso.idMovimiento
-            egreso.delete()
-            return JsonResponse({
-                'success': True,
-                'message': f'🗑️ Egreso "{nombre}" eliminado permanentemente'
-            })
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': f'Error al eliminar: {str(e)}'
-            }, status=500)
-    
-    return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
-
-
-
-#TIPO INGRESO
-@login_required(login_url='login')
-@permission_required("home.view_tipomovimiento", raise_exception=True)
-def tabla_tipoIngresos(request):
-    mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
-    naturaleza = 'ingreso'  # Filtro fijo para solo mostrar egresos
-    
-    base_query = TipoMovimiento.objects.filter(naturaleza=naturaleza)
-    
-    if mostrar:
-        tipoMovimientos = base_query.all()
-    else:
-        tipoMovimientos = base_query.filter(estadoTipoMovimiento='ACTIVO')
-    
-    return render(request, 'home/tablaTipoIngresos.html', {
-        'tipoMovimientos': tipoMovimientos,
-        'mostrar_inactivos': mostrar,
-        'naturaleza_actual': naturaleza  # Enviamos la naturaleza al template
-    })
-
-@login_required(login_url='login')
-@permission_required("home.add_tipomovimiento", raise_exception=True)
-def tipoIngreso_modal(request):
-    if request.method == 'POST':
-        form = TipoMovimientoForm(request.POST, naturaleza='ingreso')
-        if form.is_valid():
-            try:
-                instance = form.save(commit=False)
-                instance.naturaleza = 'ingreso'
-                instance.save()
-                return JsonResponse({
-                    'success': True,
-                    'message': 'Tipo de ingreso registrado exitosamente'
-                })
-            except Exception as e:
-                return JsonResponse({
-                    'success': False,
-                    'error': str(e)
-                }, status=500)
-        else:
-            return JsonResponse({
-                'success': False,
-                'errors': form.errors.get_json_data()
-            }, status=400)
-    
-    form = TipoMovimientoForm(naturaleza='ingreso')
-    return render(request, 'home/tipoMovimiento.html', {'form': form})
-
-@login_required(login_url='login')
-@permission_required('home.change_tipomovimiento', raise_exception=True)
-def edit_tipoIngresos(request, pk):
-    instance = get_object_or_404(TipoMovimiento, pk=pk, naturaleza='ingreso')
-    
-    if request.method == 'POST':
-        # Pasar naturaleza al formulario
-        form = TipoMovimientoForm(request.POST, instance=instance, naturaleza='ingreso')
-        if form.is_valid():
-            edited = form.save()
-            return JsonResponse({'success': True, 'message': 'Tipo de ingreso editado correctamente.'})
-        else:
-            return JsonResponse({'success': False, 'errors': form.errors.get_json_data()})
-    else:
-        # Inicializar formulario con naturaleza
-        form = TipoMovimientoForm(instance=instance, naturaleza='ingreso')
-        
-    return render(request, 'home/modales/editTipoMovimiento.html', {
-        'form': form,
-        'TipoMovimiento': instance
-    })
-
-@login_required(login_url='login')
-@permission_required('home.change_tipomovimiento', raise_exception=True)
-def desactivar_tipoIngreso(request, pk):
-    ingreso = get_object_or_404(TipoMovimiento, pk=pk, naturaleza='ingreso')
-    
-    if request.method == 'POST':
-        ingreso.estadoTipoMovimiento = "INACTIVO"
-        ingreso.save()
-        
-        # Cambia esto para devolver JSON
-        return JsonResponse({
-            'success': True,
-            'message': f'⛔ Ingreso "{ingreso.nombreTipoMovimiento}" desactivado'
-        })
-    
-    return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
-
-# Reactivar Ingreso
-@login_required(login_url='login')
-@permission_required("home.change_tipomovimiento", raise_exception=True)
-def reactivate_tipoIngreso(request, pk):
-    ingreso = get_object_or_404(TipoMovimiento, pk=pk, naturaleza='ingreso')
-    
-    if request.method == 'POST':
-        ingreso.estadoTipoMovimiento = 'ACTIVO'
-        ingreso.save()
-        return JsonResponse({
-            'success': True,
-            'message': f'✅ Ingreso "{ingreso.nombreTipoMovimiento}" reactivado exitosamente'
-        })
-    
-    return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
-
-# Eliminación Física (Opcional - Si necesitas borrado real)
-@login_required(login_url='login')
-@permission_required("home.delete_tipomovimiento", raise_exception=True)
-def delete_tipoIngreso(request, pk):
-    ingreso = get_object_or_404(TipoMovimiento, pk=pk, naturaleza='ingreso')
-    
-    if request.method == 'POST':
-        try:
-            nombre = ingreso.nombreTipoMovimiento
-            ingreso.delete()
-            return JsonResponse({
-                'success': True,
-                'message': f'🗑️ Ingreso "{nombre}" eliminado permanentemente'
-            })
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': f'Error al eliminar: {str(e)}'
-            }, status=500)
-    
-    return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
-
-
-#INGRESO
-@login_required(login_url='login')
-@permission_required("home.add_movimiento", raise_exception=True)
-def tabla_ingreso(request):
-    mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
-    naturaleza = 'ingreso'  # Filtro fijo para solo mostrar ingresos
-    
-    base_query = Movimiento.objects.filter(naturaleza=naturaleza)
-    
-    if mostrar:
-        movimientos = base_query.all()
-    else:
-        movimientos = base_query.filter(estadoMovimiento='ACTIVO')
-    
-    return render(request, 'home/tablaIngresos.html', {
-        'movimientos': movimientos,
-        'mostrar_inactivos': mostrar,
-        'naturaleza_actual': naturaleza  # Enviamos la naturaleza al template
-    })
-
-@login_required(login_url='login')
-@permission_required("home.add_movimiento", raise_exception=True)
-def ingreso_modal(request):
-    naturaleza = 'ingreso'
-    action_url = reverse('ingreso_modal')  # Obtiene la URL de la vista actual
-
-    if request.method == 'POST':
-        form = MovimientoForm(request.POST, initial={'naturaleza': naturaleza})
-        if form.is_valid():
-            instance = form.save()
-            return JsonResponse({'success': True, 'message': '✅ Ingreso registrado exitosamente'})
-        else:
-            errors = {field: error[0] for field, error in form.errors.items()}
-            print(form.errors)
-            return JsonResponse({'success': False, 'errors': errors})
-
-    else:
-        form = MovimientoForm(initial={'naturaleza': naturaleza})
-
-    tasas = Tasa.objects.select_related('idMoneda') \
-        .values('idMoneda__idMoneda', 'idMoneda__nombreMoneda') \
-        .annotate(ultima_idTasa=Max('idTasa'), ultima_tasa=Max('montoTasa'))
-
-    context = {
-        'form': form,
-        'bancos': Banco.objects.filter(estadoBanco='ACTIVO'),
-        'tipoMovimientos': TipoMovimiento.objects.filter(naturaleza=naturaleza, estadoTipoMovimiento='ACTIVO'),
-        'denominaciones': Denominacion.objects.filter(estadoDenominacion='ACTIVO'),
-        'monedas': tasas,
-        'naturaleza': naturaleza,
-        'action_url': action_url  # Agrega la URL al contexto
-    }
-
-    return render(request, 'home/movimiento.html', context)
-
-@login_required(login_url='login')
-@permission_required("home.change_movimiento", raise_exception=True)
-def edit_ingreso(request, naturaleza, idMovimiento):
-    instance = get_object_or_404(Movimiento, idMovimiento=idMovimiento, naturaleza=naturaleza)
-
-    monedas = Moneda.objects.annotate(
-        ultima_tasa_id=Subquery(
-            Tasa.objects.filter(idMoneda=OuterRef('idMoneda'))
-            .order_by('-fechaTasa')
-            .values('idTasa')[:1]
-        ),
-        ultima_tasa_valor=Subquery(
-            Tasa.objects.filter(idMoneda=OuterRef('idMoneda'))
-            .order_by('-fechaTasa')
-            .values('montoTasa')[:1]
-        )
-    )
-
-    if request.method == 'POST':
-        form = MovimientoForm(request.POST, instance=instance, naturaleza=naturaleza)
-        if form.is_valid():
-            edited = form.save(commit=False)
-            edited.naturaleza = naturaleza
-            edited.save()
-            return JsonResponse({'success': True, 'message': f'{naturaleza.title()} actualizado correctamente'})
-        return JsonResponse({'success': False, 'errors': form.errors.get_json_data()})
-
-    form = MovimientoForm(instance=instance)
-    form.fields['naturaleza'].disabled = True
-
-    return render(request, 'home/modales/editMovimiento.html', {
-        'form': form,
-        'movimiento': instance,
-        'naturaleza': naturaleza,
-        'bancos': Banco.objects.filter(estadoBanco='ACTIVO'),
-        'tipoMovimientos': TipoMovimiento.objects.filter(naturaleza=naturaleza, estadoTipoMovimiento='ACTIVO'),
-        'denominaciones': Denominacion.objects.filter(estadoDenominacion='ACTIVO'),
-        'monedas': monedas,
-    })
-
-@login_required(login_url='login')
-@permission_required('home.change_tipomovimiento', raise_exception=True)
-def desactivar_ingreso(request, pk):
-    ingreso = get_object_or_404(Movimiento, pk=pk, naturaleza='ingreso')
-    
-    if request.method == 'POST':
-        ingreso.estadoMovimiento = "INACTIVO"
-        ingreso.save()
-        
-        # Cambia esto para devolver JSON
-        return JsonResponse({
-            'success': True,
-            'message': f'⛔ Ingreso "{ingreso.idMovimiento}" desactivado'
-        })
-    
-    return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
-
-# Reactivar Egreso
-@login_required(login_url='login')
-@permission_required("home.change_movimiento", raise_exception=True)
-def reactivate_ingreso(request, pk):
-    ingreso = get_object_or_404(Movimiento, pk=pk, naturaleza='ingreso')
-    
-    if request.method == 'POST':
-        ingreso.estadoMovimiento = 'ACTIVO'
-        ingreso.save()
-        return JsonResponse({
-            'success': True,
-            'message': f'✅ Ingreso "{ingreso.idMovimiento}" reactivado exitosamente'
-        })
-    
-    return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
-
-# Eliminación Física (Opcional - Si necesitas borrado real)
-@login_required(login_url='login')
-@permission_required("home.delete_tipomovimiento", raise_exception=True)
-def delete_ingreso(request, pk):
-    ingreso = get_object_or_404(Movimiento, pk=pk, naturaleza='ingreso')
-    
-    if request.method == 'POST':
-        try:
-            nombre = ingreso.idMovimiento
-            ingreso.delete()
-            return JsonResponse({
-                'success': True,
-                'message': f'🗑️ Ingreso "{nombre}" eliminado permanentemente'
-            })
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': f'Error al eliminar: {str(e)}'
-            }, status=500)
-    
-    return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
-
-#MOVIMIENTOS
-@login_required(login_url='login')
-@permission_required("home.add_movimiento", raise_exception=True)
-def movimiento_modal(request):
-    if request.method == 'POST':
-        form = MovimientoForm(request.POST)
-        if form.is_valid():
-            form.save()
-            return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
-        else:
-            # Agrega esta línea para depurar errores
-            print(form.errors)  # Esto imprimirá los errores en la consola
-            errors = {field: error for field, error in form.errors.items()}
-            return JsonResponse({'success': False, 'errors': errors})
-    else:
-        form = MovimientoForm()
-      
-    return render(request, 'home/movimiento.html')
-
-@login_required(login_url='login')
-@permission_required("home.change_movimiento", raise_exception=True)
-def edit_movimiento(request, pk):
-    movimiento = get_object_or_404(Movimiento, pk=pk)
-    if request.method == 'POST':
-        form = MovimientoForm(request.POST, instance=movimiento)
-        if form.is_valid():
-            form.save()
-            return JsonResponse({'success': True})
-        return JsonResponse({'errors': form.errors}, status=400)
-    else:
-        form = MovimientoForm(instance=movimiento)
-        tipoMovimientos = TipoMovimiento.objects.all()
-        denominaciones = Denominacion.objects.all()
-        bancos = Banco.objects.all()
-        # Agregar 'ultima_tasa' a la subconsulta
-        monedas = Moneda.objects.annotate(
-            ultima_idTasa=Subquery(
-                Tasa.objects.filter(idMoneda=OuterRef('idMoneda'))
-                .order_by('-fechaTasa')
-                .values('idTasa')[:1]
-            ),
-            ultima_tasa=Subquery(
-                Tasa.objects.filter(idMoneda=OuterRef('idMoneda'))
-                .order_by('-fechaTasa')
-                .values('montoTasa')[:1]
-            )
-        )
-        return render(request, 'home/modales/editMovimiento.html', {
-            'form': form,
-            'movimiento': movimiento,
-            'tipoMovimientos': tipoMovimientos,
-            'denominaciones': denominaciones,
-            'bancos': bancos,
-            'monedas': monedas,
-            'naturaleza': movimiento.naturaleza
-        })
-
-@login_required(login_url='login')
-@permission_required("home.change_movimiento", raise_exception=True)
-def delete_movimiento(request, pk):
-    movimiento = get_object_or_404(Movimiento, pk=pk)
-    movimiento.estadoMovimiento = 'INACTIVO'
-    movimiento.save()
-    return JsonResponse({'success': True, 'message': 'Movimiento desactivado'})
-
-@login_required(login_url='login')
-@permission_required("home.change_movimiento", raise_exception=True)
-def reactivate_movimiento(request, pk):
-    movimiento = get_object_or_404(Movimiento, pk=pk)
-    movimiento.estadoMovimiento = 'ACTIVO'
-    movimiento.save()
-    return JsonResponse({'success': True, 'message': 'Movimiento reactivado'})
-
-
-#FIN 
 
 @login_required(login_url="/login/")
 def index(request):
@@ -4127,7 +3843,7 @@ def actualizar_monedas_api(request):
     # Solo permitir método POST para esta acción que modifica datos
     if request.method != 'POST':
         messages.error(request, "Método no permitido.")
-        return redirect('tabla_monedas') # O a donde quieras redirigir
+        return redirect('tabla_monedas')  # O a donde quieras redirigir
 
     # URL de la API (puedes ponerla en settings.py si prefieres)
     CURRENCY_API_URL = 'https://openexchangerates.org/api/currencies.json'
@@ -4136,69 +3852,120 @@ def actualizar_monedas_api(request):
 
     try:
         # --- 1. Llamada a la API ---
-        print(f"DEBUG: Llamando a la API: {CURRENCY_API_URL}") # Debug
-        response = requests.get(CURRENCY_API_URL, timeout=15) # Timeout de 15 segundos
-        response.raise_for_status() # Lanza un error si la respuesta no es 2xx (OK)
+        print(f"DEBUG: Llamando a la API: {CURRENCY_API_URL}")
+        response = requests.get(CURRENCY_API_URL, timeout=15)
+        response.raise_for_status()
 
         # --- 2. Procesar Respuesta JSON ---
         api_currencies = response.json()
-        print(f"DEBUG: Recibidas {len(api_currencies)} monedas de la API.") # Debug
+        print(f"DEBUG: Recibidas {len(api_currencies)} monedas de la API.")
 
-        # --- 3. Obtener Símbolos Existentes en BD ---
-        # Usamos values_list y flat=True para obtener una lista plana de símbolos
-        # y set() para búsquedas rápidas (O(1) en promedio)
+        # --- 3. Obtener Símbolos y Nombres Existentes en BD (normalizados) ---
         codigos_existentes = set(Moneda.objects.values_list('simboloMoneda', flat=True))
-        print(f"DEBUG: {len(codigos_existentes)} códigos de moneda existentes en BD.") # Debug
+        # Normalizamos nombres a lower + strip para comparar insensible a mayúsc/minúsc
+        nombres_existentes = set(
+            (n.strip().lower() for n in Moneda.objects.values_list('nombreMoneda', flat=True) if n)
+        )
 
-        # --- 4. Comparar y Añadir Nuevas Monedas ---
+        print(f"DEBUG: {len(codigos_existentes)} códigos existentes en BD.")
+        print(f"DEBUG: {len(nombres_existentes)} nombres existentes en BD (normalizados).")
+
+        # --- 4. Comparar y Añadir Nuevas Monedas (lista para crear) ---
         monedas_para_crear = []
         for codigo, nombre in api_currencies.items():
-            # Limitar longitud si es necesario (aunque los códigos suelen ser 3 chars)
             codigo_limpio = codigo.strip()[:5]
             nombre_limpio = nombre.strip()[:100]
+            nombre_key = nombre_limpio.lower()
 
-            if codigo_limpio not in codigos_existentes:
-                # Añadir a la lista para creación masiva (más eficiente)
-                monedas_para_crear.append(
-                    Moneda(
-                        nombreMoneda=nombre_limpio,
-                        simboloMoneda=codigo_limpio,
-                        estadoMoneda='INACTIVO' # Estado por defecto al crear
-                        # fechaMoneda se añade automáticamente
-                    )
+            # Si ya existe por código o por nombre (insensible a mayúsc/minúsc), saltamos
+            if codigo_limpio in codigos_existentes or nombre_key in nombres_existentes:
+                # DEBUG opcional:
+                # print(f"DEBUG: Saltando {codigo_limpio} - {nombre_limpio} (existente)")
+                continue
+
+            monedas_para_crear.append(
+                Moneda(
+                    nombreMoneda=nombre_limpio,
+                    simboloMoneda=codigo_limpio,
+                    estadoMoneda='INACTIVO'  # Estado por defecto al crear
                 )
-                codigos_existentes.add(codigo_limpio) # Añadir al set para evitar duplicados en este lote
+            )
+            # Añadimos inmediatamente a los sets para evitar duplicados dentro del mismo lote
+            codigos_existentes.add(codigo_limpio)
+            nombres_existentes.add(nombre_key)
 
         # --- 5. Guardar Nuevas Monedas en BD (si hay) ---
         if monedas_para_crear:
             try:
-                # bulk_create es más eficiente para insertar muchos objetos
-                Moneda.objects.bulk_create(monedas_para_crear)
+                # Intentamos bulk_create con ignore_conflicts si la versión de Django lo soporta.
+                # Esto evita excepciones por claves únicas que ya hayan aparecido en concurrencia.
+                Moneda.objects.bulk_create(monedas_para_crear, ignore_conflicts=True)
+                # Si ignore_conflicts se usa, no podemos saber exactamente cuántas se crearon vs ignoradas,
+                # pero podemos asumir que intentamos insertar len(monedas_para_crear). Para precisión, podríamos
+                # comparar conteos previos/posteriores.
                 nuevas_monedas_contador = len(monedas_para_crear)
-                print(f"DEBUG: Añadidas {nuevas_monedas_contador} nuevas monedas.") # Debug
-                messages.success(request, f'¡Actualización completada! Se añadieron {nuevas_monedas_contador} nuevas monedas.')
-            except Exception as db_error: # Captura errores de BD (ej. violación de unique)
-                print(f"ERROR DB al guardar monedas: {db_error}") # Debug
+                print(f"DEBUG: Intentadas {nuevas_monedas_contador} inserciones con bulk_create(ignore_conflicts=True).")
+                messages.success(request, f'¡Actualización completada! Se procesaron {nuevas_monedas_contador} monedas (las duplicadas se omitieron).')
+            except TypeError:
+                # Si la versión de Django no soporta ignore_conflicts en bulk_create, fallback:
+                try:
+                    with transaction.atomic():
+                        Moneda.objects.bulk_create(monedas_para_crear)
+                    nuevas_monedas_contador = len(monedas_para_crear)
+                    messages.success(request, f'¡Actualización completada! Se añadieron {nuevas_monedas_contador} nuevas monedas.')
+                except IntegrityError as e:
+                    # Ocurrió una violación de unicidad (posible condición de carrera o inconsistencia).
+                    print(f"WARNING: IntegrityError durante bulk_create: {e}. Aplicando inserción segura por fila.")
+                    creadas = 0
+                    for m in monedas_para_crear:
+                        try:
+                            # Intentamos crear sólo si no existe; get_or_create evita excepción por unique
+                            obj, created_flag = Moneda.objects.get_or_create(
+                                simboloMoneda=m.simboloMoneda,
+                                defaults={
+                                    'nombreMoneda': m.nombreMoneda,
+                                    'estadoMoneda': m.estadoMoneda
+                                }
+                            )
+                            if created_flag:
+                                creadas += 1
+                        except Exception as e2:
+                            monedas_fallidas.append(f"{m.simboloMoneda} - {str(e2)}")
+                    nuevas_monedas_contador = creadas
+                    msg = f'¡Actualización completada! Se añadieron {nuevas_monedas_contador} nuevas monedas.'
+                    if monedas_fallidas:
+                        msg += f' Algunas no pudieron guardarse: {len(monedas_fallidas)}.'
+                    messages.success(request, msg)
+            except Exception as db_error:
+                # Otro error inesperado de BD
+                print(f"ERROR DB al guardar monedas: {db_error}")
                 messages.error(request, f'Error al guardar las nuevas monedas en la base de datos: {db_error}')
         else:
-            print("DEBUG: No se encontraron nuevas monedas para añadir.") # Debug
+            print("DEBUG: No se encontraron nuevas monedas para añadir.")
             messages.info(request, '¡Todo al día! No se encontraron nuevas monedas en la API.')
 
     except requests.exceptions.RequestException as e:
-        print(f"ERROR API: {e}") # Debug
+        print(f"ERROR API: {e}")
         messages.error(request, f"Error al conectar con la API de monedas: {e}")
-    except Exception as e: # Captura otros errores (ej. JSON inválido, etc.)
-        print(f"ERROR General: {e}") # Debug
+    except Exception as e:
+        print(f"ERROR General: {e}")
         messages.error(request, f"Ocurrió un error inesperado durante la actualización: {e}")
 
     # --- 6. Redirigir de vuelta ---
-    return redirect('tabla_monedas') # Redirige a la página de moneda
+    return redirect('tabla_monedas')
 
 
 @login_required(login_url='login')
 @permission_required("home.add_banco", raise_exception=True)
 def actualizar_bancos_api(request):
     if request.method != 'POST':
+        # Si es AJAX devolvemos JSON, si no redirigimos con message
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': False,
+                'type': 'error',
+                'message': "Método no permitido."
+            }, status=405)
         messages.error(request, "Método no permitido.")
         return redirect('banco_list')
 
@@ -4210,37 +3977,36 @@ def actualizar_bancos_api(request):
         resp.raise_for_status()
         api_bancos = resp.json()
 
-        # Determinar una cuenta padre por defecto para todos los bancos nuevos
-        # Aquí usamos la primera PlanCuenta que encuentre; ajústalo según tu lógica
         cuenta_padre = PlanCuenta.objects.first()
         if not cuenta_padre:
-            messages.error(request, "No hay cuentas contables padre configuradas.")
+            msg = "No hay cuentas contables padre configuradas."
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'success': False, 'type': 'error', 'message': msg}, status=400)
+            messages.error(request, msg)
             return redirect('banco_list')
 
-        # Obtener códigos locales existentes
+        # Códigos locales existentes
         cod_exist = set(Banco.objects.values_list('codLocalBanco', flat=True))
 
         nuevos_list = []
         for item in api_bancos:
-            code = item.get('code', '').strip()
-            name = item.get('shortName', '').strip()
+            code = (item.get('code') or '').strip()
+            name = (item.get('shortName') or '').strip()
             if not code or not name:
                 continue
 
-            cod_local = code[:10]  # hasta 10 chars para codLocalBanco
+            cod_local = code[:10]
             if cod_local in cod_exist:
                 continue
 
-            # Hacemos el valor único incorporando el código local
             cod_swift_placeholder = f"SW-N/A-{cod_local}"
 
-            # Preparamos el banco inactivo con valores por defecto
             b = Banco(
                 nombreBanco=name[:100],
                 codLocalBanco=cod_local,
-                codSwiftBanco = cod_swift_placeholder,
+                codSwiftBanco=cod_swift_placeholder,
                 cuentaPadre=cuenta_padre,
-                estadoBanco=False  # inactivo inicialmente
+                estadoBanco=False
             )
             nuevos_list.append(b)
             cod_exist.add(cod_local)
@@ -4248,14 +4014,27 @@ def actualizar_bancos_api(request):
         if nuevos_list:
             Banco.objects.bulk_create(nuevos_list)
             nuevos = len(nuevos_list)
-            messages.success(request, f"¡Actualización completa! Se añadieron {nuevos} nuevos bancos.")
+            msg = f"¡Actualización completa! Se añadieron {nuevos} nuevos bancos."
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'success': True, 'type': 'success', 'added': nuevos, 'message': msg})
+            messages.success(request, msg)
         else:
-            messages.info(request, "¡Todo al día! No se encontraron bancos nuevos.")
+            # No hay nuevos bancos
+            msg = "¡Todo al día! No se encontraron bancos nuevos."
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'success': True, 'type': 'info', 'added': 0, 'message': msg})
+            messages.info(request, msg)
 
     except requests.exceptions.RequestException as e:
-        messages.error(request, f"Error al obtener datos de bancos: {e}")
+        msg = f"Error al obtener datos de bancos: {e}"
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'type': 'error', 'message': msg}, status=502)
+        messages.error(request, msg)
     except Exception as e:
-        messages.error(request, f"Error inesperado al actualizar bancos: {e}")
+        msg = f"Error inesperado al actualizar bancos: {e}"
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'type': 'error', 'message': msg}, status=500)
+        messages.error(request, msg)
 
     return redirect('banco_list')
 
@@ -4345,11 +4124,6 @@ def pages(request):
 
         context["segment"] = load_template
 
-
-        if load_template == "tablaDenominaciones.html":
-            denominaciones = Denominacion.objects.all()
-            context['denominaciones'] = denominaciones
-
         context["segment"] = load_template
         if load_template in [ "tablaBancos.html", "cuentaBanco.html", "tablaCuentaBanco.html"]:
             bancos = Banco.objects.all()
@@ -4369,79 +4143,7 @@ def pages(request):
             monedas = Moneda.objects.all()
             context['monedas'] = monedas
         context["segment"] = load_template
-        if load_template == "tablaTipoIngresos.html":
-            tipoMovimientos = TipoMovimiento.objects.filter(naturaleza="ingreso")
-            context['tipoMovimientos'] = tipoMovimientos
-
-        context["segment"] = load_template
-        if load_template == "tablaTipoEgresos.html":
-            tipoMovimientos = TipoMovimiento.objects.filter(naturaleza="egreso")
-            context['tipoMovimientos'] = tipoMovimientos
-
-        context["segment"] = load_template
-
-
-        if load_template in [ "tablaIngresos.html", "movimiento.html"]:   
-            tipoMovimientos = TipoMovimiento.objects.all()
-            context['tipoMovimientos'] = tipoMovimientos
-            movimientos = Movimiento.objects.filter(naturaleza="ingreso")
-            context['movimientos'] = movimientos
-            denominaciones = Denominacion.objects.all()
-            context['denominaciones'] = denominaciones   
-            bancos = Banco.objects.all()
-            context['bancos'] = bancos
-           
-            # Subconsulta para encontrar la última tasa por moneda
-            subconsulta = Tasa.objects.filter(idMoneda=OuterRef('idMoneda')).order_by('-fechaTasa')
-
-            # Obtener todas las monedas con su última tasa
-            monedas_con_ultimas_tasas = Moneda.objects.annotate(
-                ultima_idTasa=Subquery(subconsulta.values('idTasa')[:1]),  # Último monto de tasa
-                ultima_tasa=Subquery(subconsulta.values('montoTasa')[:1]),  # Último monto de tasa
-                ultima_fecha=Subquery(subconsulta.values('fechaTasa')[:1])  # Última fecha de tasa
-            )
-
-                # Imprimir las monedas y sus últimas tasas en la consola
-            for moneda in monedas_con_ultimas_tasas:
-                print(f"Moneda: {moneda.nombreMoneda}, Última Tasa: {moneda.ultima_tasa}, Fecha: {moneda.ultima_fecha},  Fecha: {moneda.ultima_idTasa}")
-
-            # Agregar las monedas con sus últimas tasas al contexto
-            context['monedas'] = monedas_con_ultimas_tasas
-
-           
-        context["segment"] = load_template
-
-
-
-        if load_template in [ "tablaEgresos.html", "movimiento.html"]:   
-            tipoMovimientos = TipoMovimiento.objects.all()
-            context['tipoMovimientos'] = tipoMovimientos
-            movimientos = Movimiento.objects.filter(naturaleza="egreso")
-            context['movimientos'] = movimientos
-            denominaciones = Denominacion.objects.all()
-            context['denominaciones'] = denominaciones   
-            bancos = Banco.objects.all()
-            context['bancos'] = bancos
-           
-            # Subconsulta para encontrar la última tasa por moneda
-            subconsulta = Tasa.objects.filter(idMoneda=OuterRef('idMoneda')).order_by('-fechaTasa')
-
-            # Obtener todas las monedas con su última tasa
-            monedas_con_ultimas_tasas = Moneda.objects.annotate(
-                ultima_idTasa=Subquery(subconsulta.values('idTasa')[:1]),  # Último monto de tasa
-                ultima_tasa=Subquery(subconsulta.values('montoTasa')[:1]),  # Último monto de tasa
-                ultima_fecha=Subquery(subconsulta.values('fechaTasa')[:1])  # Última fecha de tasa
-            )
-
-                # Imprimir las monedas y sus últimas tasas en la consola
-            for moneda in monedas_con_ultimas_tasas:
-                print(f"Moneda: {moneda.nombreMoneda}, Última Tasa: {moneda.ultima_tasa}, Fecha: {moneda.ultima_fecha},  Fecha: {moneda.ultima_idTasa}")
-
-            # Agregar las monedas con sus últimas tasas al contexto
-            context['monedas'] = monedas_con_ultimas_tasas
-
-           
-        context["segment"] = load_template
+        
         html_template = loader.get_template("home/" + load_template)
         return HttpResponse(html_template.render(context, request))
 

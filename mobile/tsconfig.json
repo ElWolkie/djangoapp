@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "target": "es2016",
+    "module": "es2015",
+    "strict": true,
+    "jsx": "react-jsx",
+    "types": ["nativewind/types"],
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": "src",
+    "paths": {
+      "@api/*": [
+        "api/*"
+      ],
+      "@components/*": [
+        "components/*"
+      ],
+      "@screens/*": [
+        "screens/*"
+      ]
+    }
+  },
+  "include": [
+    "src/**/*",
+    "global.d.ts",
+    "nativewind.d.ts", "AppNavigator.tsx",
+  ],
+  "extends": "expo/tsconfig.base"
+}

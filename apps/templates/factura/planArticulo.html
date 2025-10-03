@@ -1,0 +1,264 @@
+{% extends 'layouts/base2.html' %}
+{% load static %}
+
+{% block title %}Registrar/Editar Plan de Artículo{% endblock title %}
+
+{% block stylesheets %}
+<link rel="stylesheet" href="{% static 'assets/css/styleForms.css' %}">
+<link rel="stylesheet" href="{% static 'assets/css/argon.css' %}">
+<style>
+  /* Inputs más grandes y visibles */
+  .form-control {
+    font-size: 1rem;
+    border-radius: 0.5rem;
+    padding: 0.75rem 1rem;
+    width: 100%;
+  }
+  .form-group label {
+    font-weight: 600;
+  }
+
+  /* Modal más grande y moderno */
+  .modal-dialog { max-width: 800px; }
+  .modal-content {
+    border-radius: 1rem;
+    box-shadow: 0 0.5rem 1.5rem rgba(0,0,0,0.15);
+  }
+  .modal-header {
+    background: linear-gradient(135deg, #5e72e4 0%, #825ee4 100%);
+    color: #fff;
+  }
+  .modal-header h5 {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    font-weight: 700;
+  }
+  .modal-header h5 i { margin-right: 0.5rem; }
+  .modal-body { max-height: 500px; overflow-y: auto; padding-right: 1rem; }
+
+  /* Tabla dentro del modal */
+  #tablaPlanCuentaDebe, #tablaPlanCuentaHaber {
+    width: 100%;
+    table-layout: fixed;
+  }
+  #tablaPlanCuentaDebe tbody, #tablaPlanCuentaHaber tbody {
+    display: block;
+    max-height: 400px;
+    overflow-y: auto;
+  }
+  #tablaPlanCuentaDebe thead, #tablaPlanCuentaHaber thead,
+  #tablaPlanCuentaDebe tbody tr, #tablaPlanCuentaHaber tbody tr {
+    display: table;
+    width: 100%;
+    table-layout: fixed;
+  }
+
+  {% comment %} /* Botones */
+  .btn-warning {
+    background: linear-gradient(135deg, #fd7e14 0%, #ffc107 100%);
+    color: #fff;
+    border-radius: 0.5rem;
+  }
+  .btn-warning:hover {
+    background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+    color: #fff;
+  }
+
+  /* Lupa dentro de los input-group */
+  .input-group-text {
+    background-color: #bcbcbc;
+    border: none;
+  }
+  .input-group-text i { color: #fd7e14; } {% endcomment %}
+</style>
+{% endblock stylesheets %}
+
+{% block content %}
+<div class="container mt-4">
+  <h2 class="text-center mb-4">{% if plan_articulo %}Editar{% else %}Registrar{% endif %} Plan de Artículo</h2>
+
+  <form method="post" id="planArticuloForm" action="{% url 'plan_articulo_create' %}">
+    {% csrf_token %}
+    <div class="form-group mb-3">
+      <label for="tipoArticulo">Tipo de Artículo</label>
+      <select id="tipoArticulo" name="tipoArticulo" class="form-control" required>
+          <option value="" disabled {% if not form.instance.tipoArticulo %}selected{% endif %}>Seleccione...</option>
+          {% for key, value in form.fields.tipoArticulo.choices %}
+              {% if key != "" %}
+                  <option value="{{ key }}" {% if form.instance.tipoArticulo == key %}selected{% endif %}>{{ value }}</option>
+              {% endif %}
+          {% endfor %}
+      </select>
+    </div>
+
+    <div class="row">
+        <div class="form-group col-md-6">
+            <label for="planCuentaDebe">Plan de Cuenta (Debe):</label>
+            <div class="input-group">
+                <input type="text" id="planCuentaDebe" class="form-control text-dark" placeholder="Seleccione un plan de cuenta para el Debe" readonly required />
+                <button type="button" id="buscarPlanCuentaDebe" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#planCuentaDebeModal">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+            <input type="hidden" id="idPlanCuentaDebe" name="idPlanCuentaDebe" required />
+            <div class="invalid-feedback">Por favor seleccione un plan de cuenta para el Debe.</div>
+        </div>
+        <div class="form-group col-md-6">
+            <label for="planCuentaHaber">Plan de Cuenta (Haber):</label>
+            <div class="input-group">
+                <input type="text" id="planCuentaHaber" class="form-control text-dark" placeholder="Seleccione un plan de cuenta para el Haber" readonly required />
+                <button type="button" id="buscarPlanCuentaHaber" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#planCuentaHaberModal">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+            <input type="hidden" id="idPlanCuentaHaber" name="idPlanCuentaHaber" required />
+            <div class="invalid-feedback">Por favor seleccione un plan de cuenta para el Haber.</div>
+        </div>
+    </div>
+
+    <div class="text-center mt-4">
+        <a href="{% url 'plan_articulo_list' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-1"></i> Cancelar
+        </a>
+        <button type="submit" class="btn btn-warning">
+            <i class="fas fa-save me-1"></i> Guardar
+        </button>
+    </div>
+  </form>
+</div>
+
+<!-- Modal Debe -->
+<div class="modal fade" id="planCuentaDebeModal" tabindex="-1" aria-labelledby="planCuentaDebeModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="planCuentaDebeModalLabel"><i class="fas fa-search me-2"></i> Seleccionar Plan de Cuenta (Debe)</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row mb-3">
+          <div class="col-md-8">
+            <div class="input-group">
+              <span class="input-group-text"><i class="fas fa-search"></i></span>
+              <input class="form-control" id="searchPlanCuentaDebeInput" type="text" placeholder="Buscar...">
+            </div>
+          </div>
+        </div>
+        <table class="table table-sm table-striped table-hover" id="tablaPlanCuentaDebe">
+          <thead>
+            <tr><th>Código</th><th>Nombre</th></tr>
+          </thead>
+          <tbody>
+            {% for cuenta in cuentas_plan %}
+            <tr data-id="{{ cuenta.idPlanCuenta }}" data-nombre="{{ cuenta.codigoPlanCuenta }} - {{ cuenta.nombrePlanCuenta }}" style="cursor:pointer;">
+              <td>{{ cuenta.codigoPlanCuenta }}</td>
+              <td>{{ cuenta.nombrePlanCuenta }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <p id="mensajeSinRegistrosDebe" class="text-center text-muted" style="display: none;">No hay registros disponibles</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Haber -->
+<div class="modal fade" id="planCuentaHaberModal" tabindex="-1" aria-labelledby="planCuentaHaberModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title text-white" id="planCuentaHaberModalLabel"><i class="fas fa-search me-2"></i> Seleccionar Plan de Cuenta (Haber)</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="row mb-3">
+          <div class="col-md-8">
+            <div class="input-group">
+              <span class="input-group-text"><i class="fas fa-search"></i></span>
+              <input class="form-control" id="searchPlanCuentaHaberInput" type="text" placeholder="Buscar...">
+            </div>
+          </div>
+        </div>
+        <table class="table table-sm table-striped table-hover" id="tablaPlanCuentaHaber">
+          <thead>
+            <tr><th>Código</th><th>Nombre</th></tr>
+          </thead>
+          <tbody>
+            {% for cuenta in cuentas_plan %}
+            <tr data-id="{{ cuenta.idPlanCuenta }}" data-nombre="{{ cuenta.codigoPlanCuenta }} - {{ cuenta.nombrePlanCuenta }}" style="cursor:pointer;">
+              <td>{{ cuenta.codigoPlanCuenta }}</td>
+              <td>{{ cuenta.nombrePlanCuenta }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <p id="mensajeSinRegistrosHaber" class="text-center text-muted" style="display: none;">No hay registros disponibles</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}
+
+{% block javascripts %}
+<script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
+<script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
+<script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const paginateTable = (tableId, rowsPerPage) => { /* mismo código que ya tienes */ };
+  const filterTable = (tableId, inputId) => { /* mismo código que ya tienes */ };
+
+  filterTable('tablaPlanCuentaDebe', 'searchPlanCuentaDebeInput');
+  paginateTable('tablaPlanCuentaDebe', 5);
+
+  filterTable('tablaPlanCuentaHaber', 'searchPlanCuentaHaberInput');
+  paginateTable('tablaPlanCuentaHaber', 5);
+
+  const handleSeleccion = (tr, inputId, hiddenId, modalId) => {
+    document.getElementById(inputId).value = tr.getAttribute('data-nombre');
+    document.getElementById(hiddenId).value = tr.getAttribute('data-id');
+    bootstrap.Modal.getInstance(document.getElementById(modalId)).hide();
+  };
+
+  document.getElementById('tablaPlanCuentaDebe').addEventListener('click', e => {
+    const tr = e.target.closest('tr');
+    if(tr) handleSeleccion(tr, 'planCuentaDebe', 'idPlanCuentaDebe', 'planCuentaDebeModal');
+  });
+  document.getElementById('tablaPlanCuentaHaber').addEventListener('click', e => {
+    const tr = e.target.closest('tr');
+    if(tr) handleSeleccion(tr, 'planCuentaHaber', 'idPlanCuentaHaber', 'planCuentaHaberModal');
+  });
+
+  const form = document.querySelector('#planArticuloForm');
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const formData = new FormData(form);
+    const url = form.action;
+    try {
+      const response = await fetch(url, { method: 'POST', body: formData, headers: { 'X-CSRFToken': formData.get('csrfmiddlewaretoken') }});
+      const result = await response.json();
+      if(response.ok && result.success){
+        Swal.fire({title:'Éxito', text: result.message || 'Operación realizada correctamente.', icon:'success', confirmButtonText:'OK'})
+        .then(()=>{ if(result.url) window.location.href=result.url; });
+      } else {
+        Swal.fire({title:'Error', text: result.message || 'Ocurrió un error al procesar la solicitud.', icon:'error', confirmButtonText:'OK'});
+      }
+    } catch(error){
+      Swal.fire({title:'Error', text:'Error de conexión con el servidor.', icon:'error', confirmButtonText:'OK'});
+      console.error(error);
+    }
+  });
+});
+</script>
+{% endblock javascripts %}

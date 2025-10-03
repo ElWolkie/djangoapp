@@ -3,25 +3,201 @@
 {% block stylesheets %}
 <link rel="stylesheet" href="/static/assets/css/styleForms.css" />
 <link rel="stylesheet" href="/static/assets/css/argon.css" />
+<style>
+  .persona-container {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 1rem;
+    box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.1);
+    padding: 1.5rem; /* Reducido de 2rem */
+    margin: 0.5rem auto; /* Reducido de 2rem */
+    max-width: 95%; /* Cambiado de 900px a porcentaje */
+    width: 100%;
+  }
+  .persona-header {
+    text-align: center;
+    margin-bottom: 1.5rem; /* Reducido de 2rem */
+    position: relative;
+    padding-bottom: 1rem;
+  }
+  .persona-header h2 {
+    color: #343a40;
+    font-weight: 700;
+    font-size: 1.3rem; /* Ligeramente más grande para mejor proporción */
+    margin-bottom: 0.5rem;
+  }
+  .persona-header p {
+    margin-bottom: 0;
+  }
+  .persona-header::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80px;
+    height: 4px;
+    background: linear-gradient(90deg, #ffc107, #fd7e14);
+    border-radius: 2px;
+  }
+  .form-group {
+    margin-bottom: 1.2rem; /* Reducido de 1.5rem */
+    position: relative;
+  }
+  .form-label {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    font-size: 0.95rem; /* Ligeramente más pequeño */
+  }
+  .form-label i {
+    margin-right: 8px;
+    color: #fd7e14;
+    font-size: 0.9rem; /* Ajustado para mejor proporción */
+  }
+  .form-control {
+    border-radius: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    border: 1px solid #ced4da;
+    background-color: #fff;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.075);
+    transition: all 0.3s;
+    height: 48px;
+    font-size: 0.95rem; /* Ajustado para mejor proporción */
+  }
+  .form-control:focus {
+    border-color: #ffc107;
+    box-shadow: 0 0 0 0.25rem rgba(255,193,7,0.25);
+  }
+  .input-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6c757d;
+    z-index: 2;
+    font-size: 0.9rem; /* Ajustado para mejor proporción */
+  }
+  .input-with-icon {
+    padding-left: 40px;
+  }
+  .btn-submit {
+    background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+    border: none;
+    color: #fff;
+    font-weight: 600;
+    padding: 0.75rem 2rem;
+    border-radius: 0.5rem;
+    transition: all 0.3s;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    font-size: 1rem;
+  }
+  .btn-submit:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    background: linear-gradient(135deg, #fd7e14 0%, #ffc107 100%);
+  }
+  /* Campos de solo lectura */
+  .readonly-field {
+    display: block;
+    width: 100%;
+    height: 48px;
+    padding: 0.75rem 1.25rem;
+    font-size: 0.95rem;
+    font-weight: 400;
+    line-height: 1.5;
+    color: #495057;
+    background-color: #e9ecef;
+    background-clip: padding-box;
+    border: 1px solid #ced4da;
+    border-radius: 0.5rem;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.075);
+    opacity: 0.8;
+    display: flex;
+    align-items: center;
+  }
+  .readonly-field.with-icon {
+    padding-left: 40px;
+  }
+  /* Validación visual */
+  .was-validated .form-control:invalid,
+  .form-control.is-invalid {
+    border-color: #dc3545;
+    box-shadow: 0 0 0 0.25rem rgba(220,53,69,.15);
+  }
+  .was-validated .form-control:valid,
+  .form-control.is-valid {
+    border-color: #198754;
+    box-shadow: 0 0 0 0.25rem rgba(25,135,84,.15);
+  }
+  /* Ajuste para checkboxes */
+  .form-check {
+    margin-bottom: 0.4rem; /* Reducido de 0.5rem */
+  }
+  .form-check-input:checked {
+    background-color: #fd7e14;
+    border-color: #fd7e14;
+  }
+  .form-check-input:focus {
+    border-color: #ffc107;
+    box-shadow: 0 0 0 0.25rem rgba(255,193,7,0.25);
+  }
+  .form-check-label {
+    font-size: 0.95rem; /* Ajustado para mejor proporción */
+  }
+  .tipo-persona-error {
+    width: 100%;
+    margin-top: 0.25rem;
+    font-size: 80%;
+    color: #dc3545;
+    display: none;
+  }
+  .required-field::after {
+    content: " *";
+    color: red;
+  }
+  /* Ajustes para el contenedor del modal */
+  .modal-body {
+    padding: 0.5rem; /* Reducir el padding del cuerpo del modal */
+  }
+  .btn-submit:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.btn-submit:focus-visible {
+  outline: 2px solid #fd7e14;
+  outline-offset: 2px;
+}
+</style>
 {% endblock stylesheets %}
 
 {% block content %}
-<h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Editar Persona</h2>
+<div class="persona-container">
+  <div class="persona-header">
+    <h2><i class="fas fa-user-edit text-warning"></i> Editar Persona</h2>
+    <p class="text-muted">Modifique los campos editables y guarde los cambios</p>
+  </div>
   
   {% if messages %}
     {% for message in messages %}
-      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+      <div class="alert alert-{{ message.tags }} alert-dismissible fade show mb-3" role="alert">
         {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
       </div>
     {% endfor %}
   {% endif %}
   
-  <form method="POST" class="mt-4 text-dark" autocomplete="off" style="font-weight: bold;" id="editPersonaForm" action="{% url 'edit_persona' persona.idPersona %}">
+  <form method="POST" id="editPersonaForm" action="{% url 'edit_persona' persona.idPersona %}" class="needs-validation" novalidate autocomplete="off">
     {% csrf_token %}
     <div class="row">
-      <div class="col-md-6">
+      <!-- Tipo de Persona -->
+      <div class="col-md-12">
         <div class="form-group">
-          <label for="tipoPersona">Tipo de Persona:</label>
+          <label class="form-label required-field">
+            <i class="fas fa-users"></i> Tipo de Persona
+          </label>
           <div class="row">
             {% for tp in tipos_persona %}
               <div class="col-md-4">
@@ -40,141 +216,267 @@
               </div>
             {% endfor %}
           </div>
-        </div>
-
-        <div class="form-group">
-          <label for="nombres">Nombres:</label>
-          <div class="input-group">
-            <input type="text" id="nombres" name="nombres" class="form-control text-dark" value="{{persona.nombres}}" placeholder="Ingrese su nombre" tabindex="3" maxlength="100" readonly />
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label for="telefono">Teléfono:</label>
-          <input type="text" id="telefono" name="telefono" class="form-control text-dark" value="{{persona.telefono}}" placeholder="0412-000-0000" tabindex="5" maxlength="15" required />
+          <div class="tipo-persona-error" id="tipoPersonaError">Debe seleccionar al menos un tipo de persona.</div>
         </div>
       </div>
       
+      <!-- Cédula (solo visualización) -->
       <div class="col-md-6">
         <div class="form-group">
-          <label for="cedula">Cédula:</label>
-          <input type="text" id="cedula" name="cedula" class="form-control text-dark" value="{{persona.cedula}}" placeholder="Ingrese su cédula" tabindex="2" maxlength="8" readonly />
-        </div>
-        <div class="form-group">
-          <label for="apellidos">Apellidos:</label>
-          <input type="text" id="apellidos" name="apellidos" class="form-control text-dark" value="{{persona.apellidos}}" placeholder="Ingrese su apellido" tabindex="4" maxlength="100" readonly />
-
-        </div>
-        <div class="form-group">
-          <label for="correo">Correo Electrónico:</label>
-          <input type="email" id="correo" name="correo" class="form-control text-dark" value="{{persona.correo}}" placeholder="example@gmail.com" tabindex="6" maxlength="254" required />
-          <input type="hidden" id="estadoPersona" name="estadoPersona" class="form-control text-dark" value="ACTIVO" />
+          <label class="form-label required-field">
+            <i class="fas fa-id-card"></i> Cédula
+          </label>
+          <div class="input-group position-relative">
+            <i class="fas fa-id-card input-icon"></i>
+            <div class="readonly-field with-icon">
+              {{persona.cedula}}
+            </div>
+          </div>
+          <input type="hidden" name="cedula" value="{{persona.cedula}}">
         </div>
       </div>
-
+      
+      <!-- RIF (solo visualización) -->
+      <div class="col-md-6">
+        <div class="form-group">
+          <label class="form-label required-field">
+            <i class="fas fa-building"></i> RIF
+          </label>
+          <div class="input-group position-relative">
+            <i class="fas fa-building input-icon"></i>
+            <div class="readonly-field with-icon">
+              {{persona.rif}}
+            </div>
+          </div>
+          <input type="hidden" name="rif" value="{{persona.rif}}">
+        </div>
+      </div>
+      
+      <!-- Nombres (solo visualización) -->
+      <div class="col-md-6">
+        <div class="form-group">
+          <label class="form-label required-field">
+            <i class="fas fa-signature"></i> Nombres
+          </label>
+          <div class="input-group position-relative">
+            <i class="fas fa-user input-icon"></i>
+            <div class="readonly-field with-icon">
+              {{persona.nombres}}
+            </div>
+          </div>
+          <input type="hidden" name="nombres" value="{{persona.nombres}}">
+        </div>
+      </div>
+      
+      <!-- Apellidos (solo visualización) -->
+      <div class="col-md-6">
+        <div class="form-group">
+          <label class="form-label required-field">
+            <i class="fas fa-signature"></i> Apellidos
+          </label>
+          <div class="input-group position-relative">
+            <i class="fas fa-user input-icon"></i>
+            <div class="readonly-field with-icon">
+              {{persona.apellidos}}
+            </div>
+          </div>
+          <input type="hidden" name="apellidos" value="{{persona.apellidos}}">
+        </div>
+      </div>
+      
+      <!-- Teléfono (editable) -->
+      <div class="col-md-6">
+        <div class="form-group">
+          <label for="telefono" class="form-label required-field">
+            <i class="fas fa-phone"></i> Teléfono
+          </label>
+          <div class="input-group position-relative">
+            <i class="fas fa-phone input-icon"></i>
+            <input type="text" id="telefono" name="telefono" class="form-control input-with-icon" 
+                   value="{{persona.telefono}}" placeholder="0412-000-0000" maxlength="15" required />
+            <div class="invalid-feedback">Por favor, ingrese un número de teléfono válido.</div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Correo Electrónico (editable) -->
+      <div class="col-md-6">
+        <div class="form-group">
+          <label for="correo" class="form-label required-field">
+            <i class="fas fa-envelope"></i> Correo Electrónico
+          </label>
+          <div class="input-group position-relative">
+            <i class="fas fa-envelope input-icon"></i>
+            <input type="email" id="correo" name="correo" class="form-control input-with-icon" 
+                   value="{{persona.correo}}" placeholder="example@gmail.com" maxlength="254" required />
+            <div class="invalid-feedback">Por favor, ingrese un correo electrónico válido.</div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Dirección (editable) -->
       <div class="col-md-12">
         <div class="form-group">
-          <label for="rif">RIF:</label>
-          <div class="input-group">
-            <input type="text" id="rif" name="rif" class="form-control text-dark" value="{{persona.rif}}" tabindex="3" maxlength="20" readonly />
-          </div>
-        </div>
-        <div class="form-group">
-          <label for="direccion">Dirección:</label>
-          <div class="input-group">
-            <input type="text" id="direccion" name="direccion" class="form-control text-dark" value="{{persona.direccion}}" tabindex="3" maxlength="255" />
+          <label for="direccion" class="form-label required-field">
+            <i class="fas fa-map-marker-alt"></i> Dirección
+          </label>
+          <div class="input-group position-relative">
+            <i class="fas fa-map-marker-alt input-icon"></i>
+            <input type="text" id="direccion" name="direccion" class="form-control input-with-icon" 
+                   value="{{persona.direccion}}" maxlength="255" required />
+            <div class="invalid-feedback">Por favor, ingrese una dirección.</div>
           </div>
         </div>
       </div>
-
     </div>
-    <div class="text-center">
-      <input type="submit" class="btn btn-warning mt-4" value="Guardar" />
+    
+    <input type="hidden" id="estadoPersona" name="estadoPersona" value="ACTIVO" />
+    
+    <div class="text-center mt-3"> <!-- Reducido de mt-4 -->
+      <button type="submit" class="btn-submit">
+        <i class="fas fa-save me-2"></i> Guardar
+      </button>
     </div>
   </form>
-<!-- Modal -->
-<div class="modal fade" id="editPersonaModal" tabindex="-1" role="dialog" aria-labelledby="editPersonaModalLabel" aria-hidden="true">
-  <div class="modal-dialog" role="document">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="editPersonaModalLabel">Registro de Persona</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
-      <div class="modal-body">
-        <!-- Contenedor para los mensajes -->
-        <div id="modalMessages"></div>
-        <!-- El contenido del formulario se cargará aquí -->
-      </div>
-    </div>
-  </div>
 </div>
-</div>
-
 {% endblock content %}
 
 {% block javascripts %}
 <script src="/static/assets/js/validacionesPersona.js"></script>
 <script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
-
 <script>
+// Validaciones específicas para el formulario de edición
 document.addEventListener("DOMContentLoaded", function() {
-  const form = document.getElementById("editPersonaForm");
-
-  // Deshabilitar campos no editables
-  ["cedula","nombres","apellidos"].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.setAttribute("disabled","true");
-  });
-
-  // Marcar checkboxes existentes
-  const seleccionados = {{ tipos_seleccionados|safe }};
-  seleccionados.forEach(id => {
-    const chk = document.querySelector(`input[name="tipoPersona"][value="${id}"]`);
-    if (chk) chk.checked = true;
-  });
-
-  // Interceptar el submit
-  form.addEventListener("submit", async function(e) {
-    e.preventDefault();
-    const data = new FormData();
-
-    // Solo campos habilitados
-    form.querySelectorAll("input, select").forEach(el => {
-      if (!el.disabled && el.name) data.append(el.name, el.value);
-    });
-    // Todos los tipos seleccionados
-    form.querySelectorAll("input[name='tipoPersona']:checked")
-        .forEach(chk => data.append("tipoPersona", chk.value));
-
-    try {
-      const resp = await fetch(form.action, {
-        method: "POST",
-        body: data,
-        headers: { "X-Requested-With": "XMLHttpRequest" }
-      });
-      const json = await resp.json();
-      if (json.success) {
-        await Swal.fire({
-          icon: "success",
-          text: json.message,
-          confirmButtonText: "OK",
-          customClass: { confirmButton: "btn btn-warning" },
-          buttonsStyling: false
-        });
-        // redirigir
-        window.location = json.redirect_url;
-      } else {
-        const html = Object.values(json.errors)
-                           .flat()
-                           .map(m=>`<p>${m}</p>`).join("");
-        Swal.fire({ icon:"error", title:"Errores", html });
-      }
-    } catch(err) {
-      console.error(err);
-      Swal.fire("Error","No se pudo contactar al servidor","error");
+  // Validar teléfono en formato 0412-000-0000
+  document.getElementById("telefono").addEventListener("input", function() {
+    let value = this.value.replace(/\D/g, '');
+    if (value.length > 4) {
+      value = value.substring(0, 4) + '-' + value.substring(4, 7) + '-' + value.substring(7, 11);
     }
+    this.value = value;
+  });
+
+  // Validar que no se ingresen caracteres especiales en la dirección
+  document.getElementById("direccion").addEventListener("input", function() {
+    this.value = this.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ0-9\s.,#\-]/g, '');
+  });
+
+  // Validación de formulario
+  document.getElementById("editPersonaForm").addEventListener("submit", function(e) {
+    // Validar checkboxes de tipo de persona
+    const checkboxes = document.querySelectorAll('input[name="tipoPersona"]:checked');
+    if (checkboxes.length === 0) {
+      e.preventDefault();
+      document.getElementById("tipoPersonaError").style.display = "block";
+      // Desplazarse al error
+      document.getElementById("tipoPersonaError").scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  });
+});
+
+// Resto del código JavaScript para el envío AJAX
+$(document).ready(function() {
+  // Función para validar los checkboxes de tipo de persona
+  function validateTipoPersona() {
+    const checkboxes = $('input[name="tipoPersona"]');
+    const isChecked = checkboxes.is(':checked');
+    const errorElement = $('#tipoPersonaError');
+    
+    if (!isChecked) {
+      errorElement.show();
+      return false;
+    } else {
+      errorElement.hide();
+      return true;
+    }
+  }
+
+  // Validación de Bootstrap
+  $('#editPersonaForm').on('submit', function(e) {
+    e.preventDefault();
+    
+    // Validar los checkboxes de tipo de persona
+    if (!validateTipoPersona()) {
+      // Mostrar el error y detener el envío
+      e.stopPropagation();
+      $(this).addClass('was-validated');
+      return;
+    }
+    
+    // Validar el resto del formulario
+    if (this.checkValidity() === false) {
+      e.stopPropagation();
+      $(this).addClass('was-validated');
+      
+      // Enfocar el primer campo inválido
+      const firstInvalid = $(this).find(':invalid').first();
+      if (firstInvalid.length) {
+        firstInvalid.focus();
+      }
+      
+      return;
+    }
+    
+    // Si es válido, enviar por AJAX
+    const formData = new FormData(this);
+    
+    // Enviar por AJAX
+    $.ajax({
+      url: $(this).attr('action'),
+      type: 'POST',
+      data: formData,
+      processData: false,
+      contentType: false,
+      headers: {
+        'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val(),
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      success: function(data) {
+        if (data.success) {
+          // Mostrar mensaje de éxito
+          Swal.fire({
+            icon: 'success',
+            title: '¡Actualizado!',
+            text: data.message || 'Los datos de la persona se han actualizado correctamente.',
+            confirmButtonColor: '#ffc107'
+          }).then((result) => {
+            // Cerrar el modal
+            $('#editPersonaModal').modal('hide');
+            
+            // Si hay una función de callback para actualizar la tabla, ejecutarla
+            window.location.reload();
+          });
+        } else {
+          // Mostrar errores de validación del servidor
+          if (data.errors) {
+            let errors = '';
+            for (const [key, value] of Object.entries(data.errors)) {
+              errors += `${value}\n`;
+            }
+            Swal.fire({
+              icon: 'error',
+              title: 'Error en la actualización',
+              text: errors,
+              confirmButtonColor: '#ffc107'
+            });
+          }
+        }
+      },
+      error: function(xhr, status, error) {
+        console.error('Error:', error);
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'Ocurrió un error en el servidor',
+          confirmButtonColor: '#ffc107'
+        });
+      }
+    });
+  });
+
+  // Añadir evento change a los checkboxes para validar en tiempo real
+  $('input[name="tipoPersona"]').change(function() {
+    validateTipoPersona();
   });
 });
 </script>

@@ -26,100 +26,106 @@
       padding: 0.5em 0.75em;
     }
     .modal-dialog { max-width: 600px; }
-    
-    .pagination-container {
-      margin-top: 1rem !important;
+    .modal.fade.show {
+      display: block !important;
+      background-color: rgba(0,0,0,0.5);
     }
 
-    .pagination {
-      --bs-pagination-padding-x: 0.75rem;
-      --bs-pagination-padding-y: 0.375rem;
-      --bs-pagination-font-size: 0.875rem;
+    /* Scrollbar personalizado solo para la tabla horizontal */
+    .table-responsive {
+      scrollbar-width: thin;
+      scrollbar-color: rgb(107, 143, 250) #f1f1f1;
     }
 
-    .page-link {
-      min-width: 32px;
-      text-align: center;
-      border-radius: 4px !important;
+    .table-responsive::-webkit-scrollbar { height: 8px; }
+    .table-responsive::-webkit-scrollbar-track { background: #f1f1f1; }
+    .table-responsive::-webkit-scrollbar-thumb {
+      background-color: rgb(81, 141, 245);
+      border-radius: 4px;
+      border: 2px solid #f1f1f1;
     }
 
-    .page-item.active .page-link {
-      background-color: #fb6340;
-      border-color: #fb6340;
-    }
+    .pagination-container { margin-top: 1rem !important; }
+    .pagination { --bs-pagination-padding-x: 0.75rem; --bs-pagination-padding-y: 0.375rem; --bs-pagination-font-size: 0.875rem; }
+    .page-link { min-width: 32px; text-align: center; border-radius: 4px !important; }
+    .page-item.active .page-link { background-color: #fb6340; border-color: #fb6340; }
 
     /* Estilos para el modal de detalles */
-    .details-modal .modal-content {
-      border-radius: 15px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-    }
-    .details-modal .modal-header {
-      background: linear-gradient(135deg, #5e72e4 0%, #825ee4 100%);
-      color: white;
-      border-radius: 15px 15px 0 0;
-    }
-    .detail-item {
-      padding: 10px 0;
-      border-bottom: 1px solid #eee;
-      display: flex;
-    }
-    .detail-label {
-      font-weight: 600;
-      color: #525f7f;
-      min-width: 120px;
-    }
-    .detail-value {
-      color: #8898aa;
-      flex-grow: 1;
-    }
-    .detail-value.bold {
-      font-weight: 600;
-      color: #333;
-    }
-    
+    .details-modal .modal-content { border-radius: 15px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2); }
+    .details-modal .modal-header { background: linear-gradient(135deg, #5e72e4 0%, #825ee4 100%); color: white; border-radius: 15px 15px 0 0; }
+    .detail-item { padding: 10px 0; border-bottom: 1px solid #eee; display: flex; }
+    .detail-label { font-weight: 600; color: #525f7f; min-width: 120px; }
+    .detail-value { color: #8898aa; flex-grow: 1; }
+    .detail-value.bold { font-weight: 600; color: #333; }
+
     /* Tabla compacta */
-    .compact-table th, .compact-table td {
-      padding: 0.5rem 0.75rem;
-      font-size: 0.875rem;
-    }
-    
-    .table-actions .btn {
-      padding: 0.25rem 0.5rem;
-      font-size: 0.75rem;
-    }
+    .compact-table th, .compact-table td { padding: 0.5rem 0.75rem; font-size: 0.875rem; }
+  
+  .compact-table th,
+  .compact-table td {
+    text-align: left;
+  }
+    .table-actions .btn { padding: 0.25rem 0.5rem; font-size: 0.75rem; }
   </style>
 {% endblock stylesheets %}
 
 {% block content %}
 <div class="container mt-4">
-  <h2 class="text-center mb-4">Lista de Bancos Registrados</h2>
+  <h2 class="text-center mb-4">Lista de Bancos</h2>
 
   <div class="row mb-3">
     <div class="col-md-4">
       <div class="input-group">
-        <span class="input-group-text"><i class="fas fa-search"></i></span>
-        <input class="form-control" id="searchInput" type="text" placeholder="Buscar por cualquier campo">
+        <!-- Buscador directo del bakend NO BORRAR -->
+        <form onsubmit="updateSearchParam(event)" class="d-flex w-100">
+          <span class="input-group-text"><i class="fas fa-search"></i></span>
+          <input type="text" id="searchInput" name="search" class="form-control" placeholder="Buscar..." value="{{ search_query|default:'' }}">
+          <button type="submit" style="display:none" tabindex="-1" aria-hidden="true"></button>
+        </form>
       </div>
     </div>
-    
+
     <div class="col-md-4 text-end">
       {% if perms.cuentaBanco.add_banco %}
-      <a href="{% url 'banco_create' %}" class="btn btn-warning px-4">
-        <i class="fas fa-plus-circle me-1"></i> Registrar Banco
+      <a href="{% url 'banco_create' %}" class="btn btn-warning px-3" title="Registrar un nuevo banco">
+        <i class="fas fa-plus-circle me-1"></i> Registrar
       </a>
       {% endif %}
+      {% if perms.cuentaBanco.add_banco %}
+      <button class="btn btn-warning px-3 ms-2" data-bs-toggle="modal" data-bs-target="#confirmarActualizacionModal" title="Actualizar bancos de fuente externa">
+        <i class="fas fa-credit-card me-1"></i> Actualizar
+      </button>
+      {% endif %}
     </div>
-    
-    <div class="col-md-4 text-end">
-      <a href="{% url 'reporte_bancos_pdf' %}" class="btn btn-outline-danger" target="_blank">
-        <i class="fas fa-file-pdf me-1"></i> Descargar PDF
-      </a>
+
+    <div class="col-md-4">
+      <div class="d-flex justify-content-end align-items-center gap-2">
+        <!-- Botón PDF grande -->
+        <a href="{% url 'reporte_bancos_pdf' %}" target="_blank" class="btn btn-outline-danger px-4">
+          <i class="fas fa-file-pdf me-1"></i> PDF Completo
+        </a>
+
+        <!-- Dropdown rango PDF -->
+        <div class="btn-group">
+          <button type="button" class="btn btn-outline-secondary px-3 dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+            <i class="fas fa-calendar-alt me-1"></i> Rango
+          </button>
+          <div class="dropdown-menu dropdown-menu-end p-3" style="min-width: 240px;">
+            <label class="form-label mb-1">Desde:</label>
+            <input type="number" id="pdfStart" min="1" value="1" class="form-control form-control-sm mb-2" />
+            <label class="form-label mb-1">Hasta:</label>
+            <input type="number" id="pdfEnd" min="1" value="{{ bancos|length }}" class="form-control form-control-sm mb-3" />
+            <button class="btn btn-outline-danger btn-sm w-100 px-4" id="downloadPdfRange" target="_blank">
+              <i class="fas fa-file-pdf me-1"></i> Descargar
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
   <div class="mb-3">
-    <a href="?mostrar_inactivos={% if mostrar_inactivos %}false{% else %}true{% endif %}"
-       class="btn btn-outline-secondary btn-sm">
+    <a href="?mostrar_inactivos={% if mostrar_inactivos %}false{% else %}true{% endif %}" class="btn btn-outline-secondary btn-sm" title="¿No encuentras lo que buscas? Intenta cambiar este filtro.">
       {% if mostrar_inactivos %}
         <i class="fas fa-eye-slash me-1"></i> Ocultar inactivos
       {% else %}
@@ -145,12 +151,12 @@
   <!-- Tabla compacta -->
   <div class="card shadow-sm">
     <div class="table-responsive">
-      <table class="table table-striped table-hover align-middle compact-table" id="bancosTable">
+      <table class="table table-sm table-striped table-hover align-middle text-gray-dark compact-table" id="bancosTable">
         <thead class="table-light">
           <tr>
             <th>Nombre</th>
-            <th>Código Local</th>
-            <th>Código SWIFT</th>
+            <th title="Código utilizado para transferencias nacionales.">Código Local</th>
+            {% comment %} <th title="Código utilizado para transferencias internacionales.">Código SWIFT</th> {% endcomment %}
             <th>Estado</th>
             <th class="actions-column">Acciones</th>
           </tr>
@@ -158,19 +164,19 @@
         <tbody>
           {% for banco in bancos %}
           <tr>
-            <td>{{ banco.nombreBanco }}</td>
-            <td>{{ banco.codLocalBanco }}</td>
-            <td>{{ banco.codSwiftBanco }}</td>
-            <td>
+            <td class="text-start">{{ banco.nombreBanco }}</td>
+            <td class="text-start">{{ banco.codLocalBanco }}</td>
+            {% comment %} <td class="text-start">{{ banco.codSwiftBanco }}</td> {% endcomment %}
+            <td class="text-start">
               {% if banco.estadoBanco %}
                 <span class="badge bg-success text-white">Activo</span>
               {% else %}
                 <span class="badge bg-danger text-white">Inactivo</span>
               {% endif %}
             </td>
-            <td class="actions-column table-actions">
+            <td class="actions-column">
               <div class="d-flex gap-2">
-                <!-- Botón para ver detalles -->
+                <!-- Ver detalles -->
                 <button class="btn btn-info btn-sm"
                         data-bs-toggle="modal"
                         data-bs-target="#detailsModal"
@@ -186,6 +192,7 @@
                 </button>
 
                 {% if perms.cuentaBanco.change_banco %}
+                <!-- Editar (carga form por AJAX) -->
                 <button class="btn btn-primary btn-sm"
                         data-bs-toggle="modal"
                         data-bs-target="#editBancoModal"
@@ -226,48 +233,58 @@
       </table>
     </div>
   </div>
-  
+
   <!-- Paginación -->
-  <div class="pagination-container mt-3">
-    <ul class="pagination justify-content-center" id="pagination"></ul>
-  </div>
+<div class="pagination-container text-center mt-4">
+  <nav aria-label="Page navigation">
+    <ul class="pagination justify-content-center">
+      {% if bancos.has_previous %}
+        <li class="page-item">
+          <a class="page-link" href="javascript:void(0);" onclick="updatePageParam({{ bancos.previous_page_number }})" aria-label="Anterior">
+            <span aria-hidden="true">&laquo;</span>
+          </a>
+        </li>
+      {% endif %}
+
+      {% for num in bancos.paginator.page_range %}
+        {% if num == 1 or num == bancos.paginator.num_pages or num >= bancos.number|add:"-2" and num <= bancos.number|add:"2" %}
+          <li class="page-item {% if bancos.number == num %}active{% endif %}">
+            <a class="page-link" href="javascript:void(0);" onclick="updatePageParam({{ num }})">{{ num }}</a>
+          </li>
+        {% elif num == bancos.number|add:"-3" or num == bancos.number|add:"3" %}
+          <li class="page-item disabled"><span class="page-link">...</span></li>
+        {% endif %}
+      {% endfor %}
+
+      {% if bancos.has_next %}
+        <li class="page-item">
+          <a class="page-link" href="javascript:void(0);" onclick="updatePageParam({{ bancos.next_page_number }})" aria-label="Siguiente">
+            <span aria-hidden="true">&raquo;</span>
+          </a>
+        </li>
+      {% endif %}
+    </ul>
+  </nav>
+</div>
 </div>
 
 <!-- Modal: Ver Detalles -->
 <div class="modal fade details-modal" id="detailsModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
-      <div class="modal-header bg-primary text-white">
+      <div class="modal-header">
         <h5 class="modal-title text-white">Detalles del Banco</h5>
         <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
           <i class="fas fa-times"></i>
         </button>
       </div>
       <div class="modal-body">
-        <div class="detail-item">
-          <div class="detail-label">Nombre:</div>
-          <div class="detail-value" id="detail-nombre"></div>
-        </div>
-        <div class="detail-item">
-          <div class="detail-label">Código Local:</div>
-          <div class="detail-value" id="detail-codlocal"></div>
-        </div>
-        <div class="detail-item">
-          <div class="detail-label">Código SWIFT:</div>
-          <div class="detail-value" id="detail-codswift"></div>
-        </div>
-        <div class="detail-item">
-          <div class="detail-label">Código Contable:&nbsp</div>
-          <div class="detail-value" id="detail-codcontable"></div>
-        </div>
-        <div class="detail-item">
-          <div class="detail-label">Estado:</div>
-          <div class="detail-value" id="detail-estado"></div>
-        </div>
-        <div class="detail-item">
-          <div class="detail-label">Fecha Registro:&nbsp</div>
-          <div class="detail-value" id="detail-fecha"></div>
-        </div>
+        <div class="detail-item"><div class="detail-label">Nombre:</div><div class="detail-value" id="detail-nombre"></div></div>
+        <div class="detail-item"><div class="detail-label">Código Local:</div><div class="detail-value" id="detail-codlocal"></div></div>
+        <div class="detail-item"><div class="detail-label">Código SWIFT:</div><div class="detail-value" id="detail-codswift"></div></div>
+        <div class="detail-item"><div class="detail-label">Código Contable:</div><div class="detail-value" id="detail-codcontable"></div></div>
+        <div class="detail-item"><div class="detail-label">Estado:</div><div class="detail-value" id="detail-estado"></div></div>
+        <div class="detail-item"><div class="detail-label">Fecha Registro:</div><div class="detail-value" id="detail-fecha"></div></div>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
@@ -276,18 +293,61 @@
   </div>
 </div>
 
-<!-- Modal Editar Banco -->
+<!-- Modal Editar Banco (contenido cargado por AJAX) -->
 <div class="modal fade" id="editBancoModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-md">
     <div class="modal-content">
       <div class="modal-header bg-primary text-white">
         <h5 class="modal-title text-white"><i class="fas fa-edit me-2"></i> Editar Banco</h5>
-        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal">
-          <i class="fas fa-times"></i>
-        </button>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal"><i class="fas fa-times"></i></button>
       </div>
       <div class="modal-body" id="editBancoContent">
         <div class="text-center py-4"><p class="text-muted">Cargando formulario…</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Registrar Banco (carga AJAX) -->
+<div class="modal fade" id="bancoModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-md">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title text-white"><i class="fas fa-plus-circle me-2"></i> Registro de Banco</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-body" id="registrarBancoContent">
+        <div class="text-center py-4"><p class="text-muted">Cargando formulario…</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Confirmación de Actualización -->
+<div class="modal fade" id="confirmarActualizacionModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-md">
+    <div class="modal-content">
+      <div class="modal-header bg-warning text-dark">
+        <h5 class="modal-title"><i class="fas fa-exclamation-triangle me-2"></i> Atención</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p>Esto <b>recargará todos los bancos desde la fuente externa</b> (se añadirán inactivos). ¿Deseas continuar?</p>
+        <div id="actualizarSpinner" style="display:none;" class="text-center py-2">
+          <div class="spinner-border text-primary" role="status"></div>
+          <div class="mt-2">Actualizando bancos, por favor espere…</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <form id="actualizarBancosForm" action="{% url 'actualizar_bancos_api' %}" method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-warning" id="confirmActualizarBtn">
+            <i class="fas fa-credit-card me-1"></i> Actualizar
+          </button>
+        </form>
       </div>
     </div>
   </div>
@@ -299,20 +359,14 @@
     <div class="modal-content">
       <div class="modal-header bg-warning text-dark">
         <h5 class="modal-title"><i class="fas fa-user-slash me-2"></i> Confirmar Inhabilitación</h5>
-        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal">
-          <i class="fas fa-times"></i>
-        </button>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal"><i class="fas fa-times"></i></button>
       </div>
-      <div class="modal-body">
-        <p>¿Seguro que deseas inhabilitar este banco?</p>
-      </div>
+      <div class="modal-body"><p>¿Seguro que deseas inhabilitar este banco?</p></div>
       <div class="modal-footer">
         <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
         <form id="deleteBancoForm" method="post">
           {% csrf_token %}
-          <button type="submit" class="btn btn-warning">
-            <i class="fas fa-user-slash me-1"></i> Inhabilitar
-          </button>
+          <button type="submit" class="btn btn-warning"><i class="fas fa-user-slash me-1"></i> Inhabilitar</button>
         </form>
       </div>
     </div>
@@ -325,210 +379,417 @@
     <div class="modal-content">
       <div class="modal-header bg-success text-white">
         <h5 class="modal-title"><i class="fas fa-redo me-2"></i> Confirmar Reactivación</h5>
-        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal">
-          <i class="fas fa-times"></i>
-        </button>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal"><i class="fas fa-times"></i></button>
       </div>
-      <div class="modal-body">
-        <p>¿Deseas reactivar este banco?</p>
-      </div>
+      <div class="modal-body"><p>¿Deseas reactivar este banco?</p></div>
       <div class="modal-footer">
         <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
         <form id="reactivateBancoForm" method="post">
           {% csrf_token %}
-          <button type="submit" class="btn btn-success">
-            <i class="fas fa-redo me-1"></i> Reactivar
-          </button>
+          <button type="submit" class="btn btn-success"><i class="fas fa-redo me-1"></i> Reactivar</button>
         </form>
       </div>
     </div>
   </div>
 </div>
+
 {% endblock content %}
+
 
 {% block javascripts %}
   <script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
   <script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
   <script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
+
   <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      // Configurar el modal de detalles
+    $(document).ready(function () {
+      // ---------- Helpers ----------
+      function showGlobalMessage(html) {
+        $('#globalMessages').prepend(html);
+      }
+
+      // ---------- Details modal ----------
       $('#detailsModal').on('show.bs.modal', function(event) {
         const button = $(event.relatedTarget);
         const modal = $(this);
-        
-        // Obtener datos de los atributos data-*
-        const codlocal = button.data('codlocal');
-        const codswift = button.data('codswift');
-        const codcontable = button.data('codcontable');
-        const nombre = button.data('nombre');
+
+        modal.find('#detail-nombre').text(button.data('nombre') || '');
+        modal.find('#detail-codlocal').text(button.data('codlocal') || '');
+        modal.find('#detail-codswift').text(button.data('codswift') || '');
+        modal.find('#detail-codcontable').text(button.data('codcontable') || '');
+        modal.find('#detail-fecha').text(button.data('fecha') || '');
+
         const estado = button.data('estado');
-        const fecha = button.data('fecha');
-        
-        // Insertar datos en el modal
-        modal.find('#detail-nombre').text(nombre);
-        modal.find('#detail-codlocal').text(codlocal);
-        modal.find('#detail-codswift').text(codswift);
-        modal.find('#detail-codcontable').text(codcontable);
-        modal.find('#detail-fecha').text(fecha);
-        
-        // Formatear estado
-        let estadoHtml;
-        if (estado) {
-          estadoHtml = '<span class="badge bg-success text-white">Activo</span>';
-        } else {
-          estadoHtml = '<span class="badge bg-danger text-white">Inactivo</span>';
-        }
+        const estadoHtml = estado ? '<span class="badge bg-success text-white">Activo</span>' : '<span class="badge bg-danger text-white">Inactivo</span>';
         modal.find('#detail-estado').html(estadoHtml);
       });
 
-      // Cargar modal de edición
+      // ---------- Load edit modal content (AJAX GET) ----------
       $('#editBancoModal').on('show.bs.modal', function(e) {
         const url = $(e.relatedTarget).data('url');
         const $content = $('#editBancoContent');
         $content.html('<div class="text-center py-4"><div class="spinner-border text-primary"></div></div>');
-        $.get(url).done(html => $content.html(html));
+        $.get(url)
+          .done(function(html) { $content.html(html); })
+          .fail(function() { $content.html('<div class="text-danger p-3">Error al cargar el formulario.</div>'); });
       });
 
-      // Configurar action de los formularios DELETE y REACTIVATE
+      // ---------- Load create modal content ----------
+      $('#bancoModal').on('show.bs.modal', function(e) {
+        const $content = $('#registrarBancoContent');
+        $content.html('<div class="text-center py-4"><div class="spinner-border text-primary"></div></div>');
+        $.get("{% url 'banco_create' %}")
+          .done(function(html) { $content.html(html); })
+          .fail(function() { $content.html('<div class="text-danger p-3">Error al cargar el formulario.</div>'); });
+      });
+
+      // ---------- Configure delete/reactivate modal forms action ----------
       ['delete','reactivate'].forEach(action => {
         const modalId = `#${action}BancoModal`;
         const formId  = `#${action}BancoForm`;
-        $(modalId).on('show.bs.modal', e => {
+        $(modalId).on('show.bs.modal', function(e) {
           const url = $(e.relatedTarget).data('url');
           $(formId).attr('action', url);
         });
       });
 
-      // Variables para paginación
+      // ---------- AJAX: Crear banco (form inside modal should have id #bancoForm) ----------
+      $(document).on('submit', '#bancoForm', function(e) {
+        e.preventDefault();
+        const form = $(this);
+        $.post(form.attr('action'), form.serialize())
+          .done(function(resp) {
+            if (resp.success) {
+              $('#bancoModal').modal('hide');
+              showGlobalMessage(`<div class="alert alert-success alert-dismissible fade show" role="alert">${resp.message}
+                <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;"><i class="fas fa-times"></i></button>
+                </div>`);
+              setTimeout(() => location.reload(), 700);
+            } else {
+              // Show errors inside modal (assume there's #modalMessages inside)
+              const container = $('#registrarBancoContent').find('#modalMessages');
+              if (container.length === 0) {
+                $('#registrarBancoContent').prepend('<div id="modalMessages"></div>');
+              }
+              const messagesContainer = $('#registrarBancoContent').find('#modalMessages').empty();
+              if (resp.errors) {
+                $.each(resp.errors, function(k, v) {
+                  messagesContainer.append(`<div class="alert alert-danger alert-dismissible fade show" role="alert">${v}</div>`);
+                });
+              } else {
+                messagesContainer.append(`<div class="alert alert-danger">${resp.message || 'Error'}</div>`);
+              }
+            }
+          })
+          .fail(function() {
+            alert('Error en el servidor al registrar el banco.');
+          });
+      });
+
+      // ---------- AJAX: Editar banco ----------
+      $(document).on('submit', '#editBancoForm', function(e) {
+        e.preventDefault();
+        const form = $(this);
+        $.post(form.attr('action'), form.serialize())
+          .done(function(resp) {
+            if (resp.success) {
+              $('#editBancoModal').modal('hide');
+              showGlobalMessage(`<div class="alert alert-success alert-dismissible fade show" role="alert">${resp.message}
+                <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;"><i class="fas fa-times"></i></button>
+                </div>`);
+              setTimeout(() => location.reload(), 700);
+            } else {
+              // show errors inside edit modal
+              const container = $('#editBancoContent').find('#modalMessages');
+              if (container.length === 0) {
+                $('#editBancoContent').prepend('<div id="modalMessages"></div>');
+              }
+              const messagesContainer = $('#editBancoContent').find('#modalMessages').empty();
+              if (resp.errors) {
+                $.each(resp.errors, function(k, v) {
+                  messagesContainer.append(`<div class="alert alert-danger alert-dismissible fade show" role="alert">${v}</div>`);
+                });
+              } else {
+                messagesContainer.append(`<div class="alert alert-danger">${resp.message || 'Error'}</div>`);
+              }
+            }
+          })
+          .fail(function() {
+            alert('Error en el servidor al editar el banco.');
+          });
+      });
+
+      // ---------- AJAX: Inhabilitar / Reactivar (forms already have ids) ----------
+      $(document).on('submit', '#deleteBancoForm, #reactivateBancoForm', function(e) {
+        e.preventDefault();
+        const form = $(this);
+        $.post(form.attr('action'), form.serialize())
+          .done(function(resp) {
+            if (resp.success) {
+              const modalId = '#' + form.closest('.modal').attr('id');
+              $(modalId).modal('hide');
+              showGlobalMessage(`<div class="alert alert-success alert-dismissible fade show" role="alert">${resp.message}
+                <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;"><i class="fas fa-times"></i></button>
+                </div>`);
+              setTimeout(() => location.reload(), 800);
+            } else {
+              showGlobalMessage(`<div class="alert alert-danger alert-dismissible fade show" role="alert">${resp.message || 'Error'}
+                <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;"><i class="fas fa-times"></i></button>
+                </div>`);
+            }
+          })
+          .fail(function() {
+            showGlobalMessage(`<div class="alert alert-danger alert-dismissible fade show" role="alert">Error en el servidor
+              <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;"><i class="fas fa-times"></i></button>
+              </div>`);
+          });
+      });
+
+      // ---------- AJAX: Actualizar bancos desde fuente externa ----------
+      $('#actualizarBancosForm').on('submit', function(e) {
+        e.preventDefault();
+        const form = $(this);
+        const $btn = $('#confirmActualizarBtn');
+        const $spinner = $('#actualizarSpinner');
+
+        // bloqueo UI
+        $btn.prop('disabled', true);
+        $spinner.show();
+
+        $.post(form.attr('action'), form.serialize())
+          .done(function(resp) {
+            // resp expected: { success: bool, type: 'success'|'info'|'error', message: str, added: int? }
+            $spinner.hide();
+            $btn.prop('disabled', false);
+            $('#confirmarActualizacionModal').modal('hide');
+
+            if (resp && resp.success) {
+              if (resp.type === 'info') {
+                showGlobalMessage(`<div class="alert alert-info alert-dismissible fade show" role="alert">${resp.message}
+                  <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;"><i class="fas fa-times"></i></button>
+                  </div>`);
+              } else {
+                showGlobalMessage(`<div class="alert alert-success alert-dismissible fade show" role="alert">${resp.message}
+                  <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;"><i class="fas fa-times"></i></button>
+                  </div>`);
+              }
+              // refrescar para ver los nuevos bancos (si se añadieron)
+              setTimeout(() => location.reload(), 900);
+            } else {
+              const msg = (resp && resp.message) ? resp.message : 'Error al actualizar bancos.';
+              showGlobalMessage(`<div class="alert alert-danger alert-dismissible fade show" role="alert">${msg}
+                <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;"><i class="fas fa-times"></i></button>
+                </div>`);
+            }
+          })
+          .fail(function(xhr, status, err) {
+            $spinner.hide();
+            $btn.prop('disabled', false);
+            const text = xhr && xhr.responseJSON && xhr.responseJSON.message
+              ? xhr.responseJSON.message
+              : 'Error en el servidor al actualizar bancos.';
+            showGlobalMessage(`<div class="alert alert-danger alert-dismissible fade show" role="alert">${text}
+              <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;"><i class="fas fa-times"></i></button>
+              </div>`);
+          });
+      });
+
+      // // ---------- Pagination + Filtering ----------
       const pagination = document.getElementById('pagination');
       const rowsPerPage = 10;
       let currentPage = 1;
 
-      // Función para obtener las filas visibles
-      function getVisibleRows() {
-        return Array.from(document.querySelectorAll('#bancosTable tbody tr'))
-          .filter(row => row.style.display !== 'none');
+      function getAllRows() {
+        return Array.from(document.querySelectorAll('#bancosTable tbody tr'));
       }
 
-      // Función para mostrar las filas de la página actual
+      function getVisibleRowsFiltered() {
+        // Rows that are not filtered out (display != 'none')
+        return getAllRows().filter(r => r.style.display !== 'none');
+      }
+
       function displayRows() {
-        const visibleRows = getVisibleRows();
+        const visible = getVisibleRowsFiltered();
         const start = (currentPage - 1) * rowsPerPage;
         const end = start + rowsPerPage;
-        
-        // Ocultar todas las filas primero
-        visibleRows.forEach(row => row.style.display = 'none');
-        
-        // Mostrar solo las filas de la página actual
-        for (let i = start; i < end && i < visibleRows.length; i++) {
-          visibleRows[i].style.display = '';
+        // hide all
+        getAllRows().forEach(r => r.style.display = 'none');
+        // show those in the page
+        for (let i = start; i < end && i < visible.length; i++) {
+          visible[i].style.display = '';
         }
+        updatePdfRangeInputs();
       }
 
-      // Función para configurar la paginación
       function setupPagination() {
-        const visibleRows = getVisibleRows();
-        const totalPages = Math.ceil(visibleRows.length / rowsPerPage);
+        const visible = getVisibleRowsFiltered();
+        const totalPages = Math.max(1, Math.ceil(visible.length / rowsPerPage));
         pagination.innerHTML = '';
+        if (totalPages <= 1) return;
 
-        if (totalPages > 1) {
-          // Botón Anterior
-          const prevLi = document.createElement('li');
-          prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
-          prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Anterior">&laquo;</a>`;
-          prevLi.addEventListener('click', (e) => {
-            e.preventDefault();
-            if (currentPage > 1) {
-              currentPage--;
-              displayRows();
-              setupPagination();
-            }
+        // Previous
+        const prevLi = document.createElement('li');
+        prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+        prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Anterior">&laquo;</a>`;
+        prevLi.addEventListener('click', (e) => {
+          e.preventDefault();
+          if (currentPage > 1) { currentPage--; displayRows(); setupPagination(); }
+        });
+        pagination.appendChild(prevLi);
+
+        // Pages
+        for (let i = 1; i <= totalPages; i++) {
+          const li = document.createElement('li');
+          li.className = `page-item ${i === currentPage ? 'active' : ''}`;
+          li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+          li.addEventListener('click', (e) => {
+        e.preventDefault();
+        currentPage = i;
+        displayRows();
+        setupPagination();
           });
-          pagination.appendChild(prevLi);
-
-          // Botones de página
-          for (let i = 1; i <= totalPages; i++) {
-            const li = document.createElement('li');
-            li.className = `page-item ${i === currentPage ? 'active' : ''}`;
-            li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
-            li.addEventListener('click', (e) => {
-              e.preventDefault();
-              currentPage = i;
-              displayRows();
-              setupPagination();
-            });
-            pagination.appendChild(li);
-          }
-
-          // Botón Siguiente
-          const nextLi = document.createElement('li');
-          nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
-          nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Siguiente">&raquo;</a>`;
-          nextLi.addEventListener('click', (e) => {
-            e.preventDefault();
-            if (currentPage < totalPages) {
-              currentPage++;
-              displayRows();
-              setupPagination();
-            }
-          });
-          pagination.appendChild(nextLi);
+          pagination.appendChild(li);
         }
+
+        // Next
+        const nextLi = document.createElement('li');
+        nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+        nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Siguiente">&raquo;</a>`;
+        nextLi.addEventListener('click', (e) => {
+          e.preventDefault();
+          if (currentPage < totalPages) { currentPage++; displayRows(); setupPagination(); }
+        });
+        pagination.appendChild(nextLi);
       }
 
-      // Inicializar la tabla y la paginación
+      // Initialize paginacion
       displayRows();
       setupPagination();
 
-      // Filtrado de tabla por texto
+      // Search filter
       $('#searchInput').on('keyup', function() {
-        const filter = this.value.toUpperCase();
-        const rows = document.querySelectorAll('#bancosTable tbody tr');
-        
-        rows.forEach(row => {
-          row.style.display = row.textContent.toUpperCase().includes(filter) ? '' : 'none';
+        const filter = $(this).val().toUpperCase();
+        getAllRows().forEach(row => {
+          const text = row.textContent.toUpperCase();
+          row.style.display = text.includes(filter) ? '' : 'none';
         });
-        
-        // Resetear a la primera página después de filtrar
+        // reset back to page 1
         currentPage = 1;
         displayRows();
         setupPagination();
       });
 
-      // Manejo de formularios AJAX para inhabilitar y reactivar
-      $(document).on('submit', '#deleteBancoForm, #reactivateBancoForm', function(e) {
-        e.preventDefault();
-        const form = $(this);
-        $.ajax({
-          url: form.attr('action'),
-          method: 'POST',
-          data: form.serialize(),
-          success: function(response) {
-            if (response.success) {
-              // Cerrar el modal
-              const modalId = '#' + form.closest('.modal').attr('id');
-              $(modalId).modal('hide');
-              // Mostrar mensaje de éxito
-              $('#globalMessages').prepend(`
-                <div class="alert alert-success alert-dismissible fade show" role="alert">
-                  ${response.message}
-                  <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
-                    <i class="fas fa-times"></i>
-                  </button>
-                </div>
-              `);
-              // Recargar después de un breve tiempo
-              setTimeout(() => location.reload(), 1500);
-            } else {
-              alert(response.message || 'Error al procesar la solicitud');
-            }
-          },
-          error: function() {
-            alert('Error en el servidor');
-          }
-        });
+      // ---------- PDF range sync ----------
+      function updatePdfRangeInputs() {
+        const visible = getVisibleRowsFiltered();
+        if (visible.length === 0) {
+          $('#pdfStart').val(0);
+          $('#pdfEnd').val(0);
+          return;
+        }
+        const firstVisible = visible[(currentPage-1)*rowsPerPage] || visible[0];
+        const lastVisible = visible[Math.min(visible.length-1, (currentPage*rowsPerPage)-1)] || visible[visible.length-1];
+        const all = getAllRows();
+        const firstIndex = all.indexOf(firstVisible) + 1;
+        const lastIndex = all.indexOf(lastVisible) + 1;
+        $('#pdfStart').val(firstIndex || 1);
+        $('#pdfEnd').val(lastIndex || visible.length);
+      }
+
+      // Download PDF with range
+      $('#downloadPdfRange').on('click', function() {
+        const start = parseInt($('#pdfStart').val()) || 1;
+        const end = parseInt($('#pdfEnd').val()) || 1;
+        if (start > end) {
+          Swal.fire({ title:'Rango inválido', text:'El valor "Desde" debe ser menor o igual que "Hasta".', icon:'warning', confirmButtonText:'OK', customClass:{confirmButton:'btn btn-warning'}, buttonsStyling:false });
+          return;
+        }
+        window.open("{% url 'reporte_bancos_pdf' %}?start=" + start + "&end=" + end, '_blank');
       });
-    });
+
+      // Ensure pdf inputs set on load
+      updatePdfRangeInputs();
+
+      // ---------- Small utility to update pagination after external changes ----------
+      // Recompute when DOM changes (optional)
+      const observer = new MutationObserver(() => { currentPage = 1; displayRows(); setupPagination(); });
+      observer.observe(document.querySelector('#bancosTable tbody'), { childList: true, subtree: false });
+
+    }); // end document ready
   </script>
+
+<script>
+   document.getElementById('downloadPdfRange').addEventListener('click', function() {
+  var start = parseInt(document.getElementById('pdfStart').value) || 1;
+  var end = parseInt(document.getElementById('pdfEnd').value) || 1;
+  if (start > end) {
+    Swal.fire({
+      title: 'Rango inválido',
+      text: 'El valor "Desde" debe ser menor o igual que "Hasta".',
+      icon: 'warning',
+      confirmButtonText: 'OK',
+      customClass: { confirmButton: 'btn btn-warning' },
+      buttonsStyling: false,
+    });
+    return;
+  }
+  // Redirige a la vista PDF con los parámetros de rango
+window.open("{% url 'reporte_bancos_pdf' %}?start=" + start + "&end=" + end, '_blank');});
+
+// Cuando cambie de página, actualiza los inputs de rango al rango visible
+function updatePdfRangeInputs() {
+  const table = document.getElementById('bancosTable');
+  const rows = table.getElementsByTagName('tr');
+  let first = null, last = null, count = 0;
+  for (let i = 1; i < rows.length; i++) {
+    if (rows[i].style.display !== "none") {
+      count++;
+      if (first === null) first = i;
+      last = i;
+    }
+  }
+  if (first !== null && last !== null) {
+    // Ajusta para que coincida con el número de registro (no el índice)
+    document.getElementById('pdfStart').value = first;
+    document.getElementById('pdfEnd').value = last;
+  }
+}
+
+// Llama a updatePdfRangeInputs() después de cada cambio de página
+// Si usas la paginación JS del ejemplo anterior:
+function setupPaginationWithPdfSync() {
+  // ...tu código de paginación...
+  // Después de displayRows() y setupPagination():
+  updatePdfRangeInputs();
+}
+
+// Llama a updatePdfRangeInputs() también al cargar la página
+document.addEventListener('DOMContentLoaded', function () {
+  updatePdfRangeInputs();
+});
+
+</script>
+<script>
+  // Función para actualizar el parámetro 'page' en la URL y recargar la página
+  function updatePageParam(pageNumber) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('page', pageNumber); // Actualiza o añade el parámetro 'page'
+    window.location.href = url.toString(); // Redirige a la nueva URL
+  }
+  function updateSearchParam(event) {
+    event.preventDefault(); // Evita el envío normal del formulario
+
+    const searchInput = document.getElementById('searchInput').value.trim();
+    const url = new URL(window.location.href);
+
+    if (searchInput) {
+      url.searchParams.set('search', searchInput); // Actualiza o añade el parámetro 'search'
+    } else {
+      url.searchParams.delete('search'); // Elimina el parámetro 'search' si está vacío
+    }
+
+    url.searchParams.delete('page'); // Reinicia el parámetro 'page' al realizar una nueva búsqueda
+    window.location.href = url.toString(); // Redirige a la nueva URL
+  }
+</script>
 {% endblock javascripts %}

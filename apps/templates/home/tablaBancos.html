@@ -35,13 +35,13 @@
 
 {% block content %}
 <div class="container mt-4">
-  <h2 class="text-center mb-4">Lista de Bancos Registrados</h2>
+  <h2 class="text-center mb-4">Lista de Bancos</h2>
 
   <div class="row mb-3">
     <div class="col-md-4">
       <div class="input-group">
         <span class="input-group-text"><i class="fas fa-search"></i></span>
-        <input class="form-control" id="searchInput" type="text" placeholder="Buscar por Nombre o Código">
+        <input class="form-control" id="searchInput" type="text" placeholder="Buscar...">
       </div>
     </div>
     <div class="col-md-8 text-end">
@@ -547,7 +547,7 @@ document.addEventListener('DOMContentLoaded', () => {
         success: function(response) {
           if (response.success) {
             // Cierra el modal y recarga la página
-            $('#editBancoModal').modal('hide');
+            $('#editBancoModal').modal('hide.bs.modal');
             location.reload();
           } else {
             // Muestra errores de validación

@@ -1,4 +1,82 @@
-/* Ya no usamos @import de Google Fonts */
+/* En tu sidenav.css */
+body.sidenav-open {
+  overflow: hidden;
+}
+
+#sidenav-main {
+  transition: transform 0.3s ease;
+  z-index: 1050; /* Mayor que el navbar (1040) */
+}
+
+#sidenav-main.show {
+  transform: translateX(0);
+}
+
+/* Para pantallas grandes */
+@media (min-width: 992px) {
+  body.sidenav-open {
+    overflow: auto;
+  }
+  
+  #sidenav-main {
+    transform: translateX(0) !important;
+  }
+}
+
+
+.sidenav {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+/* Scroll moderno */
+.sidenav-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: #888 #f1f1f1;
+    padding-right: 6px;
+}
+
+/* WebKit scrollbar (Chrome, Edge, Safari) */
+.sidenav-scroll::-webkit-scrollbar {
+    width: 8px;
+}
+
+.sidenav-scroll::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.sidenav-scroll::-webkit-scrollbar-thumb {
+    background-color: #888;
+    border-radius: 10px;
+}
+
+.sidenav-scroll::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* Asegura que las palabras no se separen feo */
+.nav-link-text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Por defecto el sidenav queda oculto en móvil */
+@media (max-width: 1199px) {
+  .sidenav {
+    position: fixed;
+    top: 0; left: 0;
+    height: 100%;
+    width: 250px;
+    transform: translateX(-100%);
+    transition: transform .3s ease;
+    z-index: 1030; /* encima de todo */
+  }
+  .sidenav.show {
+    transform: translateX(0);
+  }
+}
 
 @font-face {
     font-family: 'Poppins';

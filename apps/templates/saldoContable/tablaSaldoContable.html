@@ -33,7 +33,7 @@
     <div class="col-md-4">
       <div class="input-group">
         <span class="input-group-text"><i class="fas fa-search"></i></span>
-        <input class="form-control" id="searchInput" type="text" placeholder="Buscar por Plan de Cuenta o Periodo...">
+        <input class="form-control" id="searchInput" type="text" placeholder="Buscar...">
       </div>
     </div>
     <div class="col-md-4 text-end">
@@ -65,7 +65,7 @@
 
   <div class="card shadow-sm">
     <div class="table-responsive">
-      <table class="table table-striped table-hover align-middle text-gray-dark" id="saldosTable">
+      <table class="table table-sm table-striped table-hover align-middle text-gray-dark" id="saldosTable">
         <thead class="table-light">
           <tr>
             <th>ID</th>
@@ -76,28 +76,30 @@
           </tr>
         </thead>
         <tbody>
+          {% if perms.saldoContable.view_saldocontable %}
           {% for saldo in saldos %}
-          <tr>
-            <td>{{ saldo.idSaldo }}</td>
-            <td>
-              <strong>{{ saldo.id_plan_cuenta.codigoPlanCuenta }}</strong> - 
-              {{ saldo.id_plan_cuenta.nombrePlanCuenta }}
-            </td>
-            <td>
-              {{ saldo.id_periodo.nombrePeriodo }}<br>
-              <small class="text-muted">
-                {{ saldo.id_periodo.fechaInicioPeriodo|date:"d/m/Y" }} - 
-                {{ saldo.id_periodo.fechaFinPeriodo|date:"d/m/Y" }}
-              </small>
-            </td>
-            <td class="text-success fw-bold">${{ saldo.saldo_inicial }}</td>
-            <td class="text-primary fw-bold">${{ saldo.saldo_final }}</td>
-          </tr>
-          {% empty %}
-          <tr>
-            <td colspan="5" class="text-center py-4">No hay saldos contables registrados.</td>
-          </tr>
+              <tr>
+                <td>{{ saldo.idSaldo }}</td>
+                <td>
+                  <strong>{{ saldo.id_plan_cuenta.codigoPlanCuenta }}</strong> - 
+                  {{ saldo.id_plan_cuenta.nombrePlanCuenta }}
+                </td>
+                <td>
+                  {{ saldo.id_periodo.nombrePeriodo }}<br>
+                  <small class="text-muted">
+                    {{ saldo.id_periodo.fechaInicioPeriodo|date:"d/m/Y" }} - 
+                    {{ saldo.id_periodo.fechaFinPeriodo|date:"d/m/Y" }}
+                  </small>
+                </td>
+                <td class="text-success fw-bold">${{ saldo.saldo_inicial }}</td>
+                <td class="text-primary fw-bold">${{ saldo.saldo_final }}</td>
+              </tr>
+              {% empty %}
+              <tr>
+                <td colspan="5" class="text-center py-4">No hay saldos contables registrados.</td>
+              </tr>
           {% endfor %}
+          {% endif %}
         </tbody>
       </table>
     </div>

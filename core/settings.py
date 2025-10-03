@@ -70,6 +70,11 @@ CORS_ALLOWED_ORIGINS = [
     "https://djangoapp-6wxv.onrender.com",  # Dominio de Render
 ]
 
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:8081",
+    "http://127.0.0.1:8081",
+]
+
 CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
@@ -122,6 +127,7 @@ MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     'whitenoise.middleware.WhiteNoiseMiddleware',
     "apps.bitacora.middleware.AuditMiddleware",
+    'apps.api.middleware.DisableCSRFForPublicAPI'
     # 'debug_toolbar.middleware.DebugToolbarMiddleware',
 ]
 
@@ -170,8 +176,14 @@ REST_FRAMEWORK = {
 }
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    # duraciones opcionales:
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+
+    # aquí indicamos a SimpleJWT que el campo PK de tu usuario es idUsuario
+    'USER_ID_FIELD': 'idUsuario',
+    # y cómo lo nombrará dentro del payload del token
+    'USER_ID_CLAIM': 'user_id',
 }
 
 # Ajustes específicos para Windows

@@ -35,8 +35,7 @@
     {% endfor %}
   {% endif %}
 
-  <form method="POST" id="facturaForm" action="{% url 'factura_create' %}" class="text-dark needs-validation" autocomplete="off" novalidate>
-    {% csrf_token %}
+  <form method="POST" id="facturaForm" action="{% url 'factura_create' nota_id=nota.idNota %}" class="text-dark needs-validation" autocomplete="off" novalidate>    {% csrf_token %}
 
     <div class="form-row">
       <div class="form-row">

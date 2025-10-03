@@ -1,9 +1,18 @@
-from rest_framework import generics
-from apps.home.models import Personas, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Denominacion, Banco, Moneda, Tasa, TipoIngreso
-from .serializers import PersonaSerializer, TipoPersonaSerializer, PersonaTPSerializer, MateriaSerializer, CohorteSerializer, CargoSerializer, HonorarioSerializer, RequisitoSerializer, ServicioSerializer, TramiteSerializer, SolicitudSerializer, DenominacionSerializer, BancoSerializer, MonedaSerializer, TasaSerializer, TipoIngresoSerializer  # Importa ambos serializadores
+from rest_framework import generics, status
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework.permissions import AllowAny
+from django.db.models import Sum
+from apps.home.models import Personas, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Moneda, Tasa, Formacion, TipoFormacion, Usuarios
+from .serializers import PersonaSerializer, CedulaTokenObtainSerializer, TipoPersonaSerializer, PersonaTPSerializer, FormacionSerializer, TPFormacionSerializer, MateriaSerializer, CohorteSerializer, CargoSerializer, HonorarioSerializer, InscripcionSerializer, RequisitoSerializer, ServicioSerializer, TramiteSerializer, SolicitudSerializer, MonedaSerializer, TasaSerializer, UsuarioSerializer, AsientoContableSerializer, PlanCuentaSerializer, PeriodoContableSerializer  # Importa ambos serializadores
 from apps.persona.models import PersonaTP, TipoPersona
 from apps.honorario.models import Honorario
+from apps.inscripcion.models import Inscripcion
 from apps.solicitud.models import Solicitud
+from apps.asientoContable.models import AsientoContable, DetalleAsiento
+from apps.planCuenta.models import PlanCuenta
+from apps.periodoContable.models import periodoContable
 
 # Vista para Personas
 class PersonaListCreate(generics.ListCreateAPIView):
@@ -25,20 +34,15 @@ class PersonaRetrieveUpdateDestroy(generics.RetrieveUpdateDestroyAPIView):
     queryset = Personas.objects.all()  # Usa el modelo Personas
     serializer_class = PersonaSerializer  # Usa el serializador PersonaSerializer
 
-# # Vista para Cuotas
-# class CuotaListCreate(generics.ListCreateAPIView):
-#     queryset = Cuota.objects.all()  # Usa el modelo Cuota
-#     serializer_class = CuotaSerializer  # Usa el serializador CuotaSerializer
+# Vista para Formacion
+class FormacionListCreate(generics.ListCreateAPIView):
+    queryset = Formacion.objects.all()  # Usa el modelo Formacion
+    serializer_class = FormacionSerializer  # Usa el serializador Formacion
 
-# # Vista para Ofertas
-# class OfertasListCreate(generics.ListCreateAPIView):
-#     queryset = Ofertas.objects.all()  # Usa el modelo Ofertas
-#     serializer_class = OfertasSerializer  # Usa el serializador OfertasSerializer
-
-# # Vista para TipoOferta
-# class TipoOfertaListCreate(generics.ListCreateAPIView):
-#     queryset = TipoOferta.objects.all()  # Usa el modelo TipoOferta
-#     serializer_class = TipoOfertaSerializer  # Usa el serializador TipoOfertaSerializer
+# Vista para Formacion
+class TPFormacionListCreate(generics.ListCreateAPIView):
+    queryset = TipoFormacion.objects.all()  # Usa el modelo Formacion
+    serializer_class = TPFormacionSerializer  # Usa el serializador Formacion
 
 class MateriaListCreate(generics.ListCreateAPIView):
     queryset = Materia.objects.all()  # Usa el modelo Materia
@@ -52,13 +56,13 @@ class CargoListCreate(generics.ListCreateAPIView):
     queryset = Cargo.objects.all()  # Usa el modelo Cargo
     serializer_class = CargoSerializer  # Usa el serializador CargoSerializer
 
-# class ContratoListCreate(generics.ListCreateAPIView):
-#     queryset = Contrato.objects.all()  # Usa el modelo Contrato
-#     serializer_class = ContratoSerializer  # Usa el serializador ContratoSerializer
-
 class HonorarioListCreate(generics.ListCreateAPIView):
     queryset = Honorario.objects.all()  # Usa el modelo Honorario
     serializer_class = HonorarioSerializer  # Usa el serializador HonorarioSerializer
+
+class InscripcionListCreate(generics.ListCreateAPIView):
+    queryset = Inscripcion.objects.select_related('idPersona','idFormacion','idCohorte').all().prefetch_related('inscripcioncuota_set')
+    serializer_class = InscripcionSerializer
 
 class RequisitoListCreate(generics.ListCreateAPIView):
     queryset = Requisito.objects.all()  # Usa el modelo Requisito
@@ -76,14 +80,6 @@ class SolicitudListCreate(generics.ListCreateAPIView):
     queryset = Solicitud.objects.all()  # Usa el modelo TramSolicitudite
     serializer_class = SolicitudSerializer  # Usa el serializador SolicitudSerializer
 
-class DenominacionListCreate(generics.ListCreateAPIView):
-    queryset = Denominacion.objects.all()  # Usa el modelo Denominacion
-    serializer_class = DenominacionSerializer  # Usa el serializador DenominacionSerializer
-
-class BancoListCreate(generics.ListCreateAPIView):
-    queryset = Banco.objects.all()  # Usa el modelo Banco
-    serializer_class = BancoSerializer  # Usa el serializador BancoSerializer
-
 class MonedaListCreate(generics.ListCreateAPIView):
     queryset = Moneda.objects.all()  # Usa el modelo Moneda
     serializer_class = MonedaSerializer  # Usa el serializador MonedaSerializer
@@ -92,10 +88,67 @@ class TasaListCreate(generics.ListCreateAPIView):
     queryset = Tasa.objects.all()  # Usa el modelo Tasa
     serializer_class = TasaSerializer  # Usa el serializador TasaSerializer
 
-class TipoIngresoListCreate(generics.ListCreateAPIView):
-    queryset = TipoIngreso.objects.all()  # Usa el modelo TipoIngreso
-    serializer_class = TipoIngresoSerializer  # Usa el serializador TipoIngresoSerializer
+class CedulaTokenObtainView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
 
-# class TipoEgresoListCreate(generics.ListCreateAPIView):
-#     queryset = TipoEgreso.objects.all()  # Usa el modelo TipoEgreso
-#     serializer_class = TipoEgresoSerializer  # Usa el serializador TipoEgresoSerializer
+    def post(self, request, *args, **kwargs):
+        serializer = CedulaTokenObtainSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response(serializer.validated_data, status=status.HTTP_200_OK)
+
+class UsuarioListCreate(generics.ListCreateAPIView):
+    queryset = Usuarios.objects.all()  # Usa el modelo Tasa
+    serializer_class = UsuarioSerializer  # Usa el serializador UsuarioSerializer
+
+# Vistas para contabilidad
+class LibroDiarioAPIView(APIView):
+    def get(self, request):
+        asientos = AsientoContable.objects.prefetch_related('detalles').order_by('fechaAsiento', 'numeroAsiento')
+        serializer = AsientoContableSerializer(asientos, many=True)
+        return Response(serializer.data)
+
+class LibroMayorAPIView(APIView):
+    def get(self, request):
+        cuentas = PlanCuenta.objects.annotate(
+            total_debe=Sum('detalleasiento__debe'),
+            total_haber=Sum('detalleasiento__haber')
+        ).order_by('codigoPlanCuenta')
+        serializer = PlanCuentaSerializer(cuentas, many=True)
+        return Response(serializer.data)
+
+class BalanceCuentasAPIView(APIView):
+    def get(self, request):
+        tipos_cuentas = PlanCuenta.objects.values('tipoPlanCuenta').annotate(
+            total_debe=Sum('detalleasiento__debe'),
+            total_haber=Sum('detalleasiento__haber')
+        ).order_by('tipoPlanCuenta')
+
+        # Calcular el saldo para cada tipo de cuenta
+        for tipo in tipos_cuentas:
+            debe = tipo['total_debe'] or 0
+            haber = tipo['total_haber'] or 0
+            if debe > haber:
+                tipo['saldo'] = f"Deudor: {debe - haber:.2f}"
+            elif haber > debe:
+                tipo['saldo'] = f"Acreedor: {haber - debe:.2f}"
+            else:
+                tipo['saldo'] = "Saldo Cero"
+
+        return Response(list(tipos_cuentas))
+
+class IngresosAPIView(APIView):
+    def get(self, request):
+        ingresos = PlanCuenta.objects.filter(tipoPlanCuenta='ingreso').annotate(
+            total_ingreso=Sum('detalleasiento__haber') - Sum('detalleasiento__debe')
+        ).order_by('codigoPlanCuenta')
+        serializer = PlanCuentaSerializer(ingresos, many=True)
+        return Response(serializer.data)
+
+class EgresosAPIView(APIView):
+    def get(self, request):
+        egresos = PlanCuenta.objects.filter(tipoPlanCuenta='gasto').annotate(
+            total_egreso=Sum('detalleasiento__debe') - Sum('detalleasiento__haber')
+        ).order_by('codigoPlanCuenta')
+        serializer = PlanCuentaSerializer(egresos, many=True)
+        return Response(serializer.data)

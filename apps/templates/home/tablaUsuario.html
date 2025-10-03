@@ -78,7 +78,7 @@
             <div class="col-md-4">
                 <div class="input-group">
                 <span class="input-group-text"><i class="fas fa-search"></i></span>
-                <input class="form-control" id="searchInput" type="text" placeholder="Buscar por cédula, nombre...">
+                <input class="form-control" id="searchInput" type="text" placeholder="Buscar...">
                 </div>
             </div>
             <div class="col-md-8 text-end">
@@ -229,8 +229,8 @@
             <div class="modal-content">
                 <div class="modal-header bg-primary">
                     <h5 class="modal-title text-neutral">Editar Usuario</h5>
-                    <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
+                     <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+                        <i class="fas fa-times"></i>
                     </button>
                 </div>
                 <div class="modal-body" id="editUsuarioModalBody">
@@ -617,5 +617,28 @@ if (tableWrapper) {
     }
   });
 }
+</script>
+
+<script>
+//SCRIPT PARA QUE EL MENSAJE DE ALERTA DESAPAREZCA SOLO DE INACTIVOS
+document.addEventListener('DOMContentLoaded', function () {
+  const AUTO_CLOSE_MS = 3000; // <-- 3000 ms = 3s (pon 2000 para 2s)
+
+  document.querySelectorAll('#globalMessages .alert').forEach(alertEl => {
+    // no cerrar automáticamente alert-danger (errores) si prefieres
+    if (alertEl.classList.contains('alert-danger')) return;
+
+    setTimeout(() => {
+      try {
+        // usa la API de Bootstrap para cerrar limpiamente
+        const bsAlert = bootstrap.Alert.getOrCreateInstance(alertEl);
+        bsAlert.close();
+      } catch (e) {
+        // fallback simple
+        alertEl.remove();
+      }
+    }, AUTO_CLOSE_MS);
+  });
+});
 </script>
 {% endblock %}

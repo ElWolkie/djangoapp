@@ -7,9 +7,11 @@ from apps.home.models import Cohorte, CuotaFormacion, TipoFormacion, Formacion
 
 class Inscripcion(models.Model):
     ESTADOS_PAGO = [
+        ('SIN CONFIRMAR', 'Sin Confirmar '), #estado que define una cuota depeniente de una inscripcion sin confirmar
         ('PENDIENTE', 'Pendiente'),
         ('PARCIAL', 'Pago Parcial'),
-        ('COMPLETO', 'Pago Completo'),
+        ('PAGADO', 'Pago Completo'),
+        ('FACTURADO', 'Factura creada'),
     ]
     
     idInscripcion = models.AutoField(primary_key=True)
@@ -17,6 +19,7 @@ class Inscripcion(models.Model):
     idCohorte = models.ForeignKey(Cohorte, on_delete=models.CASCADE)
     idTF = models.ForeignKey(TipoFormacion, on_delete=models.CASCADE)
     idFormacion = models.ForeignKey(Formacion, on_delete=models.CASCADE)
+    cuotas = models.ManyToManyField(CuotaFormacion, through='InscripcionCuota', related_name='inscripciones')
     is_active = models.BooleanField(default=True)
     fechaInscripcion = models.DateField(auto_now_add=True)
     estadoPago = models.CharField(max_length=20, choices=ESTADOS_PAGO, default='PENDIENTE')
@@ -41,26 +44,21 @@ class Inscripcion(models.Model):
     def saldoPendiente(self):
         return self.montoTotal - self.montoPagado
 
-# class PagoCuota(models.Model):
-#     ESTADOS_PAGO = [
-#         ('PENDIENTE', 'Pendiente'),
-#         ('PAGADO', 'Pagado'),
-#         ('VENCIDO', 'Vencido'),
-#         ('CANCELADO', 'Cancelado'),
-#     ]
-    
-#     idPagoCuota = models.AutoField(primary_key=True)
-#     idInscripcion = models.ForeignKey(Inscripcion, on_delete=models.CASCADE, related_name='pagos_cuota')
-#     idCuota = models.ForeignKey(CuotaFormacion, on_delete=models.CASCADE)
-#     monto = models.DecimalField(max_digits=10, decimal_places=2)
-#     fecha = models.DateField(null=False, auto_now=True )
-#     estado = models.CharField(max_length=20, choices=ESTADOS_PAGO, default='PENDIENTE')
-#     idNota = models.ForeignKey(Nota, on_delete=models.SET_NULL, null=True, blank=True, related_name='pagos_cuota')
-    
-#     class Meta:
-#         verbose_name = "Pago de Cuota"
-#         verbose_name_plural = "Pagos de Cuotas"
-    
-#     def __str__(self):
-#         return f"Pago de {self.idCuota.nombreCuota} - {self.idInscripcion.idPersona}"
-    
+class InscripcionCuota(models.Model):
+    idInscripcion = models.ForeignKey(Inscripcion, on_delete=models.CASCADE)
+    idCuota = models.ForeignKey(CuotaFormacion, on_delete=models.CASCADE)
+    estadoPago = models.CharField(max_length=20, choices=[
+        ('SIN CONFIRMAR', 'Sin Confirmar '), #estado que define una cuota depeniente de una inscripcion sin confirmar
+        ('EN ESPERA', 'En Espera'), #estado que define una cuota depeniente de una inscripcion confirmada, sin nota de cobro
+        ('PENDIENTE', 'Pendiente'), #estado que define una cuota dependiente de una inscripcion confirmada, con nota de cobro
+        ('PARCIAL', 'Pago Parcial'), #estado que define una cuota con un pago parcial de su valor
+        ('PAGADO', 'Pagado'), # estado que define una cuota pagada en su totalidad
+        ('FACTURADO', 'Factura Creada'), #estado  que define una cuota pagada y facturada
+
+    ], default='PENDIENTE')
+    montoPagado = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    fechaPago = models.DateField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Cuota de Inscripción"
+        verbose_name_plural = "Cuotas de Inscripción"

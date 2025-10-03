@@ -1,5 +1,5 @@
 from django import forms
-from .models import Nota, Factura, FacturaDetalle, Pago, ParametroTributario
+from .models import Nota, Factura, FacturaDetalle, Pago, ParametroTributario, PlanArticulo
 
 class NotaForm(forms.ModelForm):
     """
@@ -12,9 +12,8 @@ class NotaForm(forms.ModelForm):
         widgets = {
             'idPersona': forms.Select(attrs={'class': 'form-control'}),
             'idEmpresa': forms.Select(attrs={'class': 'form-control'}),
-            'tipoFactura': forms.Select(attrs={'class': 'form-control'}),
+            'tipoArticulo': forms.Select(attrs={'class': 'form-control'}),
             'numeroNota': forms.TextInput(attrs={'class': 'form-control'}),
-            'codigoControl': forms.TextInput(attrs={'class': 'form-control'}),
             'fechaEmision': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'fechaVencimiento': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'formaPago': forms.TextInput(attrs={'class': 'form-control'}),
@@ -37,13 +36,14 @@ class NotaForm(forms.ModelForm):
         subtotal_exento = cleaned_data.get('subtotalExento')
         subtotal_gravado = cleaned_data.get('subtotalGravado')
         iva = cleaned_data.get('iva')
+        descuento = cleaned_data.get('descuento')
         total_nota = cleaned_data.get('totalNota')
 
-        # Validar que el total de la nota sea consistente con los subtotales y el IVA
-        if total_nota is not None and subtotal_exento is not None and subtotal_gravado is not None and iva is not None:
-            calculado = subtotal_exento + subtotal_gravado + iva
+        # Validar que el total de la nota sea consistente con los subtotales, el IVA y el descuento
+        if total_nota is not None and subtotal_exento is not None and subtotal_gravado is not None and iva is not None and descuento is not None:
+            calculado = subtotal_exento + subtotal_gravado + iva - descuento
             if total_nota != calculado:
-                self.add_error('totalNota', "El total de la nota no coincide con la suma de los subtotales y el IVA.")
+                self.add_error('totalNota', "El total de la nota no coincide con la suma de los subtotales, el IVA y el descuento.")
 
         return cleaned_data
 
@@ -57,19 +57,9 @@ class FacturaForm(forms.ModelForm):
         model = Factura
         fields = '__all__'
         widgets = {
-            'idPersona': forms.Select(attrs={'class': 'form-control'}),
-            'idEmpresa': forms.Select(attrs={'class': 'form-control'}),
             'numeroFactura': forms.TextInput(attrs={'class': 'form-control'}),
-            'tipoFactura': forms.Select(attrs={'class': 'form-control'}),
-            'subtotalExento': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
-            'subtotalGravado': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
-            'iva': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
-            'ivaRetenido': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
-            'islrRetenido': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
-            'descuento': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
-            'totalVenta': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'fechaEmision': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'estado': forms.Select(attrs={'class': 'form-control'}),
-            'observaciones': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
 
     def clean(self):
@@ -77,17 +67,7 @@ class FacturaForm(forms.ModelForm):
         Validaciones personalizadas para el formulario de Factura.
         """
         cleaned_data = super().clean()
-        subtotal_exento = cleaned_data.get('subtotalExento')
-        subtotal_gravado = cleaned_data.get('subtotalGravado')
-        iva = cleaned_data.get('iva')
-        total_venta = cleaned_data.get('totalVenta')
-
-        # Validar que el total de la factura sea consistente con los subtotales y el IVA
-        if total_venta is not None and subtotal_exento is not None and subtotal_gravado is not None and iva is not None:
-            calculado = subtotal_exento + subtotal_gravado + iva
-            if total_venta != calculado:
-                self.add_error('totalVenta', "El total de la factura no coincide con la suma de los subtotales y el IVA.")
-
+        # No se requiere validación adicional aquí, ya que los cálculos se manejan en el modelo Nota asociado.
         return cleaned_data
 
 
@@ -136,7 +116,7 @@ class PagoForm(forms.ModelForm):
         model = Pago
         exclude = ['idAsiento']  # Excluir el campo idAsiento
         widgets = {
-            'idFactura': forms.Select(attrs={'class': 'form-control'}),
+            'idNota': forms.Select(attrs={'class': 'form-control'}),
             'idCuentaBanco': forms.Select(attrs={'class': 'form-control'}),
             'formaPago': forms.TextInput(attrs={'class': 'form-control'}),
             'referencia': forms.TextInput(attrs={'class': 'form-control'}),
@@ -191,3 +171,18 @@ class ParametroTributarioForm(forms.ModelForm):
             self.add_error('fecha_fin', "La fecha de fin no puede ser anterior a la fecha de inicio.")
 
         return cleaned_data
+
+
+class PlanArticuloForm(forms.ModelForm):
+    """
+    Formulario para la creación y edición de Planes de Artículo.
+    """
+    class Meta:
+        model = PlanArticulo
+        fields = ['tipoArticulo']  # Excluir 'idPlanCuenta' porque se asigna directamente en la vista
+        widgets = {
+            'tipoArticulo': forms.Select(attrs={'class': 'form-control'}),
+        }
+        labels = {
+            'tipoArticulo': 'Tipo de Artículo',
+        }

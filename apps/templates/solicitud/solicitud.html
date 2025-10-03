@@ -179,6 +179,49 @@
       box-shadow: 0 0 0 0.25rem rgba(255, 193, 7, 0.25);
       outline: none;
   }
+
+   /* Estilos para validación visual */
+.is-valid {
+  border-color: #28a745 !important;
+  box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.25) !important;
+}
+
+.is-invalid {
+  border-color: #dc3545 !important;
+  box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25) !important;
+}
+
+.was-validated .form-control:valid,
+.was-validated .form-select:valid {
+  border-color: #28a745;
+}
+
+.was-validated .form-control:invalid,
+.was-validated .form-select:invalid {
+  border-color: #dc3545;
+}
+  /* Forzar que los mensajes de error se muestren para selects */
+.input-group.has-validation .form-select.is-invalid ~ .invalid-feedback {
+    display: block !important;
+    opacity: 1 !important;
+    width: 100%;
+}
+
+/* Asegurar que los grupos de entrada con validación muestren los errores */
+.input-group.has-validation {
+    flex-wrap: wrap; /* Permite que el error se muestre debajo */
+}
+/* Mejora visual para los íconos de validación */
+.check-icon {
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  background: #fff;
+  border: 1px solid #ced4da;
+  border-left: none;
+  border-radius: 0 .5rem .5rem 0;
+  font-weight: bold;
+}
 </style>
 {% endblock stylesheets %}
 
@@ -204,7 +247,7 @@
       {% endfor %}
     {% endif %}
     
-    <form method="POST" autocomplete="off" id="registroSolicitud" action="{% url 'solicitud_modal' %}">
+    <form method="POST" autocomplete="off" novalidate id="registroSolicitud" action="{% url 'solicitud_modal' %}" class="needs-validation">
       {% csrf_token %}
       
       <!-- Grupo de Cédula con nuevo formato -->
@@ -214,7 +257,7 @@
         </label>
         
         <div class="input-group">
-          <select id="tipo_cedula" class="form-select cedula-select" style="padding: 5px;">
+          <select id="tipo_cedula" class="form-select cedula-select" style="padding: 5px;" required>
             <option value="V" selected>Venezolano</option>
             <option value="J">Jurídico</option>
             <option value="G">Gubernamental</option>
@@ -225,10 +268,10 @@
                  class="form-control cedula-input" 
                  placeholder="12345678" maxlength="8" 
                  oninput="this.value = this.value.replace(/[^0-9]/g, '')"
-                 value="{{ request.GET.cedula|default:''|slice:'2:' }}">
+                 value="{{ request.GET.cedula|default:''|slice:'2:' }}" required>
           <div class="check-icon" id="check-icon"></div>
-        </div>
         <div class="invalid-feedback">Por favor, ingrese una cedula válida.</div>
+        </div>
         <input type="hidden" id="idPersona" name="idPersona" />
       </div>
 
@@ -242,21 +285,27 @@
             <label for="idTramite" class="form-label">
               <i class="fas fa-list-alt me-2"></i> Trámite
             </label>
-            <select id="idTramite" name="idTramite" class="form-select styled-select" style="width: 100%;">
+            <div class="input-group has-validation">
+            <select id="idTramite" name="idTramite" class="form-select styled-select" style="width: 100%;" required>
               <option value="" disabled selected>Seleccione...</option>
               {% for tramite in tramites %}
                 <option value="{{ tramite.idTramite }}" data-="{{ tramite.precioTramite }}" data-diasTramite="{{ tramite.diasTramite }}">{{ tramite.nombreTramite }}</option>
               {% endfor %}
             </select>
+            <div class="invalid-feedback">Por favor, seleccione un trámite.</div>
+            </div>
           </div>
           
             <div class="form-group">
             <label for="montoTotal" class="form-label">
-              <i class="fas fa-dollar-sign me-2"></i> Monto Total
+                <i class="fas fa-coins me-2"></i> Monto Total 
             </label>
+            <div class="input-group">
             <input type="text" id="montoTotal" name="montoTotal" class="form-control text-dark" 
                  placeholder="0.00" required readonly>
+            <div class="invalid-feedback">Por favor, seleccione un tramite y un servicio para asignar un monto válido.</div>
             </div>
+          </div>  
         </div>
         
         <div class="col-md-6">
@@ -264,7 +313,8 @@
             <label for="idServicio" class="form-label">
               <i class="fas fa-concierge-bell me-2"></i> Servicio
             </label>
-            <select id="idServicio" name="idServicio" class="form-select styled-select" style="width: 100%;">
+            <div class="input-group has-validation">
+            <select id="idServicio" name="idServicio" class="form-select styled-select" style="width: 100%;" required>
               <option value="" disabled selected>Seleccione...</option>
                 {% for servicio in servicios|dictsort:"idServicio" %}
                 {% if servicio.idServicio == 0 %}
@@ -277,14 +327,19 @@
                 {% endif %}
               {% endfor %}
             </select>
+            <div class="invalid-feedback">Por favor, seleccione un servicio.</div>
+            </div>
           </div>
           
           <div class="form-group">
             <label for="fechaEntrega" class="form-label">
               <i class="fas fa-calendar-day me-2"></i> Fecha de Entrega
             </label>
+            <div class="input-group">
             <input type="date" id="fechaEntrega" name="fechaEntrega" class="form-control date-input" 
                    value="{{ fechaEntrega|date:'Y-m-d' }}" required>
+            <div class="invalid-feedback">Por favor, seleccione una fecha de entrega válida.</div>
+            </div>       
             <input type="hidden" id="estadoSolicitud" name="estadoSolicitud" value="ACTIVO" />
           </div>
         </div>
@@ -396,7 +451,19 @@ document.addEventListener("DOMContentLoaded", function() {
         });
         return;
       }
-      
+      if (!document.getElementById("idTramite").value) {
+        return Swal.fire("Error","Debe seleccionar un trámite.","warning");
+      }
+      if (!document.getElementById("idServicio").value) {
+        return Swal.fire("Error","Debe seleccionar un servicio.","warning");
+      }
+      if (!document.getElementById("montoTotal").value) {
+        return Swal.fire("Error","Debe ingresar un montoTotal.","warning");
+      }
+      if (!document.getElementById("fechaEntrega").value) {
+        return Swal.fire("Error","Debe seleccionar una fecha de entrega.","warning");
+      }
+
       // Combinar la cédula antes de enviar (aunque ya se validó, por si acaso)
       const cedulaCompleta = getCedulaCompleta();
       
@@ -515,5 +582,36 @@ function calculateFechaEntrega() {
   document.getElementById("idTramite").addEventListener("change", updateMontoTotal);
   document.getElementById("idServicio").addEventListener("change", updateMontoTotal);
 });
+</script>
+<script>
+  //Validacion de resaltado de campos
+  (function() {
+    'use strict';
+    var forms = document.querySelectorAll('.needs-validation');
+    
+    Array.prototype.slice.call(forms).forEach(function(form) {
+      form.addEventListener('submit', function(event) {
+        if (!form.checkValidity()) {
+          event.preventDefault();
+          event.stopPropagation();
+          
+          // Marcar todos los campos requeridos como invalid
+          form.querySelectorAll(':required').forEach(function(input) {
+            if (!input.value) {
+              input.classList.add('is-invalid');
+            }
+          });
+        }
+    form.querySelectorAll('select:required').forEach(function(select) {
+    if (!select.value) {
+        select.classList.add('is-invalid');
+        }
+    });
+
+        
+        form.classList.add('was-validated');
+      }, false);
+    });
+  })();
 </script>
 {% endblock javascripts %}

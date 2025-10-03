@@ -1,5 +1,6 @@
 {% load static %}
 
+{% load dias_filters %}
 {% block stylesheets %}
 <link rel="stylesheet" href="/static/assets/css/styleForms.css" />
 <link rel="stylesheet" href="/static/assets/css/argon.css" />
@@ -90,6 +91,18 @@
     max-width: 700px;
     margin: 0 auto;
   }
+  /* Validación visual */
+  .was-validated .form-control:invalid,
+  .form-control.is-invalid {
+    border-color: #dc3545;
+    box-shadow: 0 0 0 0.25rem rgba(220,53,69,.15);
+  }
+  .was-validated .form-control:valid,
+  .form-control.is-valid {
+    border-color: #198754;
+    box-shadow: 0 0 0 0.25rem rgba(25,135,84,.15);
+  }
+
 </style>
 {% endblock stylesheets %}
 
@@ -129,8 +142,8 @@
                    class="form-control input-with-icon"
                    placeholder="Ingrese el nombre del servicio"
                    maxlength="100" data-required="true" required>
-          </div>
           <div class="invalid-feedback">Por favor, ingrese un nombre válido.</div>
+         </div>
         </div>
       </div>
     </div>
@@ -148,8 +161,8 @@
                    class="form-control input-with-icon"
                    placeholder="Ej: 4 días"
                    maxlength="20" data-required="true" required>
-          </div>
           <div class="invalid-feedback">Por favor, ingrese el tiempo de respuesta.</div>
+        </div>
         </div>
       </div>
       
@@ -165,8 +178,8 @@
                    class="form-control input-with-icon"
                    placeholder="Ej: 10.00"
                    maxlength="20" data-required="true" required>
-          </div>
           <div class="invalid-feedback">Por favor, ingrese un precio válido.</div>
+         </div>
         </div>
       </div>
     </div>
@@ -184,47 +197,111 @@
 
 {% block javascripts %}
 <script>
-  // Activar mayúsculas en inputs
-  function activarMayusculasInputs() {
-    document.addEventListener('input', function(e) {
-      if (e.target.tagName === 'INPUT' && !/password|hidden|email/.test(e.target.type)) {
-        e.target.value = e.target.value.toUpperCase();
-      }
+document.getElementById("precioServicio").addEventListener("keypress", function(e) {
+  if (e.key.match(/[A-Za-z]/)) {
+    e.preventDefault();
+  }
+});
+
+const nombreEl = document.getElementById("nombreServicio");
+if (nombreEl) {
+  let composing = false;
+  nombreEl.addEventListener('compositionstart', () => composing = true);
+  nombreEl.addEventListener('compositionend', () => {
+    composing = false;
+    nombreEl.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+
+  nombreEl.addEventListener("input", function() {
+    if (composing) return;
+    this.value = this.value
+      .toUpperCase()
+      .replace(/[^A-ZÁÉÍÓÚÑ\s]/g, '')
+      .slice(0, 100);
+  });
+}
+
+(function(){
+  const qtyEl = document.getElementById('diasServicioCantidad');
+  const unidadEl = document.getElementById('unidadDuracion');
+  const hiddenDias = document.getElementById('diasServicio');
+
+  function updateDiasHidden() {
+    if (!hiddenDias) return;
+    const qty = (qtyEl?.value || '').replace(/\D/g, '').slice(0,4);
+    const unit = unidadEl?.value || '';
+    hiddenDias.value = qty ? `${qty} ${unit}` : '';
+  }
+
+  if (qtyEl) {
+    qtyEl.addEventListener('input', function(){
+      this.value = this.value.replace(/\D/g, '').slice(0,4);
+      updateDiasHidden();
     });
   }
-  activarMayusculasInputs();
+  if (unidadEl) unidadEl.addEventListener('change', updateDiasHidden);
 
-  document.addEventListener("DOMContentLoaded", function() {
-    // Validación de nombre: solo letras y espacios
-    document.getElementById("nombreServicio").addEventListener("input", function() {
-      this.value = this.value.replace(/[^A-Z\s]/g, '');
-    });
+  const servicioForm = document.getElementById('servicioForm');
+  if (servicioForm) {
+    servicioForm.addEventListener('submit', function(e){
+      updateDiasHidden();
+    }, true);
+  }
+  updateDiasHidden();
+})();
 
-    // Validación de tiempo: solo números y letras (para permitir "días")
-    document.getElementById("tiempoServicio").addEventListener("input", function() {
-      this.value = this.value.replace(/[^A-Z0-9\s]/g, '');
-    });
+document.getElementById("precioServicio").addEventListener("input", function() {
+  const input = this;
+  const raw = input.value;
+  const oldPos = input.selectionStart;
 
-    // Validación de precio: solo números y punto decimal
-    document.getElementById("precioServicio").addEventListener("input", function() {
-      this.value = this.value.replace(/[^0-9.]/g, '');
-    });
+  if (/[A-Za-z]/.test(raw)) {
+    input.value = raw.replace(/[A-Za-z]/g, '');
+    return;
+  }
 
-    // Validación de Bootstrap
-    (function() {
-      'use strict';
-      var forms = document.querySelectorAll('.needs-validation');
-      Array.prototype.slice.call(forms).forEach(function(form) {
-        form.addEventListener('submit', function(event) {
-          if (!form.checkValidity()) {
-            event.preventDefault();
-            event.stopPropagation();
-          }
-          form.classList.add('was-validated');
-        }, false);
-      });
-    })();
+  const digitsBefore = raw.slice(0, oldPos).replace(/[^0-9]/g, '').length;
+  const cleaned = raw
+    .replace(/\./g, '')
+    .replace(/,/g, '.')
+    .replace(/[^0-9.]/g, '');
+  const num = parseFloat(cleaned);
+  if (isNaN(num)) return;
 
+  const formatted = num.toLocaleString('es-VE', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+
+  let newPos = 0, counted = 0;
+  for (let i = 0; i < formatted.length; i++) {
+    if (/[0-9]/.test(formatted[i])) counted++;
+    if (counted === digitsBefore) {
+      newPos = i + 1;
+      break;
+    }
+  }
+  if (counted < digitsBefore) {
+    newPos = formatted.length;
+  }
+
+  input.value = formatted;
+  input.setSelectionRange(newPos, newPos);
+});
+
+(function() {
+  'use strict';
+  var forms = document.querySelectorAll('.needs-validation');
+  Array.prototype.slice.call(forms).forEach(function(form) {
+    form.addEventListener('submit', function(event) {
+      if (!form.checkValidity()) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      form.classList.add('was-validated');
+    }, false);
+  });
+})();
     // Recarga dinámica (AJAX)
     $(document).on('submit', '#servicioForm', function(e) {
       e.preventDefault();
@@ -250,6 +327,5 @@
         }
       });
     });
-  });
 </script>
 {% endblock javascripts %}

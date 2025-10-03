@@ -73,6 +73,48 @@
     border-color: #ffc107;
     box-shadow: 0 0 0 .25rem rgba(255,193,7,.25);
   }
+  /* Estilos para validación visual */
+.is-valid {
+  border-color: #28a745 !important;
+  box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.25) !important;
+}
+
+.is-invalid {
+  border-color: #dc3545 !important;
+  box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25) !important;
+}
+
+.was-validated .form-control:valid,
+.was-validated .form-select:valid {
+  border-color: #28a745;
+}
+
+.was-validated .form-control:invalid,
+.was-validated .form-select:invalid {
+  border-color: #dc3545;
+}
+/* Forzar que los mensajes de error se muestren para selects */
+.input-group.has-validation .form-select.is-invalid ~ .invalid-feedback {
+    display: block !important;
+    opacity: 1 !important;
+    width: 100%;
+}
+
+/* Asegurar que los grupos de entrada con validación muestren los errores */
+.input-group.has-validation {
+    flex-wrap: wrap; /* Permite que el error se muestre debajo */
+}
+/* Mejora visual para los íconos de validación */
+.check-icon {
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  background: #fff;
+  border: 1px solid #ced4da;
+  border-left: none;
+  border-radius: 0 .5rem .5rem 0;
+  font-weight: bold;
+}
 </style>
 {% endblock stylesheets %}
 
@@ -85,7 +127,7 @@
 
   <div id="alert-container"></div>
 
-  <form id="honorarioForm" method="POST" autocomplete="off" action="{% url 'honorario_modal' %}">
+  <form id="honorarioForm" method="POST" novalidate autocomplete="off" action="{% url 'honorario_modal' %}" class="needs-validation"> 
     {% csrf_token %}
 
     <!-- Cédula del Proveedor -->
@@ -109,8 +151,8 @@
           required
         />
         <div class="check-icon" id="check-icon"></div>
+        <div class="invalid-feedback">Por favor, ingrese una cédula válida.</div>
       </div>
-      <div class="invalid-feedback">Por favor, ingrese una cédula válida.</div>
       <input type="hidden" id="cedulaPersona" name="cedulaPersona" />
       <input type="hidden" id="idPersona" name="idPersona" />
       <input type="hidden" name="estadoHonorario" value="ACTIVO" />
@@ -130,15 +172,16 @@
           required
         />
         <div class="check-icon" id="check-cohorte-icon"></div>
-      </div>
       <div class="invalid-feedback">Por favor, ingrese una cohorte válida.</div>
+      </div>
       <input type="hidden" id="idCohorte" name="idCohorte" />
     </div>
 
     <!-- Cargo & Materia -->
     <div class="row">
       <div class="col-md-6 form-group">
-        <label for="idCargo"><i class="fas fa-briefcase me-2"></i>Cargo</label>
+        <label for="idCargo"><i class="fas fa-briefcase me-2"></i> Cargo</label>
+        <div class="input-group has-validation"><!--Este div asegura mostrar el mensaje de error debajo del select-->
         <select id="idCargo" name="idCargo" class="form-select styled-select" style="width: 100%" required>
           <option value="" disabled selected>Seleccione...</option>
           {% for c in cargos %}
@@ -146,9 +189,11 @@
           {% endfor %}
         </select>
         <div class="invalid-feedback">Por favor seleccione un cargo.</div>
+        </div>
       </div>
       <div class="col-md-6 form-group">
-        <label for="idMateria"><i class="fas fa-book me-2"></i>Materia</label>
+        <label for="idMateria"><i class="fas fa-book me-2"></i> Materia</label>
+        <div class="input-group has-validation">
         <select id="idMateria" name="idMateria" class="form-select styled-select" style="width: 100%" required>
           <option value="" disabled selected>Seleccione...</option>
           {% for m in materias %}
@@ -156,11 +201,12 @@
           {% endfor %}
         </select>
         <div class="invalid-feedback">Por favor seleccione una materia.</div>
+        </div>
       </div>
 
-    <!-- Horas & Monto -->
+    <!-- Horas & Montos -->
       <div class="col-md-6">
-        <label for="horas"><i class="fas fa-clock me-2"></i>Horas (HH:MM)</label>
+        <label for="horas"><i class="fas fa-clock me-2"></i> Horas (HH:MM)</label>
         <input
           type="text"
           id="horas"
@@ -173,9 +219,9 @@
         <div class="invalid-feedback">Por favor ingrese las horas en formato válido.</div>
       </div>
       <div class="col-md-6">
-        <label for="monto"><i class="fas fa-dollar-sign me-2"></i>Monto</label>
+        <label for="monto"><i class="fas fa-coins me-2"></i> Monto</label>
         <input
-          type="number"
+          type="text"
           id="monto"
           name="monto"
           class="form-control"
@@ -195,6 +241,45 @@
 
 {% block javascripts %}
 <script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
+<script>
+  // Validación de romano y mayúsculas
+  document.getElementById("nombreCohorte").addEventListener("input", function() {
+    this.value = this.value.toUpperCase().replace(/[^MDCLXVI]/g, '');
+    var valid = /^M{0,3}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})$/.test(this.value);
+    this.classList.toggle("is-invalid", this.value && !valid);
+    document.getElementById("roman-error").textContent = valid ? "" : "Ej.: VIII, XIX, MMXXIII";
+  });
+  
+(function() {
+    'use strict';
+    var forms = document.querySelectorAll('.needs-validation');
+    
+    Array.prototype.slice.call(forms).forEach(function(form) {
+      form.addEventListener('submit', function(event) {
+        if (!form.checkValidity()) {
+          event.preventDefault();
+          event.stopPropagation();
+          
+          // Marcar todos los campos requeridos como invalid
+          form.querySelectorAll(':required').forEach(function(input) {
+            if (!input.value) {
+              input.classList.add('is-invalid');
+            }
+          });
+        }
+    form.querySelectorAll('select:required').forEach(function(select) {
+    if (!select.value) {
+        select.classList.add('is-invalid');
+        }
+    });
+
+        
+        form.classList.add('was-validated');
+      }, false);
+    });
+  })();
+  
+</script>
 <script>
 document.addEventListener("DOMContentLoaded", () => {
   // —————————————————————————————————————
@@ -290,6 +375,90 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+ // 4) Formateo de horas (HH:MM) - Versión mejorada
+const horasInput = document.getElementById('horas');
+if (horasInput) {
+    const formatearHoras = (valor) => {
+        let raw = valor.replace(/[^\d]/g, ''); // Solo números
+        
+        if (!raw) return '';
+        
+        // Limitar a 4 dígitos
+        if (raw.length > 4) {
+            raw = raw.substring(0, 4);
+        }
+        
+        // Si tiene 4 dígitos, formatear
+        if (raw.length === 4) {
+            let horas = raw.substring(0, 2);
+            let minutos = raw.substring(2, 4);
+            
+            // Validar horas (00-23)
+            let horasNum = parseInt(horas, 10);
+            if (horasNum > 23) {
+                horas = '23';
+            } else if (horasNum < 0) {
+                horas = '00';
+            } else {
+                horas = horasNum.toString().padStart(2, '0');
+            }
+            
+            // Validar minutos (00-59)
+            let minutosNum = parseInt(minutos, 10);
+            if (minutosNum > 59) {
+                minutos = '59';
+            } else if (minutosNum < 0) {
+                minutos = '00';
+            } else {
+                minutos = minutosNum.toString().padStart(2, '0');
+            }
+            
+            return `${horas}:${minutos}`;
+        }
+        
+        // Para 1, 2 o 3 dígitos, retornar sin formateo
+        return raw;
+    };
+
+    horasInput.addEventListener('input', function () {
+        this.value = formatearHoras(this.value);
+        
+        // Validación visual
+        const isValid = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(this.value);
+        this.classList.toggle('is-invalid', this.value && !isValid);
+        this.classList.toggle('is-valid', isValid);
+    });
+
+    // Formatear valor inicial si existe
+    if (horasInput.value) {
+        horasInput.value = formatearHoras(horasInput.value);
+    }
+}
+
+    // 3) Formateo de monto
+    const input = document.getElementById('monto');
+    if (!input) return;
+
+    const formatearValor = (valor) => {
+      let raw = valor.replace(/[^\d]/g, '');
+      if (!raw) return '';
+      while (raw.length < 3) raw = '0' + raw;
+      const intPart = raw.slice(0, raw.length - 2);
+      const decimalPart = raw.slice(-2);
+      const formattedInt = parseInt(intPart, 10).toLocaleString('es-VE');
+      return `${formattedInt},${decimalPart}`;
+    };
+
+    // Listener de input
+    input.addEventListener('input', function () {
+      this.value = formatearValor(this.value);
+    });
+
+    // Formatear valor inicial
+    if (input.value) {
+      input.value = formatearValor(input.value);
+    }
+
   // —————————————————————————————————————
   // 5) Envío AJAX con SweetAlert
   // —————————————————————————————————————
@@ -298,13 +467,56 @@ document.addEventListener("DOMContentLoaded", () => {
       e.preventDefault();
       document.getElementById("alert-container").innerHTML="";
 
-      if (!document.getElementById("idPersona").value) {
-        return Swal.fire("Error","Debe seleccionar una cédula válida.","warning");
-      }
-      if (!document.getElementById("idCohorte").value) {
-        return Swal.fire("Error","Debe seleccionar un cohorte válido.","warning");
-      }
+      
+             // CONVERSIÓN DE FORMATOS ANTES DEL ENVÍO
+    const horasValue = document.getElementById("horas").value;
+    const montoValue = document.getElementById("monto").value;
 
+    // 1. Convertir horas de "HH:MM" a minutos enteros
+    let minutosEnteros = 0;
+    if (horasValue && horasValue.includes(':')) {
+        const [horas, minutos] = horasValue.split(':').map(Number);
+        minutosEnteros = (horas * 60) + minutos;
+    }
+
+    // 2. Convertir monto de "1.000,00" a "1000.00"
+    let montoDecimal = "0";
+    if (montoValue) {
+        montoDecimal = montoValue.replace(/\./g, '').replace(',', '.');
+    }
+
+    // Validaciones básicas
+    if (!document.getElementById("idPersona").value) {
+        return Swal.fire("Error","Debe ingresar la cedula de la persona.","warning");
+    }
+    if (!document.getElementById("idCohorte").value) {
+        return Swal.fire("Error","Debe seleccionar una cohorte.","warning");
+    }
+    if (!document.getElementById("idCargo").value) {
+        return Swal.fire("Error","Debe seleccionar un cargo.","warning");
+    }
+    if (!document.getElementById("idMateria").value) {
+        return Swal.fire("Error","Debe seleccionar una materia.","warning");
+    }
+    if (!horasValue) {
+        return Swal.fire("Error","Debe ingresar las horas en formato válido.","warning");
+    }
+    if (!montoValue) {
+        return Swal.fire("Error","Debe ingresar un monto.","warning");
+    }
+
+    // Crear FormData y actualizar con valores convertidos
+    const formData = new FormData(e.target);
+    formData.set('horas', minutosEnteros.toString()); // Enviar minutos como entero
+    formData.set('monto', montoDecimal); // Enviar monto como decimal con punto
+
+    // Validar que los valores convertidos sean números válidos
+    if (isNaN(minutosEnteros) || minutosEnteros < 0) {
+        return Swal.fire("Error","Las horas convertidas no son válidas.","warning");
+    }
+    if (isNaN(parseFloat(montoDecimal))) {
+        return Swal.fire("Error","El monto convertido no es válido.","warning");
+    }
       fetch(e.target.action, {
         method:"POST",
         body:new FormData(e.target),

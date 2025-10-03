@@ -101,11 +101,12 @@
           {% csrf_token %}
           <input type="hidden" name="next" value="{{ next }}">
           <div class="input-boxes">
-            <!-- Campos de login -->
+            <!-- Campo de Cédula en Login -->
             <div class="input-box">
               <i class="fas fa-id-card"></i>
-              <input type="text" name="cedula" placeholder=" " maxlength="9" required />
-              <label for="cedula">Cédula</label>
+              <input type="text" name="cedula" id="cedula_login" placeholder=" " maxlength="9" 
+                    required inputmode="numeric" pattern="[0-9]*" />
+              <label for="cedula_login">Cédula</label>
             </div>
             <div class="input-box">
               <i class="fas fa-lock"></i>
@@ -131,10 +132,11 @@
           {% csrf_token %}
           <div class="input-boxes">
             <!-- Paso 1: Campo de Cédula -->
+           <!-- Campo de Cédula en Recuperar Contraseña -->
             <div class="input-box">
               <i class="fas fa-id-card"></i>
               <input type="text" name="cedula" id="cedula_recover" placeholder=" " required 
-                    value="{{ cedula|default:'' }}" />
+                    value="{{ cedula|default:'' }}" inputmode="numeric" pattern="[0-9]*" />
               <label for="cedula_recover">Cédula</label>
             </div>
             
@@ -194,4 +196,18 @@
 
 {% block javascripts %}
 <script src="/static/assets/js/login.js"></script>
+<script>
+  // Función para permitir solo números
+  function soloNumeros(input) {
+    input.value = input.value.replace(/\D/g, '');
+  }
+
+  // Asignar evento a ambos campos
+  document.getElementById('cedula_login')?.addEventListener('input', function() {
+    soloNumeros(this);
+  });
+  document.getElementById('cedula_recover')?.addEventListener('input', function() {
+    soloNumeros(this);
+  });
+</script>
 {% endblock javascripts %}

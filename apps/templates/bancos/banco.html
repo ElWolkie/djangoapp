@@ -153,12 +153,13 @@
           <input type="text" id="cuentaPadre" class="form-control input-with-icon" placeholder="Seleccione una cuenta contable" readonly required />
           <button type="button" id="buscarCuentaPadre" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#cuentaPadreModal">
             <i class="fas fa-search"></i>
-          </button>
-        </div>
-        <input type="hidden" id="cuentaPadreId" name="cuentaPadre" />
-        <div class="invalid-feedback">
+          </button>  
+          <div class="invalid-feedback">
           Por favor seleccione una cuenta contable válida.
         </div>
+        </div>
+        <input type="hidden" id="cuentaPadreId" name="cuentaPadre" />
+      
       </div>
 
       <div class="row">
@@ -172,10 +173,10 @@
               <input type="text" id="codLocalBanco" name="codLocalBanco" 
                      class="form-control input-with-icon" 
                      placeholder="Ej: 0102" maxlength="10" required />
-            </div>
-            <div class="invalid-feedback">
+             <div class="invalid-feedback">
               Por favor ingrese un código local válido.
             </div>
+          </div>
           </div>
         </div>
         
@@ -189,9 +190,9 @@
               <input type="text" id="codSwiftBanco" name="codSwiftBanco" 
                      class="form-control input-with-icon" 
                      placeholder="Ej: BACVVEMM" maxlength="11" required />
-            </div>
-            <div class="invalid-feedback">
-              Por favor ingrese un código SWIFT válido.
+              <div class="invalid-feedback">
+                 Por favor ingrese un código SWIFT válido.
+              </div>
             </div>
           </div>
         </div>
@@ -206,9 +207,9 @@
           <input type="text" id="nombreBanco" name="nombreBanco" 
                  class="form-control input-with-icon" 
                  placeholder="Ej: Banco de Venezuela" maxlength="100" required />
-        </div>
-        <div class="invalid-feedback">
-          Por favor ingrese un nombre válido.
+            <div class="invalid-feedback">
+            Por favor ingrese un nombre válido.
+          </div>
         </div>
       </div>
 
@@ -226,10 +227,12 @@
   <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
     <div class="modal-content">
       <div class="modal-header bg-primary text-white">
-        <h5 class="modal-title" id="cuentaPadreModalLabel">
+        <h5 class="modal-title text-white" id="cuentaPadreModalLabel">
           <i class="fas fa-search mr-2"></i> Seleccionar Cuenta Contable
         </h5>
-        <button type="button" class="btn-close text-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
       </div>
       <div class="modal-body">
         <div class="input-group mb-3">
@@ -266,6 +269,8 @@
             </tbody>
           </table>
         </div>
+         <!-- Contenedor para la paginación -->
+        <div class="pagination-container d-flex justify-content-center mt-3"></div>
         <p id="mensajeSinRegistros" class="text-center text-muted my-4" style="display: none;">
           <i class="fas fa-info-circle mr-2"></i> No se encontraron registros
         </p>
@@ -281,12 +286,14 @@
 {% block javascripts %}
   <script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
   <script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
+  <script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
   <script>
     document.addEventListener('DOMContentLoaded', function () {
       const cuentaPadreInput = document.getElementById('cuentaPadre');
       const cuentaPadreIdInput = document.getElementById('cuentaPadreId');
       const tablaCuentas = document.getElementById('tablaCuentas');
       const searchModalInput = document.getElementById('searchModalInput');
+      const bancoForm = document.getElementById('bancoForm');
 
       // Manejar clic en botón de selección
       tablaCuentas.addEventListener('click', function (event) {
@@ -329,8 +336,64 @@
         mensaje.style.display = visibleRows === 0 ? 'block' : 'none';
       });
 
+
+    // Paginación para la tabla del modal
+    const paginationContainer = document.querySelector('.pagination-container');
+    const rowsPerPage = 10; // Número de filas por página
+    let currentPage = 1;
+
+    function displayRows() {
+      const rows = tablaCuentas.getElementsByTagName('tr');
+      const start = (currentPage - 1) * rowsPerPage + 1; // Ignorar encabezado
+      const end = start + rowsPerPage;
+      for (let i = 1; i < rows.length; i++) {
+        rows[i].style.display = i >= start && i < end ? '' : 'none';
+      }
+    }
+
+    function setupPagination() {
+      const rows = tablaCuentas.getElementsByTagName('tr');
+      const totalPages = Math.ceil((rows.length - 1) / rowsPerPage); // Ignorar encabezado
+      paginationContainer.innerHTML = '';
+
+      const prevLi = document.createElement('li');
+      prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+      prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Anterior">&laquo;</a>`;
+      prevLi.addEventListener('click', e => {
+        e.preventDefault();
+        if (currentPage > 1) currentPage--;
+        displayRows();
+        setupPagination();
+      });
+      paginationContainer.appendChild(prevLi);
+
+      for (let i = 1; i <= totalPages; i++) {
+        const li = document.createElement('li');
+        li.className = `page-item ${i === currentPage ? 'active' : ''}`;
+        li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+        li.addEventListener('click', e => {
+          e.preventDefault();
+          currentPage = i;
+          displayRows();
+          setupPagination();
+        });
+        paginationContainer.appendChild(li);
+      }
+
+      const nextLi = document.createElement('li');
+      nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+      nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Siguiente">&raquo;</a>`;
+      nextLi.addEventListener('click', e => {
+        e.preventDefault();
+        if (currentPage < totalPages) currentPage++;
+        displayRows();
+        setupPagination();
+      });
+      paginationContainer.appendChild(nextLi);
+    }
+
+
       // Validar formulario antes de enviar
-      const bancoForm = document.getElementById('bancoForm');
       bancoForm.addEventListener('submit', function (event) {
         let valid = true;
         
@@ -359,6 +422,81 @@
           event.stopPropagation();
         }
       }, false);
+       displayRows();
+    setupPagination();
+
+    bancoForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+
+      let valid = true;
+      const fields = [
+        { id: 'cuentaPadreId', msg: 'Por favor seleccione una cuenta contable válida.' },
+        { id: 'codLocalBanco', msg: 'Por favor ingrese un código local válido.' },
+        { id: 'codSwiftBanco', msg: 'Por favor ingrese un código SWIFT válido.' },
+        { id: 'nombreBanco', msg: 'Por favor ingrese un nombre válido.' }
+      ];
+
+      fields.forEach(field => {
+        const input = document.getElementById(field.id);
+        if (!input.value.trim()) {
+          input.classList.add('is-invalid');
+          const feedback = input.nextElementSibling;
+          if (feedback) feedback.textContent = field.msg;
+          valid = false;
+        } else {
+          input.classList.remove('is-invalid');
+          input.classList.add('is-valid');
+        }
+      });
+
+      if (!valid) return;
+
+      const formData = new FormData(bancoForm);
+      const submitBtn = bancoForm.querySelector('button[type="submit"]');
+      const originalBtnContent = submitBtn.innerHTML;
+      submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Guardando...';
+      submitBtn.disabled = true;
+
+      fetch(bancoForm.action, {
+        method: 'POST',
+        body: formData,
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            Swal.fire({
+              icon: 'success',
+              title: 'Éxito',
+              text: 'El banco ha sido registrado correctamente.',
+              confirmButtonText: 'Aceptar',
+              customClass: { confirmButton: 'btn btn-warning' },
+
+            }).then(() => {
+              window.location.reload();
+            });
+          } else {
+            Swal.fire({
+              icon: 'error',
+              title: 'Error',
+              text: data.message || 'Ocurrió un error al registrar el banco.',
+              confirmButtonText: 'Aceptar'
+            });
+          }
+        })
+        .catch(error => {
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Ocurrió un error inesperado.',
+            confirmButtonText: 'Aceptar'
+          });
+        })
+        .finally(() => {
+          submitBtn.innerHTML = originalBtnContent;
+          submitBtn.disabled = false;
+        });
+    });
     });
   </script>
 {% endblock javascripts %}

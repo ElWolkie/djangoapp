@@ -1,75 +1,268 @@
+{% load static %}
+
 {% block stylesheets %}
 <link rel="stylesheet" href="/static/assets/css/styleForms.css" />
 <link rel="stylesheet" href="/static/assets/css/argon.css" />
+<style>
+  /* --- Estilos tomados/ajustados del modal persona para estandarizar --- */
+  .persona-container {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 1rem;
+    box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.1);
+    padding: 1.5rem;
+    margin: 0.5rem auto;
+    max-width: 95%;
+    width: 100%;
+  }
+  .persona-header {
+    text-align: center;
+    margin-bottom: 1.5rem;
+    position: relative;
+    padding-bottom: 1rem;
+  }
+  .persona-header h2 {
+    color: #343a40;
+    font-weight: 700;
+    font-size: 1.3rem;
+    margin-bottom: 0.5rem;
+  }
+  .persona-header p {
+    margin-bottom: 0;
+  }
+  .persona-header::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80px;
+    height: 4px;
+    background: linear-gradient(90deg, #ffc107, #fd7e14);
+    border-radius: 2px;
+  }
+
+  .form-group {
+    margin-bottom: 1.2rem;
+    position: relative;
+  }
+  .form-label {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    font-size: 0.95rem;
+  }
+  .form-label i {
+    margin-right: 8px;
+    color: #fd7e14;
+    font-size: 0.95rem;
+  }
+  .form-control {
+    border-radius: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    border: 1px solid #ced4da;
+    background-color: #fff;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.075);
+    transition: all 0.3s;
+    height: 48px;
+    font-size: 0.95rem;
+  }
+  .form-control:focus {
+    border-color: #ffc107;
+    box-shadow: 0 0 0 0.25rem rgba(255,193,7,0.25);
+    outline: none;
+  }
+  .input-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6c757d;
+    z-index: 2;
+    font-size: 0.95rem;
+    pointer-events: none;
+  }
+  /* When an input has the icon, add left padding */
+  .input-with-icon {
+    padding-left: 40px;
+  }
+  .readonly-field {
+    display: block;
+    width: 100%;
+    height: 48px;
+    padding: 0.75rem 1.25rem;
+    font-size: 0.95rem;
+    font-weight: 400;
+    line-height: 1.5;
+    color: #495057;
+    background-color: #e9ecef;
+    background-clip: padding-box;
+    border: 1px solid #ced4da;
+    border-radius: 0.5rem;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.075);
+    opacity: 0.9;
+    display: flex;
+    align-items: center;
+  }
+
+  .btn-submit {
+    background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+    border: none !important;
+    color: #fff !important;
+    font-weight: 600;
+    padding: 0.65rem 1.75rem;
+    border-radius: 0.5rem;
+    transition: all 0.25s;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.08);
+    font-size: 0.95rem;
+  }
+  .btn-submit:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.12);
+  }
+  .was-validated .form-control:invalid,
+  .form-control.is-invalid {
+    border-color: #dc3545;
+    box-shadow: 0 0 0 0.15rem rgba(220,53,69,.08);
+  }
+  .was-validated .form-control:valid,
+  .form-control.is-valid {
+    border-color: #198754;
+    box-shadow: 0 0 0 0.15rem rgba(25,135,84,.08);
+  }
+  /* Ajustes para input-group-text/append */
+  .input-group-text {
+    background: transparent;
+    border: none;
+  }
+  /* Small responsive tweak */
+  @media (max-width: 576px) {
+    .persona-header h2 { font-size: 1.05rem; }
+    .form-control { height: 44px; padding: 0.6rem 1rem; }
+  }
+  /* keep focus-visible accessible */
+  .btn-submit:focus-visible {
+    outline: 2px solid #fd7e14;
+    outline-offset: 2px;
+  }
+  /* alerts container spacing */
+  #alert-container, #globalMessages { margin-bottom: 0.8rem; }
+</style>
 {% endblock stylesheets %}
+
 {% block content %}
-  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Editar Solicitud</h2>
-  
+<div class="persona-container">
+  <div class="persona-header">
+    <h2><i class="fas fa-edit text-warning"></i> Editar Solicitud</h2>
+    <p class="text-muted">Modifique los campos y guarde los cambios</p>
+  </div>
+
+  <!-- Contenedores usados por el JS -->
+  <div id="globalMessages"></div>
+  <div id="alert-container"></div>
+
   {% if messages %}
     {% for message in messages %}
       <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
         {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
       </div>
     {% endfor %}
   {% endif %}
-  
-  <form method="POST" class="mt-3 text-dark" autocomplete="off" style="font-weight: bold; max-width: 600px; margin: 0 auto;" id="editSolicitudForm" action="{% url 'edit_solicitud' solicitud.idSoli %}">  
+
+  <!-- Mantenemos el mismo form id y action -->
+  <form method="POST" class="mt-3 text-dark" autocomplete="off" style="font-weight: bold; max-width: 800px; margin: 0 auto;" id="editSolicitudForm" action="{% url 'edit_solicitud' solicitud.idSoli %}">
     {% csrf_token %}
     <div class="row">
       <div class="col-md-6">
         <div class="form-group">
-          <label for="cedulaPersona">Cédula: <span id="cedulaDisplay" class="text-primary"></span></label>  
-          <div class="input-group"> <!-- Usar input-group para alinear botón y select -->  
-              <input type="text" id="cedulaPersona" name="cedulaPersona" class="form-control text-dark" value="{{ solicitud.idPersona.cedula }}" tabindex="1" required oninput="checkPersona()" {% if solicitud.idPersona %}{% endif %} readonly/>  
-              <div class="input-group-append">
-                  <span id="check-icon" class="input-group-text"></span>
-              </div>
-              <input type="hidden" id="idPersona" name="idPersona" value="{{ solicitud.idPersona.idPersona }}" />
+          <label for="cedulaPersona" class="form-label">
+            <i class="fas fa-id-card"></i> Cédula:
+            <span id="cedulaDisplay" class="text-primary ms-2"></span>
+          </label>
+          <div class="input-group position-relative">
+            <!-- icon added (no id/class changed) -->
+            <i class="fas fa-id-card input-icon"></i>
+            <input type="text" id="cedulaPersona" name="cedulaPersona" class="form-control input-with-icon text-dark" value="{{ solicitud.idPersona.cedula }}" tabindex="1" required oninput="checkPersona()" readonly/>
+            <div class="input-group-append input-group-text">
+              <span id="check-icon"></span>
+            </div>
+            <input type="hidden" id="idPersona" name="idPersona" value="{{ solicitud.idPersona.idPersona }}" />
           </div>
         </div>
+
         <div class="form-group">
-          <label for="tramite">Tipo de Trámite:</label>
-          <select id="idTramite" name="idTramite" class="form-control text-dark" tabindex="1" required>  
-            <option value="" disabled selected>Seleccione..</option>  
-           {% for tramite in tramites %}  
-              <option value="{{ tramite.idTramite }}" class="text-orange" {% if tramite.idTramite == solicitud.idTramite.idTramite %}selected{% endif %}>{{ tramite.nombreTramite }}</option>  
-            {% endfor %}
-          </select>  
+          <label for="tramite" class="form-label">
+            <i class="fas fa-file-alt"></i> Tipo de Trámite:
+          </label>
+          <div class="input-group position-relative">
+            <i class="fas fa-file-alt input-icon"></i>
+            <select id="idTramite" name="idTramite" class="form-control input-with-icon text-dark" tabindex="1" required>
+              <option value="" disabled selected>Seleccione..</option>
+              {% for tramite in tramites %}
+                <option value="{{ tramite.idTramite }}" {% if tramite.idTramite == solicitud.idTramite.idTramite %}selected{% endif %}>{{ tramite.nombreTramite }}</option>
+              {% endfor %}
+            </select>
+          </div>
         </div>
+
         <div class="form-group">
-          <label for="servicio">Tipo de Servicio:</label>
-          <select id="idServicio" name="idServicio" class="form-control text-dark" tabindex="1" required>  
-            <option value="" disabled selected>Seleccione..</option>  
-           {% for servicio in servicios %}  
-              <option value="{{ servicio.idServicio }}" class="text-orange" {% if servicio.idServicio == solicitud.idServicio.idServicio %}selected{% endif %}>{{ servicio.nombreServicio }}</option>  
-            {% endfor %}
-          </select>  
+          <label for="servicio" class="form-label">
+            <i class="fas fa-concierge-bell"></i> Tipo de Servicio:
+          </label>
+          <div class="input-group position-relative">
+            <i class="fas fa-concierge-bell input-icon"></i>
+            <select id="idServicio" name="idServicio" class="form-control input-with-icon text-dark" tabindex="1" required>
+              <option value="" disabled selected>Seleccione..</option>
+              {% for servicio in servicios %}
+                <option value="{{ servicio.idServicio }}" {% if servicio.idServicio == solicitud.idServicio.idServicio %}selected{% endif %}>{{ servicio.nombreServicio }}</option>
+              {% endfor %}
+            </select>
+          </div>
         </div>
       </div>
+
       <div class="col-md-6">
         <div class="form-group">
-          <label for="montoTotal">Monto Total:</label>
-          <input type="text" id="montoTotal" name="montoTotal" class="form-control text-dark" value="{{ solicitud.montoTotal }}" placeholder="0" tabindex="2" maxlength="8" required />
+          <label for="montoTotal" class="form-label">
+            <i class="fas fa-dollar-sign"></i> Monto Total:
+          </label>
+          <div class="input-group position-relative">
+            <i class="fas fa-dollar-sign input-icon"></i>
+            <input type="text" id="montoTotal" name="montoTotal" class="form-control input-with-icon text-dark" value="{{ solicitud.montoTotal }}" placeholder="0" tabindex="2" maxlength="12" required />
+            <div class="invalid-feedback">Por favor, ingrese un monto válido.</div>
+          </div>
         </div>
+
         <div class="form-group">
-          <label for="fechaEntrega">Fecha de Entrega:</label>
-            <input type="date" id="fechaEntrega" name="fechaEntrega" class="form-control text-dark" value="{{ solicitud.fechaEntrega|date:'Y-m-d' }}" tabindex="4" maxlength="100" required />
-          <input type="hidden" id="estadoSolicitud" name="estadoSolicitud" class="form-control text-dark" value="ACTIVO" />
+          <label for="fechaEntrega" class="form-label">
+            <i class="fas fa-calendar-alt"></i> Fecha de Entrega:
+          </label>
+          <div class="input-group position-relative">
+            <i class="fas fa-calendar-alt input-icon"></i>
+            <input type="date" id="fechaEntrega" name="fechaEntrega" class="form-control input-with-icon text-dark" value="{{ solicitud.fechaEntrega|date:'Y-m-d' }}" tabindex="4" maxlength="100" required />
+            <input type="hidden" id="estadoSolicitud" name="estadoSolicitud" class="form-control text-dark" value="ACTIVO" />
+            <div class="invalid-feedback">Seleccione una fecha válida.</div>
+          </div>
         </div>
       </div>
     </div>
+
     <div class="text-center">
-      <input type="submit" class="btn btn-warning mt-4" value="Guardar" />
+      <!-- se conserva btn btn-warning pero se añade btn-submit para estilo consistente -->
+      <input type="submit" class="btn btn-warning mt-4 btn-submit" value="Guardar" />
     </div>
   </form>
+</div>
 {% endblock content %}
-
 
 {% block javascripts %}
 <script>
 // Función para mostrar alertas en #alert-container
 function showInlineAlert(type, html) {
   const wrapper = document.getElementById('alert-container');
+  if (!wrapper) return;
   wrapper.innerHTML = `
     <div class="alert alert-${type} alert-dismissible fade show" role="alert">
       ${html}
@@ -80,6 +273,7 @@ function showInlineAlert(type, html) {
 // Función para mostrar mensaje global tras AJAX
 function showGlobal(type, text) {
   const gm = document.getElementById('globalMessages');
+  if (!gm) return;
   gm.insertAdjacentHTML('afterbegin', `
     <div class="alert alert-${type} alert-dismissible fade show" role="alert">
       ${text}

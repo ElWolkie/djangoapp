@@ -141,8 +141,8 @@
                    class="form-control input-with-icon"
                    placeholder="Ingrese el nombre"
                    maxlength="40" data-required="true" required>
-          </div>
           <div class="invalid-feedback">Por favor, ingrese un nombre válido.</div>
+         </div>
         </div>
       </div>
     </div>
@@ -160,26 +160,52 @@
                    class="form-control input-with-icon"
                    placeholder="Ingrese el valor"
                    maxlength="20" data-required="true" required>
+            <div class="invalid-feedback">Por favor, ingrese un valor válido.</div>
           </div>
-          <div class="invalid-feedback">Por favor, ingrese un valor válido.</div>
         </div>
       </div>
       <!-- Duración -->
       <div class="col-md-6">
         <div class="form-group">
-          <label for="duracion" class="form-label">
-            <i class="fas fa-clock"></i> Duración
+          <label for="cantidad" class="form-label">
+        <i class="fas fa-clock"></i> Duración
           </label>
           <div class="input-group">
-            <i class="fas fa-hourglass-half input-icon"></i>
-            <input type="text" id="duracion" name="duracion"
-                   class="form-control input-with-icon"
-                   placeholder="Ingrese la duración"
-                   maxlength="6" data-required="true" required>
+        <i class="fas fa-hourglass-half input-icon"></i>
+        <input type="text" id="cantidad" name="cantidad"
+           class="form-control input-with-icon"
+           placeholder="Duración"
+           maxlength="14" data-required="true" required
+           style="max-width: 180px;">
+        <select id="unidadDuracion" name="unidadDuracion" class="form-control ms-2" style="max-width: 120px;">
+          <option value="HORAS">Horas</option>
+          <option value="DÍAS">Días</option>
+          <option value="SEMANAS">Semanas</option>
+          <option value="MESES">Meses</option>
+          <option value="AÑOS">Años</option>
+        </select>
+        <input type="hidden" id="duracion" name="duracion">
+        <div class="invalid-feedback">Por favor, ingrese una duración válida.</div>
           </div>
-          <div class="invalid-feedback">Por favor, ingrese una duración válida.</div>
         </div>
       </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        const cantidadInput = document.getElementById("cantidad");
+        const unidadSelect = document.getElementById("unidadDuracion");
+        const hiddenDuracion = document.getElementById("duracion");
+
+        function updateHiddenDuracion() {
+      const cantidad = cantidadInput.value.trim();
+      const unidad = unidadSelect.value;
+      hiddenDuracion.value = cantidad ? `${cantidad} ${unidad}` : "";
+        }
+
+        cantidadInput.addEventListener("input", updateHiddenDuracion);
+        unidadSelect.addEventListener("change", updateHiddenDuracion);
+      });
+    </script>
     </div>
       
   <!-- Cuota -->
@@ -215,52 +241,58 @@
 {% endblock content %}
 
 {% block javascripts %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-  // Activar mayúsculas en inputs
-  function activarMayusculasInputs() {
-    document.addEventListener('input', function(e) {
-      if (e.target.tagName === 'INPUT' && !/password|hidden|email/.test(e.target.type)) {
-        e.target.value = e.target.value.toUpperCase();
+    // Función principal que activa validaciones y formateo
+  function activarValidacionFormacion() {
+    // 1) Mayúsculas en inputs, excepto valorInscripcion
+    document.querySelectorAll('input').forEach(function(input) {
+      if (!/password|hidden|email/.test(input.type) && input.id !== 'valorInscripcion') {
+        input.addEventListener('input', function() {
+          this.value = this.value.toUpperCase();
+        });
       }
     });
+
+    // 2) Validación de Bootstrap
+    var forms = document.querySelectorAll('.needs-validation');
+    Array.prototype.forEach.call(forms, function(form) {
+      form.addEventListener('submit', function(event) {
+        if (!form.checkValidity()) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+        form.classList.add('was-validated');
+      }, false);
+    });
+
+    // 3) Formateo de valorInscripcion
+    const input = document.getElementById('valorInscripcion');
+    if (!input) return;
+
+    const formatearValor = (valor) => {
+      let raw = valor.replace(/[^\d]/g, '');
+      if (!raw) return '';
+      while (raw.length < 3) raw = '0' + raw;
+      const intPart = raw.slice(0, raw.length - 2);
+      const decimalPart = raw.slice(-2);
+      const formattedInt = parseInt(intPart, 10).toLocaleString('es-VE');
+      return `${formattedInt},${decimalPart}`;
+    };
+
+    // Listener de input
+    input.addEventListener('input', function () {
+      this.value = formatearValor(this.value);
+    });
+
+    // Formatear valor inicial
+    if (input.value) {
+      input.value = formatearValor(input.value);
+    }
   }
-  activarMayusculasInputs();
 
-  document.addEventListener("DOMContentLoaded", function() {
-
-    document.getElementById("valorInscripcion").addEventListener("input", function() {
-      this.value = this.value.replace(/[^0-9.]/g, '').slice(0,20);
-    });
-    document.getElementById("duracion").addEventListener("input", function() {
-      this.value = this.value.replace(/[^A-Z0-9]/g, '').slice(0,6);
-    });
-
-    (function() {
-      'use strict';
-      var forms = document.querySelectorAll('.needs-validation');
-      Array.prototype.slice.call(forms).forEach(function(form) {
-        form.addEventListener('submit', function(event) {
-          if (!form.checkValidity()) {
-            event.preventDefault();
-            event.stopPropagation();
-          }
-          form.classList.add('was-validated');
-        }, false);
-      });
-    })();
-  });
+  // Ejecutar al cargar la página
+  document.addEventListener('DOMContentLoaded', activarValidacionFormacion);
 </script>
-<script>
-  document.addEventListener("DOMContentLoaded", function () {
-    const tipoFormacionSelect = document.getElementById("idTF");
-    const formacionSelect = document.getElementById("idFormacion");
-    tipoFormacionSelect.addEventListener("change", function () {
-      Array.from(formacionSelect.options).forEach(option => {
-        option.style.display = (option.dataset.tf === this.value || option.value === "")
-          ? "block" : "none";
-      });
-      formacionSelect.value = "";
-    });
-  });
-</script>
+
 {% endblock javascripts %}

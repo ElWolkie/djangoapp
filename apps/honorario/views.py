@@ -5,6 +5,8 @@ from django.contrib.auth.decorators import login_required, permission_required
 from django.template import loader
 from django.urls import reverse
 from django.contrib import messages
+from django.db.models import Q, Prefetch
+from django.core.paginator import Paginator
 
 from .forms import HonorarioForm
 from .models import Honorario
@@ -17,13 +19,79 @@ from reportlab.platypus import Table, TableStyle
 from reportlab.lib import colors
 import os
 from django.db import IntegrityError
+from .templatetags.decimal_filters import to_decimal
+from decimal import Decimal, InvalidOperation as DecimalInvalidOperation
+
+def safe_decimal(value):
+    if value is None or value == '':
+        return Decimal('0.00')
+    s = str(value).strip()
+    # Normalizar separadores:
+    # Si contiene coma y punto: asumimos puntos miles y coma decimal -> eliminar puntos, cambiar coma por punto
+    if ',' in s and '.' in s:
+        s = s.replace('.', '').replace(',', '.')
+    else:
+        # Si sólo tiene comas: convertir comas a punto
+        if ',' in s and '.' not in s:
+            s = s.replace(',', '.')
+        # Si tiene múltiples puntos (p. ej. "1.234.567") eliminar todos menos el último como separador decimal
+        elif '.' in s and s.count('.') > 1:
+            parts = s.split('.')
+            dec = parts[-1]
+            intpart = ''.join(parts[:-1])
+            s = intpart + '.' + dec
+    # Quitar espacios y cualquier otro carácter no numérico excepto punto y signo
+    s = s.replace(' ', '')
+    import re
+    s = re.sub(r'[^0-9\.\-]', '', s)
+    try:
+        return Decimal(s)
+    except DecimalInvalidOperation:
+        raise ValueError(f"Valor decimal inválido: {value}")
 
 #HONORARIO
 @login_required(login_url='login')
 @permission_required("honorario.add_honorario", raise_exception=True)
 def honorario_modal(request):
     if request.method == 'POST':
-        form = HonorarioForm(request.POST)
+        # Normalizar datos entrantes para que el Form procese números correctos
+        data = request.POST.copy()
+
+        # Normalizar horas: aceptar "HH:MM" o minutos como entero
+        horas_raw = (data.get('horas') or '').strip()
+        if horas_raw:
+            try:
+                if ':' in horas_raw:
+                    parts = [p for p in horas_raw.split(':') if p != '']
+                    if len(parts) >= 2:
+                        h = int(parts[0])
+                        m = int(parts[1])
+                    else:
+                        h = int(parts[0])
+                        m = 0
+                    minutos = max(0, h * 60 + m)
+                else:
+                    # quitar no dígitos y convertir
+                    import re
+                    digits = re.sub(r'\D', '', horas_raw)
+                    minutos = int(digits) if digits != '' else 0
+                data['horas'] = str(minutos)
+            except Exception:
+                # dejar valor original para que el form produzca el error correspondiente
+                pass
+
+        # Normalizar monto: aceptar formatos "1.234,56", "1234.56", "1 234,56"
+        monto_raw = (data.get('monto') or '').strip()
+        if monto_raw:
+            try:
+                d = safe_decimal(monto_raw).quantize(Decimal('0.01'))
+                # enviar como string con punto decimal (ej: "1234.56")
+                data['monto'] = format(d, 'f')
+            except Exception:
+                # dejar valor original para que el form devuelva error
+                pass
+
+        form = HonorarioForm(data)
         if form.is_valid():
             try:
                 honorario = form.save()
@@ -33,10 +101,12 @@ def honorario_modal(request):
                     'errors': {'__all__': ['Ya existe un honorario idéntico en la base de datos.']}
                 })
             monto = honorario.monto
+            idHonorario = honorario.pk
+
             return JsonResponse({
                 'success': True,
                 'message': 'Registro exitoso.',
-                'redirect_url': f"{reverse('nota_create')}?honorario={monto}&id={honorario.idPersona.idPersona}"
+                'redirect_url': f"{reverse('nota_create')}?honorario={monto}&idP={honorario.idPersona.idPersona}&idH={idHonorario}"
             })
         else:
             # Empaquetar errores de campo y non-field
@@ -70,30 +140,83 @@ def honorario_modal(request):
 @permission_required("honorario.change_honorario", raise_exception=True)
 def edit_honorario(request, pk):
     instance = get_object_or_404(Honorario, pk=pk)
+
     if request.method == 'POST':
-        form = HonorarioForm(request.POST, instance=instance)
+        # Normalizar igual que en creación
+        data = request.POST.copy()
+
+        horas_raw = (data.get('horas') or '').strip()
+        if horas_raw:
+            try:
+                if ':' in horas_raw:
+                    parts = [p for p in horas_raw.split(':') if p != '']
+                    if len(parts) >= 2:
+                        h = int(parts[0]); m = int(parts[1])
+                    else:
+                        h = int(parts[0]); m = 0
+                    minutos = max(0, h * 60 + m)
+                else:
+                    import re
+                    digits = re.sub(r'\D', '', horas_raw)
+                    minutos = int(digits) if digits != '' else 0
+                data['horas'] = str(minutos)
+            except Exception:
+                pass
+
+        monto_raw = (data.get('monto') or '').strip()
+        if monto_raw:
+            try:
+                d = safe_decimal(monto_raw).quantize(Decimal('0.01'))
+                data['monto'] = format(d, 'f')
+            except Exception:
+                pass
+
+        form = HonorarioForm(data, instance=instance)
         if form.is_valid():
-            form.save()
-            return JsonResponse({'success': True, 'message': 'Honorario actualizado.'})
+            honorario = form.save()
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Honorario actualizado correctamente',
+                    'redirect_url': reverse('tabla_honorarios')
+                })
+            else:
+                messages.success(request, 'Honorario actualizado correctamente.')
+                return redirect('tabla_honorarios')
         else:
-            errors = {field: error for field, error in form.errors.items()}
-            return JsonResponse({'success': False, 'errors': errors})
+            # Form inválido: si es AJAX devolvemos JSON con los errores
+            try:
+                errors = {field: error[0] for field, error in form.errors.get_json_data().items()}
+            except Exception:
+                errors = {k: v for k, v in form.errors.items()}
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': False,
+                    'errors': errors
+                }, status=400)
+            else:
+                messages.error(request, 'Corrija los errores en el formulario.')
+                # se seguirá al render con el form inválido abajo
+
     else:
+        # GET request - crear form con instancia
         form = HonorarioForm(instance=instance)
-        # Obtener datos relacionados para los dropdowns
-        personas = Personas.objects.all()
-        cargos = Cargo.objects.all()
-        materias = Materia.objects.all()
-        cohortes = Cohorte.objects.all()
-        
-    return render(request, 'honorario/editHonorario.html', {
+
+    personas = Personas.objects.all()
+    cargos = Cargo.objects.all()
+    materias = Materia.objects.all()
+    cohortes = Cohorte.objects.all()
+
+    context = {
         'form': form,
         'honorario': instance,
         'personas': personas,
         'cargos': cargos,
         'materias': materias,
         'cohortes': cohortes
-    })
+    }
+
+    return render(request, 'honorario/editHonorario.html', context)
 
 @login_required(login_url='login')
 @permission_required("honorario.change_honorario", raise_exception=True)
@@ -110,7 +233,7 @@ def desactivar_honorario(request, pk):
     if request.method == 'POST':
         honorarios.estadoHonorario = "INACTIVO"
         honorarios.save()
-        messages.success(request, f'⛔ Honorario {honorarios.idHonorario} desactivado')
+        messages.success(request, f'Honorario {honorarios.idHonorario} desactivado')
         return redirect(request.POST.get('next', 'tabla_honorarios'))
     return redirect('tabla_honorarios')
 
@@ -121,21 +244,56 @@ def reactivate_honorario(request, pk):
     if request.method == 'POST':
         honorarios.estadoHonorario = "ACTIVO"
         honorarios.save()
-        messages.success(request, f'✅ Honorario {honorarios.idHonorario} activado')
+        messages.success(request, f'Honorario {honorarios.idHonorario} activado')
         return redirect(request.POST.get('next', 'tabla_honorarios'))
     return redirect('tabla_honorarios')
 
 @login_required(login_url='login')
 @permission_required("honorario.view_honorario", raise_exception=True)
 def tabla_honorarios(request):
+    honorarios = Honorario.objects.all().order_by('-idHonorario')
     mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
+    search_query = request.GET.get('search', '').strip()  # Obtener el término de búsqueda
+
     if mostrar:
         honorarios = Honorario.objects.all()
     else:
         honorarios = Honorario.objects.filter(estadoHonorario='ACTIVO')
+
+    # Filtrar por el término de búsqueda si existe BUSCADOR
+    if search_query:
+        honorarios = honorarios.filter(
+            Q(idHonorario__icontains=search_query) |
+            Q(idPersona__cedula__icontains=search_query) |
+            Q(idPersona__nombres__icontains=search_query) |
+            Q(idPersona__apellidos__icontains=search_query) |
+            Q(idCargo__nombreCargo__icontains=search_query) |
+            Q(idCohorte__nombreCohorte__icontains=search_query) |
+            Q(idMateria__nombreMateria__icontains=search_query) |
+            Q(horas__icontains=search_query) |
+            Q(monto__icontains=search_query) |
+            Q(estadoHonorario__icontains=search_query) |
+            Q(fechaHonorario__icontains=search_query)
+        )
+
+    # Mensajes informativos (mismo patrón: pedir inactivos pero no hay -> info; si no mostrar y no hay activos -> info)
+    if mostrar:
+        hay_inactivos = honorarios.exclude(estadoHonorario='ACTIVO').exists()
+        if not hay_inactivos:
+            messages.info(request, 'No hay honorarios inactivos para mostrar.')
+    else:
+        if not honorarios.exists():
+            messages.info(request, 'No hay honorarios activos para mostrar.')
+
+    # Paginación 
+    paginator = Paginator(honorarios, 2)  # 10 cuotas por página
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
     return render(request, 'honorario/tablaHonorarios.html', {
-        'honorarios': honorarios,
+        'honorarios': page_obj,
         'mostrar_inactivos': mostrar,
+        'search_query': search_query,  # Pasar el término de búsqueda al template
     })
 
 @login_required(login_url='login')
