@@ -107,7 +107,7 @@ class UsuarioPublicRegisterView(APIView):
 
 @api_view(['GET'])
 def obtener_persona_login(request):
-    cedula = request.GET.get('cedula', '').strip()  # Limpiar espacios
+    cedula = request.GET.get('cedula', '').strip()
     print(f"🔍 [DEBUG] Buscando cédula: '{cedula}'")
     
     if len(cedula) < 6:
@@ -115,30 +115,42 @@ def obtener_persona_login(request):
             'error': 'La cédula debe tener al menos 6 dígitos'
         }, status=status.HTTP_400_BAD_REQUEST)
     
-    try:
-        # Buscar EXACTAMENTE
-        persona = Personas.objects.get(cedula=cedula)
-        print(f"✅ [DEBUG] Encontrada exactamente: {persona.cedula} -> {persona.idPersona}")
-        
-        return Response({
-            'idPersona': persona.idPersona,
-            'cedula': persona.cedula,
-            'nombres': persona.nombres,
-            'apellidos': persona.apellidos,
-            'tiene_usuario': Usuarios.objects.filter(idPersona=persona).exists()
-        })
-        
-    except Personas.DoesNotExist:
-        print(f"❌ [DEBUG] No se encontró cédula exacta: '{cedula}'")
-        
-        # DEBUG: Mostrar todas las cédulas similares
-        similares = Personas.objects.filter(cedula__icontains=cedula)[:10]
-        print(f"🔍 [DEBUG] Cédulas similares encontradas ({similares.count()}):")
-        for p in similares:
-            print(f"   - '{p.cedula}' -> ID: {p.idPersona}")
-        
-        return Response({
-            'error': 'No se encontró persona con esta cédula',
-            'debug_similares': [{'cedula': p.cedula, 'id': p.idPersona} for p in similares]
-        }, status=status.HTTP_404_NOT_FOUND)
+    # Intentar diferentes formatos de búsqueda
+    formatos_a_probar = [
+        cedula,  # Formato original
+        f"V-{cedula}",  # Con prefijo V-
+        f"E-{cedula}",  # Con prefijo E- (por si acaso)
+        f"P-{cedula}",  # Con prefijo P- (por si acaso)
+        cedula.zfill(8)  # Con ceros a la izquierda
+    ]
+    
+    for formato in formatos_a_probar:
+        try:
+            persona = Personas.objects.get(cedula=formato)
+            print(f"✅ [DEBUG] Encontrada con formato '{formato}': {persona.cedula} -> {persona.idPersona}")
+            
+            return Response({
+                'idPersona': persona.idPersona,
+                'cedula': persona.cedula,
+                'nombres': persona.nombres,
+                'apellidos': persona.apellidos,
+                'tiene_usuario': Usuarios.objects.filter(idPersona=persona).exists()
+            })
+            
+        except Personas.DoesNotExist:
+            continue
+    
+    # Si ningún formato funciona, buscar por contenido
+    print(f"❌ [DEBUG] No se encontró con ningún formato para: '{cedula}'")
+    
+    similares = Personas.objects.filter(cedula__icontains=cedula)[:10]
+    print(f"🔍 [DEBUG] Cédulas similares encontradas ({similares.count()}):")
+    for p in similares:
+        print(f"   - '{p.cedula}' -> ID: {p.idPersona}")
+    
+    return Response({
+        'error': 'No se encontró persona con esta cédula',
+        'sugerencia': 'Intente con el formato completo (ej: V-30895206)',
+        'debug_similares': [{'cedula': p.cedula, 'id': p.idPersona} for p in similares]
+    }, status=status.HTTP_404_NOT_FOUND)
 
