@@ -141,7 +141,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
 
       // (opcional) verificación previa de existencia de cédula (no bloqueante)
       try {
-        await api.get(`/api/verificar-cedula/?cedula=${encodeURIComponent(digits)}`).catch(() => null);
+        await api.get(`/api/obtener-persona-login/?cedula=${encodeURIComponent(digits)}`).catch(() => null);
       } catch { /* noop */ }
 
       const result: any = await tryObtainToken(digits, password);
