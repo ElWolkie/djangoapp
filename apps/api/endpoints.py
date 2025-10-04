@@ -106,7 +106,7 @@ class UsuarioPublicRegisterView(APIView):
             }, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['GET'])
-def obtener_persona_para_login(request):
+def obtener_persona_login(request):
     cedula = request.GET.get('cedula', '').strip()  # Limpiar espacios
     print(f"🔍 [DEBUG] Buscando cédula: '{cedula}'")
     
