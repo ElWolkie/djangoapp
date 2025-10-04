@@ -7,6 +7,8 @@
 <link rel="stylesheet" href="{% static 'assets/css/styleForms.css' %}" />
 <link rel="stylesheet" href="{% static 'assets/css/argon.css' %}" />
 
+<!-- JavaScript -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <style>
 /* --- Diseño combinado + iconos para labels e inputs --- */
 
@@ -1275,7 +1277,14 @@ function filtrarCuentasPorMoneda() {
 const tasaSelect = document.getElementById('idTasa');
 if (tasaSelect) {
   tasaSelect.addEventListener('change', function() {
-    console.log('[Filtro Cuentas] Cambio en select de moneda');
+    // Limpiar los campos autollenados de cuentaBanco
+    const cuentaBancoInput = document.getElementById('cuentaBancoInput');
+    const referenciaInput = document.getElementById('referenciaInput');
+
+    if (cuentaBancoInput) cuentaBancoInput.value = '';
+    if (referenciaInput) referenciaInput.value = '';
+
+    // Aplicar el filtrado por moneda
     filtrarCuentasPorMoneda();
   });
 }
@@ -1285,6 +1294,7 @@ document.addEventListener('DOMContentLoaded', function() {
   console.log('[Filtro Cuentas] Filtrando cuentas por moneda al cargar la página');
   filtrarCuentasPorMoneda();
 });
+
 </script>
 <script>
 
