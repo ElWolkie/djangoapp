@@ -64,22 +64,12 @@ except:
         }
     }
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:8000",
-    "http://127.0.0.1:8000",
-    "http://localhost:8081",  # Para Expo Go en web
-    "http://localhost:19006", # Otro puerto común de Expo web
-    "https://djangoapp-6wxv.onrender.com",  # Dominio de Render
-]
-
-# Direcciones IP donde se mostrará la toolbar (normalmente localhost)
-INTERNAL_IPS = [
-    '127.0.0.1',
-]
-
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:8081",
     "http://127.0.0.1:8081",
+    "http://localhost:19006",
+    "https://djangoapp-6wxv.onrender.com",
+    "http://10.0.2.2:8000",  # Para Android emulator
 ]
 
 CACHES = {
@@ -143,6 +133,34 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 # Configura archivos estáticos para producción
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = True  # Temporal para pruebas
+CORS_ALLOW_CREDENTIALS = True
+
+# Agregar estos headers para React Native
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+    "http://localhost:8081",  # Para Expo Go en web
+    "http://localhost:19006", # Otro puerto común de Expo web
+    "https://djangoapp-6wxv.onrender.com",  # Dominio de Render
+]
+
+# Direcciones IP donde se mostrará la toolbar (normalmente localhost)
+INTERNAL_IPS = [
+    '127.0.0.1',
+]
 
 ROOT_URLCONF = "core.urls"
 
