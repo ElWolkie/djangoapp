@@ -106,8 +106,9 @@ class UsuarioPublicRegisterView(APIView):
             }, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['GET'])
-def obtener_persona_login(request):
-    cedula = request.GET.get('cedula', '')
+def obtener_persona_para_login(request):
+    cedula = request.GET.get('cedula', '').strip()  # Limpiar espacios
+    print(f"🔍 [DEBUG] Buscando cédula: '{cedula}'")
     
     if len(cedula) < 6:
         return Response({
@@ -115,7 +116,10 @@ def obtener_persona_login(request):
         }, status=status.HTTP_400_BAD_REQUEST)
     
     try:
+        # Buscar EXACTAMENTE
         persona = Personas.objects.get(cedula=cedula)
+        print(f"✅ [DEBUG] Encontrada exactamente: {persona.cedula} -> {persona.idPersona}")
+        
         return Response({
             'idPersona': persona.idPersona,
             'cedula': persona.cedula,
@@ -123,8 +127,18 @@ def obtener_persona_login(request):
             'apellidos': persona.apellidos,
             'tiene_usuario': Usuarios.objects.filter(idPersona=persona).exists()
         })
+        
     except Personas.DoesNotExist:
+        print(f"❌ [DEBUG] No se encontró cédula exacta: '{cedula}'")
+        
+        # DEBUG: Mostrar todas las cédulas similares
+        similares = Personas.objects.filter(cedula__icontains=cedula)[:10]
+        print(f"🔍 [DEBUG] Cédulas similares encontradas ({similares.count()}):")
+        for p in similares:
+            print(f"   - '{p.cedula}' -> ID: {p.idPersona}")
+        
         return Response({
-            'error': 'No se encontró persona con esta cédula'
+            'error': 'No se encontró persona con esta cédula',
+            'debug_similares': [{'cedula': p.cedula, 'id': p.idPersona} for p in similares]
         }, status=status.HTTP_404_NOT_FOUND)
 
