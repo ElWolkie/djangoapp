@@ -9,6 +9,9 @@ const EMULATOR_ANDROID = 'http://10.0.2.2:8000';
 const LOCALHOST = 'http://127.0.0.1:8000';
 const DEFAULT_PORT = 8000;
 
+// URL de producción (Render)
+const PRODUCTION_URL = 'https://djangoapp-6wxv.onrender.com';
+
 function fromExpoExtra(): string | null {
   try {
     const extra = (Constants as any)?.manifest?.extra;
@@ -19,6 +22,10 @@ function fromExpoExtra(): string | null {
 
 function fromReactNativeConfig(): string | null {
   try {
+    // Para producción, priorizar API_BASE_URL_PROD
+    if (Config && typeof (Config as any).API_BASE_URL_PROD === 'string' && (Config as any).API_BASE_URL_PROD.length > 0) {
+      return (Config as any).API_BASE_URL_PROD;
+    }
     if (Config && typeof (Config as any).API_BASE_URL === 'string' && (Config as any).API_BASE_URL.length > 0) {
       return (Config as any).API_BASE_URL;
     }
@@ -41,7 +48,6 @@ function fromSourceCodeScriptURL(): string | null {
   try {
     const scriptURL = (NativeModules as any)?.SourceCode?.scriptURL;
     if (scriptURL && typeof scriptURL === 'string') {
-      // scriptURL ejemplo: "http://192.168.1.5:19000/index.bundle?platform=android&..."
       const m = scriptURL.match(/^https?:\/\/([^/:]+)(?::(\d+))?/);
       if (m) {
         const host = m[1];
@@ -54,6 +60,12 @@ function fromSourceCodeScriptURL(): string | null {
 }
 
 function detectBaseUrl(): string {
+  // Si estamos en producción, usar la URL de Render
+  if (__DEV__ === false) {
+    console.log('[api] Modo producción, usando URL de Render ->', PRODUCTION_URL);
+    return PRODUCTION_URL;
+  }
+
   // 1) Expo app.config.js extra (recomendado para Expo-managed)
   const expo = fromExpoExtra();
   if (expo) {
@@ -99,7 +111,11 @@ console.log('[api] BASE_URL final ->', BASE_URL);
 
 const api = axios.create({
   baseURL: BASE_URL,
-  timeout: 15000,
+  timeout: 30000, // Aumentado para producción
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  },
 });
 
 api.interceptors.request.use(async (config) => {
@@ -118,5 +134,26 @@ api.interceptors.request.use(async (config) => {
   }
   return config;
 }, (err) => Promise.reject(err));
+
+// Interceptor para responses
+api.interceptors.response.use(
+  (response) => {
+    console.log(`✅ ${response.status} ${response.config.url}`);
+    return response;
+  },
+  (error) => {
+    console.error('❌ Error en response:', {
+      url: error.config?.url,
+      status: error.response?.status,
+      message: error.message,
+    });
+    
+    if (error.response?.status === 401) {
+      console.log('🔐 Sesión expirada');
+    }
+    
+    return Promise.reject(error);
+  }
+);
 
 export default api;

@@ -200,8 +200,6 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
     // Verificación rápida: si la navegación no ocurre por alguna razón,
     // avisamos al desarrollador (esto rara vez se mostrará en producción).
     setTimeout(() => {
-      // intenta detectar si la ruta actual sigue siendo Login; esto es heurístico
-      // y solo para feedback rápido durante desarrollo.
       try {
         const state = (navigation as any).getState?.();
         const current = state?.routes?.[state.index]?.name;
@@ -209,6 +207,33 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
           Alert.alert(
             'Registro',
             'No se pudo navegar a "Register". Verifica que la ruta "Register" esté registrada en tu Stack Navigator (App.tsx).'
+          );
+        }
+      } catch (e) {
+        // noop
+      }
+    }, 300);
+  };
+
+  // NUEVO: navegar directo a la pantalla "RegisterUser" (la de crear cuenta de usuario para una persona ya registrada)
+  const openRegisterUser = () => {
+    const cedulaDigits = normalizeCedulaToDigits(cedula);
+    const personParam = { cedula: cedulaDigits ? cedulaDigits : undefined };
+    console.log('openRegisterUser fired — personParam:', personParam);
+
+    // Intentamos navegar a 'RegisterUser' pasando { person: { cedula } }
+    // Nota: asegúrate de registrar RegisterUser en App.tsx si aún no está.
+    navigation.navigate('RegisterUser' as any, { person: personParam });
+
+    // Heurística de verificación (útil si la ruta no existe)
+    setTimeout(() => {
+      try {
+        const state = (navigation as any).getState?.();
+        const current = state?.routes?.[state.index]?.name;
+        if (current === 'Login') {
+          Alert.alert(
+            'Registro de Usuario',
+            'No se pudo navegar a "RegisterUser". Verifica que la ruta "RegisterUser" esté registrada en tu Stack Navigator (App.tsx).'
           );
         }
       } catch (e) {
@@ -286,13 +311,24 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
           </TouchableOpacity>
         </Animated.View>
 
-        {/* Registrarse: ahora navega DIRECTO a la pantalla de registro (Register) */}
+        {/* Registrarse: dos opciones
+            - "Registrarse" (persona) -> openRegister (usa la ruta 'Register' ya en App.tsx)
+            - "Registrar usuario" (crear cuenta para persona ya registrada) -> openRegisterUser (ruta 'RegisterUser')
+        */}
         <View style={styles.registerRow}>
           <Text style={styles.registerHint}>¿No estás registrado?</Text>
-          <TouchableOpacity style={styles.registerButton} onPress={openRegister} activeOpacity={0.85}>
-            <Icon name="account-plus" size={18} color="#fff" style={{ marginRight: 8 }} />
-            <Text style={styles.registerText}>Registrarse</Text>
-          </TouchableOpacity>
+
+          <View style={styles.registerButtonsGroup}>
+            <TouchableOpacity style={styles.registerButton} onPress={openRegister} activeOpacity={0.85}>
+              <Icon name="account-plus" size={18} color="#fff" style={{ marginRight: 8 }} />
+              <Text style={styles.registerText}>Registrarse</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.registerUserButton} onPress={openRegisterUser} activeOpacity={0.85}>
+              <Icon name="account-key" size={16} color="#fff" style={{ marginRight: 8 }} />
+              <Text style={styles.registerUserText}>Registrar usuario</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </Animated.View>
     </KeyboardAvoidingView>
@@ -318,8 +354,17 @@ const styles = StyleSheet.create({
   buttonContainer: { height: 48, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 10, width: '100%', borderRadius: 30, backgroundColor: 'transparent' },
   loginButton: { backgroundColor: '#4f8cff' },
   loginText: { color: 'white', fontWeight: 'bold', fontSize: 17 },
-  registerRow: { width: '100%', marginTop: 4, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  registerRow: { width: '100%', marginTop: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   registerHint: { color: '#555', fontSize: 14 },
-  registerButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#2b8cff', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 24 },
+
+  /* agrupación de botones a la derecha */
+  registerButtonsGroup: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+
+  registerButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#2b8cff', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 24, marginLeft: 8 },
   registerText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+
+  /* nuevo: botón para registrar usuario */
+  registerUserButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1f6fe0', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 24, marginLeft: 8 },
+  registerUserText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+
 });
