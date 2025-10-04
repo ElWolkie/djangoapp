@@ -19,6 +19,7 @@ import Modal from 'react-native-modal';
 import { Picker } from '@react-native-picker/picker';
 import api from '../api/api';
 import { AuthContext } from '../contexts/AuthContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { 
   TipoFormacion, 
   Formacion, 
@@ -68,6 +69,64 @@ export default function PantallaInscripciones() {
   const [fechaInscripcion, setFechaInscripcion] = useState<string>('');
   const [formErrors, setFormErrors] = useState<Record<string,string>>({});
 
+  // Estados para la información del usuario obtenida del backend
+  const [userInfo, setUserInfo] = useState<{cedula?: string; idPersona?: number; nombres?: string; apellidos?: string} | null>(null);
+  const [loadingUser, setLoadingUser] = useState(false);
+
+  // FUNCIÓN MEJORADA: Obtener información del usuario desde el backend
+  const obtenerInformacionUsuario = async () => {
+    setLoadingUser(true);
+    try {
+      console.log('🔄 Obteniendo información del usuario desde el backend...');
+      
+      // Primero intentar obtener los tokens guardados para obtener la cédula
+      const tokens = await AsyncStorage.getItem('myapp-tokens');
+      if (tokens) {
+        const parsedTokens = JSON.parse(tokens);
+        const userData = parsedTokens.user;
+        
+        if (userData && userData.cedula) {
+          console.log('📝 Cédula encontrada en tokens:', userData.cedula);
+          
+          // Usar el endpoint que SÍ funciona para obtener idPersona
+          try {
+            const response = await api.get(`/api/obtener-persona-login/?cedula=${encodeURIComponent(userData.cedula)}`);
+            console.log('✅ Respuesta obtener-persona-login:', response.data);
+            
+            if (response.data.idPersona) {
+              setUserInfo({
+                cedula: userData.cedula,
+                idPersona: response.data.idPersona,
+                nombres: response.data.nombres,
+                apellidos: response.data.apellidos
+              });
+              console.log('🎉 Información de usuario obtenida correctamente');
+              return;
+            }
+          } catch (error) {
+            console.error('❌ Error al obtener persona:', error);
+          }
+        }
+      }
+
+      // Si no se pudo obtener de los tokens, intentar con el endpoint de perfil
+      try {
+        const profileResponse = await api.get('/api/user/profile/');
+        if (profileResponse.data) {
+          setUserInfo(profileResponse.data);
+          console.log('✅ Información de usuario obtenida del perfil');
+        }
+      } catch (profileError) {
+        console.error('❌ Error al obtener perfil:', profileError);
+      }
+
+    } catch (error) {
+      console.error('❌ Error general obteniendo información del usuario:', error);
+    } finally {
+      setLoadingUser(false);
+    }
+  };
+
   // DEBUG: Verificar el usuario
   useEffect(() => {
     console.log('🔐 USUARIO COMPLETO EN INSCRIPCIONES:', JSON.stringify(user, null, 2));
@@ -75,12 +134,9 @@ export default function PantallaInscripciones() {
     console.log('🔐 Cedula del usuario:', user?.cedula);
     console.log('🔐 idPersona del usuario:', user?.idPersona);
     
-    // Si no tiene idPersona, intentar obtenerlo
-    if (user && !user.idPersona) {
-      console.log('🔄 Intentando obtener idPersona...');
-      fetchUserProfile();
-    }
-  }, [user, fetchUserProfile]);
+    // Obtener información del usuario al cargar el componente
+    obtenerInformacionUsuario();
+  }, [user]);
 
   // Load inscripciones
   const fetchInscripciones = useCallback(async () => {
@@ -205,6 +261,9 @@ export default function PantallaInscripciones() {
     if (formModalVisible) {
       establecerFechaActual();
       fetchDatosFormulario();
+      
+      // Re-obtener información del usuario cuando se abre el modal
+      obtenerInformacionUsuario();
     }
   }, [formModalVisible]);
 
@@ -298,59 +357,38 @@ export default function PantallaInscripciones() {
     if (selectedFormacion === undefined) errs.formacion = 'Seleccione una formación';
     if (selectedCohorte === undefined) errs.cohorte = 'Seleccione una cohorte';
     
-    // Validación mejorada del usuario
-    if (!user) {
-      errs.usuario = 'No hay usuario autenticado';
-    } else if (!user.idPersona && !user.id) {
-      errs.usuario = 'No se pudo obtener la identificación del usuario';
-    } else if (!user.cedula && !user.displayName) {
-      errs.usuario = 'Información de usuario incompleta';
+    // Validación MEJORADA usando la información del backend
+    if (!userInfo || !userInfo.idPersona) {
+      errs.usuario = 'No se pudo obtener la información del usuario. Por favor, cierre sesión y vuelva a ingresar.';
     }
 
     setFormErrors(errs);
     return Object.keys(errs).length === 0;
   };
 
+  // FUNCIÓN MEJORADA: Crear inscripción
   const handleCreateInscripcion = async () => {
-    // DEBUG detallado
     console.log('🔐 VERIFICACIÓN COMPLETA DEL USUARIO:');
-    console.log('User object:', user);
-    console.log('idPersona:', user?.idPersona);
-    console.log('id:', user?.id);
-    console.log('cedula:', user?.cedula);
+    console.log('UserInfo desde backend:', userInfo);
+    console.log('AuthContext user:', user);
 
     if (!validateCreateForm()) {
       Alert.alert('Formulario inválido', 'Corrige los errores antes de continuar.');
       return;
     }
 
-    // ESTRATEGIA ROBUSTA PARA OBTENER idPersona
-    let idPersona: number;
+    // ESTRATEGIA CONFIABLE: Usar la información obtenida del backend
+    let idPersonaFinal: number;
 
-    // Opción 1: idPersona directo
-    if (user?.idPersona) {
-      idPersona = Number(user.idPersona);
-      console.log('✅ Usando idPersona directo:', idPersona);
-    }
-    // Opción 2: id como fallback
-    else if (user?.id) {
-      idPersona = Number(user.id);
-      console.log('⚠️ Usando id como fallback para idPersona:', idPersona);
-    }
-    // Opción 3: Error - no tenemos forma de identificar al usuario
-    else {
-      console.error('❌ No se pudo obtener idPersona ni id del usuario');
+    if (userInfo?.idPersona) {
+      idPersonaFinal = Number(userInfo.idPersona);
+      console.log('✅ Usando idPersona del backend:', idPersonaFinal);
+    } else {
+      console.error('❌ NO SE PUDO OBTENER IDPERSONA VÁLIDO');
       Alert.alert(
-        'Error', 
-        'No se pudo identificar su usuario. Por favor, cierre sesión y vuelva a ingresar.'
+        'Error de Identificación', 
+        'No se pudo identificar su usuario en el sistema. Por favor, cierre sesión y vuelva a ingresar.'
       );
-      return;
-    }
-
-    // Validar que tengamos un ID válido
-    if (!idPersona || isNaN(idPersona)) {
-      console.error('❌ ID de persona inválido:', idPersona);
-      Alert.alert('Error', 'No se pudo identificar al usuario correctamente.');
       return;
     }
 
@@ -369,7 +407,7 @@ export default function PantallaInscripciones() {
       const estadoPago: 'PENDIENTE'|'PARCIAL'|'PAGADO' = 'PENDIENTE';
 
       const payload: any = {
-        idPersona: idPersona,
+        idPersona: idPersonaFinal,
         idTF: idTF,
         idFormacion: idFormacion,
         idCohorte: idCohorte,
@@ -379,14 +417,15 @@ export default function PantallaInscripciones() {
         fechaInscripcion,
       };
 
-      // Incluir cédula si está disponible, si no, incluir displayName
-      if (user?.cedula) {
-        payload.cedulaPersona = user.cedula;
-      } else if (user?.displayName) {
-        payload.cedulaPersona = user.displayName;
+      // Incluir información adicional si está disponible
+      if (userInfo?.cedula) {
+        payload.cedulaPersona = userInfo.cedula;
+      }
+      if (userInfo?.nombres && userInfo?.apellidos) {
+        payload.nombreCompleto = `${userInfo.nombres} ${userInfo.apellidos}`;
       }
 
-      console.log('📤 Enviando payload CORREGIDO:', payload);
+      console.log('📤 Enviando payload CON INFORMACIÓN REAL:', payload);
 
       const res = await api.post('/api/inscripcion/', payload);
       
@@ -400,12 +439,30 @@ export default function PantallaInscripciones() {
         Alert.alert('Respuesta del servidor', String(message));
       }
     } catch (err: any) {
-      console.error('handleCreateInscripcion error', err);
+      console.error('❌ ERROR EN handleCreateInscripcion:', err);
       const message = err.response?.data?.detail ?? err.message ?? 'Error al crear inscripción';
       
       // Mostrar error más específico
       if (err.response?.status === 500) {
         Alert.alert('Error del servidor', 'Hubo un problema en el servidor. Por favor, contacta al administrador.');
+      } else if (err.response?.data) {
+        // Mostrar errores de validación del backend
+        const errorDetails = err.response.data;
+        let errorMessage = 'Errores en el formulario:\n';
+        
+        if (typeof errorDetails === 'object') {
+          Object.keys(errorDetails).forEach(key => {
+            if (Array.isArray(errorDetails[key])) {
+              errorMessage += `• ${key}: ${errorDetails[key].join(', ')}\n`;
+            } else {
+              errorMessage += `• ${key}: ${errorDetails[key]}\n`;
+            }
+          });
+        } else {
+          errorMessage = String(errorDetails);
+        }
+        
+        Alert.alert('Error de Validación', errorMessage);
       } else {
         Alert.alert('Error', message);
       }
@@ -611,16 +668,19 @@ export default function PantallaInscripciones() {
                   <View style={styles.cedulaFijaContainer}>
                     <Icon name="account" size={20} color="#4f8cff" />
                     <Text style={styles.cedulaFijaText}>
-                      {user?.cedula || user?.displayName || 'Usuario no identificado'}
+                      {userInfo?.cedula || user?.cedula || 'Cargando información...'}
                     </Text>
                   </View>
                   <Text style={styles.helpText}>
-                    {user?.nombres && user?.apellidos 
-                      ? `Usuario: ${user.nombres} ${user.apellidos}`
-                      : user?.displayName 
-                        ? `Usuario: ${user.displayName}`
-                        : 'Complete su información de perfil'}
+                    {userInfo?.nombres && userInfo?.apellidos 
+                      ? `Usuario: ${userInfo.nombres} ${userInfo.apellidos}`
+                      : userInfo?.cedula 
+                        ? `Cédula: ${userInfo.cedula}`
+                        : 'Obteniendo información del usuario...'}
                   </Text>
+                  {loadingUser && (
+                    <ActivityIndicator size="small" color="#4f8cff" style={{marginTop: 8}} />
+                  )}
                   {formErrors.usuario && (
                     <Text style={styles.errorText}>{formErrors.usuario}</Text>
                   )}
@@ -779,7 +839,7 @@ export default function PantallaInscripciones() {
               <TouchableOpacity 
                 style={[styles.formButton, styles.submitButton]}
                 onPress={handleCreateInscripcion}
-                disabled={creating}
+                disabled={creating || loadingUser}
               >
                 {creating ? (
                   <ActivityIndicator color="#fff" size="small" />

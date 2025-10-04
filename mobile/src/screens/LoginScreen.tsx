@@ -19,6 +19,17 @@ import type { StackNavigationProp } from '@react-navigation/stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../api/api'; // <-- ¡ESTA ES LA FORMA CORRECTA!
 import { storeTokens } from '../api/auth'; // <-- ajusta ruta si es necesario
+import axios from 'axios';
+
+const PRODUCTION_URL = 'https://djangoapp-6wxv.onrender.com';
+
+function detectBaseUrl(): string {
+  // Siempre usar producción para evitar problemas de CORS
+  return PRODUCTION_URL;
+}
+
+const BASE_URL = detectBaseUrl();
+console.log('[api] URL final ->', BASE_URL);
 
 type RootStackParamList = {
   Login: undefined;
@@ -78,44 +89,23 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
   try {
     console.log('[login] Intentando login con cédula:', digits);
     
-    // USAR EL NUEVO ENDPOINT que creaste
-    let idPersona = null;
-    try {
-      console.log('[login] Buscando persona para login con cédula:', digits);
-      const personaRes = await api.get(`/api/obtener-persona-login/?cedula=${encodeURIComponent(digits)}`);
-      console.log('[login] Respuesta obtener-persona-login:', personaRes.data);
-      
-      // Extraer idPersona de la nueva respuesta
-      if (personaRes.data.idPersona) {
-        idPersona = personaRes.data.idPersona;
-      } else if (personaRes.data.error) {
-        return { 
-          error: { detail: personaRes.data.error } 
-        };
-      }
-      
-      console.log('[login] idPersona encontrado:', idPersona);
-      
-      if (!idPersona) {
-        return { 
-          error: { detail: 'No se encontró persona con esta cédula' } 
-        };
-      }
-    } catch (err: any) {
-      console.error('[login] Error al buscar persona:', err.response?.data || err.message);
-      return { 
-        error: { detail: 'Error al verificar cédula en el servidor' } 
-      };
-    }
-
-    // Hacer login con idPersona
-    const payload = {
-      idPersona: idPersona,
+    // Para el login, usar axios directamente SIN el interceptor
+    const loginPayload = {
+      cedula: digits,
       password: passwordValue
     };
     
-    console.log('[login] Payload con idPersona:', payload);
-    const res = await api.post('/api/token/', payload);
+    console.log('[login] Payload:', loginPayload);
+    
+    // Usar axios directamente para evitar problemas con el interceptor
+    const res = await axios.post(`${BASE_URL}/api/token/`, loginPayload, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      timeout: 15000,
+    });
+    
     console.log('[login] ✅ Login exitoso');
     
     return { 
