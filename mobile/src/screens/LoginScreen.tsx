@@ -78,37 +78,37 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
   try {
     console.log('[login] Intentando login con cédula:', digits);
     
-    // PRIMERO obtener el idPersona desde el backend
+    // USAR EL NUEVO ENDPOINT que creaste
     let idPersona = null;
     try {
-      console.log('[login] Buscando idPersona para cédula:', digits);
-      const verifyRes = await api.get(`/api/verificar-cedula/?cedula=${encodeURIComponent(digits)}`);
-      console.log('[login] Respuesta verificar-cedula:', verifyRes.data);
+      console.log('[login] Buscando persona para login con cédula:', digits);
+      const personaRes = await api.get(`/api/obtener-persona-login/?cedula=${encodeURIComponent(digits)}`);
+      console.log('[login] Respuesta obtener-persona-login:', personaRes.data);
       
-      // Extraer idPersona de la respuesta (ajusta según la estructura real)
-      if (verifyRes.data && Array.isArray(verifyRes.data) && verifyRes.data.length > 0) {
-        idPersona = verifyRes.data[0].idPersona;
-      } else if (verifyRes.data.idPersona) {
-        idPersona = verifyRes.data.idPersona;
-      } else if (verifyRes.data.data && Array.isArray(verifyRes.data.data) && verifyRes.data.data.length > 0) {
-        idPersona = verifyRes.data.data[0].idPersona;
+      // Extraer idPersona de la nueva respuesta
+      if (personaRes.data.idPersona) {
+        idPersona = personaRes.data.idPersona;
+      } else if (personaRes.data.error) {
+        return { 
+          error: { detail: personaRes.data.error } 
+        };
       }
       
       console.log('[login] idPersona encontrado:', idPersona);
       
       if (!idPersona) {
         return { 
-          error: { detail: 'No se encontró usuario con esta cédula' } 
+          error: { detail: 'No se encontró persona con esta cédula' } 
         };
       }
     } catch (err: any) {
-      console.error('[login] Error al buscar idPersona:', err.response?.data || err.message);
+      console.error('[login] Error al buscar persona:', err.response?.data || err.message);
       return { 
-        error: { detail: 'Error al verificar cédula' } 
+        error: { detail: 'Error al verificar cédula en el servidor' } 
       };
     }
 
-    // AHORA hacer login con idPersona
+    // Hacer login con idPersona
     const payload = {
       idPersona: idPersona,
       password: passwordValue

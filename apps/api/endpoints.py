@@ -63,20 +63,16 @@ def verificar_cedula(request):
     cedula = request.GET.get('cedula', '')
     response_data = {
         'existe': False,
-        'usuario_existe': False,
-        'idPersona': None  # Agregar este campo
+        'usuario_existe': False
     }
     
     if len(cedula) >= 6:  # Longitud mínima para buscar
         try:
             persona = Personas.objects.get(cedula=cedula)
             response_data['existe'] = True
-            response_data['idPersona'] = persona.idPersona  # ¡Aquí está el ID!
-            
             # Verificar si ya tiene usuario
             if Usuarios.objects.filter(idPersona=persona).exists():
                 response_data['usuario_existe'] = True
-                
         except Personas.DoesNotExist:
             pass
     
@@ -108,4 +104,27 @@ class UsuarioPublicRegisterView(APIView):
                 'error': error_detail,
                 'codigo': 'VALIDATION_ERROR'
             }, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['GET'])
+def obtener_persona_login(request):
+    cedula = request.GET.get('cedula', '')
+    
+    if len(cedula) < 6:
+        return Response({
+            'error': 'La cédula debe tener al menos 6 dígitos'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        persona = Personas.objects.get(cedula=cedula)
+        return Response({
+            'idPersona': persona.idPersona,
+            'cedula': persona.cedula,
+            'nombres': persona.nombres,
+            'apellidos': persona.apellidos,
+            'tiene_usuario': Usuarios.objects.filter(idPersona=persona).exists()
+        })
+    except Personas.DoesNotExist:
+        return Response({
+            'error': 'No se encontró persona con esta cédula'
+        }, status=status.HTTP_404_NOT_FOUND)
 
