@@ -1,3 +1,4 @@
+import json
 import os
 import re
 import uuid
@@ -39,6 +40,17 @@ from .forms import (
 )
 from .templatetags.decimal_filters import to_decimal
 
+"""
+Clase para serializar objetos Decimal a JSON.
+"""
+class DecimalEncoder(json.JSONEncoder):
+    """
+    Serializa objetos Decimal a string para evitar errores de JSON y preservar la precisión.
+    """
+    def default(self, obj):
+        if isinstance(obj, Decimal):
+            return str(obj)
+        return json.JSONEncoder.default(self, obj)
 
 def create_plan_articulo(request):
     """
@@ -886,7 +898,6 @@ def pago_detail(request, pk):
     return render(request, 'factura/pago_detail.html', {'pago': pago})
 
 
-
 def to_decimal_precise(value):
     """Convierte cualquier valor a Decimal de forma precisa"""
     if value is None:
@@ -937,6 +948,28 @@ def calcular_total_pagado_preciso(pagos, moneda_configuracion, tasa_configuracio
     # Redondear solo al final
     return total.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
+def convertir_a_moneda_base(monto, moneda_origen, moneda_configuracion, tasa_configuracion_valor):
+    """Convierte un monto a la moneda base de configuración"""
+    monto_decimal = to_decimal_precise(monto)
+    
+    # Si ya está en la moneda de configuración, no hay conversión
+    if moneda_origen == moneda_configuracion:
+        return monto_decimal
+    
+    # Obtener la tasa de la moneda origen
+    tasa_origen = Tasa.objects.filter(idMoneda=moneda_origen).order_by('-idTasa').first()
+    if not tasa_origen:
+        raise ValueError(f'No se encontró tasa para la moneda {moneda_origen.nombreMoneda}')
+    
+    tasa_origen_valor = to_decimal_precise(tasa_origen.montoTasa)
+    
+    # Validar tasas
+    validar_tasas(tasa_configuracion_valor, tasa_origen_valor)
+    
+    # Convertir a moneda base: (monto * tasa_origen) / tasa_configuracion
+    conversion = (monto_decimal * tasa_origen_valor / tasa_configuracion_valor)
+    return conversion.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
 def es_cero_con_tolerancia(decimal_val, tolerancia=Decimal('0.001')):
     """Compara decimales con tolerancia para evitar errores de punto flotante"""
     return abs(decimal_val) <= tolerancia
@@ -949,115 +982,320 @@ def validar_tasas(tasa_config, tasa_pago):
         raise ValueError("La tasa del pago debe ser mayor a cero")
     return True
 
+def obtener_tasas_activas():
+    """Obtiene todas las tasas activas con sus monedas"""
+    return Tasa.objects.select_related('idMoneda') \
+        .values('idMoneda__idMoneda', 'idMoneda__nombreMoneda', 'idMoneda__simboloMoneda') \
+        .annotate(ultima_idTasa=Max('idTasa'), ultima_tasa=Max('montoTasa'))
+
+def calcular_conversiones_multimoneda(deuda_base, moneda_base, tasa_base_valor, tasas_activas):
+    """
+    Calcula conversiones precisas de deuda a múltiples monedas
+    Fórmula: deuda_base → moneda_nacional → otras_monedas
+    """
+    conversiones = {
+        'moneda_base': {
+            'monto': deuda_base,
+            'moneda_id': moneda_base.idMoneda,
+            'nombre': moneda_base.nombreMoneda,
+            'simbolo': moneda_base.simboloMoneda
+        },
+        'moneda_nacional': None,
+        'otras_monedas': []
+    }
+    
+    # Buscar moneda nacional (ID=1)
+    tasa_nacional = None
+    for tasa in tasas_activas:
+        if tasa['idMoneda__idMoneda'] == 1:  # Moneda nacional
+            tasa_nacional = to_decimal_precise(tasa['ultima_tasa'])
+            break
+    
+    if not tasa_nacional:
+        print("ADVERTENCIA: No se encontró tasa para moneda nacional (ID=1)")
+        return conversiones
+    
+    # Calcular deuda en moneda nacional
+    # Fórmula: deuda_base * tasa_base / tasa_nacional
+    deuda_nacional = (deuda_base * tasa_base_valor / tasa_nacional).quantize(
+        Decimal('0.0001'), rounding=ROUND_HALF_UP
+    )
+    
+    conversiones['moneda_nacional'] = {
+        'monto': deuda_nacional,
+        'moneda_id': 1,
+        'nombre': next((tasa['idMoneda__nombreMoneda'] for tasa in tasas_activas 
+                       if tasa['idMoneda__idMoneda'] == 1), 'Moneda Nacional'),
+        'simbolo': next((tasa['idMoneda__simboloMoneda'] for tasa in tasas_activas 
+                        if tasa['idMoneda__idMoneda'] == 1), 'BS')
+    }
+    
+    # Calcular conversiones a otras monedas (excluyendo base y nacional)
+    for tasa in tasas_activas:
+        moneda_id = tasa['idMoneda__idMoneda']
+        
+        # Excluir moneda base y moneda nacional
+        if moneda_id == moneda_base.idMoneda or moneda_id == 1:
+            continue
+        
+        tasa_valor = to_decimal_precise(tasa['ultima_tasa'])
+        
+        # Validar tasa
+        if tasa_valor <= Decimal('0'):
+            print(f"ADVERTENCIA: Tasa inválida para {tasa['idMoneda__nombreMoneda']}: {tasa_valor}")
+            continue
+        
+        # Fórmula: deuda_nacional / tasa_moneda_destino
+        deuda_convertida = (deuda_nacional / tasa_valor).quantize(
+            Decimal('0.0001'), rounding=ROUND_HALF_UP
+        )
+        
+        conversiones['otras_monedas'].append({
+            'monto': deuda_convertida,
+            'moneda_id': moneda_id,
+            'nombre': tasa['idMoneda__nombreMoneda'],
+            'simbolo': tasa['idMoneda__simboloMoneda'],
+            'tasa_aplicada': tasa_valor
+        })
+    
+    return conversiones
+
 def pago_create(request, pk=None):
     """
     Vista para crear un nuevo pago y generar un asiento contable asociado.
     """
+    print("=== INICIANDO VISTA PAGO_CREATE ===")
+    
     # Filtrar notas según el estado y el ID proporcionado
     if pk:
         notas = Nota.objects.filter(idNota=pk, estado__in=['PENDIENTE', 'PARCIAL']).order_by('numeroNota')
+        print(f"Filtrando notas por ID específico: {pk}")
     else:
         # Traer las notas excluyendo las pagadas y agregando el símbolo de la moneda
         notas = Nota.objects.select_related('idTasa__idMoneda').exclude(estado__in=['PAGADO', 'FACTURADO']).order_by('numeroNota')
-        # Agregar el símbolo de la moneda a cada nota
+        print(f"Obteniendo todas las notas pendientes/parciales: {notas.count()} notas encontradas")
+        
+        # Agregar el símbolo de la moneda a cada nota con más información
         for nota in notas:
-            nota.simbolo_moneda = nota.idTasa.idMoneda.simboloMoneda if hasattr(nota.idTasa, 'idMoneda') and hasattr(nota.idTasa.idMoneda, 'simboloMoneda') else ""
-            print(f"Nota {nota.numeroNota} símbolo moneda: {nota.simbolo_moneda}")
+            simbolo_original = nota.idTasa.idMoneda.simboloMoneda if hasattr(nota.idTasa, 'idMoneda') and hasattr(nota.idTasa.idMoneda, 'simboloMoneda') else ""
+            nombre_moneda_original = nota.idTasa.idMoneda.nombreMoneda if hasattr(nota.idTasa, 'idMoneda') and hasattr(nota.idTasa.idMoneda, 'nombreMoneda') else ""
+            print(f"Nota {nota.numeroNota} - Moneda original: {nombre_moneda_original} ({simbolo_original}), Total Original: {nota.totalNota}")
 
-    cuentas_banco = CuentaBanco.objects.filter(estado=True).order_by('idCuentaBanco')  # Filtrar cuentas bancarias activas
-    tasas = Tasa.objects.select_related('idMoneda') \
-        .values('idMoneda__idMoneda', 'idMoneda__nombreMoneda', 'idMoneda__simboloMoneda') \
-        .annotate(ultima_idTasa=Max('idTasa'), ultima_tasa=Max('montoTasa'))
+    cuentas_banco = CuentaBanco.objects.filter(estado=True).order_by('idCuentaBanco')
+    print(f"Cuentas bancarias activas: {cuentas_banco.count()}")
+    
+    tasas_activas = obtener_tasas_activas()
+    print(f"Tasas activas disponibles: {len(tasas_activas)} monedas")
+    for tasa in tasas_activas:
+        print(f"  - {tasa['idMoneda__nombreMoneda']} ({tasa['idMoneda__simboloMoneda']}): {tasa['ultima_tasa']}")
+    
     cuentas_plan = PlanCuenta.objects.filter(estadoPlanCuenta=True).order_by('codigoPlanCuenta')
+    print(f"Plan de cuentas activos: {cuentas_plan.count()}")
 
     # Obtener la moneda de configuración
     configuracion = Configuracion.objects.first()
     if not configuracion:
+        print("ERROR: No se encontró configuración activa")
         return JsonResponse({
             'success': False,
             'message': 'No se encontró una configuración activa en el sistema.'
         }, status=400)
+    
     moneda_configuracion = configuracion.moneda
+    print(f"Moneda de configuración: {moneda_configuracion.nombreMoneda} ({moneda_configuracion.simboloMoneda})")
+    
     tasa_configuracion = Tasa.objects.filter(idMoneda=moneda_configuracion).order_by('-idTasa').first()
-
     if not tasa_configuracion:
+        print(f"ERROR: No se encontró tasa para moneda de configuración: {moneda_configuracion.nombreMoneda}")
         return JsonResponse({
             'success': False,
             'message': f'No se encontró una tasa registrada para la moneda de configuración ({moneda_configuracion.nombreMoneda}).'
         }, status=400)
 
-    tasa_configuracion_valor = to_decimal_precise(tasa_configuracion.montoTasa)  # Convertir a Decimal de forma precisa
+    tasa_configuracion_valor = to_decimal_precise(tasa_configuracion.montoTasa)
     print(f"Tasa de configuración ({moneda_configuracion.nombreMoneda}): {tasa_configuracion_valor}")
 
-    # Calcular el saldo pendiente de cada nota
+
+    # Calcular el saldo pendiente de cada nota con conversiones multimoneda
+    print("\n=== CALCULANDO SALDOS PENDIENTES CON CONVERSIONES MULTIMONEDA ===")
     notas_data = []
     for nota in notas:
+        print(f"\n--- Procesando nota {nota.numeroNota} ---")
+        
         pagos_relacionados = Pago.objects.filter(idNota=nota)
+        print(f"Pagos relacionados: {pagos_relacionados.count()}")
+        
         total_pagado = calcular_total_pagado_preciso(pagos_relacionados, moneda_configuracion, tasa_configuracion_valor)
+        print(f"Total pagado (moneda base): {total_pagado}")
         
-        total_nota = to_decimal_precise(nota.totalNota)
-        saldo_pendiente = (total_nota - total_pagado).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        # Convertir el total de la nota a moneda base
+        print(f"Total nota original: {nota.totalNota} ({nota.idTasa.idMoneda.nombreMoneda})")
+        total_nota_base = convertir_a_moneda_base(
+            nota.totalNota, 
+            nota.idTasa.idMoneda, 
+            moneda_configuracion, 
+            tasa_configuracion_valor
+        )
+        print(f"Total nota convertido a base: {total_nota_base} ({moneda_configuracion.nombreMoneda})")
         
-        print(f"Nota {nota.numeroNota}: Total Nota: {total_nota}, Total Pagado: {total_pagado}, Saldo Pendiente: {saldo_pendiente}")
+        saldo_pendiente = (total_nota_base - total_pagado).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        print(f"Saldo pendiente calculado: {saldo_pendiente}")
+        
+        # CALCULAR CONVERSIONES MULTIMONEDA (Asumiendo que esta función ya devuelve los montos redondeados a 2 decimales, 
+        # excepto que sean tasas o valores intermedios, como corregimos en la respuesta anterior)
+        print(f"Calculando conversiones multimoneda para saldo: {saldo_pendiente}")
+        conversiones = calcular_conversiones_multimoneda(
+            saldo_pendiente, 
+            moneda_configuracion, 
+            tasa_configuracion_valor,
+            tasas_activas
+        )
+        
+        # Log de conversiones calculadas
+        print(f"CONVERSIONES CALCULADAS:")
+        print(f"  - Base: {conversiones['moneda_base']['monto']} {conversiones['moneda_base']['simbolo']}")
+        if conversiones['moneda_nacional']:
+            print(f"  - Nacional: {conversiones['moneda_nacional']['monto']} {conversiones['moneda_nacional']['simbolo']}")
+        for conv in conversiones['otras_monedas']:
+            print(f"  - {conv['nombre']}: {conv['monto']} {conv['simbolo']} (tasa: {conv['tasa_aplicada']})")
+        
+        # CORRECCIÓN CLAVE: Usar str() en todos los montos Decimal para evitar float()
+        print(f"ENVIANDO AL FRONTEND - Total: {total_nota_base}, Saldo: {saldo_pendiente}, Símbolo: {moneda_configuracion.simboloMoneda}")
+        
         notas_data.append({
             'idNota': nota.idNota,
             'numeroNota': nota.numeroNota,
-            'totalNota': float(total_nota),
-            'saldoPendiente': float(saldo_pendiente),  # Ya está en la moneda de configuración
-            'idPersona': nota.idPersona.cedula if nota.idPersona else "N/A",  # Incluye la cédula del cliente
-            'idEmpresa': nota.idEmpresa.nombreEmpresa if nota.idEmpresa else "N/A",  # Incluye la nombre de la empresa
+            # ✅ CORRECCIÓN 1: Convertir Decimal a str
+            'totalNota': str(total_nota_base),  # En moneda base, como string preciso
+            # ✅ CORRECCIÓN 1: Convertir Decimal a str
+            'saldoPendiente': str(saldo_pendiente),  # En moneda base, como string preciso
+            'idPersona': nota.idPersona.cedula if nota.idPersona else "N/A",
+            'idEmpresa': nota.idEmpresa.nombreEmpresa if nota.idEmpresa else "N/A",
             'estado': nota.estado,
-            'simbolo_moneda': moneda_configuracion.simboloMoneda  # Usar el símbolo de la moneda de configuración
+            'simbolo_moneda': moneda_configuracion.simboloMoneda,  # Símbolo de moneda base
+            'conversiones_multimoneda': {
+                'moneda_base': {
+                    # ✅ CORRECCIÓN 1: Convertir Decimal a str
+                    'monto': str(conversiones['moneda_base']['monto']),
+                    'moneda_id': conversiones['moneda_base']['moneda_id'],
+                    'nombre': conversiones['moneda_base']['nombre'],
+                    'simbolo': conversiones['moneda_base']['simbolo']
+                },
+                'moneda_nacional': {
+                    # ✅ CORRECCIÓN 1: Convertir Decimal a str (con manejo de None)
+                    'monto': str(conversiones['moneda_nacional']['monto']) if conversiones['moneda_nacional'] else '0.00',
+                    'moneda_id': conversiones['moneda_nacional']['moneda_id'] if conversiones['moneda_nacional'] else None,
+                    'nombre': conversiones['moneda_nacional']['nombre'] if conversiones['moneda_nacional'] else '',
+                    'simbolo': conversiones['moneda_nacional']['simbolo'] if conversiones['moneda_nacional'] else ''
+                },
+                'otras_monedas': [
+                    {
+                        # ✅ CORRECCIÓN 1: Convertir Decimal a str
+                        'monto': str(conv['monto']),
+                        'moneda_id': conv['moneda_id'],
+                        'nombre': conv['nombre'],
+                        'simbolo': conv['simbolo'],
+                        # ✅ CORRECCIÓN 1: Convertir Decimal a str
+                        'tasa_aplicada': str(conv['tasa_aplicada']) 
+                    }
+                    for conv in conversiones['otras_monedas']
+                ]
+            }
         })
 
+
+    print(f"\n=== RESUMEN NOTAS PROCESADAS ===")
+    
+    # 📝 Bucle de resumen corregido: Itera una sola vez sobre notas_data para el log.
+    for nota_data in notas_data:
+        # Los valores se acceden directamente del diccionario, ya sean str o float (para el log)
+        print(f"Nota {nota_data['numeroNota']}: Total={nota_data['totalNota']} {nota_data['simbolo_moneda']}, Saldo={nota_data['saldoPendiente']} {nota_data['simbolo_moneda']}")
+        
+        # Accedemos a la estructura de conversiones para el log
+        conversiones = nota_data['conversiones_multimoneda']
+        
+        if conversiones['moneda_nacional']:
+            nacional = conversiones['moneda_nacional']
+            print(f"  - Nacional: {nacional['monto']} {nacional['simbolo']}")
+            
+        for conv in conversiones['otras_monedas']:
+            print(f"  - {conv['nombre']}: {conv['monto']} {conv['simbolo']}")
+
     if request.method == 'POST':
+        print("\n=== PROCESANDO SOLICITUD POST ===")
         # Procesar el campo monto para convertirlo a formato decimal
         post_data = request.POST.copy()
         monto_str = post_data.get('monto', '')
+        print(f"Monto recibido del formulario: '{monto_str}'")
+        
         if monto_str:
             # Usar la función precisa de conversión
             monto_decimal = to_decimal_precise(monto_str)
             post_data['monto'] = str(monto_decimal)
+            print(f"Monto convertido a decimal: {monto_decimal}")
 
         form = PagoForm(post_data)        
         if form.is_valid():
+            print("Formulario válido, iniciando procesamiento...")
             try:
                 # Iniciar una transacción atómica
                 with transaction.atomic():
                     pago = form.save(commit=False)
+                    print(f"Pago creado para nota: {pago.idNota.numeroNota}")
 
                     # Verificar si hay un periodo contable activo
                     periodo_activo = periodoContable.objects.filter(estadoPeriodo=True).first()
                     if not periodo_activo:
                         periodo_activo = periodoContable.objects.order_by('-idPeriodo').first()
                     if not periodo_activo:
+                        print("ERROR: No hay periodo contable activo")
                         return JsonResponse({
                             'success': False,
                             'message': 'No hay ningún periodo contable registrado o activo en el sistema. '
                                        'Por favor, registre o active un periodo contable antes de continuar.'
                         }, status=400)
+                    print(f"Periodo contable: {periodo_activo}")
 
                     # Verificar los pagos relacionados a la nota
                     pagos_relacionados = Pago.objects.filter(idNota=pago.idNota)
+                    print(f"Pagos existentes para la nota: {pagos_relacionados.count()}")
+                    
                     total_pagado = calcular_total_pagado_preciso(pagos_relacionados, moneda_configuracion, tasa_configuracion_valor)
+                    print(f"Total pagado acumulado: {total_pagado}")
                     
-                    total_nota = to_decimal_precise(pago.idNota.totalNota)
-                    saldo_nota = (total_nota - total_pagado).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                    # CORRECCIÓN: Usar la conversión a moneda base también aquí
+                    total_nota_base = convertir_a_moneda_base(
+                        pago.idNota.totalNota, 
+                        pago.idNota.idTasa.idMoneda, 
+                        moneda_configuracion, 
+                        tasa_configuracion_valor
+                    )
+                    saldo_nota = (total_nota_base - total_pagado).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
                     
-                    print(f"Saldo Nota (preciso): {saldo_nota}")
+                    print(f"RESUMEN CÁLCULO SALDO:")
+                    print(f"  - Total nota (base): {total_nota_base}")
+                    print(f"  - Total pagado: {total_pagado}")
+                    print(f"  - Saldo nota: {saldo_nota}")
 
                     # Convertir el monto del pago a la moneda de configuración
                     tasa_pago = Tasa.objects.filter(idMoneda=pago.idTasa.idMoneda).order_by('-idTasa').first()
                     if not tasa_pago:
+                        print(f"ERROR: No se encontró tasa para moneda del pago: {pago.idTasa.idMoneda.nombreMoneda}")
                         return JsonResponse({
                             'success': False,
                             'message': f'No se encontró una tasa registrada para la moneda del pago ({pago.idTasa.idMoneda.nombreMoneda}).'
                         }, status=400)
 
+                    print(f"Tasa del pago: {tasa_pago.montoTasa} ({pago.idTasa.idMoneda.nombreMoneda})")
+
                     # Validar tasas antes de realizar cálculos
                     try:
-                        validar_tasas(tasa_configuracion_valor, to_decimal_precise(tasa_pago.montoTasa))
+                        tasa_pago_valor = to_decimal_precise(tasa_pago.montoTasa)
+                        print(f"Validando tasas - Config: {tasa_configuracion_valor}, Pago: {tasa_pago_valor}")
+                        validar_tasas(tasa_configuracion_valor, tasa_pago_valor)
+                        print("Tasas validadas correctamente")
                     except ValueError as e:
+                        print(f"ERROR en validación de tasas: {e}")
                         return JsonResponse({
                             'success': False,
                             'message': str(e)
@@ -1068,253 +1306,196 @@ def pago_create(request, pk=None):
                         monto_pago_decimal = to_decimal_precise(pago.monto)
                         tasa_pago_monto = to_decimal_precise(tasa_pago.montoTasa)
                         
+                        print(f"CONVERSIÓN DE MONEDA:")
+                        print(f"  - Monto pago original: {monto_pago_decimal} ({pago.idTasa.idMoneda.nombreMoneda})")
+                        print(f"  - Tasa pago: {tasa_pago_monto}")
+                        print(f"  - Tasa configuración: {tasa_configuracion_valor}")
+                        
                         if pago.idTasa.idMoneda != moneda_configuracion:
                             monto_pago_convertido = (monto_pago_decimal * tasa_pago_monto / tasa_configuracion_valor)
+                            print(f"  - Conversión necesaria: {monto_pago_decimal} * {tasa_pago_monto} / {tasa_configuracion_valor}")
                         else:
                             monto_pago_convertido = monto_pago_decimal
+                            print(f"  - Sin conversión (misma moneda)")
                         
                         monto_pago_convertido = monto_pago_convertido.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-                        print(f"Monto Pago Convertido (preciso): {monto_pago_convertido}")
+                        print(f"  - Monto convertido: {monto_pago_convertido} ({moneda_configuracion.nombreMoneda})")
                     except (InvalidOperation, ZeroDivisionError) as e:
+                        print(f"ERROR en conversión de moneda: {e}")
                         return JsonResponse({
                             'success': False,
                             'message': f'Error en la conversión de monedas: {str(e)}. Verifique las tasas de cambio y los montos ingresados.'
                         }, status=400)
                     
+                    # Validaciones de saldo
+                    print(f"VALIDACIONES:")
+                    print(f"  - Saldo nota: {saldo_nota}")
+                    print(f"  - Monto pago convertido: {monto_pago_convertido}")
+                    
                     if saldo_nota <= Decimal('0.0'):
+                        print("ERROR: Nota ya está solvente")
                         return JsonResponse({
                             'success': False,
                             'message': 'El pago no se registró porque la nota ya está solvente.'
                         }, status=400)
 
                     if monto_pago_convertido > saldo_nota:
+                        print(f"ERROR: Monto excede saldo. Saldo: {saldo_nota}, Pago: {monto_pago_convertido}")
                         return JsonResponse({
                             'success': False,
                             'message': f'El monto del pago excede el saldo pendiente de la nota. '
                                        f'Saldo pendiente: {saldo_nota:.2f}.'
                         }, status=400)
                     
+                    print("VALIDACIONES PASADAS - Continuando con creación de asiento...")
+
                     print(f"Monto del Pago: {monto_pago_decimal}")
                     print(f"Tasa de Pago: {tasa_pago_monto}")
                     print(f"Tasa de Configuración: {tasa_configuracion_valor}")
-                    print(f"Total Nota: {total_nota}")
+                    print(f"Total Nota (base): {total_nota_base}")
                     print(f"Total Pagado: {total_pagado}")
                     print(f"Saldo Nota: {saldo_nota}")
                     print(f"Monto Pago Convertido: {monto_pago_convertido}")
                     
                     # Obtener la cuenta del Plan de Cuenta usada en el Debe del asiento principal de la nota
                     try:
-                        asiento_principal = pago.idNota.idAsiento  # Obtener el asiento principal de la nota
-                        detalle_debe = DetalleAsiento.objects.filter(idAsiento=asiento_principal, debe__gt=0).first()
-                        if not detalle_debe:
-                            return JsonResponse({
-                                'success': False,
-                                'message': 'No se encontró una cuenta asociada al Debe en el asiento principal de la nota.'
-                            }, status=400)
-                        plan_cuenta_haber = detalle_debe.idPlanCuenta  # Usar esta cuenta como el Haber para el pago
-                    except Exception as e:
-                        raise ValueError(f'Error al obtener la cuenta del Debe del asiento principal: {str(e)}')
+                        # Obtener la cuenta del Plan de Cuenta usada en el Debe del asiento principal de la nota (la cuenta por cobrar)
+                        try:
+                            asiento_principal = pago.idNota.idAsiento
+                            detalle_debe = DetalleAsiento.objects.filter(idAsiento=asiento_principal, debe__gt=0).first()
+                            if not detalle_debe:
+                                return JsonResponse({'success': False, 'message': 'No se encontró la cuenta por cobrar en el asiento principal de la nota.'}, status=400)
+                            plan_cuenta_haber = detalle_debe.idPlanCuenta
+                        except Exception as e:
+                            raise ValueError(f'Error al obtener la cuenta por cobrar del asiento principal: {str(e)}')
 
-                    # Crear el asiento contable para el pago
-                    try:
-                        # Verificar si ya existe un asiento para pagos relacionados a la nota
-                        pagos_existentes = Pago.objects.filter(idNota=pago.idNota).count()
-                        numero_asiento_pago = f"PAGO-{pago.idNota.numeroNota}"
-                        if pagos_existentes > 0:
-                            numero_asiento_pago += f"-{pagos_existentes + 1}"  # Agregar un sufijo para identificar el pago adicional
+                        # Crear el asiento contable para el pago
+                        try:
+                            pagos_existentes = Pago.objects.filter(idNota=pago.idNota).exclude(pk=pago.pk).count()
+                            numero_asiento_pago = f"PAGO-{pago.idNota.numeroNota}"
+                            if pagos_existentes > 0:
+                                numero_asiento_pago += f"-{pagos_existentes + 1}"
 
-                        asiento_pago = AsientoContable.objects.create(
-                            numeroAsiento=numero_asiento_pago,
-                            fechaAsiento=pago.fechaPago,
-                            conceptoAsiento=f"Asiento para el pago de la nota {pago.idNota.numeroNota}",
-                            idPeriodo=periodo_activo
-                        )
-                    except Exception as e:
-                        raise ValueError(f'Error al crear el asiento contable: {str(e)}')
+                            asiento_pago = AsientoContable.objects.create(
+                                numeroAsiento=numero_asiento_pago,
+                                fechaAsiento=pago.fechaPago,
+                                conceptoAsiento=f"Asiento para el pago de la nota {pago.idNota.numeroNota}",
+                                idPeriodo=periodo_activo
+                            )
+                        except Exception as e:
+                            raise ValueError(f'Error al crear el asiento contable: {str(e)}')
 
-                    # Obtener el plan de cuenta según la forma de pago
-                    if pago.formaPago == 'EFECTIVO':
-                        plan_cuenta_debe = PlanCuenta.objects.filter(codigoPlanCuenta='11000101').first()
-                        print(f"Plan de cuenta para pagos en efectivo: {plan_cuenta_debe}")
-                        if not plan_cuenta_debe:
-                            return JsonResponse({
-                                'success': False,
-                                'message': 'No se encontró un plan de cuenta con el código 1101 para pagos en efectivo.'
-                            }, status=400)
-                    else:
-                        plan_cuenta_debe = PlanCuenta.objects.get(pk=request.POST['idPlanCuentaDebe'])
-                        if not plan_cuenta_debe:
-                            return JsonResponse({
-                                'success': False,
-                                'message': 'No se encontró un plan de cuenta válido para la forma de pago seleccionada.'
-                            }, status=400)
-
-                    # Crear los detalles del asiento contable
-                    try:
-                        DetalleAsiento.objects.create(
-                            idAsiento=asiento_pago,
-                            idPlanCuenta=plan_cuenta_debe,  # Cuenta de ingresos seleccionada por el usuario
-                            debe=float(monto_pago_decimal),  # Usar el monto preciso
-                            haber=0.00
-                        )
-                        DetalleAsiento.objects.create(
-                            idAsiento=asiento_pago,
-                            idPlanCuenta=plan_cuenta_haber,  # Cuenta asociada al Debe del asiento principal
-                            debe=0.00,
-                            haber=float(monto_pago_decimal)  # Usar el monto preciso
-                        )
-                    except Exception as e:
-                        raise ValueError(f'Error al crear los detalles del asiento contable: {str(e)}')
-
-                    # Asociar el asiento contable al pago
-                    pago.idAsiento = asiento_pago
-                    pago.save()
-
-                    # Caso 1: El pago fue exitoso, pero aún hay deuda
-                    diferencia = saldo_nota - monto_pago_convertido
-                    if diferencia > Decimal('0.0'):
-                        pago.idNota.estado = 'PARCIAL'
-                        pago.idNota.save()
-
-                        # Verificar el tipo de asociación de la nota usando las relaciones
-                        nota_relacionada = NotaRelacionada.objects.filter(idNota=pago.idNota).first()
-                        if nota_relacionada:
-                            match nota_relacionada:
-                                case _ if nota_relacionada.idInscripcion:
-                                    inscripcion = nota_relacionada.idInscripcion
-                                    inscripcion.estadoPago = 'PARCIAL'
-                                    inscripcion.save()
-                                case _ if nota_relacionada.idCuota:
-                                    cuota = nota_relacionada.idCuota
-                                    cuota.estadoPago = 'PARCIAL'
-                                    cuota.save()
-                                case _ if nota_relacionada.idSolicitud:
-                                    solicitud = nota_relacionada.idSolicitud
-                                    solicitud.estadoPago = 'PARCIAL'
-                                    solicitud.save()
-                                case _ if nota_relacionada.idHonorario:
-                                    honorario = nota_relacionada.idHonorario
-                                    honorario.estadoPago = 'PARCIAL'
-                                    honorario.save()
-                                case _:
-                                    print("Tipo de asociación desconocido")
+                        # Obtener el plan de cuenta para el Debe (Caja/Banco) según la forma de pago
+                        plan_cuenta_debe = None
+                        if pago.formaPago == 'EFECTIVO':
+                            plan_cuenta_debe = PlanCuenta.objects.filter(codigoPlanCuenta='11000101').first()
+                            if not plan_cuenta_debe:
+                                return JsonResponse({'success': False, 'message': 'No se encontró el plan de cuenta con código 11000101 para Caja.'}, status=400)
                         else:
-                            print("No se encontró una relación para la nota.")
+                            # Asegúrate de que 'idPlanCuentaDebe' se envíe en el POST cuando la forma de pago no es EFECTIVO
+                            plan_cuenta_debe_id = request.POST.get('idPlanCuentaDebe')
+                            if not plan_cuenta_debe_id:
+                                return JsonResponse({'success': False, 'message': 'Debe seleccionar una cuenta bancaria para esta forma de pago.'}, status=400)
+                            plan_cuenta_debe = PlanCuenta.objects.get(pk=plan_cuenta_debe_id)
 
-                        return JsonResponse({
-                            'success': True,
-                            'message': 'El pago fue exitoso, aun posee deuda ¿Desea realizar otro pago adicional?',
-                            'redirect_url': f"{reverse('pago_create')}?nota={pago.idNota.idNota}",
-                            'pago': {
-                                'idPago': pago.idPago,
-                                'idNota': pago.idNota.numeroNota,
-                                'monto': f"{float(monto_pago_decimal):.2f} {pago.idTasa.idMoneda.simboloMoneda}",
-                                'fechaPago': pago.fechaPago.strftime('%d/%m/%Y'),
-                                'formaPago': pago.formaPago,
-                                'referencia': pago.referencia
-                            }
-                        })      
-                    else:
-                        # Caso 2: El pago fue exitoso, la deuda fue saldada y se cerró la nota
-                        if es_cero_con_tolerancia(diferencia):
+                        # ==================================================================
+                        # ### INICIO DE LA LÓGICA CONTABLE CORREGIDA ###
+                        # ==================================================================
+
+                        # 1. Definir la tolerancia para el ajuste por redondeo.
+                        TOLERANCIA_REDONDEO = Decimal('0.05')  # Puedes ajustar este valor según tus políticas
+
+                        # 2. Calcular la diferencia. Si es positiva, es un saldo pendiente.
+                        diferencia_final = saldo_nota - monto_pago_convertido
+                        print(f"Diferencia final calculada: {diferencia_final} (Saldo: {saldo_nota} - Pago: {monto_pago_convertido})")
+
+                        # 3. Determinar el tipo de pago para crear el asiento correcto.
+                        es_pago_final_con_ajuste = Decimal('0.0') < diferencia_final <= TOLERANCIA_REDONDEO
+                        es_pago_final_exacto = es_cero_con_tolerancia(diferencia_final)
+                        es_pago_parcial = diferencia_final > TOLERANCIA_REDONDEO
+
+                        # Limpiamos cualquier detalle por si acaso, para asegurar que el asiento se cree desde cero.
+                        DetalleAsiento.objects.filter(idAsiento=asiento_pago).delete()
+
+                        if es_pago_final_con_ajuste:
+                            # --- CASO 1: PAGO FINAL CON AJUSTE POR REDONDEO (Asiento Compuesto de 3 líneas) ---
+                            print(f"AJUSTE: La diferencia {diferencia_final} está dentro de la tolerancia. Se considera pago final.")
+
+                            # ¡IMPORTANTE! Debes crear esta cuenta en tu plan de cuentas y usar el código correcto aquí.
+                            cuenta_ajuste_gasto = PlanCuenta.objects.filter(codigoPlanCuenta='52000104').first()
+                            if not cuenta_ajuste_gasto:
+                                raise ValueError("No se encontró la cuenta contable para 'GASTOS POR REDONDEO DE CONVERSIÓN MONETARIA' (COD: 52000104).")
+
+                            # Detalle 1: Ingreso a Caja/Banco (DEBE)
+                            DetalleAsiento.objects.create(idAsiento=asiento_pago, idPlanCuenta=plan_cuenta_debe, debe=float(monto_pago_convertido), haber=0.00)
+                            # Detalle 2: Pérdida por Redondeo (DEBE) - ¡ESTA ES LA CORRECCIÓN CLAVE!
+                            DetalleAsiento.objects.create(idAsiento=asiento_pago, idPlanCuenta=cuenta_ajuste_gasto, debe=float(diferencia_final), haber=0.00)
+                            # Detalle 3: Cancelación total de la Cuenta por Cobrar (HABER)
+                            DetalleAsiento.objects.create(idAsiento=asiento_pago, idPlanCuenta=plan_cuenta_haber, debe=0.00, haber=float(saldo_nota))
+
+                            print(f"Asiento compuesto cuadrado. Total Debe: {monto_pago_convertido + diferencia_final}, Total Haber: {saldo_nota}")
                             pago.idNota.estado = 'PAGADO'
-                            pago.idNota.save()
 
-                            # Verificar el tipo de asociación de la nota usando las relaciones
+                        elif es_pago_final_exacto:
+                            # --- CASO 2: PAGO FINAL EXACTO (Asiento Simple de 2 líneas) ---
+                            print("PAGO EXACTO: La nota se considera saldada.")
+
+                            # Detalle 1: Ingreso a Caja/Banco (DEBE)
+                            DetalleAsiento.objects.create(idAsiento=asiento_pago, idPlanCuenta=plan_cuenta_debe, debe=float(monto_pago_convertido), haber=0.00)
+                            # Detalle 2: Cancelación de la Cuenta por Cobrar (HABER)
+                            DetalleAsiento.objects.create(idAsiento=asiento_pago, idPlanCuenta=plan_cuenta_haber, debe=0.00, haber=float(monto_pago_convertido))
+
+                            pago.idNota.estado = 'PAGADO'
+
+                        elif es_pago_parcial:
+                            # --- CASO 3: PAGO PARCIAL (Asiento Simple de 2 líneas) ---
+                            print("PAGO PARCIAL: Aún queda saldo pendiente.")
+
+                            # Detalle 1: Ingreso a Caja/Banco (DEBE)
+                            DetalleAsiento.objects.create(idAsiento=asiento_pago, idPlanCuenta=plan_cuenta_debe, debe=float(monto_pago_convertido), haber=0.00)
+                            # Detalle 2: Abono a la Cuenta por Cobrar (HABER)
+                            DetalleAsiento.objects.create(idAsiento=asiento_pago, idPlanCuenta=plan_cuenta_haber, debe=0.00, haber=float(monto_pago_convertido))
+
+                            pago.idNota.estado = 'PARCIAL'
+
+                        else:
+                            # Caso de sobrepago (diferencia_final es negativa), que la validación inicial debería prevenir.
+                            return JsonResponse({'success': False, 'message': f'Error: El monto del pago {monto_pago_convertido} excede el saldo de la deuda {saldo_nota}.'}, status=400)
+
+                        # ==================================================================
+                        # ### FIN DE LA LÓGICA CONTABLE CORREGIDA ###
+                        # ==================================================================
+
+                        # Asociar el asiento contable al pago y guardar cambios
+                        pago.idAsiento = asiento_pago
+                        pago.save()
+                        pago.idNota.save() # Guardar el nuevo estado de la nota ('PAGADO' o 'PARCIAL')
+
+                        # --- LÓGICA POST-PAGO ---
+                        # Ahora, basado en el estado final de la nota, ejecutamos las acciones correspondientes.
+
+                        if pago.idNota.estado == 'PARCIAL':
+                            # Actualizar estado de entidades relacionadas a 'PARCIAL'
                             nota_relacionada = NotaRelacionada.objects.filter(idNota=pago.idNota).first()
-                            relaciones = {}  # Diccionario para almacenar las llaves relacionadas
-
                             if nota_relacionada:
                                 match nota_relacionada:
                                     case _ if nota_relacionada.idInscripcion:
-                                        inscripcion = nota_relacionada.idInscripcion
-                                        inscripcion.estadoPago = 'PAGADO'
-                                        inscripcion.save()
-
-                                        # Obtener las cuotas relacionadas y marcarlas como pagadas
-                                        cuotas_pagadas = InscripcionCuota.objects.filter(
-                                            idInscripcion=inscripcion, estadoPago='PENDIENTE'
-                                        )
-                                        for cuota in cuotas_pagadas:
-                                            cuota.estadoPago = 'PAGADO'
-                                            cuota.save()
-
-                                        relaciones['inscripcion'] = inscripcion.idInscripcion
-                                        relaciones['cuotas'] = [cuota.idCuota.idCuota for cuota in cuotas_pagadas]
-
+                                        nota_relacionada.idInscripcion.estadoPago = 'PARCIAL'
+                                        nota_relacionada.idInscripcion.save()
                                     case _ if nota_relacionada.idCuota:
-                                        cuota = nota_relacionada.idCuota
-                                        cuota.estadoPago = 'PAGADO'
-                                        cuota.save()
-                                        relaciones['cuota'] = cuota.idCuota
-
+                                        nota_relacionada.idCuota.estadoPago = 'PARCIAL'
+                                        nota_relacionada.idCuota.save()
                                     case _ if nota_relacionada.idSolicitud:
-                                        solicitud = nota_relacionada.idSolicitud
-                                        solicitud.estadoPago = 'PAGADO'
-                                        solicitud.save()
-                                        relaciones['solicitud'] = solicitud.idSoli
-
+                                        nota_relacionada.idSolicitud.estadoPago = 'PARCIAL'
+                                        nota_relacionada.idSolicitud.save()
                                     case _ if nota_relacionada.idHonorario:
-                                        honorario = nota_relacionada.idHonorario
-                                        honorario.estadoPago = 'PAGADO'
-                                        honorario.save()
-                                        relaciones['honorario'] = honorario.idHonorario
-
-                                    case _:
-                                        print("Tipo de asociación desconocido")
-                            else:
-                                print("No se encontró una relación para la nota.")
-
-                            # GENERAR FACTURA AUTOMÁTICAMENTE
-                            factura_generada = False
-                            factura_id = None
-                            try:
-                                # Nota: necesitarías implementar generar_numero_factura_unico()
-                                factura = Factura.objects.create(
-                                    numeroFactura=f"FACT-{pago.idNota.numeroNota}",  # Temporal
-                                    idPersona=pago.idNota.idPersona,
-                                    idEmpresa=pago.idNota.idEmpresa,
-                                    fechaEmision=datetime.now().date(),
-                                    totalVenta=float(total_nota),
-                                    subtotalExento=float(to_decimal_precise(pago.idNota.subtotalExento)),
-                                    subtotalGravado=float(to_decimal_precise(pago.idNota.subtotalGravado)),
-                                    iva=float(to_decimal_precise(pago.idNota.iva)),
-                                    ivaRetenido=float(to_decimal_precise(pago.idNota.ivaRetenido)),
-                                    islrRetenido=float(to_decimal_precise(pago.idNota.islrRetenido)),
-                                    descuento=float(to_decimal_precise(pago.idNota.descuento)),
-                                    estado='GENERADA'
-                                )
-                                FacturaDetalle.objects.create(
-                                    idFactura=factura,
-                                    idNota=pago.idNota,
-                                    tipoItem=pago.idNota.tipoArticulo,
-                                    descripcion=f"Nota {pago.idNota.numeroNota}",
-                                    cantidad=1,
-                                    precioUnitario=float(total_nota),
-                                    exento=to_decimal_precise(pago.idNota.subtotalExento) > Decimal('0'),
-                                    descuentoItem=float(to_decimal_precise(pago.idNota.descuento)),
-                                    subtotal=float(to_decimal_precise(pago.idNota.subtotalGravado) + to_decimal_precise(pago.idNota.subtotalExento)),
-                                    ivaItem=float(to_decimal_precise(pago.idNota.iva)),
-                                    totalItem=float(total_nota)
-                                )
-                                # Actualizar estado de la nota
-                                pago.idNota.estado = 'FACTURADO'
-                                pago.idNota.save()
-                                
-                                factura_generada = True
-                                factura_id = factura.idFactura
-                            except Exception as e:
-                                print(f"Error al generar factura automáticamente: {str(e)}")
-                                # Si hay error, mantener el estado PAGADO y no FACTURADO
-                                pass
+                                        nota_relacionada.idHonorario.estadoPago = 'PARCIAL'
+                                        nota_relacionada.idHonorario.save()
 
                             return JsonResponse({
                                 'success': True,
-                                'message': 'Pago creado exitosamente. La nota ha sido pagada en su totalidad y facturada automáticamente.',
-                                'redirect_url': reverse('factura_cargando', args=[factura_id]) if factura_generada else reverse('factura_list'),
-                                'factura_generada': factura_generada,
-                                'factura_id': factura_id,
-                                'relaciones': relaciones,
+                                'message': 'El pago fue exitoso, aun posee deuda ¿Desea realizar otro pago adicional?',
+                                'redirect_url': f"{reverse('pago_create')}?nota={pago.idNota.idNota}",
                                 'pago': {
                                     'idPago': pago.idPago,
                                     'idNota': pago.idNota.numeroNota,
@@ -1324,18 +1505,62 @@ def pago_create(request, pk=None):
                                     'referencia': pago.referencia
                                 }
                             })
+                        
+                        elif pago.idNota.estado == 'PAGADO':
+                            # Actualizar estado de entidades relacionadas a 'PAGADO'
+                            nota_relacionada = NotaRelacionada.objects.filter(idNota=pago.idNota).first()
+                            if nota_relacionada:
+                                match nota_relacionada:
+                                    case _ if nota_relacionada.idInscripcion:
+                                        inscripcion = nota_relacionada.idInscripcion
+                                        inscripcion.estadoPago = 'PAGADO'
+                                        inscripcion.save()
+                                        InscripcionCuota.objects.filter(idInscripcion=inscripcion, estadoPago='PENDIENTE').update(estadoPago='PAGADO')
+                                    case _ if nota_relacionada.idCuota:
+                                        nota_relacionada.idCuota.estadoPago = 'PAGADO'
+                                        nota_relacionada.idCuota.save()
+                                    case _ if nota_relacionada.idSolicitud:
+                                        nota_relacionada.idSolicitud.estadoPago = 'PAGADO'
+                                        nota_relacionada.idSolicitud.save()
+                                    case _ if nota_relacionada.idHonorario:
+                                        nota_relacionada.idHonorario.estadoPago = 'PAGADO'
+                                        nota_relacionada.idHonorario.save()
+
+                            return JsonResponse({
+                                'success': True,
+                                'message': 'Pago creado exitosamente. La nota ha sido pagada en su totalidad.',
+                                'redirect_url': reverse('nota_list'), # Redirige a la lista de notas o donde prefieras
+                                'pago': {
+                                    'idPago': pago.idPago,
+                                    'idNota': pago.idNota.numeroNota,
+                                    'monto': f"{float(monto_pago_decimal):.2f} {pago.idTasa.idMoneda.simboloMoneda}",
+                                    'fechaPago': pago.fechaPago.strftime('%d/%m/%Y'),
+                                    'formaPago': pago.formaPago,
+                                    'referencia': pago.referencia
+                                }
+                            })
+
                         else:
                             # Caso donde el pago es mayor al saldo (no debería ocurrir por validación previa)
                             return JsonResponse({
                                 'success': False,
                                 'message': 'Error inesperado en el cálculo del saldo.'
                             }, status=400)
-            except ValueError as e:
-                print(f"Error de valor: {e}")
-                return JsonResponse({
-                    'success': False,
-                    'message': str(e)
-                }, status=500)
+                    except ValueError as e:
+                        print(f"Error de valor: {e}")
+                        return JsonResponse({
+                            'success': False,
+                            'message': str(e)
+                        }, status=500)
+                    except Exception as e:
+                        import traceback
+                        print(f"Error inesperado: {e}")
+                        print(traceback.format_exc())
+                        return JsonResponse({
+                            'success': False,
+                            'message': f'Ocurrió un error inesperado: {str(e)}. '
+                                       'Por favor, contacte al administrador del sistema si el problema persiste.'
+                        }, status=500)
             except Exception as e:
                 import traceback
                 print(f"Error inesperado: {e}")
@@ -1354,14 +1579,16 @@ def pago_create(request, pk=None):
             }, status=400)
     else:
         form = PagoForm()
+
     return render(request, 'factura/pago.html', {
         'form': form,
-        'notas': notas_data,  # Pasar las notas con saldo pendiente al contexto
-        'cuentas_banco': cuentas_banco,  # Pasar las cuentas bancarias al contexto
+        'notas': notas_data, 
+        'cuentas_banco': cuentas_banco,
         'cuentas_plan': cuentas_plan,
-        'monedas': tasas,
-        'tasa_configuracion_valor': float(tasa_configuracion_valor)  # Tasa de configuración
+        'monedas': tasas_activas,
+        'notas_json': json.dumps(notas_data, cls=DecimalEncoder) 
     })
+
 @transaction.atomic
 def pago_edit(request, pk):
     """

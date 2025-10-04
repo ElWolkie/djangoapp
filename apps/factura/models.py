@@ -187,7 +187,7 @@ class Pago(models.Model):
     idNota = models.ForeignKey(Nota, on_delete=models.CASCADE, related_name='pagos')
     idAsiento = models.ForeignKey(AsientoContable, on_delete=models.CASCADE)
     idCuentaBanco = models.ForeignKey(CuentaBanco, on_delete=models.CASCADE, null=True, blank=True)
-    monto = models.DecimalField(max_digits=10, decimal_places=2)
+    monto = models.DecimalField(max_digits=60, decimal_places=4)
     fechaPago = models.DateField()
     formaPago = models.CharField(max_length=50)
     referencia = models.CharField(max_length=100, blank=True, null=True)
