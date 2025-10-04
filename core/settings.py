@@ -40,6 +40,9 @@ SESSION_ENGINE = "django.contrib.sessions.backends.cached_db"  # Combina caché 
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:8081",
     "http://127.0.0.1:8081",
+    "http://localhost:19006",
+    "https://djangoapp-6wxv.onrender.com",
+    "http://10.0.2.2:8000",  # Para Android emulator
 ]
 
 CACHES = {
@@ -97,7 +100,21 @@ MIDDLEWARE = [
     # 'debug_toolbar.middleware.DebugToolbarMiddleware',
 ]
 
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = True  # Temporal para pruebas
+CORS_ALLOW_CREDENTIALS = True
+
+# Agregar estos headers para React Native
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:8081",  # Para Expo Go en web
@@ -175,11 +192,6 @@ SIMPLE_JWT = {
     # y cómo lo nombrará dentro del payload del token
     'USER_ID_CLAIM': 'user_id',
 }
-
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:8000",
-    "http://127.0.0.1:8000",
-]
 
 # Ajustes específicos para Windows
 if platform.system() == "Windows":
