@@ -75,70 +75,32 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
 
   // intenta obtener tokens usando el endpoint /api/token/
   const tryObtainToken = async (digits: string, passwordValue: string) => {
-    let idPersonaFromApi: number | null = null;
-
-    // Intentar obtener idPersona consultando la API por la cédula
-    try {
-      // Si tu endpoint verificar-cedula devuelve el objeto persona, úsalo:
-      console.log('[login] buscando persona por cédula ->', digits);
-      const verifyRes = await api.get(`/api/verificar-cedula/?cedula=${encodeURIComponent(digits)}`);
-      // Algunos endpoints devuelven { idPersona: ..., cedula: ... } o array; ajusta según tu API
-      if (verifyRes?.data) {
-        // Normalizar posible shapes:
-        const d = verifyRes.data;
-        if (Array.isArray(d) && d.length > 0 && d[0].idPersona) {
-          idPersonaFromApi = Number(d[0].idPersona);
-        } else if (d.idPersona) {
-          idPersonaFromApi = Number(d.idPersona);
-        } else if (d.data && Array.isArray(d.data) && d.data[0]?.idPersona) {
-          idPersonaFromApi = Number(d.data[0].idPersona);
-        }
-      }
-    } catch (e) {
-      // no bloquee el login si la verificación falla: solo registramos y continuamos
-      console.warn('[login] verificar-cedula fallo (no crítico):', (e as any)?.message ?? e);
-      idPersonaFromApi = null;
-    }
+  try {
+    console.log('[login] Intentando login con cédula:', digits);
     
-    // Preparamos intentos priorizando enviar idPersona si lo obtuvimos
-    const attempts: { url: string; payload: Record<string, any> }[] = [];
-
-    if (idPersonaFromApi) {
-      attempts.push({ url: '/api/token/', payload: { idPersona: idPersonaFromApi, cedula: digits, password: passwordValue } });
-    }
-
-    // payloads alternativos (cedula, documento, username)
-    attempts.push({ url: '/api/token/', payload: { cedula: digits, password: passwordValue } });
-    attempts.push({ url: '/api/token_cedula/', payload: { cedula: digits, password: passwordValue } });
-    // (opcional) añadir username/email payload si tu backend puede aceptar
-    attempts.push({ url: '/api/token/', payload: { username: digits, password: passwordValue } });
-
-    let lastErr: any = null;
-    for (const attempt of attempts) {
-      try {
-        console.log('[login] intentando', attempt.url, attempt.payload);
-        const res = await api.post(attempt.url, attempt.payload);
-        console.log('[login] respuesta token ok', res.status, res.data);
-        const data = res.data ?? {};
-        const access = data.access ?? data.token ?? null;
-        const refresh = data.refresh ?? null;
-        if (access) {
-          return { access, refresh, raw: data, usedUrl: attempt.url, usedPayload: attempt.payload };
-        } else {
-          lastErr = { url: attempt.url, payload: attempt.payload, response: data };
-        }
-      } catch (err: any) {
-        lastErr = err;
-        console.warn('[login] intento fallo', attempt.url, err?.response?.status ?? err?.message);
-        if (err?.response?.data) {
-          return { error: err.response.data, status: err.response.status };
-        }
-        // si network error (ej: intentando 10.0.2.2), continuamos con siguiente intento
-      }
-    }
-
-    return { error: lastErr ?? 'No se obtuvieron tokens' };
-  };
+    // Intentar con el payload más simple
+    const payload = {
+      cedula: digits,
+      password: passwordValue
+    };
+    
+    console.log('[login] Payload:', payload);
+    const res = await api.post('/api/token/', payload);
+    console.log('[login] ✅ Login exitoso');
+    
+    return { 
+      access: res.data.access, 
+      refresh: res.data.refresh,
+      raw: res.data 
+    };
+    
+  } catch (err: any) {
+    console.error('[login] ❌ Error en login:', err.response?.data || err.message);
+    return { 
+      error: err.response?.data || { detail: 'Error de autenticación' } 
+    };
+  }
+};
 
 
   const handleLogin = async () => {
