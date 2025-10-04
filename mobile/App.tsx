@@ -25,6 +25,9 @@ import PantallaTasas from './src/screens/tasas';
 import { AuthProvider } from './src/contexts/AuthContext';
 import { ReloadProvider } from './src/contexts/ReloadContext';
 
+// <-- IMPORTA loadTokensToApi
+import { loadTokensToApi } from './src/api/auth';
+
 export type RootStackParamList = {
   Login: undefined;
   Register: undefined;
@@ -50,7 +53,16 @@ const Stack = createStackNavigator<RootStackParamList>();
 
 export default function App() {
   React.useEffect(() => {
-    initializeApp();
+    // Cargar tokens guardados al arrancar (si existen)
+    (async () => {
+      try {
+        await loadTokensToApi();
+      } catch (e) {
+        console.warn('[App] loadTokensToApi fallo', e);
+      }
+      // Luego la inicialización específica
+      initializeApp();
+    })();
   }, []);
 
   return (

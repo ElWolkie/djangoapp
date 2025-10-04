@@ -1,49 +1,55 @@
-// src/api/auth.ts
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-export interface Tokens {
-  access: string;
-  refresh: string;
-}
-
-const SERVICE_NAME = 'myapp-tokens';
+// Importamos la instancia ya creada y configurada
+import api, { STORAGE_KEY } from './api';
 
 /**
- * Guarda los tokens de acceso y refresh en AsyncStorage.
+ * Guarda tokens y datos de usuario, y actualiza la instancia de API.
  */
 export const storeTokens = async (access: string, refresh: string | null = null, user: any | null = null): Promise<void> => {
   try {
-    const credentials: string = JSON.stringify({ access, refresh, user });
-    await AsyncStorage.setItem(SERVICE_NAME, credentials);
+    const payload = JSON.stringify({ access, refresh, user });
+    await AsyncStorage.setItem(STORAGE_KEY, payload);
+    // Actualiza el header por defecto para peticiones futuras en esta sesión
+    api.defaults.headers.common['Authorization'] = `Bearer ${access}`;
+    console.log('[auth] Tokens guardados y header de API actualizado.');
   } catch (e) {
-    console.error('Error guardando tokens en AsyncStorage', e);
+    console.error('[auth] Error guardando tokens', e);
     throw e;
   }
 };
 
 /**
- * Obtiene los tokens almacenados.
- * Devuelve null si no hay tokens.
- */
-export const getTokens = async (): Promise<{ access: string | null; refresh: string | null; user?: any } | null> => {
-  try {
-    const creds = await AsyncStorage.getItem(SERVICE_NAME);
-    if (!creds) return null;
-    return JSON.parse(creds) as { access: string | null; refresh: string | null; user?: any };
-  } catch (e) {
-    console.error('Error leyendo tokens desde AsyncStorage', e);
-    return null;
-  }
-};
-
-/**
- * Elimina los tokens almacenados.
+ * Limpia los tokens del almacenamiento y de la instancia de API.
  */
 export const clearTokens = async (): Promise<void> => {
   try {
-    await AsyncStorage.removeItem(SERVICE_NAME);
+    await AsyncStorage.removeItem(STORAGE_KEY);
+    // Elimina el header por defecto
+    delete api.defaults.headers.common['Authorization'];
+    console.log('[auth] Tokens limpiados.');
   } catch (e) {
-    console.error('Error limpiando tokens en AsyncStorage', e);
+    console.error('[auth] Error limpiando tokens', e);
     throw e;
+  }
+};
+
+/**
+ * Carga los tokens desde el almacenamiento a la instancia de API al iniciar la app.
+ */
+export const loadTokensToApi = async (): Promise<boolean> => {
+  try {
+    const raw = await AsyncStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const tokens = JSON.parse(raw);
+      if (tokens.access) {
+        api.defaults.headers.common['Authorization'] = `Bearer ${tokens.access}`;
+        console.log('[auth] Tokens cargados en API al iniciar.');
+        return true;
+      }
+    }
+    return false;
+  } catch (e) {
+    console.warn('[auth] No se pudieron cargar tokens al iniciar.', e);
+    return false;
   }
 };

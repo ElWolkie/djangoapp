@@ -57,10 +57,10 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     # 'debug_toolbar', # para ver los tiempos de respuesta de las pantallas
+    "corsheaders",  # Para permitir conexiones desde el frontend
     "apps.api",  # La app donde estan las rutas y vistas
     "rest_framework",  # Django Rest Framework
     "rest_framework_simplejwt", #JWT para autenticacion
-    "corsheaders",  # Para permitir conexiones desde el frontend
     "apps.authentication",
     "apps.home",  # Enable the inner home (home)
     'django_extensions',
@@ -85,13 +85,13 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "corsheaders.middleware.CorsMiddleware",
     "apps.bitacora.middleware.AuditMiddleware",
     'apps.api.middleware.DisableCSRFForPublicAPI'
     # 'debug_toolbar.middleware.DebugToolbarMiddleware',
@@ -100,9 +100,10 @@ MIDDLEWARE = [
 CORS_ALLOW_ALL_ORIGINS = True
 
 CORS_ALLOWED_ORIGINS = [
-    "http://127.0.0.1:8000",  # IP local del PC donde corre Django
+    "http://localhost:8081",  # Para Expo Go en web
+    "http://localhost:19006", # Otro puerto común de Expo web
+    "http://127.0.0.1:8000",  # Para pruebas locales directas
 ]
-
 
 # Direcciones IP donde se mostrará la toolbar (normalmente localhost)
 INTERNAL_IPS = [

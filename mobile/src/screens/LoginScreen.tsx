@@ -16,16 +16,16 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import type { StackNavigationProp } from '@react-navigation/stack';
-import api from '../api/api';
-import { storeTokens } from '../api/auth'; // tu helper
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import api from '../api/api'; // <-- ¡ESTA ES LA FORMA CORRECTA!
+import { storeTokens } from '../api/auth'; // <-- ajusta ruta si es necesario
 
-// NOTE: Ajusté los nombres para compatibilidad con diferentes navegators
 type RootStackParamList = {
   Login: undefined;
   Main: undefined;
-  Register: { form?: any } | undefined; // coincide con App.tsx (Register -> RegisterScreen.tsx)
-  RegisterPerson: { form?: any } | undefined; // alternativa
-  RegisterScreen: { form?: any } | undefined; // alternativa
+  Register: { form?: any } | undefined;
+  RegisterPerson: { form?: any } | undefined;
+  RegisterScreen: { form?: any } | undefined;
   RegisterUser: { person: any } | undefined;
 };
 type LoginScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Login'>;
@@ -37,7 +37,7 @@ interface LoginScreenProps {
 const { width: screenWidth } = Dimensions.get('window');
 
 export default function LoginScreen({ navigation }: LoginScreenProps) {
-  const [cedula, setCedula] = useState(''); // aquí guardaremos sólo dígitos
+  const [cedula, setCedula] = useState('');
   const [password, setPassword] = useState('');
   const [focusField, setFocusField] = useState<'cedula' | 'password' | null>(null);
   const [errors, setErrors] = useState<{ cedula?: string; password?: string }>({});
@@ -73,56 +73,76 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
     return String(raw).replace(/\D+/g, '');
   };
 
-  /**
-   * Intenta obtener tokens desde varios endpoints y shapes.
-   * - Primero prueba token_cedula (tu endpoint personalizado)
-   * - Luego prueba token (simplejwt)
-   */
+  // intenta obtener tokens usando el endpoint /api/token/
   const tryObtainToken = async (digits: string, passwordValue: string) => {
-    const endpoints = ['/api/token_cedula/', '/api/token/'];
-    const payloadCandidates: Record<string, any>[] = [
-      { cedula: digits, password: passwordValue },
-      { username: digits, password: passwordValue },
-      { documento: digits, password: passwordValue },
-      { id: digits, password: passwordValue },
-      { email: digits, password: passwordValue },
-    ];
+    let idPersonaFromApi: number | null = null;
 
-    let lastError: any = null;
-
-    for (const url of endpoints) {
-      for (const payload of payloadCandidates) {
-        try {
-          const res = await api.post(url, payload);
-          const d = res?.data ?? {};
-
-          const access = d.access ?? d.access_token ?? d.token ?? null;
-          const refresh = d.refresh ?? d.refresh_token ?? null;
-
-          if (access) {
-            return { access, refresh, raw: d, usedUrl: url, usedPayload: payload };
-          }
-
-          if (d.data && (d.data.access || d.data.token)) {
-            return { access: d.data.access ?? d.data.token, refresh: d.data.refresh ?? null, raw: d, usedUrl: url, usedPayload: payload };
-          }
-
-          lastError = { url, payload, response: d };
-        } catch (err: any) {
-          lastError = err;
-          if (err?.response?.data) {
-            return { error: err.response.data, rawErr: err, usedUrl: url, usedPayload: payload };
-          }
+    // Intentar obtener idPersona consultando la API por la cédula
+    try {
+      // Si tu endpoint verificar-cedula devuelve el objeto persona, úsalo:
+      console.log('[login] buscando persona por cédula ->', digits);
+      const verifyRes = await api.get(`/api/verificar-cedula/?cedula=${encodeURIComponent(digits)}`);
+      // Algunos endpoints devuelven { idPersona: ..., cedula: ... } o array; ajusta según tu API
+      if (verifyRes?.data) {
+        // Normalizar posible shapes:
+        const d = verifyRes.data;
+        if (Array.isArray(d) && d.length > 0 && d[0].idPersona) {
+          idPersonaFromApi = Number(d[0].idPersona);
+        } else if (d.idPersona) {
+          idPersonaFromApi = Number(d.idPersona);
+        } else if (d.data && Array.isArray(d.data) && d.data[0]?.idPersona) {
+          idPersonaFromApi = Number(d.data[0].idPersona);
         }
+      }
+    } catch (e) {
+      // no bloquee el login si la verificación falla: solo registramos y continuamos
+      console.warn('[login] verificar-cedula fallo (no crítico):', (e as any)?.message ?? e);
+      idPersonaFromApi = null;
+    }
+    
+    // Preparamos intentos priorizando enviar idPersona si lo obtuvimos
+    const attempts: { url: string; payload: Record<string, any> }[] = [];
+
+    if (idPersonaFromApi) {
+      attempts.push({ url: '/api/token/', payload: { idPersona: idPersonaFromApi, cedula: digits, password: passwordValue } });
+    }
+
+    // payloads alternativos (cedula, documento, username)
+    attempts.push({ url: '/api/token/', payload: { cedula: digits, password: passwordValue } });
+    attempts.push({ url: '/api/token_cedula/', payload: { cedula: digits, password: passwordValue } });
+    // (opcional) añadir username/email payload si tu backend puede aceptar
+    attempts.push({ url: '/api/token/', payload: { username: digits, password: passwordValue } });
+
+    let lastErr: any = null;
+    for (const attempt of attempts) {
+      try {
+        console.log('[login] intentando', attempt.url, attempt.payload);
+        const res = await api.post(attempt.url, attempt.payload);
+        console.log('[login] respuesta token ok', res.status, res.data);
+        const data = res.data ?? {};
+        const access = data.access ?? data.token ?? null;
+        const refresh = data.refresh ?? null;
+        if (access) {
+          return { access, refresh, raw: data, usedUrl: attempt.url, usedPayload: attempt.payload };
+        } else {
+          lastErr = { url: attempt.url, payload: attempt.payload, response: data };
+        }
+      } catch (err: any) {
+        lastErr = err;
+        console.warn('[login] intento fallo', attempt.url, err?.response?.status ?? err?.message);
+        if (err?.response?.data) {
+          return { error: err.response.data, status: err.response.status };
+        }
+        // si network error (ej: intentando 10.0.2.2), continuamos con siguiente intento
       }
     }
 
-    return { error: lastError ?? 'No response' };
+    return { error: lastErr ?? 'No se obtuvieron tokens' };
   };
+
 
   const handleLogin = async () => {
     if (!validate()) return;
-
     setLoading(true);
     Animated.sequence([
       Animated.spring(buttonScale, { toValue: 0.93, useNativeDriver: true }),
@@ -137,21 +157,22 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         return;
       }
 
-      // opcional: llamada para verificar-cedula (no crítica)
+      // (opcional) verificación previa de existencia de cédula (no bloqueante)
       try {
         await api.get(`/api/verificar-cedula/?cedula=${encodeURIComponent(digits)}`).catch(() => null);
       } catch { /* noop */ }
 
-      const result = await tryObtainToken(digits, password);
+      const result: any = await tryObtainToken(digits, password);
 
-      if (result == null) {
+      if (!result) {
         Alert.alert('Error', 'No se obtuvo respuesta del servidor.');
         setLoading(false);
         return;
       }
 
-      if ((result as any).error) {
-        const e = (result as any).error;
+      if (result.error) {
+        // errores explícitos del backend (por ejemplo CSRF)
+        const e = result.error;
         if (typeof e === 'object') {
           const textErr =
             e.detail ||
@@ -160,14 +181,14 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
             JSON.stringify(e);
           Alert.alert('Error de autenticación', textErr);
         } else {
-          Alert.alert('Error de conexión', String(e));
+          Alert.alert('Error', String(e));
         }
         setLoading(false);
         return;
       }
 
-      const access = (result as any).access as string | undefined;
-      const refresh = (result as any).refresh as string | undefined;
+      const access = result.access as string | undefined;
+      const refresh = result.refresh as string | undefined;
 
       if (!access) {
         Alert.alert('Error', 'El servidor no devolvió token de acceso válido.');
@@ -175,10 +196,11 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         return;
       }
 
-      // Guardar tokens y usuario (ajusta storeTokens a tu helper)
-      await storeTokens(access, refresh ?? null, (result as any).user ?? null);
-
-      // navegar al Main (reset para evitar volver al login)
+      // Guardar tokens y actualizar header (storeTokens viene de src/api/auth.ts)
+      await storeTokens(access, refresh ?? null, result.raw?.user ?? null);
+      const raw = await AsyncStorage.getItem('myapp-tokens');
+      console.log('[debug] myapp-tokens guardado ->', raw);
+      // Navegar a Main (reset para evitar volver atrás)
       navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
     } catch (err: any) {
       console.error('Login error', err);
@@ -188,61 +210,16 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
     }
   };
 
-  // NUEVO: navegar directo a la pantalla "Register" (registrada en App.tsx)
   const openRegister = () => {
     const cedulaDigits = normalizeCedulaToDigits(cedula);
-    const prefill = { form: { cedula: cedulaDigits } };
-    console.log('openRegister fired — prefill:', prefill);
-
-    // Navegar a la ruta que registraste en App.tsx: "Register"
-    navigation.navigate('Register' as any, prefill);
-
-    // Verificación rápida: si la navegación no ocurre por alguna razón,
-    // avisamos al desarrollador (esto rara vez se mostrará en producción).
-    setTimeout(() => {
-      try {
-        const state = (navigation as any).getState?.();
-        const current = state?.routes?.[state.index]?.name;
-        if (current === 'Login') {
-          Alert.alert(
-            'Registro',
-            'No se pudo navegar a "Register". Verifica que la ruta "Register" esté registrada en tu Stack Navigator (App.tsx).'
-          );
-        }
-      } catch (e) {
-        // noop
-      }
-    }, 300);
+    navigation.navigate('Register' as any, { form: { cedula: cedulaDigits } });
   };
 
-  // NUEVO: navegar directo a la pantalla "RegisterUser" (la de crear cuenta de usuario para una persona ya registrada)
   const openRegisterUser = () => {
     const cedulaDigits = normalizeCedulaToDigits(cedula);
-    const personParam = { cedula: cedulaDigits ? cedulaDigits : undefined };
-    console.log('openRegisterUser fired — personParam:', personParam);
-
-    // Intentamos navegar a 'RegisterUser' pasando { person: { cedula } }
-    // Nota: asegúrate de registrar RegisterUser en App.tsx si aún no está.
-    navigation.navigate('RegisterUser' as any, { person: personParam });
-
-    // Heurística de verificación (útil si la ruta no existe)
-    setTimeout(() => {
-      try {
-        const state = (navigation as any).getState?.();
-        const current = state?.routes?.[state.index]?.name;
-        if (current === 'Login') {
-          Alert.alert(
-            'Registro de Usuario',
-            'No se pudo navegar a "RegisterUser". Verifica que la ruta "RegisterUser" esté registrada en tu Stack Navigator (App.tsx).'
-          );
-        }
-      } catch (e) {
-        // noop
-      }
-    }, 300);
+    navigation.navigate('RegisterUser' as any, { person: { cedula: cedulaDigits } });
   };
 
-  // Responsive width para PC: si pantalla ancha, usar caja más estrecha y centrada
   const isWide = screenWidth >= 1000;
   const formWidth = isWide ? 560 : Math.min(720, screenWidth * 0.88);
 
@@ -311,10 +288,6 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
           </TouchableOpacity>
         </Animated.View>
 
-        {/* Registrarse: dos opciones
-            - "Registrarse" (persona) -> openRegister (usa la ruta 'Register' ya en App.tsx)
-            - "Registrar usuario" (crear cuenta para persona ya registrada) -> openRegisterUser (ruta 'RegisterUser')
-        */}
         <View style={styles.registerRow}>
           <Text style={styles.registerHint}>¿No estás registrado?</Text>
 
@@ -356,15 +329,9 @@ const styles = StyleSheet.create({
   loginText: { color: 'white', fontWeight: 'bold', fontSize: 17 },
   registerRow: { width: '100%', marginTop: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   registerHint: { color: '#555', fontSize: 14 },
-
-  /* agrupación de botones a la derecha */
   registerButtonsGroup: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-
   registerButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#2b8cff', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 24, marginLeft: 8 },
   registerText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-
-  /* nuevo: botón para registrar usuario */
   registerUserButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1f6fe0', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 24, marginLeft: 8 },
   registerUserText: { color: '#fff', fontWeight: '700', fontSize: 13 },
-
 });
