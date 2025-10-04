@@ -35,14 +35,14 @@ class PersonaRetrieveUpdateDestroy(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = PersonaSerializer  # Usa el serializador PersonaSerializer
 
 # Vista para Formacion
-class FormacionListCreate(generics.ListCreateAPIView):
-    queryset = Formacion.objects.all()  # Usa el modelo Formacion
-    serializer_class = FormacionSerializer  # Usa el serializador Formacion
-
-# Vista para Formacion
 class TPFormacionListCreate(generics.ListCreateAPIView):
     queryset = TipoFormacion.objects.all()  # Usa el modelo Formacion
     serializer_class = TPFormacionSerializer  # Usa el serializador Formacion
+
+# Vista para Formacion
+class FormacionListCreate(generics.ListCreateAPIView):
+    queryset = Formacion.objects.all()  # Usa el modelo Formacion
+    serializer_class = FormacionSerializer  # Usa el serializador Formacion
 
 class MateriaListCreate(generics.ListCreateAPIView):
     queryset = Materia.objects.all()  # Usa el modelo Materia

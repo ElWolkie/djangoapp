@@ -48,15 +48,15 @@ class PersonaTPSerializer(serializers.ModelSerializer):
         model = PersonaTP  # Usa el modelo de home
         fields = ['idPersona', 'idTP', 'fechaAsignacion']
 
-class FormacionSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Formacion  # Usa el modelo de home
-        fields = ['idFormacion', 'idTF', 'nombreFormacion', 'valorInscripcion', 'tieneCuotas', 'duracion', 'estadoFormacion', 'fechaFormacion']
-
 class TPFormacionSerializer(serializers.ModelSerializer):
     class Meta:
         model = TipoFormacion  # Usa el modelo de home
         fields = ['idTF', 'nombreTipoFormacion', 'estadoTipoFormacion', 'fechaTipoFormacion']
+
+class FormacionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Formacion  # Usa el modelo de home
+        fields = ['idFormacion', 'idTF', 'nombreFormacion', 'valorInscripcion', 'tieneCuotas', 'duracion', 'estadoFormacion', 'fechaFormacion']
 
 class MateriaSerializer(serializers.ModelSerializer):
     class Meta:

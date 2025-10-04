@@ -5,366 +5,66 @@
   "fields": {
     "name": "Administrador",
     "permissions": [
-      [
-        "add_cargo",
-        "home",
-        "cargo"
-      ],
-      [
-        "change_cargo",
-        "home",
-        "cargo"
-      ],
-      [
-        "view_cargo",
-        "home",
-        "cargo"
-      ],
-      [
-        "add_cohorte",
-        "home",
-        "cohorte"
-      ],
-      [
-        "change_cohorte",
-        "home",
-        "cohorte"
-      ],
-      [
-        "view_cohorte",
-        "home",
-        "cohorte"
-      ],
-      [
-        "view_configuracion",
-        "home",
-        "configuracion"
-      ],
-      [
-        "add_cuotaformacion",
-        "home",
-        "cuotaformacion"
-      ],
-      [
-        "view_cuotaformacion",
-        "home",
-        "cuotaformacion"
-      ],
-      [
-        "add_denominacion",
-        "home",
-        "denominacion"
-      ],
-      [
-        "change_denominacion",
-        "home",
-        "denominacion"
-      ],
-      [
-        "view_denominacion",
-        "home",
-        "denominacion"
-      ],
-      [
-        "add_formacion",
-        "home",
-        "formacion"
-      ],
-      [
-        "change_formacion",
-        "home",
-        "formacion"
-      ],
-      [
-        "view_formacion",
-        "home",
-        "formacion"
-      ],
-      [
-        "add_materia",
-        "home",
-        "materia"
-      ],
-      [
-        "change_materia",
-        "home",
-        "materia"
-      ],
-      [
-        "view_materia",
-        "home",
-        "materia"
-      ],
-      [
-        "add_moneda",
-        "home",
-        "moneda"
-      ],
-      [
-        "change_moneda",
-        "home",
-        "moneda"
-      ],
-      [
-        "view_moneda",
-        "home",
-        "moneda"
-      ],
-      [
-        "add_movimiento",
-        "home",
-        "movimiento"
-      ],
-      [
-        "change_movimiento",
-        "home",
-        "movimiento"
-      ],
-      [
-        "view_movimiento",
-        "home",
-        "movimiento"
-      ],
-      [
-        "add_requisito",
-        "home",
-        "requisito"
-      ],
-      [
-        "change_requisito",
-        "home",
-        "requisito"
-      ],
-      [
-        "view_requisito",
-        "home",
-        "requisito"
-      ],
-      [
-        "add_servicio",
-        "home",
-        "servicio"
-      ],
-      [
-        "change_servicio",
-        "home",
-        "servicio"
-      ],
-      [
-        "view_servicio",
-        "home",
-        "servicio"
-      ],
-      [
-        "add_tasa",
-        "home",
-        "tasa"
-      ],
-      [
-        "change_tasa",
-        "home",
-        "tasa"
-      ],
-      [
-        "view_tasa",
-        "home",
-        "tasa"
-      ],
-      [
-        "add_tipoformacion",
-        "home",
-        "tipoformacion"
-      ],
-      [
-        "change_tipoformacion",
-        "home",
-        "tipoformacion"
-      ],
-      [
-        "view_tipoformacion",
-        "home",
-        "tipoformacion"
-      ],
-      [
-        "add_tipoingreso",
-        "home",
-        "tipoingreso"
-      ],
-      [
-        "change_tipoingreso",
-        "home",
-        "tipoingreso"
-      ],
-      [
-        "view_tipoingreso",
-        "home",
-        "tipoingreso"
-      ],
-      [
-        "add_tipomovimiento",
-        "home",
-        "tipomovimiento"
-      ],
-      [
-        "change_tipomovimiento",
-        "home",
-        "tipomovimiento"
-      ],
-      [
-        "view_tipomovimiento",
-        "home",
-        "tipomovimiento"
-      ],
-      [
-        "add_tramite",
-        "home",
-        "tramite"
-      ],
-      [
-        "change_tramite",
-        "home",
-        "tramite"
-      ],
-      [
-        "view_tramite",
-        "home",
-        "tramite"
-      ],
-      [
-        "add_usuarios",
-        "home",
-        "usuarios"
-      ],
-      [
-        "change_usuarios",
-        "home",
-        "usuarios"
-      ],
-      [
-        "view_usuarios",
-        "home",
-        "usuarios"
-      ],
-      [
-        "add_honorario",
-        "honorario",
-        "honorario"
-      ],
-      [
-        "change_honorario",
-        "honorario",
-        "honorario"
-      ],
-      [
-        "view_honorario",
-        "honorario",
-        "honorario"
-      ],
-      [
-        "add_inscripcion",
-        "inscripcion",
-        "inscripcion"
-      ],
-      [
-        "change_inscripcion",
-        "inscripcion",
-        "inscripcion"
-      ],
-      [
-        "view_inscripcion",
-        "inscripcion",
-        "inscripcion"
-      ],
-      [
-        "add_inscripcioncuota",
-        "inscripcion",
-        "inscripcioncuota"
-      ],
-      [
-        "change_inscripcioncuota",
-        "inscripcion",
-        "inscripcioncuota"
-      ],
-      [
-        "view_inscripcioncuota",
-        "inscripcion",
-        "inscripcioncuota"
-      ],
-      [
-        "add_personas",
-        "persona",
-        "personas"
-      ],
-      [
-        "change_personas",
-        "persona",
-        "personas"
-      ],
-      [
-        "view_personas",
-        "persona",
-        "personas"
-      ],
-      [
-        "add_personatp",
-        "persona",
-        "personatp"
-      ],
-      [
-        "change_personatp",
-        "persona",
-        "personatp"
-      ],
-      [
-        "view_personatp",
-        "persona",
-        "personatp"
-      ],
-      [
-        "add_tipopersona",
-        "persona",
-        "tipopersona"
-      ],
-      [
-        "change_tipopersona",
-        "persona",
-        "tipopersona"
-      ],
-      [
-        "view_tipopersona",
-        "persona",
-        "tipopersona"
-      ],
-      [
-        "add_requisitocliente",
-        "requisitoCliente",
-        "requisitocliente"
-      ],
-      [
-        "change_requisitocliente",
-        "requisitoCliente",
-        "requisitocliente"
-      ],
-      [
-        "view_requisitocliente",
-        "requisitoCliente",
-        "requisitocliente"
-      ],
-      [
-        "add_solicitud",
-        "solicitud",
-        "solicitud"
-      ],
-      [
-        "change_solicitud",
-        "solicitud",
-        "solicitud"
-      ],
-      [
-        "view_solicitud",
-        "solicitud",
-        "solicitud"
-      ]
+      25,
+      26,
+      28,
+      29,
+      30,
+      32,
+      80,
+      69,
+      72,
+      37,
+      38,
+      40,
+      73,
+      74,
+      76,
+      41,
+      42,
+      44,
+      45,
+      46,
+      48,
+      81,
+      82,
+      84,
+      85,
+      86,
+      88,
+      49,
+      50,
+      52,
+      61,
+      62,
+      64,
+      65,
+      66,
+      68,
+      113,
+      114,
+      116,
+      117,
+      118,
+      120,
+      121,
+      122,
+      124,
+      101,
+      102,
+      104,
+      109,
+      110,
+      112,
+      105,
+      106,
+      108,
+      189,
+      190,
+      192,
+      125,
+      126,
+      128
     ]
   }
 },
@@ -374,55 +74,10 @@
   "fields": {
     "name": "Usuarios",
     "permissions": [
-      [
-        "add_cuotaformacion",
-        "home",
-        "cuotaformacion"
-      ],
-      [
-        "change_cuotaformacion",
-        "home",
-        "cuotaformacion"
-      ],
-      [
-        "delete_cuotaformacion",
-        "home",
-        "cuotaformacion"
-      ],
-      [
-        "view_cuotaformacion",
-        "home",
-        "cuotaformacion"
-      ]
-    ]
-  }
-},
-{
-  "model": "auth.group",
-  "pk": 4,
-  "fields": {
-    "name": "Clientes-Proveedores",
-    "permissions": [
-      [
-        "add_movimiento",
-        "home",
-        "movimiento"
-      ],
-      [
-        "change_movimiento",
-        "home",
-        "movimiento"
-      ],
-      [
-        "delete_movimiento",
-        "home",
-        "movimiento"
-      ],
-      [
-        "view_movimiento",
-        "home",
-        "movimiento"
-      ]
+      65,
+      66,
+      67,
+      68
     ]
   }
 },
@@ -432,26 +87,10 @@
   "fields": {
     "name": "Bancos",
     "permissions": [
-      [
-        "add_solicitud",
-        "solicitud",
-        "solicitud"
-      ],
-      [
-        "change_solicitud",
-        "solicitud",
-        "solicitud"
-      ],
-      [
-        "delete_solicitud",
-        "solicitud",
-        "solicitud"
-      ],
-      [
-        "view_solicitud",
-        "solicitud",
-        "solicitud"
-      ]
+      141,
+      142,
+      143,
+      144
     ]
   }
 },
@@ -461,26 +100,10 @@
   "fields": {
     "name": "Cargos",
     "permissions": [
-      [
-        "add_cargo",
-        "home",
-        "cargo"
-      ],
-      [
-        "change_cargo",
-        "home",
-        "cargo"
-      ],
-      [
-        "delete_cargo",
-        "home",
-        "cargo"
-      ],
-      [
-        "view_cargo",
-        "home",
-        "cargo"
-      ]
+      25,
+      26,
+      27,
+      28
     ]
   }
 },
@@ -490,26 +113,10 @@
   "fields": {
     "name": "Cohortes",
     "permissions": [
-      [
-        "add_cohorte",
-        "home",
-        "cohorte"
-      ],
-      [
-        "change_cohorte",
-        "home",
-        "cohorte"
-      ],
-      [
-        "delete_cohorte",
-        "home",
-        "cohorte"
-      ],
-      [
-        "view_cohorte",
-        "home",
-        "cohorte"
-      ]
+      29,
+      30,
+      31,
+      32
     ]
   }
 },
@@ -519,26 +126,10 @@
   "fields": {
     "name": "Configuracion",
     "permissions": [
-      [
-        "add_configuracion",
-        "home",
-        "configuracion"
-      ],
-      [
-        "change_configuracion",
-        "home",
-        "configuracion"
-      ],
-      [
-        "delete_configuracion",
-        "home",
-        "configuracion"
-      ],
-      [
-        "view_configuracion",
-        "home",
-        "configuracion"
-      ]
+      77,
+      78,
+      79,
+      80
     ]
   }
 },
@@ -548,26 +139,10 @@
   "fields": {
     "name": "Formaciones",
     "permissions": [
-      [
-        "add_formacion",
-        "home",
-        "formacion"
-      ],
-      [
-        "change_formacion",
-        "home",
-        "formacion"
-      ],
-      [
-        "delete_formacion",
-        "home",
-        "formacion"
-      ],
-      [
-        "view_formacion",
-        "home",
-        "formacion"
-      ]
+      37,
+      38,
+      39,
+      40
     ]
   }
 },
@@ -577,26 +152,10 @@
   "fields": {
     "name": "Materias",
     "permissions": [
-      [
-        "add_materia",
-        "home",
-        "materia"
-      ],
-      [
-        "change_materia",
-        "home",
-        "materia"
-      ],
-      [
-        "delete_materia",
-        "home",
-        "materia"
-      ],
-      [
-        "view_materia",
-        "home",
-        "materia"
-      ]
+      73,
+      74,
+      75,
+      76
     ]
   }
 },
@@ -606,26 +165,10 @@
   "fields": {
     "name": "Monedas",
     "permissions": [
-      [
-        "add_moneda",
-        "home",
-        "moneda"
-      ],
-      [
-        "change_moneda",
-        "home",
-        "moneda"
-      ],
-      [
-        "delete_moneda",
-        "home",
-        "moneda"
-      ],
-      [
-        "view_moneda",
-        "home",
-        "moneda"
-      ]
+      41,
+      42,
+      43,
+      44
     ]
   }
 },
@@ -635,26 +178,10 @@
   "fields": {
     "name": "Requisitos",
     "permissions": [
-      [
-        "add_requisito",
-        "home",
-        "requisito"
-      ],
-      [
-        "change_requisito",
-        "home",
-        "requisito"
-      ],
-      [
-        "delete_requisito",
-        "home",
-        "requisito"
-      ],
-      [
-        "view_requisito",
-        "home",
-        "requisito"
-      ]
+      45,
+      46,
+      47,
+      48
     ]
   }
 },
@@ -664,26 +191,10 @@
   "fields": {
     "name": "Servicios",
     "permissions": [
-      [
-        "add_tipoformacion",
-        "home",
-        "tipoformacion"
-      ],
-      [
-        "change_tipoformacion",
-        "home",
-        "tipoformacion"
-      ],
-      [
-        "delete_tipoformacion",
-        "home",
-        "tipoformacion"
-      ],
-      [
-        "view_tipoformacion",
-        "home",
-        "tipoformacion"
-      ]
+      81,
+      82,
+      83,
+      84
     ]
   }
 },
@@ -693,26 +204,10 @@
   "fields": {
     "name": "Tasas",
     "permissions": [
-      [
-        "add_servicio",
-        "home",
-        "servicio"
-      ],
-      [
-        "change_servicio",
-        "home",
-        "servicio"
-      ],
-      [
-        "delete_servicio",
-        "home",
-        "servicio"
-      ],
-      [
-        "view_servicio",
-        "home",
-        "servicio"
-      ]
+      85,
+      86,
+      87,
+      88
     ]
   }
 },
@@ -722,26 +217,10 @@
   "fields": {
     "name": "Tipo Formaciones",
     "permissions": [
-      [
-        "add_tipoingreso",
-        "home",
-        "tipoingreso"
-      ],
-      [
-        "change_tipoingreso",
-        "home",
-        "tipoingreso"
-      ],
-      [
-        "delete_tipoingreso",
-        "home",
-        "tipoingreso"
-      ],
-      [
-        "view_tipoingreso",
-        "home",
-        "tipoingreso"
-      ]
+      49,
+      50,
+      51,
+      52
     ]
   }
 },
@@ -751,26 +230,10 @@
   "fields": {
     "name": "Tramites",
     "permissions": [
-      [
-        "add_usuarios",
-        "home",
-        "usuarios"
-      ],
-      [
-        "change_usuarios",
-        "home",
-        "usuarios"
-      ],
-      [
-        "delete_usuarios",
-        "home",
-        "usuarios"
-      ],
-      [
-        "view_usuarios",
-        "home",
-        "usuarios"
-      ]
+      61,
+      62,
+      63,
+      64
     ]
   }
 },
@@ -780,26 +243,10 @@
   "fields": {
     "name": "Honorarios",
     "permissions": [
-      [
-        "add_personas",
-        "persona",
-        "personas"
-      ],
-      [
-        "change_personas",
-        "persona",
-        "personas"
-      ],
-      [
-        "delete_personas",
-        "persona",
-        "personas"
-      ],
-      [
-        "view_personas",
-        "persona",
-        "personas"
-      ]
+      113,
+      114,
+      115,
+      116
     ]
   }
 },
@@ -809,26 +256,14 @@
   "fields": {
     "name": "Inscripciones",
     "permissions": [
-      [
-        "add_tipopersona",
-        "persona",
-        "tipopersona"
-      ],
-      [
-        "change_tipopersona",
-        "persona",
-        "tipopersona"
-      ],
-      [
-        "delete_tipopersona",
-        "persona",
-        "tipopersona"
-      ],
-      [
-        "view_tipopersona",
-        "persona",
-        "tipopersona"
-      ]
+      117,
+      118,
+      119,
+      120,
+      121,
+      122,
+      123,
+      124
     ]
   }
 },
@@ -838,26 +273,10 @@
   "fields": {
     "name": "Asignacion Tipo Personas",
     "permissions": [
-      [
-        "add_configuracionbitacora",
-        "bitacora",
-        "configuracionbitacora"
-      ],
-      [
-        "change_configuracionbitacora",
-        "bitacora",
-        "configuracionbitacora"
-      ],
-      [
-        "delete_configuracionbitacora",
-        "bitacora",
-        "configuracionbitacora"
-      ],
-      [
-        "view_configuracionbitacora",
-        "bitacora",
-        "configuracionbitacora"
-      ]
+      109,
+      110,
+      111,
+      112
     ]
   }
 },
@@ -867,26 +286,10 @@
   "fields": {
     "name": "Tipo Personas",
     "permissions": [
-      [
-        "add_bitacora",
-        "bitacora",
-        "bitacora"
-      ],
-      [
-        "change_bitacora",
-        "bitacora",
-        "bitacora"
-      ],
-      [
-        "delete_bitacora",
-        "bitacora",
-        "bitacora"
-      ],
-      [
-        "view_bitacora",
-        "bitacora",
-        "bitacora"
-      ]
+      105,
+      106,
+      107,
+      108
     ]
   }
 },
@@ -896,26 +299,10 @@
   "fields": {
     "name": "Solicitudes",
     "permissions": [
-      [
-        "add_personatp",
-        "persona",
-        "personatp"
-      ],
-      [
-        "change_personatp",
-        "persona",
-        "personatp"
-      ],
-      [
-        "delete_personatp",
-        "persona",
-        "personatp"
-      ],
-      [
-        "view_personatp",
-        "persona",
-        "personatp"
-      ]
+      125,
+      126,
+      127,
+      128
     ]
   }
 },
@@ -925,11 +312,7 @@
   "fields": {
     "name": "UsuarioRegistrar",
     "permissions": [
-      [
-        "add_cuotaformacion",
-        "home",
-        "cuotaformacion"
-      ]
+      65
     ]
   }
 },
@@ -939,11 +322,7 @@
   "fields": {
     "name": "UsuarioVisualizar",
     "permissions": [
-      [
-        "view_cuotaformacion",
-        "home",
-        "cuotaformacion"
-      ]
+      68
     ]
   }
 },
@@ -953,11 +332,7 @@
   "fields": {
     "name": "UsuarioEliminar",
     "permissions": [
-      [
-        "delete_cuotaformacion",
-        "home",
-        "cuotaformacion"
-      ]
+      67
     ]
   }
 },
@@ -967,11 +342,7 @@
   "fields": {
     "name": "UsuarioEditar",
     "permissions": [
-      [
-        "change_cuotaformacion",
-        "home",
-        "cuotaformacion"
-      ]
+      66
     ]
   }
 },
@@ -981,11 +352,7 @@
   "fields": {
     "name": "BancoRegistrar",
     "permissions": [
-      [
-        "add_solicitud",
-        "solicitud",
-        "solicitud"
-      ]
+      141
     ]
   }
 },
@@ -995,11 +362,7 @@
   "fields": {
     "name": "BancoVisualizar",
     "permissions": [
-      [
-        "view_solicitud",
-        "solicitud",
-        "solicitud"
-      ]
+      144
     ]
   }
 },
@@ -1009,11 +372,7 @@
   "fields": {
     "name": "BancoEditar",
     "permissions": [
-      [
-        "change_solicitud",
-        "solicitud",
-        "solicitud"
-      ]
+      142
     ]
   }
 },
@@ -1023,11 +382,7 @@
   "fields": {
     "name": "BancoEliminar",
     "permissions": [
-      [
-        "delete_solicitud",
-        "solicitud",
-        "solicitud"
-      ]
+      143
     ]
   }
 },
@@ -1037,16 +392,8 @@
   "fields": {
     "name": "ConfiguracionEditar",
     "permissions": [
-      [
-        "add_configuracion",
-        "home",
-        "configuracion"
-      ],
-      [
-        "change_configuracion",
-        "home",
-        "configuracion"
-      ]
+      77,
+      78
     ]
   }
 },
@@ -1056,11 +403,7 @@
   "fields": {
     "name": "ConfiguracionVisualizar",
     "permissions": [
-      [
-        "view_configuracion",
-        "home",
-        "configuracion"
-      ]
+      80
     ]
   }
 },
@@ -1070,11 +413,7 @@
   "fields": {
     "name": "CargoRegistrar",
     "permissions": [
-      [
-        "add_cargo",
-        "home",
-        "cargo"
-      ]
+      25
     ]
   }
 },
@@ -1084,11 +423,7 @@
   "fields": {
     "name": "CargoVisualizar",
     "permissions": [
-      [
-        "view_cargo",
-        "home",
-        "cargo"
-      ]
+      28
     ]
   }
 },
@@ -1098,11 +433,7 @@
   "fields": {
     "name": "CargoEditar",
     "permissions": [
-      [
-        "change_cargo",
-        "home",
-        "cargo"
-      ]
+      26
     ]
   }
 },
@@ -1112,11 +443,7 @@
   "fields": {
     "name": "CargoEliminar",
     "permissions": [
-      [
-        "delete_cargo",
-        "home",
-        "cargo"
-      ]
+      27
     ]
   }
 },
@@ -1126,11 +453,7 @@
   "fields": {
     "name": "CohorteRegistrar",
     "permissions": [
-      [
-        "add_cohorte",
-        "home",
-        "cohorte"
-      ]
+      29
     ]
   }
 },
@@ -1140,11 +463,7 @@
   "fields": {
     "name": "CohorteEditar",
     "permissions": [
-      [
-        "change_cohorte",
-        "home",
-        "cohorte"
-      ]
+      30
     ]
   }
 },
@@ -1154,11 +473,7 @@
   "fields": {
     "name": "CohorteEliminar",
     "permissions": [
-      [
-        "delete_cohorte",
-        "home",
-        "cohorte"
-      ]
+      31
     ]
   }
 },
@@ -1168,11 +483,7 @@
   "fields": {
     "name": "CohorteVisualizar",
     "permissions": [
-      [
-        "view_cohorte",
-        "home",
-        "cohorte"
-      ]
+      32
     ]
   }
 },
@@ -1182,11 +493,7 @@
   "fields": {
     "name": "Cliente-ProveedorRegistrar",
     "permissions": [
-      [
-        "add_movimiento",
-        "home",
-        "movimiento"
-      ]
+      101
     ]
   }
 },
@@ -1196,11 +503,7 @@
   "fields": {
     "name": "Cliente-ProveedorEditar",
     "permissions": [
-      [
-        "change_movimiento",
-        "home",
-        "movimiento"
-      ]
+      102
     ]
   }
 },
@@ -1210,11 +513,7 @@
   "fields": {
     "name": "Cliente-ProveedorVisualizar",
     "permissions": [
-      [
-        "view_movimiento",
-        "home",
-        "movimiento"
-      ]
+      104
     ]
   }
 },
@@ -1224,11 +523,7 @@
   "fields": {
     "name": "Cliente-ProveedorEliminar",
     "permissions": [
-      [
-        "delete_movimiento",
-        "home",
-        "movimiento"
-      ]
+      103
     ]
   }
 },
@@ -1238,11 +533,7 @@
   "fields": {
     "name": "FormacionRegistrar",
     "permissions": [
-      [
-        "add_formacion",
-        "home",
-        "formacion"
-      ]
+      37
     ]
   }
 },
@@ -1252,11 +543,7 @@
   "fields": {
     "name": "FormacionEditar",
     "permissions": [
-      [
-        "change_formacion",
-        "home",
-        "formacion"
-      ]
+      38
     ]
   }
 },
@@ -1266,11 +553,7 @@
   "fields": {
     "name": "FormacionEliminar",
     "permissions": [
-      [
-        "delete_formacion",
-        "home",
-        "formacion"
-      ]
+      39
     ]
   }
 },
@@ -1280,11 +563,7 @@
   "fields": {
     "name": "FormacionVisualizar",
     "permissions": [
-      [
-        "view_formacion",
-        "home",
-        "formacion"
-      ]
+      40
     ]
   }
 },
@@ -1294,11 +573,7 @@
   "fields": {
     "name": "HonorarioRegistrar",
     "permissions": [
-      [
-        "add_personas",
-        "persona",
-        "personas"
-      ]
+      113
     ]
   }
 },
@@ -1308,11 +583,7 @@
   "fields": {
     "name": "HonorarioEditar",
     "permissions": [
-      [
-        "change_personas",
-        "persona",
-        "personas"
-      ]
+      114
     ]
   }
 },
@@ -1322,11 +593,7 @@
   "fields": {
     "name": "HonorarioEliminar",
     "permissions": [
-      [
-        "delete_personas",
-        "persona",
-        "personas"
-      ]
+      115
     ]
   }
 },
@@ -1336,11 +603,7 @@
   "fields": {
     "name": "HonorarioVisualizar",
     "permissions": [
-      [
-        "view_personas",
-        "persona",
-        "personas"
-      ]
+      116
     ]
   }
 },
@@ -1350,11 +613,8 @@
   "fields": {
     "name": "InscripcionRegistrar",
     "permissions": [
-      [
-        "add_tipopersona",
-        "persona",
-        "tipopersona"
-      ]
+      117,
+      121
     ]
   }
 },
@@ -1364,11 +624,8 @@
   "fields": {
     "name": "InscripcionEditar",
     "permissions": [
-      [
-        "change_tipopersona",
-        "persona",
-        "tipopersona"
-      ]
+      118,
+      122
     ]
   }
 },
@@ -1378,11 +635,8 @@
   "fields": {
     "name": "InscripcionEliminar",
     "permissions": [
-      [
-        "delete_tipopersona",
-        "persona",
-        "tipopersona"
-      ]
+      119,
+      123
     ]
   }
 },
@@ -1392,11 +646,8 @@
   "fields": {
     "name": "InscripcionVisualizar",
     "permissions": [
-      [
-        "view_tipopersona",
-        "persona",
-        "tipopersona"
-      ]
+      120,
+      124
     ]
   }
 },
@@ -1406,11 +657,7 @@
   "fields": {
     "name": "MateriaRegistrar",
     "permissions": [
-      [
-        "add_materia",
-        "home",
-        "materia"
-      ]
+      73
     ]
   }
 },
@@ -1420,11 +667,7 @@
   "fields": {
     "name": "MateriaEditar",
     "permissions": [
-      [
-        "change_materia",
-        "home",
-        "materia"
-      ]
+      74
     ]
   }
 },
@@ -1434,11 +677,7 @@
   "fields": {
     "name": "MateriaEliminar",
     "permissions": [
-      [
-        "delete_materia",
-        "home",
-        "materia"
-      ]
+      75
     ]
   }
 },
@@ -1448,11 +687,7 @@
   "fields": {
     "name": "MateriaVisualizar",
     "permissions": [
-      [
-        "view_materia",
-        "home",
-        "materia"
-      ]
+      76
     ]
   }
 },
@@ -1462,11 +697,7 @@
   "fields": {
     "name": "MonedaRegistrar",
     "permissions": [
-      [
-        "add_moneda",
-        "home",
-        "moneda"
-      ]
+      41
     ]
   }
 },
@@ -1476,11 +707,7 @@
   "fields": {
     "name": "MonedaEditar",
     "permissions": [
-      [
-        "change_moneda",
-        "home",
-        "moneda"
-      ]
+      42
     ]
   }
 },
@@ -1490,11 +717,7 @@
   "fields": {
     "name": "MonedaEliminar",
     "permissions": [
-      [
-        "delete_moneda",
-        "home",
-        "moneda"
-      ]
+      43
     ]
   }
 },
@@ -1504,11 +727,7 @@
   "fields": {
     "name": "MonedaVisualizar",
     "permissions": [
-      [
-        "view_moneda",
-        "home",
-        "moneda"
-      ]
+      44
     ]
   }
 },
@@ -1518,11 +737,7 @@
   "fields": {
     "name": "RequisitoRegistrar",
     "permissions": [
-      [
-        "add_requisito",
-        "home",
-        "requisito"
-      ]
+      45
     ]
   }
 },
@@ -1532,11 +747,7 @@
   "fields": {
     "name": "RequisitoEditar",
     "permissions": [
-      [
-        "change_requisito",
-        "home",
-        "requisito"
-      ]
+      46
     ]
   }
 },
@@ -1546,11 +757,7 @@
   "fields": {
     "name": "RequisitoEliminar",
     "permissions": [
-      [
-        "delete_requisito",
-        "home",
-        "requisito"
-      ]
+      47
     ]
   }
 },
@@ -1560,11 +767,7 @@
   "fields": {
     "name": "RequisitoVisualizar",
     "permissions": [
-      [
-        "view_requisito",
-        "home",
-        "requisito"
-      ]
+      84
     ]
   }
 },
@@ -1574,11 +777,7 @@
   "fields": {
     "name": "ServicioRegistrar",
     "permissions": [
-      [
-        "add_tipoformacion",
-        "home",
-        "tipoformacion"
-      ]
+      49
     ]
   }
 },
@@ -1588,11 +787,7 @@
   "fields": {
     "name": "ServicioEditar",
     "permissions": [
-      [
-        "change_tipoformacion",
-        "home",
-        "tipoformacion"
-      ]
+      82
     ]
   }
 },
@@ -1602,11 +797,7 @@
   "fields": {
     "name": "ServicioEliminar",
     "permissions": [
-      [
-        "delete_tipoformacion",
-        "home",
-        "tipoformacion"
-      ]
+      83
     ]
   }
 },
@@ -1616,11 +807,7 @@
   "fields": {
     "name": "ServicioVisualizar",
     "permissions": [
-      [
-        "view_tipoformacion",
-        "home",
-        "tipoformacion"
-      ]
+      84
     ]
   }
 },
@@ -1630,11 +817,7 @@
   "fields": {
     "name": "SolicitudRegistrar",
     "permissions": [
-      [
-        "add_personatp",
-        "persona",
-        "personatp"
-      ]
+      125
     ]
   }
 },
@@ -1644,11 +827,7 @@
   "fields": {
     "name": "SolicitudEditar",
     "permissions": [
-      [
-        "change_personatp",
-        "persona",
-        "personatp"
-      ]
+      126
     ]
   }
 },
@@ -1658,11 +837,7 @@
   "fields": {
     "name": "SolicitudEliminar",
     "permissions": [
-      [
-        "delete_personatp",
-        "persona",
-        "personatp"
-      ]
+      127
     ]
   }
 },
@@ -1672,11 +847,7 @@
   "fields": {
     "name": "SolicitudVisualizar",
     "permissions": [
-      [
-        "view_personatp",
-        "persona",
-        "personatp"
-      ]
+      128
     ]
   }
 },
@@ -1686,11 +857,7 @@
   "fields": {
     "name": "TasaRegistrar",
     "permissions": [
-      [
-        "add_servicio",
-        "home",
-        "servicio"
-      ]
+      85
     ]
   }
 },
@@ -1700,11 +867,7 @@
   "fields": {
     "name": "TasaEditar",
     "permissions": [
-      [
-        "change_servicio",
-        "home",
-        "servicio"
-      ]
+      86
     ]
   }
 },
@@ -1714,11 +877,7 @@
   "fields": {
     "name": "TasaEliminar",
     "permissions": [
-      [
-        "delete_servicio",
-        "home",
-        "servicio"
-      ]
+      87
     ]
   }
 },
@@ -1728,11 +887,7 @@
   "fields": {
     "name": "TasaVisualizar",
     "permissions": [
-      [
-        "view_servicio",
-        "home",
-        "servicio"
-      ]
+      88
     ]
   }
 },
@@ -1742,11 +897,7 @@
   "fields": {
     "name": "TramiteRegistrar",
     "permissions": [
-      [
-        "add_usuarios",
-        "home",
-        "usuarios"
-      ]
+      61
     ]
   }
 },
@@ -1756,11 +907,7 @@
   "fields": {
     "name": "TramiteEditar",
     "permissions": [
-      [
-        "change_usuarios",
-        "home",
-        "usuarios"
-      ]
+      62
     ]
   }
 },
@@ -1770,11 +917,7 @@
   "fields": {
     "name": "TramiteEliminar",
     "permissions": [
-      [
-        "delete_usuarios",
-        "home",
-        "usuarios"
-      ]
+      63
     ]
   }
 },
@@ -1784,11 +927,7 @@
   "fields": {
     "name": "TramiteVisualizar",
     "permissions": [
-      [
-        "view_usuarios",
-        "home",
-        "usuarios"
-      ]
+      64
     ]
   }
 },
@@ -1798,11 +937,7 @@
   "fields": {
     "name": "Tipo FormacionRegistrar",
     "permissions": [
-      [
-        "add_tipoingreso",
-        "home",
-        "tipoingreso"
-      ]
+      49
     ]
   }
 },
@@ -1812,11 +947,7 @@
   "fields": {
     "name": "Tipo FormacionEditar",
     "permissions": [
-      [
-        "change_tipoingreso",
-        "home",
-        "tipoingreso"
-      ]
+      50
     ]
   }
 },
@@ -1826,11 +957,7 @@
   "fields": {
     "name": "Tipo FormacionEliminar",
     "permissions": [
-      [
-        "delete_tipoingreso",
-        "home",
-        "tipoingreso"
-      ]
+      51
     ]
   }
 },
@@ -1840,11 +967,7 @@
   "fields": {
     "name": "Tipo FormacionVisualizar",
     "permissions": [
-      [
-        "view_tipoingreso",
-        "home",
-        "tipoingreso"
-      ]
+      52
     ]
   }
 },
@@ -1854,11 +977,7 @@
   "fields": {
     "name": "Tipo PersonaRegistrar",
     "permissions": [
-      [
-        "add_bitacora",
-        "bitacora",
-        "bitacora"
-      ]
+      105
     ]
   }
 },
@@ -1868,11 +987,7 @@
   "fields": {
     "name": "Tipo PersonaEditar",
     "permissions": [
-      [
-        "change_bitacora",
-        "bitacora",
-        "bitacora"
-      ]
+      106
     ]
   }
 },
@@ -1882,11 +997,7 @@
   "fields": {
     "name": "Tipo PersonaEliminar",
     "permissions": [
-      [
-        "delete_bitacora",
-        "bitacora",
-        "bitacora"
-      ]
+      107
     ]
   }
 },
@@ -1896,11 +1007,7 @@
   "fields": {
     "name": "Tipo PersonaVisualizar",
     "permissions": [
-      [
-        "view_bitacora",
-        "bitacora",
-        "bitacora"
-      ]
+      108
     ]
   }
 },
@@ -1910,11 +1017,7 @@
   "fields": {
     "name": "Asignacion Tipo PersonaRegistrar",
     "permissions": [
-      [
-        "add_configuracionbitacora",
-        "bitacora",
-        "configuracionbitacora"
-      ]
+      109
     ]
   }
 },
@@ -1924,11 +1027,7 @@
   "fields": {
     "name": "Asignacion Tipo PersonaEditar",
     "permissions": [
-      [
-        "change_configuracionbitacora",
-        "bitacora",
-        "configuracionbitacora"
-      ]
+      110
     ]
   }
 },
@@ -1938,11 +1037,7 @@
   "fields": {
     "name": "Asignacion Tipo PersonaEliminar",
     "permissions": [
-      [
-        "delete_configuracionbitacora",
-        "bitacora",
-        "configuracionbitacora"
-      ]
+      111
     ]
   }
 },
@@ -1952,11 +1047,7 @@
   "fields": {
     "name": "Asignacion Tipo PersonaVisualizar",
     "permissions": [
-      [
-        "view_configuracionbitacora",
-        "bitacora",
-        "configuracionbitacora"
-      ]
+      112
     ]
   }
 },
@@ -1966,26 +1057,10 @@
   "fields": {
     "name": "Plan Cuentas",
     "permissions": [
-      [
-        "add_honorario",
-        "honorario",
-        "honorario"
-      ],
-      [
-        "change_honorario",
-        "honorario",
-        "honorario"
-      ],
-      [
-        "delete_honorario",
-        "honorario",
-        "honorario"
-      ],
-      [
-        "view_honorario",
-        "honorario",
-        "honorario"
-      ]
+      129,
+      130,
+      131,
+      132
     ]
   }
 },
@@ -1995,11 +1070,7 @@
   "fields": {
     "name": "Plan CuentaRegistrar",
     "permissions": [
-      [
-        "add_honorario",
-        "honorario",
-        "honorario"
-      ]
+      129
     ]
   }
 },
@@ -2009,11 +1080,7 @@
   "fields": {
     "name": "Plan CuentaEditar",
     "permissions": [
-      [
-        "change_honorario",
-        "honorario",
-        "honorario"
-      ]
+      134
     ]
   }
 },
@@ -2023,11 +1090,7 @@
   "fields": {
     "name": "Plan CuentaEliminar",
     "permissions": [
-      [
-        "delete_honorario",
-        "honorario",
-        "honorario"
-      ]
+      131
     ]
   }
 },
@@ -2037,11 +1100,7 @@
   "fields": {
     "name": "Plan CuentaVisualizar",
     "permissions": [
-      [
-        "view_honorario",
-        "honorario",
-        "honorario"
-      ]
+      132
     ]
   }
 },
@@ -2051,26 +1110,10 @@
   "fields": {
     "name": "Periodo Contables",
     "permissions": [
-      [
-        "add_inscripcion",
-        "inscripcion",
-        "inscripcion"
-      ],
-      [
-        "change_inscripcion",
-        "inscripcion",
-        "inscripcion"
-      ],
-      [
-        "delete_inscripcion",
-        "inscripcion",
-        "inscripcion"
-      ],
-      [
-        "view_inscripcion",
-        "inscripcion",
-        "inscripcion"
-      ]
+      133,
+      134,
+      135,
+      136
     ]
   }
 },
@@ -2080,11 +1123,7 @@
   "fields": {
     "name": "Periodo ContableRegistrar",
     "permissions": [
-      [
-        "add_inscripcion",
-        "inscripcion",
-        "inscripcion"
-      ]
+      133
     ]
   }
 },
@@ -2094,11 +1133,7 @@
   "fields": {
     "name": "Periodo ContableEditar",
     "permissions": [
-      [
-        "change_inscripcion",
-        "inscripcion",
-        "inscripcion"
-      ]
+      134
     ]
   }
 },
@@ -2108,11 +1143,7 @@
   "fields": {
     "name": "Periodo ContableEliminar",
     "permissions": [
-      [
-        "delete_inscripcion",
-        "inscripcion",
-        "inscripcion"
-      ]
+      135
     ]
   }
 },
@@ -2122,11 +1153,7 @@
   "fields": {
     "name": "Periodo ContableVisualizar",
     "permissions": [
-      [
-        "view_inscripcion",
-        "inscripcion",
-        "inscripcion"
-      ]
+      136
     ]
   }
 },
@@ -2136,26 +1163,10 @@
   "fields": {
     "name": "Asiento Contables",
     "permissions": [
-      [
-        "add_periodocontable",
-        "periodoContable",
-        "periodocontable"
-      ],
-      [
-        "change_periodocontable",
-        "periodoContable",
-        "periodocontable"
-      ],
-      [
-        "delete_periodocontable",
-        "periodoContable",
-        "periodocontable"
-      ],
-      [
-        "view_periodocontable",
-        "periodoContable",
-        "periodocontable"
-      ]
+      149,
+      150,
+      151,
+      152
     ]
   }
 },
@@ -2165,11 +1176,7 @@
   "fields": {
     "name": "Asiento ContableRegistrar",
     "permissions": [
-      [
-        "add_periodocontable",
-        "periodoContable",
-        "periodocontable"
-      ]
+      149
     ]
   }
 },
@@ -2179,11 +1186,7 @@
   "fields": {
     "name": "Asiento ContableEditar",
     "permissions": [
-      [
-        "change_periodocontable",
-        "periodoContable",
-        "periodocontable"
-      ]
+      150
     ]
   }
 },
@@ -2193,11 +1196,7 @@
   "fields": {
     "name": "Asiento ContableEliminar",
     "permissions": [
-      [
-        "delete_periodocontable",
-        "periodoContable",
-        "periodocontable"
-      ]
+      151
     ]
   }
 },
@@ -2207,11 +1206,7 @@
   "fields": {
     "name": "Asiento ContableVisualizar",
     "permissions": [
-      [
-        "view_periodocontable",
-        "periodoContable",
-        "periodocontable"
-      ]
+      152
     ]
   }
 },
@@ -2221,26 +1216,10 @@
   "fields": {
     "name": "Empresas",
     "permissions": [
-      [
-        "add_inscripcioncuota",
-        "inscripcion",
-        "inscripcioncuota"
-      ],
-      [
-        "change_inscripcioncuota",
-        "inscripcion",
-        "inscripcioncuota"
-      ],
-      [
-        "delete_inscripcioncuota",
-        "inscripcion",
-        "inscripcioncuota"
-      ],
-      [
-        "view_inscripcioncuota",
-        "inscripcion",
-        "inscripcioncuota"
-      ]
+      137,
+      138,
+      139,
+      140
     ]
   }
 },
@@ -2250,11 +1229,7 @@
   "fields": {
     "name": "EmpresaRegistrar",
     "permissions": [
-      [
-        "add_inscripcioncuota",
-        "inscripcion",
-        "inscripcioncuota"
-      ]
+      137
     ]
   }
 },
@@ -2264,11 +1239,7 @@
   "fields": {
     "name": "EmpresaEditar",
     "permissions": [
-      [
-        "change_inscripcioncuota",
-        "inscripcion",
-        "inscripcioncuota"
-      ]
+      138
     ]
   }
 },
@@ -2278,11 +1249,7 @@
   "fields": {
     "name": "EmpresaEliminar",
     "permissions": [
-      [
-        "delete_inscripcioncuota",
-        "inscripcion",
-        "inscripcioncuota"
-      ]
+      139
     ]
   }
 },
@@ -2292,11 +1259,7 @@
   "fields": {
     "name": "EmpresaVisualizar",
     "permissions": [
-      [
-        "view_inscripcioncuota",
-        "inscripcion",
-        "inscripcioncuota"
-      ]
+      140
     ]
   }
 },
@@ -2306,26 +1269,10 @@
   "fields": {
     "name": "Cuenta Bancarias",
     "permissions": [
-      [
-        "add_plancuenta",
-        "planCuenta",
-        "plancuenta"
-      ],
-      [
-        "change_plancuenta",
-        "planCuenta",
-        "plancuenta"
-      ],
-      [
-        "delete_plancuenta",
-        "planCuenta",
-        "plancuenta"
-      ],
-      [
-        "view_plancuenta",
-        "planCuenta",
-        "plancuenta"
-      ]
+      145,
+      146,
+      147,
+      148
     ]
   }
 },
@@ -2335,11 +1282,7 @@
   "fields": {
     "name": "Cuenta BancariaRegistrar",
     "permissions": [
-      [
-        "add_plancuenta",
-        "planCuenta",
-        "plancuenta"
-      ]
+      145
     ]
   }
 },
@@ -2349,11 +1292,7 @@
   "fields": {
     "name": "Cuenta BancariaEditar",
     "permissions": [
-      [
-        "change_plancuenta",
-        "planCuenta",
-        "plancuenta"
-      ]
+      146
     ]
   }
 },
@@ -2363,11 +1302,7 @@
   "fields": {
     "name": "Cuenta BancariaEliminar",
     "permissions": [
-      [
-        "delete_plancuenta",
-        "planCuenta",
-        "plancuenta"
-      ]
+      147
     ]
   }
 },
@@ -2377,11 +1312,7 @@
   "fields": {
     "name": "Cuenta BancariaVisualizar",
     "permissions": [
-      [
-        "view_plancuenta",
-        "planCuenta",
-        "plancuenta"
-      ]
+      148
     ]
   }
 },
@@ -2391,231 +1322,265 @@
   "fields": {
     "name": "Contable",
     "permissions": [
-      [
-        "add_asientocontable",
-        "asientoContable",
-        "asientocontable"
-      ],
-      [
-        "change_asientocontable",
-        "asientoContable",
-        "asientocontable"
-      ],
-      [
-        "view_asientocontable",
-        "asientoContable",
-        "asientocontable"
-      ],
-      [
-        "add_detalleasiento",
-        "asientoContable",
-        "detalleasiento"
-      ],
-      [
-        "change_detalleasiento",
-        "asientoContable",
-        "detalleasiento"
-      ],
-      [
-        "view_detalleasiento",
-        "asientoContable",
-        "detalleasiento"
-      ],
-      [
-        "add_banco",
-        "cuentaBanco",
-        "banco"
-      ],
-      [
-        "change_banco",
-        "cuentaBanco",
-        "banco"
-      ],
-      [
-        "view_banco",
-        "cuentaBanco",
-        "banco"
-      ],
-      [
-        "add_cuentabanco",
-        "cuentaBanco",
-        "cuentabanco"
-      ],
-      [
-        "change_cuentabanco",
-        "cuentaBanco",
-        "cuentabanco"
-      ],
-      [
-        "view_cuentabanco",
-        "cuentaBanco",
-        "cuentabanco"
-      ],
-      [
-        "add_empresa",
-        "empresa",
-        "empresa"
-      ],
-      [
-        "change_empresa",
-        "empresa",
-        "empresa"
-      ],
-      [
-        "view_empresa",
-        "empresa",
-        "empresa"
-      ],
-      [
-        "add_factura",
-        "factura",
-        "factura"
-      ],
-      [
-        "change_factura",
-        "factura",
-        "factura"
-      ],
-      [
-        "view_factura",
-        "factura",
-        "factura"
-      ],
-      [
-        "add_facturadetalle",
-        "factura",
-        "facturadetalle"
-      ],
-      [
-        "change_facturadetalle",
-        "factura",
-        "facturadetalle"
-      ],
-      [
-        "view_facturadetalle",
-        "factura",
-        "facturadetalle"
-      ],
-      [
-        "add_nota",
-        "factura",
-        "nota"
-      ],
-      [
-        "change_nota",
-        "factura",
-        "nota"
-      ],
-      [
-        "view_nota",
-        "factura",
-        "nota"
-      ],
-      [
-        "add_notarelacionada",
-        "factura",
-        "notarelacionada"
-      ],
-      [
-        "change_notarelacionada",
-        "factura",
-        "notarelacionada"
-      ],
-      [
-        "view_notarelacionada",
-        "factura",
-        "notarelacionada"
-      ],
-      [
-        "add_pago",
-        "factura",
-        "pago"
-      ],
-      [
-        "change_pago",
-        "factura",
-        "pago"
-      ],
-      [
-        "view_pago",
-        "factura",
-        "pago"
-      ],
-      [
-        "add_parametrotributario",
-        "factura",
-        "parametrotributario"
-      ],
-      [
-        "change_parametrotributario",
-        "factura",
-        "parametrotributario"
-      ],
-      [
-        "view_parametrotributario",
-        "factura",
-        "parametrotributario"
-      ],
-      [
-        "add_planarticulo",
-        "factura",
-        "planarticulo"
-      ],
-      [
-        "change_planarticulo",
-        "factura",
-        "planarticulo"
-      ],
-      [
-        "view_planarticulo",
-        "factura",
-        "planarticulo"
-      ],
-      [
-        "add_periodocontable",
-        "periodoContable",
-        "periodocontable"
-      ],
-      [
-        "change_periodocontable",
-        "periodoContable",
-        "periodocontable"
-      ],
-      [
-        "view_periodocontable",
-        "periodoContable",
-        "periodocontable"
-      ],
-      [
-        "add_plancuenta",
-        "planCuenta",
-        "plancuenta"
-      ],
-      [
-        "change_plancuenta",
-        "planCuenta",
-        "plancuenta"
-      ],
-      [
-        "view_plancuenta",
-        "planCuenta",
-        "plancuenta"
-      ],
-      [
-        "add_saldocontable",
-        "saldoContable",
-        "saldocontable"
-      ],
-      [
-        "change_saldocontable",
-        "saldoContable",
-        "saldocontable"
-      ],
-      [
-        "view_saldocontable",
-        "saldoContable",
-        "saldocontable"
-      ]
+      149,
+      150,
+      152,
+      153,
+      154,
+      156,
+      141,
+      142,
+      144,
+      145,
+      146,
+      148,
+      137,
+      138,
+      140,
+      157,
+      158,
+      160,
+      177,
+      178,
+      180,
+      181,
+      182,
+      184,
+      161,
+      162,
+      164,
+      165,
+      166,
+      168,
+      169,
+      170,
+      172,
+      173,
+      174,
+      176,
+      133,
+      134,
+      136,
+      129,
+      130,
+      132,
+      185,
+      186,
+      188
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 143,
+  "fields": {
+    "name": "Cliente-Proveedor",
+    "permissions": [
+      101,
+      102,
+      103,
+      104
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 144,
+  "fields": {
+    "name": "Inscripcion",
+    "permissions": [
+      1,
+      2,
+      3,
+      4,
+      149,
+      150,
+      151,
+      152,
+      153,
+      154,
+      155,
+      156,
+      9,
+      10,
+      11,
+      12,
+      5,
+      6,
+      7,
+      8,
+      93,
+      94,
+      95,
+      96,
+      97,
+      98,
+      99,
+      100,
+      13,
+      14,
+      15,
+      16,
+      141,
+      142,
+      143,
+      144,
+      145,
+      146,
+      147,
+      148,
+      137,
+      138,
+      139,
+      140,
+      157,
+      158,
+      159,
+      160,
+      177,
+      178,
+      179,
+      180,
+      181,
+      182,
+      183,
+      184,
+      161,
+      162,
+      163,
+      164,
+      165,
+      166,
+      167,
+      168,
+      169,
+      170,
+      171,
+      172,
+      173,
+      174,
+      175,
+      176,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      77,
+      78,
+      79,
+      80,
+      69,
+      70,
+      71,
+      72,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      73,
+      74,
+      75,
+      76,
+      41,
+      42,
+      43,
+      44,
+      89,
+      90,
+      91,
+      92,
+      45,
+      46,
+      47,
+      48,
+      81,
+      82,
+      83,
+      84,
+      85,
+      86,
+      87,
+      88,
+      49,
+      50,
+      51,
+      52,
+      53,
+      54,
+      55,
+      56,
+      57,
+      58,
+      59,
+      60,
+      61,
+      62,
+      63,
+      64,
+      65,
+      66,
+      67,
+      68,
+      113,
+      114,
+      115,
+      116,
+      117,
+      118,
+      119,
+      120,
+      121,
+      122,
+      123,
+      124,
+      133,
+      134,
+      135,
+      136,
+      101,
+      102,
+      103,
+      104,
+      109,
+      110,
+      111,
+      112,
+      105,
+      106,
+      107,
+      108,
+      129,
+      130,
+      131,
+      132,
+      189,
+      190,
+      191,
+      192,
+      185,
+      186,
+      187,
+      188,
+      17,
+      18,
+      19,
+      20,
+      125,
+      126,
+      127,
+      128
     ]
   }
 }

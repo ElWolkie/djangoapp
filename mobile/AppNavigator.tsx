@@ -213,7 +213,8 @@ function CustomDrawerContent(props: any) {
           </Animated.View>
         </View>
 
-        {/* TRÁMITE - ahora SIN sub-acordeón (solo acordeón principal) */} 
+        {/* TRÁMITE - ahora SIN sub-acordeón (solo acordeón principal) */}
+        {/*
         <View style={styles.sectionContainer}>
           <TouchableOpacity 
             style={styles.accordionHeader} 
@@ -233,7 +234,6 @@ function CustomDrawerContent(props: any) {
             styles.accordionContent, 
             { maxHeight: tramPanelMaxHeight }
           ]}>
-            {/* Sub-acordeón eliminado: dejo Solicitudes visible aquí y comento el resto */}
             <DrawerItem
               label="Solicitudes"
               icon={({ color, size }) => <Icon name="file-document" color={color} size={size} />}
@@ -265,12 +265,9 @@ function CustomDrawerContent(props: any) {
               labelStyle={styles.submenuText}
               style={styles.submenuItem}
             />
-            */}
           </Animated.View>
         </View>
 
-        {/* FINANZAS - comentado por completo (no lo necesitamos ahora) */}
-        {/*
         <View style={styles.sectionContainer}>
           <TouchableOpacity 
             style={styles.accordionHeader} 

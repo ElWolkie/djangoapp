@@ -13,7 +13,7 @@ from apps.persona.serializers import PersonaCreateSerializer
 
 from rest_framework.authentication import SessionAuthentication
 
-from apps.persona.serializers import PersonaCreateSerializer
+from apps.persona.serializers import PersonaCreateSerializer, UsuarioCreateSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -77,3 +77,31 @@ def verificar_cedula(request):
             pass
     
     return Response(response_data)
+
+class UsuarioPublicRegisterView(APIView):
+    """
+    Endpoint público para crear una cuenta de Usuario para una Persona
+    que ya existe y tiene el tipo 'Usuario'.
+    """
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        logger.info(f"📥 Intento de registro de usuario: {request.data.get('cedula')}")
+        
+        serializer = UsuarioCreateSerializer(data=request.data)
+        
+        if serializer.is_valid():
+            # El método .save() llamará a nuestro método create()
+            usuario_creado = serializer.save()
+            # El método to_representation() formateará la respuesta
+            return Response(serializer.to_representation(usuario_creado), status=status.HTTP_201_CREATED)
+        else:
+            logger.warning(f"⚠️ Registro de usuario fallido: {serializer.errors}")
+            # Devolvemos el primer error encontrado para un mensaje más claro
+            error_detail = next(iter(serializer.errors.values()))[0]
+            return Response({
+                'error': error_detail,
+                'codigo': 'VALIDATION_ERROR'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
