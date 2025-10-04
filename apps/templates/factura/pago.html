@@ -555,250 +555,171 @@ select.input-with-icon.form-select {
 <script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
+// ✅ DATOS LIMPIOS DESDE EL BACKEND
+window.notasData = {{ notas_json|safe }};
+console.log('📊 Datos de notas cargados:', window.notasData);
+</script>
+<script>
 function actualizarDeudaYValidar() {
     const montoInput = document.getElementById('monto');
     const tasaSelect = document.getElementById('idTasa');
     const deudaElement = document.getElementById('deudaNota');
-    const tasaConfiguracion = parseFloat(document.getElementById('tasaConfiguracion').value) || 1;
     const form = document.querySelector('form');
 
-    function actualizarDeudaConvertida(deudaNota, monedaDeudaSimbolo) {
-        if (!tasaSelect || !deudaElement) return;
+    // ✅ FUNCIÓN SIMPLE: Obtener conversión desde datos globales
+    function obtenerConversionDesdeBackend(monedaSeleccionadaId) {
+        const idNota = document.getElementById('idNota').value;
+        if (!idNota) {
+            console.log('❌ No hay nota seleccionada');
+            return null;
+        }
 
-        const tasaOption = tasaSelect.options[tasaSelect.selectedIndex] || {};
-        const tasaTexto = tasaOption.textContent || '';
-        
-        // Extraer la tasa de pago correctamente
-        const tasaMatch = tasaTexto.match(/Tasa:\s*([\d.,]+)/);
-        const tasaPago = tasaMatch ? parseFloat(tasaMatch[1].replace(',', '.')) : 1;
-        
-        // Extraer el nombre de la moneda (todo antes del primer |)
-        const monedaSeleccionada = tasaTexto.split('|')[0].trim();
+        // Buscar la nota en los datos globales
+        const nota = window.notasData.find(n => n.idNota === parseInt(idNota));
+        if (!nota) {
+            console.log('❌ No se encontró la nota en datos globales');
+            return null;
+        }
 
-        let deudaConvertida;
+        const conversiones = nota.conversiones_multimoneda;
+        console.log('✅ Conversiones disponibles:', conversiones);
 
-        console.log('Datos conversión:', {
-            deudaOriginal: deudaNota,
-            monedaOriginal: monedaDeudaSimbolo,
-            monedaSeleccionada: monedaSeleccionada,
-            tasaConfiguracion: tasaConfiguracion,
-            tasaPago: tasaPago
-        });
+        // Buscar en moneda base
+        if (conversiones.moneda_base && parseInt(conversiones.moneda_base.moneda_id) === parseInt(monedaSeleccionadaId)) {
+            console.log('✅ Encontrado en moneda_base:', conversiones.moneda_base);
+            return conversiones.moneda_base;
+        }
 
-        // ✅ CORRECCIÓN: Lógica de conversión precisa basada en monedas reales
-        if (monedaSeleccionada === monedaDeudaSimbolo.trim()) {
-            // Misma moneda: no hay conversión
-            deudaConvertida = parseFloat(deudaNota);
-        } else {
-            // Conversión entre monedas diferentes
-            // CORRECCIÓN: Identificar correctamente las monedas involucradas
-            const monedaOrigen = monedaDeudaSimbolo.trim();
-            const monedaDestino = monedaSeleccionada;
-            
-            console.log(`Conversión: ${monedaOrigen} → ${monedaDestino}`);
-            
-            // Caso 1: De Bs a Dólar/Euro (usar tasa de pago directamente)
-            if (monedaOrigen === 'Bs' && (monedaDestino === 'Dolar' || monedaDestino === 'Euro')) {
-                deudaConvertida = parseFloat(deudaNota) / tasaPago;
-            }
-            // Caso 2: De Dólar/Euro a Bs (multiplicar por tasa de pago)
-            else if ((monedaOrigen === 'Dolar' || monedaOrigen === 'Euro') && monedaDestino === 'Bs') {
-                deudaConvertida = parseFloat(deudaNota) * tasaPago;
-            }
-            // Caso 3: Entre Dólar y Euro (usar tasa de configuración como intermediaria)
-            else if ((monedaOrigen === 'Dolar' && monedaDestino === 'Euro') || 
-                     (monedaOrigen === 'Euro' && monedaDestino === 'Dolar')) {
-                // Para conversión entre divisas, usar lógica más simple
-                if (monedaOrigen === 'Dolar' && monedaDestino === 'Euro') {
-                    deudaConvertida = parseFloat(deudaNota) * (tasaConfiguracion / tasaPago);
-                } else {
-                    deudaConvertida = parseFloat(deudaNota) * (tasaPago / tasaConfiguracion);
-                }
-            }
-            // Caso por defecto: fórmula general (seguro)
-            else {
-                const deudaEnMonedaBase = parseFloat(deudaNota) * tasaConfiguracion;
-                deudaConvertida = deudaEnMonedaBase / tasaPago;
+        // Buscar en moneda nacional
+        if (conversiones.moneda_nacional && conversiones.moneda_nacional.moneda_id && 
+            parseInt(conversiones.moneda_nacional.moneda_id) === parseInt(monedaSeleccionadaId)) {
+            console.log('✅ Encontrado en moneda_nacional:', conversiones.moneda_nacional);
+            return conversiones.moneda_nacional;
+        }
+
+        // Buscar en otras monedas
+        if (conversiones.otras_monedas && Array.isArray(conversiones.otras_monedas)) {
+            const conversion = conversiones.otras_monedas.find(moneda => 
+                moneda && moneda.moneda_id && parseInt(moneda.moneda_id) === parseInt(monedaSeleccionadaId)
+            );
+            if (conversion) {
+                console.log('✅ Encontrado en otras_monedas:', conversion);
+                return conversion;
             }
         }
 
-        // Formatear a 2 decimales
-        deudaConvertida = parseFloat(deudaConvertida.toFixed(2));
+        console.warn('⚠️ No se encontró conversión para moneda ID:', monedaSeleccionadaId);
+        return null;
+    }
+
+    // ✅ FUNCIÓN SIMPLE: Actualizar deuda
+    function actualizarDeudaDesdeBackend() {
+        if (!tasaSelect || !deudaElement) return;
+
+        const tasaOption = tasaSelect.options[tasaSelect.selectedIndex];
+        if (!tasaOption) return;
+
+        const monedaSeleccionadaId = tasaOption.value;
+        const deudaBase = parseFloat(deudaElement.getAttribute('data-deuda-actual')) || 0;
+        const monedaBaseSimbolo = deudaElement.getAttribute('data-moneda-simbolo') || '';
+
+        if (deudaBase <= 0) return;
+
+        // Obtener conversión
+        const conversion = obtenerConversionDesdeBackend(monedaSeleccionadaId);
         
-        // ✅ CORRECCIÓN PRINCIPAL: Formateo correcto de números sin confundir separadores
+        let deudaConvertida, simboloDestino;
+
+        if (conversion && conversion.monto !== undefined) {
+            deudaConvertida = conversion.monto;
+            simboloDestino = conversion.simbolo || monedaBaseSimbolo;
+            console.log('✅ Usando conversión del backend');
+        } else {
+            deudaConvertida = deudaBase;
+            simboloDestino = monedaBaseSimbolo;
+            console.warn('⚠️ Usando fallback - misma moneda');
+        }
+
+        // Formatear para visualización
         const deudaFormateada = new Intl.NumberFormat('es-VE', {
             minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
+            maximumFractionDigits: 6,
             useGrouping: true
-        }).format(parseFloat(deudaNota));
+        }).format(deudaBase);
         
         const convertidaFormateada = new Intl.NumberFormat('es-VE', {
             minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
+            maximumFractionDigits: 6,
             useGrouping: true
         }).format(deudaConvertida);
         
-        deudaElement.textContent = `Deuda actual: ${deudaFormateada} ${monedaDeudaSimbolo} | Convertida: ${convertidaFormateada} ${monedaSeleccionada}`;
+        // Actualizar UI
+        deudaElement.textContent = `Deuda actual: ${deudaFormateada} ${monedaBaseSimbolo} | Convertida: ${convertidaFormateada} ${simboloDestino}`;
         deudaElement.setAttribute('data-deuda-convertida', deudaConvertida);
-        
-        console.log('Resultado conversión:', {
-            deudaOriginal: deudaNota,
-            deudaFormateada: deudaFormateada,
-            monedaOriginal: monedaDeudaSimbolo,
-            monedaSeleccionada: monedaSeleccionada,
-            deudaConvertida: deudaConvertida,
-            convertidaFormateada: convertidaFormateada
-        });
     }
 
-   function validarMontoContraDeuda() {
-    const monto = obtenerMontoNumerico(montoInput.value);
-    const deudaConvertida = parseFloat(deudaElement.getAttribute('data-deuda-convertida')) || 0;
-
-    console.log('Validación monto:', {
-        montoIngresado: monto,
-        deudaConvertida: deudaConvertida,
-        diferencia: monto - deudaConvertida
-    });
-
-    const invalidFeedback = montoInput.nextElementSibling; // Seleccionar el elemento .invalid-feedback
-
-    // Validación Bootstrap
-    if (monto <= 0) {
-        montoInput.classList.add('is-invalid');
-        montoInput.classList.remove('is-valid');
-        if (invalidFeedback) {
-            invalidFeedback.textContent = 'Por favor ingrese un monto válido.';
-        }
-    } else if (monto > deudaConvertida) {
-        montoInput.classList.add('is-invalid');
-        montoInput.classList.remove('is-valid');
-        if (invalidFeedback) {
-            invalidFeedback.textContent = `El monto (${monto.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}) supera la deuda convertida (${deudaConvertida.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}).`;
-        }
-    } else {
-        montoInput.classList.remove('is-invalid');
-        montoInput.classList.add('is-valid');
-        if (invalidFeedback) {
-            invalidFeedback.textContent = ''; // Limpiar el mensaje de error
-        }
-    }
-}
-
-    function obtenerMontoNumerico(valorFormateado) {
-        if (!valorFormateado) return 0;
-        // ✅ CORRECCIÓN: Manejo correcto de separadores
-        // Remover todos los puntos (separadores de miles) y convertir coma decimal a punto
-        const limpio = valorFormateado.toString().replace(/\./g, '').replace(',', '.');
-        const numero = parseFloat(limpio) || 0;
-        // Limitar a 2 decimales
-        return parseFloat(numero.toFixed(2));
-    }
-
-    function formatearValor(valor) {
-        if (!valor) return '';
-        
-        // ✅ CORRECCIÓN: Manejo más robusto del formateo
-        // Remover todo excepto números y coma decimal
-        let raw = valor.toString().replace(/[^\d,]/g, '');
-        
-        // Si hay coma, separar parte entera y decimal
-        if (raw.includes(',')) {
-            const partes = raw.split(',');
-            let intPart = partes[0].replace(/\D/g, '');
-            let decimalPart = partes[1] ? partes[1].replace(/\D/g, '').substring(0, 2) : '';
-            
-            // Formatear parte entera con separadores de miles
-            const formattedInt = intPart ? parseInt(intPart, 10).toLocaleString('es-VE') : '0';
-            
-            return `${formattedInt},${decimalPart.padEnd(2, '0')}`;
-        } else {
-            // Solo números sin coma
-            let intPart = raw.replace(/\D/g, '');
-            const formattedInt = intPart ? parseInt(intPart, 10).toLocaleString('es-VE') : '0';
-            return `${formattedInt},00`;
-        }
-    }
-
-    function obtenerDatosDeudaActual() {
-        const deudaTexto = deudaElement.textContent;
-        console.log('Texto de deuda a parsear:', deudaTexto);
-        
-        // ✅ CORRECCIÓN: Patrón de búsqueda más preciso
-        // Buscar el patrón "Deuda actual: X.XX,XX SYMBOL" (con separadores correctos)
-        const match = deudaTexto.match(/Deuda actual:\s*([\d.,]+)\s*([^\s|]+)/);
-        
-        if (match) {
-            // CORRECCIÓN: Parseo correcto del número (considerar formato europeo)
-            const numeroLimpio = match[1].replace(/\./g, '').replace(',', '.');
-            const deudaNota = parseFloat(numeroLimpio);
-            const monedaDeudaSimbolo = match[2].trim();
-            
-            console.log('Deuda parseada:', { numeroRaw: match[1], numeroLimpio, deudaNota, monedaDeudaSimbolo });
-            
-            return { 
-                deudaNota: parseFloat(deudaNota.toFixed(2)), 
-                monedaDeudaSimbolo 
-            };
-        }
-        
-        // Fallback: intentar parsear desde los atributos data
-        try {
-            const deudaNota = parseFloat(deudaElement.getAttribute('data-deuda-actual')) || 0;
-            const monedaDeudaSimbolo = deudaElement.getAttribute('data-moneda-simbolo') || '';
-            
-            if (deudaNota > 0) {
-                return { 
-                    deudaNota: parseFloat(deudaNota.toFixed(2)), 
-                    monedaDeudaSimbolo 
-                };
-            }
-        } catch (e) {
-            console.error('Error al obtener datos de atributos data:', e);
-        }
-        
-        console.error('No se pudo parsear la deuda actual');
-        return { deudaNota: 0, monedaDeudaSimbolo: '' };
-    }
-
-    // Función para validar todo el formulario
-    function validarFormularioCompleto() {
-        const camposRequeridos = form.querySelectorAll('[required]');
-        let formularioValido = true;
-
-        camposRequeridos.forEach(campo => {
-            if (!campo.value.trim()) {
-                campo.classList.add('is-invalid');
-                campo.classList.remove('is-valid');
-                formularioValido = false;
-            } else {
-                campo.classList.remove('is-invalid');
-                campo.classList.add('is-valid');
-            }
-        });
-
-        // Validación específica para monto
-        validarMontoContraDeuda();
+    // ✅ FUNCIÓN: Validar monto
+    function validarMontoContraDeuda() {
         const monto = obtenerMontoNumerico(montoInput.value);
         const deudaConvertida = parseFloat(deudaElement.getAttribute('data-deuda-convertida')) || 0;
 
-        if (monto <= 0 || monto > deudaConvertida) {
-            formularioValido = false;
-        }
+        const invalidFeedback = montoInput.nextElementSibling;
 
-        return formularioValido;
+        if (monto <= 0) {
+            montoInput.classList.add('is-invalid');
+            montoInput.classList.remove('is-valid');
+            if (invalidFeedback) invalidFeedback.textContent = 'Por favor ingrese un monto válido.';
+        } else if (monto > deudaConvertida) {
+            montoInput.classList.add('is-invalid');
+            montoInput.classList.remove('is-valid');
+            const montoFormateado = new Intl.NumberFormat('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 6, useGrouping: true}).format(monto);
+            const deudaFormateada = new Intl.NumberFormat('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 6, useGrouping: true}).format(deudaConvertida);
+            if (invalidFeedback) invalidFeedback.textContent = `El monto (${montoFormateado}) supera la deuda convertida (${deudaFormateada}).`;
+        } else {
+            montoInput.classList.remove('is-invalid');
+            montoInput.classList.add('is-valid');
+            if (invalidFeedback) invalidFeedback.textContent = '';
+        }
     }
 
-    // Eventos
+    // ✅ FUNCIÓN: Obtener monto numérico
+    function obtenerMontoNumerico(valorFormateado) {
+        if (!valorFormateado) return 0;
+        const limpio = valorFormateado.toString().replace(/\./g, '').replace(',', '.');
+        return parseFloat(limpio) || 0;
+    }
+
+    // ✅ FUNCIÓN: Formatear valor para input
+    function formatearValor(valor) {
+        if (!valor) return '';
+        let raw = valor.toString().replace(/[^\d,]/g, '');
+        
+        if (raw.includes(',')) {
+            const partes = raw.split(',');
+            let intPart = partes[0].replace(/\D/g, '');
+            let decimalPart = partes[1] ? partes[1].replace(/\D/g, '') : '';
+            const formattedInt = intPart ? parseInt(intPart, 10).toLocaleString('es-VE') : '0';
+            return `${formattedInt},${decimalPart}`;
+        } else {
+            let intPart = raw.replace(/\D/g, '');
+            const formattedInt = intPart ? parseInt(intPart, 10).toLocaleString('es-VE') : '0';
+            return `${formattedInt}`;
+        }
+    }
+
+    // ✅ EVENTOS SIMPLES
+    if (tasaSelect) {
+        tasaSelect.addEventListener('change', function () {
+            actualizarDeudaDesdeBackend();
+            validarMontoContraDeuda();
+        });
+    }
+
     if (montoInput) {
         montoInput.addEventListener('input', function () {
             const cursorPosition = this.selectionStart;
             this.value = formatearValor(this.value);
-            
-            // Restaurar posición del cursor
-            const newCursorPosition = Math.min(cursorPosition, this.value.length);
-            this.setSelectionRange(newCursorPosition, newCursorPosition);
-            
+            this.setSelectionRange(cursorPosition, cursorPosition);
             validarMontoContraDeuda();
         });
 
@@ -810,95 +731,32 @@ function actualizarDeudaYValidar() {
         });
     }
 
-    if (tasaSelect) {
-        tasaSelect.addEventListener('change', function () {
-            const { deudaNota, monedaDeudaSimbolo } = obtenerDatosDeudaActual();
-            if (deudaNota > 0) {
-                actualizarDeudaConvertida(deudaNota, monedaDeudaSimbolo);
-                validarMontoContraDeuda();
-            }
-        });
-    }
-
-    // Validación Bootstrap para otros campos requeridos
-    if (form) {
-        const camposRequeridos = form.querySelectorAll('[required]');
-        camposRequeridos.forEach(campo => {
-            campo.addEventListener('blur', function() {
-                if (this.value.trim()) {
-                    this.classList.remove('is-invalid');
-                    this.classList.add('is-valid');
-                } else {
-                    this.classList.add('is-invalid');
-                    this.classList.remove('is-valid');
-                }
-            });
-
-            campo.addEventListener('input', function() {
-                if (this.value.trim()) {
-                    this.classList.remove('is-invalid');
-                }
-            });
-        });
-
-        // Validación del formulario al enviar
-        form.addEventListener('submit', function(event) {
-            if (!validarFormularioCompleto()) {
-                event.preventDefault();
-                event.stopPropagation();
-                
-                // Mostrar mensajes de error en todos los campos inválidos
-                const camposInvalidos = form.querySelectorAll('.is-invalid');
-                camposInvalidos.forEach(campo => {
-                    campo.reportValidity();
-                });
-            }
-        });
-    }
-
-    // Inicializar valores al cargar la página
+    // ✅ INICIALIZACIÓN SIMPLE
     function inicializar() {
-        const { deudaNota, monedaDeudaSimbolo } = obtenerDatosDeudaActual();
-        console.log('Inicializando con:', { deudaNota, monedaDeudaSimbolo });
-        
-        if (deudaNota > 0) {
-            actualizarDeudaConvertida(deudaNota, monedaDeudaSimbolo);
-        }
+        console.log('🚀 Sistema inicializado con datos JSON limpios');
+        actualizarDeudaDesdeBackend();
         
         if (montoInput && montoInput.value) {
             montoInput.value = formatearValor(montoInput.value);
             validarMontoContraDeuda();
         }
-        
-        console.log('Inicialización completada', {
-            deudaInicial: deudaNota,
-            monedaInicial: monedaDeudaSimbolo,
-            tasaConfiguracion: tasaConfiguracion
-        });
     }
 
-    // Esperar a que el DOM esté completamente cargado
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', inicializar);
     } else {
-        // DOM ya está listo
         setTimeout(inicializar, 100);
     }
 
-    // También inicializar cuando se selecciona una nota del modal
     document.addEventListener('notaSeleccionada', function() {
         setTimeout(() => {
-            const { deudaNota, monedaDeudaSimbolo } = obtenerDatosDeudaActual();
-            console.log('Nota seleccionada:', { deudaNota, monedaDeudaSimbolo });
-            if (deudaNota > 0) {
-                actualizarDeudaConvertida(deudaNota, monedaDeudaSimbolo);
-                validarMontoContraDeuda();
-            }
-        }, 500);
+            actualizarDeudaDesdeBackend();
+            validarMontoContraDeuda();
+        }, 100);
     });
 }
 
-// Función auxiliar para disparar el evento cuando se selecciona una nota
+// Las demás funciones se mantienen igual pero son más simples
 function manejarSeleccionModalNotas() {
     const tablaNotas = document.getElementById('tablaNotas');
     if (tablaNotas) {
@@ -907,26 +765,75 @@ function manejarSeleccionModalNotas() {
             if (fila) {
                 const idNota = fila.getAttribute('data-id');
                 const nombreNota = fila.getAttribute('data-nombre');
-                const deudaNota = parseFloat(fila.getAttribute('data-deuda')).toFixed(2);
-                const monedaSimbolo = fila.getAttribute('data-moneda-simbolo'); 
+                const deudaNota = parseFloat(fila.getAttribute('data-deuda'));
+                const monedaSimbolo = fila.getAttribute('data-moneda-simbolo');
 
                 document.getElementById('notaInput').value = nombreNota;
                 document.getElementById('idNota').value = idNota;
 
                 const deudaElement = document.getElementById('deudaNota');
                 if (deudaElement) {
-                    // ✅ CORRECCIÓN: Formatear correctamente la deuda al mostrarla
                     const deudaFormateada = new Intl.NumberFormat('es-VE', {
                         minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
+                        maximumFractionDigits: 6,
                         useGrouping: true
-                    }).format(parseFloat(deudaNota));
+                    }).format(deudaNota);
+                    
+                    deudaElement.textContent = `Deuda actual: ${deudaFormateada} ${monedaSimbolo}`;
+                    deudaElement.setAttribute('data-deuda-actual', deudaNota);
+                    deudaElement.setAttribute('data-moneda-simbolo', monedaSimbolo);
+                }
+
+                // Cerrar modal y disparar evento
+                const modalEl = document.getElementById('notaModal');
+                try { 
+                    const modal = bootstrap.Modal.getInstance(modalEl);
+                    if (modal) modal.hide(); 
+                } catch(e) {
+                    console.error('Error al cerrar modal:', e);
+                }
+                
+                setTimeout(() => {
+                    document.dispatchEvent(new CustomEvent('notaSeleccionada'));
+                }, 100);
+            }
+        });
+    }
+}
+
+// ✅ FUNCIÓN ACTUALIZADA: Manejar selección modal notas (agregar conversiones)
+function manejarSeleccionModalNotas() {
+    const tablaNotas = document.getElementById('tablaNotas');
+    if (tablaNotas) {
+        tablaNotas.addEventListener('click', function (event) {
+            const fila = event.target.closest('tr');
+            if (fila) {
+                const idNota = fila.getAttribute('data-id');
+                const nombreNota = fila.getAttribute('data-nombre');
+                const deudaNota = parseFloat(fila.getAttribute('data-deuda'));
+                const monedaSimbolo = fila.getAttribute('data-moneda-simbolo'); 
+                const conversionesJson = fila.getAttribute('data-conversiones');
+
+                document.getElementById('notaInput').value = nombreNota;
+                document.getElementById('idNota').value = idNota;
+
+                const deudaElement = document.getElementById('deudaNota');
+                if (deudaElement) {
+                    // ✅ Formatear para visualización pero guardar valor exacto
+                    const deudaFormateada = new Intl.NumberFormat('es-VE', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 6,
+                        useGrouping: true
+                    }).format(deudaNota);
                     
                     deudaElement.textContent = `Deuda actual: ${deudaFormateada} ${monedaSimbolo}`;
                     
-                    // Guardar datos en atributos para fácil acceso
+                    // ✅ Guardar datos EXACTOS en atributos
                     deudaElement.setAttribute('data-deuda-actual', deudaNota);
                     deudaElement.setAttribute('data-moneda-simbolo', monedaSimbolo);
+                    if (conversionesJson) {
+                        deudaElement.setAttribute('data-conversiones', conversionesJson);
+                    }
                 }
 
                 // Cerrar modal
@@ -951,6 +858,55 @@ function manejarSeleccionModalNotas() {
     }
 }
 
+// ✅ FUNCIÓN ACTUALIZADA: Autoseleccionar nota (agregar conversiones)
+function autoseleccionarNota() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const notaParam = urlParams.get('nota');
+    if (notaParam) {
+        const filaNota = document.querySelector(`#tablaNotas tr[data-id="${notaParam}"]`);
+        if (filaNota) {
+            const nombreNota = filaNota.getAttribute('data-nombre');
+            const deudaNota = parseFloat(filaNota.getAttribute('data-deuda'));
+            const monedaSimbolo = filaNota.getAttribute('data-moneda-simbolo');
+            const conversionesJson = filaNota.getAttribute('data-conversiones');
+
+            document.getElementById('notaInput').value = nombreNota;
+            document.getElementById('idNota').value = notaParam;
+
+            const deudaElement = document.getElementById('deudaNota');
+            if (deudaElement) {
+                // ✅ Formatear para visualización pero guardar valor exacto
+                const deudaFormateada = new Intl.NumberFormat('es-VE', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 6,
+                    useGrouping: true
+                }).format(deudaNota);
+                
+                deudaElement.textContent = `Deuda actual: ${deudaFormateada} ${monedaSimbolo}`;
+                
+                // ✅ Guardar datos EXACTOS en atributos
+                deudaElement.setAttribute('data-deuda-actual', deudaNota);
+                deudaElement.setAttribute('data-moneda-simbolo', monedaSimbolo);
+                if (conversionesJson) {
+                    deudaElement.setAttribute('data-conversiones', conversionesJson);
+                }
+            }
+
+            // Aplicar validación Bootstrap
+            const notaInput = document.getElementById('notaInput');
+            if (notaInput) {
+                notaInput.classList.add('is-valid');
+            }
+
+            // Disparar evento para actualizar la conversión
+            setTimeout(() => {
+                document.dispatchEvent(new CustomEvent('notaSeleccionada'));
+            }, 200);
+        }
+    }
+}
+
+// ✅ LAS DEMÁS FUNCIONES SE MANTIENEN IGUAL (sin cambios)
 function manejarSeleccionModalCuentas() {
     const tablaCuentas = document.getElementById('tablaCuentas');
     if (tablaCuentas) {
@@ -1021,13 +977,10 @@ function manejarFormaPago() {
     }
 
     formaPagoSelect.addEventListener('change', actualizarVisibilidadCampos);
-
-    // Inicializar el estado al cargar la página
     actualizarVisibilidadCampos();
 }
 
 function forzarMayusculas() {
-    // Seleccionar los campos que deben estar en mayúsculas
     const camposMayusculas = [
         'referencia',
         'observaciones'
@@ -1040,12 +993,10 @@ function forzarMayusculas() {
                 this.value = this.value.toUpperCase();
             });
             
-            // Aplicar también al evento blur por si acaso
             campo.addEventListener('blur', function() {
                 this.value = this.value.toUpperCase();
             });
 
-            // Aplicar validación Bootstrap
             campo.addEventListener('blur', function() {
                 if (this.value.trim()) {
                     this.classList.remove('is-invalid');
@@ -1073,177 +1024,6 @@ function establecerFechaPorDefecto() {
     }
 }
 
-function autoseleccionarNota() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const notaParam = urlParams.get('nota');
-    if (notaParam) {
-        const filaNota = document.querySelector(`#tablaNotas tr[data-id="${notaParam}"]`);
-        if (filaNota) {
-            const nombreNota = filaNota.getAttribute('data-nombre');
-            const deudaNota = parseFloat(filaNota.getAttribute('data-deuda')).toFixed(2);
-            const monedaSimbolo = filaNota.getAttribute('data-moneda-simbolo');
-
-            document.getElementById('notaInput').value = nombreNota;
-            document.getElementById('idNota').value = notaParam;
-
-            const deudaElement = document.getElementById('deudaNota');
-            if (deudaElement) {
-                // ✅ CORRECCIÓN: Formatear correctamente la deuda
-                const deudaFormateada = new Intl.NumberFormat('es-VE', {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                    useGrouping: true
-                }).format(parseFloat(deudaNota));
-                
-                deudaElement.textContent = `Deuda actual: ${deudaFormateada} ${monedaSimbolo}`;
-                
-                // Guardar datos en atributos
-                deudaElement.setAttribute('data-deuda-actual', deudaNota);
-                deudaElement.setAttribute('data-moneda-simbolo', monedaSimbolo);
-            }
-
-            // Aplicar validación Bootstrap
-            const notaInput = document.getElementById('notaInput');
-            if (notaInput) {
-                notaInput.classList.add('is-valid');
-            }
-
-            // Disparar evento para actualizar la conversión
-            setTimeout(() => {
-                document.dispatchEvent(new CustomEvent('notaSeleccionada'));
-            }, 200);
-        }
-    }
-}
-
-// Inicialización completa cuando se carga la página
-document.addEventListener('DOMContentLoaded', function() {
-    establecerFechaPorDefecto();
-    actualizarDeudaYValidar();
-    manejarSeleccionModalNotas();
-    manejarSeleccionModalCuentas();
-    manejarFormaPago();
-    forzarMayusculas();
-    autoseleccionarNota();
-     
-    console.log('Sistema de pagos inicializado correctamente');
-});
-
-document.addEventListener('DOMContentLoaded', function () {
-    const pagoForm = document.getElementById('pagoForm');
-    if (pagoForm) {
-      pagoForm.addEventListener('submit', function (event) {
-        event.preventDefault(); // Evitar el envío predeterminado del formulario
-
-        const formData = new FormData(pagoForm);
-
-        fetch(pagoForm.action, {
-          method: 'POST',
-          body: formData,
-          headers: {
-            'X-Requested-With': 'XMLHttpRequest',
-          },
-        })
-          .then(response => {
-            if (!response.ok) {
-              throw new Error('Error en la respuesta del servidor');
-            }
-            return response.json();
-          })
-          .then(data => {
-            // ALERTAS PERSONALIZADAS SEGÚN LA LÓGICA DE TU SISTEMA
-            if (data.success) {
-              // Si el mensaje indica que la nota fue pagada en su totalidad
-              if (data.message && data.message.includes('La nota ha sido pagada en su totalidad')) {
-                Swal.fire({
-                  icon: 'success',
-                  title: 'Pago registrado exitosamente',
-                  html: `
-                    <p><strong>ID Pago:</strong> ${data.pago.idPago}</p>
-                    <p><strong>Nota:</strong> ${data.pago.idNota}</p>
-                    <p><strong>Monto:</strong> ${data.pago.monto}</p>
-                    <p><strong>Fecha de Pago:</strong> ${data.pago.fechaPago}</p>
-                    <p><strong>Forma de Pago:</strong> ${data.pago.formaPago}</p>
-                    <p><strong>Referencia:</strong> ${data.pago.referencia || 'N/A'}</p>
-                    <p class="text-success">${data.message}</p>
-                  `,
-                  showConfirmButton: true,
-                  confirmButtonText: 'Generar Factura',
-                  confirmButtonColor: '#28a745',
-                  allowOutsideClick: false,
-                  allowEscapeKey: false,
-                  allowEnterKey: false
-                }).then((result) => {
-                  if (result.isConfirmed) {
-                    // Redirigir a la generación de factura
-                    const notaId = document.getElementById('idNota').value;
-                    window.location.href = `/factura/facturas/nueva/${notaId}/`;
-                  }
-                });
-                } else {
-                // Si el pago fue exitoso pero la nota no está pagada completamente
-                Swal.fire({
-                  icon: 'warning',
-                  title: 'Pago registrado exitosamente',
-                  html: `
-                  <p><strong>ID Pago:</strong> ${data.pago.idPago}</p>
-                  <p><strong>Nota:</strong> ${data.pago.idNota}</p>
-                  <p><strong>Monto:</strong> ${data.pago.monto}</p>
-                  <p><strong>Fecha de Pago:</strong> ${data.pago.fechaPago}</p>
-                  <p><strong>Forma de Pago:</strong> ${data.pago.formaPago}</p>
-                  <p><strong>Referencia:</strong> ${data.pago.referencia || 'N/A'}</p>
-                  <p class="text-danger">${data.message}</p>
-                  `,
-                  confirmButtonText: 'Realizar otro pago',
-                  customClass: {
-                  confirmButton: 'btn btn-warning',
-                  },
-                  buttonsStyling: false,
-                }).then(() => {
-                  window.location.reload();
-                });
-                }
-              } else if (data.errors && Object.keys(data.errors).length > 0) {
-              // Mostrar mensaje de error con los errores del formulario
-              const errorMessages = Object.entries(data.errors)
-                .map(([field, messages]) => `<p><strong>${field}:</strong> ${messages.join(', ')}</p>`)
-                .join('');
-
-              Swal.fire({
-                icon: 'error',
-                title: 'Errores en el formulario',
-                html: `
-                  <p>${data.message || 'El formulario contiene errores. Por favor, corríjalos e inténtelo nuevamente.'}</p>
-                  ${errorMessages}
-                `,
-                confirmButtonText: 'Aceptar',
-                confirmButtonColor: '#dc3545',
-              });
-            } else {
-              // Mostrar mensaje de error genérico
-              Swal.fire({
-                icon: 'error',
-                title: 'Error al registrar el pago',
-                text: data.message || 'Ocurrió un error inesperado.',
-                confirmButtonText: 'Aceptar',
-                confirmButtonColor: '#dc3545',
-              });
-            }
-          })
-          .catch(error => {
-            console.error('Error:', error);
-            Swal.fire({
-              icon: 'error',
-              title: 'Error inesperado',
-              text: 'Ocurrió un error al procesar la solicitud.',
-              confirmButtonText: 'Aceptar',
-              confirmButtonColor: '#dc3545',
-            });
-          });
-        });
-    }
-});
- // Filtrar cuentas por moneda seleccionada
 function filtrarCuentasPorMoneda() {
   const tasaSelect = document.getElementById('idTasa');
   const tablaCuentas = document.getElementById('tablaCuentas');
@@ -1273,33 +1053,143 @@ function filtrarCuentasPorMoneda() {
   console.log(`[Filtro Cuentas] Las cuentas están disponibles en las siguientes monedas: ${Array.from(monedasDisponibles).join(', ')}`);
 }
 
-// Agregar evento para filtrar cuando cambie la selección de moneda
-const tasaSelect = document.getElementById('idTasa');
-if (tasaSelect) {
-  tasaSelect.addEventListener('change', function() {
-    // Limpiar los campos autollenados de cuentaBanco
-    const cuentaBancoInput = document.getElementById('cuentaBancoInput');
-    const referenciaInput = document.getElementById('referenciaInput');
-
-    if (cuentaBancoInput) cuentaBancoInput.value = '';
-    if (referenciaInput) referenciaInput.value = '';
-
-    // Aplicar el filtrado por moneda
-    filtrarCuentasPorMoneda();
-  });
-}
-
-// Filtrar al cargar la página
+// Inicialización completa cuando se carga la página
 document.addEventListener('DOMContentLoaded', function() {
-  console.log('[Filtro Cuentas] Filtrando cuentas por moneda al cargar la página');
-  filtrarCuentasPorMoneda();
+    establecerFechaPorDefecto();
+    actualizarDeudaYValidar();
+    manejarSeleccionModalNotas();
+    manejarSeleccionModalCuentas();
+    manejarFormaPago();
+    forzarMayusculas();
+    autoseleccionarNota();
+    
+    // Configurar filtro de cuentas
+    const tasaSelect = document.getElementById('idTasa');
+    if (tasaSelect) {
+        tasaSelect.addEventListener('change', function() {
+            const cuentaBancoInput = document.getElementById('cuentaBancoInput');
+            const referenciaInput = document.getElementById('referenciaInput');
+            if (cuentaBancoInput) cuentaBancoInput.value = '';
+            if (referenciaInput) referenciaInput.value = '';
+            filtrarCuentasPorMoneda();
+        });
+        filtrarCuentasPorMoneda();
+    }
+     
+    console.log('Sistema de pagos inicializado correctamente con conversiones del backend');
 });
 
-</script>
-<script>
+// ✅ MANTENER: Código de envío del formulario y paginación (sin cambios)
+document.addEventListener('DOMContentLoaded', function () {
+    const pagoForm = document.getElementById('pagoForm');
+    if (pagoForm) {
+      pagoForm.addEventListener('submit', function (event) {
+        event.preventDefault();
+        const formData = new FormData(pagoForm);
 
-// Paginación y búsqueda para el modal de Nota
+        fetch(pagoForm.action, {
+          method: 'POST',
+          body: formData,
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+          },
+        })
+          .then(response => {
+            if (!response.ok) {
+              throw new Error('Error en la respuesta del servidor');
+            }
+            return response.json();
+          })
+          .then(data => {
+            if (data.success) {
+              if (data.message && data.message.includes('La nota ha sido pagada en su totalidad')) {
+                Swal.fire({
+                  icon: 'success',
+                  title: 'Pago registrado exitosamente',
+                  html: `
+                    <p><strong>ID Pago:</strong> ${data.pago.idPago}</p>
+                    <p><strong>Nota:</strong> ${data.pago.idNota}</p>
+                    <p><strong>Monto:</strong> ${data.pago.monto}</p>
+                    <p><strong>Fecha de Pago:</strong> ${data.pago.fechaPago}</p>
+                    <p><strong>Forma de Pago:</strong> ${data.pago.formaPago}</p>
+                    <p><strong>Referencia:</strong> ${data.pago.referencia || 'N/A'}</p>
+                    <p class="text-success">${data.message}</p>
+                  `,
+                  showConfirmButton: true,
+                  confirmButtonText: 'Generar Factura',
+                  confirmButtonColor: '#28a745',
+                  allowOutsideClick: false,
+                  allowEscapeKey: false,
+                  allowEnterKey: false
+                }).then((result) => {
+                  if (result.isConfirmed) {
+                    const notaId = document.getElementById('idNota').value;
+                    window.location.href = `/factura/facturas/nueva/${notaId}/`;
+                  }
+                });
+                } else {
+                Swal.fire({
+                  icon: 'warning',
+                  title: 'Pago registrado exitosamente',
+                  html: `
+                  <p><strong>ID Pago:</strong> ${data.pago.idPago}</p>
+                  <p><strong>Nota:</strong> ${data.pago.idNota}</p>
+                  <p><strong>Monto:</strong> ${data.pago.monto}</p>
+                  <p><strong>Fecha de Pago:</strong> ${data.pago.fechaPago}</p>
+                  <p><strong>Forma de Pago:</strong> ${data.pago.formaPago}</p>
+                  <p><strong>Referencia:</strong> ${data.pago.referencia || 'N/A'}</p>
+                  <p class="text-danger">${data.message}</p>
+                  `,
+                  confirmButtonText: 'Realizar otro pago',
+                  customClass: {
+                  confirmButton: 'btn btn-warning',
+                  },
+                  buttonsStyling: false,
+                }).then(() => {
+                  window.location.reload();
+                });
+                }
+              } else if (data.errors && Object.keys(data.errors).length > 0) {
+              const errorMessages = Object.entries(data.errors)
+                .map(([field, messages]) => `<p><strong>${field}:</strong> ${messages.join(', ')}</p>`)
+                .join('');
 
+              Swal.fire({
+                icon: 'error',
+                title: 'Errores en el formulario',
+                html: `
+                  <p>${data.message || 'El formulario contiene errores. Por favor, corríjalos e inténtelo nuevamente.'}</p>
+                  ${errorMessages}
+                `,
+                confirmButtonText: 'Aceptar',
+                confirmButtonColor: '#dc3545',
+              });
+            } else {
+              Swal.fire({
+                icon: 'error',
+                title: 'Error al registrar el pago',
+                text: data.message || 'Ocurrió un error inesperado.',
+                confirmButtonText: 'Aceptar',
+                confirmButtonColor: '#dc3545',
+              });
+            }
+          })
+          .catch(error => {
+            console.error('Error:', error);
+            Swal.fire({
+              icon: 'error',
+              title: 'Error inesperado',
+              text: 'Ocurrió un error al procesar la solicitud.',
+              confirmButtonText: 'Aceptar',
+              confirmButtonColor: '#dc3545',
+            });
+          });
+        });
+        
+    }
+});
+
+// Paginación y búsqueda (sin cambios)
 document.addEventListener('DOMContentLoaded', function () {
   const tablaNotas = document.getElementById('tablaNotas');
   const searchNotaInput = document.getElementById('searchNotaInput');
@@ -1362,7 +1252,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const rows = tablaNotas.getElementsByTagName('tr');
     let visibleRows = 0;
 
-    for (let i = 1; i < rows.length; i++) { // Start from 1 to skip the header
+    for (let i = 1; i < rows.length; i++) {
       const cells = rows[i].getElementsByTagName('td');
       const match = Array.from(cells).some(cell => cell.textContent.toUpperCase().includes(filter));
       if (match) {
@@ -1380,7 +1270,7 @@ document.addEventListener('DOMContentLoaded', function () {
   displayRowsNota();
   setupPaginationNota();
 
-  // Paginación y búsqueda para el modal de Cuenta Bancaria
+  // Paginación para cuentas bancarias
   const tablaCuentas = document.getElementById('tablaCuentas');
   const searchCuentaInput = document.getElementById('searchCuentaInput');
   const paginationContainerCuenta = document.querySelector('#cuentaBancoModal .pagination-container');
@@ -1442,10 +1332,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const rows = tablaCuentas.getElementsByTagName('tr');
     let visibleRows = 0;
 
-    // Si no hay resultados visibles tras el filtrado, aplicar el filtrado por moneda
     if (visibleRows === 0) {
       filtrarCuentasPorMoneda();
-      // Recontar filas visibles después de filtrar por moneda
       let filas = tablaCuentas.getElementsByTagName('tr');
       visibleRows = 0;
       for (let i = 1; i < filas.length; i++) {
@@ -1453,10 +1341,10 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     }
 
-    for (let i = 1; i < rows.length; i++) { // Start from 1 to skip the header
+    for (let i = 1; i < rows.length; i++) {
         const cells = rows[i].getElementsByTagName('td');
         const match = Array.from(cells).some(cell => cell.textContent.toUpperCase().includes(filter));
-        if (match && rows[i].style.display !== 'none') { // Ensure hidden rows stay hidden
+        if (match && rows[i].style.display !== 'none') {
             rows[i].style.display = '';
             visibleRows++;
         } else {
@@ -1467,8 +1355,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const mensajeSinRegistros = document.getElementById('mensajeSinRegistros');
     mensajeSinRegistros.style.display = visibleRows === 0 ? 'block' : 'none';
 
-    // Actualizar paginación después del filtrado
-    currentPageCuenta = 1; // Reiniciar a la primera página
+    currentPageCuenta = 1;
     setupPaginationCuenta();
     displayRowsCuenta();
   });
@@ -1476,6 +1363,5 @@ document.addEventListener('DOMContentLoaded', function () {
   displayRowsCuenta();
   setupPaginationCuenta();
 });
- 
 </script>
 {% endblock javascripts %}
