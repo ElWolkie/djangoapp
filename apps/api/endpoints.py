@@ -63,16 +63,20 @@ def verificar_cedula(request):
     cedula = request.GET.get('cedula', '')
     response_data = {
         'existe': False,
-        'usuario_existe': False
+        'usuario_existe': False,
+        'idPersona': None  # Agregar este campo
     }
     
     if len(cedula) >= 6:  # Longitud mínima para buscar
         try:
             persona = Personas.objects.get(cedula=cedula)
             response_data['existe'] = True
+            response_data['idPersona'] = persona.idPersona  # ¡Aquí está el ID!
+            
             # Verificar si ya tiene usuario
             if Usuarios.objects.filter(idPersona=persona).exists():
                 response_data['usuario_existe'] = True
+                
         except Personas.DoesNotExist:
             pass
     
