@@ -493,10 +493,10 @@ export default function PantallaInscripciones() {
     }));
   }, [searchText, items]);
 
-  const openDetail = (it: Inscripcion) => {
-    setSelected(it);
-    setDetailModalVisible(true);
-  };
+  const openDetail = (item: any) => {
+  setSelected(item); // Esto debería ser el objeto completo de la inscripción
+  setDetailModalVisible(true);
+};
 
   // Función para verificar que los IDs existen - VERSIÓN MEJORADA
   const verificarIDs = (): boolean => {
@@ -635,15 +635,15 @@ export default function PantallaInscripciones() {
       
       // PAYLOAD CORREGIDO según el error del backend
         const payload = {
-          "idPersona_id": userInfo?.idPersona,
-          "idTF": selectedTipoFormacion, // Cambiado de idTF_id a idTF
-          "idFormacion": selectedFormacion, // Cambiado de idFormacion_id a idFormacion
-          "idCohorte": selectedCohorte, // Cambiado de idCohorte_id a idCohorte
-          "montoTotal": montoTotal,
-          "montoPagado": 0,
-          "estadoPago": "PENDIENTE",
-          "fechaInscripcion": new Date().toISOString().slice(0, 19).replace('T', ' ')
-        };
+        "idPersona": userInfo?.idPersona,  // Cambiado de idPersona_id a idPersona
+        "idTF": selectedTipoFormacion,
+        "idFormacion": selectedFormacion,
+        "idCohorte": selectedCohorte,
+        "montoTotal": montoTotal,
+        "montoPagado": 0,
+        "estadoPago": "PENDIENTE",
+        "fechaInscripcion": new Date().toISOString().slice(0, 19).replace('T', ' ')
+      };
 
         console.log("📤 Enviando payload CORREGIDO:", payload);
 
@@ -768,14 +768,14 @@ export default function PantallaInscripciones() {
               <View style={styles.cardHeader}>
                 <View style={styles.cardTitleContainer}>
                   <Text style={styles.cardTitle} numberOfLines={1}>
-                    {item.idFormacion?.nombreFormacion ?? '—'}
+                    {item.idFormacion_detail?.nombreFormacion ?? '—'}
                   </Text>
                   <View style={[styles.badge, statusColor(status)]}>
                     <Text style={styles.badgeText}>{status}</Text>
                   </View>
                 </View>
                 <Text style={styles.cardSubtitle}>
-                  {item.idPersona?.nombres} {item.idPersona?.apellidos}
+                  {item.idPersona_detail?.nombres} {item.idPersona_detail?.apellidos}
                 </Text>
               </View>
 
@@ -787,7 +787,7 @@ export default function PantallaInscripciones() {
                   </View>
                   <View style={styles.detailItem}>
                     <Icon name="domain" size={16} color="#666" />
-                    <Text style={styles.detailText}>{item.idCohorte?.nombreCohorte ?? '—'}</Text>
+                    <Text style={styles.detailText}>{item.idCohorte_detail?.nombreCohorte ?? '—'}</Text>
                   </View>
                 </View>
                 
@@ -838,11 +838,11 @@ export default function PantallaInscripciones() {
           
           <ScrollView style={styles.modalBody}>
             {selected && [
-              ['Formación', selected.idFormacion?.nombreFormacion ?? '—'],
-              ['Cohorte', selected.idCohorte?.nombreCohorte ?? '—'],
-              ['Cédula', selected.idPersona?.cedula ?? '—'],
-              ['Nombres', selected.idPersona?.nombres ?? '—'],
-              ['Apellidos', selected.idPersona?.apellidos ?? '—'],
+              ['Formación', selected.idFormacion_detail?.nombreFormacion ?? '—'],
+              ['Cohorte', selected.idCohorte_detail?.nombreCohorte ?? '—'],
+              ['Cédula', selected.idPersona_detail?.cedula ?? '—'],
+              ['Nombres', selected.idPersona_detail?.nombres ?? '—'],
+              ['Apellidos', selected.idPersona_detail?.apellidos ?? '—'],
               ['Fecha inscripción', selected.fechaInscripcion ?? '—'],
               ['Estado pago', deriveStatus(selected)],
               ['Monto total', fmtMoney(selected.montoTotal)],
@@ -1137,7 +1137,6 @@ export default function PantallaInscripciones() {
   );
 }
 
-// Los estilos se mantienen igual...
 const styles = StyleSheet.create({
   center: { 
     flex: 1, 
