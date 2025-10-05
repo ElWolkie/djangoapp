@@ -552,13 +552,17 @@ export default function PantallaInscripciones() {
     }
 
     setCreating(true);
-    try {
       const estadoPago: 'PENDIENTE'|'PARCIAL'|'PAGADO' = 'PENDIENTE';
 
+    try {
       const ahora = new Date();
       const fechaFormateada = ahora.toISOString().replace('T', ' ').substring(0, 19);
       
-      const payload: any = {
+      // PAYLOAD CORREGIDO - Probemos diferentes estructuras
+      let payload: any;
+
+      // Intento 1: Estructura simple (IDs como números)
+      payload = {
         idPersona: idPersonaFinal,
         idTF: idTF,
         idFormacion: idFormacion,
@@ -567,12 +571,9 @@ export default function PantallaInscripciones() {
         montoPagado: 0,
         estadoPago: estadoPago,
         fechaInscripcion: fechaFormateada,
-        // Agregar estos campos que podrían ser requeridos
-        is_active: true,
-        saldoPendiente: montoTotal, // Inicialmente el saldo pendiente es el monto total
       };
 
-      console.log('📤 Enviando payload CORREGIDO:', JSON.stringify(payload, null, 2));
+      console.log('📤 Enviando payload SIMPLIFICADO:', JSON.stringify(payload, null, 2));
 
       const res = await api.post('/api/inscripcion/', payload);
       
@@ -591,10 +592,45 @@ export default function PantallaInscripciones() {
       console.error('Data:', err.response?.data);
       console.error('Config:', err.config?.data);
       
+      // Si falla con la estructura simple, probemos con objetos anidados
       if (err.response?.status === 500) {
+        console.log('🔄 Intentando con estructura de objetos anidados...');
+        
+        try {
+          const ahora = new Date();
+          const fechaFormateada = ahora.toISOString().replace('T', ' ').substring(0, 19);
+          
+          // Intento 2: Estructura con objetos anidados (como espera Django REST)
+          const payloadAnidado = {
+            idPersona: { idPersona: idPersonaFinal },
+            idTF: { idTF: idTF },
+            idFormacion: { idFormacion: idFormacion },
+            idCohorte: { idCohorte: idCohorte },
+            montoTotal: montoTotal,
+            montoPagado: 0,
+            estadoPago: estadoPago,
+            fechaInscripcion: fechaFormateada,
+          };
+
+          console.log('📤 Enviando payload ANIDADO:', JSON.stringify(payloadAnidado, null, 2));
+
+          const res2 = await api.post('/api/inscripcion/', payloadAnidado);
+          
+          if (res2.status === 201 || res2.status === 200) {
+            Alert.alert('Éxito', 'Inscripción creada correctamente.');
+            setFormModalVisible(false);
+            resetForm();
+            await fetchInscripciones();
+            return; // Salir si tuvo éxito
+          }
+        } catch (err2: any) {
+          console.error('❌ ERROR con payload anidado:', err2.response?.data);
+        }
+
         Alert.alert(
           'Error del Servidor (500)', 
-          'Error interno del servidor. Contacte al administrador del sistema.'
+          'Error interno del servidor. Contacte al administrador del sistema.\n\n' +
+          'Detalles técnicos: ' + (err.response?.data?.detail || 'Error desconocido')
         );
       } else if (err.response?.status === 400) {
         Alert.alert('Error de Validación (400)', JSON.stringify(err.response.data));
@@ -605,6 +641,34 @@ export default function PantallaInscripciones() {
       setCreating(false);
     }
   };
+
+  // Función temporal para probar el endpoint
+  const probarEndpointInscripcion = async () => {
+    try {
+      console.log('🔍 Probando endpoint de inscripciones...');
+      
+      // Primero hacer un GET para ver la estructura esperada
+      const responseGet = await api.get('/api/inscripcion/');
+      console.log('📋 Estructura de inscripciones existentes:', responseGet.data);
+      
+      if (responseGet.data && responseGet.data.length > 0) {
+        console.log('📝 Ejemplo de inscripción existente:', responseGet.data[0]);
+      }
+      
+    } catch (error) {
+      console.error('❌ Error probando endpoint:', error);
+    }
+  };
+
+  // Llama a esta función cuando abras el modal
+  useEffect(() => {
+    if (formModalVisible) {
+      establecerFechaActual();
+      fetchDatosFormulario();
+      obtenerInformacionUsuario();
+      // probarEndpointInscripcion(); // Descomenta para debuggear
+    }
+  }, [formModalVisible]);
 
   const resetForm = () => {
     setSelectedTipoFormacion(null);
