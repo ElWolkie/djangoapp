@@ -180,25 +180,18 @@ const fetchDatosFormulario = useCallback(async () => {
           };
         }
         
+        // En la función extractData dentro de fetchDatosFormulario, modifica la parte de formaciones:
         if (tipo === 'formaciones') {
-          // CORRECCIÓN CRÍTICA: Extraer correctamente idTF
-          const idTF = Number(
-            item.idTF || 
-            item.tipo_formacion || 
-            item.tipoFormacion || 
-            item.tipo_formacion_id || 
-            item.idTF_id || 
-            (item.idTF_obj && item.idTF_obj.idTF) || 
-            (item.tipo_formacion_obj && item.tipo_formacion_obj.id) ||
-            0
-          );
+          // CORRECCIÓN: Asegurar que idTF sea NUMBER
+          const rawIdTF = item.idTF || item.tipo_formacion || item.tipoFormacion || item.tipo_formacion_id || item.idTF_id || 0;
+          const idTF = Number(rawIdTF); // FORZAR conversión a número
 
-          console.log(`🎓 Formación: ${item.nombreFormacion || item.nombre}, idTF extraído: ${idTF}`, item);
+          console.log(`🎓 Formación: ${item.nombreFormacion || item.nombre}, idTF extraído: ${rawIdTF} -> ${idTF} (${typeof idTF})`);
           
           return {
             idFormacion: Number(item.idFormacion || item.id || 0),
             nombreFormacion: item.nombreFormacion || item.nombre || 'Sin nombre',
-            idTF: idTF, // Este es el campo crítico que estaba mal
+            idTF: idTF, // Ahora siempre será número
             valorInscripcion: Number(item.valorInscripcion || item.precio || item.costo || 0),
             tieneCuotas: Boolean(item.tieneCuotas || item.cuotas || false),
             cuotas_activas: Boolean(item.cuotas_activas || item.cuotas_activas || false),
@@ -276,21 +269,25 @@ const fetchDatosFormulario = useCallback(async () => {
   }, [fetchInscripciones, fetchDatosFormulario]);
 
   // Filtrar formaciones cuando cambia el tipo de formación - VERSIÓN MEJORADA
-  // Filtrar formaciones cuando cambia el tipo de formación - VERSIÓN CORREGIDA
-useEffect(() => {
+  useEffect(() => {
   console.log('🔄 FILTRANDO FORMACIONES - INICIO');
-  console.log('Tipo seleccionado:', selectedTipoFormacion);
+  console.log('Tipo seleccionado:', selectedTipoFormacion, 'Tipo:', typeof selectedTipoFormacion);
   console.log('Total formaciones disponibles:', formaciones.length);
   console.log('Formaciones disponibles:', formaciones.map(f => ({
     id: f.idFormacion, 
     nombre: f.nombreFormacion, 
-    idTF: f.idTF
+    idTF: f.idTF,
+    tipoIdTF: typeof f.idTF
   })));
 
   if (selectedTipoFormacion !== null && formaciones.length > 0) {
+    // CONVERTIR AMBOS A NUMBER para comparación correcta
+    const selectedTipoNum = Number(selectedTipoFormacion);
+    
     const filtradas = formaciones.filter(f => {
-      const match = f.idTF === selectedTipoFormacion;
-      console.log(`🔍 Formación "${f.nombreFormacion}": idTF=${f.idTF}, selectedTipo=${selectedTipoFormacion}, match=${match}`);
+      const formacionTipoNum = Number(f.idTF);
+      const match = formacionTipoNum === selectedTipoNum;
+      console.log(`🔍 Formación "${f.nombreFormacion}": idTF=${f.idTF} (${typeof f.idTF}), selectedTipo=${selectedTipoFormacion} (${typeof selectedTipoFormacion}), match=${match}`);
       return match;
     });
     
@@ -391,23 +388,19 @@ useEffect(() => {
   };
 
   // Función para verificar que los IDs existen - VERSIÓN MEJORADA
-  const verificarIDs = (): boolean => {
-    const tipoId = selectedTipoFormacion;
-    const formacionId = selectedFormacion;
-    const cohorteId = selectedCohorte;
+    const verificarIDs = (): boolean => {
+    const tipoId = Number(selectedTipoFormacion); // Convertir a número
+    const formacionId = Number(selectedFormacion); // Convertir a número
+    const cohorteId = Number(selectedCohorte); // Convertir a número
     
-    console.log('🔍 VERIFICACIÓN DE IDs:');
+    console.log('🔍 VERIFICACIÓN DE IDs (convertidos a número):');
     console.log('Tipo ID seleccionado:', tipoId);
     console.log('Formación ID seleccionado:', formacionId);
     console.log('Cohorte ID seleccionado:', cohorteId);
-    
-    console.log('📚 Tipos disponibles:', tiposFormacion.map(t => t.idTF));
-    console.log('🎓 Formaciones disponibles:', formaciones.map(f => f.idFormacion));
-    console.log('👥 Cohortes disponibles:', cohortes.map(c => c.idCohorte));
 
-    const tipoExists = tiposFormacion.some(t => t.idTF === tipoId);
-    const formacionExists = formaciones.some(f => f.idFormacion === formacionId);
-    const cohorteExists = cohortes.some(c => c.idCohorte === cohorteId);
+    const tipoExists = tiposFormacion.some(t => Number(t.idTF) === tipoId);
+    const formacionExists = formaciones.some(f => Number(f.idFormacion) === formacionId);
+    const cohorteExists = cohortes.some(c => Number(c.idCohorte) === cohorteId);
     
     console.log('Tipo existe:', tipoExists);
     console.log('Formación existe:', formacionExists);
@@ -787,19 +780,25 @@ useEffect(() => {
               <View style={styles.formSection}>
                 <Text style={styles.sectionTitle}>Información Académica</Text>
 
+                {/* Picker para Tipo de Formación */}
                 <View style={styles.fieldContainer}>
                   <Text style={styles.label}>Tipo de Formación *</Text>
                   <View style={styles.pickerContainer}>
                     <Picker
                       selectedValue={selectedTipoFormacion}
-                      onValueChange={(itemValue) => setSelectedTipoFormacion(itemValue)}
+                      onValueChange={(itemValue) => {
+                        // Asegurar que sea número
+                        const value = itemValue !== null ? Number(itemValue) : null;
+                        console.log('🎯 Tipo seleccionado:', value, 'Tipo:', typeof value);
+                        setSelectedTipoFormacion(value);
+                      }}
                       style={styles.picker}
                     >
                       <Picker.Item label="Seleccione tipo de formación..." value={null} />
                       {tiposFormacion.map(tf => (
                         <Picker.Item 
                           key={tf.idTF} 
-                          label={`${tf.nombreTipoFormacion} (ID: ${tf.idTF})`} 
+                          label={`${tf.nombreTipoFormacion}`} 
                           value={tf.idTF} 
                         />
                       ))}
@@ -810,19 +809,24 @@ useEffect(() => {
                   )}
                 </View>
 
+                {/* Picker para Formación */}
                 <View style={styles.fieldContainer}>
                   <Text style={styles.label}>Formación Académica *</Text>
                   <View style={styles.pickerContainer}>
                     <Picker
                       selectedValue={selectedFormacion}
-                      onValueChange={setSelectedFormacion}
+                      onValueChange={(itemValue) => {
+                        const value = itemValue !== null ? Number(itemValue) : null;
+                        console.log('🎯 Formación seleccionada:', value, 'Tipo:', typeof value);
+                        setSelectedFormacion(value);
+                      }}
                       style={styles.picker}
                       enabled={formacionesFiltradas.length > 0}
                     >
                       <Picker.Item 
                         label={
                           formacionesFiltradas.length === 0 ? 
-                          "Seleccione un tipo de formación primero..." : 
+                          "Seleccione tipo primero" : 
                           "Seleccione formación..."
                         } 
                         value={null} 
@@ -836,11 +840,6 @@ useEffect(() => {
                       ))}
                     </Picker>
                   </View>
-                  <Text style={styles.helpText}>
-                    {formacionesFiltradas.length > 0 
-                      ? `${formacionesFiltradas.length} formación(es) disponible(s)` 
-                      : 'No hay formaciones disponibles para el tipo seleccionado'}
-                  </Text>
                   {formErrors.formacion && (
                     <Text style={styles.errorText}>{formErrors.formacion}</Text>
                   )}
