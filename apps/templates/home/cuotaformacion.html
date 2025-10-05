@@ -141,8 +141,8 @@
               <button type="button" class="btn btn-warning" id="abrirModalFormacion" aria-label="Buscar formación">
                 <i class="fas fa-search"></i>
               </button>
-            </div>
             <div class="invalid-feedback">Por favor, seleccione una formación.</div>
+            </div>
           {% endif %}
         </div>
       </div>
@@ -156,8 +156,8 @@
             <button type="button" class="btn btn-warning" id="verCuotas" title="Ver cuotas de la formación seleccionada" aria-label="Ver cuotas">
               <i class="fas fa-eye"></i>
             </button>
-          </div>
           <div class="invalid-feedback">Por favor, ingrese un nombre válido.</div>
+         </div>
         </div>
       </div>
 
@@ -172,8 +172,8 @@
                 <option value="{{ tipo }}">{{ nombre }}</option>
               {% endfor %}
             </select>
-          </div>
           <div class="invalid-feedback">Por favor, seleccione un tipo de cuota.</div>
+         </div>
         </div>
       </div>
 
@@ -182,9 +182,9 @@
           <label for="valorCuota" class="form-label"><i class="fas fa-dollar-sign"></i> Valor de la Cuota</label>
           <div class="input-group position-relative">
             <i class="fas fa-money-bill-wave input-icon"></i>
-            <input type="text" id="valorCuota" name="valorCuota" class="form-control input-with-icon" placeholder="Ingrese el valor" required>
+            <input type="text" id="valorCuota" name="valorCuota" class="form-control input-with-icon" placeholder="Ingrese el valor" maxlength="50" required>
+           <div class="invalid-feedback">Por favor, ingrese un valor válido.</div>
           </div>
-          <div class="invalid-feedback">Por favor, ingrese un valor válido.</div>
         </div>
       </div>
 
@@ -194,8 +194,8 @@
           <div class="input-group position-relative">
             <i class="fas fa-hashtag input-icon"></i>
             <input type="number" id="orden" name="orden" class="form-control input-with-icon" placeholder="Ingrese el orden" min="1" required>
-          </div>
           <div class="invalid-feedback">Por favor, ingrese un orden válido.</div>
+          </div>
         </div>
       </div>
 
@@ -617,27 +617,84 @@ $(document).ready(function () {
   // -------------------------
   // FORMATO Y VALIDACIONES
   // -------------------------
-  (function activarValidaciones() {
+   (function activarValidaciones() {
     $('input[type="text"]:not(#valorCuota), textarea').on('input', function() {
       this.value = this.value.toUpperCase();
     });
 
-    const inputValor = document.getElementById('valorCuota');
-    if (inputValor) {
-      inputValor.addEventListener('input', function(e) {
-        let value = e.target.value.replace(/[^\d,]/g, '').replace(',', '.');
-        if (value.indexOf('.') !== value.lastIndexOf('.')) {
-          value = value.substring(0, value.lastIndexOf('.'));
+    // -----------------------
+    // Helpers formato moneda (sistema formaciones.html)
+    // -----------------------
+    function normalizeCurrencyString(str) {
+      if (str == null) return '';
+      let s = String(str).trim();
+      if (!s) return '';
+      s = s.replace(/\s+/g, '');
+      if (s.indexOf(',') !== -1 && s.indexOf('.') !== -1) {
+        s = s.replace(/\./g, '').replace(/,/g, '.');
+      } else if (s.indexOf(',') !== -1 && s.indexOf('.') === -1) {
+        s = s.replace(/,/g, '.');
+      } else {
+        const parts = s.split('.');
+        if (parts.length > 2) {
+          const dec = parts.pop();
+          s = parts.join('') + '.' + dec;
         }
-        let [intPart, decPart] = value.split('.');
-        if (!intPart) intPart = '0';
-        intPart = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-        e.target.value = decPart !== undefined ? `${intPart},${decPart.slice(0, 2)}` : intPart;
+      }
+      s = s.replace(/[^0-9\.\-]/g, '');
+      return s;
+    }
+
+    function formatCurrencyInputValueFromDigits(rawDigits) {
+      if (!rawDigits) return '0,00';
+      const num = parseInt(rawDigits, 10) / 100;
+      return num.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    // -----------------------
+    // valorCuota: formato y normalización (sistema formaciones.html)
+    // -----------------------
+    const valorInput = document.getElementById('valorCuota');
+    if (valorInput) {
+      // cambiar a texto para permitir coma visual
+      valorInput.type = 'text';
+
+      // inicializar visual
+      if (!valorInput.value || valorInput.value === '0' || valorInput.value === '0.00') {
+        valorInput.value = '0,00';
+      } else {
+        const norm = normalizeCurrencyString(valorInput.value) || '0.00';
+        valorInput.value = Number(norm).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      }
+
+      // input handler que mantiene formato 0,00 y actualiza valid state
+      valorInput.addEventListener('input', function (e) {
+        // permitir solo dígitos en la edición interna
+        const onlyDigits = this.value.replace(/[^\d]/g, '');
+        this.value = formatCurrencyInputValueFromDigits(onlyDigits);
+        const normalized = normalizeCurrencyString(this.value);
+        const ok = normalized !== '' && !isNaN(Number(normalized)) && Number(normalized) >= 0;
+        this.classList.toggle('is-invalid', !ok);
+        this.classList.toggle('is-valid', ok);
+      });
+
+      // Blur: asegurar formato
+      valorInput.addEventListener('blur', function () {
+        const normalized = normalizeCurrencyString(this.value) || '0.00';
+        const num = parseFloat(normalized) || 0;
+        this.value = num.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       });
     }
 
-    $('#nombreCuota').on('input', function() { this.value = this.value.replace(/[0-9]/g, ''); });
-    $('#orden').on('input', function() { this.value = this.value.replace(/\D/g, '').slice(0, 2); });
+    // Validación para nombreCuota: solo letras, números y espacios
+    $('#nombreCuota').on('input', function() {
+      this.value = this.value.replace(/[^A-ZÁÉÍÓÚÑ0-9\s]/g, '');
+    });
+
+    // Validación para orden: solo dígitos
+    $('#orden').on('input', function() {
+      this.value = this.value.replace(/\D/g, '').slice(0, 2);
+    });
   })();
 
   // -------------------------

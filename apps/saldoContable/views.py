@@ -40,7 +40,15 @@ def saldo_contable_create(request):
     )
 
     if request.method == 'POST':
-        form = SaldoContableForm(request.POST)
+        # Hacemos una copia mutable de request.POST
+        post_data = request.POST.copy()
+        # Convertir comas a puntos en los campos de saldo
+        if 'saldo_inicial' in post_data:
+            post_data['saldo_inicial'] = post_data['saldo_inicial'].replace(',', '.')
+        if 'saldo_final' in post_data:
+            post_data['saldo_final'] = post_data['saldo_final'].replace(',', '.')
+
+        form = SaldoContableForm(post_data)
         is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
 
         if form.is_valid():
