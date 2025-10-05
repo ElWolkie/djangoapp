@@ -37,7 +37,7 @@ const fmtMoney = (v: any) => {
 };
 
 export default function PantallaInscripciones() {
-  const { user, fetchUserProfile } = useContext(AuthContext);
+  const { user, fetchUserFromCedula } = useContext(AuthContext);
   const [items, setItems] = useState<Inscripcion[]>([]);
   const [mostradas, setMostradas] = useState<Inscripcion[]>([]);
   const [loading, setLoading] = useState(true);
@@ -141,15 +141,20 @@ export default function PantallaInscripciones() {
   };
 
   // DEBUG: Verificar el usuario
-  useEffect(() => {
+useEffect(() => {
+  const fetchUser = async () => {
     console.log('🔐 USUARIO COMPLETO EN INSCRIPCIONES:', JSON.stringify(user, null, 2));
     console.log('🔐 Propiedades del usuario:', user ? Object.keys(user) : 'No hay usuario');
     console.log('🔐 Cedula del usuario:', user?.cedula);
     console.log('🔐 idPersona del usuario:', user?.idPersona);
     
     // Obtener información del usuario al cargar el componente
-    obtenerInformacionUsuario();
-  }, [user]);
+    if (user?.cedula && (!userInfo || !userInfo.idPersona)) {
+      await fetchUserFromCedula(user.cedula);
+    }
+  };
+  fetchUser();
+}, [user]);
 
   // Load inscripciones
   const fetchInscripciones = useCallback(async () => {
