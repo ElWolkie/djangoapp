@@ -384,6 +384,19 @@ class ConfiguracionForm(forms.ModelForm):
         widget=forms.Select(attrs={'class': 'form-control text-dark'}),
         empty_label="Seleccione una moneda..."
     )
+    descuento = forms.DecimalField(
+        max_digits=5, 
+        decimal_places=2,
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control text-dark', 
+            'placeholder': '30', 
+            'min': '0', 
+            'max': '100', 
+            'step': '0.01'
+        }),
+        label="Descuento (%)",
+        required=True
+    )
     logo = forms.ImageField(
         widget=forms.FileInput(attrs={
             'class': 'form-control-file text-dark', 
@@ -401,7 +414,7 @@ class ConfiguracionForm(forms.ModelForm):
 
     class Meta:
         model = Configuracion
-        fields = ['nombreInstitucion', 'rif', 'correoInstitucion', 'moneda', 'logo', 'firma']
+        fields = ['nombreInstitucion', 'rif', 'correoInstitucion', 'moneda', 'descuento', 'logo', 'firma']
 
     def __init__(self, *args, **kwargs):
         super(ConfiguracionForm, self).__init__(*args, **kwargs)

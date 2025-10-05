@@ -185,9 +185,9 @@
                    placeholder="Ingrese el valor"
                    maxlength="20" data-required="true" required
                    value="{{ formacion.valorInscripcion }}">
-          </div>
           <div class="invalid-feedback">Por favor, ingrese un valor válido.</div>
-        </div>
+         </div>
+      </div>
       </div>
 
       <!-- Duración -->
@@ -274,143 +274,106 @@
 <script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
 
 <script>
-  (function(){
-    // --- Duración: parseo/inicialización sin dispatch recursivo ---
-    const cantidadInput  = document.getElementById("cantidad");
-    const unidadSelect   = document.getElementById("unidadDuracion");
-    const hiddenDuracion = document.getElementById("duracion");
+(function () {
+  // --- Duración: parseo/inicialización sin dispatch recursivo ---
+  const cantidadInput = document.getElementById("cantidad");
+  const unidadSelect = document.getElementById("unidadDuracion");
+  const hiddenDuracion = document.getElementById("duracion");
 
-    if (!cantidadInput || !unidadSelect || !hiddenDuracion) {
-      console.warn("Duración: falta algún elemento en el DOM.");
-    } else {
-      let isInit = true;
-
-      function updateHidden() {
-        const c = cantidadInput.value.trim();
-        const u = unidadSelect.value;
-        hiddenDuracion.value = c ? `${c} ${u}` : "";
+  if (cantidadInput && unidadSelect && hiddenDuracion) {
+    // Inicializar campos de duración desde el valor oculto
+    const initial = hiddenDuracion.value.trim();
+    if (initial) {
+      const m = initial.match(/^(\d+)\s+(.+)$/);
+      if (m) {
+        cantidadInput.value = m[1];
+        const buscada = m[2].toUpperCase();
+        Array.from(unidadSelect.options).forEach(opt => {
+          if (opt.value.toUpperCase() === buscada) unidadSelect.value = opt.value;
+        });
       }
-
-      // Lectura inicial
-      const initial = hiddenDuracion.value.trim();
-      if (initial) {
-        const m = initial.match(/^(\d+)\s+(.+)$/);
-        if (m) {
-          cantidadInput.value = m[1];
-          const buscada = m[2].toUpperCase();
-          Array.from(unidadSelect.options).forEach(opt => {
-            if (opt.value.toUpperCase() === buscada) unidadSelect.value = opt.value;
-          });
-        }
-      }
-
-      // actualizar hidden al cambiar inputs (sin dispatch recursivo)
-      cantidadInput.addEventListener("input", () => {
-        updateHidden();
-        // No disparamos un 'change' recursivo sobre el mismo input.
-      });
-
-      unidadSelect.addEventListener("change", () => {
-        updateHidden();
-        // Antes: unidadSelect.dispatchEvent(new Event("change"));
-        // Eso causaba recursión infinita. LO QUITAMOS.
-      });
-
-      // fin init
-      updateHidden();
-      isInit = false;
     }
 
-    // --- Validaciones y formateo valorInscripcion (con protección contra doble-binding) ---
-    function activarValidacionFormacion() {
-      // Evitar volver a enlazar los mismos listeners si ya están
-      if (document.body.dataset.formacionValidationBound === 'true') return;
-      document.body.dataset.formacionValidationBound = 'true';
+    // Actualizar el campo oculto al cambiar cantidad o unidad
+    function updateHidden() {
+      const c = cantidadInput.value.trim();
+      const u = unidadSelect.value;
+      hiddenDuracion.value = c ? `${c} ${u}` : "";
+    }
+    cantidadInput.addEventListener("input", updateHidden);
+    unidadSelect.addEventListener("change", updateHidden);
+    updateHidden();
 
-      // 1) Mayúsculas en inputs, excepto valorInscripcion y algunos tipos (sólo una vez por input)
-      document.querySelectorAll('input').forEach(function(input) {
-        if (!/password|hidden|email/.test(input.type) && input.id !== 'valorInscripcion') {
-          if (!input.dataset.uppercaseBound) {
-            input.addEventListener('input', function() {
-              this.value = this.value.toUpperCase();
-            });
-            input.dataset.uppercaseBound = 'true';
-          }
+    // Validar que "cantidad" solo permita números enteros
+    cantidadInput.addEventListener('input', function () {
+      this.value = this.value.replace(/[^\d]/g, '');
+    });
+  }
+
+  // --- Validaciones y formateo valorInscripcion ---
+  function activarValidacionFormacion() {
+    // Evitar doble binding
+    if (document.body.dataset.formacionValidationBound === 'true') return;
+    document.body.dataset.formacionValidationBound = 'true';
+
+    // 1) Mayúsculas en inputs (excepto valorInscripcion, password, hidden, email)
+    document.querySelectorAll('input').forEach(function (input) {
+      if (!/password|hidden|email/.test(input.type) && input.id !== 'valorInscripcion') {
+        if (!input.dataset.uppercaseBound) {
+          input.addEventListener('input', function () {
+            this.value = this.value.toUpperCase();
+          });
+          input.dataset.uppercaseBound = 'true';
         }
-      });
-
-      // 2) Validación de Bootstrap (añadimos handler solo una vez por form)
-      var forms = document.querySelectorAll('.needs-validation');
-      Array.prototype.forEach.call(forms, function(form) {
-        if (form.dataset.validationBound) return;
-        form.addEventListener('submit', function(event) {
-          if (!form.checkValidity()) {
-            event.preventDefault();
-            event.stopPropagation();
-          }
-          form.classList.add('was-validated');
-        }, false);
-        form.dataset.validationBound = 'true';
-      });
-
-      // 3) Formateo de valorInscripcion (safe)
-      const input = document.getElementById('valorInscripcion');
-      if (!input) return;
-
-      const formatearValor = (valor) => {
-        if (!valor && valor !== 0) return '';
-        let s = String(valor).trim();
-        s = s.replace(/\s+/g, '');
-
-        const lastDot = s.lastIndexOf('.');
-        const lastComma = s.lastIndexOf(',');
-        let intPart = s;
-        let decPart = '';
-
-        if (lastDot === -1 && lastComma === -1) {
-          intPart = s.replace(/[^\d]/g, '');
-          decPart = '00';
-        } else {
-          const lastSep = Math.max(lastDot, lastComma);
-          intPart = s.slice(0, lastSep).replace(/[^\d]/g, '');
-          decPart = s.slice(lastSep + 1).replace(/[^\d]/g, '');
-          if (decPart.length === 0) decPart = '00';
-          else if (decPart.length === 1) decPart = decPart + '0';
-          else decPart = decPart.slice(0, 2);
-        }
-
-        if (!intPart) intPart = '0';
-        const intNumber = parseInt(intPart, 10) || 0;
-        const formattedInt = intNumber.toLocaleString('es-VE');
-        return `${formattedInt},${decPart}`;
-      };
-
-      // Evitar múltiples bindings sobre el mismo input
-      if (!input.dataset.formatBound) {
-        input.addEventListener('input', function () {
-          const selStart = this.selectionStart;
-          const oldLen = this.value.length;
-          this.value = formatearValor(this.value);
-          // Intentamos restaurar caret en una posición razonable:
-          const newLen = this.value.length;
-          const diff = newLen - oldLen;
-          try {
-            this.setSelectionRange(Math.max(0, selStart + diff), Math.max(0, selStart + diff));
-          } catch (e) {}
-        });
-        input.dataset.formatBound = 'true';
       }
+    });
 
-      // Formatear valor inicial
+    // 2) Validación Bootstrap
+    document.querySelectorAll('.needs-validation').forEach(function (form) {
+      if (form.dataset.validationBound) return;
+      form.addEventListener('submit', function (event) {
+        if (!form.checkValidity()) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+        form.classList.add('was-validated');
+      }, false);
+      form.dataset.validationBound = 'true';
+    });
+
+    // 3) Formateo de valorInscripcion
+    const input = document.getElementById('valorInscripcion');
+    if (input && !input.dataset.formatBound) {
+      const formatearValor = (valor) => {
+        let raw = valor.replace(/[^\d]/g, '');
+        if (!raw) return '';
+        while (raw.length < 3) raw = '0' + raw;
+        const intPart = raw.slice(0, raw.length - 2);
+        const decimalPart = raw.slice(-2);
+        const formattedInt = parseInt(intPart, 10).toLocaleString('es-VE');
+        return `${formattedInt},${decimalPart}`;
+      };
+      input.addEventListener('input', function () {
+        const selStart = this.selectionStart;
+        const oldLen = this.value.length;
+        this.value = formatearValor(this.value);
+        const newLen = this.value.length;
+        const diff = newLen - oldLen;
+        try {
+          this.setSelectionRange(Math.max(0, selStart + diff), Math.max(0, selStart + diff));
+        } catch (e) {}
+      });
+      input.dataset.formatBound = 'true';
       if (input.value) {
         input.value = formatearValor(input.value);
       }
     }
+  }
 
-    // Ejecutar al cargar la página y también cuando el modal se abra
-    document.addEventListener('DOMContentLoaded', activarValidacionFormacion);
-    document.getElementById('editFormacionModal')?.addEventListener('shown.bs.modal', activarValidacionFormacion);
-
-  })();
+  // Ejecutar validaciones al cargar y al mostrar el modal
+  document.addEventListener('DOMContentLoaded', activarValidacionFormacion);
+  document.getElementById('editFormacionModal')?.addEventListener('shown.bs.modal', activarValidacionFormacion);
+})();
+</script>
 </script>
 {% endblock javascripts %}
