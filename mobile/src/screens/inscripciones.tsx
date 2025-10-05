@@ -635,7 +635,7 @@ export default function PantallaInscripciones() {
       
       // PAYLOAD CORREGIDO según el error del backend
         const payload = {
-          "idPersona": 90000,           // Cambiado de idPersona_id a idPersona
+          "idPersona_id": userInfo?.idPersona,
           "idTF": selectedTipoFormacion, // Cambiado de idTF_id a idTF
           "idFormacion": selectedFormacion, // Cambiado de idFormacion_id a idFormacion
           "idCohorte": selectedCohorte, // Cambiado de idCohorte_id a idCohorte

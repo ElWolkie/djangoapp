@@ -84,12 +84,12 @@ class HonorarioSerializer(serializers.ModelSerializer):
         fields = ['idHonorario','idPersona','idCargo','idCohorte','idMateria','horas','estadoHonorario','fechaHonorario','monto']
 
 class InscripcionSerializer(serializers.ModelSerializer):
-    # Campos para lectura
+    # Campos para lectura - QUITAR write_only=True para que se muestren en la respuesta
     idPersona = PersonaSerializer(read_only=True)
     idFormacion = FormacionSerializer(read_only=True) 
     idCohorte = CohorteSerializer(read_only=True)
 
-    # Campos para escritura - usar los nombres directos del modelo
+    # Campos para escritura - mantener write_only=True
     idPersona = serializers.IntegerField(write_only=True)
     idFormacion = serializers.IntegerField(write_only=True)
     idCohorte = serializers.IntegerField(write_only=True)
@@ -103,7 +103,7 @@ class InscripcionSerializer(serializers.ModelSerializer):
         model = Inscripcion
         fields = [
             'idInscripcion',
-            'idPersona',
+            'idPersona',        # Ahora funciona para lectura Y escritura
             'idCohorte',
             'idTF',
             'idFormacion',
