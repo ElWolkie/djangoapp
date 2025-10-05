@@ -84,32 +84,16 @@ class HonorarioSerializer(serializers.ModelSerializer):
         fields = ['idHonorario','idPersona','idCargo','idCohorte','idMateria','horas','estadoHonorario','fechaHonorario','monto']
 
 class InscripcionSerializer(serializers.ModelSerializer):
-    # Campos para lectura (manteniendo los nombres originales)
+    # Campos para lectura
     idPersona = PersonaSerializer(read_only=True)
     idFormacion = FormacionSerializer(read_only=True) 
     idCohorte = CohorteSerializer(read_only=True)
 
-    # Campos para escritura
-    idPersona_id = serializers.PrimaryKeyRelatedField(
-        queryset=Personas.objects.all(), 
-        source='idPersona',
-        write_only=True
-    )
-    idFormacion_id = serializers.PrimaryKeyRelatedField(
-        queryset=Formacion.objects.all(),
-        source='idFormacion',
-        write_only=True
-    )
-    idCohorte_id = serializers.PrimaryKeyRelatedField(
-        queryset=Cohorte.objects.all(),
-        source='idCohorte', 
-        write_only=True
-    )
-    idTF_id = serializers.PrimaryKeyRelatedField(
-        queryset=TipoFormacion.objects.all(),
-        source='idTF',
-        write_only=True
-    )
+    # Campos para escritura - usar IntegerField simple
+    idPersona_id = serializers.IntegerField()
+    idFormacion_id = serializers.IntegerField()
+    idCohorte_id = serializers.IntegerField()
+    idTF_id = serializers.IntegerField()
 
     # exponemos montoTotal y saldoPendiente basados en las properties del modelo
     montoTotal = serializers.SerializerMethodField()
@@ -119,8 +103,8 @@ class InscripcionSerializer(serializers.ModelSerializer):
         model = Inscripcion
         fields = [
             'idInscripcion',
-            'idPersona',        # Para lectura (datos completos)
-            'idPersona_id',     # Para escritura (solo ID)
+            'idPersona',
+            'idPersona_id',
             'idCohorte',
             'idCohorte_id', 
             'idTF',
@@ -146,17 +130,28 @@ class InscripcionSerializer(serializers.ModelSerializer):
             return float(obj.saldoPendiente or 0.0)
         except Exception:
             return 0.0
-        
+
     def create(self, validated_data):
         print("🔄 Serializer.create() llamado")
         print("🔄 validated_data:", validated_data)
-        try:
-            instance = super().create(validated_data)
-            print("✅ Instancia creada en serializer:", instance)
-            return instance
-        except Exception as e:
-            print("❌ Error en serializer.create():", str(e))
-            raise
+        
+        # Extraer los campos de relación
+        id_persona = validated_data.pop('idPersona_id')
+        id_formacion = validated_data.pop('idFormacion_id')
+        id_cohorte = validated_data.pop('idCohorte_id')
+        id_tf = validated_data.pop('idTF_id')
+        
+        # Crear la instancia
+        inscripcion = Inscripcion.objects.create(
+            idPersona_id=id_persona,
+            idFormacion_id=id_formacion,
+            idCohorte_id=id_cohorte,
+            idTF_id=id_tf,
+            **validated_data
+        )
+        
+        print("✅ Instancia creada en serializer:", inscripcion.idInscripcion)
+        return inscripcion
 
 class RequisitoSerializer(serializers.ModelSerializer):
     class Meta:

@@ -72,15 +72,12 @@ class InscripcionListCreate(generics.ListCreateAPIView):
             print("=" * 50)
             print("📥 INICIANDO CREACIÓN DE INSCRIPCIÓN")
             print("📥 Datos recibidos:", request.data)
-            print("📥 Tipo de datos:", type(request.data))
             
             data = request.data.copy()
-            print("📥 Datos copiados:", data)
             
             # Asegurarnos de que los IDs sean enteros
             for field in ['idPersona_id', 'idTF_id', 'idFormacion_id', 'idCohorte_id']:
                 if field in data:
-                    print(f"🔍 Procesando campo {field}: {data[field]} (tipo: {type(data[field])})")
                     try:
                         data[field] = int(data[field])
                         print(f"✅ Campo {field} convertido a entero: {data[field]}")
@@ -92,31 +89,19 @@ class InscripcionListCreate(generics.ListCreateAPIView):
                         )
             
             # Si idPersona_id no viene, usar el del usuario autenticado
-            if 'idPersona_id' not in data:
-                print("🔍 idPersona_id no encontrado en datos")
-                if hasattr(request.user, 'idPersona'):
-                    data['idPersona_id'] = request.user.idPersona.idPersona
-                    print(f"✅ idPersona_id obtenido del usuario: {data['idPersona_id']}")
-                else:
-                    print("❌ Usuario no tiene idPersona")
-            else:
-                print(f"✅ idPersona_id viene en request: {data['idPersona_id']}")
+            if 'idPersona_id' not in data and hasattr(request.user, 'idPersona'):
+                data['idPersona_id'] = request.user.idPersona.idPersona
             
             # Validar que existan las referencias
-            print("🔍 Validando referencias...")
             try:
                 if 'idPersona_id' in data:
-                    persona = Personas.objects.get(idPersona=data['idPersona_id'])
-                    print(f"✅ Persona encontrada: {persona}")
+                    Personas.objects.get(idPersona=data['idPersona_id'])
                 if 'idTF_id' in data:
-                    tf = TipoFormacion.objects.get(idTF=data['idTF_id'])
-                    print(f"✅ TipoFormacion encontrado: {tf}")
+                    TipoFormacion.objects.get(idTF=data['idTF_id'])
                 if 'idFormacion_id' in data:
-                    formacion = Formacion.objects.get(idFormacion=data['idFormacion_id'])
-                    print(f"✅ Formacion encontrada: {formacion}")
+                    Formacion.objects.get(idFormacion=data['idFormacion_id'])
                 if 'idCohorte_id' in data:
-                    cohorte = Cohorte.objects.get(idCohorte=data['idCohorte_id'])
-                    print(f"✅ Cohorte encontrado: {cohorte}")
+                    Cohorte.objects.get(idCohorte=data['idCohorte_id'])
             except (Personas.DoesNotExist, TipoFormacion.DoesNotExist, 
                     Formacion.DoesNotExist, Cohorte.DoesNotExist) as e:
                 print(f"❌ Referencia no encontrada: {str(e)}")
@@ -127,8 +112,17 @@ class InscripcionListCreate(generics.ListCreateAPIView):
             
             print("🔍 Creando serializer...")
             serializer = self.get_serializer(data=data)
+            
             print("🔍 Validando serializer...")
-            serializer.is_valid(raise_exception=True)
+            if not serializer.is_valid():
+                print("❌ ERRORES DE VALIDACIÓN DEL SERIALIZER:")
+                for field, errors in serializer.errors.items():
+                    print(f"   {field}: {errors}")
+                return Response(
+                    {"error": "Error de validación", "details": serializer.errors},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
             print("🔍 Ejecutando perform_create...")
             self.perform_create(serializer)
             
@@ -136,16 +130,11 @@ class InscripcionListCreate(generics.ListCreateAPIView):
             headers = self.get_success_headers(serializer.data)
             return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
             
-        except serializers.ValidationError as e:
-            print("❌ Error de validación del serializer:", e.detail)
-            return Response(
-                {"error": "Error de validación", "details": e.detail},
-                status=status.HTTP_400_BAD_REQUEST
-            )
         except Exception as e:
             print("❌ ERROR NO CONTROLADO al crear inscripción:")
             print(f"   Tipo: {type(e).__name__}")
             print(f"   Mensaje: {str(e)}")
+            import traceback
             print(f"   Traceback: {traceback.format_exc()}")
             print("📋 Datos que causaron el error:", request.data)
             return Response(
