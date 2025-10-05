@@ -1,5 +1,4 @@
 import traceback
-from typing import Self
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -153,24 +152,6 @@ class InscripcionListCreate(generics.ListCreateAPIView):
                 {"error": str(e), "details": "Error interno del servidor"}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-        # Agrega esto temporalmente en tu vista después de los prints
-    print("🧪 Probando con datos mínimos...")
-    test_data = {
-        "idPersona_id": 90000,
-        "idTF_id": 1, 
-        "idFormacion_id": 3,
-        "idCohorte_id": 1,
-        "montoTotal": 100,
-        "montoPagado": 0,
-        "estadoPago": "PENDIENTE",
-    }
-    test_serializer = Self.get_serializer(data=test_data)
-    if test_serializer.is_valid():
-        print("✅ Datos mínimos son válidos")
-        test_instance = test_serializer.save()
-        print("✅ Instancia de prueba creada:", test_instance.idInscripcion)
-    else:
-        print("❌ Datos mínimos inválidos:", test_serializer.errors)
 
 class RequisitoListCreate(generics.ListCreateAPIView):
     queryset = Requisito.objects.all()  # Usa el modelo Requisito
