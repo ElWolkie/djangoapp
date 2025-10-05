@@ -50,15 +50,15 @@ export default function PantallaInscripciones() {
   const [formModalVisible, setFormModalVisible] = useState(false);
   const [creating, setCreating] = useState(false);
 
-  // Form fields - USAR UNDEFINED EN LUGAR DE NULL
+  // Form fields - USAR NULL EN LUGAR DE UNDEFINED
   const [tiposFormacion, setTiposFormacion] = useState<TipoFormacion[]>([]);
   const [formaciones, setFormaciones] = useState<Formacion[]>([]);
   const [formacionesFiltradas, setFormacionesFiltradas] = useState<Formacion[]>([]);
   const [cohortes, setCohortes] = useState<Cohorte[]>([]);
   
-  const [selectedTipoFormacion, setSelectedTipoFormacion] = useState<number | undefined>(undefined);
-  const [selectedFormacion, setSelectedFormacion] = useState<number | undefined>(undefined);
-  const [selectedCohorte, setSelectedCohorte] = useState<number | undefined>(undefined);
+  const [selectedTipoFormacion, setSelectedTipoFormacion] = useState<number | null>(null);
+  const [selectedFormacion, setSelectedFormacion] = useState<number | null>(null);
+  const [selectedCohorte, setSelectedCohorte] = useState<number | null>(null);
   
   // Resumen de costos
   const [valorInscripcion, setValorInscripcion] = useState(0);
@@ -70,58 +70,71 @@ export default function PantallaInscripciones() {
   const [formErrors, setFormErrors] = useState<Record<string,string>>({});
 
   // Estados para la información del usuario obtenida del backend
-  const [userInfo, setUserInfo] = useState<{cedula?: string; idPersona?: number; nombres?: string; apellidos?: string} | null>(null);
+  const [userInfo, setUserInfo] = useState<{cedula?: string; idPersona?: number | null; nombres?: string; apellidos?: string} | null>(null);
   const [loadingUser, setLoadingUser] = useState(false);
 
-  // FUNCIÓN MEJORADA: Obtener información del usuario desde el backend
+  // FUNCIÓN CORREGIDA: Obtener información del usuario desde el backend
   const obtenerInformacionUsuario = async () => {
     setLoadingUser(true);
     try {
       console.log('🔄 Obteniendo información del usuario desde el backend...');
       
-      // Primero intentar obtener los tokens guardados para obtener la cédula
+      // ESTRATEGIA CONFIABLE: Usar solo el endpoint que funciona
       const tokens = await AsyncStorage.getItem('myapp-tokens');
-      if (tokens) {
-        const parsedTokens = JSON.parse(tokens);
-        const userData = parsedTokens.user;
-        
-        if (userData && userData.cedula) {
-          console.log('📝 Cédula encontrada en tokens:', userData.cedula);
-          
-          // Usar el endpoint que SÍ funciona para obtener idPersona
-          try {
-            const response = await api.get(`/api/obtener-persona-login/?cedula=${encodeURIComponent(userData.cedula)}`);
-            console.log('✅ Respuesta obtener-persona-login:', response.data);
-            
-            if (response.data.idPersona) {
-              setUserInfo({
-                cedula: userData.cedula,
-                idPersona: response.data.idPersona,
-                nombres: response.data.nombres,
-                apellidos: response.data.apellidos
-              });
-              console.log('🎉 Información de usuario obtenida correctamente');
-              return;
-            }
-          } catch (error) {
-            console.error('❌ Error al obtener persona:', error);
-          }
-        }
+      if (!tokens) {
+        console.log('❌ No se encontraron tokens en AsyncStorage');
+        setUserInfo(null);
+        return;
       }
 
-      // Si no se pudo obtener de los tokens, intentar con el endpoint de perfil
-      try {
-        const profileResponse = await api.get('/api/user/profile/');
-        if (profileResponse.data) {
-          setUserInfo(profileResponse.data);
-          console.log('✅ Información de usuario obtenida del perfil');
+      const parsedTokens = JSON.parse(tokens);
+      const userData = parsedTokens.user;
+      
+      if (userData && userData.cedula) {
+        console.log('📝 Cédula encontrada en tokens:', userData.cedula);
+        
+        // Usar SOLO el endpoint que funciona
+        try {
+          const response = await api.get(`/api/obtener-persona-login/?cedula=${encodeURIComponent(userData.cedula)}`);
+          console.log('✅ Respuesta obtener-persona-login:', response.data);
+          
+          if (response.data && response.data.idPersona) {
+            const userInfoData = {
+              cedula: userData.cedula,
+              idPersona: response.data.idPersona,
+              nombres: response.data.nombres || userData.nombres || '',
+              apellidos: response.data.apellidos || userData.apellidos || ''
+            };
+            
+            setUserInfo(userInfoData);
+            console.log('🎉 Información de usuario obtenida correctamente:', userInfoData);
+          } else {
+            console.error('❌ No se encontró idPersona en la respuesta');
+            setUserInfo({
+              cedula: userData.cedula,
+              idPersona: null,
+              nombres: userData.nombres || '',
+              apellidos: userData.apellidos || ''
+            });
+          }
+        } catch (error) {
+          console.error('❌ Error al obtener persona:', error);
+          // Si falla, al menos usar la información básica de los tokens
+          setUserInfo({
+            cedula: userData.cedula,
+            idPersona: null,
+            nombres: userData.nombres || '',
+            apellidos: userData.apellidos || ''
+          });
         }
-      } catch (profileError) {
-        console.error('❌ Error al obtener perfil:', profileError);
+      } else {
+        console.log('❌ No se pudo obtener cédula de los tokens');
+        setUserInfo(null);
       }
 
     } catch (error) {
       console.error('❌ Error general obteniendo información del usuario:', error);
+      setUserInfo(null);
     } finally {
       setLoadingUser(false);
     }
@@ -262,7 +275,7 @@ export default function PantallaInscripciones() {
       establecerFechaActual();
       fetchDatosFormulario();
       
-      // Re-obtener información del usuario cuando se abre el modal
+      // Forzar la obtención de información del usuario cuando se abre el modal
       obtenerInformacionUsuario();
     }
   }, [formModalVisible]);
@@ -272,33 +285,32 @@ export default function PantallaInscripciones() {
     fetchDatosFormulario();
   }, [fetchInscripciones, fetchDatosFormulario]);
 
-  // Filtrar formaciones cuando cambia el tipo de formación
+  // Filtrar formaciones cuando cambia el tipo de formación - VERSIÓN CORREGIDA
   useEffect(() => {
     console.log('🔄 Filtrando formaciones...');
-    console.log('Tipo seleccionado:', selectedTipoFormacion, typeof selectedTipoFormacion);
+    console.log('Tipo seleccionado:', selectedTipoFormacion);
     console.log('Total formaciones:', formaciones.length);
     
-    if (selectedTipoFormacion !== undefined && formaciones.length > 0) {
+    if (selectedTipoFormacion !== null && selectedTipoFormacion !== undefined && formaciones.length > 0) {
       const filtradas = formaciones.filter(f => {
+        // Asegurar que ambos valores sean números para comparar
         const formacionIdTF = Number(f.idTF);
         const selectedIdTF = Number(selectedTipoFormacion);
-        const match = formacionIdTF === selectedIdTF;
-        console.log(`Formación: ${f.nombreFormacion}, idTF: ${f.idTF} (${typeof f.idTF}), match: ${match}`);
-        return match;
+        console.log(`Comparando: formación.idTF=${formacionIdTF} vs seleccionado=${selectedIdTF}`);
+        return formacionIdTF === selectedIdTF;
       });
-      console.log('✅ Formaciones filtradas:', filtradas.length, filtradas);
+      console.log('✅ Formaciones filtradas:', filtradas.length);
       setFormacionesFiltradas(filtradas);
-      setSelectedFormacion(undefined);
+      setSelectedFormacion(null); // Resetear formación cuando cambia el tipo
     } else {
-      console.log('❌ No hay tipo seleccionado o formaciones');
-      setFormacionesFiltradas([]);
-      setSelectedFormacion(undefined);
+      console.log('❌ Mostrando todas las formaciones (sin filtro)');
+      setFormacionesFiltradas(formaciones);
     }
   }, [selectedTipoFormacion, formaciones]);
 
-  // Calcular costos cuando se selecciona formación
+  // Calcular costos cuando se selecciona formación - VERSIÓN CORREGIDA
   useEffect(() => {
-    if (selectedFormacion !== undefined) {
+    if (selectedFormacion !== null && selectedFormacion !== undefined) {
       const formacion = formaciones.find(f => f.idFormacion === selectedFormacion);
       if (formacion) {
         console.log('💰 Calculando costos para:', formacion.nombreFormacion);
@@ -353,12 +365,15 @@ export default function PantallaInscripciones() {
 
   const validateCreateForm = () => {
     const errs: Record<string,string> = {};
-    if (selectedTipoFormacion === undefined) errs.tipoFormacion = 'Seleccione un tipo de formación';
-    if (selectedFormacion === undefined) errs.formacion = 'Seleccione una formación';
-    if (selectedCohorte === undefined) errs.cohorte = 'Seleccione una cohorte';
+    if (selectedTipoFormacion === null || selectedTipoFormacion === undefined) 
+      errs.tipoFormacion = 'Seleccione un tipo de formación';
+    if (selectedFormacion === null || selectedFormacion === undefined) 
+      errs.formacion = 'Seleccione una formación';
+    if (selectedCohorte === null || selectedCohorte === undefined) 
+      errs.cohorte = 'Seleccione una cohorte';
     
-    // Validación MEJORADA usando la información del backend
-    if (!userInfo || !userInfo.idPersona) {
+    // Validación MÁS FLEXIBLE: No bloquear si no hay userInfo completo
+    if (!userInfo && !user) {
       errs.usuario = 'No se pudo obtener la información del usuario. Por favor, cierre sesión y vuelva a ingresar.';
     }
 
@@ -369,25 +384,42 @@ export default function PantallaInscripciones() {
   // FUNCIÓN MEJORADA: Crear inscripción
   const handleCreateInscripcion = async () => {
     console.log('🔐 VERIFICACIÓN COMPLETA DEL USUARIO:');
-    console.log('UserInfo desde backend:', userInfo);
-    console.log('AuthContext user:', user);
+    console.log('UserInfo:', userInfo);
+    console.log('Tokens:', await AsyncStorage.getItem('myapp-tokens'));
 
     if (!validateCreateForm()) {
       Alert.alert('Formulario inválido', 'Corrige los errores antes de continuar.');
       return;
     }
 
-    // ESTRATEGIA CONFIABLE: Usar la información obtenida del backend
-    let idPersonaFinal: number;
+    // ESTRATEGIA MÁS ROBUSTA: Obtener la cédula directamente de los tokens
+    let cedulaUsuario: string | null = null;
+    let idPersonaFinal: number | null = null;
 
+    try {
+      const tokens = await AsyncStorage.getItem('myapp-tokens');
+      if (tokens) {
+        const parsedTokens = JSON.parse(tokens);
+        const userData = parsedTokens.user;
+        cedulaUsuario = userData?.cedula;
+        console.log('✅ Cédula obtenida de tokens:', cedulaUsuario);
+      }
+    } catch (error) {
+      console.error('Error obteniendo tokens:', error);
+    }
+
+    // Si tenemos userInfo, usarlo, sino usar solo la cédula
     if (userInfo?.idPersona) {
       idPersonaFinal = Number(userInfo.idPersona);
-      console.log('✅ Usando idPersona del backend:', idPersonaFinal);
+      console.log('✅ Usando idPersona del userInfo:', idPersonaFinal);
+    } else if (cedulaUsuario) {
+      console.log('⚠️ No hay idPersona, usando solo cédula:', cedulaUsuario);
+      // En este caso, el backend debería poder encontrar la persona por cédula
     } else {
-      console.error('❌ NO SE PUDO OBTENER IDPERSONA VÁLIDO');
+      console.error('❌ NO SE PUDO OBTENER INFORMACIÓN VÁLIDA DEL USUARIO');
       Alert.alert(
         'Error de Identificación', 
-        'No se pudo identificar su usuario en el sistema. Por favor, cierre sesión y vuelva a ingresar.'
+        'No se pudo identificar su usuario. Por favor, cierre sesión y vuelva a ingresar.'
       );
       return;
     }
@@ -407,7 +439,6 @@ export default function PantallaInscripciones() {
       const estadoPago: 'PENDIENTE'|'PARCIAL'|'PAGADO' = 'PENDIENTE';
 
       const payload: any = {
-        idPersona: idPersonaFinal,
         idTF: idTF,
         idFormacion: idFormacion,
         idCohorte: idCohorte,
@@ -417,15 +448,20 @@ export default function PantallaInscripciones() {
         fechaInscripcion,
       };
 
-      // Incluir información adicional si está disponible
-      if (userInfo?.cedula) {
-        payload.cedulaPersona = userInfo.cedula;
+      // ESTRATEGIA FLEXIBLE: Incluir idPersona si está disponible, sino incluir cédula
+      if (idPersonaFinal) {
+        payload.idPersona = idPersonaFinal;
+      } else if (cedulaUsuario) {
+        payload.cedula = cedulaUsuario;
+        console.log('📤 Enviando inscripción con cédula:', cedulaUsuario);
       }
+
+      // Incluir información adicional si está disponible
       if (userInfo?.nombres && userInfo?.apellidos) {
         payload.nombreCompleto = `${userInfo.nombres} ${userInfo.apellidos}`;
       }
 
-      console.log('📤 Enviando payload CON INFORMACIÓN REAL:', payload);
+      console.log('📤 Enviando payload de inscripción:', payload);
 
       const res = await api.post('/api/inscripcion/', payload);
       
@@ -446,23 +482,7 @@ export default function PantallaInscripciones() {
       if (err.response?.status === 500) {
         Alert.alert('Error del servidor', 'Hubo un problema en el servidor. Por favor, contacta al administrador.');
       } else if (err.response?.data) {
-        // Mostrar errores de validación del backend
-        const errorDetails = err.response.data;
-        let errorMessage = 'Errores en el formulario:\n';
-        
-        if (typeof errorDetails === 'object') {
-          Object.keys(errorDetails).forEach(key => {
-            if (Array.isArray(errorDetails[key])) {
-              errorMessage += `• ${key}: ${errorDetails[key].join(', ')}\n`;
-            } else {
-              errorMessage += `• ${key}: ${errorDetails[key]}\n`;
-            }
-          });
-        } else {
-          errorMessage = String(errorDetails);
-        }
-        
-        Alert.alert('Error de Validación', errorMessage);
+        Alert.alert('Error de Validación', JSON.stringify(err.response.data));
       } else {
         Alert.alert('Error', message);
       }
@@ -472,9 +492,9 @@ export default function PantallaInscripciones() {
   };
 
   const resetForm = () => {
-    setSelectedTipoFormacion(undefined);
-    setSelectedFormacion(undefined);
-    setSelectedCohorte(undefined);
+    setSelectedTipoFormacion(null);
+    setSelectedFormacion(null);
+    setSelectedCohorte(null);
     setFormErrors({});
     setValorInscripcion(0);
     setCuotas([]);
@@ -667,20 +687,23 @@ export default function PantallaInscripciones() {
                   <Text style={styles.label}>Cédula del Cliente</Text>
                   <View style={styles.cedulaFijaContainer}>
                     <Icon name="account" size={20} color="#4f8cff" />
-                    <Text style={styles.cedulaFijaText}>
-                      {userInfo?.cedula || user?.cedula || 'Cargando información...'}
-                    </Text>
+                    {loadingUser ? (
+                      <ActivityIndicator size="small" color="#4f8cff" />
+                    ) : (
+                      <Text style={styles.cedulaFijaText}>
+                        {userInfo?.cedula || user?.cedula || 'No se pudo cargar la cédula'}
+                      </Text>
+                    )}
                   </View>
                   <Text style={styles.helpText}>
-                    {userInfo?.nombres && userInfo?.apellidos 
-                      ? `Usuario: ${userInfo.nombres} ${userInfo.apellidos}`
-                      : userInfo?.cedula 
-                        ? `Cédula: ${userInfo.cedula}`
-                        : 'Obteniendo información del usuario...'}
+                    {loadingUser 
+                      ? 'Cargando información del usuario...' 
+                      : userInfo?.nombres && userInfo?.apellidos 
+                        ? `Usuario: ${userInfo.nombres} ${userInfo.apellidos}`
+                        : userInfo?.cedula 
+                          ? `Cédula: ${userInfo.cedula}`
+                          : 'Información del usuario no disponible'}
                   </Text>
-                  {loadingUser && (
-                    <ActivityIndicator size="small" color="#4f8cff" style={{marginTop: 8}} />
-                  )}
                   {formErrors.usuario && (
                     <Text style={styles.errorText}>{formErrors.usuario}</Text>
                   )}
@@ -699,7 +722,7 @@ export default function PantallaInscripciones() {
                       onValueChange={(itemValue) => setSelectedTipoFormacion(itemValue)}
                       style={styles.picker}
                     >
-                      <Picker.Item label="Seleccione tipo de formación..." value={undefined} />
+                      <Picker.Item label="Seleccione tipo de formación..." value={null} />
                       {tiposFormacion.map(tf => (
                         <Picker.Item 
                           key={tf.idTF} 
@@ -721,15 +744,15 @@ export default function PantallaInscripciones() {
                       selectedValue={selectedFormacion}
                       onValueChange={setSelectedFormacion}
                       style={styles.picker}
-                      enabled={selectedTipoFormacion !== undefined && formacionesFiltradas.length > 0}
+                      enabled={formacionesFiltradas.length > 0}
                     >
                       <Picker.Item 
                         label={
-                          selectedTipoFormacion === undefined ? "Seleccione tipo primero" :
-                          formacionesFiltradas.length === 0 ? "No hay formaciones disponibles" : 
+                          formacionesFiltradas.length === 0 ? 
+                          "Seleccione tipo primero" : 
                           "Seleccione formación..."
                         } 
-                        value={undefined} 
+                        value={null} 
                       />
                       {formacionesFiltradas.map(f => (
                         <Picker.Item 
@@ -753,7 +776,7 @@ export default function PantallaInscripciones() {
                       onValueChange={(itemValue) => setSelectedCohorte(itemValue)}
                       style={styles.picker}
                     >
-                      <Picker.Item label="Seleccione cohorte..." value={undefined} />
+                      <Picker.Item label="Seleccione cohorte..." value={null} />
                       {cohortes.map(c => (
                         <Picker.Item 
                           key={c.idCohorte} 
