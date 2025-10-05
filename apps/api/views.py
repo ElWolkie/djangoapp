@@ -73,8 +73,18 @@ class InscripcionListCreate(generics.ListCreateAPIView):
             data = request.data.copy()
             
             # Si idPersona no viene del frontend, intentar obtenerlo del usuario autenticado
-            if 'idPersona_id' not in data and hasattr(request.user, 'idPersona'):
-                data['idPersona_id'] = request.user.idPersona.idPersona
+            if 'idPersona' not in data and hasattr(request.user, 'idPersona'):
+                data['idPersona'] = request.user.idPersona.idPersona
+            
+            # Convertir los IDs a enteros para asegurar el tipo correcto
+            if 'idTF' in data:
+                data['idTF'] = int(data['idTF'])
+            if 'idFormacion' in data:
+                data['idFormacion'] = int(data['idFormacion'])
+            if 'idCohorte' in data:
+                data['idCohorte'] = int(data['idCohorte'])
+            if 'idPersona' in data:
+                data['idPersona'] = int(data['idPersona'])
             
             response = super().create(request, *args, **kwargs)
             print("✅ Inscripción creada exitosamente:", response.data)
