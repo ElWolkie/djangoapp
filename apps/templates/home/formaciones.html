@@ -291,6 +291,14 @@
     }
   }
 
+  // 4) Validación para que "cantidad" solo permita números enteros
+  const cantidadInput = document.getElementById('cantidad');
+  if (cantidadInput) {
+    cantidadInput.addEventListener('input', function () {
+    // Elimina cualquier caracter que no sea dígito
+    this.value = this.value.replace(/[^\d]/g, '');
+    });
+  }
   // Ejecutar al cargar la página
   document.addEventListener('DOMContentLoaded', activarValidacionFormacion);
 </script>

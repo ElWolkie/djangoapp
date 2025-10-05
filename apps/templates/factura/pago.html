@@ -242,6 +242,21 @@ select.input-with-icon.form-select {
   background: transparent;
   padding-left: 0.2em;
 }
+.was-validated .form-control:valid,
+.was-validated .form-select:valid {
+  border-color: #28a745;
+}
+
+.was-validated .form-control:invalid,
+.was-validated .form-select:invalid {
+  border-color: #dc3545;
+}
+/* Forzar que los mensajes de error se muestren para selects */
+.input-group.has-validation .form-select.is-invalid ~ .invalid-feedback {
+    display: block !important;
+    opacity: 1 !important;
+    width: 100%;
+}
 </style>
 {% endblock stylesheets %}
 
@@ -265,7 +280,7 @@ select.input-with-icon.form-select {
         </label>
         <div class="field-wrap">
           <div class="input-group">
-            <div class="input-icon-container">
+            <div class="input-icon-container" style="flex-direction: column; align-items: stretch;">
               <i class="fas fa-receipt input-icon" aria-hidden="true"></i>
               <input type="text" id="notaInput" class="form-control" placeholder="Seleccione una nota" readonly required />
             </div>
@@ -285,7 +300,7 @@ select.input-with-icon.form-select {
           <span>Forma de Pago:</span>
         </label>
         <div class="field-wrap">
-          <div class="input-icon-container">
+          <div class="input-icon-container" style="flex-direction: column; align-items: stretch;">
             <i class="fas fa-wallet input-icon" aria-hidden="true"></i>
             <select id="formaPago" name="formaPago" class="form-select large" required>
               <option value="" disabled selected>Seleccione la forma de pago...</option>
@@ -350,7 +365,7 @@ select.input-with-icon.form-select {
         </label>
         <div class="field-wrap">
           <div class="input-group">
-            <div class="input-icon-container">
+            <div class="input-icon-container" style="flex-direction: column; align-items: stretch;">
               <i class="fas fa-credit-card input-icon" aria-hidden="true"></i>
               <input type="text" id="cuentaBancoInput" class="form-control" placeholder="Seleccione una cuenta bancaria" readonly required />
             </div>
@@ -371,9 +386,9 @@ select.input-with-icon.form-select {
           <span>Referencia:</span>
         </label>
         <div class="field-wrap">
-          <div class="input-icon-container">
+          <div class="input-icon-container" style="flex-direction: column; align-items: stretch;">
             <i class="fas fa-keyboard input-icon" aria-hidden="true"></i>
-            <input type="text" id="referencia" name="referencia" class="form-control" placeholder="Ingrese la referencia del pago (opcional)" maxlength="14" />
+            <input type="text" id="referencia" name="referencia" class="form-control" placeholder="Ingrese la referencia del pago (opcional)" maxlength="14" required />
           </div>
           <small class="form-text text-muted">Máx. 14 dígitos (solo números).</small>
         </div>
@@ -400,7 +415,7 @@ select.input-with-icon.form-select {
           <span>Fecha de Pago:</span>
         </label>
         <div class="field-wrap">
-          <div class="input-icon-container">
+          <div class="input-icon-container" style="flex-direction: column; align-items: stretch;">
             <i class="fas fa-calendar input-icon" aria-hidden="true"></i>
             <input type="date" id="fechaPago" name="fechaPago" class="form-control" max="{{ today_date }}" required />
           </div>
@@ -684,28 +699,45 @@ function actualizarDeudaYValidar() {
 
     // ✅ FUNCIÓN: Obtener monto numérico
     function obtenerMontoNumerico(valorFormateado) {
-        if (!valorFormateado) return 0;
-        const limpio = valorFormateado.toString().replace(/\./g, '').replace(',', '.');
-        return parseFloat(limpio) || 0;
-    }
+    if (!valorFormateado) return 0;
+    
+    // Convertir formato "1.234,5678" a "1234.5678"
+    const limpio = valorFormateado.toString()
+        .replace(/\./g, '')  // Eliminar separadores de miles
+        .replace(',', '.');  // Convertir coma decimal a punto
+    
+    return parseFloat(limpio) || 0;
+}
 
     // ✅ FUNCIÓN: Formatear valor para input
     function formatearValor(valor) {
-        if (!valor) return '';
-        let raw = valor.toString().replace(/[^\d,]/g, '');
-        
-        if (raw.includes(',')) {
-            const partes = raw.split(',');
-            let intPart = partes[0].replace(/\D/g, '');
-            let decimalPart = partes[1] ? partes[1].replace(/\D/g, '') : '';
-            const formattedInt = intPart ? parseInt(intPart, 10).toLocaleString('es-VE') : '0';
-            return `${formattedInt},${decimalPart}`;
-        } else {
-            let intPart = raw.replace(/\D/g, '');
-            const formattedInt = intPart ? parseInt(intPart, 10).toLocaleString('es-VE') : '0';
-            return `${formattedInt}`;
-        }
+    if (!valor) return '0,0000';
+    
+    // Obtener solo los dígitos
+    let digitos = valor.toString().replace(/[^\d]/g, '');
+    
+    // Si no hay dígitos, retornar 0,0000
+    if (digitos.length === 0) return '0,0000';
+    
+    // Rellenar con ceros a la izquierda para tener al menos 5 dígitos
+    // (4 decimales + al menos 1 entero)
+    while (digitos.length < 5) {
+        digitos = '0' + digitos;
     }
+    
+    // Separar parte entera (todos excepto los últimos 4) y parte decimal (últimos 4)
+    const parteDecimal = digitos.substring(digitos.length - 4);
+    let parteEntera = digitos.substring(0, digitos.length - 4);
+    
+    // Eliminar ceros a la izquierda de la parte entera, pero mantener al menos un 0
+    parteEntera = parteEntera.replace(/^0+/, '');
+    if (parteEntera === '') parteEntera = '0';
+    
+    // Formatear parte entera con separadores de miles
+    parteEntera = parseInt(parteEntera, 10).toLocaleString('es-VE');
+    
+    return `${parteEntera},${parteDecimal}`;
+}
 
     // ✅ EVENTOS SIMPLES
     if (tasaSelect) {
@@ -716,20 +748,59 @@ function actualizarDeudaYValidar() {
     }
 
     if (montoInput) {
-        montoInput.addEventListener('input', function () {
-            const cursorPosition = this.selectionStart;
-            this.value = formatearValor(this.value);
-            this.setSelectionRange(cursorPosition, cursorPosition);
-            validarMontoContraDeuda();
-        });
+    montoInput.addEventListener('input', function () {
+        const cursorPosition = this.selectionStart;
+        const valorOriginal = this.value;
+        
+        this.value = formatearValor(this.value);
+        
+        // Mantener la posición del cursor considerando los nuevos caracteres agregados
+        const cambioLongitud = this.value.length - valorOriginal.length;
+        const nuevaPosicion = Math.max(1, cursorPosition + cambioLongitud);
+        this.setSelectionRange(nuevaPosicion, nuevaPosicion);
+        
+        validarMontoContraDeuda();
+        
+        // Validación visual en tiempo real
+        if (this.value && this.value.trim() && this.value !== '0,0000') {
+            this.classList.remove('is-invalid');
+            this.classList.add('is-valid');
+        } else {
+            this.classList.add('is-invalid');
+            this.classList.remove('is-valid');
+        }
+    });
 
-        montoInput.addEventListener('blur', function () {
-            if (this.value) {
-                this.value = formatearValor(this.value);
-                validarMontoContraDeuda();
-            }
-        });
-    }
+    montoInput.addEventListener('blur', function () {
+        if (this.value && this.value !== '0,0000') {
+            this.value = formatearValor(this.value);
+            validarMontoContraDeuda();
+        }
+        
+        // Validación final
+        if (this.value && this.value.trim() && this.value !== '0,0000') {
+            this.classList.remove('is-invalid');
+            this.classList.add('is-valid');
+        } else if (this.required) {
+            this.classList.add('is-invalid');
+            this.classList.remove('is-valid');
+        }
+    });
+    
+    // Agregar evento para permitir solo números y controlar mejor la entrada
+    montoInput.addEventListener('keydown', function (e) {
+        // Permitir teclas de control: borrar, tab, etc.
+        if ([8, 9, 13, 37, 38, 39, 40, 46].includes(e.keyCode)) {
+            return;
+        }
+        
+        // Permitir solo números
+        if (!/[0-9]/.test(e.key)) {
+            e.preventDefault();
+            return;
+        }
+    });
+}
 
     // ✅ INICIALIZACIÓN SIMPLE
     function inicializar() {
@@ -980,33 +1051,106 @@ function manejarFormaPago() {
     actualizarVisibilidadCampos();
 }
 
-function forzarMayusculas() {
-    const camposMayusculas = [
+// ✅ VALIDACIÓN BOOTSTRAP (como en honorario2.html)
+(function() {
+    'use strict';
+    var forms = document.querySelectorAll('.needs-validation');
+    
+    Array.prototype.slice.call(forms).forEach(function(form) {
+        form.addEventListener('submit', function(event) {
+            if (!form.checkValidity()) {
+                event.preventDefault();
+                event.stopPropagation();
+                
+                // Marcar todos los campos requeridos como invalid
+                form.querySelectorAll(':required').forEach(function(input) {
+                    if (!input.value) {
+                        input.classList.add('is-invalid');
+                    }
+                });
+                
+                // Validar selects requeridos
+                form.querySelectorAll('select:required').forEach(function(select) {
+                    if (!select.value) {
+                        select.classList.add('is-invalid');
+                    }
+                });
+            }
+            
+            form.classList.add('was-validated');
+        }, false);
+    });
+})();
+
+// ✅ FUNCIÓN PARA FORZAR MAYÚSCULAS Y VALIDACIÓN EN TIEMPO REAL
+function forzarMayusculasYValidar() {
+    const campos = [
         'referencia',
         'observaciones'
     ];
     
-    camposMayusculas.forEach(campoId => {
+    campos.forEach(campoId => {
         const campo = document.getElementById(campoId);
         if (campo) {
+            // Forzar mayúsculas
             campo.addEventListener('input', function() {
                 this.value = this.value.toUpperCase();
+                this.classList.remove('is-invalid');
+                if (this.value.trim()) {
+                    this.classList.add('is-valid');
+                }
             });
             
+            // Validar al perder foco
             campo.addEventListener('blur', function() {
                 this.value = this.value.toUpperCase();
-            });
-
-            campo.addEventListener('blur', function() {
-                if (this.value.trim()) {
+                if (this.value.trim() && this.required) {
                     this.classList.remove('is-invalid');
                     this.classList.add('is-valid');
-                } else if (this.required) {
+                } else if (this.required && !this.value.trim()) {
                     this.classList.add('is-invalid');
                     this.classList.remove('is-valid');
                 }
             });
         }
+    });
+    
+    // Validar selects en tiempo real
+    const selectsRequeridos = document.querySelectorAll('select:required');
+    selectsRequeridos.forEach(select => {
+        select.addEventListener('change', function() {
+            if (this.value) {
+                this.classList.remove('is-invalid');
+                this.classList.add('is-valid');
+            } else {
+                this.classList.add('is-invalid');
+                this.classList.remove('is-valid');
+            }
+        });
+    });
+    
+    // Validar inputs en tiempo real
+    const inputsRequeridos = document.querySelectorAll('input:required');
+    inputsRequeridos.forEach(input => {
+        input.addEventListener('input', function() {
+            if (this.value && this.value.trim()) {
+                this.classList.remove('is-invalid');
+                this.classList.add('is-valid');
+            } else {
+                this.classList.add('is-invalid');
+                this.classList.remove('is-valid');
+            }
+        });
+        
+        input.addEventListener('blur', function() {
+            if (this.value && this.value.trim()) {
+                this.classList.remove('is-invalid');
+                this.classList.add('is-valid');
+            } else if (this.required) {
+                this.classList.add('is-invalid');
+                this.classList.remove('is-valid');
+            }
+        });
     });
 }
 
@@ -1060,7 +1204,7 @@ document.addEventListener('DOMContentLoaded', function() {
     manejarSeleccionModalNotas();
     manejarSeleccionModalCuentas();
     manejarFormaPago();
-    forzarMayusculas();
+    forzarMayusculasYValidar();
     autoseleccionarNota();
     
     // Configurar filtro de cuentas

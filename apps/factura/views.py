@@ -1372,9 +1372,29 @@ def pago_create(request, pk=None):
                         # Crear el asiento contable para el pago
                         try:
                             pagos_existentes = Pago.objects.filter(idNota=pago.idNota).exclude(pk=pago.pk).count()
-                            numero_asiento_pago = f"PAGO-{pago.idNota.numeroNota}"
-                            if pagos_existentes > 0:
-                                numero_asiento_pago += f"-{pagos_existentes + 1}"
+                            base_numero_asiento = f"PAGO-{pago.idNota.numeroNota}"
+
+                            # Buscar todos los asientos con ese prefijo
+                            asientos_similares = AsientoContable.objects.filter(
+                                numeroAsiento__startswith=base_numero_asiento
+                            ).values_list('numeroAsiento', flat=True)
+
+                            # Inicialmente, intentamos el nombre base
+                            if base_numero_asiento not in asientos_similares:
+                                numero_asiento_pago = base_numero_asiento
+                            else:
+                                # Buscar todos los sufijos -N existentes
+                                sufijos = []
+                                patron = re.compile(rf"^{re.escape(base_numero_asiento)}-(\d+)$")
+                                for n in asientos_similares:
+                                    match = patron.match(n)
+                                    if match:
+                                        sufijos.append(int(match.group(1)))
+                                if sufijos:
+                                    nuevo_sufijo = max(sufijos) + 1
+                                else:
+                                    nuevo_sufijo = 1
+                                numero_asiento_pago = f"{base_numero_asiento}-{nuevo_sufijo}"
 
                             asiento_pago = AsientoContable.objects.create(
                                 numeroAsiento=numero_asiento_pago,
