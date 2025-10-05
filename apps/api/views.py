@@ -14,6 +14,8 @@ from apps.asientoContable.models import AsientoContable, DetalleAsiento
 from apps.planCuenta.models import PlanCuenta
 from apps.periodoContable.models import periodoContable
 
+from apps.api import serializers
+
 # Vista para Personas
 class PersonaListCreate(generics.ListCreateAPIView):
     queryset = Personas.objects.all()  # Usa el modelo Personas
@@ -66,30 +68,56 @@ class InscripcionListCreate(generics.ListCreateAPIView):
 
     def create(self, request, *args, **kwargs):
         try:
-            # Log para debugging
             print("📥 Datos recibidos:", request.data)
             
-            # Asegurar que los campos required estén presentes
             data = request.data.copy()
             
-            # Si idPersona no viene del frontend, intentar obtenerlo del usuario autenticado
+            # Asegurarnos de que los IDs sean enteros
+            for field in ['idPersona', 'idTF', 'idFormacion', 'idCohorte']:
+                if field in data:
+                    try:
+                        data[field] = int(data[field])
+                    except (ValueError, TypeError):
+                        return Response(
+                            {"error": f"El campo {field} debe ser un número entero válido"},
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
+            
+            # Si idPersona no viene, usar el del usuario autenticado
             if 'idPersona' not in data and hasattr(request.user, 'idPersona'):
                 data['idPersona'] = request.user.idPersona.idPersona
             
-            # Convertir los IDs a enteros para asegurar el tipo correcto
-            if 'idTF' in data:
-                data['idTF'] = int(data['idTF'])
-            if 'idFormacion' in data:
-                data['idFormacion'] = int(data['idFormacion'])
-            if 'idCohorte' in data:
-                data['idCohorte'] = int(data['idCohorte'])
-            if 'idPersona' in data:
-                data['idPersona'] = int(data['idPersona'])
+            # Validar que existan las referencias
+            try:
+                if 'idPersona' in data:
+                    Personas.objects.get(idPersona=data['idPersona'])
+                if 'idTF' in data:
+                    TipoFormacion.objects.get(idTF=data['idTF'])
+                if 'idFormacion' in data:
+                    Formacion.objects.get(idFormacion=data['idFormacion'])
+                if 'idCohorte' in data:
+                    Cohorte.objects.get(idCohorte=data['idCohorte'])
+            except (Personas.DoesNotExist, TipoFormacion.DoesNotExist, 
+                    Formacion.DoesNotExist, Cohorte.DoesNotExist) as e:
+                return Response(
+                    {"error": f"Referencia no encontrada: {str(e)}"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
             
-            response = super().create(request, *args, **kwargs)
-            print("✅ Inscripción creada exitosamente:", response.data)
-            return response
+            serializer = self.get_serializer(data=data)
+            serializer.is_valid(raise_exception=True)
+            self.perform_create(serializer)
             
+            print("✅ Inscripción creada exitosamente:", serializer.data)
+            headers = self.get_success_headers(serializer.data)
+            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+            
+        except serializers.ValidationError as e:
+            print("❌ Error de validación:", e.detail)
+            return Response(
+                {"error": "Error de validación", "details": e.detail},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         except Exception as e:
             print("❌ Error al crear inscripción:", str(e))
             print("📋 Datos que causaron el error:", request.data)

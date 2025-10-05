@@ -84,10 +84,16 @@ class HonorarioSerializer(serializers.ModelSerializer):
         fields = ['idHonorario','idPersona','idCargo','idCohorte','idMateria','horas','estadoHonorario','fechaHonorario','monto']
 
 class InscripcionSerializer(serializers.ModelSerializer):
-    # Campos de solo lectura para la representación
-    idPersona = PersonaSerializer(read_only=True)
-    idFormacion = FormacionSerializer(read_only=True)
-    idCohorte = CohorteSerializer(read_only=True)
+    # Campos de solo lectura para la representación (cuando se lee)
+    idPersona_detail = PersonaSerializer(source='idPersona', read_only=True)
+    idFormacion_detail = FormacionSerializer(source='idFormacion', read_only=True)
+    idCohorte_detail = CohorteSerializer(source='idCohorte', read_only=True)
+
+    # Campos para escritura (cuando se crea/actualiza)
+    idPersona = serializers.PrimaryKeyRelatedField(queryset=Personas.objects.all())
+    idFormacion = serializers.PrimaryKeyRelatedField(queryset=Formacion.objects.all())
+    idCohorte = serializers.PrimaryKeyRelatedField(queryset=Cohorte.objects.all())
+    idTF = serializers.PrimaryKeyRelatedField(queryset=TipoFormacion.objects.all())
 
     # exponemos montoTotal y saldoPendiente basados en las properties del modelo
     montoTotal = serializers.SerializerMethodField()
@@ -98,9 +104,12 @@ class InscripcionSerializer(serializers.ModelSerializer):
         fields = [
             'idInscripcion',
             'idPersona',
-            'idCohorte',
+            'idPersona_detail',
+            'idCohorte', 
+            'idCohorte_detail',
             'idTF',
             'idFormacion',
+            'idFormacion_detail',
             'fechaInscripcion',
             'estadoPago',
             'montoPagado',
