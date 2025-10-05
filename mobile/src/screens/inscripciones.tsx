@@ -269,39 +269,49 @@ const obtenerInformacionUsuario = async () => {
   }, [selectedTipoFormacion, formaciones]);
 
   // Calcular costos cuando se selecciona formación - VERSIÓN CORREGIDA
-  useEffect(() => {
-    if (selectedFormacion !== null && selectedFormacion !== undefined) {
-      const formacion = formaciones.find(f => f.idFormacion === selectedFormacion);
-      if (formacion) {
-        console.log('💰 Calculando costos para:', formacion.nombreFormacion);
-        const valorInsc = Number(formacion.valorInscripcion) || 0;
-        setValorInscripcion(valorInsc);
-        
-        // Procesar cuotas
-        let cuotasData: Cuota[] = [];
-        let totalCtas = 0;
-        
-        if (formacion.tieneCuotas && formacion.cuotas_activas && formacion.cuotas_json) {
-          try {
-            cuotasData = JSON.parse(formacion.cuotas_json);
-            totalCtas = cuotasData.reduce((sum, cuota) => sum + Number(cuota.valorCuota || 0), 0);
-            console.log('📊 Cuotas procesadas:', cuotasData);
-          } catch (e) {
-            console.error('Error parsing cuotas JSON', e);
-          }
+  // En el useEffect que calcula costos, agrega más logs:
+useEffect(() => {
+  if (selectedFormacion !== null && selectedFormacion !== undefined) {
+    const formacion = formaciones.find(f => f.idFormacion === selectedFormacion);
+    console.log('💰 Formación seleccionada para cálculos:', formacion);
+    
+    if (formacion) {
+      console.log('💰 Calculando costos para:', formacion.nombreFormacion);
+      const valorInsc = Number(formacion.valorInscripcion) || 0;
+      console.log('💰 Valor inscripción:', valorInsc);
+      
+      setValorInscripcion(valorInsc);
+      
+      // Procesar cuotas
+      let cuotasData: Cuota[] = [];
+      let totalCtas = 0;
+      
+      if (formacion.tieneCuotas && formacion.cuotas_activas && formacion.cuotas_json) {
+        try {
+          cuotasData = JSON.parse(formacion.cuotas_json);
+          totalCtas = cuotasData.reduce((sum, cuota) => sum + Number(cuota.valorCuota || 0), 0);
+          console.log('📊 Cuotas procesadas:', cuotasData, 'Total cuotas:', totalCtas);
+        } catch (e) {
+          console.error('Error parsing cuotas JSON', e);
         }
-        
-        setCuotas(cuotasData);
-        setTotalCuotas(totalCtas);
-        setMontoTotal(valorInsc + totalCtas);
       }
+      
+      setCuotas(cuotasData);
+      setTotalCuotas(totalCtas);
+      const totalFinal = valorInsc + totalCtas;
+      setMontoTotal(totalFinal);
+      console.log('💰 Monto total calculado:', totalFinal);
     } else {
-      setValorInscripcion(0);
-      setCuotas([]);
-      setTotalCuotas(0);
-      setMontoTotal(0);
+      console.error('❌ No se encontró la formación con ID:', selectedFormacion);
     }
-  }, [selectedFormacion, formaciones]);
+  } else {
+    console.log('💰 No hay formación seleccionada, reseteando costos');
+    setValorInscripcion(0);
+    setCuotas([]);
+    setTotalCuotas(0);
+    setMontoTotal(0);
+  }
+}, [selectedFormacion, formaciones]);
 
   useEffect(() => {
     const q = searchText.trim().toLowerCase();
@@ -383,6 +393,29 @@ const handleCreateInscripcion = async () => {
     return;
   }
 
+  // Función para verificar que los IDs existen
+const verificarIDs = () => {
+  const tipoExists = tiposFormacion.some(t => t.idTF === selectedTipoFormacion);
+  const formacionExists = formaciones.some(f => f.idFormacion === selectedFormacion);
+  const cohorteExists = cohortes.some(c => c.idCohorte === selectedCohorte);
+  
+  console.log('🔍 VERIFICACIÓN DE IDs:');
+  console.log('Tipo formación existe:', tipoExists, 'ID:', selectedTipoFormacion);
+  console.log('Formación existe:', formacionExists, 'ID:', selectedFormacion);
+  console.log('Cohorte existe:', cohorteExists, 'ID:', selectedCohorte);
+  
+  if (!tipoExists || !formacionExists || !cohorteExists) {
+    Alert.alert(
+      'Error en selección',
+      'Uno o más elementos seleccionados no existen. Por favor, recargue el formulario y vuelva a intentar.'
+    );
+    return false;
+  }
+  
+  return true;
+};
+
+
   const idTF = Number(selectedTipoFormacion);
   const idFormacion = Number(selectedFormacion);
   const idCohorte = Number(selectedCohorte);
@@ -412,6 +445,22 @@ const handleCreateInscripcion = async () => {
       estadoPago: estadoPago,
       fechaInscripcion: fechaFormateada,
     };
+
+    // En handleCreateInscripcion, justo después de las validaciones de IDs, agrega:
+    console.log('💰 VERIFICACIÓN FINAL DE MONTOS:');
+    console.log('Valor inscripción:', valorInscripcion);
+    console.log('Total cuotas:', totalCuotas);
+    console.log('Monto total:', montoTotal);
+
+    // Validación CRÍTICA: montoTotal debe ser mayor a 0
+    if (montoTotal <= 0) {
+      Alert.alert(
+        'Error en costos', 
+        'El monto total debe ser mayor a 0. Verifique que la formación seleccionada tenga un costo configurado.'
+      );
+      setCreating(false);
+      return;
+    }
 
     console.log('📤 Enviando payload SIMPLIFICADO:', JSON.stringify(payload, null, 2));
 
@@ -478,7 +527,11 @@ const handleCreateInscripcion = async () => {
       Alert.alert('Error', err.response?.data?.detail ?? err.message ?? 'Error desconocido');
     }
   } finally {
-    setCreating(false);
+    // Y en handleCreateInscripcion, llama a esta función:
+    if (!verificarIDs()) {
+      setCreating(false);
+      return;
+    }
   }
 };
 
