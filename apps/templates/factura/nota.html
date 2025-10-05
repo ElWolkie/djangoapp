@@ -500,31 +500,34 @@
 
 <!-- Modal para seleccionar Persona -->
 <div class="modal fade" id="personaModal" tabindex="-1" role="dialog" aria-labelledby="personaModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered" role="document">
+  <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
     <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="personaModalLabel">Seleccionar Persona</h5>
-        <button type="button" class="close btn-close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title text-white" id="personaModalLabel">
+          <i class="fas fa-user mr-2"></i> Seleccionar Persona
+        </h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
         </button>
       </div>
       <div class="modal-body">
-        <div class="row mb-3">
-          <div class="col-md-8">
-            <div class="input-group">
-              <span class="input-group-text icon-search"><i class="fas fa-search"></i></span>
-              <input class="form-control" id="searchPersonaInput" type="text" placeholder="Buscar..." onkeyup="filterTable('tablaPersonas','searchPersonaInput')">
-            </div>
+        <div class="input-group mb-3">
+          <div class="input-group-prepend">
+            <span class="input-group-text bg-light">
+              <i class="fas fa-search text-warning"></i>
+            </span>
           </div>
+          <input class="form-control" id="searchPersonaInput" type="text" placeholder="Buscar por cédula, nombre o apellido...">
         </div>
         <div class="table-responsive">
-          <table class="table table-lg table-striped table-hover" id="tablaPersonas">
-            <thead>
+          <table class="table table-sm table-striped table-hover" id="tablaPersonas">
+            <thead class="bg-light">
               <tr>
-                <th>ID</th>
-                <th>Cédula</th>
-                <th>Nombre</th>
-                <th>Apellidos</th>
+                <th style="width: 15%;">ID</th>
+                <th style="width: 20%;">Cédula</th>
+                <th style="width: 25%;">Nombre</th>
+                <th style="width: 25%;">Apellidos</th>
+                <th style="width: 15%;">Seleccionar</th>
               </tr>
             </thead>
             <tbody>
@@ -534,15 +537,24 @@
                   <td>{{ persona.cedula }}</td>
                   <td>{{ persona.nombres }}</td>
                   <td>{{ persona.apellidos }}</td>
+                  <td>
+                    <button class="btn btn-sm btn-warning btn-select">
+                      <i class="fas fa-check"></i> Elegir
+                    </button>
+                  </td>
                 </tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
-        <p id="mensajeSinRegistrosPersona" class="text-center text-muted" style="display:none;">No hay registros disponibles</p>
+        <!-- Contenedor para la paginación -->
+        <div class="pagination-container d-flex justify-content-center mt-3"></div>
+        <p id="mensajeSinRegistrosPersona" class="text-center text-muted my-4" style="display:none;">
+          <i class="fas fa-info-circle mr-2"></i> No se encontraron registros
+        </p>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary" data-dismiss="modal" type="button">Cerrar</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
       </div>
     </div>
   </div>
@@ -550,29 +562,32 @@
 
 <!-- Modal para seleccionar Empresa -->
 <div class="modal fade" id="empresaModal" tabindex="-1" role="dialog" aria-labelledby="empresaModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered" role="document">
+  <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
     <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="empresaModalLabel">Seleccionar Empresa</h5>
-        <button type="button" class="close btn-close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title text-white" id="empresaModalLabel">
+          <i class="fas fa-building mr-2"></i> Seleccionar Empresa
+        </h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
         </button>
       </div>
       <div class="modal-body">
-        <div class="row mb-3">
-          <div class="col-md-8">
-            <div class="input-group">
-              <span class="input-group-text icon-search"><i class="fas fa-search"></i></span>
-              <input class="form-control" id="searchEmpresaInput" type="text" placeholder="Buscar..." onkeyup="filterTable('tablaEmpresas','searchEmpresaInput')">
-            </div>
+        <div class="input-group mb-3">
+          <div class="input-group-prepend">
+            <span class="input-group-text bg-light">
+              <i class="fas fa-search text-warning"></i>
+            </span>
           </div>
+          <input class="form-control" id="searchEmpresaInput" type="text" placeholder="Buscar empresa...">
         </div>
         <div class="table-responsive">
           <table class="table table-sm table-striped table-hover" id="tablaEmpresas">
-            <thead>
+            <thead class="bg-light">
               <tr>
-                <th>ID</th>
-                <th>Nombre</th>
+                <th style="width: 20%;">ID</th>
+                <th style="width: 60%;">Nombre</th>
+                <th style="width: 20%;">Seleccionar</th>
               </tr>
             </thead>
             <tbody>
@@ -580,15 +595,24 @@
                 <tr data-id="{{ empresa.idEmpresa }}" data-nombre="{{ empresa.nombreEmpresa }}">
                   <td>{{ empresa.idEmpresa }}</td>
                   <td>{{ empresa.nombreEmpresa }}</td>
+                  <td>
+                    <button class="btn btn-sm btn-warning btn-select">
+                      <i class="fas fa-check"></i> Elegir
+                    </button>
+                  </td>
                 </tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
-        <p id="mensajeSinRegistrosEmpresa" class="text-center text-muted" style="display:none;">No hay registros disponibles</p>
+        <!-- Contenedor para la paginación -->
+        <div class="pagination-container d-flex justify-content-center mt-3"></div>
+        <p id="mensajeSinRegistrosEmpresa" class="text-center text-muted my-4" style="display:none;">
+          <i class="fas fa-info-circle mr-2"></i> No se encontraron registros
+        </p>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary" data-dismiss="modal" type="button">Cerrar</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
       </div>
     </div>
   </div>
@@ -596,26 +620,35 @@
 
 <!-- Modal para seleccionar Cuota -->
 <div class="modal fade" id="cuotaModal" tabindex="-1" role="dialog" aria-labelledby="cuotaModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered" style="max-width:550px;" role="document">
+  <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
     <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="cuotaModalLabel">Seleccionar Cuota</h5>
-        <button type="button" class="close btn-close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title text-white" id="cuotaModalLabel">
+          <i class="fas fa-money-bill-wave mr-2"></i> Seleccionar Cuota
+        </h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
       </div>
       <div class="modal-body">
-        <div class="row mb-3">
-          <div class="col-md-8">
-            <div class="input-group">
-              <span class="input-group-text icon-search"><i class="fas fa-search"></i></span>
-              <input class="form-control" id="searchCuotaInput" type="text" placeholder="Buscar..." onkeyup="filterTable('tablaCuotas','searchCuotaInput')">
-            </div>
+        <div class="input-group mb-3">
+          <div class="input-group-prepend">
+            <span class="input-group-text bg-light">
+              <i class="fas fa-search text-warning"></i>
+            </span>
           </div>
+          <input class="form-control" id="searchCuotaInput" type="text" placeholder="Buscar cuota...">
         </div>
         <div class="table-responsive">
           <table class="table table-sm table-striped table-hover" id="tablaCuotas">
-            <thead>
+            <thead class="bg-light">
               <tr>
-                <th>ID Cuota</th><th>ID Inscripción</th><th>Nombre Cuota</th><th>Monto</th><th>Formación</th>
+                <th style="width: 15%;">ID Cuota</th>
+                <th style="width: 15%;">ID Inscripción</th>
+                <th style="width: 25%;">Nombre Cuota</th>
+                <th style="width: 15%;">Monto</th>
+                <th style="width: 20%;">Formación</th>
+                <th style="width: 10%;">Seleccionar</th>
               </tr>
             </thead>
             <tbody>
@@ -627,16 +660,25 @@
                     <td>{{ cuota.nombreCuota }}</td>
                     <td>{{ cuota.valorCuota }}</td>
                     <td>{{ inscripcion.idFormacion.nombreFormacion }}</td>
+                    <td>
+                      <button class="btn btn-sm btn-warning btn-select">
+                        <i class="fas fa-check"></i> Elegir
+                      </button>
+                    </td>
                   </tr>
                 {% endfor %}
               {% endfor %}
             </tbody>
           </table>
         </div>
-        <p id="mensajeSinRegistrosCuota" class="text-center text-muted" style="display:none;">No hay registros disponibles</p>
+        <!-- Contenedor para la paginación -->
+        <div class="pagination-container d-flex justify-content-center mt-3"></div>
+        <p id="mensajeSinRegistrosCuota" class="text-center text-muted my-4" style="display:none;">
+          <i class="fas fa-info-circle mr-2"></i> No se encontraron registros
+        </p>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary" data-dismiss="modal" type="button">Cerrar</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
       </div>
     </div>
   </div>
@@ -644,25 +686,36 @@
 
 <!-- Modal para seleccionar Inscripción -->
 <div class="modal fade" id="inscripcionModal" tabindex="-1" role="dialog" aria-labelledby="inscripcionModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered" style="max-width:550px;" role="document">
+  <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
     <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="inscripcionModalLabel">Seleccionar Inscripción</h5>
-        <button class="close btn-close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title text-white" id="inscripcionModalLabel">
+          <i class="fas fa-user-graduate mr-2"></i> Seleccionar Inscripción
+        </h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
       </div>
       <div class="modal-body">
-        <div class="row mb-3">
-          <div class="col-md-8">
-            <div class="input-group">
-              <span class="input-group-text icon-search"><i class="fas fa-search"></i></span>
-              <input class="form-control" id="searchInscripcionInput" type="text" placeholder="Buscar..." onkeyup="filterTable('tablaInscripciones','searchInscripcionInput')">
-            </div>
+        <div class="input-group mb-3">
+          <div class="input-group-prepend">
+            <span class="input-group-text bg-light">
+              <i class="fas fa-search text-warning"></i>
+            </span>
           </div>
+          <input class="form-control" id="searchInscripcionInput" type="text" placeholder="Buscar inscripción...">
         </div>
         <div class="table-responsive">
           <table class="table table-sm table-striped table-hover" id="tablaInscripciones">
-            <thead>
-              <tr><th>ID</th><th>Tipo Formación</th><th>Formación</th><th>Valor</th><th>Cohorte</th></tr>
+            <thead class="bg-light">
+              <tr>
+                <th style="width: 10%;">ID</th>
+                <th style="width: 20%;">Tipo Formación</th>
+                <th style="width: 25%;">Formación</th>
+                <th style="width: 15%;">Valor</th>
+                <th style="width: 20%;">Cohorte</th>
+                <th style="width: 10%;">Seleccionar</th>
+              </tr>
             </thead>
             <tbody>
               {% for inscripcion in inscripciones %}
@@ -672,15 +725,24 @@
                   <td>{{ inscripcion.idFormacion.nombreFormacion }}</td>
                   <td>{{ inscripcion.idFormacion.valorInscripcion }}</td>
                   <td>{{ inscripcion.idCohorte.nombreCohorte }}</td>
+                  <td>
+                    <button class="btn btn-sm btn-warning btn-select">
+                      <i class="fas fa-check"></i> Elegir
+                    </button>
+                  </td>
                 </tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
-        <p id="mensajeSinRegistrosInscripcion" class="text-center text-muted" style="display:none;">No hay registros disponibles</p>
+        <!-- Contenedor para la paginación -->
+        <div class="pagination-container d-flex justify-content-center mt-3"></div>
+        <p id="mensajeSinRegistrosInscripcion" class="text-center text-muted my-4" style="display:none;">
+          <i class="fas fa-info-circle mr-2"></i> No se encontraron registros
+        </p>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary" data-dismiss="modal" type="button">Cerrar</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
       </div>
     </div>
   </div>
@@ -688,24 +750,38 @@
 
 <!-- Modal honorarios -->
 <div class="modal fade" id="honorarioModal" tabindex="-1" role="dialog" aria-labelledby="honorarioModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered" role="document">
+  <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
     <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="honorarioModalLabel">Seleccionar Honorario</h5>
-        <button class="close btn-close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title text-white" id="honorarioModalLabel">
+          <i class="fas fa-user-tie mr-2"></i> Seleccionar Honorario
+        </h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
       </div>
       <div class="modal-body">
-        <div class="row mb-3">
-          <div class="col-md-8">
-            <div class="input-group">
-              <span class="input-group-text icon-search"><i class="fas fa-search"></i></span>
-              <input class="form-control" id="searchHonorarioInput" type="text" placeholder="Buscar..." onkeyup="filterTable('tablaHonorarios','searchHonorarioInput')">
-            </div>
+        <div class="input-group mb-3">
+          <div class="input-group-prepend">
+            <span class="input-group-text bg-light">
+              <i class="fas fa-search text-warning"></i>
+            </span>
           </div>
+          <input class="form-control" id="searchHonorarioInput" type="text" placeholder="Buscar honorario...">
         </div>
         <div class="table-responsive">
           <table class="table table-sm table-striped table-hover" id="tablaHonorarios">
-            <thead><tr><th>ID</th><th>Cargo</th><th>Cohorte</th><th>Materia</th><th>Horas</th><th>Monto</th></tr></thead>
+            <thead class="bg-light">
+              <tr>
+                <th style="width: 10%;">ID</th>
+                <th style="width: 20%;">Cargo</th>
+                <th style="width: 20%;">Cohorte</th>
+                <th style="width: 20%;">Materia</th>
+                <th style="width: 10%;">Horas</th>
+                <th style="width: 10%;">Monto</th>
+                <th style="width: 10%;">Seleccionar</th>
+              </tr>
+            </thead>
             <tbody>
               {% for honorario in honorarios %}
                 <tr data-id="{{ honorario.idHonorario }}" data-valor="{{ honorario.monto }}" data-nombre="{{ honorario.idCargo.nombreCargo }}">
@@ -715,15 +791,24 @@
                   <td>{{ honorario.idMateria.nombreMateria }}</td>
                   <td>{{ honorario.horas }}</td>
                   <td>{{ honorario.monto }}</td>
+                  <td>
+                    <button class="btn btn-sm btn-warning btn-select">
+                      <i class="fas fa-check"></i> Elegir
+                    </button>
+                  </td>
                 </tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
-        <p id="mensajeSinRegistrosHonorario" class="text-center text-muted" style="display:none;">No hay registros disponibles</p>
+        <!-- Contenedor para la paginación -->
+        <div class="pagination-container d-flex justify-content-center mt-3"></div>
+        <p id="mensajeSinRegistrosHonorario" class="text-center text-muted my-4" style="display:none;">
+          <i class="fas fa-info-circle mr-2"></i> No se encontraron registros
+        </p>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary" data-dismiss="modal" type="button">Cerrar</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
       </div>
     </div>
   </div>
@@ -731,24 +816,36 @@
 
 <!-- Modal Solicitudes -->
 <div class="modal fade" id="solicitudModal" tabindex="-1" role="dialog" aria-labelledby="solicitudModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered" style="max-width:550px;" role="document">
+  <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
     <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="solicitudModalLabel">Seleccionar Solicitud</h5>
-        <button class="close btn-close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title text-white" id="solicitudModalLabel">
+          <i class="fas fa-file-alt mr-2"></i> Seleccionar Solicitud
+        </h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
       </div>
       <div class="modal-body">
-        <div class="row mb-3">
-          <div class="col-md-8">
-            <div class="input-group">
-              <span class="input-group-text icon-search"><i class="fas fa-search"></i></span>
-              <input class="form-control" id="searchSolicitudInput" type="text" placeholder="Buscar..." onkeyup="filterTable('tablaSolicitudes','searchSolicitudInput')">
-            </div>
+        <div class="input-group mb-3">
+          <div class="input-group-prepend">
+            <span class="input-group-text bg-light">
+              <i class="fas fa-search text-warning"></i>
+            </span>
           </div>
+          <input class="form-control" id="searchSolicitudInput" type="text" placeholder="Buscar solicitud...">
         </div>
         <div class="table-responsive">
           <table class="table table-sm table-striped table-hover" id="tablaSolicitudes">
-            <thead><tr><th>ID</th><th>Tramite</th><th>Servicio</th><th>Monto Total</th></tr></thead>
+            <thead class="bg-light">
+              <tr>
+                <th style="width: 15%;">ID</th>
+                <th style="width: 25%;">Tramite</th>
+                <th style="width: 25%;">Servicio</th>
+                <th style="width: 20%;">Monto Total</th>
+                <th style="width: 15%;">Seleccionar</th>
+              </tr>
+            </thead>
             <tbody>
               {% for solicitud in solicitudes %}
                 <tr data-id="{{ solicitud.idSoli }}" data-valor="{{ solicitud.montoTotal }}" data-nombre="{{ solicitud.idTramite.nombreTramite }} {{ solicitud.idServicio.nombreServicio }}" data-monto="{{ solicitud.montoTotal }}" data-persona-id="{{ solicitud.idPersona.idPersona }}">
@@ -756,15 +853,24 @@
                   <td>{{ solicitud.idTramite.nombreTramite }}</td>
                   <td>{{ solicitud.idServicio.nombreServicio }}</td>
                   <td>{{ solicitud.montoTotal }}</td>
+                  <td>
+                    <button class="btn btn-sm btn-warning btn-select">
+                      <i class="fas fa-check"></i> Elegir
+                    </button>
+                  </td>
                 </tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
-        <p id="mensajeSinRegistrosSolicitud" class="text-center text-muted" style="display:none;">No hay registros disponibles</p>
+        <!-- Contenedor para la paginación -->
+        <div class="pagination-container d-flex justify-content-center mt-3"></div>
+        <p id="mensajeSinRegistrosSolicitud" class="text-center text-muted my-4" style="display:none;">
+          <i class="fas fa-info-circle mr-2"></i> No se encontraron registros
+        </p>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary" data-dismiss="modal" type="button">Cerrar</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
       </div>
     </div>
   </div>
