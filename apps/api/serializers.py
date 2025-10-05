@@ -89,11 +89,11 @@ class InscripcionSerializer(serializers.ModelSerializer):
     idFormacion = FormacionSerializer(read_only=True)
     idCohorte = CohorteSerializer(read_only=True)
 
-    # Campos para escritura (creación)
-    idPersona_id = serializers.IntegerField(write_only=True, required=False)
-    idFormacion_id = serializers.IntegerField(write_only=True)
-    idCohorte_id = serializers.IntegerField(write_only=True)
-    idTF_id = serializers.IntegerField(write_only=True)
+    # Campos para escritura (creación) - SIN write_only, los manejamos en el create
+    idPersona_id = serializers.IntegerField(required=False)
+    idFormacion_id = serializers.IntegerField()
+    idCohorte_id = serializers.IntegerField()
+    idTF_id = serializers.IntegerField()
 
     # exponemos montoTotal y saldoPendiente basados en las properties del modelo
     montoTotal = serializers.SerializerMethodField()
@@ -118,6 +118,9 @@ class InscripcionSerializer(serializers.ModelSerializer):
             'saldoPendiente',
             'is_active',
         ]
+        extra_kwargs = {
+            'idTF': {'read_only': True},  # Hacemos idTF de solo lectura
+        }
 
     def get_montoTotal(self, obj):
         try:
@@ -132,17 +135,22 @@ class InscripcionSerializer(serializers.ModelSerializer):
             return 0.0
 
     def create(self, validated_data):
-        # Mapear los campos de escritura a los campos del modelo
-        if 'idPersona_id' in validated_data:
-            validated_data['idPersona_id'] = validated_data.pop('idPersona_id')
-        if 'idFormacion_id' in validated_data:
-            validated_data['idFormacion_id'] = validated_data.pop('idFormacion_id')
-        if 'idCohorte_id' in validated_data:
-            validated_data['idCohorte_id'] = validated_data.pop('idCohorte_id')
-        if 'idTF_id' in validated_data:
-            validated_data['idTF_id'] = validated_data.pop('idTF_id')
+        # Extraer los campos de relación
+        id_persona = validated_data.pop('idPersona_id', None)
+        id_formacion = validated_data.pop('idFormacion_id')
+        id_cohorte = validated_data.pop('idCohorte_id')
+        id_tf = validated_data.pop('idTF_id')
         
-        return super().create(validated_data)
+        # Crear la instancia de Inscripcion
+        inscripcion = Inscripcion.objects.create(
+            idPersona_id=id_persona,
+            idFormacion_id=id_formacion,
+            idCohorte_id=id_cohorte,
+            idTF_id=id_tf,
+            **validated_data
+        )
+        
+        return inscripcion
 
 class RequisitoSerializer(serializers.ModelSerializer):
     class Meta:
