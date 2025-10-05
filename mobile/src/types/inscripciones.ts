@@ -17,6 +17,7 @@ export interface Formacion {
   cuotas_json: string; // JSON string con las cuotas
 }
 
+// INTERFAZ CORREGIDA - Eliminar 'valor' y mantener solo 'valorCuota'
 export interface Cuota {
   nombreCuota: string;
   valorCuota: number;
