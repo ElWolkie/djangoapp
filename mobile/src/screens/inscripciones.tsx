@@ -50,7 +50,7 @@ export default function PantallaInscripciones() {
   const [formModalVisible, setFormModalVisible] = useState(false);
   const [creating, setCreating] = useState(false);
 
-  // Form fields - USAR NULL EN LUGAR DE UNDEFINED
+  // Form fields
   const [tiposFormacion, setTiposFormacion] = useState<TipoFormacion[]>([]);
   const [formaciones, setFormaciones] = useState<Formacion[]>([]);
   const [formacionesFiltradas, setFormacionesFiltradas] = useState<Formacion[]>([]);
@@ -73,33 +73,32 @@ export default function PantallaInscripciones() {
   const [userInfo, setUserInfo] = useState<{cedula?: string; idPersona?: number | null; nombres?: string; apellidos?: string} | null>(null);
   const [loadingUser, setLoadingUser] = useState(false);
 
-  // FUNCIÓN CORREGIDA: Obtener información del usuario desde el backend
-const obtenerInformacionUsuario = async () => {
-  setLoadingUser(true);
-  try {
-    console.log('🔄 Obteniendo información del usuario...');
-    
-    // ESTRATEGIA SIMPLE: Usar directamente el user del AuthContext
-    if (user) {
-      console.log('✅ Usuario del AuthContext:', user);
-      setUserInfo({
-        cedula: user.cedula,
-        idPersona: user.idPersona || null,
-        nombres: user.nombres || '',
-        apellidos: user.apellidos || ''
-      });
-    } else {
-      console.log('❌ No hay usuario en el AuthContext');
-      setUserInfo(null);
-    }
+  // FUNCIÓN CORREGIDA: Obtener información del usuario
+  const obtenerInformacionUsuario = async () => {
+    setLoadingUser(true);
+    try {
+      console.log('🔄 Obteniendo información del usuario...');
+      
+      if (user) {
+        console.log('✅ Usuario del AuthContext:', user);
+        setUserInfo({
+          cedula: user.cedula,
+          idPersona: user.idPersona || null,
+          nombres: user.nombres || '',
+          apellidos: user.apellidos || ''
+        });
+      } else {
+        console.log('❌ No hay usuario en el AuthContext');
+        setUserInfo(null);
+      }
 
-  } catch (error) {
-    console.error('❌ Error obteniendo información del usuario:', error);
-    setUserInfo(null);
-  } finally {
-    setLoadingUser(false);
-  }
-};
+    } catch (error) {
+      console.error('❌ Error obteniendo información del usuario:', error);
+      setUserInfo(null);
+    } finally {
+      setLoadingUser(false);
+    }
+  };
 
   // DEBUG: Verificar el usuario
   useEffect(() => {
@@ -107,7 +106,6 @@ const obtenerInformacionUsuario = async () => {
     console.log('🔐 Cedula del usuario:', user?.cedula);
     console.log('🔐 idPersona del usuario:', user?.idPersona);
     
-    // Obtener información del usuario al cargar el componente
     obtenerInformacionUsuario();
   }, [user]);
 
@@ -128,7 +126,7 @@ const obtenerInformacionUsuario = async () => {
     }
   }, []);
 
-  // Load tipos formacion, formaciones & cohortes
+  // Load tipos formacion, formaciones & cohortes - VERSIÓN MEJORADA
   const fetchDatosFormulario = useCallback(async () => {
     try {
       console.log('🔍 Cargando datos del formulario...');
@@ -148,7 +146,7 @@ const obtenerInformacionUsuario = async () => {
         }),
       ]);
 
-      // Función mejorada para extraer datos con mapeo de campos
+      // Función MEJORADA para extraer datos
       const extractData = (responseData: any, tipo: string) => {
         console.log(`📦 Datos crudos de ${tipo}:`, responseData);
         
@@ -166,20 +164,20 @@ const obtenerInformacionUsuario = async () => {
           dataArray = [];
         }
 
-        // Mapear campos según el tipo - ASEGURANDO QUE idTF SEA NÚMERO
+        // Mapeo CORREGIDO - asegurar tipos correctos
         const mappedData = dataArray.map((item: any) => {
           if (tipo === 'tipos') {
             return {
-              idTF: Number(item.idTF || item.id || item.tipo_id),
+              idTF: Number(item.idTF || item.id || item.tipo_id || 0),
               nombreTipoFormacion: item.nombreTipoFormacion || item.nombre || item.descripcion || 'Sin nombre'
             };
           }
           
           if (tipo === 'formaciones') {
             return {
-              idFormacion: item.idFormacion || item.id,
+              idFormacion: Number(item.idFormacion || item.id || 0),
               nombreFormacion: item.nombreFormacion || item.nombre || 'Sin nombre',
-              idTF: Number(item.idTF || item.tipo_formacion_id || item.idTF_id),
+              idTF: Number(item.idTF || item.tipo_formacion_id || item.idTF_id || 0),
               valorInscripcion: Number(item.valorInscripcion || item.precio || item.costo || 0),
               tieneCuotas: Boolean(item.tieneCuotas || item.cuotas || false),
               cuotas_activas: Boolean(item.cuotas_activas || item.cuotas_activas || false),
@@ -190,15 +188,26 @@ const obtenerInformacionUsuario = async () => {
           
           if (tipo === 'cohortes') {
             return {
-              idCohorte: item.idCohorte || item.id,
+              idCohorte: Number(item.idCohorte || item.id || 0),
               nombreCohorte: item.nombreCohorte || item.nombre || 'Sin nombre'
             };
           }
           
           return item;
+        }).filter((item: { idTF: number; idFormacion: number; idCohorte: number; }) => {
+          // FILTRAR: Solo items con ID válido mayor a 0
+          if (tipo === 'tipos') return item.idTF > 0;
+          if (tipo === 'formaciones') return item.idFormacion > 0;
+          if (tipo === 'cohortes') return item.idCohorte > 0;
+          return true;
         });
 
         console.log(`✅ ${tipo} mapeados:`, mappedData.length, mappedData);
+        console.log(`🔢 IDs de ${tipo}:`, mappedData.map((item: any) => 
+          tipo === 'tipos' ? item.idTF : 
+          tipo === 'formaciones' ? item.idFormacion : 
+          item.idCohorte
+        ));
         return mappedData;
       };
 
@@ -207,9 +216,9 @@ const obtenerInformacionUsuario = async () => {
       const cohortesData = extractData(r3.data, 'cohortes');
 
       console.log('🎉 Datos finales:');
-      console.log('📚 Tipos formación:', tiposData);
-      console.log('🎓 Formaciones:', formacionesData);
-      console.log('👥 Cohortes:', cohortesData);
+      console.log('📚 Tipos formación IDs:', tiposData.map((t: { idTF: any; }) => t.idTF));
+      console.log('🎓 Formaciones IDs:', formacionesData.map((f: { idFormacion: any; }) => f.idFormacion));
+      console.log('👥 Cohortes IDs:', cohortesData.map((c: { idCohorte: any; }) => c.idCohorte));
 
       setTiposFormacion(tiposData);
       setFormaciones(formacionesData);
@@ -234,8 +243,6 @@ const obtenerInformacionUsuario = async () => {
     if (formModalVisible) {
       establecerFechaActual();
       fetchDatosFormulario();
-      
-      // Forzar la obtención de información del usuario cuando se abre el modal
       obtenerInformacionUsuario();
     }
   }, [formModalVisible]);
@@ -245,73 +252,73 @@ const obtenerInformacionUsuario = async () => {
     fetchDatosFormulario();
   }, [fetchInscripciones, fetchDatosFormulario]);
 
-  // Filtrar formaciones cuando cambia el tipo de formación - VERSIÓN CORREGIDA
+  // Filtrar formaciones cuando cambia el tipo de formación - VERSIÓN MEJORADA
   useEffect(() => {
     console.log('🔄 Filtrando formaciones...');
     console.log('Tipo seleccionado:', selectedTipoFormacion);
     console.log('Total formaciones:', formaciones.length);
     
-    if (selectedTipoFormacion !== null && selectedTipoFormacion !== undefined && formaciones.length > 0) {
+    if (selectedTipoFormacion !== null && formaciones.length > 0) {
       const filtradas = formaciones.filter(f => {
-        // Asegurar que ambos valores sean números para comparar
-        const formacionIdTF = Number(f.idTF);
-        const selectedIdTF = Number(selectedTipoFormacion);
-        console.log(`Comparando: formación.idTF=${formacionIdTF} vs seleccionado=${selectedIdTF}`);
-        return formacionIdTF === selectedIdTF;
+        const match = f.idTF === selectedTipoFormacion;
+        console.log(`Formación: ${f.nombreFormacion}, idTF: ${f.idTF}, match: ${match}`);
+        return match;
       });
-      console.log('✅ Formaciones filtradas:', filtradas.length);
+      console.log('✅ Formaciones filtradas:', filtradas.length, filtradas.map(f => ({id: f.idFormacion, nombre: f.nombreFormacion})));
       setFormacionesFiltradas(filtradas);
-      setSelectedFormacion(null); // Resetear formación cuando cambia el tipo
+      setSelectedFormacion(null);
     } else {
       console.log('❌ Mostrando todas las formaciones (sin filtro)');
       setFormacionesFiltradas(formaciones);
     }
   }, [selectedTipoFormacion, formaciones]);
 
-  // Calcular costos cuando se selecciona formación - VERSIÓN CORREGIDA
-  // En el useEffect que calcula costos, agrega más logs:
-useEffect(() => {
-  if (selectedFormacion !== null && selectedFormacion !== undefined) {
-    const formacion = formaciones.find(f => f.idFormacion === selectedFormacion);
-    console.log('💰 Formación seleccionada para cálculos:', formacion);
-    
-    if (formacion) {
-      console.log('💰 Calculando costos para:', formacion.nombreFormacion);
-      const valorInsc = Number(formacion.valorInscripcion) || 0;
-      console.log('💰 Valor inscripción:', valorInsc);
+  // Calcular costos cuando se selecciona formación - VERSIÓN MEJORADA
+  useEffect(() => {
+    if (selectedFormacion !== null) {
+      const formacion = formaciones.find(f => f.idFormacion === selectedFormacion);
+      console.log('💰 Formación seleccionada para cálculos:', formacion);
       
-      setValorInscripcion(valorInsc);
-      
-      // Procesar cuotas
-      let cuotasData: Cuota[] = [];
-      let totalCtas = 0;
-      
-      if (formacion.tieneCuotas && formacion.cuotas_activas && formacion.cuotas_json) {
-        try {
-          cuotasData = JSON.parse(formacion.cuotas_json);
-          totalCtas = cuotasData.reduce((sum, cuota) => sum + Number(cuota.valorCuota || 0), 0);
-          console.log('📊 Cuotas procesadas:', cuotasData, 'Total cuotas:', totalCtas);
-        } catch (e) {
-          console.error('Error parsing cuotas JSON', e);
+      if (formacion) {
+        console.log('💰 Calculando costos para:', formacion.nombreFormacion);
+        const valorInsc = Number(formacion.valorInscripcion) || 0;
+        console.log('💰 Valor inscripción:', valorInsc);
+        
+        setValorInscripcion(valorInsc);
+        
+        let cuotasData: Cuota[] = [];
+        let totalCtas = 0;
+        
+        if (formacion.tieneCuotas && formacion.cuotas_activas && formacion.cuotas_json) {
+          try {
+            cuotasData = JSON.parse(formacion.cuotas_json);
+            totalCtas = cuotasData.reduce((sum, cuota) => sum + Number(cuota.valorCuota || 0), 0);
+            console.log('📊 Cuotas procesadas:', cuotasData, 'Total cuotas:', totalCtas);
+          } catch (e) {
+            console.error('Error parsing cuotas JSON', e);
+          }
         }
+        
+        setCuotas(cuotasData);
+        setTotalCuotas(totalCtas);
+        const totalFinal = valorInsc + totalCtas;
+        setMontoTotal(totalFinal);
+        console.log('💰 Monto total calculado:', totalFinal);
+      } else {
+        console.error('❌ No se encontró la formación con ID:', selectedFormacion);
+        setValorInscripcion(0);
+        setCuotas([]);
+        setTotalCuotas(0);
+        setMontoTotal(0);
       }
-      
-      setCuotas(cuotasData);
-      setTotalCuotas(totalCtas);
-      const totalFinal = valorInsc + totalCtas;
-      setMontoTotal(totalFinal);
-      console.log('💰 Monto total calculado:', totalFinal);
     } else {
-      console.error('❌ No se encontró la formación con ID:', selectedFormacion);
+      console.log('💰 No hay formación seleccionada, reseteando costos');
+      setValorInscripcion(0);
+      setCuotas([]);
+      setTotalCuotas(0);
+      setMontoTotal(0);
     }
-  } else {
-    console.log('💰 No hay formación seleccionada, reseteando costos');
-    setValorInscripcion(0);
-    setCuotas([]);
-    setTotalCuotas(0);
-    setMontoTotal(0);
-  }
-}, [selectedFormacion, formaciones]);
+  }, [selectedFormacion, formaciones]);
 
   useEffect(() => {
     const q = searchText.trim().toLowerCase();
@@ -333,16 +340,52 @@ useEffect(() => {
     setDetailModalVisible(true);
   };
 
+  // Función para verificar que los IDs existen - VERSIÓN MEJORADA
+  const verificarIDs = (): boolean => {
+    const tipoId = selectedTipoFormacion;
+    const formacionId = selectedFormacion;
+    const cohorteId = selectedCohorte;
+    
+    console.log('🔍 VERIFICACIÓN DE IDs:');
+    console.log('Tipo ID seleccionado:', tipoId);
+    console.log('Formación ID seleccionado:', formacionId);
+    console.log('Cohorte ID seleccionado:', cohorteId);
+    
+    console.log('📚 Tipos disponibles:', tiposFormacion.map(t => t.idTF));
+    console.log('🎓 Formaciones disponibles:', formaciones.map(f => f.idFormacion));
+    console.log('👥 Cohortes disponibles:', cohortes.map(c => c.idCohorte));
+
+    const tipoExists = tiposFormacion.some(t => t.idTF === tipoId);
+    const formacionExists = formaciones.some(f => f.idFormacion === formacionId);
+    const cohorteExists = cohortes.some(c => c.idCohorte === cohorteId);
+    
+    console.log('Tipo existe:', tipoExists);
+    console.log('Formación existe:', formacionExists);
+    console.log('Cohorte existe:', cohorteExists);
+
+    if (!tipoExists || !formacionExists || !cohorteExists) {
+      Alert.alert(
+        'Error en selección',
+        `Los elementos seleccionados no son válidos. Por favor, seleccione opciones de la lista.\n\n` +
+        `Tipo formación: ${tipoExists ? '✅' : '❌'}\n` +
+        `Formación: ${formacionExists ? '✅' : '❌'}\n` +
+        `Cohorte: ${cohorteExists ? '✅' : '❌'}`
+      );
+      return false;
+    }
+    
+    return true;
+  };
+
   const validateCreateForm = () => {
     const errs: Record<string,string> = {};
-    if (selectedTipoFormacion === null || selectedTipoFormacion === undefined) 
+    if (selectedTipoFormacion === null) 
       errs.tipoFormacion = 'Seleccione un tipo de formación';
-    if (selectedFormacion === null || selectedFormacion === undefined) 
+    if (selectedFormacion === null) 
       errs.formacion = 'Seleccione una formación';
-    if (selectedCohorte === null || selectedCohorte === undefined) 
+    if (selectedCohorte === null) 
       errs.cohorte = 'Seleccione una cohorte';
     
-    // Validación MÁS FLEXIBLE: No bloquear si no hay userInfo completo
     if (!userInfo && !user) {
       errs.usuario = 'No se pudo obtener la información del usuario. Por favor, cierre sesión y vuelva a ingresar.';
     }
@@ -351,189 +394,125 @@ useEffect(() => {
     return Object.keys(errs).length === 0;
   };
 
-  // FUNCIÓN MEJORADA: Crear inscripción con mejor manejo de errores
-const handleCreateInscripcion = async () => {
-  console.log('🔐 VERIFICACIÓN COMPLETA DEL USUARIO:');
-  console.log('UserInfo:', userInfo);
-  console.log('AuthContext user:', user);
+  // FUNCIÓN MEJORADA: Crear inscripción
+  const handleCreateInscripcion = async () => {
+    console.log('🔐 VERIFICACIÓN COMPLETA DEL USUARIO:');
+    console.log('UserInfo:', userInfo);
+    console.log('AuthContext user:', user);
 
-  if (!validateCreateForm()) {
-    Alert.alert('Formulario inválido', 'Corrige los errores antes de continuar.');
-    return;
-  }
-
-  // ESTRATEGIA MÁS ROBUSTA: Obtener la cédula directamente de los tokens
-  let cedulaUsuario: string | null = null;
-  let idPersonaFinal: number | null = null;
-
-  try {
-    const tokens = await AsyncStorage.getItem('myapp-tokens');
-    if (tokens) {
-      const parsedTokens = JSON.parse(tokens);
-      const userData = parsedTokens.user;
-      cedulaUsuario = userData?.cedula;
-      console.log('✅ Cédula obtenida de tokens:', cedulaUsuario);
+    if (!validateCreateForm()) {
+      Alert.alert('Formulario inválido', 'Corrige los errores antes de continuar.');
+      return;
     }
-  } catch (error) {
-    console.error('Error obteniendo tokens:', error);
-  }
 
-  // Si tenemos userInfo, usarlo, sino usar solo la cédula
-  if (userInfo?.idPersona) {
-    idPersonaFinal = Number(userInfo.idPersona);
-    console.log('✅ Usando idPersona del userInfo:', idPersonaFinal);
-  } else if (cedulaUsuario) {
-    console.log('⚠️ No hay idPersona, usando solo cédula:', cedulaUsuario);
-  } else {
-    console.error('❌ NO SE PUDO OBTENER INFORMACIÓN VÁLIDA DEL USUARIO');
-    Alert.alert(
-      'Error de Identificación', 
-      'No se pudo identificar su usuario. Por favor, cierre sesión y vuelva a ingresar.'
-    );
-    return;
-  }
+    // Verificar IDs ANTES de continuar
+    if (!verificarIDs()) {
+      return;
+    }
 
-  // Función para verificar que los IDs existen
-const verificarIDs = () => {
-  const tipoExists = tiposFormacion.some(t => t.idTF === selectedTipoFormacion);
-  const formacionExists = formaciones.some(f => f.idFormacion === selectedFormacion);
-  const cohorteExists = cohortes.some(c => c.idCohorte === selectedCohorte);
-  
-  console.log('🔍 VERIFICACIÓN DE IDs:');
-  console.log('Tipo formación existe:', tipoExists, 'ID:', selectedTipoFormacion);
-  console.log('Formación existe:', formacionExists, 'ID:', selectedFormacion);
-  console.log('Cohorte existe:', cohorteExists, 'ID:', selectedCohorte);
-  
-  if (!tipoExists || !formacionExists || !cohorteExists) {
-    Alert.alert(
-      'Error en selección',
-      'Uno o más elementos seleccionados no existen. Por favor, recargue el formulario y vuelva a intentar.'
-    );
-    return false;
-  }
-  
-  return true;
-};
-
-
-  const idTF = Number(selectedTipoFormacion);
-  const idFormacion = Number(selectedFormacion);
-  const idCohorte = Number(selectedCohorte);
-
-  // Validación de IDs
-  if (isNaN(idTF) || isNaN(idFormacion) || isNaN(idCohorte)) {
-    Alert.alert('Error', 'Hay datos inválidos en el formulario.');
-    return;
-  }
-
-  setCreating(true);
-  try {
-    const estadoPago: 'PENDIENTE'|'PARCIAL'|'PAGADO' = 'PENDIENTE';
-
-    // FORMATO DE FECHA MEJORADO
-    const ahora = new Date();
-    const fechaFormateada = ahora.toISOString().replace('T', ' ').substring(0, 19);
-    
-    // PAYLOAD SIMPLIFICADO - solo campos esenciales
-    const payload: any = {
-      idPersona: idPersonaFinal,
-      idTF: idTF,
-      idFormacion: idFormacion,
-      idCohorte: idCohorte,
-      montoTotal: montoTotal,
-      montoPagado: 0,
-      estadoPago: estadoPago,
-      fechaInscripcion: fechaFormateada,
-    };
-
-    // En handleCreateInscripcion, justo después de las validaciones de IDs, agrega:
+    // Verificar montoTotal
     console.log('💰 VERIFICACIÓN FINAL DE MONTOS:');
     console.log('Valor inscripción:', valorInscripcion);
     console.log('Total cuotas:', totalCuotas);
     console.log('Monto total:', montoTotal);
 
-    // Validación CRÍTICA: montoTotal debe ser mayor a 0
     if (montoTotal <= 0) {
       Alert.alert(
         'Error en costos', 
         'El monto total debe ser mayor a 0. Verifique que la formación seleccionada tenga un costo configurado.'
       );
-      setCreating(false);
       return;
     }
 
-    console.log('📤 Enviando payload SIMPLIFICADO:', JSON.stringify(payload, null, 2));
+    let cedulaUsuario: string | null = null;
+    let idPersonaFinal: number | null = null;
 
-    const res = await api.post('/api/inscripcion/', payload);
-    
-    if (res.status === 201 || res.status === 200) {
-      Alert.alert('Éxito', 'Inscripción creada correctamente.');
-      setFormModalVisible(false);
-      resetForm();
-      await fetchInscripciones();
-    } else {
-      const message = res.data?.detail ?? JSON.stringify(res.data);
-      Alert.alert('Respuesta del servidor', String(message));
-    }
-  } catch (err: any) {
-    console.error('❌ ERROR DETALLADO EN handleCreateInscripcion:');
-    console.error('Status:', err.response?.status);
-    console.error('Headers:', err.response?.headers);
-    console.error('Data:', err.response?.data);
-    console.error('Config:', err.config?.data); // Esto muestra qué enviamos
-    
-    // MEJOR MANEJO DE ERRORES
-    if (err.response?.status === 500) {
-      // Error interno del servidor - mostrar mensaje más específico
-      let errorMessage = 'Error interno del servidor. ';
-      
-      // Intentar extraer información del error si está disponible
-      if (err.response.data) {
-        if (typeof err.response.data === 'string') {
-          if (err.response.data.includes('IntegrityError')) {
-            errorMessage += 'Error de integridad de datos. Verifique que los IDs existan.';
-          } else if (err.response.data.includes('ForeignKey')) {
-            errorMessage += 'Error de referencia. Uno de los IDs no existe en la base de datos.';
-          } else {
-            errorMessage += 'Contacte al administrador del sistema.';
-          }
-        } else if (err.response.data.detail) {
-          errorMessage += err.response.data.detail;
-        }
+    try {
+      const tokens = await AsyncStorage.getItem('myapp-tokens');
+      if (tokens) {
+        const parsedTokens = JSON.parse(tokens);
+        const userData = parsedTokens.user;
+        cedulaUsuario = userData?.cedula;
+        console.log('✅ Cédula obtenida de tokens:', cedulaUsuario);
       }
+    } catch (error) {
+      console.error('Error obteniendo tokens:', error);
+    }
+
+    if (userInfo?.idPersona) {
+      idPersonaFinal = Number(userInfo.idPersona);
+      console.log('✅ Usando idPersona del userInfo:', idPersonaFinal);
+    } else if (cedulaUsuario) {
+      console.log('⚠️ No hay idPersona, usando solo cédula:', cedulaUsuario);
+    } else {
+      console.error('❌ NO SE PUDO OBTENER INFORMACIÓN VÁLIDA DEL USUARIO');
+      Alert.alert(
+        'Error de Identificación', 
+        'No se pudo identificar su usuario. Por favor, cierre sesión y vuelva a ingresar.'
+      );
+      return;
+    }
+
+    const idTF = Number(selectedTipoFormacion);
+    const idFormacion = Number(selectedFormacion);
+    const idCohorte = Number(selectedCohorte);
+
+    if (isNaN(idTF) || isNaN(idFormacion) || isNaN(idCohorte)) {
+      Alert.alert('Error', 'Hay datos inválidos en el formulario.');
+      return;
+    }
+
+    setCreating(true);
+    try {
+      const estadoPago: 'PENDIENTE'|'PARCIAL'|'PAGADO' = 'PENDIENTE';
+
+      const ahora = new Date();
+      const fechaFormateada = ahora.toISOString().replace('T', ' ').substring(0, 19);
       
-      Alert.alert('Error del Servidor (500)', errorMessage);
-    } else if (err.response?.status === 400) {
-      // Error de validación
-      const errorData = err.response.data;
-      let errorMessage = 'Errores de validación:\n';
+      const payload: any = {
+        idPersona: idPersonaFinal,
+        idTF: idTF,
+        idFormacion: idFormacion,
+        idCohorte: idCohorte,
+        montoTotal: montoTotal,
+        montoPagado: 0,
+        estadoPago: estadoPago,
+        fechaInscripcion: fechaFormateada,
+      };
+
+      console.log('📤 Enviando payload CORREGIDO:', JSON.stringify(payload, null, 2));
+
+      const res = await api.post('/api/inscripcion/', payload);
       
-      if (typeof errorData === 'object') {
-        Object.keys(errorData).forEach(key => {
-          if (Array.isArray(errorData[key])) {
-            errorMessage += `• ${key}: ${errorData[key].join(', ')}\n`;
-          } else {
-            errorMessage += `• ${key}: ${errorData[key]}\n`;
-          }
-        });
+      if (res.status === 201 || res.status === 200) {
+        Alert.alert('Éxito', 'Inscripción creada correctamente.');
+        setFormModalVisible(false);
+        resetForm();
+        await fetchInscripciones();
       } else {
-        errorMessage = String(errorData);
+        const message = res.data?.detail ?? JSON.stringify(res.data);
+        Alert.alert('Respuesta del servidor', String(message));
       }
+    } catch (err: any) {
+      console.error('❌ ERROR EN handleCreateInscripcion:');
+      console.error('Status:', err.response?.status);
+      console.error('Data:', err.response?.data);
+      console.error('Config:', err.config?.data);
       
-      Alert.alert('Error de Validación (400)', errorMessage);
-    } else if (err.response?.status === 404) {
-      Alert.alert('Error', 'Endpoint no encontrado. Contacte al administrador.');
-    } else {
-      Alert.alert('Error', err.response?.data?.detail ?? err.message ?? 'Error desconocido');
-    }
-  } finally {
-    // Y en handleCreateInscripcion, llama a esta función:
-    if (!verificarIDs()) {
+      if (err.response?.status === 500) {
+        Alert.alert(
+          'Error del Servidor (500)', 
+          'Error interno del servidor. Contacte al administrador del sistema.'
+        );
+      } else if (err.response?.status === 400) {
+        Alert.alert('Error de Validación (400)', JSON.stringify(err.response.data));
+      } else {
+        Alert.alert('Error', err.response?.data?.detail ?? err.message ?? 'Error desconocido');
+      }
+    } finally {
       setCreating(false);
-      return;
     }
-  }
-};
+  };
 
   const resetForm = () => {
     setSelectedTipoFormacion(null);
@@ -770,7 +749,7 @@ const verificarIDs = () => {
                       {tiposFormacion.map(tf => (
                         <Picker.Item 
                           key={tf.idTF} 
-                          label={tf.nombreTipoFormacion} 
+                          label={`${tf.nombreTipoFormacion} (ID: ${tf.idTF})`} 
                           value={tf.idTF} 
                         />
                       ))}
@@ -801,7 +780,7 @@ const verificarIDs = () => {
                       {formacionesFiltradas.map(f => (
                         <Picker.Item 
                           key={f.idFormacion} 
-                          label={f.nombreFormacion} 
+                          label={`${f.nombreFormacion} (ID: ${f.idFormacion}) - $${f.valorInscripcion}`} 
                           value={f.idFormacion} 
                         />
                       ))}
@@ -824,7 +803,7 @@ const verificarIDs = () => {
                       {cohortes.map(c => (
                         <Picker.Item 
                           key={c.idCohorte} 
-                          label={c.nombreCohorte} 
+                          label={`${c.nombreCohorte} (ID: ${c.idCohorte})`} 
                           value={c.idCohorte} 
                         />
                       ))}

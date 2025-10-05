@@ -104,7 +104,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
             cedula: digits,
             nombres: personaRes.data.nombres || '',
             apellidos: personaRes.data.apellidos || '',
-            email: personaRes.data.email || '',
+            email: personaRes.data.correo || '',
             displayName: `${personaRes.data.nombres || ''} ${personaRes.data.apellidos || ''}`.trim()
           };
           console.log('[login] ✅ Información de usuario obtenida:', userInfo);
