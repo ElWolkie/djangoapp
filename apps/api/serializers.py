@@ -146,6 +146,17 @@ class InscripcionSerializer(serializers.ModelSerializer):
             return float(obj.saldoPendiente or 0.0)
         except Exception:
             return 0.0
+        
+    def create(self, validated_data):
+        print("🔄 Serializer.create() llamado")
+        print("🔄 validated_data:", validated_data)
+        try:
+            instance = super().create(validated_data)
+            print("✅ Instancia creada en serializer:", instance)
+            return instance
+        except Exception as e:
+            print("❌ Error en serializer.create():", str(e))
+            raise
 
 class RequisitoSerializer(serializers.ModelSerializer):
     class Meta:

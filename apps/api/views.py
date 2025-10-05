@@ -1,3 +1,5 @@
+import traceback
+from typing import Self
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -68,44 +70,67 @@ class InscripcionListCreate(generics.ListCreateAPIView):
 
     def create(self, request, *args, **kwargs):
         try:
+            print("=" * 50)
+            print("📥 INICIANDO CREACIÓN DE INSCRIPCIÓN")
             print("📥 Datos recibidos:", request.data)
+            print("📥 Tipo de datos:", type(request.data))
             
             data = request.data.copy()
+            print("📥 Datos copiados:", data)
             
-            # Asegurarnos de que los IDs sean enteros - USAR LOS CAMPOS CON _id
+            # Asegurarnos de que los IDs sean enteros
             for field in ['idPersona_id', 'idTF_id', 'idFormacion_id', 'idCohorte_id']:
                 if field in data:
+                    print(f"🔍 Procesando campo {field}: {data[field]} (tipo: {type(data[field])})")
                     try:
                         data[field] = int(data[field])
-                    except (ValueError, TypeError):
+                        print(f"✅ Campo {field} convertido a entero: {data[field]}")
+                    except (ValueError, TypeError) as conv_error:
+                        print(f"❌ Error convirtiendo {field}: {conv_error}")
                         return Response(
                             {"error": f"El campo {field} debe ser un número entero válido"},
                             status=status.HTTP_400_BAD_REQUEST
                         )
             
             # Si idPersona_id no viene, usar el del usuario autenticado
-            if 'idPersona_id' not in data and hasattr(request.user, 'idPersona'):
-                data['idPersona_id'] = request.user.idPersona.idPersona
+            if 'idPersona_id' not in data:
+                print("🔍 idPersona_id no encontrado en datos")
+                if hasattr(request.user, 'idPersona'):
+                    data['idPersona_id'] = request.user.idPersona.idPersona
+                    print(f"✅ idPersona_id obtenido del usuario: {data['idPersona_id']}")
+                else:
+                    print("❌ Usuario no tiene idPersona")
+            else:
+                print(f"✅ idPersona_id viene en request: {data['idPersona_id']}")
             
-            # Validar que existan las referencias - USAR LOS CAMPOS CON _id
+            # Validar que existan las referencias
+            print("🔍 Validando referencias...")
             try:
                 if 'idPersona_id' in data:
-                    Personas.objects.get(idPersona=data['idPersona_id'])
+                    persona = Personas.objects.get(idPersona=data['idPersona_id'])
+                    print(f"✅ Persona encontrada: {persona}")
                 if 'idTF_id' in data:
-                    TipoFormacion.objects.get(idTF=data['idTF_id'])
+                    tf = TipoFormacion.objects.get(idTF=data['idTF_id'])
+                    print(f"✅ TipoFormacion encontrado: {tf}")
                 if 'idFormacion_id' in data:
-                    Formacion.objects.get(idFormacion=data['idFormacion_id'])
+                    formacion = Formacion.objects.get(idFormacion=data['idFormacion_id'])
+                    print(f"✅ Formacion encontrada: {formacion}")
                 if 'idCohorte_id' in data:
-                    Cohorte.objects.get(idCohorte=data['idCohorte_id'])
+                    cohorte = Cohorte.objects.get(idCohorte=data['idCohorte_id'])
+                    print(f"✅ Cohorte encontrado: {cohorte}")
             except (Personas.DoesNotExist, TipoFormacion.DoesNotExist, 
                     Formacion.DoesNotExist, Cohorte.DoesNotExist) as e:
+                print(f"❌ Referencia no encontrada: {str(e)}")
                 return Response(
                     {"error": f"Referencia no encontrada: {str(e)}"},
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
+            print("🔍 Creando serializer...")
             serializer = self.get_serializer(data=data)
+            print("🔍 Validando serializer...")
             serializer.is_valid(raise_exception=True)
+            print("🔍 Ejecutando perform_create...")
             self.perform_create(serializer)
             
             print("✅ Inscripción creada exitosamente:", serializer.data)
@@ -113,18 +138,39 @@ class InscripcionListCreate(generics.ListCreateAPIView):
             return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
             
         except serializers.ValidationError as e:
-            print("❌ Error de validación:", e.detail)
+            print("❌ Error de validación del serializer:", e.detail)
             return Response(
                 {"error": "Error de validación", "details": e.detail},
                 status=status.HTTP_400_BAD_REQUEST
             )
         except Exception as e:
-            print("❌ Error al crear inscripción:", str(e))
+            print("❌ ERROR NO CONTROLADO al crear inscripción:")
+            print(f"   Tipo: {type(e).__name__}")
+            print(f"   Mensaje: {str(e)}")
+            print(f"   Traceback: {traceback.format_exc()}")
             print("📋 Datos que causaron el error:", request.data)
             return Response(
                 {"error": str(e), "details": "Error interno del servidor"}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+        # Agrega esto temporalmente en tu vista después de los prints
+    print("🧪 Probando con datos mínimos...")
+    test_data = {
+        "idPersona_id": 90000,
+        "idTF_id": 1, 
+        "idFormacion_id": 3,
+        "idCohorte_id": 1,
+        "montoTotal": 100,
+        "montoPagado": 0,
+        "estadoPago": "PENDIENTE",
+    }
+    test_serializer = Self.get_serializer(data=test_data)
+    if test_serializer.is_valid():
+        print("✅ Datos mínimos son válidos")
+        test_instance = test_serializer.save()
+        print("✅ Instancia de prueba creada:", test_instance.idInscripcion)
+    else:
+        print("❌ Datos mínimos inválidos:", test_serializer.errors)
 
 class RequisitoListCreate(generics.ListCreateAPIView):
     queryset = Requisito.objects.all()  # Usa el modelo Requisito
