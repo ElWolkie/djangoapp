@@ -89,11 +89,11 @@ class InscripcionSerializer(serializers.ModelSerializer):
     idFormacion = FormacionSerializer(read_only=True) 
     idCohorte = CohorteSerializer(read_only=True)
 
-    # Campos para escritura - usar IntegerField simple
-    idPersona_id = serializers.IntegerField()
-    idFormacion_id = serializers.IntegerField()
-    idCohorte_id = serializers.IntegerField()
-    idTF_id = serializers.IntegerField()
+    # Campos para escritura - usar los nombres directos del modelo
+    idPersona = serializers.IntegerField(write_only=True)
+    idFormacion = serializers.IntegerField(write_only=True)
+    idCohorte = serializers.IntegerField(write_only=True)
+    idTF = serializers.IntegerField(write_only=True)
 
     # exponemos montoTotal y saldoPendiente basados en las properties del modelo
     montoTotal = serializers.SerializerMethodField()
@@ -104,13 +104,9 @@ class InscripcionSerializer(serializers.ModelSerializer):
         fields = [
             'idInscripcion',
             'idPersona',
-            'idPersona_id',
             'idCohorte',
-            'idCohorte_id', 
             'idTF',
-            'idTF_id',
             'idFormacion',
-            'idFormacion_id',
             'fechaInscripcion',
             'estadoPago',
             'montoPagado',
@@ -136,10 +132,10 @@ class InscripcionSerializer(serializers.ModelSerializer):
         print("🔄 validated_data:", validated_data)
         
         # Extraer los campos de relación
-        id_persona = validated_data.pop('idPersona_id')
-        id_formacion = validated_data.pop('idFormacion_id')
-        id_cohorte = validated_data.pop('idCohorte_id')
-        id_tf = validated_data.pop('idTF_id')
+        id_persona = validated_data.pop('idPersona')
+        id_formacion = validated_data.pop('idFormacion')
+        id_cohorte = validated_data.pop('idCohorte')
+        id_tf = validated_data.pop('idTF')
         
         # Crear la instancia
         inscripcion = Inscripcion.objects.create(

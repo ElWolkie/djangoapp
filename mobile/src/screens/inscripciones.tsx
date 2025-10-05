@@ -634,18 +634,18 @@ export default function PantallaInscripciones() {
       const fechaFormateada = ahora.toISOString().replace('T', ' ').substring(0, 19);
       
       // PAYLOAD CORREGIDO según el error del backend
-      const payload = {
-          "idPersona_id": userInfo?.idPersona || 90000,
-          "idTF_id": selectedTipoFormacion,  
-          "idFormacion_id": selectedFormacion,
-          "idCohorte_id": selectedCohorte,
+        const payload = {
+          "idPersona": 90000,           // Cambiado de idPersona_id a idPersona
+          "idTF": selectedTipoFormacion, // Cambiado de idTF_id a idTF
+          "idFormacion": selectedFormacion, // Cambiado de idFormacion_id a idFormacion
+          "idCohorte": selectedCohorte, // Cambiado de idCohorte_id a idCohorte
           "montoTotal": montoTotal,
           "montoPagado": 0,
           "estadoPago": "PENDIENTE",
           "fechaInscripcion": new Date().toISOString().slice(0, 19).replace('T', ' ')
         };
 
-        console.log("📤 Enviando payload:", payload);
+        console.log("📤 Enviando payload CORREGIDO:", payload);
 
       console.log('📤 Enviando payload SIMPLIFICADO:', JSON.stringify(payload, null, 2));
 

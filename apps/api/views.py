@@ -75,8 +75,8 @@ class InscripcionListCreate(generics.ListCreateAPIView):
             
             data = request.data.copy()
             
-            # Asegurarnos de que los IDs sean enteros
-            for field in ['idPersona_id', 'idTF_id', 'idFormacion_id', 'idCohorte_id']:
+            # Asegurarnos de que los IDs sean enteros - USAR LOS NOMBRES DIRECTOS
+            for field in ['idPersona', 'idTF', 'idFormacion', 'idCohorte']:
                 if field in data:
                     try:
                         data[field] = int(data[field])
@@ -88,20 +88,20 @@ class InscripcionListCreate(generics.ListCreateAPIView):
                             status=status.HTTP_400_BAD_REQUEST
                         )
             
-            # Si idPersona_id no viene, usar el del usuario autenticado
-            if 'idPersona_id' not in data and hasattr(request.user, 'idPersona'):
-                data['idPersona_id'] = request.user.idPersona.idPersona
+            # Si idPersona no viene, usar el del usuario autenticado
+            if 'idPersona' not in data and hasattr(request.user, 'idPersona'):
+                data['idPersona'] = request.user.idPersona.idPersona
             
-            # Validar que existan las referencias
+            # Validar que existan las referencias - USAR LOS NOMBRES DIRECTOS
             try:
-                if 'idPersona_id' in data:
-                    Personas.objects.get(idPersona=data['idPersona_id'])
-                if 'idTF_id' in data:
-                    TipoFormacion.objects.get(idTF=data['idTF_id'])
-                if 'idFormacion_id' in data:
-                    Formacion.objects.get(idFormacion=data['idFormacion_id'])
-                if 'idCohorte_id' in data:
-                    Cohorte.objects.get(idCohorte=data['idCohorte_id'])
+                if 'idPersona' in data:
+                    Personas.objects.get(idPersona=data['idPersona'])
+                if 'idTF' in data:
+                    TipoFormacion.objects.get(idTF=data['idTF'])
+                if 'idFormacion' in data:
+                    Formacion.objects.get(idFormacion=data['idFormacion'])
+                if 'idCohorte' in data:
+                    Cohorte.objects.get(idCohorte=data['idCohorte'])
             except (Personas.DoesNotExist, TipoFormacion.DoesNotExist, 
                     Formacion.DoesNotExist, Cohorte.DoesNotExist) as e:
                 print(f"❌ Referencia no encontrada: {str(e)}")
