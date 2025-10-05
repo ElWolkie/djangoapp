@@ -497,7 +497,6 @@
 </div>
 
 <!-- MODALS (preservados tal cual, con small tweaks de clases) -->
-
 <!-- Modal para seleccionar Persona -->
 <div class="modal fade" id="personaModal" tabindex="-1" role="dialog" aria-labelledby="personaModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
@@ -548,7 +547,7 @@
           </table>
         </div>
         <!-- Contenedor para la paginación -->
-        <div class="pagination-container d-flex justify-content-center mt-3"></div>
+        <div class="pagination-container d-flex justify-content-center mt-3" id="paginationPersonas"></div>
         <p id="mensajeSinRegistrosPersona" class="text-center text-muted my-4" style="display:none;">
           <i class="fas fa-info-circle mr-2"></i> No se encontraron registros
         </p>
@@ -606,7 +605,7 @@
           </table>
         </div>
         <!-- Contenedor para la paginación -->
-        <div class="pagination-container d-flex justify-content-center mt-3"></div>
+        <div class="pagination-container d-flex justify-content-center mt-3" id="paginationEmpresas"></div>
         <p id="mensajeSinRegistrosEmpresa" class="text-center text-muted my-4" style="display:none;">
           <i class="fas fa-info-circle mr-2"></i> No se encontraron registros
         </p>
@@ -672,8 +671,8 @@
           </table>
         </div>
         <!-- Contenedor para la paginación -->
-        <div class="pagination-container d-flex justify-content-center mt-3"></div>
-        <p id="mensajeSinRegistrosCuota" class="text-center text-muted my-4" style="display:none;">
+        <div class="pagination-container d-flex justify-content-center mt-3" id="paginationCuotas"></div>
+        <p id="mensajeSinRegistrosCuota" class="text-center text-muted my-4" style="display:none;"></p>
           <i class="fas fa-info-circle mr-2"></i> No se encontraron registros
         </p>
       </div>
@@ -736,7 +735,7 @@
           </table>
         </div>
         <!-- Contenedor para la paginación -->
-        <div class="pagination-container d-flex justify-content-center mt-3"></div>
+        <div class="pagination-container d-flex justify-content-center mt-3" id="paginationInscripciones"></div>
         <p id="mensajeSinRegistrosInscripcion" class="text-center text-muted my-4" style="display:none;">
           <i class="fas fa-info-circle mr-2"></i> No se encontraron registros
         </p>
@@ -802,7 +801,7 @@
           </table>
         </div>
         <!-- Contenedor para la paginación -->
-        <div class="pagination-container d-flex justify-content-center mt-3"></div>
+        <div class="pagination-container d-flex justify-content-center mt-3" id="paginationHonorarios"></div>
         <p id="mensajeSinRegistrosHonorario" class="text-center text-muted my-4" style="display:none;">
           <i class="fas fa-info-circle mr-2"></i> No se encontraron registros
         </p>
@@ -864,7 +863,7 @@
           </table>
         </div>
         <!-- Contenedor para la paginación -->
-        <div class="pagination-container d-flex justify-content-center mt-3"></div>
+        <div class="pagination-container d-flex justify-content-center mt-3" id="paginationSolicitudes"></div>
         <p id="mensajeSinRegistrosSolicitud" class="text-center text-muted my-4" style="display:none;">
           <i class="fas fa-info-circle mr-2"></i> No se encontraron registros
         </p>
@@ -875,6 +874,7 @@
     </div>
   </div>
 </div>
+
 
 <!-- Plan de cuenta (Debe) -->
 <div class="modal fade" id="planCuentaDebeModal" tabindex="-1" role="dialog" aria-labelledby="planCuentaDebeModalLabel" aria-hidden="true">
@@ -2018,6 +2018,130 @@ document.addEventListener('DOMContentLoaded', function () {
     // Aplicar validación visual después de cargar parámetros
     setTimeout(aplicarValidacionVisual, 150);
   }
+});
+</script>
+
+
+<script>
+/**
+ * Utilidad para paginación y búsqueda de tablas de selección en modales.
+ * Uso: llamar setupTableSearchAndPagination({tableId, searchInputId, paginationId, mensajeSinRegistrosId, rowsPerPage})
+ */
+function setupTableSearchAndPagination({tableId, searchInputId, paginationId, mensajeSinRegistrosId, rowsPerPage=10}) {
+  const table = document.getElementById(tableId);
+  const searchInput = document.getElementById(searchInputId);
+  const pagination = document.getElementById(paginationId);
+  const mensajeSinRegistros = document.getElementById(mensajeSinRegistrosId);
+
+  if (!table || !searchInput || !pagination) return;
+
+  let currentPage = 1;
+  let filteredRows = [];
+
+  function filterRows() {
+    const filter = searchInput.value.trim().toUpperCase();
+    const allRows = Array.from(table.tBodies[0].rows);
+    filteredRows = allRows.filter(row => {
+      return Array.from(row.cells).some(cell =>
+        cell.textContent.toUpperCase().indexOf(filter) > -1
+      );
+    });
+    allRows.forEach(row => row.style.display = 'none');
+    filteredRows.forEach(row => row.style.display = '');
+    currentPage = 1;
+    displayRows();
+    setupPagination();
+    if (mensajeSinRegistros) {
+      mensajeSinRegistros.style.display = filteredRows.length === 0 ? 'block' : 'none';
+    }
+  }
+
+  function displayRows() {
+    filteredRows.forEach((row, idx) => {
+      row.style.display = (idx >= (currentPage-1)*rowsPerPage && idx < currentPage*rowsPerPage) ? '' : 'none';
+    });
+  }
+
+  function setupPagination() {
+    pagination.innerHTML = '';
+    const totalPages = Math.ceil(filteredRows.length / rowsPerPage) || 1;
+
+    const createPageItem = (label, page, disabled, active) => {
+      const li = document.createElement('li');
+      li.className = `page-item${disabled ? ' disabled' : ''}${active ? ' active' : ''}`;
+      const a = document.createElement('a');
+      a.className = 'page-link';
+      a.href = '#';
+      a.innerHTML = label;
+      a.addEventListener('click', e => {
+        e.preventDefault();
+        if (!disabled && currentPage !== page) {
+          currentPage = page;
+          displayRows();
+          setupPagination();
+        }
+      });
+      li.appendChild(a);
+      return li;
+    };
+
+    const ul = document.createElement('ul');
+    ul.className = 'pagination';
+
+    ul.appendChild(createPageItem('&laquo;', Math.max(1, currentPage-1), currentPage === 1, false));
+    for (let i = 1; i <= totalPages; i++) {
+      ul.appendChild(createPageItem(i, i, false, i === currentPage));
+    }
+    ul.appendChild(createPageItem('&raquo;', Math.min(totalPages, currentPage+1), currentPage === totalPages, false));
+
+    pagination.appendChild(ul);
+  }
+
+  searchInput.addEventListener('input', filterRows);
+
+  // Inicialización
+  filteredRows = Array.from(table.tBodies[0].rows);
+  filterRows();
+}
+
+// Inicializar para cada tabla/modal
+document.addEventListener('DOMContentLoaded', function() {
+  setupTableSearchAndPagination({
+    tableId: 'tablaPersonas',
+    searchInputId: 'searchPersonaInput',
+    paginationId: 'paginationPersonas',
+    mensajeSinRegistrosId: 'mensajeSinRegistrosPersona'
+  });
+  setupTableSearchAndPagination({
+    tableId: 'tablaEmpresas',
+    searchInputId: 'searchEmpresaInput',
+    paginationId: 'paginationEmpresas',
+    mensajeSinRegistrosId: 'mensajeSinRegistrosEmpresa'
+  });
+  setupTableSearchAndPagination({
+    tableId: 'tablaCuotas',
+    searchInputId: 'searchCuotaInput',
+    paginationId: 'paginationCuotas',
+    mensajeSinRegistrosId: 'mensajeSinRegistrosCuota'
+  });
+  setupTableSearchAndPagination({
+    tableId: 'tablaInscripciones',
+    searchInputId: 'searchInscripcionInput',
+    paginationId: 'paginationInscripciones',
+    mensajeSinRegistrosId: 'mensajeSinRegistrosInscripcion'
+  });
+  setupTableSearchAndPagination({
+    tableId: 'tablaHonorarios',
+    searchInputId: 'searchHonorarioInput',
+    paginationId: 'paginationHonorarios',
+    mensajeSinRegistrosId: 'mensajeSinRegistrosHonorario'
+  });
+  setupTableSearchAndPagination({
+    tableId: 'tablaSolicitudes',
+    searchInputId: 'searchSolicitudInput',
+    paginationId: 'paginationSolicitudes',
+    mensajeSinRegistrosId: 'mensajeSinRegistrosSolicitud'
+  });
 });
 </script>
 {% endblock javascripts %}
