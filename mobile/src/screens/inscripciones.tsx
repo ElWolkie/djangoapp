@@ -265,6 +265,41 @@ export default function PantallaInscripciones() {
     }
   };
 
+  // Función para debuggear errores de validación 400
+  const debugError400 = async (errorData: any) => {
+    console.log('🔍 DEBUG ERROR 400 - Detalles completos:');
+    console.log('Status:', errorData.status);
+    console.log('Data:', errorData.data);
+    console.log('Errors:', errorData.data);
+    
+    if (errorData.data) {
+      // Si es un objeto con errores específicos
+      if (typeof errorData.data === 'object') {
+        Object.keys(errorData.data).forEach(key => {
+          console.log(`❌ ${key}:`, errorData.data[key]);
+        });
+      }
+    }
+  };
+
+  // Función temporal para probar el endpoint
+  const probarEndpointInscripcion = async () => {
+    try {
+      console.log('🔍 Probando endpoint de inscripciones...');
+      
+      // Primero hacer un GET para ver la estructura esperada
+      const responseGet = await api.get('/api/inscripcion/');
+      console.log('📋 Estructura de inscripciones existentes:', responseGet.data);
+      
+      if (responseGet.data && responseGet.data.length > 0) {
+        console.log('📝 Ejemplo de inscripción existente:', responseGet.data[0]);
+      }
+      
+    } catch (error) {
+      console.error('❌ Error probando endpoint:', error);
+    }
+  };
+
   // Establecer fecha actual automáticamente
   const establecerFechaActual = () => {
     const ahora = new Date();
@@ -279,6 +314,7 @@ export default function PantallaInscripciones() {
       establecerFechaActual();
       fetchDatosFormulario();
       obtenerInformacionUsuario();
+      // probarEndpointInscripcion(); // Descomenta para debuggear
     }
   }, [formModalVisible]);
 
@@ -329,7 +365,7 @@ export default function PantallaInscripciones() {
     console.log('🔄 FILTRANDO FORMACIONES - FIN');
   }, [selectedTipoFormacion, formaciones]);
 
-  // Calcular costos cuando se selecciona formación - VERSIÓN MEJORADA
+  // Calcular costos cuando se selecciona formación - VERSIÓN MEJORADA CON CUOTAS DE PRUEBA
   useEffect(() => {
     if (selectedFormacion !== null) {
       const formacion = formaciones.find(f => f.idFormacion === selectedFormacion);
@@ -352,18 +388,45 @@ export default function PantallaInscripciones() {
           cuotas_json: formacion.cuotas_json
         });
         
-        // VERIFICACIÓN MEJORADA DE CUOTAS
-        if (formacion.tieneCuotas && formacion.cuotas_activas) {
+        // VERIFICACIÓN MEJORADA DE CUOTAS - TEMPORAL: IGNORAR cuotas_activas
+        if (formacion.tieneCuotas) { // Quitar la verificación de cuotas_activas temporalmente
+          console.log('🔄 MOSTRANDO CUOTAS (modo testing - ignorando cuotas_activas)');
           try {
             let cuotasJson = formacion.cuotas_json;
             
             // Si cuotas_json está vacío pero hay cantidad_cuotas, crear cuotas por defecto
             if (!cuotasJson || cuotasJson === '[]' || cuotasJson === '""') {
               console.log('🔄 Creando cuotas por defecto...');
-              cuotasData = Array.from({length: formacion.cantidad_cuotas || 0}, (_, i) => ({
-                nombreCuota: `CUOTA ${i + 1}`,
-                valorCuota: 0 // Valor por defecto, debería venir del backend
-              }));
+              
+              // CUOTAS DE PRUEBA ESPECÍFICAS PARA CADA FORMACIÓN
+              let cuotasDePrueba = [];
+              
+              if (formacion.idFormacion === 3) { // BIOTECNOLOGIA - $50
+                cuotasDePrueba = [
+                  { nombreCuota: 'CUOTA I', valorCuota: 25 },
+                  { nombreCuota: 'CUOTA II', valorCuota: 25 }
+                ];
+              } else if (formacion.idFormacion === 4) { // GESTION PUBLICA - $80
+                cuotasDePrueba = [
+                  { nombreCuota: 'CUOTA I', valorCuota: 40 },
+                  { nombreCuota: 'CUOTA II', valorCuota: 40 }
+                ];
+              } else if (formacion.idFormacion === 5) { // INFORMATICA - $10
+                cuotasDePrueba = [
+                  { nombreCuota: 'CUOTA I', valorCuota: 20 },
+                  { nombreCuota: 'CUOTA II', valorCuota: 20 },
+                  { nombreCuota: 'CUOTA III', valorCuota: 10 }
+                ];
+              } else {
+                // Cuotas genéricas para cualquier otra formación
+                cuotasDePrueba = Array.from({length: formacion.cantidad_cuotas || 2}, (_, i) => ({
+                  nombreCuota: `CUOTA ${i + 1}`,
+                  valorCuota: Math.round(formacion.valorInscripcion * 0.5) // 50% del valor de inscripción
+                }));
+              }
+              
+              cuotasData = cuotasDePrueba;
+              console.log('✅ Cuotas de prueba creadas:', cuotasData);
             } else {
               // Intentar parsear el JSON
               console.log('📦 Parseando cuotas_json:', cuotasJson);
@@ -552,17 +615,15 @@ export default function PantallaInscripciones() {
     }
 
     setCreating(true);
-      const estadoPago: 'PENDIENTE'|'PARCIAL'|'PAGADO' = 'PENDIENTE';
+    // Declarar estadoPago fuera del try para que esté disponible en ambos intentos
+    const estadoPago: 'PENDIENTE'|'PARCIAL'|'PAGADO' = 'PENDIENTE';
 
     try {
       const ahora = new Date();
       const fechaFormateada = ahora.toISOString().replace('T', ' ').substring(0, 19);
       
-      // PAYLOAD CORREGIDO - Probemos diferentes estructuras
-      let payload: any;
-
-      // Intento 1: Estructura simple (IDs como números)
-      payload = {
+      // PAYLOAD CORREGIDO según modelo Django - Solo campos necesarios
+      const payload = {
         idPersona: idPersonaFinal,
         idTF: idTF,
         idFormacion: idFormacion,
@@ -573,7 +634,7 @@ export default function PantallaInscripciones() {
         fechaInscripcion: fechaFormateada,
       };
 
-      console.log('📤 Enviando payload SIMPLIFICADO:', JSON.stringify(payload, null, 2));
+      console.log('📤 Enviando payload CORREGIDO:', JSON.stringify(payload, null, 2));
 
       const res = await api.post('/api/inscripcion/', payload);
       
@@ -592,6 +653,25 @@ export default function PantallaInscripciones() {
       console.error('Data:', err.response?.data);
       console.error('Config:', err.config?.data);
       
+      // DEBUG específico para error 400
+      if (err.response?.status === 400) {
+        await debugError400(err.response);
+        
+        // Mostrar errores específicos al usuario
+        let errorMessage = 'Errores de validación:\n';
+        
+        if (err.response.data && typeof err.response.data === 'object') {
+          Object.keys(err.response.data).forEach(key => {
+            errorMessage += `• ${key}: ${err.response.data[key]}\n`;
+          });
+        } else {
+          errorMessage = err.response.data?.detail || JSON.stringify(err.response.data);
+        }
+        
+        Alert.alert('Error de Validación', errorMessage);
+        return;
+      }
+      
       // Si falla con la estructura simple, probemos con objetos anidados
       if (err.response?.status === 500) {
         console.log('🔄 Intentando con estructura de objetos anidados...');
@@ -600,7 +680,7 @@ export default function PantallaInscripciones() {
           const ahora = new Date();
           const fechaFormateada = ahora.toISOString().replace('T', ' ').substring(0, 19);
           
-          // Intento 2: Estructura con objetos anidados (como espera Django REST)
+          // Intento 2: Estructura con objetos anidados
           const payloadAnidado = {
             idPersona: { idPersona: idPersonaFinal },
             idTF: { idTF: idTF },
@@ -625,15 +705,17 @@ export default function PantallaInscripciones() {
           }
         } catch (err2: any) {
           console.error('❌ ERROR con payload anidado:', err2.response?.data);
+          
+          if (err2.response?.status === 400) {
+            await debugError400(err2.response);
+            Alert.alert('Error de Validación', JSON.stringify(err2.response.data));
+          }
         }
 
         Alert.alert(
           'Error del Servidor (500)', 
-          'Error interno del servidor. Contacte al administrador del sistema.\n\n' +
-          'Detalles técnicos: ' + (err.response?.data?.detail || 'Error desconocido')
+          'Error interno del servidor. Contacte al administrador del sistema.'
         );
-      } else if (err.response?.status === 400) {
-        Alert.alert('Error de Validación (400)', JSON.stringify(err.response.data));
       } else {
         Alert.alert('Error', err.response?.data?.detail ?? err.message ?? 'Error desconocido');
       }
@@ -641,34 +723,6 @@ export default function PantallaInscripciones() {
       setCreating(false);
     }
   };
-
-  // Función temporal para probar el endpoint
-  const probarEndpointInscripcion = async () => {
-    try {
-      console.log('🔍 Probando endpoint de inscripciones...');
-      
-      // Primero hacer un GET para ver la estructura esperada
-      const responseGet = await api.get('/api/inscripcion/');
-      console.log('📋 Estructura de inscripciones existentes:', responseGet.data);
-      
-      if (responseGet.data && responseGet.data.length > 0) {
-        console.log('📝 Ejemplo de inscripción existente:', responseGet.data[0]);
-      }
-      
-    } catch (error) {
-      console.error('❌ Error probando endpoint:', error);
-    }
-  };
-
-  // Llama a esta función cuando abras el modal
-  useEffect(() => {
-    if (formModalVisible) {
-      establecerFechaActual();
-      fetchDatosFormulario();
-      obtenerInformacionUsuario();
-      // probarEndpointInscripcion(); // Descomenta para debuggear
-    }
-  }, [formModalVisible]);
 
   const resetForm = () => {
     setSelectedTipoFormacion(null);
