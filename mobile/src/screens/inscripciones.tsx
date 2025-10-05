@@ -282,24 +282,6 @@ export default function PantallaInscripciones() {
     }
   };
 
-  // Función temporal para probar el endpoint
-  const probarEndpointInscripcion = async () => {
-    try {
-      console.log('🔍 Probando endpoint de inscripciones...');
-      
-      // Primero hacer un GET para ver la estructura esperada
-      const responseGet = await api.get('/api/inscripcion/');
-      console.log('📋 Estructura de inscripciones existentes:', responseGet.data);
-      
-      if (responseGet.data && responseGet.data.length > 0) {
-        console.log('📝 Ejemplo de inscripción existente:', responseGet.data[0]);
-      }
-      
-    } catch (error) {
-      console.error('❌ Error probando endpoint:', error);
-    }
-  };
-
   // Establecer fecha actual automáticamente
   const establecerFechaActual = () => {
     const ahora = new Date();
@@ -314,7 +296,6 @@ export default function PantallaInscripciones() {
       establecerFechaActual();
       fetchDatosFormulario();
       obtenerInformacionUsuario();
-      // probarEndpointInscripcion(); // Descomenta para debuggear
     }
   }, [formModalVisible]);
 
@@ -365,106 +346,95 @@ export default function PantallaInscripciones() {
     console.log('🔄 FILTRANDO FORMACIONES - FIN');
   }, [selectedTipoFormacion, formaciones]);
 
-  // Calcular costos cuando se selecciona formación - VERSIÓN MEJORADA CON CUOTAS DE PRUEBA
-  useEffect(() => {
-    if (selectedFormacion !== null) {
-      const formacion = formaciones.find(f => f.idFormacion === selectedFormacion);
-      console.log('💰 Formación seleccionada para cálculos:', formacion);
+  // CALCULAR COSTOS CON CUOTAS REALES - VERSIÓN CORREGIDA
+  // CALCULAR COSTOS CON CUOTAS REALES - VERSIÓN CORREGIDA
+useEffect(() => {
+  if (selectedFormacion !== null) {
+    const formacion = formaciones.find(f => f.idFormacion === selectedFormacion);
+    console.log('💰 Formación seleccionada para cálculos:', formacion);
+    
+    if (formacion) {
+      console.log('💰 Calculando costos para:', formacion.nombreFormacion);
+      const valorInsc = Number(formacion.valorInscripcion) || 0;
+      console.log('💰 Valor inscripción:', valorInsc);
       
-      if (formacion) {
-        console.log('💰 Calculando costos para:', formacion.nombreFormacion);
-        const valorInsc = Number(formacion.valorInscripcion) || 0;
-        console.log('💰 Valor inscripción:', valorInsc);
-        
-        setValorInscripcion(valorInsc);
-        
-        let cuotasData: Cuota[] = [];
-        let totalCtas = 0;
-        
-        console.log('📋 Información de cuotas:', {
-          tieneCuotas: formacion.tieneCuotas,
-          cuotas_activas: formacion.cuotas_activas,
-          cantidad_cuotas: formacion.cantidad_cuotas,
-          cuotas_json: formacion.cuotas_json
-        });
-        
-        // VERIFICACIÓN MEJORADA DE CUOTAS - TEMPORAL: IGNORAR cuotas_activas
-        if (formacion.tieneCuotas) { // Quitar la verificación de cuotas_activas temporalmente
-          console.log('🔄 MOSTRANDO CUOTAS (modo testing - ignorando cuotas_activas)');
-          try {
-            let cuotasJson = formacion.cuotas_json;
+      setValorInscripcion(valorInsc);
+      
+      let cuotasData: Cuota[] = [];
+      let totalCtas = 0;
+      
+      console.log('📋 Información de cuotas REALES:', {
+        tieneCuotas: formacion.tieneCuotas,
+        cuotas_activas: formacion.cuotas_activas,
+        cantidad_cuotas: formacion.cantidad_cuotas,
+        cuotas_json: formacion.cuotas_json
+      });
+      
+      // PROCESAR CUOTAS REALES DEL BACKEND
+      if (formacion.tieneCuotas && formacion.cuotas_activas) {
+        console.log('🔄 PROCESANDO CUOTAS REALES DEL BACKEND');
+        try {
+          let cuotasJson = formacion.cuotas_json;
+          
+          // Verificar si hay cuotas_json válido
+          if (cuotasJson && cuotasJson !== '[]' && cuotasJson !== '""' && cuotasJson !== 'null') {
+            console.log('📦 Parseando cuotas_json del backend:', cuotasJson);
             
-            // Si cuotas_json está vacío pero hay cantidad_cuotas, crear cuotas por defecto
-            if (!cuotasJson || cuotasJson === '[]' || cuotasJson === '""') {
-              console.log('🔄 Creando cuotas por defecto...');
+            // Parsear el JSON de cuotas
+            const cuotasParseadas = JSON.parse(cuotasJson);
+            
+            // Validar y mapear las cuotas
+            if (Array.isArray(cuotasParseadas)) {
+              cuotasData = cuotasParseadas.map((cuota: any, index: number) => {
+                // Asegurar que cada cuota tenga la estructura correcta
+                return {
+                  nombreCuota: cuota.nombreCuota || cuota.nombre || `Cuota ${index + 1}`,
+                  valorCuota: Number(cuota.valorCuota || cuota.valor || cuota.monto || 0)
+                };
+              }).filter((cuota: Cuota) => cuota.valorCuota > 0); // Filtrar cuotas con valor > 0
               
-              // CUOTAS DE PRUEBA ESPECÍFICAS PARA CADA FORMACIÓN
-              let cuotasDePrueba = [];
-              
-              if (formacion.idFormacion === 3) { // BIOTECNOLOGIA - $50
-                cuotasDePrueba = [
-                  { nombreCuota: 'CUOTA I', valorCuota: 25 },
-                  { nombreCuota: 'CUOTA II', valorCuota: 25 }
-                ];
-              } else if (formacion.idFormacion === 4) { // GESTION PUBLICA - $80
-                cuotasDePrueba = [
-                  { nombreCuota: 'CUOTA I', valorCuota: 40 },
-                  { nombreCuota: 'CUOTA II', valorCuota: 40 }
-                ];
-              } else if (formacion.idFormacion === 5) { // INFORMATICA - $10
-                cuotasDePrueba = [
-                  { nombreCuota: 'CUOTA I', valorCuota: 20 },
-                  { nombreCuota: 'CUOTA II', valorCuota: 20 },
-                  { nombreCuota: 'CUOTA III', valorCuota: 10 }
-                ];
-              } else {
-                // Cuotas genéricas para cualquier otra formación
-                cuotasDePrueba = Array.from({length: formacion.cantidad_cuotas || 2}, (_, i) => ({
-                  nombreCuota: `CUOTA ${i + 1}`,
-                  valorCuota: Math.round(formacion.valorInscripcion * 0.5) // 50% del valor de inscripción
-                }));
-              }
-              
-              cuotasData = cuotasDePrueba;
-              console.log('✅ Cuotas de prueba creadas:', cuotasData);
+              console.log('✅ Cuotas reales procesadas:', cuotasData);
             } else {
-              // Intentar parsear el JSON
-              console.log('📦 Parseando cuotas_json:', cuotasJson);
-              cuotasData = JSON.parse(cuotasJson);
+              console.warn('⚠️ cuotas_json no es un array válido:', cuotasParseadas);
             }
-            
-            // Calcular total de cuotas - VERSIÓN CORREGIDA
-            totalCtas = cuotasData.reduce((sum, cuota) => {
-              const valor = Number(cuota.valorCuota || 0);
-              console.log(`📊 Cuota ${cuota.nombreCuota}: ${valor}`);
-              return sum + valor;
-            }, 0);
-            
-            console.log('✅ Cuotas procesadas:', cuotasData);
-            console.log('💰 Total cuotas calculado:', totalCtas);
-            
-          } catch (e) {
-            console.error('❌ Error parsing cuotas JSON:', e);
-            console.log('📋 cuotas_json que causó el error:', formacion.cuotas_json);
+          } else {
+            console.log('ℹ️ No hay cuotas configuradas en el backend');
           }
-        } else {
-          console.log('ℹ️ Formación no tiene cuotas activas');
+          
+        } catch (e) {
+          console.error('❌ Error procesando cuotas reales:', e);
+          console.log('📋 cuotas_json que causó el error:', formacion.cuotas_json);
         }
-        
-        setCuotas(cuotasData);
-        setTotalCuotas(totalCtas);
-        const totalFinal = valorInsc + totalCtas;
-        setMontoTotal(totalFinal);
-        console.log('💰 RESUMEN FINAL - Inscripción:', valorInsc, 'Cuotas:', totalCtas, 'Total:', totalFinal);
+      } else {
+        console.log('ℹ️ Formación no tiene cuotas activas configuradas');
       }
-    } else {
-      console.log('💰 No hay formación seleccionada, reseteando costos');
-      setValorInscripcion(0);
-      setCuotas([]);
-      setTotalCuotas(0);
-      setMontoTotal(0);
+      
+      // Calcular total de cuotas
+      totalCtas = cuotasData.reduce((sum, cuota) => {
+        const valor = Number(cuota.valorCuota || 0);
+        console.log(`📊 Cuota real "${cuota.nombreCuota}": ${valor}`);
+        return sum + valor;
+      }, 0);
+      
+      setCuotas(cuotasData);
+      setTotalCuotas(totalCtas);
+      const totalFinal = valorInsc + totalCtas;
+      setMontoTotal(totalFinal);
+      
+      console.log('💰 RESUMEN FINAL CON CUOTAS REALES:');
+      console.log('Inscripción:', valorInsc);
+      console.log('Total cuotas:', totalCtas);
+      console.log('Total general:', totalFinal);
+      console.log('Número de cuotas:', cuotasData.length);
     }
-  }, [selectedFormacion, formaciones]);
+  } else {
+    console.log('💰 No hay formación seleccionada, reseteando costos');
+    setValorInscripcion(0);
+    setCuotas([]);
+    setTotalCuotas(0);
+    setMontoTotal(0);
+  }
+}, [selectedFormacion, formaciones]);
 
   // DEBUG: Monitor estado del Picker de formaciones
   useEffect(() => {
@@ -546,7 +516,7 @@ export default function PantallaInscripciones() {
     return Object.keys(errs).length === 0;
   };
 
-  // FUNCIÓN MEJORADA: Crear inscripción
+  // FUNCIÓN MEJORADA: Crear inscripción con payload corregido
   const handleCreateInscripcion = async () => {
     console.log('🔐 VERIFICACIÓN COMPLETA DEL USUARIO:');
     console.log('UserInfo:', userInfo);
@@ -615,14 +585,13 @@ export default function PantallaInscripciones() {
     }
 
     setCreating(true);
-    // Declarar estadoPago fuera del try para que esté disponible en ambos intentos
-    const estadoPago: 'PENDIENTE'|'PARCIAL'|'PAGADO' = 'PENDIENTE';
 
     try {
       const ahora = new Date();
       const fechaFormateada = ahora.toISOString().replace('T', ' ').substring(0, 19);
       
-      // PAYLOAD CORREGIDO según modelo Django - Solo campos necesarios
+      // PAYLOAD CORREGIDO según el error del backend
+      // El backend espera IDs numéricos simples, no objetos anidados
       const payload = {
         idPersona: idPersonaFinal,
         idTF: idTF,
@@ -630,11 +599,11 @@ export default function PantallaInscripciones() {
         idCohorte: idCohorte,
         montoTotal: montoTotal,
         montoPagado: 0,
-        estadoPago: estadoPago,
+        estadoPago: "PENDIENTE",
         fechaInscripcion: fechaFormateada,
       };
 
-      console.log('📤 Enviando payload CORREGIDO:', JSON.stringify(payload, null, 2));
+      console.log('📤 Enviando payload SIMPLIFICADO:', JSON.stringify(payload, null, 2));
 
       const res = await api.post('/api/inscripcion/', payload);
       
@@ -653,16 +622,19 @@ export default function PantallaInscripciones() {
       console.error('Data:', err.response?.data);
       console.error('Config:', err.config?.data);
       
-      // DEBUG específico para error 400
+      // Manejo específico de errores 400
       if (err.response?.status === 400) {
         await debugError400(err.response);
         
-        // Mostrar errores específicos al usuario
         let errorMessage = 'Errores de validación:\n';
         
         if (err.response.data && typeof err.response.data === 'object') {
           Object.keys(err.response.data).forEach(key => {
-            errorMessage += `• ${key}: ${err.response.data[key]}\n`;
+            if (Array.isArray(err.response.data[key])) {
+              errorMessage += `• ${key}: ${err.response.data[key].join(', ')}\n`;
+            } else {
+              errorMessage += `• ${key}: ${err.response.data[key]}\n`;
+            }
           });
         } else {
           errorMessage = err.response.data?.detail || JSON.stringify(err.response.data);
@@ -672,53 +644,18 @@ export default function PantallaInscripciones() {
         return;
       }
       
-      // Si falla con la estructura simple, probemos con objetos anidados
+      // Manejo de error 500
       if (err.response?.status === 500) {
-        console.log('🔄 Intentando con estructura de objetos anidados...');
-        
-        try {
-          const ahora = new Date();
-          const fechaFormateada = ahora.toISOString().replace('T', ' ').substring(0, 19);
-          
-          // Intento 2: Estructura con objetos anidados
-          const payloadAnidado = {
-            idPersona: { idPersona: idPersonaFinal },
-            idTF: { idTF: idTF },
-            idFormacion: { idFormacion: idFormacion },
-            idCohorte: { idCohorte: idCohorte },
-            montoTotal: montoTotal,
-            montoPagado: 0,
-            estadoPago: estadoPago,
-            fechaInscripcion: fechaFormateada,
-          };
-
-          console.log('📤 Enviando payload ANIDADO:', JSON.stringify(payloadAnidado, null, 2));
-
-          const res2 = await api.post('/api/inscripcion/', payloadAnidado);
-          
-          if (res2.status === 201 || res2.status === 200) {
-            Alert.alert('Éxito', 'Inscripción creada correctamente.');
-            setFormModalVisible(false);
-            resetForm();
-            await fetchInscripciones();
-            return; // Salir si tuvo éxito
-          }
-        } catch (err2: any) {
-          console.error('❌ ERROR con payload anidado:', err2.response?.data);
-          
-          if (err2.response?.status === 400) {
-            await debugError400(err2.response);
-            Alert.alert('Error de Validación', JSON.stringify(err2.response.data));
-          }
-        }
-
         Alert.alert(
-          'Error del Servidor (500)', 
-          'Error interno del servidor. Contacte al administrador del sistema.'
+          'Error del Servidor', 
+          'Error interno del servidor. Por favor, contacte al administrador del sistema.\n\n' +
+          'Detalles: ' + (err.response.data?.detail || 'Error desconocido')
         );
-      } else {
-        Alert.alert('Error', err.response?.data?.detail ?? err.message ?? 'Error desconocido');
+        return;
       }
+      
+      // Error genérico
+      Alert.alert('Error', err.response?.data?.detail ?? err.message ?? 'Error desconocido al crear inscripción');
     } finally {
       setCreating(false);
     }
@@ -1058,7 +995,7 @@ export default function PantallaInscripciones() {
                     </Text>
                   </View>
                   
-                  {/* CUOTAS - MEJORADO */}
+                  {/* CUOTAS REALES DEL BACKEND */}
                   {cuotas.length > 0 ? (
                     <>
                       {cuotas.map((cuota, index) => (
@@ -1102,8 +1039,8 @@ export default function PantallaInscripciones() {
                 {/* Información adicional */}
                 <Text style={styles.helpText}>
                   {cuotas.length > 0 
-                    ? `Incluye ${cuotas.length} cuota(s) programada(s)` 
-                    : 'Solo incluye valor de inscripción'}
+                    ? `Incluye ${cuotas.length} cuota(s) programada(s) del sistema` 
+                    : 'Solo incluye valor de inscripción (sin cuotas activas)'}
                 </Text>
               </View>
 
@@ -1152,7 +1089,7 @@ export default function PantallaInscripciones() {
   );
 }
 
-// Los estilos se mantienen igual...
+// Los estilos se mantienen igual (no los modifiqué para ahorrar espacio)
 const styles = StyleSheet.create({
   center: { 
     flex: 1, 
