@@ -341,115 +341,146 @@ const obtenerInformacionUsuario = async () => {
     return Object.keys(errs).length === 0;
   };
 
-  // FUNCIÓN MEJORADA: Crear inscripción
-  const handleCreateInscripcion = async () => {
-    console.log('🔐 VERIFICACIÓN COMPLETA DEL USUARIO:');
-    console.log('UserInfo:', userInfo);
-    console.log('Tokens:', await AsyncStorage.getItem('myapp-tokens'));
+  // FUNCIÓN MEJORADA: Crear inscripción con mejor manejo de errores
+const handleCreateInscripcion = async () => {
+  console.log('🔐 VERIFICACIÓN COMPLETA DEL USUARIO:');
+  console.log('UserInfo:', userInfo);
+  console.log('AuthContext user:', user);
 
-    if (!validateCreateForm()) {
-      Alert.alert('Formulario inválido', 'Corrige los errores antes de continuar.');
-      return;
+  if (!validateCreateForm()) {
+    Alert.alert('Formulario inválido', 'Corrige los errores antes de continuar.');
+    return;
+  }
+
+  // ESTRATEGIA MÁS ROBUSTA: Obtener la cédula directamente de los tokens
+  let cedulaUsuario: string | null = null;
+  let idPersonaFinal: number | null = null;
+
+  try {
+    const tokens = await AsyncStorage.getItem('myapp-tokens');
+    if (tokens) {
+      const parsedTokens = JSON.parse(tokens);
+      const userData = parsedTokens.user;
+      cedulaUsuario = userData?.cedula;
+      console.log('✅ Cédula obtenida de tokens:', cedulaUsuario);
     }
+  } catch (error) {
+    console.error('Error obteniendo tokens:', error);
+  }
 
-    // ESTRATEGIA MÁS ROBUSTA: Obtener la cédula directamente de los tokens
-    let cedulaUsuario: string | null = null;
-    let idPersonaFinal: number | null = null;
+  // Si tenemos userInfo, usarlo, sino usar solo la cédula
+  if (userInfo?.idPersona) {
+    idPersonaFinal = Number(userInfo.idPersona);
+    console.log('✅ Usando idPersona del userInfo:', idPersonaFinal);
+  } else if (cedulaUsuario) {
+    console.log('⚠️ No hay idPersona, usando solo cédula:', cedulaUsuario);
+  } else {
+    console.error('❌ NO SE PUDO OBTENER INFORMACIÓN VÁLIDA DEL USUARIO');
+    Alert.alert(
+      'Error de Identificación', 
+      'No se pudo identificar su usuario. Por favor, cierre sesión y vuelva a ingresar.'
+    );
+    return;
+  }
 
-    try {
-      const tokens = await AsyncStorage.getItem('myapp-tokens');
-      if (tokens) {
-        const parsedTokens = JSON.parse(tokens);
-        const userData = parsedTokens.user;
-        cedulaUsuario = userData?.cedula;
-        console.log('✅ Cédula obtenida de tokens:', cedulaUsuario);
-      }
-    } catch (error) {
-      console.error('Error obteniendo tokens:', error);
-    }
+  const idTF = Number(selectedTipoFormacion);
+  const idFormacion = Number(selectedFormacion);
+  const idCohorte = Number(selectedCohorte);
 
-    // Si tenemos userInfo, usarlo, sino usar solo la cédula
-    if (userInfo?.idPersona) {
-      idPersonaFinal = Number(userInfo.idPersona);
-      console.log('✅ Usando idPersona del userInfo:', idPersonaFinal);
-    } else if (cedulaUsuario) {
-      console.log('⚠️ No hay idPersona, usando solo cédula:', cedulaUsuario);
-      // En este caso, el backend debería poder encontrar la persona por cédula
+  // Validación de IDs
+  if (isNaN(idTF) || isNaN(idFormacion) || isNaN(idCohorte)) {
+    Alert.alert('Error', 'Hay datos inválidos en el formulario.');
+    return;
+  }
+
+  setCreating(true);
+  try {
+    const estadoPago: 'PENDIENTE'|'PARCIAL'|'PAGADO' = 'PENDIENTE';
+
+    // FORMATO DE FECHA MEJORADO
+    const ahora = new Date();
+    const fechaFormateada = ahora.toISOString().replace('T', ' ').substring(0, 19);
+    
+    // PAYLOAD SIMPLIFICADO - solo campos esenciales
+    const payload: any = {
+      idPersona: idPersonaFinal,
+      idTF: idTF,
+      idFormacion: idFormacion,
+      idCohorte: idCohorte,
+      montoTotal: montoTotal,
+      montoPagado: 0,
+      estadoPago: estadoPago,
+      fechaInscripcion: fechaFormateada,
+    };
+
+    console.log('📤 Enviando payload SIMPLIFICADO:', JSON.stringify(payload, null, 2));
+
+    const res = await api.post('/api/inscripcion/', payload);
+    
+    if (res.status === 201 || res.status === 200) {
+      Alert.alert('Éxito', 'Inscripción creada correctamente.');
+      setFormModalVisible(false);
+      resetForm();
+      await fetchInscripciones();
     } else {
-      console.error('❌ NO SE PUDO OBTENER INFORMACIÓN VÁLIDA DEL USUARIO');
-      Alert.alert(
-        'Error de Identificación', 
-        'No se pudo identificar su usuario. Por favor, cierre sesión y vuelva a ingresar.'
-      );
-      return;
+      const message = res.data?.detail ?? JSON.stringify(res.data);
+      Alert.alert('Respuesta del servidor', String(message));
     }
-
-    const idTF = Number(selectedTipoFormacion);
-    const idFormacion = Number(selectedFormacion);
-    const idCohorte = Number(selectedCohorte);
-
-    // Validación de IDs
-    if (isNaN(idTF) || isNaN(idFormacion) || isNaN(idCohorte)) {
-      Alert.alert('Error', 'Hay datos inválidos en el formulario.');
-      return;
-    }
-
-    setCreating(true);
-    try {
-      const estadoPago: 'PENDIENTE'|'PARCIAL'|'PAGADO' = 'PENDIENTE';
-
-      const payload: any = {
-        idTF: idTF,
-        idFormacion: idFormacion,
-        idCohorte: idCohorte,
-        montoTotal: montoTotal,
-        montoPagado: 0,
-        estadoPago,
-        fechaInscripcion,
-      };
-
-      // ESTRATEGIA FLEXIBLE: Incluir idPersona si está disponible, sino incluir cédula
-      if (idPersonaFinal) {
-        payload.idPersona = idPersonaFinal;
-      } else if (cedulaUsuario) {
-        payload.cedula = cedulaUsuario;
-        console.log('📤 Enviando inscripción con cédula:', cedulaUsuario);
-      }
-
-      // Incluir información adicional si está disponible
-      if (userInfo?.nombres && userInfo?.apellidos) {
-        payload.nombreCompleto = `${userInfo.nombres} ${userInfo.apellidos}`;
-      }
-
-      console.log('📤 Enviando payload de inscripción:', payload);
-
-      const res = await api.post('/api/inscripcion/', payload);
+  } catch (err: any) {
+    console.error('❌ ERROR DETALLADO EN handleCreateInscripcion:');
+    console.error('Status:', err.response?.status);
+    console.error('Headers:', err.response?.headers);
+    console.error('Data:', err.response?.data);
+    console.error('Config:', err.config?.data); // Esto muestra qué enviamos
+    
+    // MEJOR MANEJO DE ERRORES
+    if (err.response?.status === 500) {
+      // Error interno del servidor - mostrar mensaje más específico
+      let errorMessage = 'Error interno del servidor. ';
       
-      if (res.status === 201 || res.status === 200) {
-        Alert.alert('Éxito', 'Inscripción creada correctamente.');
-        setFormModalVisible(false);
-        resetForm();
-        await fetchInscripciones();
-      } else {
-        const message = res.data?.detail ?? JSON.stringify(res.data);
-        Alert.alert('Respuesta del servidor', String(message));
+      // Intentar extraer información del error si está disponible
+      if (err.response.data) {
+        if (typeof err.response.data === 'string') {
+          if (err.response.data.includes('IntegrityError')) {
+            errorMessage += 'Error de integridad de datos. Verifique que los IDs existan.';
+          } else if (err.response.data.includes('ForeignKey')) {
+            errorMessage += 'Error de referencia. Uno de los IDs no existe en la base de datos.';
+          } else {
+            errorMessage += 'Contacte al administrador del sistema.';
+          }
+        } else if (err.response.data.detail) {
+          errorMessage += err.response.data.detail;
+        }
       }
-    } catch (err: any) {
-      console.error('❌ ERROR EN handleCreateInscripcion:', err);
-      const message = err.response?.data?.detail ?? err.message ?? 'Error al crear inscripción';
       
-      // Mostrar error más específico
-      if (err.response?.status === 500) {
-        Alert.alert('Error del servidor', 'Hubo un problema en el servidor. Por favor, contacta al administrador.');
-      } else if (err.response?.data) {
-        Alert.alert('Error de Validación', JSON.stringify(err.response.data));
+      Alert.alert('Error del Servidor (500)', errorMessage);
+    } else if (err.response?.status === 400) {
+      // Error de validación
+      const errorData = err.response.data;
+      let errorMessage = 'Errores de validación:\n';
+      
+      if (typeof errorData === 'object') {
+        Object.keys(errorData).forEach(key => {
+          if (Array.isArray(errorData[key])) {
+            errorMessage += `• ${key}: ${errorData[key].join(', ')}\n`;
+          } else {
+            errorMessage += `• ${key}: ${errorData[key]}\n`;
+          }
+        });
       } else {
-        Alert.alert('Error', message);
+        errorMessage = String(errorData);
       }
-    } finally {
-      setCreating(false);
+      
+      Alert.alert('Error de Validación (400)', errorMessage);
+    } else if (err.response?.status === 404) {
+      Alert.alert('Error', 'Endpoint no encontrado. Contacte al administrador.');
+    } else {
+      Alert.alert('Error', err.response?.data?.detail ?? err.message ?? 'Error desconocido');
     }
-  };
+  } finally {
+    setCreating(false);
+  }
+};
 
   const resetForm = () => {
     setSelectedTipoFormacion(null);
