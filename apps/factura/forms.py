@@ -36,13 +36,14 @@ class NotaForm(forms.ModelForm):
         subtotal_exento = cleaned_data.get('subtotalExento')
         subtotal_gravado = cleaned_data.get('subtotalGravado')
         iva = cleaned_data.get('iva')
+        descuento = cleaned_data.get('descuento')
         total_nota = cleaned_data.get('totalNota')
 
-        # Validar que el total de la nota sea consistente con los subtotales y el IVA
-        if total_nota is not None and subtotal_exento is not None and subtotal_gravado is not None and iva is not None:
-            calculado = subtotal_exento + subtotal_gravado + iva
+        # Validar que el total de la nota sea consistente con los subtotales, el IVA y el descuento
+        if total_nota is not None and subtotal_exento is not None and subtotal_gravado is not None and iva is not None and descuento is not None:
+            calculado = subtotal_exento + subtotal_gravado + iva - descuento
             if total_nota != calculado:
-                self.add_error('totalNota', "El total de la nota no coincide con la suma de los subtotales y el IVA.")
+                self.add_error('totalNota', "El total de la nota no coincide con la suma de los subtotales, el IVA y el descuento.")
 
         return cleaned_data
 

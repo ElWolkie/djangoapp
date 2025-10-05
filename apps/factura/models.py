@@ -60,6 +60,12 @@ class Nota(models.Model):
     fechaCreacion = models.DateTimeField(auto_now_add=True)
     fechaActualizacion = models.DateTimeField(auto_now=True)
 
+    def clean(self):
+        """
+        Validación para asegurar que al menos uno de los dos campos (idPersona o idEmpresa) esté lleno.
+        """
+        if not self.idPersona and not self.idEmpresa:
+            raise ValidationError("Debe especificar al menos un valor para 'idPersona' o 'idEmpresa'.")
     def save(self, *args, **kwargs):
             # Automáticamente definir si es COBRO o PAGO basado en tipoArticulo
             if self.tipoArticulo in ['INSCRIPCION', 'SOLICITUD']:

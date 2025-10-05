@@ -164,8 +164,8 @@
           {% for pago in pagos %}
           <tr>
             <td class="fw-bold">{{ pago.idPago }}</td>
-            <td>{{ pago.idFactura.numeroFactura }}</td>
-            <td>{{ pago.monto }}</td>
+            <td>{{ pago.idNota.numeroNota }}</td>
+            <td>{{ pago.monto|floatformat:2 }} {{ pago.idTasa.idMoneda.simbolo }}</td>
             <td>{{ pago.fechaPago|date:"d/m/Y" }}</td>
             <td>{{ pago.formaPago }}</td>
             <td>{{ pago.referencia|default:"—" }}</td>

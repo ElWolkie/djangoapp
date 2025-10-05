@@ -1,81 +1,144 @@
+{% load static %}
 {% block stylesheets %}
-<link rel="stylesheet" href="/static/assets/css/styleForms.css" />
-<link rel="stylesheet" href="/static/assets/css/argon.css" />
+<link rel="stylesheet" href="{% static 'assets/css/styleForms.css' %}" />
+<link rel="stylesheet" href="{% static 'assets/css/argon.css' %}" />
+<style>
+/* Estilos específicos para Moneda (basados en inscripcion) */
+.moneda-container {
+  background: linear-gradient(135deg,#f8f9fa 0%,#e9ecef 100%);
+  border-radius:1rem;
+  box-shadow:0 .5rem 1.5rem rgba(0,0,0,.1);
+  padding:1.5rem;
+  margin:.5rem auto;
+  max-width:95%;
+  width:100%;
+}
+.moneda-header { text-align:center; margin-bottom:1.2rem; position:relative; padding-bottom:1rem; }
+.moneda-header h2 { color:#343a40; font-weight:700; font-size:1.3rem; }
+.form-group { margin-bottom:1.2rem; position:relative; }
+.form-label { font-weight:600; color:#495057; display:flex; align-items:center; }
+.form-label i { margin-right:8px; color:#fd7e14; }
+.form-control { border-radius:0.5rem; padding:0.75rem 1.25rem; border:1px solid #ced4da; background:#fff; height:48px; }
+.input-icon { position:absolute; left:12px; top:50%; transform:translateY(-50%); color:#6c757d; pointer-events:none; z-index:2; font-size:0.95rem; }
+.input-with-icon { padding-left:40px; }
+.btn-submit { background: linear-gradient(135deg,#ffc107,#fd7e14); border:none !important; color:#fff !important; font-weight:600; padding:.65rem 1.75rem; border-radius:.5rem; }
+.invalid-feedback { display:none; color:#dc3545; font-size:80%; margin-top:.25rem; }
+.form-control.is-invalid + .invalid-feedback { display:block; }
+#alert-container, #globalMessages, #modalMessages { margin-bottom:.8rem; }
+</style>
 {% endblock stylesheets %}
+
 {% block content %}
-{% if messages %}
+<div class="moneda-container">
+  <div class="moneda-header">
+    <h2><i class="fas fa-coins text-warning"></i> Editar Moneda</h2>
+    <p class="text-muted">Modifique la moneda y su símbolo</p>
+  </div>
+
+  <div id="globalMessages"></div>
+  <div id="alert-container"></div>
+  <div id="modalMessages"></div>
+
+  {% if messages %}
     {% for message in messages %}
       <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
         {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
       </div>
     {% endfor %}
   {% endif %}
-<div class=" mt-5">
-  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Editar Moneda</h2>
-  <form method="POST" class="mt-3 text-dark" autocomplete="off" style="font-weight: bold; max-width: 600px; margin: 0 auto;" id="editMonedaForm" action="{% url 'edit_moneda' moneda.idMoneda %}">
+
+  <form method="POST" id="editMonedaForm" action="{% url 'edit_moneda' moneda.idMoneda %}" autocomplete="off" style="font-weight:bold; max-width:700px; margin:0 auto;" class="needs-validation" novalidate>
     {% csrf_token %}
+
     <div class="form-group text-center">
-      <label for="nombreMoneda" class="d-block">Nombre:</label>
-      <input type="text" id="nombreMoneda" name="nombreMoneda" class="form-control text-dark mx-auto" value="{{moneda.nombreMoneda}}" placeholder="Ingrese un nombre" tabindex="3" maxlength="100" required style="width: 50%;" />
+      <label for="nombreMoneda" class="form-label"><i class="fas fa-language"></i> Nombre:</label>
+      <div class="input-group position-relative" style="justify-content:center;">
+        <!-- ICON interno -->
+        <i class="fas fa-language input-icon"></i>
+        <input type="text" id="nombreMoneda" name="nombreMoneda" class="form-control input-with-icon text-dark mx-auto" value="{{moneda.nombreMoneda}}" placeholder="Ingrese un nombre" tabindex="3" maxlength="100" required style="width:50%;" />
+      <div class="invalid-feedback">Por favor, ingrese un nombre válido (solo letras).</div>
+      </div>
     </div>
+
     <div class="form-group text-center">
-      <label for="simboloMoneda" class="d-block">Simbolo:</label>
-      <input type="text" id="simboloMoneda" name="simboloMoneda" class="form-control text-dark mx-auto" value="{{moneda.simboloMoneda}}" placeholder="Ingrese un nombre" tabindex="3" maxlength="100" required style="width: 50%;" />
-      <input type="hidden" id="estadoMoneda" name="estadoMoneda" class="form-control text-dark" value="ACTIVO" />
+      <label for="simboloMoneda" class="form-label"><i class="fas fa-font"></i> Símbolo:</label>
+      <div class="input-group position-relative" style="justify-content:center;">
+        <!-- ICON interno -->
+        <i class="fas fa-font input-icon"></i>
+        <input type="text" id="simboloMoneda" name="simboloMoneda" class="form-control input-with-icon text-dark mx-auto" value="{{moneda.simboloMoneda}}" placeholder="Ingrese símbolo (ej. $)" tabindex="3" maxlength="10" required style="width:50%;" />
+      <div class="invalid-feedback">Por favor, ingrese un símbolo válido.</div>
+      </div>
+      <input type="hidden" id="estadoMoneda" name="estadoMoneda" value="ACTIVO" />
     </div>
+
     <div class="text-center">
-      <input type="submit" class="btn btn-warning mt-4" value="Guardar" />
+      <input type="submit" class="btn btn-warning mt-4 btn-submit" value="Guardar" />
     </div>
   </form>
+</div>
 {% endblock content %}
 
 {% block javascripts %}
+<script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
+<script src="{% static 'assets/js/form-validation.js' %}"></script>
 <script>
-  document.addEventListener("DOMContentLoaded", function() {
-    $('c').on('show.bs.modal', function (e) {
-      var modal = $(this);
-      $.ajax({
-        url: '/home/modales/editMoneda.html',
-        method: 'GET',
-        success: function(data) {
-          modal.find('.modal-body').html(data);
-        }
-      });
+document.addEventListener('DOMContentLoaded', function() {
+  const nombre = document.getElementById('nombreMoneda');
+  const simbolo = document.getElementById('simboloMoneda');
+
+  if (nombre) {
+    nombre.addEventListener('input', function() {
+      this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').toUpperCase();
+      this.classList.remove('is-invalid');
     });
-    //Validar solo letras 
-  });
-  document.getElementById("horas").addEventListener("input", function() {  
-    this.value = this.value.replace(/[^0-9,]/g, '');  
+  }
 
-    if (this.value.length > 20) {  
-        this.value = this.value.slice(0, 20);  
-    }  
-});  
-//Recarga dinamica
+  if (simbolo) {
+    simbolo.addEventListener('input', function() {
+      this.value = this.value.replace(/[^0-9A-Za-z\$€¥£\.\,\-\_]/g, '');
+      if (this.value.length > 10) this.value = this.value.slice(0,10);
+      this.classList.remove('is-invalid');
+    });
+  }
 
-$(document).on('submit', '#editMonedaForm', function(e) {
-      e.preventDefault();
-      var form = $(this);
-      $.ajax({
-        url: form.attr('action'),
-        method: form.attr('method'),
-        data: form.serialize(),
-        success: function(response) {
-          var messagesContainer = $('#modalMessages');
-          messagesContainer.empty();
-          if (response.success) {
-            messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
-            $('#editMonedaModal').modal('hide');
-            location.reload();  // Recargar la página para ver los cambios
-          } else {
-            // Mostrar errores en el modal
-            var errors = response.errors;
-            for (var field in errors) {
-              messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + errors[field] + '</div>');
-            }
+  $(document).on('submit', '#editMonedaForm', function(e) {
+    e.preventDefault();
+    const form = $(this);
+    const $btn = form.find('input[type="submit"]').prop('disabled', true);
+    const originalVal = form.find('input[type="submit"]').val();
+
+    let invalid = false;
+    if (!nombre.value || !nombre.value.trim()) { nombre.classList.add('is-invalid'); invalid = true; }
+    if (!simbolo.value || !simbolo.value.trim()) { simbolo.classList.add('is-invalid'); invalid = true; }
+    if (invalid) { $btn.prop('disabled', false); return; }
+
+    $.ajax({
+      url: form.attr('action'),
+      method: form.attr('method'),
+      data: form.serialize(),
+      success: function(response) {
+        const messagesContainer = $('#modalMessages');
+        messagesContainer.empty();
+        if (response.success) {
+          messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
+          $('#editMonedaModal').modal('hide');
+          setTimeout(function(){ location.reload(); }, 600);
+        } else {
+          const errors = response.errors || {};
+          for (const field in errors) {
+            messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + errors[field] + '</div>');
           }
         }
-      });
+      },
+      error: function(xhr, status, err) {
+        $('#modalMessages').html('<div class="alert alert-danger">Error en el servidor: ' + (xhr.statusText || err) + '</div>');
+      },
+      complete: function() {
+        $btn.prop('disabled', false).val(originalVal);
+      }
     });
+  });
+});
 </script>
 {% endblock javascripts %}

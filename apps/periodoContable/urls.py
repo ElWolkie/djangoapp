@@ -8,4 +8,5 @@ urlpatterns = [
     path('eliminar/<int:id>/', views.desactivar_periodo_contable, name='periodo_contable_delete'),
     path('reactivar/<int:id>/', views.reactivar_periodo_contable, name='periodo_contable_reactivate'),
     path('reporte_periodos_pdf/', views.reporte_periodos_pdf, name='reporte_periodos_pdf'),
+    path('confirmar-cambio/', views.confirmar_cambio_periodo, name='confirmar_cambio_periodo'),
 ]

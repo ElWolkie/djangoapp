@@ -1,4 +1,4 @@
-{% extends 'layouts/base2.html' %}
+{% extends 'layouts/base.html' %}
 {% load static %}
 
 {% block title %}Registrar Factura{% endblock title %}
@@ -133,27 +133,6 @@
 .row.align-items-end > .col-md-6, .row.align-items-center > .col-md-6 {
   display:flex; flex-direction:column; justify-content:flex-end;
 }
-/* Forzar estilos de validación (asegurar que .is-invalid se vea incluso cuando bootstrap no lo aplica) */
-.form-control.is-valid,
-.form-select.is-valid {
-  border-color: #28a745 !important;
-  box-shadow: 0 0 0 .2rem rgba(40,167,69,.15) !important;
-}
-.form-control.is-invalid,
-.form-select.is-invalid {
-  border-color: #dc3545 !important;
-  box-shadow: 0 0 0 .2rem rgba(220,53,69,.12) !important;
-}
-
-/* Asegurar que invalid-feedback se muestre cuando el select está dentro de .input-group.has-validation */
-.input-group.has-validation .invalid-feedback { display: none; width:100%; }
-.input-group.has-validation .form-select.is-invalid ~ .invalid-feedback,
-.input-group.has-validation .form-control.is-invalid ~ .invalid-feedback {
-  display: block !important;
-}
-
-/* Helper para inputs formateados */
-.format-currency { text-align: right; }
 </style>
 {% endblock stylesheets %}
 
@@ -177,7 +156,7 @@
     {% endfor %}
   {% endif %}
 
-  <form method="POST" id="notaForm" action="{% url 'nota_create' %}" class="text-dark needs-validation" autocomplete="off" novalidate>
+  <form method="POST" id="notaForm" action="{% url 'nota_administrativa_create' %}" class="text-dark needs-validation" autocomplete="off" novalidate>
     {% csrf_token %}
     <div class="row g-3">
 
@@ -256,10 +235,9 @@
                 <input type="text" id="personaInput" class="form-control text-dark" placeholder="Seleccione una persona" readonly />
                 <button type="button" id="buscarPersona" class="btn btn-outline-warning" data-toggle="modal" data-target="#personaModal">
                   <i class="fas fa-search"></i>
-                </button>              
-                <div class="invalid-feedback">Por favor seleccione una persona.</div>
-
+                </button>
               </div>
+              <div class="invalid-feedback">Por favor seleccione una persona.</div>
             </div>
             <input type="hidden" id="idPersona" name="idPersona" />
           </div>
@@ -268,7 +246,7 @@
             <label for="empresaInput" class="form-label">Empresa:</label>
             <div class="field-wrap">
               <div class="input-group">
-                <input type="text" id="empresaInput" class="form-control text-dark" placeholder="Seleccione una empresa" readonly  required/>
+                <input type="text" id="empresaInput" class="form-control text-dark" placeholder="Seleccione una empresa" readonly />
                 <button type="button" id="buscarEmpresa" class="btn btn-outline-warning" data-toggle="modal" data-target="#empresaModal">
                   <i class="fas fa-search"></i>
                 </button>
@@ -395,19 +373,23 @@
       <!-- FILA 5: Moneda | Subtotales -->
       <div class="row g-3 align-items-end w-100">
         <div class="col-md-6">
-           <!-- Moneda definida en la configuración -->
-            <label for="idTasa" class="form-label">Moneda del Sistema:</label>
-            <div class="field-wrap">
-              <input type="text"  class="form-control text-dark" title="Los montos se veran reflejados en esta moneda. Tasa actual: {{ tasa_configuracion_valor }}" value="{{ moneda_configuracion }}" readonly />
-              <input type="text" id="idTasa" name="idTasa" class="form-control text-dark" value="{{ tasa_configuracion_id }}"  hidden/>
-              <div class="invalid-feedback">Por favor ingrese una moneda válida.</div>
-            </div>
+          <label for="idTasa" class="form-label">Moneda:</label>
+          <div class="field-wrap">
+            <select id="idTasa" name="idTasa" class="form-select large" required>
+              {% for moneda in monedas %}
+                <option value="{{ moneda.ultima_idTasa }}" {% if moneda.idMoneda__nombreMoneda == "DOLAR" %}selected{% endif %}>
+                  {{ moneda.idMoneda__nombreMoneda }}{% if moneda.ultima_tasa %} | Tasa: {{ moneda.ultima_tasa }}{% else %} - Sin tasa{% endif %}
+                </option>
+              {% endfor %}
+            </select>
+            <div class="invalid-feedback">Por favor seleccione una moneda.</div>
+          </div>
         </div>
 
         <div class="col-md-6">
           <label for="subtotalExento" class="form-label">Subtotal Exento:</label>
           <div class="field-wrap">
-            <input type="number" id="subtotalExento" name="subtotalExento" class="form-control text-dark" placeholder="Ingrese el subtotal exento" step="0.01" min="0" required />
+            <input type="text" id="subtotalExento" name="subtotalExento" class="form-control text-dark" placeholder="Ingrese el subtotal exento" step="0.01" min="0" required />
             <div class="invalid-feedback">Por favor ingrese un subtotal exento válido.</div>
           </div>
         </div>
@@ -827,15 +809,17 @@
 
 {% endblock content %}
 
+
 {% block javascripts %}
 <script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
+
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  // ===== REFERENCIAS A ELEMENTOS DEL DOM =====
+  // Variables globales
+  let parametrosTributarios = {};
   const notaForm = document.getElementById('notaForm');
-  if (!notaForm) return;
 
-  // Elementos principales del formulario
+  // Referencias a los elementos del DOM
   const subtotalExento = document.getElementById('subtotalExento');
   const subtotalGravado = document.getElementById('subtotalGravado');
   const descuento = document.getElementById('descuento');
@@ -846,328 +830,39 @@ document.addEventListener('DOMContentLoaded', function () {
   const tipoArticuloSelect = document.getElementById('tipoArticulo');
   const ingresoCheckbox = document.getElementById('ingresoCheckbox');
   const egresoCheckbox = document.getElementById('egresoCheckbox');
-  const formaPago = document.getElementById('formaPago');
-  const plazoCreditoInput = document.getElementById('plazoCredito');
   const fechaEmision = document.getElementById('fechaEmision');
   const fechaVencimiento = document.getElementById('fechaVencimiento');
-  const personaCheckbox = document.getElementById('personaCheckbox');
-  const empresaCheckbox = document.getElementById('empresaCheckbox');
-  const personaGroup = document.getElementById('personaGroup');
-  const empresaGroup = document.getElementById('empresaGroup');
-  const articulosDiv = document.getElementById('articulos');
-  const personaInput = document.getElementById('personaInput');
-  const idPersonaInput = document.getElementById('idPersona');
+  const formaPago = document.getElementById('formaPago');
+  const plazoCreditoInput = document.getElementById('plazoCredito');
   const toggleReadonlyButton = document.getElementById('toggleReadonly');
-
-  // Campos que pueden ser readonly
   const camposReadonly = [
-    'iva', 'ivaRetenido', 'islrRetenido', 'numeroNota', 'descuento',
-    'subtotalExento', 'subtotalGravado', 'totalNota', 'fechaEmision',
-    'fechaVencimiento', 'formaPago', 'plazoCredito'
+    'iva',
+    'ivaRetenido',
+    'islrRetenido',
+    'numeroNota',
+    'descuento',
+    'subtotalExento',
+    'subtotalGravado',
+    'totalNota',
+    'fechaEmision',
+    'fechaVencimiento',
+    'formaPago',
+    'plazoCredito',
   ];
 
-  // Campos de moneda que necesitan normalización (MODIFICADO: ahora todos usan formato 0,00)
-  const currencyIds = [
-    'subtotalExento', 'subtotalGravado', 'iva', 'ivaRetenido', 
-    'islrRetenido', 'descuento', 'totalNota'
-  ];
+  // Inicializar valores predeterminados
+  descuento.value = '0.00';
+  subtotalExento.value = '0.00';
+  subtotalGravado.value = '0.00';
 
-  // ===== VARIABLES GLOBALES =====
-  let parametrosTributarios = {};
-  let lastError = null;
-
-  // ===== FUNCIONES DE UTILIDAD =====
-  
-  /**
-   * Normaliza una cadena de moneda a formato decimal (MODIFICADO: siempre retorna con punto para cálculos)
-   */
-  function normalizeCurrencyString(str) {
-    if (str == null) return '';
-    let s = String(str).trim();
-    if (!s) return '';
-    s = s.replace(/\s+/g, '');
-    if (s.indexOf(',') !== -1 && s.indexOf('.') !== -1) {
-      s = s.replace(/\./g, '').replace(/,/g, '.');
-    } else if (s.indexOf(',') !== -1 && s.indexOf('.') === -1) {
-      s = s.replace(/,/g, '.');
-    } else {
-      const parts = s.split('.');
-      if (parts.length > 2) {
-        const dec = parts.pop();
-        s = parts.join('') + '.' + dec;
-      }
-    }
-    s = s.replace(/[^0-9\.\-]/g, '');
-    return s;
-  }
-
-  /**
-   * Formatea un número para mostrar con formato 0,00 (MODIFICADO: siempre con coma decimal)
-   */
-  function formatCurrencyInput(input) {
-  // Guardar posición del cursor
-  const cursorPosition = input.selectionStart;
-  const originalValue = input.value;
-  
-  // Remover todo excepto números
-  let rawValue = input.value.replace(/[^\d]/g, '');
-  
-  if (rawValue === '') {
-    input.value = '0,00';
-    return {value: '0.00', cursor: 4};
-  }
-  
-  // Convertir a número con 2 decimales
-  const numberValue = parseInt(rawValue) / 100;
-  
-  // Formatear para mostrar
-  const formatted = numberValue.toLocaleString('es-VE', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  });
-  
-  input.value = formatted;
-  
-  // Calcular nueva posición del cursor
-  let newCursorPos = cursorPosition;
-  const lengthDiff = formatted.length - originalValue.length;
-  
-  if (cursorPosition === originalValue.length) {
-    // Si estaba al final, poner al final
-    newCursorPos = formatted.length;
-  } else if (lengthDiff !== 0) {
-    // Ajustar posición basado en la diferencia de longitud
-    newCursorPos = Math.max(0, cursorPosition + lengthDiff);
-  }
-  
-  return {
-    value: numberValue.toFixed(2),
-    cursor: newCursorPos
-  };
-}
-
-// Aplicar a todos los campos de moneda
-currencyIds.forEach(id => {
-  const input = document.getElementById(id);
-  if (!input) return;
-  
-  // Cambiar a tipo texto
-  input.type = 'text';
-  
-  // Inicializar con formato correcto
-  if (!input.value || input.value === '0.00' || input.value === '0') {
-    input.value = '0,00';
-  } else {
-    // Convertir cualquier formato existente al deseado
-    const num = parseFloat(normalizeCurrencyString(input.value)) || 0;
-    input.value = num.toLocaleString('es-VE', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    });
-  }
-  
-  // Evento de input mejorado
-  input.addEventListener('input', function(e) {
-    // Solo procesar si el usuario está escribiendo
-    if (e.inputType && e.inputType.startsWith('insert')) {
-      const result = formatCurrencyInput(this);
-      
-      // Restaurar posición del cursor después de un breve delay
-      setTimeout(() => {
-        this.setSelectionRange(result.cursor, result.cursor);
-      }, 10);
-      
-      // Actualizar cálculos
-      calcularMontos();
-      if (this.id === 'descuento') validarDescuento();
-    }
-  });
-  
-  // Evento de focus - seleccionar todo para fácil edición
-  input.addEventListener('focus', function() {
-    setTimeout(() => {
-      this.setSelectionRange(0, this.value.length);
-    }, 10);
-  });
-  
-  // Evento de blur - asegurar formato correcto
-  input.addEventListener('blur', function() {
-    const normalized = normalizeCurrencyString(this.value) || '0.00';
-    const num = parseFloat(normalized) || 0;
-    this.value = num.toLocaleString('es-VE', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    });
-  });
-});
-
-// Función auxiliar para establecer valores desde el código
-function setCurrencyField(id, monto) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  
-  const num = Number(monto) || 0;
-  el.value = num.toLocaleString('es-VE', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  });
-  
-  el.classList.toggle('is-valid', num >= 0);
-  el.classList.remove('is-invalid');
-}
-
-  /**
-   * Filtra una tabla según el texto de búsqueda
-   */
-  function filterTable(tableId, inputId) {
-    const input = document.getElementById(inputId);
-    const filter = input.value.toUpperCase();
-    const table = document.getElementById(tableId);
-    const tr = table.getElementsByTagName("tr");
-    
-    for (let i = 0; i < tr.length; i++) {
-      const td = tr[i].getElementsByTagName("td");
-      let found = false;
-      
-      for (let j = 0; j < td.length; j++) {
-        if (td[j].textContent.toUpperCase().indexOf(filter) > -1) {
-          found = true;
-          break;
-        }
-      }
-      tr[i].style.display = found ? "" : "none";
-    }
-  }
-
-  // ===== FUNCIONES DE CONFIGURACIÓN Y ACTUALIZACIÓN DE UI =====
-
-  /**
-   * Establece la fecha actual en el campo de fecha de emisión
-   */
+  // Función para establecer la fecha de hoy
   function establecerFechaHoy() {
     const hoy = new Date();
-    const fechaHoy = hoy.toISOString().split('T')[0];
-    if (fechaEmision) fechaEmision.value = fechaHoy;
+    const fechaHoy = hoy.toISOString().split('T')[0]; // Formato YYYY-MM-DD
+    fechaEmision.value = fechaHoy; // Establecer la fecha de hoy en el campo
   }
 
-  /**
-   * Actualiza la visibilidad de los grupos de entidad (Persona/Empresa)
-   */
-  function actualizarVisibilidadEntidad() {
-    if (personaCheckbox && personaCheckbox.checked) {
-      personaGroup.style.display = 'block';
-      empresaGroup.style.display = 'none';
-    } else if (empresaCheckbox && empresaCheckbox.checked) {
-      personaGroup.style.display = 'none';
-      empresaGroup.style.display = 'block';
-    }
-  }
-
-  /**
-   * Actualiza la visibilidad de los grupos de artículos según el tipo seleccionado
-   */
-  function actualizarVisibilidadArticulos() {
-    const tipoArticulo = tipoArticuloSelect?.value;
-    const grupos = ['noAplicaGroup', 'cuotaGroup', 'inscripcionGroup', 'honorarioGroup', 'solicitudGroup'];
-    
-    // Oculta todos los grupos primero
-    grupos.forEach(grupoId => {
-      const grupo = document.getElementById(grupoId);
-      if (grupo) grupo.style.display = 'none';
-    });
-
-    // Muestra el grupo correspondiente
-    switch (tipoArticulo) {
-      case 'INSCRIPCION':
-        document.getElementById('inscripcionGroup').style.display = 'block';
-        break;
-      case 'SOLICITUD':
-        document.getElementById('solicitudGroup').style.display = 'block';
-        break;
-      case 'HONORARIO_PROFESOR':
-        document.getElementById('honorarioGroup').style.display = 'block';
-        break;
-      case 'CUOTA':
-        document.getElementById('cuotaGroup').style.display = 'block';
-        break;
-      default:
-        document.getElementById('noAplicaGroup').style.display = 'block';
-        break;
-    }
-    
-    calcularMontos();
-  }
-
-  /**
-   * Actualiza las opciones disponibles según el tipo de operación (Ingreso/Egreso)
-   */
-  function actualizarOpciones() {
-    const isIngreso = ingresoCheckbox?.checked;
-    
-    if (tipoArticuloSelect) {
-      tipoArticuloSelect.disabled = !isIngreso && !egresoCheckbox?.checked;
-      
-      document.querySelector('.ingreso-options').style.display = isIngreso ? 'block' : 'none';
-      document.querySelector('.egreso-options').style.display = isIngreso ? 'none' : 'block';
-      
-      if (tipoArticuloSelect.value === '') {
-        tipoArticuloSelect.value = '';
-      }
-    }
-    
-    calcularMontos();
-  }
-
-  /**
-   * Actualiza la visibilidad del campo de plazo de crédito
-   */
-  function actualizarVisibilidadPlazoCredito() {
-    const plazoCreditoGroup = document.getElementById('plazoCreditoGroup');
-    if (!plazoCreditoGroup || !formaPago) return;
-    
-    if (formaPago.value === 'credito') {
-      plazoCreditoGroup.style.display = 'block';
-    } else {
-      plazoCreditoGroup.style.display = 'none';
-      if (plazoCreditoInput) plazoCreditoInput.value = '';
-    }
-  }
-
-  /**
-   * Actualiza la fecha de vencimiento basada en la fecha de emisión y plazo
-   */
-  function actualizarFechaVencimiento() {
-    if (!fechaEmision.value) {
-      fechaVencimiento.value = '';
-      return;
-    }
-    
-    const fecha = new Date(fechaEmision.value);
-    const dias = formaPago.value === 'credito' ? 
-      parseInt(plazoCreditoInput.value) || 0 : 1;
-    
-    fecha.setDate(fecha.getDate() + dias);
-    fechaVencimiento.value = fecha.toISOString().split('T')[0];
-    
-    // Validar que la fecha de vencimiento no sea anterior a la de emisión
-    const fechaEmisionValor = new Date(fechaEmision.value);
-    const fechaVencimientoValor = new Date(fechaVencimiento.value);
-    
-    if (fechaVencimientoValor < fechaEmisionValor) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Fecha inválida',
-        text: 'La fecha de vencimiento no puede ser anterior a la fecha de emisión.',
-      });
-      fechaVencimiento.value = fechaEmision.value;
-    }
-  }
-
-  // ===== FUNCIONES DE CÁLCULO =====
-
-  /**
-   * Obtiene los parámetros tributarios desde el servidor
-   */
+  // Obtener parámetros tributarios desde el servidor
   async function obtenerParametrosTributarios() {
     try {
       const response = await fetch('/factura/obtener-parametros-tributarios/');
@@ -1183,578 +878,915 @@ function setCurrencyField(id, monto) {
     }
   }
 
-  /**
-   * Obtiene un parámetro tributario específico
-   */
+  // Obtener un parámetro tributario específico
   function obtenerParametro(tipo, aplicaA) {
     return parametrosTributarios[tipo]?.find((p) => p.aplica_a === aplicaA) || null;
   }
 
-  /**
-   * Calcula todos los montos de la nota (IVA, retenciones, total) (MODIFICADO: usa parseFloat con normalizeCurrencyString)
-   */
-  function calcularMontos() {
-    const gravado = parseFloat(normalizeCurrencyString(subtotalGravado.value)) || 0;
-    const exento = parseFloat(normalizeCurrencyString(subtotalExento.value)) || 0;
-    const descuentoValor = parseFloat(normalizeCurrencyString(descuento.value)) || 0;
-    const tipoArticulo = tipoArticuloSelect?.value;
+  // Función para actualizar la visibilidad del campo de plazo de crédito
+  function actualizarVisibilidadPlazoCredito() {
+    if (formaPago.value === 'credito') {
+      plazoCreditoGroup.style.display = 'block'; // Mostrar el campo de plazo de crédito
+    } else {
+      plazoCreditoGroup.style.display = 'none'; // Ocultar el campo de plazo de crédito
+      plazoCreditoInput.value = ''; // Limpiar el valor del campo
+    }
+  }
 
-    // Obtener parámetros tributarios
+  // Función para actualizar la visibilidad de los campos según el tipo de operación
+  function actualizarOpciones() {
+    const isIngreso = ingresoCheckbox.checked;
+    tipoArticuloSelect.disabled = !isIngreso && !egresoCheckbox.checked;
+    document.querySelector('.ingreso-options').style.display = isIngreso ? 'block' : 'none';
+    document.querySelector('.egreso-options').style.display = isIngreso ? 'none' : 'block';
+    tipoArticuloSelect.value = '';
+    calcularMontos();
+  }
+
+  // Calcular montos de la factura
+  function calcularMontos() {
+    const gravado = parseFloat(subtotalGravado.value) || 0;
+    const exento = parseFloat(subtotalExento.value) || 0;
+    const descuentoValor = parseFloat(descuento.value) || 0;
+    const tipoArticulo = tipoArticuloSelect.value;
+
     const parametroIva = obtenerParametro('IVA_GENERAL', tipoArticulo);
     const parametroRetencionIva = obtenerParametro('IVA_RETENIDO_SERVICIOS', tipoArticulo);
-    const parametroRetencionIslr = egresoCheckbox?.checked
+    const parametroRetencionIslr = egresoCheckbox.checked
       ? obtenerParametro(tipoArticulo === 'HONORARIO_PROFESOR' ? 'ISLR_HONORARIOS' : 'ISLR_SERVICIOS', tipoArticulo)
       : null;
 
-    // Calcular IVA
-    const porcentajeIva = parametroIva?.porcentaje ?? 16;
+    const porcentajeIva = parametroIva?.porcentaje || 16;
     const ivaCalculado = gravado * (porcentajeIva / 100);
-    setCurrencyField('iva', ivaCalculado); // MODIFICADO: usa setCurrencyField
+    iva.value = ivaCalculado.toFixed(2);
 
-    // Calcular retenciones si es egreso
-    if (egresoCheckbox?.checked) {
-      setCurrencyField('ivaRetenido', ivaCalculado * (parametroRetencionIva?.porcentaje ?? 0) / 100); // MODIFICADO
-      setCurrencyField('islrRetenido', (gravado + exento) * (parametroRetencionIslr?.porcentaje ?? 0) / 100); // MODIFICADO
+    if (egresoCheckbox.checked) {
+      ivaRetenido.value = (ivaCalculado * (parametroRetencionIva?.porcentaje || 0) / 100).toFixed(2);
+      islrRetenido.value = (gravado * (parametroRetencionIslr?.porcentaje || 0) / 100).toFixed(2);
     } else {
-      setCurrencyField('ivaRetenido', 0); // MODIFICADO
-      setCurrencyField('islrRetenido', 0); // MODIFICADO
+      ivaRetenido.value = islrRetenido.value = '0.00';
     }
 
-    // Calcular total
-    let total = exento + gravado + ivaCalculado - descuentoValor;
-    if (total < 0) total = 0;
-    setCurrencyField('totalNota', total); // MODIFICADO
+    const total = exento + gravado + ivaCalculado - descuentoValor;
+    totalNota.value = total.toFixed(2);
 
-    // Actualizar porcentajes en la UI
-    const ivaPercentageEl = document.getElementById('ivaPercentage');
-    if (ivaPercentageEl) ivaPercentageEl.textContent = porcentajeIva;
-    
-    if (egresoCheckbox?.checked) {
-      const ivaRetentionEl = document.getElementById('ivaRetentionPercentage');
-      const islrRetentionEl = document.getElementById('islrRetentionPercentage');
-      
-      if (ivaRetentionEl) ivaRetentionEl.textContent = parametroRetencionIva?.porcentaje ?? 0;
-      if (islrRetentionEl) islrRetentionEl.textContent = parametroRetencionIslr?.porcentaje ?? 0;
+    document.getElementById('ivaPercentage').textContent = porcentajeIva;
+    if (egresoCheckbox.checked) {
+      document.getElementById('ivaRetentionPercentage').textContent = parametroRetencionIva?.porcentaje || 0;
+      document.getElementById('islrRetentionPercentage').textContent = parametroRetencionIslr?.porcentaje || 0;
     }
   }
 
-  /**
-   * Valida que el descuento no sea mayor al total y ajusta si es necesario
-   */
-  function validarDescuento() {
-    const rawEx = normalizeCurrencyString(subtotalExento.value) || '0';
-    const rawGr = normalizeCurrencyString(subtotalGravado.value) || '0';
-    const rawI = normalizeCurrencyString(iva.value) || '0';
-    
-    const exento = parseFloat(rawEx) || 0;
-    const gravado = parseFloat(rawGr) || 0;
-    const ivaVal = parseFloat(rawI) || 0;
-    const totalSinDesc = exento + gravado + ivaVal;
+  // Actualizar la fecha de vencimiento según la forma de pago
+  function actualizarFechaVencimiento() {
+    const fecha = new Date(fechaEmision.value);
+    if (!fechaEmision.value) return (fechaVencimiento.value = '');
+    const dias = formaPago.value === 'credito' ? parseInt(plazoCreditoInput.value) || 0 : 1;
+    fecha.setDate(fecha.getDate() + dias);
+    fechaVencimiento.value = fecha.toISOString().split('T')[0];
+  }
 
-    let rawDesc = normalizeCurrencyString(descuento.value) || '0';
-    let descuentoValor = parseFloat(rawDesc) || 0;
+  // Envío del formulario
+notaForm.addEventListener('submit', async function (event) {
+  event.preventDefault(); // Evitar el redireccionamiento por defecto
 
-    // Ajustar descuento si excede el total
-    if (descuentoValor > totalSinDesc) {
-      descuentoValor = totalSinDesc;
-      setCurrencyField('descuento', descuentoValor);
-      
+  const formData = new FormData(notaForm); // Obtener los datos del formulario
+  const submitButton = notaForm.querySelector('input[type="submit"]');
+  submitButton.disabled = true; // Deshabilitar el botón mientras se procesa la solicitud
+
+  try {
+    const response = await fetch(notaForm.action, {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest', // Indicar que es una solicitud AJAX
+      },
+    });
+
+    const result = await response.json(); // Parsear la respuesta como JSON
+
+    if (result.success) {
+      // Mostrar alerta de éxito con dos botones
+      // Dentro del bloque success, antes de mostrar el SweetAlert
       Swal.fire({
-        icon: 'warning',
-        title: 'Descuento ajustado',
-        text: 'El descuento no puede ser mayor al total. Se ha ajustado al máximo posible.'
+        icon: 'success',
+        title: 'Nota creada exitosamente',
+        text: result.message,
+        showCancelButton: true,
+        confirmButtonText: 'Ver lista de notas',
+        cancelButtonText: 'Pagar',
+        confirmButtonColor: '#28a745',
+        cancelButtonColor: '#ffc107',
+        allowOutsideClick: false, // Evita que se cierre al hacer clic fuera
+
+      }).then((action) => {
+        if (action.isConfirmed) {
+          // Redirigir a la lista de notas ADMINISTRATIVAS (cambio importante)
+          window.location.href = result.lista;
+        } else if (action.dismiss === Swal.DismissReason.cancel) {
+          // Redirigir a la página de pago
+          window.location.href = result.pagar;
+        }
       });
-    }
-
-    // Actualizar estado visual del campo
-    if (descuento) {
-      descuento.classList.toggle('is-invalid', descuentoValor < 0);
-      descuento.classList.toggle('is-valid', descuentoValor >= 0);
-    }
-
-    calcularMontos();
-  }
-
-  // ===== MANEJO DE PARÁMETROS URL =====
-
-  /**
-   * Configura el formulario según los parámetros recibidos por URL
-   */
-  function manejarParametro(tipo, valor) {
-    if (!valor) return;
-
-    switch (tipo) {
-      case 'INSCRIPCION':
-        setCurrencyField('subtotalExento', parseFloat(valor) || 0);
-        if (subtotalExento) subtotalExento.setAttribute('readonly', true);
-        
-        if (ingresoCheckbox) ingresoCheckbox.checked = true;
-        if (tipoArticuloSelect) {
-          tipoArticuloSelect.disabled = false;
-          setTimeout(() => {
-            tipoArticuloSelect.value = tipo;
-            tipoArticuloSelect.setAttribute('readonly', true);
-            actualizarVisibilidadArticulos();
-          }, 0);
-        }
-        
-        setCurrencyField('subtotalGravado', 0);
-        if (subtotalGravado) subtotalGravado.setAttribute('readonly', true);
-        setCurrencyField('descuento', 0);
-        if (descuento) descuento.setAttribute('readonly', true);
-        
-        const buscarInscripcion = document.getElementById('buscarInscripcion');
-        if (buscarInscripcion) buscarInscripcion.disabled = true;
-        break;
-
-      case 'SOLICITUD':
-        setCurrencyField('subtotalExento', parseFloat(valor) || 0);
-        if (subtotalExento) subtotalExento.setAttribute('readonly', true);
-        
-        if (ingresoCheckbox) ingresoCheckbox.checked = true;
-        if (tipoArticuloSelect) {
-          tipoArticuloSelect.disabled = false;
-          setTimeout(() => {
-            tipoArticuloSelect.value = tipo;
-            tipoArticuloSelect.setAttribute('readonly', true);
-            actualizarVisibilidadArticulos();
-          }, 0);
-        }
-        
-        setCurrencyField('subtotalGravado', 0);
-        if (subtotalGravado) subtotalGravado.setAttribute('readonly', true);
-        setCurrencyField('descuento', 0);
-        if (descuento) {
-          descuento.removeAttribute('readonly');
-          descuento.readOnly = false;
-        }
-        
-        const buscarSolicitud = document.getElementById('buscarSolicitud');
-        if (buscarSolicitud) buscarSolicitud.disabled = true;
-        break;
-
-      case 'CUOTA':
-        setCurrencyField('subtotalGravado', parseFloat(valor) || 0);
-        if (subtotalGravado) subtotalGravado.setAttribute('readonly', true);
-        
-        if (ingresoCheckbox) ingresoCheckbox.checked = true;
-        if (tipoArticuloSelect) {
-          tipoArticuloSelect.disabled = false;
-          setTimeout(() => {
-            tipoArticuloSelect.value = tipo;
-            tipoArticuloSelect.setAttribute('readonly', true);
-            actualizarVisibilidadArticulos();
-          }, 0);
-        }
-        
-        const buscarCuota = document.getElementById('buscarCuota');
-        if (buscarCuota) buscarCuota.disabled = true;
-        break;
-
-      case 'HONORARIO_PROFESOR':
-        setCurrencyField('subtotalGravado', parseFloat(valor) || 0);
-        if (subtotalGravado) subtotalGravado.setAttribute('readonly', true);
-        
-        if (egresoCheckbox) egresoCheckbox.checked = true;
-        if (tipoArticuloSelect) {
-          tipoArticuloSelect.disabled = false;
-          setTimeout(() => {
-            tipoArticuloSelect.value = tipo;
-            tipoArticuloSelect.setAttribute('readonly', true);
-            actualizarVisibilidadArticulos();
-          }, 0);
-        }
-        
-        setCurrencyField('subtotalExento', 0);
-        if (subtotalExento) subtotalExento.setAttribute('readonly', true);
-        setCurrencyField('descuento', 0);
-        if (descuento) descuento.setAttribute('readonly', true);
-        
-        if (ivaRetenido) {
-          ivaRetenido.removeAttribute('readonly');
-          ivaRetenido.readOnly = false;
-        }
-        
-        const buscarHonorario = document.getElementById('buscarHonorario');
-        if (buscarHonorario) buscarHonorario.disabled = true;
-        break;
-    }
-    
-    calcularMontos();
-  }
-
-  // ===== MANEJO DE FORMATEO DE MONEDA =====
-
-  // Aplicar formateo a campos de moneda (MODIFICADO: simplificado para usar siempre formato 0,00)
-  document.querySelectorAll('input[type="number"]').forEach(input => {
-    if (currencyIds.includes(input.id)) {
-      // Cambiar a tipo texto para permitir comas
-      input.type = 'text';
-      
-      input.addEventListener('input', function () {
-        const raw = this.value.replace(/[^\d,\.]/g, '');
-        const normalized = normalizeCurrencyString(raw);
-        
-        if (normalized === '') {
-          this.value = '';
-          this.classList.remove('is-valid', 'is-invalid');
-          return;
-        }
-        
-        // Mantener hasta 2 decimales
-        let parts = normalized.split('.');
-        if (parts.length === 1) parts.push('00');
-        else if (parts[1].length === 1) parts[1] = parts[1] + '0';
-        else parts[1] = parts[1].slice(0, 2);
-        
-        const reconstructed = parts[0] + '.' + parts[1];
-        this.value = formatCurrencyDisplayFromNumber(reconstructed);
-        
-        // Validar visualmente
-        this.classList.toggle('is-invalid', isNaN(Number(reconstructed)) || Number(reconstructed) < 0);
-        this.classList.toggle('is-valid', !isNaN(Number(reconstructed)) && Number(reconstructed) >= 0);
-        
-        calcularMontos();
-        if (this.id === 'descuento') validarDescuento();
-      });
-      
-      // Formatear valor inicial
-      if (input.value) {
-        const norm = normalizeCurrencyString(input.value);
-        input.value = formatCurrencyDisplayFromNumber(norm || 0);
-      } else {
-        input.value = '0,00';
-      }
-    }
-  });
-
-  // Validación en tiempo real para campos numéricos que no son moneda
-  notaForm.querySelectorAll('input[type="number"]').forEach(input => {
-    if (!currencyIds.includes(input.id)) {
-      input.addEventListener('input', function () {
-        const val = this.value;
-        
-        if (val === '' || val === null) {
-          this.classList.remove('is-invalid', 'is-valid');
-          return;
-        }
-        
-        const regexTwoDecimals = /^\d+(\.\d{1,2})?$/;
-        const ok = regexTwoDecimals.test(String(val)) && 
-                   Number(val) >= (this.min ? Number(this.min) : -Infinity);
-        
-        this.classList.toggle('is-invalid', !ok);
-        this.classList.toggle('is-valid', ok);
-      });
-    }
-  });
-
-  // Forzar mayúsculas en campos de texto
-  notaForm.querySelectorAll('input, textarea').forEach(el => {
-    if (el.tagName === 'INPUT' && 
-        (el.type === 'email' || el.type === 'number' || 
-         el.type === 'hidden' || el.readOnly)) return;
-         
-    el.addEventListener('input', function () {
-      if (this.tagName === 'TEXTAREA' || this.type === 'text') {
-        this.value = this.value.toUpperCase();
-      }
-    });
-  });
-
-  // Validación visual para selects
-  document.querySelectorAll('select').forEach(sel => {
-    sel.addEventListener('change', function () {
-      if (this.required && (this.value === '' || this.value === null)) {
-        this.classList.add('is-invalid');
-        this.classList.remove('is-valid');
-      } else {
-        this.classList.remove('is-invalid');
-        this.classList.add('is-valid');
-      }
-    });
-  });
-
-  // ===== MANEJO DE MODALES =====
-
-  const modales = [
-    { tabla: 'tablaPersonas', input: 'personaInput', hidden: 'idPersona', modal: 'personaModal' },
-    { tabla: 'tablaEmpresas', input: 'empresaInput', hidden: 'idEmpresa', modal: 'empresaModal' },
-    { tabla: 'tablaCuotas', input: 'cuota', hidden: 'idCuota', modal: 'cuotaModal', gravado: true },
-    { tabla: 'tablaInscripciones', input: 'inscripcion', hidden: 'idInscripcion', modal: 'inscripcionModal', gravado: false },
-    { tabla: 'tablaHonorarios', input: 'honorario', hidden: 'idHonorario', modal: 'honorarioModal', gravado: true },
-    { tabla: 'tablaSolicitudes', input: 'solicitud', hidden: 'idSolicitud', modal: 'solicitudModal', gravado: false }
-  ];
-
-  modales.forEach(({ tabla, input, hidden, modal, gravado }) => {
-    const tablaEl = document.getElementById(tabla);
-    if (!tablaEl) return;
-    
-    tablaEl.addEventListener('click', function (event) {
-      const fila = event.target.closest('tr');
-      if (!fila) return;
-      
-      const id = fila.getAttribute('data-id');
-      const nombre = fila.getAttribute('data-nombre');
-      const valor = fila.getAttribute('data-valor');
-      
-      document.getElementById(input).value = nombre;
-      document.getElementById(hidden).value = id;
-      
-      // Actualizar montos si corresponde
-      if (valor !== null && gravado !== undefined) {
-        const monto = parseFloat(valor) || 0;
-        if (gravado) {
-          setCurrencyField('subtotalGravado', monto);
-        } else {
-          setCurrencyField('subtotalExento', monto);
-        }
-        calcularMontos();
-      }
-      
-      $(`#${modal}`).modal('hide');
-    });
-  });
-
-  // ===== MANEJO DE ENVÍO DEL FORMULARIO =====
-
-  notaForm.addEventListener('submit', async function (event) {
-    event.preventDefault();
-    event.stopImmediatePropagation();
-
-    const submitButton = notaForm.querySelector('input[type="submit"], button[type="submit"]');
-    if (submitButton) submitButton.disabled = true;
-
-    notaForm.classList.remove('was-validated');
-
-    // Validación HTML5
-    if (!notaForm.checkValidity()) {
-      notaForm.classList.add('was-validated');
-      const firstInvalid = notaForm.querySelector(':invalid');
-      
-      if (firstInvalid) {
-        firstInvalid.classList.add('is-invalid');
-        const gp = firstInvalid.closest('.field-wrap, .form-group, .input-group');
-        const feedback = gp ? gp.querySelector('.invalid-feedback') : null;
-        const message = (feedback && feedback.textContent.trim()) || 
-                       firstInvalid.validationMessage || 
-                       'Por favor, corrija el campo.';
-        
-        Swal.fire({
-          icon: 'error',
-          title: 'Error de validación',
-          text: message,
-          confirmButtonColor: '#ffc107'
-        }).then(() => firstInvalid.focus());
-      }
-      
-      if (submitButton) submitButton.disabled = false;
-      return;
-    }
-
-    // Validar selección de artículo activo
-    const activeGroup = articulosDiv.querySelector('div[style*="display: block"]');
-    if (activeGroup) {
-      const hiddenInput = activeGroup.querySelector('input[type="hidden"]');
-      const visibleInput = activeGroup.querySelector('input[type="text"]');
-
-      if (!hiddenInput.value) {
-        visibleInput.classList.add('is-invalid');
-        const feedback = activeGroup.querySelector('.invalid-feedback');
-        if (feedback) feedback.style.display = 'block';
-        
-        if (submitButton) submitButton.disabled = false;
-        return;
-      }
-    }
-
-    // Validar selección de persona
-    if (!idPersonaInput.value) {
-      personaInput.classList.add('is-invalid');
-      const feedback = personaInput.nextElementSibling;
-      if (feedback && feedback.classList.contains('invalid-feedback')) {
-        feedback.style.display = 'block';
-      }
-      
-      if (submitButton) submitButton.disabled = false;
-      return;
-    }
-
-    // Preparar FormData con campos normalizados (MODIFICADO: usa normalizeCurrencyString)
-    const formData = new FormData(notaForm);
-    currencyIds.forEach(id => {
-      const el = document.getElementById(id);
-      if (!el) return;
-      
-      const normalized = normalizeCurrencyString(el.value);
-      formData.set(id, normalized === '' ? '0.00' : normalized);
-    });
-
-    // Enviar formulario
-    try {
-      const response = await fetch(notaForm.action, {
-        method: 'POST',
-        body: formData,
-        headers: {
-          'X-Requested-With': 'XMLHttpRequest',
-        },
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        Swal.fire({
-          icon: 'success',
-          title: 'Nota creada exitosamente',
-          text: result.message,
-          showCancelButton: true,
-          confirmButtonText: 'Ver lista de notas',
-          cancelButtonText: 'Pagar',
-          confirmButtonColor: '#28a745',
-          cancelButtonColor: '#ffc107',
-          allowOutsideClick: false,
-        }).then((action) => {
-          if (action.isConfirmed) {
-            window.location.href = result.lista;
-          } else if (action.dismiss === Swal.DismissReason.cancel) {
-            window.location.href = result.pagar;
-          }
-        });
-      } else {
-        // Mostrar errores de campo
-        if (result.errors) {
-          for (const [field, msgs] of Object.entries(result.errors)) {
-            const input = document.querySelector(`[name="${field}"]`);
-            if (input) {
+    } else {
+      // Mostrar errores específicos del formulario (si existen)
+      if (result.errors) {
+        for (const [field, messages] of Object.entries(result.errors)) {
+          const input = document.querySelector(`[name="${field}"]`);
+          if (input) {
+            const feedback = input.nextElementSibling;
+            if (feedback && feedback.classList.contains('invalid-feedback')) {
+              feedback.textContent = messages.join(', ');
               input.classList.add('is-invalid');
-              const fb = input.nextElementSibling;
-              if (fb && fb.classList.contains('invalid-feedback')) {
-                fb.textContent = Array.isArray(msgs) ? msgs.join(', ') : (msgs.message || msgs);
-                fb.style.display = 'block';
-              }
             }
           }
         }
-
-        if (result.message) {
-          Swal.fire({
-            icon: 'error',
-            title: 'Error',
-            text: result.message,
-          });
-        }
       }
+
+      // Mostrar alerta de error con el mensaje general del servidor
+      if (result.message) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: result.message,
+        });
+      }
+    }
+  } catch (error) {
+    console.error('Error al enviar el formulario:', error);
+    Swal.fire({
+      icon: 'error',
+      title: 'Error',
+      text: 'Ocurrió un error inesperado. Por favor, inténtelo de nuevo.',
+    });
+  } finally {
+    submitButton.disabled = false; // Habilitar el botón nuevamente
+  }
+});
+    
+  // Limpiar mensajes de error al modificar los campos
+  notaForm.querySelectorAll('input, select, textarea').forEach((input) => {
+    input.addEventListener('input', () => {
+      input.classList.remove('is-invalid');
+      const feedback = input.nextElementSibling;
+      if (feedback && feedback.classList.contains('invalid-feedback')) {
+        feedback.textContent = '';
+      }
+    });
+  });
+    // Botón "OK" redirige a factura_list
+    document.getElementById('okButton').addEventListener('click', function () {
+        window.location.href = "{% url 'factura_list' %}";
+      });
+
+     
+// Obtener el parámetro 'inscripcion' de la URL
+const urlParams = new URLSearchParams(window.location.search);
+const inscripcionValue = urlParams.get('inscripcion');
+const solicitudValue = urlParams.get('solicitud');
+const honorarioValue = urlParams.get('honorario');
+const cuotaValue = urlParams.get('cuota');
+
+
+//  FUNCION PARA LA VISIBILIDAD DE ARTICULOS
+function actualizarVisibilidadArticulos() {
+  const tipoArticuloSelect = document.getElementById('tipoArticulo');
+  const noAplicaGroup = document.getElementById('noAplicaGroup');
+  const cuotaGroup = document.getElementById('cuotaGroup');
+  const inscripcionGroup = document.getElementById('inscripcionGroup');
+  const honorarioGroup = document.getElementById('honorarioGroup');
+  const solicitudGroup = document.getElementById('solicitudGroup');
+
+  const tipoArticulo = tipoArticuloSelect.value;
+
+  // Ocultar todos los grupos inicialmente
+  noAplicaGroup.style.display = 'none';
+  cuotaGroup.style.display = 'none';
+  inscripcionGroup.style.display = 'none';
+  honorarioGroup.style.display = 'none';
+  solicitudGroup.style.display = 'none';
+
+  // Mostrar el grupo correspondiente según el valor seleccionado
+  switch (tipoArticulo) {
+    case 'INSCRIPCION':
+      inscripcionGroup.style.display = 'block';
+      break;
+    case 'SOLICITUD':
+      solicitudGroup.style.display = 'block';
+      break;
+    case 'HONORARIO_PROFESOR':
+      honorarioGroup.style.display = 'block';
+      break;
+    case 'CUOTA':
+      cuotaGroup.style.display = 'block';
+      break;
+    default:
+      noAplicaGroup.style.display = 'block'; // Mostrar "No aplica" si no hay coincidencia
+      break;
+  }
+}
+
+// Función para manejar los parámetros
+function manejarParametro(tipo, valor) {
+  if (!valor) return;
+
+  switch (tipo) {
+    case 'INSCRIPCION':
+      subtotalExento.value = parseFloat(valor).toFixed(2);
+      subtotalExento.setAttribute('readonly', true);
+      ingresoCheckbox.checked = true;
+      tipoArticuloSelect.disabled = false;
+      document.querySelector('.ingreso-options').style.display = 'block';
+      document.querySelector('.egreso-options').style.display = 'none';
+      setTimeout(() => {
+        tipoArticuloSelect.value = tipo;
+        tipoArticuloSelect.setAttribute('readonly', true);
+        actualizarVisibilidadArticulos();
+      }, 0);
+      subtotalGravado.value = '0.00';
+      subtotalGravado.setAttribute('readonly', true);
+      descuento.value = '0.00';
+      descuento.setAttribute('readonly', true);
+        // Deshabilitar el botón de inscripción
+      document.getElementById('buscarInscripcion').disabled = true;
+      break;
+
+    case 'SOLICITUD':
+      subtotalExento.value = parseFloat(valor).toFixed(2);
+      subtotalExento.setAttribute('readonly', true);
+      ingresoCheckbox.checked = true;
+      tipoArticuloSelect.disabled = false;
+      document.querySelector('.ingreso-options').style.display = 'block';
+      document.querySelector('.egreso-options').style.display = 'none';
+      setTimeout(() => {
+        tipoArticuloSelect.value = tipo;
+        tipoArticuloSelect.setAttribute('readonly', true);
+        actualizarVisibilidadArticulos();
+      }, 0);
+      subtotalGravado.value = '0.00';
+      subtotalGravado.setAttribute('readonly', true);
+      descuento.value = '0.00';
+      descuento.removeAttribute('readonly');
+      descuento.readOnly = false;
+
+      // Deshabilitar el botón de solicitud
+      document.getElementById('buscarSolicitud').disabled = true;
+     
+      break;
+      case 'CUOTA': // Agregar lógica para CUOTA
+      subtotalGravado.value = parseFloat(valor).toFixed(2);
+      subtotalGravado.setAttribute('readonly', true);
+      ingresoCheckbox.checked = true;
+      tipoArticuloSelect.disabled = false;
+      document.querySelector('.ingreso-options').style.display = 'block';
+      document.querySelector('.egreso-options').style.display = 'none';
+      setTimeout(() => {
+        tipoArticuloSelect.value = tipo;
+        tipoArticuloSelect.setAttribute('readonly', true);
+        actualizarVisibilidadArticulos();
+      }, 0);
+      
+      // Deshabilitar el botón de cuota
+      document.getElementById('buscarCuota').disabled = true;
+      break
+    case 'HONORARIO_PROFESOR':
+      subtotalGravado.value = parseFloat(valor).toFixed(2);
+      subtotalGravado.setAttribute('readonly', true);
+      egresoCheckbox.checked = true;
+      tipoArticuloSelect.disabled = false;
+      document.querySelector('.ingreso-options').style.display = 'block';
+      document.querySelector('.egreso-options').style.display = 'none';
+      setTimeout(() => {
+        tipoArticuloSelect.value = tipo;
+        tipoArticuloSelect.setAttribute('readonly', true);
+        actualizarVisibilidadArticulos();
+      }, 0);
+      subtotalExento.value = '0.00';
+      subtotalExento.setAttribute('readonly', true);
+      descuento.value = '0.00';
+      descuento.setAttribute('readonly', true);
+      ivaRetenido.removeAttribute('readonly');
+      ivaRetenido.readOnly = false;
+     
+      // Deshabilitar el botón de honorario
+      document.getElementById('buscarHonorario').disabled = true;
+      break;
+
+    default:
+      console.warn(`Tipo de parámetro desconocido: ${tipo}`);
+      break;
+  }
+
+  // Ejecutar cálculos necesarios
+  calcularMontos();
+}
+
+// Manejar los parámetros
+manejarParametro('INSCRIPCION', inscripcionValue);
+manejarParametro('SOLICITUD', solicitudValue);
+manejarParametro('HONORARIO_PROFESOR', honorarioValue);
+manejarParametro('CUOTA', cuotaValue);
+
+const idParam = urlParams.get('idP');
+const idInscripcionParam = urlParams.get('id');
+const iHonorarioParam = urlParams.get('idH');
+const iSolicitudfParam = urlParams.get('idS');
+const iCuotaParam = urlParams.get('idC');
+
+if (idParam) {
+  const filaPersona = document.querySelector(`#tablaPersonas tr[data-id="${idParam}"]`);
+  if (filaPersona) {
+    const nombrePersona = filaPersona.getAttribute('data-nombre');
+    document.getElementById('personaInput').value = nombrePersona;
+    document.getElementById('idPersona').value = idParam;
+
+    // Realizar la solicitud AJAX para actualizar las cuotas automáticamente
+    const url = idInscripcionParam && parseInt(idInscripcionParam) > 0 
+      ? `/factura/obtener-cuotas/?idPersona=${idParam}&idInscripcion=${idInscripcionParam}` 
+      : `/factura/obtener-cuotas/?idPersona=${idParam}`;
+    fetch(url)
+    .then(response => {
+      const tipoArticulo = document.getElementById('tipoArticulo').value; // Obtener el valor actualizado de tipoArticulo
+
+      if (tipoArticulo === 'CUOTA') { // Verificar si el artículo seleccionado es "CUOTA"
+      if (!response.ok) {
+        return response.json().then(data => {
+          if (data.error) {
+            lastError = data.error; // Almacenar el error en la variable global
+            Swal.fire({
+              icon: 'error',
+              title: 'Error',
+              text: data.error,
+            });
+          }
+          throw new Error(data.error || 'Error desconocido');
+        });
+      }
+    } else if (!response.ok) {
+      // Si el artículo no es "CUOTA", almacenar el error pero no mostrarlo
+      return response.json().then(data => {
+        if (data.error) {
+          lastError = data.error; // Almacenar el error en la variable global
+        }
+        throw new Error(data.error || 'Error desconocido');
+      });
+    }
+    return response.json();
+  })
+        .then(data => {
+        console.log("Datos recibidos:", data); // Verifica los datos aquí
+        const tablaCuotas = document.getElementById('tablaCuotas');
+        const tbody = tablaCuotas.querySelector('tbody');
+        tbody.innerHTML = ''; // Limpiar la tabla de cuotas
+
+        if (data.cuotas.length > 0) {
+          data.cuotas.forEach(cuota => {
+            cuota.inscripciones.forEach(inscripcion => {
+              const row = document.createElement('tr');
+              row.setAttribute('data-id', cuota.idCuota);
+              row.setAttribute('data-nombre', cuota.nombreCuota);
+              row.setAttribute('data-valor', cuota.valorCuota);
+              row.setAttribute('data-idIn', inscripcion.idInscripcion);
+
+              row.innerHTML = `
+                <td>${cuota.idCuota}</td>
+                <td>${cuota.nombreCuota}</td>
+                <td>${cuota.valorCuota}</td>
+                <td>${inscripcion.idInscripcion}</td>
+                <td>${inscripcion.idFormacion.nombreFormacion}</td>
+              `;
+              tbody.appendChild(row);
+            });
+          });
+        } else {
+          const mensajeSinRegistros = document.getElementById('mensajeSinRegistrosCuota');
+          mensajeSinRegistros.style.display = 'block';
+        }
+      })
+      .catch(error => console.error('Error al cargar cuotas:', error));
+
+      document.getElementById('tipoArticulo').addEventListener('change', function () {
+  const tipoArticulo = this.value; // Obtener el valor actualizado del select
+  if (tipoArticulo === 'CUOTA' && lastError) {
+    // Mostrar el error almacenado si el artículo ahora es "CUOTA"
+    Swal.fire({
+      icon: 'error',
+      title: 'Error',
+      text: lastError,
+    }).then(() => {
+      // Cambiar automáticamente el artículo a "INSCRIPCIÓN"
+      this.value = 'INSCRIPCION';
+      actualizarVisibilidadArticulos(); // Actualizar la visibilidad de los grupos
+    });
+    lastError = null; // Limpiar el error después de mostrarlo
+  }
+});
+  }
+
+      // Deshabilitar el botón de persona
+      document.getElementById('buscarPersona').disabled = true;
+     
+}
+// Manejar el parámetro 'id' de la URL
+if (idInscripcionParam) {
+  const filaInscripcion = document.querySelector(`#tablaInscripciones tr[data-id="${idInscripcionParam}"]`);
+  if (filaInscripcion) {
+    const nombreInscripcion = filaInscripcion.getAttribute('data-nombre');
+    document.getElementById('inscripcion').value = nombreInscripcion;
+    document.getElementById('idInscripcion').value = idInscripcionParam;
+  }
+}
+// Manejar el parámetro 'idH' de la URL
+if (iHonorarioParam) {
+  const filaHonorario = document.querySelector(`#tablaHonorarios tr[data-id="${iHonorarioParam}"]`);
+  if (filaHonorario) {
+    const nombreHonorario = filaHonorario.getAttribute('data-nombre');
+    document.getElementById('honorario').value = nombreHonorario;
+    document.getElementById('idHonorario').value = iHonorarioParam;
+  }
+}
+
+// Manejar el parámetro 'idS' de la URL
+if (iSolicitudfParam) {
+  const filaSolicitud = document.querySelector(`#tablaSolicitudes tr[data-id="${iSolicitudfParam}"]`);
+  if (filaSolicitud) {
+    const nombreSolicitud = filaSolicitud.getAttribute('data-nombre');
+    document.getElementById('solicitud').value = nombreSolicitud;
+    document.getElementById('idSolicitud').value = iSolicitudfParam;
+  }
+}
+
+// Manejar el parámetro 'idC' de la URL
+if (iCuotaParam) {
+  const filaCuota = document.querySelector(`#tablaCuotas tr[data-id="${iCuotaParam}"]`);
+  if (filaCuota) {
+    const nombreCuota = filaCuota.getAttribute('data-nombre');
+    document.getElementById('cuota').value = nombreCuota;
+    document.getElementById('idCuota').value = iCuotaParam;
+  } else {
+    console.warn(`No se encontró una fila en la tabla de cuotas con data-id="${iCuotaParam}"`);
+  }
+}
+ // Manejar la selección de filas en el modal de Personas
+ const tablaPersonas = document.getElementById('tablaPersonas');
+  const tablaCuotas = document.getElementById('tablaCuotas');
+
+  if (tablaPersonas) {
+    tablaPersonas.addEventListener('click', function (event) {
+      const fila = event.target.closest('tr');
+      if (fila) {
+        const idPersona = fila.getAttribute('data-id');
+        const nombrePersona = fila.getAttribute('data-nombre');
+        document.getElementById('personaInput').value = nombrePersona;
+        document.getElementById('idPersona').value = idPersona;
+        $('#personaModal').modal('hide'); // Cerrar el modal
+
+        // Realizar una solicitud AJAX para actualizar las cuotas
+fetch(`/factura/obtener-cuotas/?idPersona=${idPersona}&idInscripcion=${idInscripcionParam}`)
+  .then(response => response.json())
+  .then(data => {
+    console.log("Datos recibidos:", data); // Verifica los datos aquí
+    const tbody = tablaCuotas.querySelector('tbody');
+    tbody.innerHTML = ''; // Limpiar la tabla de cuotas
+
+    if (data.cuotas.length > 0) {
+      data.cuotas.forEach(cuota => {
+        cuota.inscripciones.forEach(inscripcion => {
+          const row = document.createElement('tr');
+          row.setAttribute('data-id', cuota.idCuota);
+          row.setAttribute('data-nombre', cuota.nombreCuota);
+          row.setAttribute('data-valor', cuota.valorCuota);
+          row.setAttribute('data-inscripcion-id', inscripcion.idInscripcion);
+
+          row.innerHTML = `
+            <td>${cuota.idCuota}</td>
+            <td>${cuota.nombreCuota}</td>
+            <td>${cuota.valorCuota}</td>
+            <td>${inscripcion.idInscripcion}</td>
+            <td>${inscripcion.nombreFormacion}</td>
+          `;
+          tbody.appendChild(row);
+        });
+      });
+    } else {
+      const mensajeSinRegistros = document.getElementById('mensajeSinRegistrosCuota');
+      mensajeSinRegistros.style.display = 'block';
+    }
+  })
+  .catch(error => console.error('Error al cargar cuotas:', error));
+      }
+    });
+  }
+  // Manejar la selección de filas en el modal de Empresas
+  const tablaEmpresas = document.getElementById('tablaEmpresas');
+  if (tablaEmpresas) {
+    tablaEmpresas.addEventListener('click', function(event) {
+      const fila = event.target.closest('tr');
+      if (fila) {
+        const idEmpresa = fila.getAttribute('data-id');
+        const nombreEmpresa = fila.getAttribute('data-nombre');
+        document.getElementById('empresaInput').value = nombreEmpresa;
+        document.getElementById('idEmpresa').value = idEmpresa;
+        $('#empresaModal').modal('hide'); // Cerrar el modal
+      }
+    });
+  }
+
+  // Manejar la selección de filas en el modal de Plan de Cuenta (Debe)
+  const tablaPlanCuentaDebe = document.getElementById('tablaPlanCuentaDebe');
+  if (tablaPlanCuentaDebe) {
+    tablaPlanCuentaDebe.addEventListener('click', function(event) {
+      const fila = event.target.closest('tr');
+      if (fila) {
+        const idPlanCuentaDebe = fila.getAttribute('data-id');
+        const nombrePlanCuentaDebe = fila.getAttribute('data-nombre');
+        document.getElementById('planCuentaDebe').value = nombrePlanCuentaDebe;
+        document.getElementById('idPlanCuentaDebe').value = idPlanCuentaDebe;
+        $('#planCuentaDebeModal').modal('hide'); // Cerrar el modal
+      }
+    });
+  }
+
+  // Manejar la selección de filas en el modal de Plan de Cuenta (Haber)
+  const tablaPlanCuentaHaber = document.getElementById('tablaPlanCuentaHaber');
+  if (tablaPlanCuentaHaber) {
+    tablaPlanCuentaHaber.addEventListener('click', function(event) {
+      const fila = event.target.closest('tr');
+      if (fila) {
+        const idPlanCuentaHaber = fila.getAttribute('data-id');
+        const nombrePlanCuentaHaber = fila.getAttribute('data-nombre');
+        document.getElementById('planCuentaHaber').value = nombrePlanCuentaHaber;
+        document.getElementById('idPlanCuentaHaber').value = idPlanCuentaHaber;
+        $('#planCuentaHaberModal').modal('hide'); // Cerrar el modal
+      }
+    });
+  }
+   // Referencias a los elementos del DOM para Persona y Empresa
+   const personaCheckbox = document.getElementById('personaCheckbox');
+  const empresaCheckbox = document.getElementById('empresaCheckbox');
+  const personaGroup = document.getElementById('personaGroup');
+  const empresaGroup = document.getElementById('empresaGroup');
+
+  // Función para actualizar la visibilidad de los campos
+  function actualizarVisibilidadEntidad() {
+    if (personaCheckbox.checked) {
+      personaGroup.style.display = 'block';
+      empresaGroup.style.display = 'none';
+    } else if (empresaCheckbox.checked) {
+      personaGroup.style.display = 'none';
+      empresaGroup.style.display = 'block';
+    }
+  }
+
+
+  // Eventos para cambiar la visibilidad según la selección
+  personaCheckbox.addEventListener('change', actualizarVisibilidadEntidad);
+  empresaCheckbox.addEventListener('change', actualizarVisibilidadEntidad);
+
+  // Inicializar la visibilidad al cargar la página
+  actualizarVisibilidadEntidad();
+  // Obtener parámetros tributarios desde el servidor
+  async function obtenerParametrosTributarios() {
+    try {
+      const response = await fetch('/factura/obtener-parametros-tributarios/');
+      if (!response.ok) throw new Error('Error al obtener parámetros tributarios');
+      parametrosTributarios = await response.json();
     } catch (error) {
-      console.error('Error al enviar nota:', error);
+      console.error('Error:', error);
       Swal.fire({
         icon: 'error',
         title: 'Error',
-        text: 'Ocurrió un error inesperado.',
+        text: 'No se pudieron cargar los parámetros tributarios. Los cálculos podrían no ser exactos.',
       });
-    } finally {
-      if (submitButton) submitButton.disabled = false;
     }
-  }, true);
+  }
 
-  // ===== BOTÓN TOGGLE READONLY =====
+  // Obtener un parámetro tributario específico
+  function obtenerParametro(tipo, aplicaA) {
+    return parametrosTributarios[tipo]?.find(p => p.aplica_a === aplicaA) || null;
+  }
 
-  if (toggleReadonlyButton) {
-    toggleReadonlyButton.addEventListener('click', () => {
-      const isActivating = toggleReadonlyButton.textContent.includes('Habilitar');
+  // Calcular montos de la factura
+  function calcularMontos() {
+    const gravado = parseFloat(subtotalGravado.value) || 0;
+    const exento = parseFloat(subtotalExento.value) || 0;
+    const descuentoValor = parseFloat(descuento.value) || 0;
+    const tipoArticulo = tipoArticuloSelect.value;
 
-      if (isActivating) {
-        Swal.fire({
-          icon: 'warning',
-          title: 'Advertencia',
-          html: 'Estás activando la habilitación manual.<br><br>Los cálculos automatizados dejarán de funcionar.<br><br>Asegúrate de ingresar los valores correctos.',
-          showCancelButton: false,
-          confirmButtonColor: '#fb6340',
-          confirmButtonText: 'Entendido',
-          backdrop: true,
-          allowOutsideClick: false,
-          allowEscapeKey: false,
-        }).then(() => {
-          camposReadonly.forEach(campoId => {
-            const campo = document.getElementById(campoId);
-            if (campo) campo.removeAttribute('readonly');
-          });
-          
-          toggleReadonlyButton.textContent = 'Deshabilitar edición manual';
-          toggleReadonlyButton.classList.remove('btn-secondary');
-          toggleReadonlyButton.classList.add('btn-warning');
-        });
-      } else {
-        camposReadonly.forEach(campoId => {
-          const campo = document.getElementById(campoId);
-          if (campo) campo.setAttribute('readonly', true);
-        });
+    const parametroIva = obtenerParametro('IVA_GENERAL', tipoArticulo);
+    const parametroRetencionIva = obtenerParametro('IVA_RETENIDO_SERVICIOS', tipoArticulo);
+    const parametroRetencionIslr = egresoCheckbox.checked
+      ? obtenerParametro(tipoArticulo === 'HONORARIO_PROFESOR' ? 'ISLR_HONORARIOS' : 'ISLR_SERVICIOS', tipoArticulo)
+      : null;
+
+    const porcentajeIva = parametroIva?.porcentaje || 16;
+    const ivaCalculado = gravado * (porcentajeIva / 100);
+    iva.value = ivaCalculado.toFixed(2);
+
+    if (egresoCheckbox.checked) {
+      ivaRetenido.value = (ivaCalculado * (parametroRetencionIva?.porcentaje || 0) / 100).toFixed(2);
+      islrRetenido.value = (gravado * (parametroRetencionIslr?.porcentaje || 0) / 100).toFixed(2);
+    } else {
+      ivaRetenido.value = islrRetenido.value = '0.00';
+    }
+
+    const total = exento + gravado + ivaCalculado - descuentoValor;
+    totalNota.value = total.toFixed(2);
+
+    document.getElementById('ivaPercentage').textContent = porcentajeIva;
+    if (egresoCheckbox.checked) {
+      document.getElementById('ivaRetentionPercentage').textContent = parametroRetencionIva?.porcentaje || 0;
+      document.getElementById('islrRetentionPercentage').textContent = parametroRetencionIslr?.porcentaje || 0;
+    }
+  }
+
+  // Actualizar la fecha de vencimiento según la forma de pago
+  function actualizarFechaVencimiento() {
+    const fecha = new Date(fechaEmision.value);
+    if (!fechaEmision.value) return (fechaVencimiento.value = '');
+    const dias = formaPago.value === 'credito' ? parseInt(plazoCreditoInput.value) || 0 : 1;
+    fecha.setDate(fecha.getDate() + dias);
+    fechaVencimiento.value = fecha.toISOString().split('T')[0];
+  }
+
+
+  
+  const articulosDiv = document.getElementById('articulos');
+
+  // Validar el campo activo dentro del div "articulos"
+  notaForm.addEventListener('submit', function (event) {
+    const activeGroup = articulosDiv.querySelector('div[style*="display: block"]'); // Obtener el grupo activo
+    if (activeGroup) {
+      const input = activeGroup.querySelector('input[type="text"]'); // Buscar el campo de texto dentro del grupo activo
+      const hiddenInput = activeGroup.querySelector('input[type="hidden"]'); // Buscar el campo oculto dentro del grupo activo
+
+      if (!hiddenInput.value) { // Validar si el campo oculto está vacío
+        event.preventDefault(); // Evitar el envío del formulario
+        input.classList.add('is-invalid'); // Agregar la clase de error
+        const feedback = activeGroup.querySelector('.invalid-feedback');
+        if (feedback) {
+          feedback.style.display = 'block'; // Mostrar el mensaje de error
+        }
         
-        toggleReadonlyButton.textContent = 'Habilitar edición manual';
-        toggleReadonlyButton.classList.remove('btn-warning');
-        toggleReadonlyButton.classList.add('btn-secondary');
+      } else {
+        input.classList.remove('is-invalid'); // Remover la clase de error si el campo tiene valor
+        const feedback = activeGroup.querySelector('.invalid-feedback');
+        if (feedback) {
+          feedback.style.display = 'none'; // Ocultar el mensaje de error
+        }
+      }
+    }
+  });
+  const personaInput = document.getElementById('personaInput');
+  const idPersonaInput = document.getElementById('idPersona');
+
+  // Validar el campo de persona al enviar el formulario
+  notaForm.addEventListener('submit', function (event) {
+    if (!idPersonaInput.value) { // Validar si el campo oculto está vacío
+      event.preventDefault(); // Evitar el envío del formulario
+      personaInput.classList.add('is-invalid'); // Agregar la clase de error
+      const feedback = personaInput.nextElementSibling;
+      if (feedback && feedback.classList.contains('invalid-feedback')) {
+        feedback.style.display = 'block'; // Mostrar el mensaje de error
+      }
+    
+    } else {
+      personaInput.classList.remove('is-invalid'); // Remover la clase de error si el campo tiene valor
+      const feedback = personaInput.nextElementSibling;
+      if (feedback && feedback.classList.contains('invalid-feedback')) {
+        feedback.style.display = 'none'; // Ocultar el mensaje de error
+      }
+    }
+  });
+  // Limpiar mensajes de error al modificar los campos
+  articulosDiv.querySelectorAll('input').forEach((input) => {
+    input.addEventListener('input', () => {
+      input.classList.remove('is-invalid');
+      const feedback = input.nextElementSibling;
+      if (feedback && feedback.classList.contains('invalid-feedback')) {
+        feedback.style.display = 'none';
+      }
+    });
+  });
+
+  // Validar que la fecha de vencimiento no sea anterior a la fecha de emisión
+  fechaVencimiento.addEventListener('change', () => {
+    const fechaEmisionValor = new Date(fechaEmision.value);
+    const fechaVencimientoValor = new Date(fechaVencimiento.value);
+
+    if (fechaVencimientoValor < fechaEmisionValor) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Fecha inválida',
+        text: 'La fecha de vencimiento no puede ser anterior a la fecha de emisión.',
+      });
+      fechaVencimiento.value = fechaEmision.value; // Restablecer a la fecha de emisión
+    }
+  });
+// Alternar el estado de readonly en los campos
+toggleReadonlyButton.addEventListener('click', () => {
+  const isActivating = toggleReadonlyButton.textContent.includes('Habilitar');
+
+  if (isActivating) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'Advertencia',
+      html: 'Estás activando la habilitación manual.<br><br>Los cálculos automatizados dejarán de funcionar.<br><br>Asegúrate de ingresar los valores correctos.', // Cambiado de 'text' a 'html'
+      showCancelButton: false,
+      confirmButtonColor: '#fb6340',
+      cancelButtonColor: '#fb6340',
+      confirmButtonText: 'Entendido',
+      backdrop: true, // Evitar cierre al hacer clic fuera del modal
+      allowOutsideClick: false, // Deshabilitar clic fuera del modal
+      allowEscapeKey: false, // Deshabilitar tecla Escape
+    }).then(() => {
+      camposReadonly.forEach(campoId => {
+        const campo = document.getElementById(campoId);
+        campo.removeAttribute('readonly');
+      });
+      toggleReadonlyButton.textContent = 'Deshabilitar edición manual';
+      toggleReadonlyButton.classList.remove('btn-secondary');
+      toggleReadonlyButton.classList.add('btn-warning');
+    });
+  } else {
+    camposReadonly.forEach(campoId => {
+      const campo = document.getElementById(campoId);
+      campo.setAttribute('readonly', true);
+    });
+    toggleReadonlyButton.textContent = 'Habilitar edición manual';
+    toggleReadonlyButton.classList.remove('btn-warning');
+    toggleReadonlyButton.classList.add('btn-secondary');
+  }
+});
+  // Actualizar opciones de tipo de factura según el tipo de operación
+  function actualizarOpciones() {
+    const isIngreso = ingresoCheckbox.checked;
+    tipoArticuloSelect.disabled = !isIngreso && !egresoCheckbox.checked;
+    document.querySelector('.ingreso-options').style.display = isIngreso ? 'block' : 'none';
+    document.querySelector('.egreso-options').style.display = isIngreso ? 'none' : 'block';
+    tipoArticuloSelect.value = '';
+    calcularMontos();
+  }
+
+  // Eventos para actualizar cálculos y fechas
+  [subtotalExento, subtotalGravado, descuento, tipoArticuloSelect].forEach(el => {
+    el.addEventListener('input', calcularMontos);
+    el.addEventListener('change', calcularMontos);
+  });
+
+
+  // Función para actualizar la visibilidad del campo de plazo de crédito
+  function actualizarVisibilidadPlazoCredito() {
+    if (formaPago.value === 'credito') {
+      plazoCreditoGroup.style.display = 'block'; // Mostrar el campo de plazo de crédito
+    } else {
+      plazoCreditoGroup.style.display = 'none'; // Ocultar el campo de plazo de crédito
+      plazoCreditoInput.value = ''; // Limpiar el valor del campo
+    }
+  }
+    // Función para establecer la fecha de hoy
+    function establecerFechaHoy() {
+    const hoy = new Date();
+    const fechaHoy = hoy.toISOString().split('T')[0]; // Formato YYYY-MM-DD
+    fechaEmision.value = fechaHoy; // Establecer la fecha de hoy en el campo
+  }
+
+  // Evento para cambiar la visibilidad del campo según la forma de pago seleccionada
+  formaPago.addEventListener('change', actualizarVisibilidadPlazoCredito);
+  [fechaEmision, formaPago, plazoCreditoInput].forEach(el => el.addEventListener('change', actualizarFechaVencimiento));
+  [ingresoCheckbox, egresoCheckbox].forEach(el => el.addEventListener('change', actualizarOpciones));
+
+  // Inicializar datos y cálculos
+  obtenerParametrosTributarios();
+  actualizarOpciones();
+  calcularMontos();
+  // Inicializar la visibilidad al cargar la página
+  actualizarVisibilidadPlazoCredito();
+  // Llamar a la función al cargar la página
+  establecerFechaHoy();
+});
+</script>
+<!-- TABLAS HONORARIO Y CUOTA -->
+<script>
+
+  document.addEventListener('DOMContentLoaded', function () {
+  // Manejar la selección de filas en el modal de Cuotas
+  const tablaCuotas = document.getElementById('tablaCuotas');
+  if (tablaCuotas) {
+    tablaCuotas.addEventListener('click', function (event) {
+      const fila = event.target.closest('tr');
+      if (fila) {
+        const idCuota = fila.getAttribute('data-id');
+        const nombreCuota = fila.getAttribute('data-nombre');
+        document.getElementById('cuota').value = nombreCuota;
+        document.getElementById('idCuota').value = idCuota;
+        $('#cuotaModal').modal('hide'); // Cerrar el modal
       }
     });
   }
 
-  // ===== INICIALIZACIÓN =====
-
-  // Obtener parámetros de URL
-  const urlParams = new URLSearchParams(window.location.search);
-  manejarParametro('INSCRIPCION', urlParams.get('inscripcion'));
-  manejarParametro('SOLICITUD', urlParams.get('solicitud'));
-  manejarParametro('HONORARIO_PROFESOR', urlParams.get('honorario'));
-  manejarParametro('CUOTA', urlParams.get('cuota'));
-
-  // Configurar eventos
-  if (tipoArticuloSelect) {
-    tipoArticuloSelect.addEventListener('change', actualizarVisibilidadArticulos);
-  }
-
-  if (ingresoCheckbox && egresoCheckbox) {
-    ingresoCheckbox.addEventListener('change', actualizarOpciones);
-    egresoCheckbox.addEventListener('change', actualizarOpciones);
-  }
-
-  if (personaCheckbox && empresaCheckbox) {
-    personaCheckbox.addEventListener('change', actualizarVisibilidadEntidad);
-    empresaCheckbox.addEventListener('change', actualizarVisibilidadEntidad);
-  }
-
-  if (formaPago) {
-    formaPago.addEventListener('change', actualizarVisibilidadPlazoCredito);
-  }
-
-  if (fechaEmision && formaPago && plazoCreditoInput && fechaVencimiento) {
-    [fechaEmision, formaPago, plazoCreditoInput].forEach(el => {
-      el.addEventListener('change', actualizarFechaVencimiento);
+  // Manejar la selección de filas en el modal de Inscripciones
+  const tablaInscripciones = document.getElementById('tablaInscripciones');
+  if (tablaInscripciones) {
+    tablaInscripciones.addEventListener('click', function (event) {
+      const fila = event.target.closest('tr');
+      if (fila) {
+        const idInscripcion = fila.getAttribute('data-id');
+        const nombreInscripcion = fila.getAttribute('data-nombre');
+        document.getElementById('inscripcion').value = nombreInscripcion;
+        document.getElementById('idInscripcion').value = idInscripcion;
+        $('#inscripcionModal').modal('hide'); // Cerrar el modal
+      }
     });
-    
-    fechaVencimiento.addEventListener('change', actualizarFechaVencimiento);
   }
 
-  if (descuento) {
-    descuento.addEventListener('input', validarDescuento);
-    descuento.addEventListener('change', validarDescuento);
+  // Manejar la selección de filas en el modal de Honorarios
+  const tablaHonorarios = document.getElementById('tablaHonorarios');
+  if (tablaHonorarios) {
+    tablaHonorarios.addEventListener('click', function (event) {
+      const fila = event.target.closest('tr');
+      if (fila) {
+        const idHonorario = fila.getAttribute('data-id');
+        const nombreHonorario = fila.getAttribute('data-nombre');
+        document.getElementById('honorario').value = nombreHonorario;
+        document.getElementById('idHonorario').value = idHonorario;
+        $('#honorarioModal').modal('hide'); // Cerrar el modal
+      }
+    });
   }
 
-  // Campos que disparan cálculos
-  [subtotalExento, subtotalGravado, descuento, tipoArticuloSelect].forEach(el => {
-    if (el) {
-      el.addEventListener('input', calcularMontos);
-      el.addEventListener('change', calcularMontos);
-    }
-  });
-
-  // Inicializar UI
-  obtenerParametrosTributarios();
-  actualizarVisibilidadEntidad();
-  actualizarOpciones();
-  actualizarVisibilidadPlazoCredito();
-  establecerFechaHoy();
-  actualizarVisibilidadArticulos();
-  
-  // NUEVO: Inicializar campos de moneda con formato correcto
-  calcularMontos();
+  // Manejar la selección de filas en el modal de Solicitudes
+  const tablaSolicitudes = document.getElementById('tablaSolicitudes');
+  if (tablaSolicitudes) {
+    tablaSolicitudes.addEventListener('click', function (event) {
+      const fila = event.target.closest('tr');
+      if (fila) {
+        const idSolicitud = fila.getAttribute('data-id');
+        const nombreSolicitud = fila.getAttribute('data-nombre');
+        document.getElementById('solicitud').value = nombreSolicitud;
+        document.getElementById('idSolicitud').value = idSolicitud;
+        $('#solicitudModal').modal('hide'); // Cerrar el modal
+      }
+    });
+  }
 });
-</script>
+
+
+document.addEventListener('DOMContentLoaded', function () {
+  const subtotalExento = document.getElementById('subtotalExento');
+  const subtotalGravado = document.getElementById('subtotalGravado');
+  const tipoArticuloSelect = document.getElementById('tipoArticulo');
+
+  // Función para actualizar el monto según el modal activo
+  function actualizarMontoDesdeModal(modalId, inputId, hiddenInputId, isGravado) {
+    const modalTable = document.getElementById(modalId);
+    if (modalTable) {
+      modalTable.addEventListener('click', function (event) {
+        const fila = event.target.closest('tr');
+        if (fila) {
+          const monto = parseFloat(fila.getAttribute('data-valor')) || 0;
+          const nombre = fila.getAttribute('data-nombre');
+          const id = fila.getAttribute('data-id');
+
+          document.getElementById(inputId).value = nombre;
+          document.getElementById(hiddenInputId).value = id;
+
+          if (isGravado) {
+            subtotalGravado.value = monto.toFixed(2);
+          } else {
+            subtotalExento.value = monto.toFixed(2);
+          }
+
+          calcularMontos(); // Recalcular los montos de la factura
+          $(`#${modalId}`).modal('hide'); // Cerrar el modal
+        }
+      });
+    }
+  }
+
+  // Asociar los modales con sus respectivos campos
+  actualizarMontoDesdeModal('tablaCuotas', 'cuota', 'idCuota', true); // Cuota -> Gravado
+  actualizarMontoDesdeModal('tablaInscripciones', 'inscripcion', 'idInscripcion', false); // Inscripción -> Exento
+  actualizarMontoDesdeModal('tablaHonorarios', 'honorario', 'idHonorario', true); // Honorario -> Gravado
+  actualizarMontoDesdeModal('tablaSolicitudes', 'solicitud', 'idSolicitud', false); // Solicitud -> Exento
+
+  // Función para recalcular los montos de la factura
+  function calcularMontos() {
+    const gravado = parseFloat(subtotalGravado.value) || 0;
+    const exento = parseFloat(subtotalExento.value) || 0;
+    const descuentoValor = parseFloat(document.getElementById('descuento').value) || 0;
+
+    const iva = gravado * 0.16; // IVA del 16%
+    document.getElementById('iva').value = iva.toFixed(2);
+
+    const total = exento + gravado + iva - descuentoValor;
+    document.getElementById('totalNota').value = total.toFixed(2);
+  }
+
+  // Recalcular montos al cambiar valores manualmente
+  [subtotalExento, subtotalGravado, document.getElementById('descuento')].forEach(el => {
+    el.addEventListener('input', calcularMontos);
+  });
+});
+  </script>
 {% endblock javascripts %}

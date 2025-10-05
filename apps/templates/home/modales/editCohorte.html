@@ -1,109 +1,117 @@
+{% load static %}
+
 {% block stylesheets %}
 <link rel="stylesheet" href="/static/assets/css/styleForms.css" />
 <link rel="stylesheet" href="/static/assets/css/argon.css" />
+<style>
+/* mismo estilo base */
+.persona-container { background: linear-gradient(135deg,#f8fafc 0%,#eef2f6 100%); border-radius:1rem; box-shadow:0 0.5rem 1.5rem rgba(0,0,0,0.1); padding:1.5rem; margin:0.5rem auto; max-width:95%; width:100%; }
+.persona-header { text-align:center; margin-bottom:1.5rem; position:relative; padding-bottom:1rem; }
+.persona-header h2 { color:#343a40; font-weight:700; font-size:1.3rem; margin-bottom:.5rem; }
+.form-group { margin-bottom:1.2rem; position:relative; }
+.form-label { font-weight:700; color:#495057; margin-bottom:.5rem; display:flex; align-items:center; font-size:.95rem; }
+.form-label i { margin-right:8px; color:#fd7e14; font-size:.95rem; }
+.form-control { border-radius:.5rem; padding:.75rem 1.25rem; border:1px solid #ced4da; background:#fff; height:48px; font-size:.95rem; }
+.input-icon { position:absolute; left:12px; top:50%; transform:translateY(-50%); color:#6c757d; z-index:2; font-size:.9rem; }
+.input-with-icon { padding-left:40px; }
+.btn-submit { background:linear-gradient(135deg,#ffc107 0%,#fd7e14 100%); border:none; color:#fff; font-weight:600; padding:.75rem 2rem; border-radius:.5rem; box-shadow:0 4px 6px rgba(0,0,0,.1); font-size:1rem; }
+.modal-body { padding:.75rem; }
+#modalMessages .alert { margin-bottom:.5rem; }
+</style>
 {% endblock stylesheets %}
-{% block content %}
-{% if messages %}
-    {% for message in messages %}
-      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-        {{ message }}
-      </div>
-    {% endfor %}
-  {% endif %}
-<div class=" mt-5">
-  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Modificar Cohorte</h2>
-  <form method="POST" class="mt-3 text-dark" autocomplete="off" style="font-weight: bold; max-width: 600px; margin: 0 auto;" id="editCohorteForm" action="{% url 'edit_cohorte' cohorte.idCohorte %}">
-    {% csrf_token %}    
-  
-    <div class="form-group text-center">
-      <label for="nombreCohorte" class="d-block">Nombre:</label>
-      <input type="text" id="nombreCohorte" name="nombreCohorte" class="form-control text-dark mx-auto" value="{{cohorte.nombreCohorte}}" placeholder="Ingrese un nombre" tabindex="3" maxlength="100" data-required="true" style="width: 50%;" />
-      <input type="hidden" id="estadoCohorte" name="estadoCohorte" class="form-control text-dark" value="ACTIVO" />
-      <div class="invalid-feedback">Por favor, ingrese un nombre válido.</div>
 
+{% block content %}
+<div class="persona-container">
+  <div class="persona-header">
+    <h2><i class="fas fa-layer-group text-warning"></i> Editar Cohorte</h2>
+    <p class="text-muted">Actualiza el nombre del cohorte</p>
+  </div>
+
+  <div id="modalMessages"></div>
+
+  <form id="editCohorteForm" method="post" action="{% url 'edit_cohorte' cohorte.idCohorte %}" class="needs-validation" novalidate autocomplete="off">
+    {% csrf_token %}
+    <div class="row">
+      <div class="col-md-12">
+        <div class="form-group position-relative">
+          <label class="form-label" for="nombreCohorte"><i class="fas fa-scroll"></i> Nombre Cohorte</label>
+          <div style="position:relative;">
+            <i class="fas fa-scroll input-icon"></i>
+            <input id="nombreCohorte" name="nombreCohorte" type="text" class="form-control input-with-icon" value="{{ cohorte.nombreCohorte }}" maxlength="20" required />
+          </div>
+          <div class="invalid-feedback" id="nombreCohorteFeedback">Formato inválido. Ej: VIII, XIX, MMXXIII</div>
+        </div>
+      </div>
+
+      <input type="hidden" name="estadoCohorte" value="{{ cohorte.estadoCohorte }}" />
     </div>
-    <div class="text-center">
-      <button type="submit" class="btn btn-warning">Actualizar</button>
+
+    <div class="text-center mt-2">
+      <button type="submit" class="btn-submit"><i class="fas fa-save me-2"></i> Guardar</button>
     </div>
   </form>
+</div>
 {% endblock content %}
 
 {% block javascripts %}
-
+<script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
 <script>
-  document.addEventListener("DOMContentLoaded", function() {
-    $('c').on('show.bs.modal', function (e) {
-      var modal = $(this);
-      $.ajax({
-        url: 'apps/home/cohorte.html',
-        method: 'GET',
-        success: function(data) {
-          modal.find('.modal-body').html(data);
-        }
-      });
-    });
-    //Validar solo letras 
+document.addEventListener('DOMContentLoaded', function() {
+  const form = document.getElementById('editCohorteForm');
+  const nombre = document.getElementById('nombreCohorte');
+  const modalMessages = document.getElementById('modalMessages');
+
+  // uppercase y filtrar caracteres romanos permitidos
+  nombre && nombre.addEventListener('input', e => {
+    e.target.value = e.target.value.toUpperCase().replace(/[^MDCLXVI]/g,'').slice(0,20);
   });
-  document.getElementById("nombreCohorte").addEventListener("input", function() {
-    const input = this;
-    const errorElement = document.getElementById("roman-error");
-    
-    // 1. Forzar mayúsculas y filtrar caracteres
-    input.value = input.value.toUpperCase().replace(/[^MDCLXVI]/g, '');
-    
-    // 2. Validación estricta de número romano
-    const isValid = /^M{0,3}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})$/.test(input.value);
-    
-    // 3. Mostrar feedback
-    if (input.value && !isValid) {
-        input.classList.add("is-invalid");
-        errorElement.textContent = "Formato inválido. Ejemplos válidos: VIII, XIX, MMXXIII";
+
+  function isRoman(str) {
+    if (!str) return false;
+    return /^M{0,3}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})$/.test(str);
+  }
+
+  form.addEventListener('submit', function(e){
+    if (!form.checkValidity()) { e.preventDefault(); e.stopPropagation(); form.classList.add('was-validated'); return; }
+
+    if (!isRoman(nombre.value)) {
+      e.preventDefault(); e.stopPropagation();
+      nombre.classList.add('is-invalid');
+      document.getElementById('nombreCohorteFeedback').textContent = 'Formato inválido. Ej: VIII, XIX, MMXXIII';
+      nombre.focus();
+      return;
     } else {
-        input.classList.remove("is-invalid");
-        errorElement.textContent = "";
+      nombre.classList.remove('is-invalid');
     }
-});
-//Recarga dinamica
 
-$(document).on('submit', '#editCohorteForm', function(e) {
-      e.preventDefault();
-      var form = $(this);
-      $.ajax({
-        url: form.attr('action'),
-        method: form.attr('method'),
-        data: form.serialize(),
-        success: function(response) {
-          var messagesContainer = $('#modalMessages');
-          messagesContainer.empty();
-          if (response.success) {
-            messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
-            $('#cohorteModal').modal('hide');
-            location.reload();  // Recargar la página para ver los cambios
-          } else {
-            // Mostrar errores en el modal
-            var errors = response.errors;
-            for (var field in errors) {
-              messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + errors[field] + '</div>');
-            }
-          }
+    e.preventDefault();
+    modalMessages.innerHTML = '';
+    const btn = form.querySelector('button[type="submit"]'); btn.disabled = true;
+
+    $.ajax({
+      url: form.action,
+      method: 'POST',
+      data: $(form).serialize(),
+      dataType: 'json',
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    }).done(function(resp){
+      if (resp.success) {
+        Swal.fire({ icon: 'success', title: 'Cohorte actualizado', text: resp.message || 'Cambios guardados', confirmButtonColor: '#ffc107' })
+        .then(()=> window.location.reload());
+      } else {
+        if (resp.errors) {
+          Object.entries(resp.errors).forEach(([f, msgs]) => {
+            const el = form.querySelector('[name="'+f+'"]');
+            if (el) { el.classList.add('is-invalid'); const fb = el.nextElementSibling; if (fb && fb.classList.contains('invalid-feedback')) fb.textContent = msgs.join(', '); }
+            else modalMessages.insertAdjacentHTML('beforeend', '<div class="alert alert-danger">'+ msgs.join(', ') +'</div>');
+          });
+        } else if (resp.message) {
+          modalMessages.innerHTML = '<div class="alert alert-danger">'+ resp.message +'</div>';
         }
-      });
-    });
-    
-          // Validaciones de Bootstrap
-          (function() {
-        'use strict';
-        var forms = document.querySelectorAll('.needs-validation');
-        Array.prototype.slice.call(forms).forEach(function(form) {
-          form.addEventListener('submit', function(event) {
-            if (!form.checkValidity()) {
-              event.preventDefault();
-              event.stopPropagation();
-            }
-            form.classList.add('was-validated');
-          }, false);
-        });
-      })();
+      }
+    }).fail(function(){ modalMessages.innerHTML = '<div class="alert alert-danger">Error en servidor.</div>'; })
+      .always(function(){ btn.disabled = false; });
+  }, false);
+});
 </script>
-
 {% endblock javascripts %}

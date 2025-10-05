@@ -8,7 +8,7 @@
 
 <style>
   #tablaPlanesCuenta th, #tablaPlanesCuenta td {
-    text-align: center;
+    text-align: left; /* Alinear contenido a la izquierda */
     white-space: nowrap;
   }
 
@@ -63,6 +63,38 @@
       <input type="submit" class="btn btn-warning mt-4" value="Guardar" />
     </div>
   </form>
+
+  <div class="mt-4">
+    <h5 class="text-center text-dark">Detalles Registrados</h5>
+    <div class="table-responsive">
+      <table class="table table-sm table-striped table-hover text-center">
+        <thead>
+          <tr>
+            <th>Código Plan</th>
+            <th>Nombre Plan</th>
+            <th>Debe</th>
+            <th>Haber</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if detalles and detalles|length > 0 %}
+            {% for detalle in detalles %}
+            <tr>
+              <td>{{ detalle.codigoPlanCuenta }}</td>
+              <td>{{ detalle.nombrePlanCuenta }}</td>
+              <td>{{ detalle.debe }}</td>
+              <td>{{ detalle.haber }}</td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="4" class="text-muted">Este asiento aún no posee detalles.</td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
 </div>
 
 <!-- Modal -->
@@ -84,29 +116,34 @@
                   <i class="fas fa-search text-warning"></i>
                 </span>
               </div>
-              <input class="form-control" id="searchModalInput" type="text" placeholder="Buscar..." onkeyup="filterModalTable()">
+              <input class="form-control" id="searchModalInput" type="text" placeholder="Buscar...">
             </div>
           </div>
         </div>
-        <table class="table table-sm table-responsive table-striped table-hover" id="tablaPlanesCuenta">
-          <thead>
-            <tr>
-              <th style="width: 10%;">Código</th>
-              <th style="width: 20%;">Nombre</th>
-              <th style="width: 10%;">Nivel</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for cuenta in planes_cuenta %}
-            <tr data-id="{{ cuenta.idPlanCuenta }}" data-nombre="{{ cuenta.codigoPlanCuenta }} - {{ cuenta.nombrePlanCuenta }}">
-              <td>{{ cuenta.codigoPlanCuenta }}</td>
-              <td>{{ cuenta.nombrePlanCuenta }}</td>
-              <td>{{ cuenta.nivelPlanCuenta }}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-        <p id="mensajeSinRegistros" class="text-center text-muted" style="display: none;">No hay registros disponibles</p>
+        <div class="table-responsive">
+          <table class="table table-sm table-responsive table-striped table-hover" id="tablaPlanesCuenta">
+            <thead>
+              <tr>
+                <th style="width: 10%;">Código</th>
+                <th style="width: 20%;">Nombre</th>
+                <th style="width: 10%;">Nivel</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for cuenta in planes_cuenta %}
+              <tr data-id="{{ cuenta.idPlanCuenta }}" data-nombre="{{ cuenta.codigoPlanCuenta }} - {{ cuenta.nombrePlanCuenta }}">
+                <td>{{ cuenta.codigoPlanCuenta }}</td>
+                <td>{{ cuenta.nombrePlanCuenta }}</td>
+                <td>{{ cuenta.nivelPlanCuenta }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <div class="pagination-container d-flex justify-content-center mt-3"></div>
+        <p id="mensajeSinRegistros" class="text-center text-muted my-4" style="display: none;">
+          <i class="fas fa-info-circle mr-2"></i> No se encontraron registros
+        </p>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
@@ -124,6 +161,46 @@
     const idPlanCuentaNombreInput = document.getElementById('idPlanCuentaNombre');
     const tablaPlanesCuenta = document.getElementById('tablaPlanesCuenta');
     const detalleAsientoForm = document.getElementById('detalleAsientoForm');
+    const debeInput = document.getElementById('debe');
+    const haberInput = document.getElementById('haber');
+
+    // Validación de los campos debe y haber
+    function validateDebeHaber() {
+      const debeValue = parseFloat(debeInput.value) || 0;
+      const haberValue = parseFloat(haberInput.value) || 0;
+
+      if (debeValue > 0) {
+        haberInput.value = '0.00';
+        haberInput.setAttribute('readonly', true);
+        debeInput.setCustomValidity('');
+        haberInput.setCustomValidity('');
+      } else if (haberValue > 0) {
+        debeInput.value = '0.00';
+        debeInput.setAttribute('readonly', true);
+        debeInput.setCustomValidity('');
+        haberInput.setCustomValidity('');
+      } else {
+        debeInput.removeAttribute('readonly');
+        haberInput.removeAttribute('readonly');
+        debeInput.setCustomValidity('Debe llenar solo uno de los campos.');
+        haberInput.setCustomValidity('Debe llenar solo uno de los campos.');
+      }
+
+      // Mostrar mensaje de error debajo de los inputs
+      const errorDebe = document.getElementById('errorDebe');
+      const errorHaber = document.getElementById('errorHaber');
+
+      if (debeValue > 0 && haberValue > 0) {
+        errorDebe.textContent = 'Solo es válido un campo por registro.';
+        errorHaber.textContent = 'Solo es válido un campo por registro.';
+      } else {
+        errorDebe.textContent = '';
+        errorHaber.textContent = '';
+      }
+    }
+
+    debeInput.addEventListener('input', validateDebeHaber);
+    haberInput.addEventListener('input', validateDebeHaber);
 
     // Agregar evento de clic a las filas de la tabla
     tablaPlanesCuenta.addEventListener('click', function (event) {
@@ -162,14 +239,105 @@
               icon: 'success',
               title: 'Registro exitoso',
               text: 'Detalle de asiento registrado correctamente.',
+              showCancelButton: true,
               confirmButtonText: 'Aceptar',
+              cancelButtonText: 'Registrar otro Detalle',
               customClass: {
                 confirmButton: 'btn btn-warning',
+                cancelButton: 'btn btn-secondary',
               },
               buttonsStyling: false,
-            }).then(() => {
-              // Redirigir a la página de detalles del asiento
-              window.location.href = data.redirect_url;
+            }).then((result) => {
+              if (result.isConfirmed) {
+                // Redirigir a la página de detalles del asiento
+                window.location.href = data.redirect_url;
+              } else if (result.dismiss === Swal.DismissReason.cancel) {
+                // Recargar la página para registrar otro detalle
+                window.location.reload();
+              }
+            });
+          } else if (data.confirm_required) {
+            // Mostrar advertencia de confirmación
+            Swal.fire({
+              icon: 'warning',
+              title: 'Límite de detalles alcanzado',
+              text: data.message,
+              showCancelButton: true,
+              confirmButtonText: 'Aceptar',
+              cancelButtonText: 'Cancelar',
+              customClass: {
+                confirmButton: 'btn btn-warning',
+                cancelButton: 'btn btn-secondary',
+              },
+              buttonsStyling: false,
+            }).then((result) => {
+              if (result.isConfirmed) {
+                // Enviar el formulario con confirmación
+                const formData = new FormData(detalleAsientoForm);
+                formData.append('confirmar', true);
+
+                fetch(detalleAsientoForm.action, {
+                  method: 'POST',
+                  body: formData,
+                  headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                  },
+                })
+                  .then((response) => response.json())
+                  .then((data) => {
+                    if (data.success) {
+                      // Mostrar alerta de éxito
+                      Swal.fire({
+                        icon: 'success',
+                        title: 'Registro exitoso',
+                        text: 'Detalle de asiento registrado correctamente.',
+                        showCancelButton: true,
+                        confirmButtonText: 'Aceptar',
+                        cancelButtonText: 'Registrar otro Detalle',
+                        customClass: {
+                          confirmButton: 'btn btn-warning',
+                          cancelButton: 'btn btn-secondary',
+                        },
+                        buttonsStyling: false,
+                      }).then((result) => {
+                        if (result.isConfirmed) {
+                          // Redirigir a la página de detalles del asiento
+                          window.location.href = data.redirect_url;
+                        } else if (result.dismiss === Swal.DismissReason.cancel) {
+                          // Recargar la página para registrar otro detalle
+                          window.location.reload();
+                        }
+                      });
+                    } else {
+                      // Mostrar errores si el registro falla
+                      Swal.fire({
+                        icon: 'error',
+                        title: 'Error en el registro',
+                        html: Object.values(data.errors)
+                          .map((error) => `<p>${error}</p>`)
+                          .join(''),
+                        confirmButtonText: 'Aceptar',
+                        customClass: {
+                          confirmButton: 'btn btn-warning',
+                        },
+                        buttonsStyling: false,
+                      });
+                    }
+                  })
+                  .catch((error) => {
+                    console.error('Error:', error);
+                    Swal.fire({
+                      icon: 'error',
+                      title: 'Error inesperado',
+                      text: 'Ocurrió un error al procesar la solicitud.',
+                      confirmButtonText: 'Aceptar',
+                      customClass: {
+                        confirmButton: 'btn btn-warning',
+                      },
+                      buttonsStyling: false,
+                    });
+                  });
+              }
             });
           } else {
             // Mostrar errores si el registro falla
@@ -200,6 +368,124 @@
             buttonsStyling: false,
           });
         });
+    });
+
+    // Paginación en la tabla del modal
+    const paginationContainer = document.querySelector('.pagination-container');
+    const rowsPerPage = 8; // Número de filas por página
+    let currentPage = 1;
+
+    function displayRows() {
+      const rows = tablaPlanesCuenta.querySelectorAll('tbody tr');
+      const start = (currentPage - 1) * rowsPerPage;
+      const end = start + rowsPerPage;
+      rows.forEach((row, index) => {
+        row.style.display = index >= start && index < end ? '' : 'none';
+      });
+    }
+
+    function setupPagination() {
+      const rows = tablaPlanesCuenta.querySelectorAll('tbody tr');
+      const totalPages = Math.ceil(rows.length / rowsPerPage);
+      paginationContainer.innerHTML = '';
+
+      const prevLi = document.createElement('li');
+      prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+      prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Anterior">&laquo;</a>`;
+      prevLi.addEventListener('click', e => {
+        e.preventDefault();
+        if (currentPage > 1) currentPage--;
+        displayRows();
+        setupPagination();
+      });
+      paginationContainer.appendChild(prevLi);
+
+      for (let i = 1; i <= totalPages; i++) {
+        const li = document.createElement('li');
+        li.className = `page-item ${i === currentPage ? 'active' : ''}`;
+        li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+        li.addEventListener('click', e => {
+          e.preventDefault();
+          currentPage = i;
+          displayRows();
+          setupPagination();
+        });
+        paginationContainer.appendChild(li);
+      }
+
+      const nextLi = document.createElement('li');
+      nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+      nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Siguiente">&raquo;</a>`;
+      nextLi.addEventListener('click', e => {
+        e.preventDefault();
+        if (currentPage < totalPages) currentPage++;
+        displayRows();
+        setupPagination();
+      });
+      paginationContainer.appendChild(nextLi);
+    }
+
+    // Filtrado en la tabla del modal
+    const searchModalInput = document.getElementById('searchModalInput');
+    searchModalInput.addEventListener('keyup', function () {
+      const filter = this.value.toUpperCase();
+      const rows = tablaPlanesCuenta.querySelectorAll('tbody tr');
+
+      rows.forEach(row => {
+        const codigo = row.querySelector('td:nth-child(1)').textContent.toUpperCase();
+        const nombre = row.querySelector('td:nth-child(2)').textContent.toUpperCase();
+
+        if (codigo.includes(filter) || nombre.includes(filter)) {
+          row.style.display = '';
+        } else {
+          row.style.display = 'none';
+        }
+      });
+    });
+
+    displayRows();
+    setupPagination();
+  });
+</script>
+
+<!-- Mensajes de error debajo de los inputs -->
+<div class="invalid-feedback" id="errorDebe"></div>
+<div class="invalid-feedback" id="errorHaber"></div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const detalleAsientoForm = document.getElementById('detalleAsientoForm');
+    const tablaDetalles = document.querySelector('.table tbody');
+
+    detalleAsientoForm.addEventListener('submit', function (event) {
+      const detallesCount = tablaDetalles.querySelectorAll('tr').length;
+
+      if (detallesCount >= 2) {
+        event.preventDefault(); // Evitar el envío del formulario
+
+        Swal.fire({
+          icon: 'warning',
+          title: 'Límite de detalles alcanzado',
+          text: 'El asiento principal ya posee dos registros de detalles asociados. ¿Qué desea hacer?',
+          showCancelButton: true,
+          confirmButtonText: 'Aceptar',
+          cancelButtonText: 'Cancelar',
+          customClass: {
+            confirmButton: 'btn btn-warning',
+            cancelButton: 'btn btn-secondary',
+          },
+          buttonsStyling: false,
+        }).then((result) => {
+          if (result.isConfirmed) {
+            // Permitir el registro normal
+            detalleAsientoForm.removeEventListener('submit', arguments.callee); // Eliminar el listener para evitar bucles
+            detalleAsientoForm.submit();
+          } else if (result.dismiss === Swal.DismissReason.cancel) {
+            // Redirigir a la tabla de asientos
+            window.location.href = '/asientos';
+          }
+        });
+      }
     });
   });
 </script>

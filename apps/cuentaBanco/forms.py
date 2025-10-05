@@ -98,3 +98,9 @@ class CuentaBancoForm(forms.ModelForm):
                 )
 
         return cleaned_data
+    
+    def clean_saldoDisponible(self):
+        saldo = self.cleaned_data['saldoDisponible']
+        if saldo < 0:
+            raise forms.ValidationError("El saldo no puede ser negativo.")
+        return saldo

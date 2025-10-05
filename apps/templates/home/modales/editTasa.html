@@ -1,89 +1,162 @@
+{% load static %}
 {% block stylesheets %}
-<link rel="stylesheet" href="/static/assets/css/styleForms.css" />
-<link rel="stylesheet" href="/static/assets/css/argon.css" />
+<link rel="stylesheet" href="{% static 'assets/css/styleForms.css' %}" />
+<link rel="stylesheet" href="{% static 'assets/css/argon.css' %}" />
+<style>
+  .tasa-container {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 1rem;
+    box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.1);
+    padding: 2rem;
+    margin: 2rem auto;
+    max-width: 700px;
+  }
+  .tasa-header {
+    text-align: center;
+    margin-bottom: 2rem;
+    position: relative;
+    padding-bottom: 1rem;
+  }
+  .tasa-header h2 {
+    color: #343a40;
+    font-weight: 700;
+  }
+  .tasa-header::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80px;
+    height: 4px;
+    background: linear-gradient(90deg, #ffc107, #fd7e14);
+    border-radius: 2px;
+  }
+  .form-group {
+    margin-bottom: 1.5rem;
+    position: relative;
+  }
+  .form-label {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+  }
+  .form-label i {
+    margin-right: 8px;
+    color: #fd7e14;
+  }
+  .form-control {
+    border-radius: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    border: 1px solid #ced4da;
+    background-color: #fff;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.075);
+    transition: all 0.3s;
+  }
+  .form-control:focus {
+    border-color: #ffc107;
+    box-shadow: 0 0 0 0.25rem rgba(255,193,7,0.25);
+  }
+  .input-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6c757d;
+    z-index: 2;
+  }
+  .input-with-icon {
+    padding-left: 40px;
+  }
+  .btn-submit {
+    background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+    border: none;
+    color: #fff;
+    font-weight: 600;
+    padding: 0.75rem 2rem;
+    border-radius: 0.5rem;
+    transition: all 0.3s;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+  .btn-submit:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    background: linear-gradient(135deg, #fd7e14 0%, #ffc107 100%);
+  }
+  .invalid-feedback { 
+    display:none; 
+    font-size:80%; 
+    margin-top:.25rem; 
+}
+</style>
 {% endblock stylesheets %}
+
 {% block content %}
-{% if messages %}
+<div class="tasa-container">
+  <div class="tasa-header">
+    <h2><i class="fas fa-exchange-alt text-warning"></i> Editar Tasa Cambiaria</h2>
+    <p class="text-muted">Actualice la tasa para la moneda seleccionada</p>
+  </div>
+
+  <div id="globalMessages"></div>
+  <div id="alert-container"></div>
+  <div id="modalMessages"></div>
+
+  {% if messages %}
     {% for message in messages %}
       <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
         {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
       </div>
     {% endfor %}
   {% endif %}
-<div class=" mt-5">
-  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Editar Tasa Cambiaria</h2>
-  <form method="POST" class="mt-3 text-dark" autocomplete="off" style="font-weight: bold; max-width: 600px; margin: 0 auto;" id="editTasaForm" action="{% url 'edit_tasa' tasa.idTasa%}">  
-    {% csrf_token %}  
-    
-    <div class="form-row">  
-      <div class="form-group col-md-6">  
-        <label for="idMoneda">Moneda:</label>  
-        <div class="input-group"> <!-- Usar input-group para alinear botón y select -->  
-          <select id="idMoneda" name="idMoneda" class="form-control text-dark" tabindex="1" required>  
-            <option value="" disabled selected>Seleccione..</option>  
-            {% for moneda in monedas %}  
-            <option value="{{ moneda.idMoneda }}" class="text-orange" {% if moneda.idMoneda == tasa.idMoneda_id %}selected{% endif %}>
-      {{ moneda.nombreMoneda }}            {% endfor %}
-          </select>  
-        </div>  
-      </div>  
-      
-      <div class="form-group col-md-6">  
-        <label for="montoTasa">Monto:</label>  
-        <input type="text" id="montoTasa" name="montoTasa" class="form-control text-dark" value="{{tasa.montoTasa}}" placeholder="64,86" tabindex="3" maxlength="50" required />  
-        <input type="hidden" id="estadoTasa" name="estadoTasa" class="form-control text-dark" value="ACTIVO" />  
-      </div>  
-    </div>  
-    
-    <div class="text-center">  
-      <input type="submit" class="btn btn-warning mt-4" value="Guardar" />  
-    </div>  
+
+  <form method="POST" id="editTasaForm" action="{% url 'edit_tasa' tasa.idTasa %}" class="needs-validation" novalidate autocomplete="off" style="font-weight:bold; max-width:760px; margin:0 auto;">
+    {% csrf_token %}
+
+    <div class="form-row">
+      <div class="form-group col-md-6">
+        <label for="idMoneda" class="form-label"><i class="fas fa-coins"></i> Moneda:</label>
+        <div class="input-group position-relative">
+          <!-- ICON interno para el select -->
+          <i class="fas fa-coins input-icon"></i>
+          <select id="idMoneda" class="form-control text-dark" tabindex="1" disabled>
+            <option value="" selected>Seleccione..</option>
+            {% for moneda in monedas %}
+              <option value="{{ moneda.idMoneda }}" class="text-orange"
+                {% if moneda.idMoneda == tasa.idMoneda_id %}selected{% endif %}>
+                {{ moneda.nombreMoneda }}
+              </option>
+            {% endfor %}
+          </select>
+          <input type="hidden" name="idMoneda" value="{{ tasa.idMoneda_id }}" required>
+        </div>
+      </div>
+
+      <div class="form-group col-md-6">
+        <label for="montoTasa" class="form-label"><i class="fas fa-dollar-sign"></i> Monto:</label>
+        <div class="input-group position-relative">
+          <!-- ICON interno para el input -->
+          <i class="fas fa-dollar-sign input-icon"></i>
+          <input type="text" id="montoTasa" name="montoTasa" class="form-control input-with-icon text-dark" value="{{tasa.montoTasa}}" placeholder="64,86" tabindex="3" maxlength="40"  required />
+          <div class="invalid-feedback">Por favor, ingrese un monto válido (ej.: 1,00 o 1.234,56).</div>
+        </div>
+        <input type="hidden" id="estadoTasa" name="estadoTasa" value="ACTIVO" />
+      </div>
+    </div>
+
+    <div class="text-center">
+      <input type="submit" class="btn btn-warning mt-4 btn-submit" value="Guardar" />
+    </div>
   </form>
+</div>
 {% endblock content %}
 
 {% block javascripts %}
 <script>
-  document.addEventListener("DOMContentLoaded", function() {
-    $('c').on('show.bs.modal', function (e) {
-      var modal = $(this);
-      $.ajax({
-        url: 'apps/home/tasa.html',
-        method: 'GET',
-        success: function(data) {
-          modal.find('.modal-body').html(data);
-        }
-      });
-    });
-  });
-  
-//Recarga dinamica
-
-$(document).on('submit', '#registroForm', function(e) {
-      e.preventDefault();
-      var form = $(this);
-      $.ajax({
-        url: form.attr('action'),
-        method: form.attr('method'),
-        data: form.serialize(),
-        success: function(response) {
-          var messagesContainer = $('#modalMessages');
-          messagesContainer.empty();
-          if (response.success) {
-            messagesContainer.append('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '</div>');
-            $('#tasaModal').modal('hide');
-            location.reload();  // Recargar la página para ver los cambios
-          } else {
-            // Mostrar errores en el modal
-            var errors = response.errors;
-            for (var field in errors) {
-              messagesContainer.append('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + errors[field] + '</div>');
-            }
-          }
-        }
-      });
-    });
-
-    // Validación y formato español en montoTasa
+// Validación y formato español en montoTasa
 document.getElementById("montoTasa").addEventListener("input", function() {
   const input = this;
   const raw = input.value;
@@ -91,7 +164,6 @@ document.getElementById("montoTasa").addEventListener("input", function() {
 
   // ❌ Bloquear letras desde el inicio
   if (/[A-Za-z]/.test(raw)) {
-    // Elimina letras inmediatamente
     input.value = raw.replace(/[A-Za-z]/g, '');
     return;
   }
@@ -101,13 +173,13 @@ document.getElementById("montoTasa").addEventListener("input", function() {
 
   // Limpiar y parsear
   const cleaned = raw
-    .replace(/\./g, '')     // quitar puntos previos
-    .replace(/,/g, '.')     // coma → punto para parsear
-    .replace(/[^0-9.]/g, ''); 
+    .replace(/\./g, '')
+    .replace(/,/g, '.')
+    .replace(/[^0-9.]/g, '');
   const num = parseFloat(cleaned);
   if (isNaN(num)) return;
 
-  // Formatear en estilo español (puntos de miles, coma decimal)
+  // Formatear en estilo español
   const formatted = num.toLocaleString('es-VE', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
@@ -122,26 +194,22 @@ document.getElementById("montoTasa").addEventListener("input", function() {
       break;
     }
   }
-  if (counted < digitsBefore) {
-    newPos = formatted.length;
-  }
+  if (counted < digitsBefore) newPos = formatted.length;
 
-  // Aplicar resultado y posicionar cursor
   input.value = formatted;
   input.setSelectionRange(newPos, newPos);
-  });
+});
 
-    // Validación de formulario
-    var forms = document.querySelectorAll('.needs-validation');
-    Array.prototype.slice.call(forms).forEach(function(form) {
-      form.addEventListener('submit', function(event) {
-        if (!form.checkValidity()) {
-          event.preventDefault();
-          event.stopPropagation();
-        }
-        form.classList.add('was-validated');
-      }, false);
-    });
+// Validación de formulario
+var forms = document.querySelectorAll('.needs-validation');
+Array.prototype.slice.call(forms).forEach(function(form) {
+  form.addEventListener('submit', function(event) {
+    if (!form.checkValidity()) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    form.classList.add('was-validated');
+  }, false);
+});
 </script>
-
 {% endblock javascripts %}

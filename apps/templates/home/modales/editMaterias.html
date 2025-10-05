@@ -1,59 +1,235 @@
+{% load static %}
+
 {% block stylesheets %}
 <link rel="stylesheet" href="/static/assets/css/styleForms.css" />
 <link rel="stylesheet" href="/static/assets/css/argon.css" />
+<style>
+.persona-container {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-radius: 1rem;
+  box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.1);
+  padding: 1.5rem;
+  margin: 0.5rem auto;
+  max-width: 95%;
+  width: 100%;
+}
+.persona-header {
+  text-align: center;
+  margin-bottom: 1.5rem;
+  position: relative;
+  padding-bottom: 1rem;
+}
+.persona-header h2 {
+  color: #343a40;
+  font-weight: 700;
+  font-size: 1.3rem;
+  margin-bottom: 0.5rem;
+}
+.persona-header p {
+  margin-bottom: 0;
+}
+.persona-header::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80px;
+  height: 4px;
+  background: linear-gradient(90deg, #ffc107, #fd7e14);
+  border-radius: 2px;
+}
+.form-group {
+  margin-bottom: 1.2rem;
+  position: relative;
+}
+.form-label {
+  font-weight: 700;
+  color: #495057;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  font-size: 0.95rem;
+}
+.form-label i { margin-right: 8px; color: #fd7e14; font-size: 0.95rem; }
+.form-control {
+  border-radius: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  border: 1px solid #ced4da;
+  background-color: #fff;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.075);
+  transition: all 0.3s;
+  height: 48px;
+  font-size: 0.95rem;
+}
+.form-control:focus {
+  border-color: #ffc107;
+  box-shadow: 0 0 0 0.25rem rgba(255,193,7,0.25);
+}
+.input-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #6c757d;
+  z-index: 2;
+  font-size: 0.9rem;
+}
+.input-with-icon {
+  padding-left: 40px;
+}
+.btn-submit {
+  background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+  border: none;
+  color: #fff;
+  font-weight: 600;
+  padding: 0.75rem 2rem;
+  border-radius: 0.5rem;
+  transition: all 0.3s;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  font-size: 1rem;
+}
+  .btn-submit:hover { transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0,0,0,0.15); }
+  .readonly-field { display:block; width:100%; height:48px; padding:0.75rem 1.25rem; font-size:0.95rem; background:#e9ecef; border-radius:.5rem; }
+  .was-validated .form-control:invalid, .form-control.is-invalid { border-color: #dc3545; box-shadow: 0 0 0 .25rem rgba(220,53,69,.15); }
+  .was-validated .form-control:valid, .form-control.is-valid { border-color: #198754; box-shadow: 0 0 0 .25rem rgba(25,135,84,.15); }
+  .modal-body { padding: 0.75rem; }
+  #modalMessages .alert { margin-bottom: .5rem; }
+
+.btn-submit:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.btn-submit:focus-visible {
+  outline: 2px solid #fd7e14;
+  outline-offset: 2px;
+}
+</style>
 {% endblock stylesheets %}
+
 {% block content %}
-{% if messages %}
-    {% for message in messages %}
-      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-        {{ message }}
-      </div>
-    {% endfor %}
-  {% endif %}
-<div class=" mt-5">
-  <h2 class="text-center text-dark" style="margin: 0 auto; padding: 5px 0 15px;">Modificar Materia</h2>
-  <form method="POST" class="mt-3 text-dark" autocomplete="off" style="font-weight: bold; max-width: 600px; margin: 0 auto;" id="editMateriaForm" action="{% url 'edit_materias' materia.pk %}">  
-    {% csrf_token %}  
-    
-    <div class="form-row">  
-      <div class="form-group col-md-6">  
-        <label for="idFormacion">Formación Académica:</label>  
-        <div class="input-group"> <!-- Usar input-group para alinear botón y select -->  
-            <select id="idFormacion" name="idFormacion" class="form-control text-dark" tabindex="1" data-required="true">  
-              <option value="" disabled>Seleccione...</option>  
-              {% for formacion in formaciones %}  
-                <option value="{{ formacion.idFormacion }}" class="text-orange" {% if formacion.idFormacion == materia.idFormacion.idFormacion %}selected{% endif %}>{{ formacion.nombreFormacion }}</option>  
-              {% endfor %}  
+<div class="persona-container">
+  <div class="persona-header">
+    <h2><i class="fas fa-book text-warning"></i> Editar Materia</h2>
+    <p class="text-muted">Ajusta la formación y el nombre de la materia</p>
+  </div>
+
+  <div id="modalMessages"></div>
+
+  <form id="editMateriaForm" method="post" action="{% url 'edit_materias' materia.pk %}" class="needs-validation" novalidate autocomplete="off">
+    {% csrf_token %}
+    <div class="row">
+
+      <!-- Formación -->
+      <div class="col-md-12">
+        <div class="form-group position-relative">
+          <label class="form-label" for="idFormacion"><i class="fas fa-graduation-cap"></i> Formación Académica</label>
+          <div style="position:relative;">
+            <i class="fas fa-graduation-cap input-icon"></i>
+            <select id="idFormacion" name="idFormacion" class="form-control input-with-icon" required>
+              <option value="" disabled>Seleccione...</option>
+              {% for formacion in formaciones %}
+                <option value="{{ formacion.idFormacion }}" {% if formacion.idFormacion == materia.idFormacion.idFormacion %}selected{% endif %}>
+                  {{ formacion.nombreFormacion }}
+                </option>
+              {% endfor %}
             </select>
-            <div class="invalid-feedback">Por favor, seleccione una formación.</div>    
-        </div>  
+          </div>
+          <div class="invalid-feedback">Por favor seleccione una formación.</div>
+        </div>
+      </div>
+
+      <!-- Nombre Materia -->
+      <div class="col-md-12">
+        <div class="form-group position-relative">
+          <label class="form-label" for="nombreMateria"><i class="fas fa-pen-nib"></i> Nombre de la Materia</label>
+          <div style="position:relative;">
+            <i class="fas fa-pen-nib input-icon"></i>
+            <input id="nombreMateria" name="nombreMateria" type="text" class="form-control input-with-icon" value="{{ materia.nombreMateria }}" maxlength="100" required />
+          </div>
+          <div class="invalid-feedback">Por favor ingrese un nombre válido.</div>
+        </div>
+      </div>
+
+      <input type="hidden" name="estadoMateria" value="{{ materia.estadoMateria }}" />
     </div>
-      
-      <div class="form-group col-md-6">  
-        <label for="nombreMateria">Nombre:</label>  
-        <input type="text" id="nombreMateria" name="nombreMateria" class="form-control text-dark" value="{{materia.nombreMateria}}" placeholder="Ingrese un nombre" tabindex="3" maxlength="100" data-required="true" />  
-        <div class="invalid-feedback">Por favor, ingrese un nombre válido.</div>
-        <input type="hidden" id="estadoMateria" name="estadoMateria" class="form-control text-dark" value="ACTIVO" />          
-      </div>  
-      <input type="hidden" name="estadoMateria" value="{{ materia.estadoMateria }}">
-    
-    </div>  
-    
-    <div class="text-center">  
-      <input type="submit" class="btn btn-warning mt-4" value="Actualizar" />  
-    </div>  
+
+    <div class="text-center mt-2">
+      <button type="submit" class="btn-submit">
+        <i class="fas fa-save me-2"></i> Guardar
+      </button>
+    </div>
   </form>
+</div>
 {% endblock content %}
 
 {% block javascripts %}
+<script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
 <script>
-function activarMayusculasInputs() {
-  document.addEventListener('input', function(e) {
-    if (e.target.tagName === 'INPUT' && !e.target.type.match(/password|hidden|email/)) {
-      e.target.value = e.target.value.toUpperCase();
-    }
+document.addEventListener('DOMContentLoaded', function() {
+  const form = document.getElementById('editMateriaForm');
+  const modalMessages = document.getElementById('modalMessages');
+  const nombreInput = document.getElementById('nombreMateria');
+  const selectFormacion = document.getElementById('idFormacion');
+
+  // Forzar mayúsculas en el nombre, mantener valid chars
+  nombreInput && nombreInput.addEventListener('input', e => {
+    e.target.value = e.target.value.toUpperCase();
   });
-}
-activarMayusculasInputs();
+
+  // Validación bootstrap + envío AJAX
+  form.addEventListener('submit', function(e){
+    if (!form.checkValidity()) {
+      e.preventDefault(); e.stopPropagation();
+      form.classList.add('was-validated');
+      return;
+    }
+
+    e.preventDefault();
+    modalMessages.innerHTML = '';
+    const btn = form.querySelector('button[type="submit"]');
+    btn.disabled = true;
+
+    $.ajax({
+      url: form.action,
+      method: 'POST',
+      data: $(form).serialize(),
+      dataType: 'json',
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    }).done(function(resp){
+      if (resp.success) {
+        Swal.fire({
+          icon: 'success',
+          title: 'Materia actualizada',
+          text: resp.message || 'Cambios guardados correctamente',
+          confirmButtonColor: '#ffc107'
+        }).then(() => {
+          window.location.reload();
+        });
+      } else {
+        if (resp.errors) {
+          Object.entries(resp.errors).forEach(([field, msgs]) => {
+            const el = form.querySelector('[name="'+field+'"]');
+            if (el) {
+              el.classList.add('is-invalid');
+              const fb = el.nextElementSibling;
+              if (fb && fb.classList.contains('invalid-feedback')) fb.textContent = msgs.join(', ');
+            } else {
+              modalMessages.insertAdjacentHTML('beforeend', '<div class="alert alert-danger">'+ msgs.join(', ') +'</div>');
+            }
+          });
+        } else if (resp.message) {
+          modalMessages.innerHTML = '<div class="alert alert-danger">'+ resp.message +'</div>';
+        }
+      }
+    }).fail(function() {
+      modalMessages.innerHTML = '<div class="alert alert-danger">Error en el servidor.</div>';
+    }).always(function(){
+      btn.disabled = false;
+    });
+
+  }, false);
+});
 </script>
 {% endblock javascripts %}

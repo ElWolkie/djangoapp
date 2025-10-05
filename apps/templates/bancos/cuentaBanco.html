@@ -87,6 +87,72 @@
     box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
     background: linear-gradient(135deg, #fd7e14 0%, #ffc107 100%);
   }
+   /* Alinear iconos dentro de input sin que se muevan cuando aparece invalid-feedback */
+  .input-group { position: relative; }
+  .input-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6c757d;
+    z-index: 4;
+    pointer-events: none;
+  }
+  .input-with-icon { padding-left: 40px; }
+
+  /* Evitar solapamiento con labels y otros inputs */
+  .form-label {
+    margin-bottom: 0.5rem;
+    position: relative;
+    z-index: 10;
+    background: transparent;
+  }
+  .input-group {
+    margin-bottom: 2.2rem; /* espacio extra para invalid-feedback y evitar solapamiento */
+  }
+
+  /* Colocar invalid-feedback sin empujar iconos (se muestra debajo sin cambiar layout) */
+  .input-group .invalid-feedback {
+    position: absolute;
+    left: 0;
+    bottom: -1.6rem;
+    display: none;
+    width: 100%;
+    font-size: .8rem;
+    z-index: 9;
+  }
+  .input-group .form-control.is-invalid ~ .invalid-feedback,
+  .input-group .input-with-icon.is-invalid + .invalid-feedback,
+  .input-group .form-control.is-invalid + .invalid-feedback {
+    display: block !important;
+  }
+
+  /* Valid / invalid visual helpers (verde para válido, rojo para inválido) */
+  .form-control.is-valid, .form-select.is-valid {
+    border-color: #28a745 !important;
+    box-shadow: 0 0 0 .15rem rgba(40,167,69,.15) !important;
+  }
+  .form-control.is-invalid, .form-select.is-invalid {
+    border-color: #dc3545 !important;
+    box-shadow: 0 0 0 .15rem rgba(220,53,69,.12) !important;
+  }
+
+  /* Ajuste para que los iconos no se solapen con el borde de valid/invalid */
+  .input-icon { z-index: 8; }
+
+  /* Forzar que los mensajes de error se muestren para selects */
+.input-group.has-validation .form-select.is-invalid ~ .invalid-feedback {
+    display: block !important;
+    opacity: 1 !important;
+    width: 100%;
+}
+
+/* Asegurar que los grupos de entrada con validación muestren los errores */
+.input-group.has-validation {
+    flex-wrap: wrap; /* Permite que el error se muestre debajo */
+}
+
+
 </style>
 {% endblock stylesheets %}
 
@@ -109,7 +175,7 @@
     {% endfor %}
   {% endif %}
 
-  <form method="POST" autocomplete="off" id="cuentaBancoForm" action="{% url 'cuenta_banco_create' %}" novalidate>
+  <form method="POST" autocomplete="off" id="cuentaBancoForm" action="{% url 'cuenta_banco_create' %}" novalidate class="needs-validation">
     {% csrf_token %}
     
     <div class="row mb-3">
@@ -123,9 +189,9 @@
           <button type="button" id="buscarBanco" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#bancoModal">
             <i class="fas fa-search"></i>
           </button>
-        </div>
         <input type="hidden" id="idBanco" name="banco" required>
         <div class="invalid-feedback">Por favor seleccione un banco.</div>
+        </div>
       </div>
       
       <div class="col-md-6">
@@ -135,10 +201,10 @@
         <div class="input-group">
           <i class="fas fa-barcode input-icon"></i>
           <input type="text" id="numeroCuentaBanco" name="numeroCuentaBanco" 
-                 class="form-control input-with-icon" 
+                 class="form-control input-with-icon"  
                  placeholder="Ingrese el número de cuenta" maxlength="20" required>
-        </div>
         <div class="invalid-feedback">Por favor ingrese un número válido.</div>
+       </div>
       </div>
     </div>
     
@@ -147,9 +213,9 @@
         <label for="tipoProducto" class="form-label">
           <i class="fas fa-credit-card"></i> Tipo de Producto
         </label>
-        <div class="input-group">
+        <div class="input-group has-validation">
           <i class="fas fa-tag input-icon"></i>
-          <select id="tipoProducto" name="tipoProducto" class="form-control input-with-icon" required>
+          <select id="tipoProducto" name="tipoProducto" class="form-control input-with-icon"  has required>
             <option value="" disabled selected>Seleccione...</option>
             <option value="corriente">Cuenta Corriente</option>
             <option value="ahorro">Cuenta de Ahorro</option>
@@ -158,15 +224,15 @@
             <option value="credito">Línea de Crédito</option>
             <option value="inversion">Fondo de Inversión</option>
           </select>
-        </div>
         <div class="invalid-feedback">Seleccione un tipo de producto.</div>
+        </div>
       </div>
       
       <div class="col-md-6">
         <label for="idMoneda" class="form-label">
           <i class="fas fa-money-bill-wave"></i> Moneda
         </label>
-        <div class="input-group">
+        <div class="input-group has-validation">
           <i class="fas fa-coins input-icon"></i>
           <select id="idMoneda" name="moneda" class="form-control input-with-icon" required>
             <option value="" disabled selected>Seleccione...</option>
@@ -174,8 +240,8 @@
               <option value="{{ moneda.idMoneda }}">{{ moneda.nombreMoneda }}</option>
             {% endfor %}
           </select>
-        </div>
         <div class="invalid-feedback">Seleccione una moneda.</div>
+        </div>
       </div>
     </div>
     
@@ -189,8 +255,8 @@
           <input type="number" id="saldoDisponible" name="saldoDisponible" 
                  class="form-control input-with-icon" 
                  placeholder="0.00" step="0.01" min="0" required>
-        </div>
         <div class="invalid-feedback">Ingrese un saldo válido.</div>
+        </div>
       </div>
       
       <div class="col-md-6">
@@ -202,15 +268,15 @@
           <input type="date" id="fechaApertura" name="fechaApertura" 
                  class="form-control input-with-icon" 
                  max="{{ today_date }}" required>
-        </div>
         <div class="invalid-feedback">Fecha inválida.</div>
+        </div>
       </div>
     </div>
     
     <div class="row mb-4">
       <div class="col-md-12">
         <label for="planCuentaInput" class="form-label">
-          <i class="fas fa-file-invoice-dollar"></i> Plan de Cuenta
+          <i class="fas fa-file-invoice-dollar"></i> Origen de los Fondos (Plan de Cuenta)
         </label>
         <div class="input-group">
           <i class="fas fa-search input-icon"></i>
@@ -218,9 +284,9 @@
           <button type="button" id="buscarPlanCuenta" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#planCuentaModal">
             <i class="fas fa-search"></i>
           </button>
-        </div>
         <input type="hidden" id="idPlanCuenta" name="planCuentaCredito" required>
         <div class="invalid-feedback">Seleccione un plan de cuenta.</div>
+        </div>
       </div>
     </div>
     
@@ -395,132 +461,258 @@
       }
     });
 
-    // Validación del formulario y envío AJAX
-    const form = document.getElementById('cuentaBancoForm');
-    form.addEventListener('submit', function (e) {
-      e.preventDefault();
-      
-      // Validar campos
-      let valid = true;
-      const campos = [
-        {id: 'idBanco', input: 'bancoInput', msg: 'Por favor seleccione un banco'},
-        {id: 'numeroCuentaBanco', msg: 'Por favor ingrese un número válido'},
-        {id: 'tipoProducto', msg: 'Seleccione un tipo de producto'},
-        {id: 'idMoneda', msg: 'Seleccione una moneda'},
-        {id: 'saldoDisponible', msg: 'Ingrese un saldo válido'},
-        {id: 'fechaApertura', msg: 'Fecha inválida'},
-        {id: 'idPlanCuenta', input: 'planCuentaInput', msg: 'Seleccione un plan de cuenta'}
-      ];
-      
-      campos.forEach(campo => {
-        const elemento = document.getElementById(campo.id);
-        const input = campo.input ? document.getElementById(campo.input) : elemento;
-        
-        if (!elemento.value) {
-          input.classList.add('is-invalid');
-          valid = false;
-        } else {
-          input.classList.remove('is-invalid');
+   // -----------------------
+    // Helpers formato moneda
+    // -----------------------
+    function normalizeCurrencyString(str) {
+      if (str == null) return '';
+      let s = String(str).trim();
+      if (!s) return '';
+      s = s.replace(/\s+/g, '');
+      if (s.indexOf(',') !== -1 && s.indexOf('.') !== -1) {
+        s = s.replace(/\./g, '').replace(/,/g, '.');
+      } else if (s.indexOf(',') !== -1 && s.indexOf('.') === -1) {
+        s = s.replace(/,/g, '.');
+      } else {
+        const parts = s.split('.');
+        if (parts.length > 2) {
+          const dec = parts.pop();
+          s = parts.join('') + '.' + dec;
+        }
+      }
+      s = s.replace(/[^0-9\.\-]/g, '');
+      return s;
+    }
+
+    function formatCurrencyInputValueFromDigits(rawDigits) {
+      if (!rawDigits) return '0,00';
+      const num = parseInt(rawDigits, 10) / 100;
+      return num.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    // -----------------------
+    // saldoDisponible: formato y normalización
+    // -----------------------
+    const saldoInput = document.getElementById('saldoDisponible');
+    if (saldoInput) {
+      // cambiar a texto para permitir coma visual
+      saldoInput.type = 'text';
+
+      // inicializar visual
+      if (!saldoInput.value || saldoInput.value === '0' || saldoInput.value === '0.00') {
+        saldoInput.value = '0,00';
+      } else {
+        const norm = normalizeCurrencyString(saldoInput.value) || '0.00';
+        saldoInput.value = Number(norm).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      }
+
+      // input handler que mantiene formato 0,00 y actualiza valid state
+      saldoInput.addEventListener('input', function (e) {
+        // permitir solo dígitos en la edición interna
+        const onlyDigits = this.value.replace(/[^\d]/g, '');
+        this.value = formatCurrencyInputValueFromDigits(onlyDigits);
+        const normalized = normalizeCurrencyString(this.value);
+        const ok = normalized !== '' && !isNaN(Number(normalized)) && Number(normalized) >= 0;
+        this.classList.toggle('is-invalid', !ok);
+        this.classList.toggle('is-valid', ok);
+      });
+
+      // Blur: asegurar formato
+      saldoInput.addEventListener('blur', function () {
+        const normalized = normalizeCurrencyString(this.value) || '0.00';
+        const num = parseFloat(normalized) || 0;
+        this.value = num.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      });
+    }
+
+const numeroCuentaEl = document.getElementById('numeroCuentaBanco');
+if (numeroCuentaEl) {
+  numeroCuentaEl.addEventListener('input', function () {
+    // Permitir solo números al escribir (bloquea teclas no numéricas)
+    this.value = this.value.replace(/[^0-9]/g, '');
+
+    // Validar: al menos un número
+    const ok = /^[0-9]+$/.test(this.value);
+    this.classList.toggle('is-invalid', !ok);
+    this.classList.toggle('is-valid', ok);
+
+    const fb = this.parentElement?.querySelector('.invalid-feedback') || this.nextElementSibling;
+    if (fb && fb.classList && fb.classList.contains('invalid-feedback')) {
+      if (!ok) {
+      fb.textContent = this.value.length === 0
+        ? 'El número de cuenta es obligatorio.'
+        : 'El número de cuenta debe contener solo números.';
+      fb.style.display = 'block';
+      } else {
+      fb.style.display = 'none';
+      }
+    }
+  });
+}
+
+    // Limpieza de invalid-feedback al editar
+    document.querySelectorAll('#cuentaBancoForm input, #cuentaBancoForm select').forEach(el => {
+      el.addEventListener('input', function () {
+        this.classList.remove('is-invalid');
+        const fb = this.parentElement?.querySelector('.invalid-feedback') || this.nextElementSibling;
+        if (fb && fb.classList && fb.classList.contains('invalid-feedback')) {
+          fb.textContent = fb.dataset.default || fb.textContent;
+          fb.style.display = '';
         }
       });
-      
-      // Validar saldo numérico
-      const saldo = document.getElementById('saldoDisponible');
-      if (saldo.value && parseFloat(saldo.value) < 0) {
-        saldo.classList.add('is-invalid');
-        valid = false;
+      el.addEventListener('change', function () { this.classList.remove('is-invalid'); });
+    });
+
+    // -----------------------
+    // Submit AJAX con parseo de monto y mensajes claros
+    // -----------------------
+    const form = document.getElementById('cuentaBancoForm');
+    if (!form) return;
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+
+      // campos a validar con mensaje
+      let valid = true;
+      const campos = [
+        { id: 'idBanco', input: 'bancoInput', msg: 'Por favor seleccione un banco.' },
+        { id: 'numeroCuentaBanco', msg: 'Por favor ingrese un número válido.' },
+        { id: 'tipoProducto', msg: 'Seleccione un tipo de producto.' },
+        { id: 'idMoneda', input: 'idMoneda', msg: 'Seleccione una moneda.' },
+        { id: 'saldoDisponible', input: 'saldoDisponible', msg: 'Ingrese un saldo válido.' },
+        { id: 'fechaApertura', msg: 'Fecha inválida.' },
+        { id: 'idPlanCuenta', input: 'planCuentaInput', msg: 'Seleccione un plan de cuenta.' }
+      ];
+
+      // limpiar previos
+      campos.forEach(c => {
+        const visibleId = c.input || c.id;
+        const visibleEl = document.getElementById(visibleId);
+        if (visibleEl) visibleEl.classList.remove('is-invalid');
+        const fb = visibleEl?.parentElement?.querySelector('.invalid-feedback') || visibleEl?.nextElementSibling;
+        if (fb && fb.classList && fb.classList.contains('invalid-feedback')) {
+          fb.textContent = fb.dataset.default || fb.textContent;
+          fb.style.display = '';
+        }
+      });
+
+      // validar
+      campos.forEach(c => {
+        const elemento = document.getElementById(c.id);
+        const visibleEl = c.input ? document.getElementById(c.input) : (elemento || document.getElementById(c.id));
+        const value = elemento ? elemento.value : (visibleEl ? visibleEl.value : '');
+        if (!value || value.toString().trim() === '') {
+          if (visibleEl) {
+            visibleEl.classList.add('is-invalid');
+            const fb = visibleEl.parentElement?.querySelector('.invalid-feedback') || visibleEl.nextElementSibling;
+            if (fb && fb.classList && fb.classList.contains('invalid-feedback')) {
+              fb.textContent = c.msg;
+              fb.style.display = 'block';
+            }
+          }
+          valid = false;
+        }
+      });
+
+     
+      // Validar saldo (usar normalize)
+      let saldoCanonical = '0.00';
+      if (saldoInput) {
+        const normalized = normalizeCurrencyString(saldoInput.value);
+        if (normalized === '' || isNaN(Number(normalized)) || Number(normalized) < 0) {
+          saldoInput.classList.add('is-invalid');
+          const fb = saldoInput.parentElement?.querySelector('.invalid-feedback') || saldoInput.nextElementSibling;
+          if (fb && fb.classList && fb.classList.contains('invalid-feedback')) {
+            fb.textContent = 'Ingrese un saldo válido (>= 0).';
+            fb.style.display = 'block';
+          }
+          valid = false;
+        } else {
+          saldoCanonical = Number(normalized).toFixed(2);
+        }
       }
 
       if (!valid) return;
       
-      // Crear FormData
+      // Preparar FormData y reemplazar saldo con valor desformateado
       const formData = new FormData(form);
-      
-      // Mostrar spinner de carga
-      const submitBtn = form.querySelector('button[type="submit"]');
-      const originalBtnContent = submitBtn.innerHTML;
-      submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Guardando...';
-      submitBtn.disabled = true;
-      
-      // Enviar datos con AJAX
+      formData.set('saldoDisponible', saldoCanonical);
+
+      // Mostrar spinner en botón
+      const submitBtn = form.querySelector('button[type="submit"], input[type="submit"]');
+      const originalBtnContent = submitBtn ? submitBtn.innerHTML : null;
+      if (submitBtn) {
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Guardando...';
+        submitBtn.disabled = true;
+      }
+
       fetch(form.action, {
         method: 'POST',
         body: formData,
-        headers: {
-          'X-Requested-With': 'XMLHttpRequest'
-        }
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
       })
-      .then(response => response.json())
-      .then(data => {
-        if (data.success) {
-          // Mostrar mensaje de éxito
-          Swal.fire({
-            icon: 'success',
-            title: '¡Registro exitoso!',
-            text: data.message,
-            confirmButtonText: 'Aceptar',
-            customClass: { confirmButton: 'btn btn-warning' },
-            buttonsStyling: false
-          }).then(() => {
-            // Redirigir al listado
-            window.location.href = data.redirect_url || "{% url 'cuenta_banco_list' %}";
-          });
-        } else {
-          // Mostrar errores de validación
-          if (data.errors) {
-            Object.keys(data.errors).forEach(field => {
-              const errorMessages = data.errors[field].join(' ');
-              let inputElement;
-              
-              // Mapear campos a IDs de entrada
-              switch(field) {
-                case 'banco':
-                  inputElement = document.getElementById('bancoInput');
-                  break;
-                case 'planCuentaCredito':
-                  inputElement = document.getElementById('planCuentaInput');
-                  break;
-                default:
-                  inputElement = document.getElementById(field);
-              }
-              
-              if (inputElement) {
-                inputElement.classList.add('is-invalid');
-                const feedbackElement = inputElement.nextElementSibling || inputElement.parentElement.nextElementSibling;
-                if (feedbackElement && feedbackElement.classList.contains('invalid-feedback')) {
-                  feedbackElement.textContent = errorMessages;
-                }
-              }
-            });
-          } else {
-            // Mostrar mensaje de error general
+        .then(resp => resp.json())
+        .then(data => {
+          if (data.success) {
             Swal.fire({
-              icon: 'error',
-              title: 'Error en el registro',
-              text: data.message || 'Ocurrió un error desconocido',
+              icon: 'success',
+              title: '¡Registro exitoso!',
+              text: data.message || 'Cuenta creada.',
               confirmButtonText: 'Aceptar',
               customClass: { confirmButton: 'btn btn-warning' },
               buttonsStyling: false
+            }).then(() => {
+              window.location.href = data.redirect_url || "{% url 'cuenta_banco_list' %}";
             });
+          } else {
+            // Mostrar errores por campo si vienen del backend
+            if (data.errors) {
+              Object.keys(data.errors).forEach(field => {
+                const errorMessages = Array.isArray(data.errors[field]) ? data.errors[field].join(' ') : String(data.errors[field]);
+                let inputElement;
+                switch (field) {
+                  case 'banco': inputElement = document.getElementById('bancoInput'); break;
+                  case 'planCuentaCredito': inputElement = document.getElementById('planCuentaInput'); break;
+                  default: inputElement = document.getElementById(field);
+                }
+                if (inputElement) {
+                  inputElement.classList.add('is-invalid');
+                  const fb = inputElement.parentElement?.querySelector('.invalid-feedback') || inputElement.nextElementSibling;
+                  if (fb && fb.classList && fb.classList.contains('invalid-feedback')) {
+                    fb.textContent = errorMessages;
+                    fb.style.display = 'block';
+                  }
+                }
+              });
+            } else {
+              Swal.fire({
+                icon: 'error',
+                title: 'Error en el registro',
+                text: data.message || 'Ocurrió un error desconocido',
+                confirmButtonText: 'Aceptar',
+                customClass: { confirmButton: 'btn btn-warning' },
+                buttonsStyling: false
+              });
+            }
           }
-        }
-      })
-      .catch(error => {
-        console.error('Error:', error);
-        Swal.fire({
-          icon: 'error',
-          title: 'Error de conexión',
-          text: 'No se pudo completar la solicitud',
-          confirmButtonText: 'Aceptar',
-          customClass: { confirmButton: 'btn btn-warning' },
-          buttonsStyling: false
+        })
+        .catch(error => {
+          console.error('Error:', error);
+          Swal.fire({
+            icon: 'error',
+            title: 'Error de conexión',
+            text: 'No se pudo completar la solicitud',
+            confirmButtonText: 'Aceptar',
+            customClass: { confirmButton: 'btn btn-warning' },
+            buttonsStyling: false
+          });
+        })
+        .finally(() => {
+          if (submitBtn) {
+            submitBtn.innerHTML = originalBtnContent;
+            submitBtn.disabled = false;
+          }
         });
-      })
-      .finally(() => {
-        // Restaurar botón
-        submitBtn.innerHTML = originalBtnContent;
-        submitBtn.disabled = false;
-      });
     });
   });
 </script>

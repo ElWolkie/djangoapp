@@ -4,7 +4,9 @@ from . import views
 urlpatterns = [
     # Notas
     path('notas/', views.nota_list, name='nota_list'),
-    path('notas/nueva/', views.notas_create, name='nota_create'),
+    path('notas/nueva/', views.nota_create, name='nota_create'),
+    path('nota/administrativa/create/', views.nota_administrativa_create, name='nota_administrativa_create'),
+    path('nota/administrativa/list/', views.nota_administrativa_list, name='nota_administrativa_list'),
     # path('notas/editar/<int:pk>/', views.nota_edit, name='nota_edit'),
     # path('notas/eliminar/<int:pk>/', views.nota_delete, name='nota_delete'),
     path('notas/reporteNotaPago/<int:pk>/', views.nota_pago_pdf, name='nota_pago_pdf'),    
