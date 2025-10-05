@@ -84,16 +84,32 @@ class HonorarioSerializer(serializers.ModelSerializer):
         fields = ['idHonorario','idPersona','idCargo','idCohorte','idMateria','horas','estadoHonorario','fechaHonorario','monto']
 
 class InscripcionSerializer(serializers.ModelSerializer):
-    # Campos de solo lectura para la representación (cuando se lee)
-    idPersona_detail = PersonaSerializer(source='idPersona', read_only=True)
-    idFormacion_detail = FormacionSerializer(source='idFormacion', read_only=True)
-    idCohorte_detail = CohorteSerializer(source='idCohorte', read_only=True)
+    # Campos para lectura (manteniendo los nombres originales)
+    idPersona = PersonaSerializer(read_only=True)
+    idFormacion = FormacionSerializer(read_only=True) 
+    idCohorte = CohorteSerializer(read_only=True)
 
-    # Campos para escritura (cuando se crea/actualiza)
-    idPersona = serializers.PrimaryKeyRelatedField(queryset=Personas.objects.all())
-    idFormacion = serializers.PrimaryKeyRelatedField(queryset=Formacion.objects.all())
-    idCohorte = serializers.PrimaryKeyRelatedField(queryset=Cohorte.objects.all())
-    idTF = serializers.PrimaryKeyRelatedField(queryset=TipoFormacion.objects.all())
+    # Campos para escritura
+    idPersona_id = serializers.PrimaryKeyRelatedField(
+        queryset=Personas.objects.all(), 
+        source='idPersona',
+        write_only=True
+    )
+    idFormacion_id = serializers.PrimaryKeyRelatedField(
+        queryset=Formacion.objects.all(),
+        source='idFormacion',
+        write_only=True
+    )
+    idCohorte_id = serializers.PrimaryKeyRelatedField(
+        queryset=Cohorte.objects.all(),
+        source='idCohorte', 
+        write_only=True
+    )
+    idTF_id = serializers.PrimaryKeyRelatedField(
+        queryset=TipoFormacion.objects.all(),
+        source='idTF',
+        write_only=True
+    )
 
     # exponemos montoTotal y saldoPendiente basados en las properties del modelo
     montoTotal = serializers.SerializerMethodField()
@@ -103,13 +119,14 @@ class InscripcionSerializer(serializers.ModelSerializer):
         model = Inscripcion
         fields = [
             'idInscripcion',
-            'idPersona',
-            'idPersona_detail',
-            'idCohorte', 
-            'idCohorte_detail',
+            'idPersona',        # Para lectura (datos completos)
+            'idPersona_id',     # Para escritura (solo ID)
+            'idCohorte',
+            'idCohorte_id', 
             'idTF',
+            'idTF_id',
             'idFormacion',
-            'idFormacion_detail',
+            'idFormacion_id',
             'fechaInscripcion',
             'estadoPago',
             'montoPagado',
