@@ -368,6 +368,7 @@ class Configuracion(models.Model):
     logo = models.ImageField(upload_to='configuracion/logos/', verbose_name="Logo Institucional")
     firma = models.ImageField(upload_to='configuracion/firmas/', verbose_name="Firma Autorizada")
     moneda = models.ForeignKey(Moneda, on_delete=models.PROTECT, verbose_name="Moneda Principal")
+    descuento = models.DecimalField(max_digits=5, decimal_places=2, default=0, verbose_name="Descuento (%)")
     fechaConfiguracion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Configuración")
 
     class Meta:
