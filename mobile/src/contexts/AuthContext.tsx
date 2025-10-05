@@ -93,7 +93,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           cedula: userData.cedula || cedula,
           nombres: userData.nombres,
           apellidos: userData.apellidos,
-          email: userData.email,
+          email: userData.correo,
           displayName: userData.displayName || `${userData.nombres} ${userData.apellidos}`,
         };
         
