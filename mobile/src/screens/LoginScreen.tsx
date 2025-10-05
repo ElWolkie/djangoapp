@@ -17,19 +17,9 @@ import {
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import api from '../api/api'; // <-- ¡ESTA ES LA FORMA CORRECTA!
-import { storeTokens } from '../api/auth'; // <-- ajusta ruta si es necesario
-import axios from 'axios';
-
-const PRODUCTION_URL = 'https://djangoapp-6wxv.onrender.com';
-
-function detectBaseUrl(): string {
-  // Siempre usar producción para evitar problemas de CORS
-  return PRODUCTION_URL;
-}
-
-const BASE_URL = detectBaseUrl();
-console.log('[api] URL final ->', BASE_URL);
+import axios from 'axios'; // ⬅️ IMPORTAR AXIOS DIRECTAMENTE
+import api from '../api/api';
+import { storeTokens } from '../api/auth';
 
 type RootStackParamList = {
   Login: undefined;
@@ -46,6 +36,7 @@ interface LoginScreenProps {
 }
 
 const { width: screenWidth } = Dimensions.get('window');
+const BASE_URL = 'https://djangoapp-6wxv.onrender.com';
 
 export default function LoginScreen({ navigation }: LoginScreenProps) {
   const [cedula, setCedula] = useState('');
@@ -84,44 +75,82 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
     return String(raw).replace(/\D+/g, '');
   };
 
-  // intenta obtener tokens usando el endpoint /api/token/
+  // FUNCIÓN CORREGIDA - Obtener idPersona primero y luego hacer login
   const tryObtainToken = async (digits: string, passwordValue: string) => {
-  try {
-    console.log('[login] Intentando login con cédula:', digits);
-    
-    // Para el login, usar axios directamente SIN el interceptor
-    const loginPayload = {
-      cedula: digits,
-      password: passwordValue
-    };
-    
-    console.log('[login] Payload:', loginPayload);
-    
-    // Usar axios directamente para evitar problemas con el interceptor
-    const res = await axios.post(`${BASE_URL}/api/token/`, loginPayload, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      timeout: 15000,
-    });
-    
-    console.log('[login] ✅ Login exitoso');
-    
-    return { 
-      access: res.data.access, 
-      refresh: res.data.refresh,
-      raw: res.data 
-    };
-    
-  } catch (err: any) {
-    console.error('[login] ❌ Error en login:', err.response?.data || err.message);
-    return { 
-      error: err.response?.data || { detail: 'Error de autenticación' } 
-    };
-  }
-};
+    try {
+      console.log('[login] 🔄 Iniciando proceso de login para cédula:', digits);
+      
+      // PRIMERO: Obtener el idPersona del backend
+      console.log('[login] 1. Buscando idPersona...');
+      let idPersona = null;
+      
+      try {
+        // Usar axios directamente para evitar problemas con el interceptor
+        const personaRes = await axios.get(
+          `${BASE_URL}/api/obtener-persona-login/?cedula=${encodeURIComponent(digits)}`,
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            timeout: 15000,
+          }
+        );
+        
+        console.log('[login] Respuesta obtener-persona-login:', personaRes.data);
+        
+        if (personaRes.data.idPersona) {
+          idPersona = personaRes.data.idPersona;
+          console.log('[login] ✅ idPersona encontrado:', idPersona);
+        } else {
+          console.log('[login] ❌ No se encontró idPersona');
+          return { 
+            error: { detail: 'No se encontró usuario con esta cédula' } 
+          };
+        }
+      } catch (err: any) {
+        console.error('[login] ❌ Error al buscar persona:', err.response?.data || err.message);
+        return { 
+          error: { detail: 'Error al verificar cédula en el servidor' } 
+        };
+      }
 
+      // SEGUNDO: Hacer login con el idPersona obtenido
+      console.log('[login] 2. Haciendo login con idPersona...');
+      const payload = {
+        idPersona: idPersona, // ⬅️ ESTE ES EL CAMPO CORRECTO
+        password: passwordValue
+      };
+      
+      console.log('[login] Payload CORRECTO:', payload);
+      
+      const res = await axios.post(
+        `${BASE_URL}/api/token/`, 
+        payload,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          timeout: 15000,
+        }
+      );
+      
+      console.log('[login] ✅ Login exitoso');
+      
+      return { 
+        access: res.data.access, 
+        refresh: res.data.refresh,
+        raw: res.data 
+      };
+      
+    } catch (err: any) {
+      console.error('[login] ❌ Error en login:', err.response?.data || err.message);
+      return { 
+        error: err.response?.data || { detail: 'Error de autenticación' } 
+      };
+    }
+  };
 
   const handleLogin = async () => {
     if (!validate()) return;
@@ -139,11 +168,6 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         return;
       }
 
-      // (opcional) verificación previa de existencia de cédula (no bloqueante)
-      try {
-        await api.get(`/api/obtener-persona-login/?cedula=${encodeURIComponent(digits)}`).catch(() => null);
-      } catch { /* noop */ }
-
       const result: any = await tryObtainToken(digits, password);
 
       if (!result) {
@@ -153,7 +177,6 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
       }
 
       if (result.error) {
-        // errores explícitos del backend (por ejemplo CSRF)
         const e = result.error;
         if (typeof e === 'object') {
           const textErr =
@@ -178,10 +201,11 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         return;
       }
 
-      // Guardar tokens y actualizar header (storeTokens viene de src/api/auth.ts)
+      // Guardar tokens y actualizar header
       await storeTokens(access, refresh ?? null, result.raw?.user ?? null);
       const raw = await AsyncStorage.getItem('myapp-tokens');
       console.log('[debug] myapp-tokens guardado ->', raw);
+      
       // Navegar a Main (reset para evitar volver atrás)
       navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
     } catch (err: any) {
