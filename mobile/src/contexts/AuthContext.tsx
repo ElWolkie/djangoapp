@@ -145,35 +145,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     })();
   }, [fetchUserFromCedula]);
 
-  const loginWithTokens = useCallback(async (
-    access: string, 
-    refresh?: string | null, 
-    userObj?: UserPayload | null
-  ) => {
-    try {
-      // Guardar tokens iniciales
-      await storeTokens(access, refresh ?? null, userObj ?? null);
-      setAccessToken(access);
-      api.defaults.headers.common['Authorization'] = `Bearer ${access}`;
-      
-      if (userObj) {
-        setUser(userObj);
-        console.log('👤 Usuario establecido en login:', userObj);
+  // En tu AuthContext, modifica la función loginWithTokens:
+const loginWithTokens = useCallback(async (
+  access: string, 
+  refresh?: string | null, 
+  userObj?: UserPayload | null
+) => {
+  try {
+    // Si no viene userObj, intentar obtenerlo del token decodificado
+    let finalUserObj = userObj;
+    
+    if (!finalUserObj) {
+      console.log('🔄 Intentando obtener usuario del token...');
+      // Decodificar el token JWT para obtener el user_id
+      try {
+        const payload = JSON.parse(atob(access.split('.')[1]));
+        console.log('📋 Payload del token:', payload);
         
-        // Si el usuario tiene cédula pero no idPersona, obtener información completa
-        if (userObj.cedula && !userObj.idPersona) {
-          console.log('🔄 Usuario con cédula pero sin idPersona, obteniendo información completa...');
-          setTimeout(() => fetchUserFromCedula(userObj.cedula!), 1000);
-        }
-      } else {
-        // Si no viene userObj, intentar obtenerlo del token o de otra manera
-        console.log('⚠️ No se recibió userObj en el login');
+        // Aquí puedes intentar obtener el usuario usando el user_id del token
+        // O usar cualquier otra estrategia
+      } catch (decodeError) {
+        console.error('❌ Error decodificando token:', decodeError);
       }
-    } catch (e) {
-      console.warn('loginWithTokens error', e);
-      throw e;
     }
-  }, [storeTokens, fetchUserFromCedula]);
+
+    // Guardar tokens (aunque userObj sea null)
+    await storeTokens(access, refresh ?? null, finalUserObj ?? null);
+    setAccessToken(access);
+    api.defaults.headers.common['Authorization'] = `Bearer ${access}`;
+    
+    if (finalUserObj) {
+      setUser(finalUserObj);
+      console.log('👤 Usuario establecido en login:', finalUserObj);
+    } else {
+      console.log('⚠️ Login exitoso pero sin información de usuario');
+      // Aquí podrías intentar obtener el usuario más tarde
+    }
+  } catch (e) {
+    console.warn('loginWithTokens error', e);
+    throw e;
+  }
+}, [storeTokens]);
 
   const logout = useCallback(async () => {
     try {

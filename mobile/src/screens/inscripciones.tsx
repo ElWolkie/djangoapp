@@ -74,87 +74,42 @@ export default function PantallaInscripciones() {
   const [loadingUser, setLoadingUser] = useState(false);
 
   // FUNCIÓN CORREGIDA: Obtener información del usuario desde el backend
-  const obtenerInformacionUsuario = async () => {
-    setLoadingUser(true);
-    try {
-      console.log('🔄 Obteniendo información del usuario desde el backend...');
-      
-      // ESTRATEGIA CONFIABLE: Usar solo el endpoint que funciona
-      const tokens = await AsyncStorage.getItem('myapp-tokens');
-      if (!tokens) {
-        console.log('❌ No se encontraron tokens en AsyncStorage');
-        setUserInfo(null);
-        return;
-      }
-
-      const parsedTokens = JSON.parse(tokens);
-      const userData = parsedTokens.user;
-      
-      if (userData && userData.cedula) {
-        console.log('📝 Cédula encontrada en tokens:', userData.cedula);
-        
-        // Usar SOLO el endpoint que funciona
-        try {
-          const response = await api.get(`/api/obtener-persona-login/?cedula=${encodeURIComponent(userData.cedula)}`);
-          console.log('✅ Respuesta obtener-persona-login:', response.data);
-          
-          if (response.data && response.data.idPersona) {
-            const userInfoData = {
-              cedula: userData.cedula,
-              idPersona: response.data.idPersona,
-              nombres: response.data.nombres || userData.nombres || '',
-              apellidos: response.data.apellidos || userData.apellidos || ''
-            };
-            
-            setUserInfo(userInfoData);
-            console.log('🎉 Información de usuario obtenida correctamente:', userInfoData);
-          } else {
-            console.error('❌ No se encontró idPersona en la respuesta');
-            setUserInfo({
-              cedula: userData.cedula,
-              idPersona: null,
-              nombres: userData.nombres || '',
-              apellidos: userData.apellidos || ''
-            });
-          }
-        } catch (error) {
-          console.error('❌ Error al obtener persona:', error);
-          // Si falla, al menos usar la información básica de los tokens
-          setUserInfo({
-            cedula: userData.cedula,
-            idPersona: null,
-            nombres: userData.nombres || '',
-            apellidos: userData.apellidos || ''
-          });
-        }
-      } else {
-        console.log('❌ No se pudo obtener cédula de los tokens');
-        setUserInfo(null);
-      }
-
-    } catch (error) {
-      console.error('❌ Error general obteniendo información del usuario:', error);
+const obtenerInformacionUsuario = async () => {
+  setLoadingUser(true);
+  try {
+    console.log('🔄 Obteniendo información del usuario...');
+    
+    // ESTRATEGIA SIMPLE: Usar directamente el user del AuthContext
+    if (user) {
+      console.log('✅ Usuario del AuthContext:', user);
+      setUserInfo({
+        cedula: user.cedula,
+        idPersona: user.idPersona || null,
+        nombres: user.nombres || '',
+        apellidos: user.apellidos || ''
+      });
+    } else {
+      console.log('❌ No hay usuario en el AuthContext');
       setUserInfo(null);
-    } finally {
-      setLoadingUser(false);
     }
-  };
+
+  } catch (error) {
+    console.error('❌ Error obteniendo información del usuario:', error);
+    setUserInfo(null);
+  } finally {
+    setLoadingUser(false);
+  }
+};
 
   // DEBUG: Verificar el usuario
-useEffect(() => {
-  const fetchUser = async () => {
-    console.log('🔐 USUARIO COMPLETO EN INSCRIPCIONES:', JSON.stringify(user, null, 2));
-    console.log('🔐 Propiedades del usuario:', user ? Object.keys(user) : 'No hay usuario');
+  useEffect(() => {
+    console.log('🔐 USUARIO EN INSCRIPCIONES:', user);
     console.log('🔐 Cedula del usuario:', user?.cedula);
     console.log('🔐 idPersona del usuario:', user?.idPersona);
     
     // Obtener información del usuario al cargar el componente
-    if (user?.cedula && (!userInfo || !userInfo.idPersona)) {
-      await fetchUserFromCedula(user.cedula);
-    }
-  };
-  fetchUser();
-}, [user]);
+    obtenerInformacionUsuario();
+  }, [user]);
 
   // Load inscripciones
   const fetchInscripciones = useCallback(async () => {

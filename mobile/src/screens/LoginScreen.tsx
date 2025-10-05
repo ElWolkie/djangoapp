@@ -1,5 +1,5 @@
 // src/screens/LoginScreen.tsx
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useContext } from 'react';
 import {
   StyleSheet,
   Text,
@@ -17,9 +17,8 @@ import {
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios'; // ⬅️ IMPORTAR AXIOS DIRECTAMENTE
-import api from '../api/api';
-import { storeTokens } from '../api/auth';
+import axios from 'axios';
+import { AuthContext } from '../contexts/AuthContext';
 
 type RootStackParamList = {
   Login: undefined;
@@ -39,6 +38,7 @@ const { width: screenWidth } = Dimensions.get('window');
 const BASE_URL = 'https://djangoapp-6wxv.onrender.com';
 
 export default function LoginScreen({ navigation }: LoginScreenProps) {
+  const { loginWithTokens } = useContext(AuthContext);
   const [cedula, setCedula] = useState('');
   const [password, setPassword] = useState('');
   const [focusField, setFocusField] = useState<'cedula' | 'password' | null>(null);
@@ -75,17 +75,16 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
     return String(raw).replace(/\D+/g, '');
   };
 
-  // FUNCIÓN CORREGIDA - Obtener idPersona primero y luego hacer login
+  // FUNCIÓN MEJORADA - Obtener información completa del usuario después del login
   const tryObtainToken = async (digits: string, passwordValue: string) => {
     try {
       console.log('[login] 🔄 Iniciando proceso de login para cédula:', digits);
       
       // PRIMERO: Obtener el idPersona del backend
       console.log('[login] 1. Buscando idPersona...');
-      let idPersona = null;
+      let userInfo = null;
       
       try {
-        // Usar axios directamente para evitar problemas con el interceptor
         const personaRes = await axios.get(
           `${BASE_URL}/api/obtener-persona-login/?cedula=${encodeURIComponent(digits)}`,
           {
@@ -100,8 +99,15 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         console.log('[login] Respuesta obtener-persona-login:', personaRes.data);
         
         if (personaRes.data.idPersona) {
-          idPersona = personaRes.data.idPersona;
-          console.log('[login] ✅ idPersona encontrado:', idPersona);
+          userInfo = {
+            idPersona: personaRes.data.idPersona,
+            cedula: digits,
+            nombres: personaRes.data.nombres || '',
+            apellidos: personaRes.data.apellidos || '',
+            email: personaRes.data.email || '',
+            displayName: `${personaRes.data.nombres || ''} ${personaRes.data.apellidos || ''}`.trim()
+          };
+          console.log('[login] ✅ Información de usuario obtenida:', userInfo);
         } else {
           console.log('[login] ❌ No se encontró idPersona');
           return { 
@@ -118,11 +124,11 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
       // SEGUNDO: Hacer login con el idPersona obtenido
       console.log('[login] 2. Haciendo login con idPersona...');
       const payload = {
-        idPersona: idPersona, // ⬅️ ESTE ES EL CAMPO CORRECTO
+        idPersona: userInfo.idPersona,
         password: passwordValue
       };
       
-      console.log('[login] Payload CORRECTO:', payload);
+      console.log('[login] Payload de login:', payload);
       
       const res = await axios.post(
         `${BASE_URL}/api/token/`, 
@@ -136,12 +142,12 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         }
       );
       
-      console.log('[login] ✅ Login exitoso');
+      console.log('[login] ✅ Login exitoso, tokens recibidos');
       
       return { 
         access: res.data.access, 
         refresh: res.data.refresh,
-        raw: res.data 
+        user: userInfo // ← ENVIAMOS LA INFORMACIÓN COMPLETA DEL USUARIO
       };
       
     } catch (err: any) {
@@ -194,6 +200,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
 
       const access = result.access as string | undefined;
       const refresh = result.refresh as string | undefined;
+      const user = result.user; // ← INFORMACIÓN DEL USUARIO OBTENIDA
 
       if (!access) {
         Alert.alert('Error', 'El servidor no devolvió token de acceso válido.');
@@ -201,10 +208,11 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         return;
       }
 
-      // Guardar tokens y actualizar header
-      await storeTokens(access, refresh ?? null, result.raw?.user ?? null);
-      const raw = await AsyncStorage.getItem('myapp-tokens');
-      console.log('[debug] myapp-tokens guardado ->', raw);
+      // USAR EL CONTEXTO DE AUTENTICACIÓN PARA GUARDAR TODO
+      console.log('[login] 📝 Guardando tokens e información de usuario...');
+      await loginWithTokens(access, refresh, user);
+      
+      console.log('[login] ✅ Login completado exitosamente');
       
       // Navegar a Main (reset para evitar volver atrás)
       navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
