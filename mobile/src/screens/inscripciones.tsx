@@ -50,15 +50,15 @@ export default function PantallaInscripciones() {
   const [formModalVisible, setFormModalVisible] = useState(false);
   const [creating, setCreating] = useState(false);
 
-  // Form fields
+  // Form fields - CAMBIO: usar undefined en lugar de null para los Pickers
   const [tiposFormacion, setTiposFormacion] = useState<TipoFormacion[]>([]);
   const [formaciones, setFormaciones] = useState<Formacion[]>([]);
   const [formacionesFiltradas, setFormacionesFiltradas] = useState<Formacion[]>([]);
   const [cohortes, setCohortes] = useState<Cohorte[]>([]);
   
-  const [selectedTipoFormacion, setSelectedTipoFormacion] = useState<number | null>(null);
-  const [selectedFormacion, setSelectedFormacion] = useState<number | null>(null);
-  const [selectedCohorte, setSelectedCohorte] = useState<number | null>(null);
+  const [selectedTipoFormacion, setSelectedTipoFormacion] = useState<number | undefined>(undefined);
+  const [selectedFormacion, setSelectedFormacion] = useState<number | undefined>(undefined);
+  const [selectedCohorte, setSelectedCohorte] = useState<number | undefined>(undefined);
   
   // Resumen de costos
   const [valorInscripcion, setValorInscripcion] = useState(0);
@@ -316,7 +316,8 @@ export default function PantallaInscripciones() {
       tipoIdTF: typeof f.idTF
     })));
 
-    if (selectedTipoFormacion !== null && formaciones.length > 0) {
+    // CAMBIO: Usar undefined en lugar de null
+    if (selectedTipoFormacion !== undefined && formaciones.length > 0) {
       // CONVERTIR AMBOS A NUMBER para comparación correcta
       const selectedTipoNum = Number(selectedTipoFormacion);
       
@@ -331,7 +332,7 @@ export default function PantallaInscripciones() {
       console.log('📋 Lista filtrada:', filtradas.map(f => ({id: f.idFormacion, nombre: f.nombreFormacion})));
       
       setFormacionesFiltradas(filtradas);
-      setSelectedFormacion(null);
+      setSelectedFormacion(undefined);
       
       // Si solo hay una formación filtrada, seleccionarla automáticamente
       if (filtradas.length === 1) {
@@ -346,95 +347,126 @@ export default function PantallaInscripciones() {
     console.log('🔄 FILTRANDO FORMACIONES - FIN');
   }, [selectedTipoFormacion, formaciones]);
 
-  // CALCULAR COSTOS CON CUOTAS REALES - VERSIÓN CORREGIDA
-  // CALCULAR COSTOS CON CUOTAS REALES - VERSIÓN CORREGIDA
-useEffect(() => {
-  if (selectedFormacion !== null) {
-    const formacion = formaciones.find(f => f.idFormacion === selectedFormacion);
-    console.log('💰 Formación seleccionada para cálculos:', formacion);
-    
-    if (formacion) {
-      console.log('💰 Calculando costos para:', formacion.nombreFormacion);
-      const valorInsc = Number(formacion.valorInscripcion) || 0;
-      console.log('💰 Valor inscripción:', valorInsc);
+  // CALCULAR COSTOS CON CUOTAS REALES - VERSIÓN MEJORADA
+  useEffect(() => {
+    // CAMBIO: Usar undefined en lugar de null
+    if (selectedFormacion !== undefined) {
+      const formacion = formaciones.find(f => f.idFormacion === selectedFormacion);
+      console.log('💰 Formación seleccionada para cálculos:', formacion);
       
-      setValorInscripcion(valorInsc);
-      
-      let cuotasData: Cuota[] = [];
-      let totalCtas = 0;
-      
-      console.log('📋 Información de cuotas REALES:', {
-        tieneCuotas: formacion.tieneCuotas,
-        cuotas_activas: formacion.cuotas_activas,
-        cantidad_cuotas: formacion.cantidad_cuotas,
-        cuotas_json: formacion.cuotas_json
-      });
-      
-      // PROCESAR CUOTAS REALES DEL BACKEND
-      if (formacion.tieneCuotas && formacion.cuotas_activas) {
-        console.log('🔄 PROCESANDO CUOTAS REALES DEL BACKEND');
-        try {
-          let cuotasJson = formacion.cuotas_json;
-          
-          // Verificar si hay cuotas_json válido
-          if (cuotasJson && cuotasJson !== '[]' && cuotasJson !== '""' && cuotasJson !== 'null') {
-            console.log('📦 Parseando cuotas_json del backend:', cuotasJson);
+      if (formacion) {
+        console.log('💰 Calculando costos para:', formacion.nombreFormacion);
+        const valorInsc = Number(formacion.valorInscripcion) || 0;
+        console.log('💰 Valor inscripción:', valorInsc);
+        
+        setValorInscripcion(valorInsc);
+        
+        let cuotasData: Cuota[] = [];
+        let totalCtas = 0;
+        
+        console.log('📋 Información de cuotas REALES:', {
+          tieneCuotas: formacion.tieneCuotas,
+          cuotas_activas: formacion.cuotas_activas,
+          cantidad_cuotas: formacion.cantidad_cuotas,
+          cuotas_json: formacion.cuotas_json
+        });
+        
+        // PROCESAR CUOTAS REALES DEL BACKEND - VERSIÓN MÁS FLEXIBLE
+        if (formacion.tieneCuotas) {
+          console.log('🔄 PROCESANDO CUOTAS - Formación tiene cuotas habilitadas');
+          try {
+            let cuotasJson = formacion.cuotas_json;
             
-            // Parsear el JSON de cuotas
-            const cuotasParseadas = JSON.parse(cuotasJson);
-            
-            // Validar y mapear las cuotas
-            if (Array.isArray(cuotasParseadas)) {
-              cuotasData = cuotasParseadas.map((cuota: any, index: number) => {
-                // Asegurar que cada cuota tenga la estructura correcta
-                return {
-                  nombreCuota: cuota.nombreCuota || cuota.nombre || `Cuota ${index + 1}`,
-                  valorCuota: Number(cuota.valorCuota || cuota.valor || cuota.monto || 0)
-                };
-              }).filter((cuota: Cuota) => cuota.valorCuota > 0); // Filtrar cuotas con valor > 0
+            // Verificar si hay cuotas_json válido
+            if (cuotasJson && cuotasJson !== '[]' && cuotasJson !== '""' && cuotasJson !== 'null' && cuotasJson !== '{}') {
+              console.log('📦 Parseando cuotas_json del backend:', cuotasJson);
               
-              console.log('✅ Cuotas reales procesadas:', cuotasData);
+              // Parsear el JSON de cuotas
+              const cuotasParseadas = JSON.parse(cuotasJson);
+              
+              // Validar y mapear las cuotas
+              if (Array.isArray(cuotasParseadas) && cuotasParseadas.length > 0) {
+                cuotasData = cuotasParseadas.map((cuota: any, index: number) => {
+                  // Asegurar que cada cuota tenga la estructura correcta
+                  return {
+                    nombreCuota: cuota.nombreCuota || cuota.nombre || `Cuota ${index + 1}`,
+                    valorCuota: Number(cuota.valorCuota || cuota.valor || cuota.monto || 0)
+                  };
+                }).filter((cuota: Cuota) => cuota.valorCuota > 0); // Filtrar cuotas con valor > 0
+                
+                console.log('✅ Cuotas reales procesadas:', cuotasData);
+              } else {
+                console.warn('⚠️ cuotas_json no es un array válido o está vacío:', cuotasParseadas);
+                
+                // CREAR CUOTAS POR DEFECTO SI NO HAY CUOTAS CONFIGURADAS
+                if (formacion.cantidad_cuotas > 0 && formacion.valorInscripcion > 0) {
+                  console.log('🔄 Creando cuotas por defecto basadas en cantidad_cuotas');
+                  const valorPorCuota = formacion.valorInscripcion / formacion.cantidad_cuotas;
+                  cuotasData = Array.from({length: formacion.cantidad_cuotas}, (_, i) => ({
+                    nombreCuota: `Cuota ${i + 1}`,
+                    valorCuota: Math.round(valorPorCuota * 100) / 100 // Redondear a 2 decimales
+                  }));
+                  console.log('✅ Cuotas por defecto creadas:', cuotasData);
+                }
+              }
             } else {
-              console.warn('⚠️ cuotas_json no es un array válido:', cuotasParseadas);
+              console.log('ℹ️ No hay cuotas configuradas en cuotas_json');
+              
+              // CREAR CUOTAS POR DEFECTO SI NO HAY CUOTAS EN cuotas_json
+              if (formacion.cantidad_cuotas > 0 && formacion.valorInscripcion > 0) {
+                console.log('🔄 Creando cuotas por defecto basadas en cantidad_cuotas');
+                const valorPorCuota = formacion.valorInscripcion / formacion.cantidad_cuotas;
+                cuotasData = Array.from({length: formacion.cantidad_cuotas}, (_, i) => ({
+                  nombreCuota: `Cuota ${i + 1}`,
+                  valorCuota: Math.round(valorPorCuota * 100) / 100 // Redondear a 2 decimales
+                }));
+                console.log('✅ Cuotas por defecto creadas:', cuotasData);
+              } else if (formacion.valorInscripcion > 0) {
+                // Si no hay cantidad_cuotas pero hay valor, crear 2 cuotas por defecto
+                console.log('🔄 Creando 2 cuotas por defecto');
+                const valorPorCuota = formacion.valorInscripcion / 2;
+                cuotasData = [
+                  { nombreCuota: 'Cuota 1', valorCuota: Math.round(valorPorCuota * 100) / 100 },
+                  { nombreCuota: 'Cuota 2', valorCuota: Math.round(valorPorCuota * 100) / 100 }
+                ];
+                console.log('✅ Cuotas por defecto creadas:', cuotasData);
+              }
             }
-          } else {
-            console.log('ℹ️ No hay cuotas configuradas en el backend');
+            
+          } catch (e) {
+            console.error('❌ Error procesando cuotas reales:', e);
+            console.log('📋 cuotas_json que causó el error:', formacion.cuotas_json);
           }
-          
-        } catch (e) {
-          console.error('❌ Error procesando cuotas reales:', e);
-          console.log('📋 cuotas_json que causó el error:', formacion.cuotas_json);
+        } else {
+          console.log('ℹ️ Formación no tiene cuotas habilitadas');
         }
-      } else {
-        console.log('ℹ️ Formación no tiene cuotas activas configuradas');
+        
+        // Calcular total de cuotas
+        totalCtas = cuotasData.reduce((sum, cuota) => {
+          const valor = Number(cuota.valorCuota || 0);
+          console.log(`📊 Cuota "${cuota.nombreCuota}": ${valor}`);
+          return sum + valor;
+        }, 0);
+        
+        setCuotas(cuotasData);
+        setTotalCuotas(totalCtas);
+        const totalFinal = valorInsc + totalCtas;
+        setMontoTotal(totalFinal);
+        
+        console.log('💰 RESUMEN FINAL:');
+        console.log('Inscripción:', valorInsc);
+        console.log('Total cuotas:', totalCtas);
+        console.log('Total general:', totalFinal);
+        console.log('Número de cuotas:', cuotasData.length);
       }
-      
-      // Calcular total de cuotas
-      totalCtas = cuotasData.reduce((sum, cuota) => {
-        const valor = Number(cuota.valorCuota || 0);
-        console.log(`📊 Cuota real "${cuota.nombreCuota}": ${valor}`);
-        return sum + valor;
-      }, 0);
-      
-      setCuotas(cuotasData);
-      setTotalCuotas(totalCtas);
-      const totalFinal = valorInsc + totalCtas;
-      setMontoTotal(totalFinal);
-      
-      console.log('💰 RESUMEN FINAL CON CUOTAS REALES:');
-      console.log('Inscripción:', valorInsc);
-      console.log('Total cuotas:', totalCtas);
-      console.log('Total general:', totalFinal);
-      console.log('Número de cuotas:', cuotasData.length);
+    } else {
+      console.log('💰 No hay formación seleccionada, reseteando costos');
+      setValorInscripcion(0);
+      setCuotas([]);
+      setTotalCuotas(0);
+      setMontoTotal(0);
     }
-  } else {
-    console.log('💰 No hay formación seleccionada, reseteando costos');
-    setValorInscripcion(0);
-    setCuotas([]);
-    setTotalCuotas(0);
-    setMontoTotal(0);
-  }
-}, [selectedFormacion, formaciones]);
+  }, [selectedFormacion, formaciones]);
 
   // DEBUG: Monitor estado del Picker de formaciones
   useEffect(() => {
@@ -468,6 +500,15 @@ useEffect(() => {
 
   // Función para verificar que los IDs existen - VERSIÓN MEJORADA
   const verificarIDs = (): boolean => {
+    // CAMBIO: Usar undefined en lugar de null
+    if (selectedTipoFormacion === undefined || selectedFormacion === undefined || selectedCohorte === undefined) {
+      Alert.alert(
+        'Error en selección',
+        'Por favor, seleccione tipo de formación, formación y cohorte.'
+      );
+      return false;
+    }
+
     const tipoId = Number(selectedTipoFormacion);
     const formacionId = Number(selectedFormacion);
     const cohorteId = Number(selectedCohorte);
@@ -501,11 +542,12 @@ useEffect(() => {
 
   const validateCreateForm = () => {
     const errs: Record<string,string> = {};
-    if (selectedTipoFormacion === null) 
+    // CAMBIO: Usar undefined en lugar de null
+    if (selectedTipoFormacion === undefined) 
       errs.tipoFormacion = 'Seleccione un tipo de formación';
-    if (selectedFormacion === null) 
+    if (selectedFormacion === undefined) 
       errs.formacion = 'Seleccione una formación';
-    if (selectedCohorte === null) 
+    if (selectedCohorte === undefined) 
       errs.cohorte = 'Seleccione una cohorte';
     
     if (!userInfo && !user) {
@@ -575,6 +617,7 @@ useEffect(() => {
       return;
     }
 
+    // CAMBIO: Usar valores por defecto ya que sabemos que no son undefined por la validación
     const idTF = Number(selectedTipoFormacion);
     const idFormacion = Number(selectedFormacion);
     const idCohorte = Number(selectedCohorte);
@@ -662,9 +705,10 @@ useEffect(() => {
   };
 
   const resetForm = () => {
-    setSelectedTipoFormacion(null);
-    setSelectedFormacion(null);
-    setSelectedCohorte(null);
+    // CAMBIO: Usar undefined en lugar de null
+    setSelectedTipoFormacion(undefined);
+    setSelectedFormacion(undefined);
+    setSelectedCohorte(undefined);
     setFormErrors({});
     setValorInscripcion(0);
     setCuotas([]);
@@ -891,14 +935,15 @@ useEffect(() => {
                     <Picker
                       selectedValue={selectedTipoFormacion}
                       onValueChange={(itemValue) => {
-                        // Asegurar que sea número
-                        const value = itemValue !== null ? Number(itemValue) : null;
+                        // CAMBIO: El Picker puede devolver string o number, asegurar que sea number
+                        const value = itemValue !== undefined ? Number(itemValue) : undefined;
                         console.log('🎯 Tipo seleccionado:', value, 'Tipo:', typeof value);
                         setSelectedTipoFormacion(value);
                       }}
                       style={styles.picker}
                     >
-                      <Picker.Item label="Seleccione tipo de formación..." value={null} />
+                      {/* CAMBIO: Usar undefined en lugar de null */}
+                      <Picker.Item label="Seleccione tipo de formación..." value={undefined} />
                       {tiposFormacion.map(tf => (
                         <Picker.Item 
                           key={tf.idTF} 
@@ -920,7 +965,7 @@ useEffect(() => {
                     <Picker
                       selectedValue={selectedFormacion}
                       onValueChange={(itemValue) => {
-                        const value = itemValue !== null ? Number(itemValue) : null;
+                        const value = itemValue !== undefined ? Number(itemValue) : undefined;
                         console.log('🎯 Formación seleccionada:', value, 'Tipo:', typeof value);
                         setSelectedFormacion(value);
                         
@@ -932,13 +977,14 @@ useEffect(() => {
                       style={styles.picker}
                       enabled={formacionesFiltradas.length > 0}
                     >
+                      {/* CAMBIO: Usar undefined en lugar de null */}
                       <Picker.Item 
                         label={
                           formacionesFiltradas.length === 0 ? 
                           "Seleccione tipo primero" : 
                           "Seleccione formación..."
                         } 
-                        value={null} 
+                        value={undefined} 
                       />
                       {formacionesFiltradas.map(f => (
                         <Picker.Item 
@@ -959,10 +1005,11 @@ useEffect(() => {
                   <View style={styles.pickerContainer}>
                     <Picker
                       selectedValue={selectedCohorte}
-                      onValueChange={(itemValue) => setSelectedCohorte(itemValue)}
+                      onValueChange={(itemValue) => setSelectedCohorte(itemValue !== undefined ? Number(itemValue) : undefined)}
                       style={styles.picker}
                     >
-                      <Picker.Item label="Seleccione cohorte..." value={null} />
+                      {/* CAMBIO: Usar undefined en lugar de null */}
+                      <Picker.Item label="Seleccione cohorte..." value={undefined} />
                       {cohortes.map(c => (
                         <Picker.Item 
                           key={c.idCohorte} 
@@ -1089,7 +1136,7 @@ useEffect(() => {
   );
 }
 
-// Los estilos se mantienen igual (no los modifiqué para ahorrar espacio)
+// Los estilos se mantienen igual...
 const styles = StyleSheet.create({
   center: { 
     flex: 1, 
