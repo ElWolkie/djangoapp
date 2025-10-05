@@ -635,10 +635,10 @@ export default function PantallaInscripciones() {
       
       // PAYLOAD CORREGIDO según el error del backend
         const payload = {
-          "idPersona": 90000,        // Nombre directo del campo
-          "idTF": selectedTipoFormacion,      // Nombre directo del campo  
-          "idFormacion": selectedFormacion, // Nombre directo del campo
-          "idCohorte": selectedCohorte,     // Nombre directo del campo
+          "idPersona_id": 90000,        // Cambiar a idPersona_id
+          "idTF_id": selectedTipoFormacion,      // Cambiar a idTF_id  
+          "idFormacion_id": selectedFormacion, // Cambiar a idFormacion_id
+          "idCohorte_id": selectedCohorte,     // Cambiar a idCohorte_id
           "montoTotal": montoTotal,
           "montoPagado": 0,
           "estadoPago": "PENDIENTE",

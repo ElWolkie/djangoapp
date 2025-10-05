@@ -84,31 +84,52 @@ class HonorarioSerializer(serializers.ModelSerializer):
         fields = ['idHonorario','idPersona','idCargo','idCohorte','idMateria','horas','estadoHonorario','fechaHonorario','monto']
 
 class InscripcionSerializer(serializers.ModelSerializer):
-    # Campos para lectura (manteniendo los nombres originales)
-    idPersona = PersonaSerializer(read_only=True)
-    idFormacion = FormacionSerializer(read_only=True) 
-    idCohorte = CohorteSerializer(read_only=True)
+    # Campos para lectura (serializadores anidados)
+    idPersona_detail = PersonaSerializer(source='idPersona', read_only=True)
+    idFormacion_detail = FormacionSerializer(source='idFormacion', read_only=True)
+    idCohorte_detail = CohorteSerializer(source='idCohorte', read_only=True)
 
-    # Campos para escritura
+    # Campos para escritura - aceptar ambos formatos
+    idPersona = serializers.PrimaryKeyRelatedField(
+        queryset=Personas.objects.all(), 
+        write_only=True,
+        required=False
+    )
     idPersona_id = serializers.PrimaryKeyRelatedField(
         queryset=Personas.objects.all(), 
         source='idPersona',
+        write_only=True,
+        required=False
+    )
+    idFormacion = serializers.PrimaryKeyRelatedField(
+        queryset=Formacion.objects.all(),
         write_only=True
     )
     idFormacion_id = serializers.PrimaryKeyRelatedField(
         queryset=Formacion.objects.all(),
         source='idFormacion',
+        write_only=True,
+        required=False
+    )
+    idCohorte = serializers.PrimaryKeyRelatedField(
+        queryset=Cohorte.objects.all(),
         write_only=True
     )
     idCohorte_id = serializers.PrimaryKeyRelatedField(
         queryset=Cohorte.objects.all(),
-        source='idCohorte', 
+        source='idCohorte',
+        write_only=True,
+        required=False
+    )
+    idTF = serializers.PrimaryKeyRelatedField(
+        queryset=TipoFormacion.objects.all(),
         write_only=True
     )
     idTF_id = serializers.PrimaryKeyRelatedField(
         queryset=TipoFormacion.objects.all(),
         source='idTF',
-        write_only=True
+        write_only=True,
+        required=False
     )
 
     # exponemos montoTotal y saldoPendiente basados en las properties del modelo
@@ -119,14 +140,17 @@ class InscripcionSerializer(serializers.ModelSerializer):
         model = Inscripcion
         fields = [
             'idInscripcion',
-            'idPersona',        # Para lectura (datos completos)
-            'idPersona_id',     # Para escritura (solo ID)
+            'idPersona',
+            'idPersona_id',
+            'idPersona_detail',
             'idCohorte',
-            'idCohorte_id', 
+            'idCohorte_id',
+            'idCohorte_detail',
             'idTF',
             'idTF_id',
             'idFormacion',
             'idFormacion_id',
+            'idFormacion_detail',
             'fechaInscripcion',
             'estadoPago',
             'montoPagado',
@@ -146,6 +170,19 @@ class InscripcionSerializer(serializers.ModelSerializer):
             return float(obj.saldoPendiente or 0.0)
         except Exception:
             return 0.0
+
+    def create(self, validated_data):
+        # Manejar ambos formatos: si viene con _id, usarlo; si no, usar el campo directo
+        if 'idPersona' not in validated_data and 'idPersona_id' in validated_data:
+            validated_data['idPersona'] = validated_data.pop('idPersona_id')
+        if 'idFormacion' not in validated_data and 'idFormacion_id' in validated_data:
+            validated_data['idFormacion'] = validated_data.pop('idFormacion_id')
+        if 'idCohorte' not in validated_data and 'idCohorte_id' in validated_data:
+            validated_data['idCohorte'] = validated_data.pop('idCohorte_id')
+        if 'idTF' not in validated_data and 'idTF_id' in validated_data:
+            validated_data['idTF'] = validated_data.pop('idTF_id')
+        
+        return super().create(validated_data)
 
 class RequisitoSerializer(serializers.ModelSerializer):
     class Meta:
