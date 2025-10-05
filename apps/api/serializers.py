@@ -84,9 +84,16 @@ class HonorarioSerializer(serializers.ModelSerializer):
         fields = ['idHonorario','idPersona','idCargo','idCohorte','idMateria','horas','estadoHonorario','fechaHonorario','monto']
 
 class InscripcionSerializer(serializers.ModelSerializer):
+    # Campos de solo lectura para la representación
     idPersona = PersonaSerializer(read_only=True)
     idFormacion = FormacionSerializer(read_only=True)
     idCohorte = CohorteSerializer(read_only=True)
+
+    # Campos para escritura (creación)
+    idPersona_id = serializers.IntegerField(write_only=True, required=False)
+    idFormacion_id = serializers.IntegerField(write_only=True)
+    idCohorte_id = serializers.IntegerField(write_only=True)
+    idTF_id = serializers.IntegerField(write_only=True)
 
     # exponemos montoTotal y saldoPendiente basados en las properties del modelo
     montoTotal = serializers.SerializerMethodField()
@@ -97,14 +104,18 @@ class InscripcionSerializer(serializers.ModelSerializer):
         fields = [
             'idInscripcion',
             'idPersona',
+            'idPersona_id',
             'idCohorte',
+            'idCohorte_id',
             'idTF',
+            'idTF_id',
             'idFormacion',
+            'idFormacion_id',
             'fechaInscripcion',
             'estadoPago',
-            'montoPagado',    # usa el campo directo del modelo
-            'montoTotal',     # calculado vía property en el modelo
-            'saldoPendiente', # calculado vía property en el modelo
+            'montoPagado',
+            'montoTotal',
+            'saldoPendiente',
             'is_active',
         ]
 
@@ -119,6 +130,19 @@ class InscripcionSerializer(serializers.ModelSerializer):
             return float(obj.saldoPendiente or 0.0)
         except Exception:
             return 0.0
+
+    def create(self, validated_data):
+        # Mapear los campos de escritura a los campos del modelo
+        if 'idPersona_id' in validated_data:
+            validated_data['idPersona_id'] = validated_data.pop('idPersona_id')
+        if 'idFormacion_id' in validated_data:
+            validated_data['idFormacion_id'] = validated_data.pop('idFormacion_id')
+        if 'idCohorte_id' in validated_data:
+            validated_data['idCohorte_id'] = validated_data.pop('idCohorte_id')
+        if 'idTF_id' in validated_data:
+            validated_data['idTF_id'] = validated_data.pop('idTF_id')
+        
+        return super().create(validated_data)
 
 class RequisitoSerializer(serializers.ModelSerializer):
     class Meta:

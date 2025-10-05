@@ -634,17 +634,16 @@ export default function PantallaInscripciones() {
       const fechaFormateada = ahora.toISOString().replace('T', ' ').substring(0, 19);
       
       // PAYLOAD CORREGIDO según el error del backend
-      // El backend espera IDs numéricos simples, no objetos anidados
-      const payload = {
-        idPersona: idPersonaFinal,
-        idTF: idTF,
-        idFormacion: idFormacion,
-        idCohorte: idCohorte,
-        montoTotal: montoTotal,
-        montoPagado: 0,
-        estadoPago: "PENDIENTE",
-        fechaInscripcion: fechaFormateada,
-      };
+        const payload = {
+          "idPersona_id": 90000,  // Cambiado de idPersona a idPersona_id
+          "idTF_id": selectedTipoFormacion, // Cambiado de idTF a idTF_id  
+          "idFormacion_id": selectedFormacion, // Cambiado de idFormacion a idFormacion_id
+          "idCohorte_id": selectedCohorte, // Cambiado de idCohorte a idCohorte_id
+          "montoTotal": montoTotal,
+          "montoPagado": 0,
+          "estadoPago": "PENDIENTE",
+          "fechaInscripcion": new Date().toISOString().slice(0, 19).replace('T', ' ')
+        };
 
       console.log('📤 Enviando payload SIMPLIFICADO:', JSON.stringify(payload, null, 2));
 

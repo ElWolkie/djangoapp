@@ -64,6 +64,30 @@ class InscripcionListCreate(generics.ListCreateAPIView):
     queryset = Inscripcion.objects.select_related('idPersona','idFormacion','idCohorte').all().prefetch_related('inscripcioncuota_set')
     serializer_class = InscripcionSerializer
 
+    def create(self, request, *args, **kwargs):
+        try:
+            # Log para debugging
+            print("📥 Datos recibidos:", request.data)
+            
+            # Asegurar que los campos required estén presentes
+            data = request.data.copy()
+            
+            # Si idPersona no viene del frontend, intentar obtenerlo del usuario autenticado
+            if 'idPersona_id' not in data and hasattr(request.user, 'idPersona'):
+                data['idPersona_id'] = request.user.idPersona.idPersona
+            
+            response = super().create(request, *args, **kwargs)
+            print("✅ Inscripción creada exitosamente:", response.data)
+            return response
+            
+        except Exception as e:
+            print("❌ Error al crear inscripción:", str(e))
+            print("📋 Datos que causaron el error:", request.data)
+            return Response(
+                {"error": str(e), "details": "Error interno del servidor"}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
 class RequisitoListCreate(generics.ListCreateAPIView):
     queryset = Requisito.objects.all()  # Usa el modelo Requisito
     serializer_class = RequisitoSerializer  # Usa el serializador RequisitoSerializer
