@@ -610,7 +610,7 @@ def notas_por_usuario(request, cedula):
                     'nombreFormacion': formacion_nombre
                 },
                 'persona': {
-                    'nombre': f"{persona.nombre} {persona.apellido}",
+                    'nombre': f"{persona.nombres} {persona.apellidos}",
                     'cedula': persona.cedula
                 }
             })
