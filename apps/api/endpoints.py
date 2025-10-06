@@ -572,3 +572,57 @@ class PagoCreateAPIView(APIView):
         fecha_actual = now().strftime('%Y%m%d')
         numero_unico = uuid.uuid4().hex[:6].upper()
         return f"PAGO-{fecha_actual}-{numero_unico}"
+
+@api_view(['GET'])
+def notas_por_usuario(request, cedula):
+    """
+    Obtener todas las notas de un usuario por su cédula
+    """
+    try:
+        # Buscar persona por cédula
+        persona = Personas.objects.filter(cedula=cedula).first()
+        if not persona:
+            return Response({
+                'success': False,
+                'message': 'Persona no encontrada'
+            }, status=404)
+
+        # Obtener notas relacionadas con esta persona
+        notas = Nota.objects.filter(
+            idPersona=persona,
+            estado__in=['PENDIENTE', 'PARCIAL']  # Solo notas pendientes o parciales
+        ).select_related('idFormacion').order_by('-fechaEmision')
+
+        notas_data = []
+        for nota in notas:
+            # Obtener formación relacionada si existe
+            formacion_nombre = "N/A"
+            if hasattr(nota, 'idFormacion') and nota.idFormacion:
+                formacion_nombre = nota.idFormacion.nombreFormacion
+
+            notas_data.append({
+                'idNota': nota.idNota,
+                'numeroNota': nota.numeroNota,
+                'fechaEmision': nota.fechaEmision,
+                'totalNota': float(nota.totalNota),
+                'estado': nota.estado,
+                'formacion': {
+                    'nombreFormacion': formacion_nombre
+                },
+                'persona': {
+                    'nombre': f"{persona.nombre} {persona.apellido}",
+                    'cedula': persona.cedula
+                }
+            })
+
+        return Response({
+            'success': True,
+            'data': notas_data,
+            'total': len(notas_data)
+        })
+
+    except Exception as e:
+        return Response({
+            'success': False,
+            'message': f'Error obteniendo notas: {str(e)}'
+        }, status=500)

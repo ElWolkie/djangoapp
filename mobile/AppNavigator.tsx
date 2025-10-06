@@ -20,6 +20,7 @@ import PantallaServicios from './src/screens/servicios';
 import PantallaRequisitos from './src/screens/requisitos';
 import PantallaMonedas from './src/screens/monedas';
 import PantallaTasas from './src/screens/tasas';
+import PagoScreen from './src/screens/pago'; // 🆕 IMPORTAR PAGO SCREEN
 import { 
   View, 
   Text, 
@@ -56,14 +57,14 @@ function CustomDrawerContent(props: any) {
     }).start();
   };
 
-  /* ---------- GESTIONAR TRÁMITE ---------- */
-  const [openTramPanel, setOpenTramPanel] = useState(false);
-  const animTramPanel = useRef(new Animated.Value(0)).current;
+  /* ---------- GESTIÓN FINANCIERA ---------- */
+  const [openFinanzas, setOpenFinanzas] = useState(false);
+  const animFinanzas = useRef(new Animated.Value(0)).current;
 
-  const toggleTramPanel = () => {
-    const toValue = openTramPanel ? 0 : 1;
-    setOpenTramPanel(!openTramPanel);
-    Animated.timing(animTramPanel, { 
+  const toggleFinanzas = () => {
+    const toValue = openFinanzas ? 0 : 1;
+    setOpenFinanzas(!openFinanzas);
+    Animated.timing(animFinanzas, { 
       toValue, 
       duration: 300, 
       easing: Easing.out(Easing.cubic), 
@@ -82,7 +83,7 @@ function CustomDrawerContent(props: any) {
     inputRange: [0,1], 
     outputRange: ['0deg','180deg'] 
   });
-  const rotateTramPanel = animTramPanel.interpolate({ 
+  const rotateFinanzas = animFinanzas.interpolate({ 
     inputRange: [0,1], 
     outputRange: ['0deg','180deg'] 
   });
@@ -93,7 +94,7 @@ function CustomDrawerContent(props: any) {
     outputRange: [0, 1000]
   });
 
-  const tramPanelMaxHeight = animTramPanel.interpolate({
+  const finanzasMaxHeight = animFinanzas.interpolate({
     inputRange: [0, 1],
     outputRange: [0, 800]
   });
@@ -160,6 +161,37 @@ function CustomDrawerContent(props: any) {
           </Animated.View>
         </View>
 
+        {/* 🆕 ACORDEÓN: FINANZAS */}
+        <View style={styles.sectionContainer}>
+          <TouchableOpacity 
+            style={styles.accordionHeader} 
+            onPress={toggleFinanzas}
+            activeOpacity={0.7}
+          >
+            <View style={styles.accordionTitleRow}>
+              <Icon name="cash-multiple" size={20} color="#4f8cff" />
+              <Text style={styles.accordionTitle}>Gestión Financiera</Text>
+            </View>
+            <Animated.View style={{ transform: [{ rotate: rotateFinanzas }] }}>
+              <Icon name="chevron-down" size={22} color="#4f8cff" />
+            </Animated.View>
+          </TouchableOpacity>
+
+          <Animated.View style={[
+            styles.accordionContent, 
+            { maxHeight: finanzasMaxHeight }
+          ]}>
+            {/* Pago activo */}
+            <DrawerItem
+              label="Procesar Pagos"
+              icon={({ color, size }) => <Icon name="credit-card-check" color={color} size={size} />}
+              onPress={() => navigateTo('Pagos')}
+              labelStyle={styles.submenuText}
+              style={styles.submenuItem}
+            />
+          </Animated.View>
+        </View>
+
         {/* Espacio para empujar el logout hacia abajo */}
         <View style={styles.spacer} />
       </DrawerContentScrollView>
@@ -216,6 +248,8 @@ export default function AppNavigator() {
       <Drawer.Screen name="Cargos" component={PantallaCargos} options={{ title: 'Cargos' }} />
       <Drawer.Screen name="Honorarios" component={PantallaHonorarios} options={{ title: 'Honorarios' }} />
       <Drawer.Screen name="Inscripciones" component={PantallaInscripciones} options={{ title: 'Inscripciones' }} />
+      {/* 🆕 AGREGAR PANTALLA DE PAGOS AL DRAWER */}
+      <Drawer.Screen name="Pagos" component={PagoScreen} options={{ title: 'Procesar Pagos' }} />
       <Drawer.Screen name="Solicitudes" component={PantallaSolicitudes} options={{ title: 'Solicitudes' }} />
       <Drawer.Screen name="Tramites" component={PantallaTramites} options={{ title: 'Trámites' }} />
       <Drawer.Screen name="Servicios" component={PantallaServicios} options={{ title: 'Servicios' }} />
