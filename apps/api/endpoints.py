@@ -574,40 +574,51 @@ class PagoCreateAPIView(APIView):
         return f"PAGO-{fecha_actual}-{numero_unico}"
 
 @api_view(['GET'])
-def notas_por_usuario(request, cedula):
+def notas_por_usuario_autenticado(request):
     """
-    Obtener todas las notas de un usuario por su cédula
+    Obtener notas del usuario autenticado (usando el idPersona del usuario logueado)
     """
     try:
-        # Buscar persona por cédula
-        persona = Personas.objects.filter(cedula=cedula).first()
-        if not persona:
+        # Obtener el usuario autenticado
+        usuario = request.user
+        if not usuario.is_authenticated:
             return Response({
                 'success': False,
-                'message': 'Persona no encontrada'
+                'message': 'Usuario no autenticado'
+            }, status=401)
+
+        # Obtener la persona desde el usuario
+        try:
+            persona = usuario.idPersona
+            print(f"🔍 Buscando notas para persona ID: {persona.idPersona}")
+        except Personas.DoesNotExist:
+            return Response({
+                'success': False,
+                'message': 'Perfil de persona no encontrado para este usuario'
             }, status=404)
 
         # Obtener notas relacionadas con esta persona
         notas = Nota.objects.filter(
             idPersona=persona,
-            estado__in=['PENDIENTE', 'PARCIAL']  # Solo notas pendientes o parciales
+            estado__in=['PENDIENTE', 'PARCIAL']
         ).order_by('-fechaEmision')
 
         notas_data = []
         for nota in notas:
+            # Obtener información de formación
             formacion_nombre = "N/A"
             
             try:
-                # Buscar en NotaRelacionada -> Inscripcion -> Formacion
                 relacion = NotaRelacionada.objects.filter(idNota=nota).first()
-                if relacion and relacion.idInscripcion:
-                    formacion_nombre = relacion.idInscripcion.idFormacion.nombreFormacion
-                elif relacion and relacion.idCuota:
-                    formacion_nombre = relacion.idCuota.idFormacion.nombreFormacion
-                elif relacion and relacion.idSolicitud:
-                    formacion_nombre = relacion.idSolicitud.idFormacion.nombreFormacion
+                if relacion:
+                    if relacion.idInscripcion:
+                        formacion_nombre = relacion.idInscripcion.idFormacion.nombreFormacion
+                    elif relacion.idCuota:
+                        formacion_nombre = relacion.idCuota.idFormacion.nombreFormacion
+                    elif relacion.idSolicitud:
+                        formacion_nombre = relacion.idSolicitud.idFormacion.nombreFormacion
             except Exception as e:
-                print(f"Error obteniendo formación para nota {nota.idNota}: {str(e)}")
+                print(f"Error obteniendo formación: {str(e)}")
 
             notas_data.append({
                 'idNota': nota.idNota,
@@ -627,11 +638,16 @@ def notas_por_usuario(request, cedula):
         return Response({
             'success': True,
             'data': notas_data,
-            'total': len(notas_data)
+            'total': len(notas_data),
+            'persona_info': {
+                'idPersona': persona.idPersona,
+                'nombre': f"{persona.nombres} {persona.apellidos}",
+                'cedula': persona.cedula
+            }
         })
 
     except Exception as e:
-        print(f"Error en notas_por_usuario: {str(e)}")
+        print(f"❌ Error en notas_por_usuario_autenticado: {str(e)}")
         return Response({
             'success': False,
             'message': f'Error obteniendo notas: {str(e)}'

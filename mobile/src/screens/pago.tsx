@@ -66,16 +66,12 @@ const PagoScreen = () => {
 
   // Cargar notas del usuario actual
   const cargarNotasUsuario = async () => {
-  if (!user?.cedula) {
-    Alert.alert('Error', 'No se pudo obtener la información del usuario');
-    return;
-  }
-
-  console.log('🔄 Cargando notas para cédula:', user.cedula);
+  console.log('🔄 Cargando notas para usuario autenticado');
   setCargandoNotas(true);
   
   try {
-    const response = await api.get(`/api/notas/usuario/${user.cedula}/`);
+    // Usar el nuevo endpoint que no requiere cédula
+    const response = await api.get('/api/notas/usuario/autenticado/');
     console.log('📋 Respuesta del API:', response.data);
     
     if (response.data.success) {
@@ -92,11 +88,15 @@ const PagoScreen = () => {
       response: error.response?.data,
       status: error.response?.status
     });
-    Alert.alert(
-      'Error', 
-      error.response?.data?.message || 
-      'No se pudieron cargar las notas del usuario. Verifica tu conexión.'
-    );
+    
+    // Mensaje más específico según el error
+    if (error.response?.status === 401) {
+      Alert.alert('Error de autenticación', 'Por favor inicie sesión nuevamente');
+    } else if (error.response?.status === 404) {
+      Alert.alert('Perfil no encontrado', 'No se encontró el perfil de persona asociado a su usuario');
+    } else {
+      Alert.alert('Error', 'No se pudieron cargar las notas. Verifica tu conexión.');
+    }
   } finally {
     setCargandoNotas(false);
   }
