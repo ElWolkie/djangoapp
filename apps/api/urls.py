@@ -20,7 +20,7 @@ urlpatterns = [
     path('api/formaciones/<int:formacion_id>/cuotas/', CuotasFormacionAPIView.as_view(), name='formacion-cuotas'),
     path('nota-cobro/create/', NotaCobroCreateAPIView.as_view(), name='nota_cobro_create'),
     path('api/pagos/create/', PagoCreateAPIView.as_view(), name='pago_create'),
-    path('notas/usuario/<str:cedula>/', views.notas_por_usuario, name='notas_por_usuario'),
+    path('notas/usuario/<str:cedula>/', notas_por_usuario, name='notas_por_usuario'),
 
     path('cohorte/', views.CohorteListCreate.as_view(), name='cohorte-list'),
     path('cargo/', views.CargoListCreate.as_view(), name='cargo-list'),
