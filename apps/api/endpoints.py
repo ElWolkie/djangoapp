@@ -591,14 +591,23 @@ def notas_por_usuario(request, cedula):
         notas = Nota.objects.filter(
             idPersona=persona,
             estado__in=['PENDIENTE', 'PARCIAL']  # Solo notas pendientes o parciales
-        ).select_related('idFormacion').order_by('-fechaEmision')
+        ).order_by('-fechaEmision')
 
         notas_data = []
         for nota in notas:
-            # Obtener formación relacionada si existe
             formacion_nombre = "N/A"
-            if hasattr(nota, 'idFormacion') and nota.idFormacion:
-                formacion_nombre = nota.idFormacion.nombreFormacion
+            
+            try:
+                # Buscar en NotaRelacionada -> Inscripcion -> Formacion
+                relacion = NotaRelacionada.objects.filter(idNota=nota).first()
+                if relacion and relacion.idInscripcion:
+                    formacion_nombre = relacion.idInscripcion.idFormacion.nombreFormacion
+                elif relacion and relacion.idCuota:
+                    formacion_nombre = relacion.idCuota.idFormacion.nombreFormacion
+                elif relacion and relacion.idSolicitud:
+                    formacion_nombre = relacion.idSolicitud.idFormacion.nombreFormacion
+            except Exception as e:
+                print(f"Error obteniendo formación para nota {nota.idNota}: {str(e)}")
 
             notas_data.append({
                 'idNota': nota.idNota,
@@ -622,6 +631,7 @@ def notas_por_usuario(request, cedula):
         })
 
     except Exception as e:
+        print(f"Error en notas_por_usuario: {str(e)}")
         return Response({
             'success': False,
             'message': f'Error obteniendo notas: {str(e)}'

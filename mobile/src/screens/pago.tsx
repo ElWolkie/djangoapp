@@ -66,28 +66,41 @@ const PagoScreen = () => {
 
   // Cargar notas del usuario actual
   const cargarNotasUsuario = async () => {
-    if (!user?.cedula) {
-      Alert.alert('Error', 'No se pudo obtener la información del usuario');
-      return;
-    }
+  if (!user?.cedula) {
+    Alert.alert('Error', 'No se pudo obtener la información del usuario');
+    return;
+  }
 
-    setCargandoNotas(true);
-    try {
-      // Endpoint para obtener notas del usuario por cédula
-      const response = await api.get(`/api/notas/usuario/${user.cedula}/`);
-      
-      if (response.data.success) {
-        setNotasUsuario(response.data.data);
-      } else {
-        Alert.alert('Error', 'No se pudieron cargar las notas');
-      }
-    } catch (error) {
-      console.error('Error cargando notas:', error);
-      Alert.alert('Error', 'No se pudieron cargar las notas del usuario');
-    } finally {
-      setCargandoNotas(false);
+  console.log('🔄 Cargando notas para cédula:', user.cedula);
+  setCargandoNotas(true);
+  
+  try {
+    const response = await api.get(`/api/notas/usuario/${user.cedula}/`);
+    console.log('📋 Respuesta del API:', response.data);
+    
+    if (response.data.success) {
+      console.log(`✅ Se cargaron ${response.data.data.length} notas`);
+      setNotasUsuario(response.data.data);
+    } else {
+      console.log('❌ Error en respuesta:', response.data.message);
+      Alert.alert('Error', response.data.message || 'No se pudieron cargar las notas');
     }
-  };
+  } catch (error: any) {
+    console.error('❌ Error cargando notas:', error);
+    console.log('🔍 Detalles del error:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status
+    });
+    Alert.alert(
+      'Error', 
+      error.response?.data?.message || 
+      'No se pudieron cargar las notas del usuario. Verifica tu conexión.'
+    );
+  } finally {
+    setCargandoNotas(false);
+  }
+};
 
   // Refrescar lista
   const onRefresh = async () => {
