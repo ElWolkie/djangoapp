@@ -1,5 +1,5 @@
 # En api/endpoints.py o en tu archivo de vistas
-from datetime import timedelta
+from datetime import timedelta, timezone
 import traceback
 from rest_framework.decorators import api_view
 from rest_framework.views import APIView
@@ -8,7 +8,7 @@ from rest_framework import status
 from rest_framework.permissions import AllowAny
 
 from apps.persona.models import PersonaTP, Personas
-from apps.home.models import CuotaFormacion, Formacion, Usuarios
+from apps.home.models import CuotaFormacion, Formacion, Moneda, Usuarios
 import logging
 
 from apps.persona.serializers import PersonaCreateSerializer
@@ -19,7 +19,7 @@ from apps.asientoContable.models import AsientoContable, DetalleAsiento
 from apps.periodoContable.models import periodoContable
 from django.db import transaction
 from apps.inscripcion.models import Inscripcion
-from apps.factura.models import Nota, NotaRelacionada, PlanArticulo, ParametroTributario
+from apps.factura.models import Nota, NotaRelacionada, Pago, PlanArticulo, ParametroTributario
 from apps.home.models import Tasa, Configuracion
 from apps.factura.templatetags.decimal_filters import to_decimal
 from django.utils.timezone import now
@@ -432,3 +432,143 @@ def generar_numero_nota():
     fecha_actual = now().strftime('%Y%m%d')  # Formato: YYYYMMDD
     numero_unico = uuid.uuid4().hex[:6].upper()  # Tomar los primeros 6 caracteres del UUID
     return f"NOTA-{fecha_actual}-{numero_unico}"
+
+class PagoCreateAPIView(APIView):
+    @transaction.atomic
+    def post(self, request):
+        try:
+            data = request.data
+            
+            # Validar datos requeridos
+            required_fields = ['idNota', 'formaPago', 'monto', 'fechaPago']
+            for field in required_fields:
+                if field not in data:
+                    return Response({
+                        'success': False,
+                        'message': f'Campo requerido faltante: {field}'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Obtener y validar nota
+            nota = Nota.objects.filter(idNota=data['idNota']).first()
+            if not nota:
+                return Response({
+                    'success': False,
+                    'message': 'Nota no encontrada'
+                }, status=status.HTTP_404_NOT_FOUND)
+
+            if nota.estado == 'PAGADA':
+                return Response({
+                    'success': False,
+                    'message': 'Esta nota ya ha sido pagada completamente'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Validar monto
+            monto_pago = Decimal(str(data['monto']))
+            if monto_pago <= 0:
+                return Response({
+                    'success': False,
+                    'message': 'El monto debe ser mayor a 0'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            if monto_pago > nota.totalNota:
+                return Response({
+                    'success': False,
+                    'message': f'El monto no puede ser mayor al total de la nota ({nota.totalNota})'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Obtener moneda base (ID=1) y su tasa
+            moneda_base = Moneda.objects.filter(idMoneda=1).first()
+            if not moneda_base:
+                return Response({
+                    'success': False,
+                    'message': 'Moneda base no configurada'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            tasa_base = Tasa.objects.filter(idMoneda=moneda_base).order_by('-idTasa').first()
+            if not tasa_base:
+                return Response({
+                    'success': False,
+                    'message': 'No se encontró tasa para la moneda base'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Obtener periodo contable activo
+            periodo_activo = periodoContable.objects.filter(estadoPeriodo=True).first()
+            if not periodo_activo:
+                return Response({
+                    'success': False,
+                    'message': 'No hay periodo contable activo'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Generar número de pago
+            numero_pago = self.generar_numero_pago()
+
+            # Crear asiento contable - CORREGIDO: usar now() en lugar de timezone.now()
+            asiento = AsientoContable.objects.create(
+                numeroAsiento=f"PAGO-{numero_pago}",
+                fechaAsiento=now().date(),  # ✅ CORREGIDO
+                conceptoAsiento=f"Pago de nota {nota.numeroNota}",
+                idPeriodo=periodo_activo
+            )
+
+            # Crear registro de pago
+            pago = Pago.objects.create(
+                idNota=nota,
+                idTasa=tasa_base,
+                formaPago=data['formaPago'],
+                monto=monto_pago,
+                referencia=data.get('referencia', ''),
+                observaciones=data.get('observaciones', ''),
+                fechaPago=data['fechaPago'],
+                numeroPago=numero_pago,
+                estado='PROCESADO'
+            )
+
+            # Actualizar estado de la nota
+            if monto_pago == nota.totalNota:
+                nota.estado = 'PAGADA'
+            else:
+                nota.estado = 'PARCIAL'
+            
+            nota.save()
+
+            # Actualizar estado de la inscripción relacionada
+            nota_relacionada = NotaRelacionada.objects.filter(idNota=nota).first()
+            if nota_relacionada and nota_relacionada.idInscripcion:
+                inscripcion = nota_relacionada.idInscripcion
+                if monto_pago == nota.totalNota:
+                    inscripcion.estadoPago = 'PAGADO'
+                else:
+                    inscripcion.estadoPago = 'PARCIAL'
+                inscripcion.save()
+
+            # Crear detalles del asiento contable (simplificado)
+            # Aquí iría la lógica completa de asientos contables según tu negocio
+
+            return Response({
+                'success': True,
+                'message': 'Pago procesado exitosamente',
+                'data': {
+                    'idPago': pago.idPago,
+                    'numeroPago': pago.numeroPago,
+                    'monto': float(pago.monto),
+                    'fechaPago': pago.fechaPago,
+                    'estado': pago.estado,
+                    'nota': {
+                        'idNota': nota.idNota,
+                        'numeroNota': nota.numeroNota,
+                        'nuevoEstado': nota.estado
+                    }
+                }
+            }, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            return Response({
+                'success': False,
+                'message': f'Error procesando pago: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def generar_numero_pago(self):
+        # CORREGIDO: usar now() en lugar de timezone.now()
+        fecha_actual = now().strftime('%Y%m%d')
+        numero_unico = uuid.uuid4().hex[:6].upper()
+        return f"PAGO-{fecha_actual}-{numero_unico}"
