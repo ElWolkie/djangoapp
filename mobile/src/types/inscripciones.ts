@@ -17,6 +17,7 @@ export interface Formacion {
   cuotas_json: string; // JSON string con las cuotas
 }
 
+// INTERFAZ CORREGIDA - Eliminar 'valor' y mantener solo 'valorCuota'
 export interface Cuota {
   nombreCuota: string;
   valorCuota: number;
@@ -35,6 +36,9 @@ export interface Persona {
 }
 
 export interface Inscripcion {
+  idFormacion_detail: any;
+  idPersona_detail: any;
+  idCohorte_detail: any;
   id: number;
   idInscripcion: number;
   idPersona: Persona;

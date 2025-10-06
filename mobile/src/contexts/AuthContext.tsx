@@ -10,7 +10,7 @@ type UserPayload = {
   cedula?: string;
   nombres?: string;
   apellidos?: string;
-  email?: string;
+  correo?: string;
   displayName?: string;
   [k: string]: any;
 };
@@ -93,7 +93,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           cedula: userData.cedula || cedula,
           nombres: userData.nombres,
           apellidos: userData.apellidos,
-          email: userData.email,
+          correo: userData.correo,
           displayName: userData.displayName || `${userData.nombres} ${userData.apellidos}`,
         };
         

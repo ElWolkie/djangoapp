@@ -1,4 +1,5 @@
 import os
+import dj_database_url
 import sys
 import platform
 from decouple import config
@@ -13,10 +14,10 @@ CORE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(BASE_DIR, 'apps'))
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = config("SECRET_KEY", default="S#perS3crEt_1122")
+SECRET_KEY = config("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config("DEBUG", default=True, cast=bool)
+DEBUG = config("DEBUG", default=False, cast=bool)
 
 # 365 días de retención (ajustable)
 BITACORA_RETENCION_DIAS = 365
@@ -25,7 +26,6 @@ TIME_ZONE = 'America/Caracas'  # Ajusta a tu zona
 USE_TZ = True
 
 # load production server from .env
-ALLOWED_HOSTS = ["localhost", "127.0.0.1", "192.168.0.103", "192.168.250.3", "192.168.250.4", "192.168.250.2", "192.168.250.1", "192.168.250.5", "10.52.13.73", '192.168.0.1', '192.168.0.106', '192.168.0.107', '192.168.0.105', '0.0.0.0', config("SERVER", default="127.0.0.1")]
 
 # SECURE_SSL_REDIRECT = True  # Redirige HTTP → HTTPS
 # SESSION_COOKIE_SECURE = True  # Cookies solo por HTTPS
@@ -36,6 +36,33 @@ CSRF_COOKIE_SECURE = False  # Si no estás usando HTTPS
 SESSION_ENGINE = "django.contrib.sessions.backends.cached_db"  # Combina caché + DB
 
 # Application definition
+ALLOWED_HOSTS = ['djangoapp-6wxv.onrender.com']
+WSGI_APPLICATION = "core.wsgi.application"
+
+# Primero intenta con dj_database_url, si falla usa configuración directa
+try:
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=config('DATABASE_URL'),
+            conn_max_age=600,
+            ssl_require=True
+        )
+    }
+    # Verifica que se configuró correctamente
+    if not DATABASES['default']['ENGINE']:
+        raise ValueError("Database config failed")
+except:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': 'fundacion_dmcx',
+            'USER': 'fundacion_dmcx_user',
+            'PASSWORD': 'yV6IdbCTBxsFLENwFD4tzMOoxprzaVek',
+            'HOST': 'dpg-d3fk7lqli9vc73dv2ieg-a.oregon-postgres.render.com',
+            'PORT': '5432',
+            'OPTIONS': {'sslmode': 'require'},
+        }
+    }
 
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:8081",
@@ -59,19 +86,19 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    # 'debug_toolbar', # para ver los tiempos de respuesta de las pantallas
-    "corsheaders",  # Para permitir conexiones desde el frontend
-    "apps.api",  # La app donde estan las rutas y vistas
-    "rest_framework",  # Django Rest Framework
-    "rest_framework_simplejwt", #JWT para autenticacion
-    "apps.authentication",
-    "apps.home",  # Enable the inner home (home)
     'django_extensions',
+    "corsheaders",  # Para permitir conexiones desde el frontend
+    "apps.home",  # Enable the inner home (home)
     "apps.bitacora.apps.BitacoraConfig",  # Habilita la aplicación para gestionar bitacora
     "apps.persona",  # Habilita la aplicación para gestionar personas
     "apps.honorario",  # Habilita la aplicación para gestionar honorario
     "apps.inscripcion",  # Habilita la aplicación para gestionar honorario
     "apps.solicitud",  # Habilita la aplicación para gestionar solicitud
+######## API Y FRAMEWORKS ##########
+    "apps.authentication",
+    "apps.api",  # La app donde estan las rutas y vistas
+    "rest_framework",  # Django Rest Framework
+    "rest_framework_simplejwt", #JWT para autenticacion
 ########CONTABILIDAD##########
     "apps.planCuenta",  # Habilita la aplicación para gestionar plan de cuenta  
     "apps.periodoContable.apps.PeriodocontableConfig",  # Importante usar la clase Config
@@ -86,27 +113,33 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
-    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
-    "django.middleware.csrf.CsrfViewMiddleware",
+    # "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     "apps.bitacora.middleware.AuditMiddleware",
     'apps.api.middleware.DisableCSRFForPublicAPI'
     # 'debug_toolbar.middleware.DebugToolbarMiddleware',
 ]
 
-CORS_ALLOW_ALL_ORIGINS = True  # Temporal para pruebas
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+# Configura archivos estáticos para producción
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
-# Agregar estos headers para React Native
+# Configuración completa de CORS
 CORS_ALLOW_HEADERS = [
     'accept',
-    'accept-encoding',
+    'accept-encoding', 
     'authorization',
     'content-type',
     'dnt',
@@ -116,10 +149,21 @@ CORS_ALLOW_HEADERS = [
     'x-requested-with',
 ]
 
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET', 
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
+
 CORS_ALLOWED_ORIGINS = [
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
     "http://localhost:8081",  # Para Expo Go en web
     "http://localhost:19006", # Otro puerto común de Expo web
-    "http://127.0.0.1:8000",  # Para pruebas locales directas
+    "https://djangoapp-6wxv.onrender.com",  # Dominio de Render
 ]
 
 # Direcciones IP donde se mostrará la toolbar (normalmente localhost)
@@ -147,8 +191,6 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = "core.wsgi.application"
-
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]  # Ruta a tu carpeta static
 
@@ -157,21 +199,7 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 MEDIA_URL = '/media/'
 
 # Database
-
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": config("DB_NAME", default="fundacion"),
-        "USER": config("DB_USER", default="prueba"),
-        "PASSWORD": config("DB_PASSWORD", default="Prueba2022"),
-        "HOST": config("DB_HOST", default="localhost"),
-        "PORT": config("DB_PORT", default="5432"),
-        'OPTIONS': {
-            'client_encoding': 'UTF8',
-            'options': '-c search_path=public'
-        }
-    }
-}
+import platform
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
@@ -224,6 +252,8 @@ AUTH_PASSWORD_VALIDATORS = [
         "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
     },
 ]
+# Internationalization
+# https://docs.djangoproject.com/en/3.0/topics/i18n/
 
 LANGUAGE_CODE = "en-us"
 
@@ -235,7 +265,11 @@ USE_L10N = True
 
 USE_TZ = True
 
+#############################################################
+# SRC: https://devcenter.heroku.com/articles/django-assets
 
+# Static files (CSS, JavaScript, Images)
+# https://docs.djangoproject.com/en/1.9/howto/static-files/
 STATIC_ROOT = os.path.join(CORE_DIR, "staticfiles")
 STATIC_URL = "/static/"
 
@@ -252,3 +286,5 @@ MESSAGE_TAGS = {
     messages.WARNING: 'warning',
     messages.ERROR: 'danger',
 }
+#############################################################
+#############################################################

@@ -1,3 +1,4 @@
+import traceback
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -13,6 +14,8 @@ from apps.solicitud.models import Solicitud
 from apps.asientoContable.models import AsientoContable, DetalleAsiento
 from apps.planCuenta.models import PlanCuenta
 from apps.periodoContable.models import periodoContable
+
+from apps.api import serializers
 
 # Vista para Personas
 class PersonaListCreate(generics.ListCreateAPIView):
@@ -63,6 +66,81 @@ class HonorarioListCreate(generics.ListCreateAPIView):
 class InscripcionListCreate(generics.ListCreateAPIView):
     queryset = Inscripcion.objects.select_related('idPersona','idFormacion','idCohorte').all().prefetch_related('inscripcioncuota_set')
     serializer_class = InscripcionSerializer
+
+    def create(self, request, *args, **kwargs):
+        try:
+            print("=" * 50)
+            print("📥 INICIANDO CREACIÓN DE INSCRIPCIÓN")
+            print("📥 Datos recibidos:", request.data)
+            
+            data = request.data.copy()
+            
+            # Asegurarnos de que los IDs sean enteros - USAR LOS NOMBRES DIRECTOS
+            for field in ['idPersona', 'idTF', 'idFormacion', 'idCohorte']:
+                if field in data:
+                    try:
+                        data[field] = int(data[field])
+                        print(f"✅ Campo {field} convertido a entero: {data[field]}")
+                    except (ValueError, TypeError) as conv_error:
+                        print(f"❌ Error convirtiendo {field}: {conv_error}")
+                        return Response(
+                            {"error": f"El campo {field} debe ser un número entero válido"},
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
+            
+            # Si idPersona no viene, usar el del usuario autenticado
+            if 'idPersona' not in data and hasattr(request.user, 'idPersona'):
+                data['idPersona'] = request.user.idPersona.idPersona
+            
+            # Validar que existan las referencias - USAR LOS NOMBRES DIRECTOS
+            try:
+                if 'idPersona' in data:
+                    Personas.objects.get(idPersona=data['idPersona'])
+                if 'idTF' in data:
+                    TipoFormacion.objects.get(idTF=data['idTF'])
+                if 'idFormacion' in data:
+                    Formacion.objects.get(idFormacion=data['idFormacion'])
+                if 'idCohorte' in data:
+                    Cohorte.objects.get(idCohorte=data['idCohorte'])
+            except (Personas.DoesNotExist, TipoFormacion.DoesNotExist, 
+                    Formacion.DoesNotExist, Cohorte.DoesNotExist) as e:
+                print(f"❌ Referencia no encontrada: {str(e)}")
+                return Response(
+                    {"error": f"Referencia no encontrada: {str(e)}"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            print("🔍 Creando serializer...")
+            serializer = self.get_serializer(data=data)
+            
+            print("🔍 Validando serializer...")
+            if not serializer.is_valid():
+                print("❌ ERRORES DE VALIDACIÓN DEL SERIALIZER:")
+                for field, errors in serializer.errors.items():
+                    print(f"   {field}: {errors}")
+                return Response(
+                    {"error": "Error de validación", "details": serializer.errors},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            print("🔍 Ejecutando perform_create...")
+            self.perform_create(serializer)
+            
+            print("✅ Inscripción creada exitosamente:", serializer.data)
+            headers = self.get_success_headers(serializer.data)
+            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+            
+        except Exception as e:
+            print("❌ ERROR NO CONTROLADO al crear inscripción:")
+            print(f"   Tipo: {type(e).__name__}")
+            print(f"   Mensaje: {str(e)}")
+            import traceback
+            print(f"   Traceback: {traceback.format_exc()}")
+            print("📋 Datos que causaron el error:", request.data)
+            return Response(
+                {"error": str(e), "details": "Error interno del servidor"}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 class RequisitoListCreate(generics.ListCreateAPIView):
     queryset = Requisito.objects.all()  # Usa el modelo Requisito

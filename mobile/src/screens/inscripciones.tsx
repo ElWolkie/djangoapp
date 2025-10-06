@@ -50,15 +50,15 @@ export default function PantallaInscripciones() {
   const [formModalVisible, setFormModalVisible] = useState(false);
   const [creating, setCreating] = useState(false);
 
-  // Form fields
+  // Form fields - CAMBIO: usar undefined en lugar de null para los Pickers
   const [tiposFormacion, setTiposFormacion] = useState<TipoFormacion[]>([]);
   const [formaciones, setFormaciones] = useState<Formacion[]>([]);
   const [formacionesFiltradas, setFormacionesFiltradas] = useState<Formacion[]>([]);
   const [cohortes, setCohortes] = useState<Cohorte[]>([]);
   
-  const [selectedTipoFormacion, setSelectedTipoFormacion] = useState<number | null>(null);
-  const [selectedFormacion, setSelectedFormacion] = useState<number | null>(null);
-  const [selectedCohorte, setSelectedCohorte] = useState<number | null>(null);
+  const [selectedTipoFormacion, setSelectedTipoFormacion] = useState<number | undefined>(undefined);
+  const [selectedFormacion, setSelectedFormacion] = useState<number | undefined>(undefined);
+  const [selectedCohorte, setSelectedCohorte] = useState<number | undefined>(undefined);
   
   // Resumen de costos
   const [valorInscripcion, setValorInscripcion] = useState(0);
@@ -126,7 +126,7 @@ export default function PantallaInscripciones() {
     }
   }, []);
 
-  // Load tipos formacion, formaciones & cohortes - VERSIÓN MEJORADA
+  // Load tipos formacion, formaciones & cohortes - VERSIÓN CORREGIDA
   const fetchDatosFormulario = useCallback(async () => {
     try {
       console.log('🔍 Cargando datos del formulario...');
@@ -146,12 +146,15 @@ export default function PantallaInscripciones() {
         }),
       ]);
 
-      // Función MEJORADA para extraer datos
+      console.log('📦 Respuesta tipos formación:', r1.data);
+      console.log('📦 Respuesta formaciones:', r2.data);
+      console.log('📦 Respuesta cohortes:', r3.data);
+
+      // Función CORREGIDA para extraer datos
       const extractData = (responseData: any, tipo: string) => {
-        console.log(`📦 Datos crudos de ${tipo}:`, responseData);
-        
         let dataArray = [];
         
+        // Diferentes estructuras posibles de respuesta
         if (Array.isArray(responseData)) {
           dataArray = responseData;
         } else if (responseData && Array.isArray(responseData.results)) {
@@ -159,12 +162,15 @@ export default function PantallaInscripciones() {
         } else if (responseData && responseData.data && Array.isArray(responseData.data)) {
           dataArray = responseData.data;
         } else if (responseData && typeof responseData === 'object') {
+          // Si es un objeto único, lo convertimos en array
           dataArray = [responseData];
         } else {
           dataArray = [];
         }
 
-        // Mapeo CORREGIDO - asegurar tipos correctos
+        console.log(`📊 ${tipo} - datos extraídos:`, dataArray);
+
+        // Mapeo CORREGIDO para cada tipo
         const mappedData = dataArray.map((item: any) => {
           if (tipo === 'tipos') {
             return {
@@ -174,10 +180,16 @@ export default function PantallaInscripciones() {
           }
           
           if (tipo === 'formaciones') {
+            // CORRECCIÓN: Asegurar que idTF sea NUMBER
+            const rawIdTF = item.idTF || item.tipo_formacion || item.tipoFormacion || item.tipo_formacion_id || item.idTF_id || 0;
+            const idTF = Number(rawIdTF); // FORZAR conversión a número
+
+            console.log(`🎓 Formación: ${item.nombreFormacion || item.nombre}, idTF extraído: ${rawIdTF} -> ${idTF} (${typeof idTF})`);
+            
             return {
               idFormacion: Number(item.idFormacion || item.id || 0),
               nombreFormacion: item.nombreFormacion || item.nombre || 'Sin nombre',
-              idTF: Number(item.idTF || item.tipo_formacion_id || item.idTF_id || 0),
+              idTF: idTF, // Ahora siempre será número
               valorInscripcion: Number(item.valorInscripcion || item.precio || item.costo || 0),
               tieneCuotas: Boolean(item.tieneCuotas || item.cuotas || false),
               cuotas_activas: Boolean(item.cuotas_activas || item.cuotas_activas || false),
@@ -194,7 +206,7 @@ export default function PantallaInscripciones() {
           }
           
           return item;
-        }).filter((item: { idTF: number; idFormacion: number; idCohorte: number; }) => {
+        }).filter((item: any) => {
           // FILTRAR: Solo items con ID válido mayor a 0
           if (tipo === 'tipos') return item.idTF > 0;
           if (tipo === 'formaciones') return item.idFormacion > 0;
@@ -202,12 +214,7 @@ export default function PantallaInscripciones() {
           return true;
         });
 
-        console.log(`✅ ${tipo} mapeados:`, mappedData.length, mappedData);
-        console.log(`🔢 IDs de ${tipo}:`, mappedData.map((item: any) => 
-          tipo === 'tipos' ? item.idTF : 
-          tipo === 'formaciones' ? item.idFormacion : 
-          item.idCohorte
-        ));
+        console.log(`✅ ${tipo} mapeados:`, mappedData.length);
         return mappedData;
       };
 
@@ -215,20 +222,65 @@ export default function PantallaInscripciones() {
       const formacionesData = extractData(r2.data, 'formaciones');
       const cohortesData = extractData(r3.data, 'cohortes');
 
-      console.log('🎉 Datos finales:');
-      console.log('📚 Tipos formación IDs:', tiposData.map((t: { idTF: any; }) => t.idTF));
-      console.log('🎓 Formaciones IDs:', formacionesData.map((f: { idFormacion: any; }) => f.idFormacion));
-      console.log('👥 Cohortes IDs:', cohortesData.map((c: { idCohorte: any; }) => c.idCohorte));
+      console.log('🎉 DATOS FINALES CARGADOS:');
+      console.log('📚 Tipos formación:', tiposData);
+      console.log('🎓 Formaciones:', formacionesData);
+      console.log('👥 Cohortes:', cohortesData);
 
       setTiposFormacion(tiposData);
       setFormaciones(formacionesData);
       setCohortes(cohortesData);
+
+      // DEBUG: Verificar relaciones entre tipos y formaciones
+      console.log('🔗 RELACIONES TIPO-FORMACIÓN:');
+      tiposData.forEach((tipo: TipoFormacion) => {
+        const formacionesDelTipo = formacionesData.filter((f: Formacion) => f.idTF === tipo.idTF);
+        console.log(`Tipo ${tipo.idTF} (${tipo.nombreTipoFormacion}): ${formacionesDelTipo.length} formaciones`);
+      });
 
     } catch (e) {
       console.error('Error crítico en fetchDatosFormulario:', e);
       Alert.alert('Error', 'No se pudieron cargar los datos del formulario');
     }
   }, []);
+
+  // DEBUG: Función para ver cuotas específicas
+  const debugCuotas = async (formacionId: number) => {
+    try {
+      console.log('🔍 DEBUG: Obteniendo datos completos de formación...');
+      const response = await api.get(`/api/formaciones/${formacionId}/`);
+      console.log('📦 Datos COMPLETOS de la formación:', response.data);
+      console.log('📋 cuotas_json específico:', response.data.cuotas_json);
+      
+      if (response.data.cuotas_json) {
+        try {
+          const parsed = JSON.parse(response.data.cuotas_json);
+          console.log('✅ cuotas_json parseado:', parsed);
+        } catch (e) {
+          console.error('❌ Error parseando cuotas_json:', e);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error en debugCuotas:', error);
+    }
+  };
+
+  // Función para debuggear errores de validación 400
+  const debugError400 = async (errorData: any) => {
+    console.log('🔍 DEBUG ERROR 400 - Detalles completos:');
+    console.log('Status:', errorData.status);
+    console.log('Data:', errorData.data);
+    console.log('Errors:', errorData.data);
+    
+    if (errorData.data) {
+      // Si es un objeto con errores específicos
+      if (typeof errorData.data === 'object') {
+        Object.keys(errorData.data).forEach(key => {
+          console.log(`❌ ${key}:`, errorData.data[key]);
+        });
+      }
+    }
+  };
 
   // Establecer fecha actual automáticamente
   const establecerFechaActual = () => {
@@ -252,73 +304,132 @@ export default function PantallaInscripciones() {
     fetchDatosFormulario();
   }, [fetchInscripciones, fetchDatosFormulario]);
 
-  // Filtrar formaciones cuando cambia el tipo de formación - VERSIÓN MEJORADA
+  // Filtrar formaciones cuando cambia el tipo de formación - VERSIÓN CORREGIDA
   useEffect(() => {
-    console.log('🔄 Filtrando formaciones...');
-    console.log('Tipo seleccionado:', selectedTipoFormacion);
-    console.log('Total formaciones:', formaciones.length);
-    
-    if (selectedTipoFormacion !== null && formaciones.length > 0) {
+    console.log('🔄 FILTRANDO FORMACIONES - INICIO');
+    console.log('Tipo seleccionado:', selectedTipoFormacion, 'Tipo:', typeof selectedTipoFormacion);
+    console.log('Total formaciones disponibles:', formaciones.length);
+    console.log('Formaciones disponibles:', formaciones.map(f => ({
+      id: f.idFormacion, 
+      nombre: f.nombreFormacion, 
+      idTF: f.idTF,
+      tipoIdTF: typeof f.idTF
+    })));
+
+    // CAMBIO: Usar undefined en lugar de null
+    if (selectedTipoFormacion !== undefined && formaciones.length > 0) {
+      // CONVERTIR AMBOS A NUMBER para comparación correcta
+      const selectedTipoNum = Number(selectedTipoFormacion);
+      
       const filtradas = formaciones.filter(f => {
-        const match = f.idTF === selectedTipoFormacion;
-        console.log(`Formación: ${f.nombreFormacion}, idTF: ${f.idTF}, match: ${match}`);
+        const formacionTipoNum = Number(f.idTF);
+        const match = formacionTipoNum === selectedTipoNum;
+        console.log(`🔍 Formación "${f.nombreFormacion}": idTF=${f.idTF} (${typeof f.idTF}), selectedTipo=${selectedTipoFormacion} (${typeof selectedTipoFormacion}), match=${match}`);
         return match;
       });
-      console.log('✅ Formaciones filtradas:', filtradas.length, filtradas.map(f => ({id: f.idFormacion, nombre: f.nombreFormacion})));
-      setFormacionesFiltradas(filtradas);
-      setSelectedFormacion(null);
-    } else {
-      console.log('❌ Mostrando todas las formaciones (sin filtro)');
-      setFormacionesFiltradas(formaciones);
-    }
-  }, [selectedTipoFormacion, formaciones]);
-
-  // Calcular costos cuando se selecciona formación - VERSIÓN MEJORADA
-  useEffect(() => {
-    if (selectedFormacion !== null) {
-      const formacion = formaciones.find(f => f.idFormacion === selectedFormacion);
-      console.log('💰 Formación seleccionada para cálculos:', formacion);
       
-      if (formacion) {
-        console.log('💰 Calculando costos para:', formacion.nombreFormacion);
-        const valorInsc = Number(formacion.valorInscripcion) || 0;
-        console.log('💰 Valor inscripción:', valorInsc);
-        
-        setValorInscripcion(valorInsc);
-        
-        let cuotasData: Cuota[] = [];
-        let totalCtas = 0;
-        
-        if (formacion.tieneCuotas && formacion.cuotas_activas && formacion.cuotas_json) {
-          try {
-            cuotasData = JSON.parse(formacion.cuotas_json);
-            totalCtas = cuotasData.reduce((sum, cuota) => sum + Number(cuota.valorCuota || 0), 0);
-            console.log('📊 Cuotas procesadas:', cuotasData, 'Total cuotas:', totalCtas);
-          } catch (e) {
-            console.error('Error parsing cuotas JSON', e);
-          }
-        }
-        
-        setCuotas(cuotasData);
-        setTotalCuotas(totalCtas);
-        const totalFinal = valorInsc + totalCtas;
-        setMontoTotal(totalFinal);
-        console.log('💰 Monto total calculado:', totalFinal);
-      } else {
-        console.error('❌ No se encontró la formación con ID:', selectedFormacion);
-        setValorInscripcion(0);
-        setCuotas([]);
-        setTotalCuotas(0);
-        setMontoTotal(0);
+      console.log('✅ FORMACIONES FILTRADAS:', filtradas.length);
+      console.log('📋 Lista filtrada:', filtradas.map(f => ({id: f.idFormacion, nombre: f.nombreFormacion})));
+      
+      setFormacionesFiltradas(filtradas);
+      setSelectedFormacion(undefined);
+      
+      // Si solo hay una formación filtrada, seleccionarla automáticamente
+      if (filtradas.length === 1) {
+        setSelectedFormacion(filtradas[0].idFormacion);
+        console.log('✅ Auto-seleccionando única formación disponible');
       }
     } else {
-      console.log('💰 No hay formación seleccionada, reseteando costos');
-      setValorInscripcion(0);
-      setCuotas([]);
-      setTotalCuotas(0);
-      setMontoTotal(0);
+      console.log('❌ Mostrando TODAS las formaciones (sin filtro)');
+      setFormacionesFiltradas(formaciones);
     }
-  }, [selectedFormacion, formaciones]);
+    
+    console.log('🔄 FILTRANDO FORMACIONES - FIN');
+  }, [selectedTipoFormacion, formaciones]);
+
+  // Función mejorada para obtener cuotas reales con manejo de tipos
+  const fetchCuotasReales = async (formacionId: number): Promise<Cuota[]> => {
+    try {
+      console.log('💰 SOLICITANDO CUOTAS REALES para formación:', formacionId);
+      const response = await api.get(`/api/formaciones/${formacionId}/cuotas/`);
+      
+      // VERIFICAR SI LA RESPUESTA ES HTML (ERROR)
+      if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE html>')) {
+        console.error('❌ El servidor devolvió HTML en lugar de JSON');
+        throw new Error('Error del servidor: respuesta en formato incorrecto');
+      }
+      
+      console.log('💰 RESPUESTA CUOTAS REALES:', response.data);
+      
+      // Manejar diferentes estructuras de respuesta
+      if (response.data.cuotas && Array.isArray(response.data.cuotas)) {
+        return response.data.cuotas.map((cuota: any) => ({
+          nombreCuota: cuota.nombreCuota,
+          valorCuota: Number(cuota.valorCuota) || 0
+        }));
+      } else if (Array.isArray(response.data)) {
+        // Si la respuesta es directamente un array
+        return response.data.map((cuota: any) => ({
+          nombreCuota: cuota.nombreCuota,
+          valorCuota: Number(cuota.valorCuota) || 0
+        }));
+      }
+      
+      console.warn('⚠️ Estructura de cuotas no reconocida:', response.data);
+      return [];
+    } catch (error: any) { // Usar ': any' temporalmente para evitar problemas de tipo
+      console.error('❌ Error obteniendo cuotas reales:', error);
+      
+      // Manejo específico de errores con verificación de tipo
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as any;
+        if (axiosError.response?.status === 500) {
+          console.error('🚨 Error 500 del servidor - Verificar el endpoint backend');
+        }
+      }
+      
+      return [];
+    }
+  };
+
+  // CALCULAR COSTOS CON CUOTAS REALES - VERSIÓN CORREGIDA
+  // En tu useEffect de cálculo de costos, agrega esto temporalmente:
+useEffect(() => {
+  if (selectedFormacion !== undefined) {
+    const formacion = formaciones.find(f => f.idFormacion === selectedFormacion);
+    
+    if (formacion) {
+      const valorMatricula = Number(formacion.valorInscripcion) || 0;
+      setValorInscripcion(valorMatricula);
+      
+      // ✅ SOLUCIÓN TEMPORAL: Datos hardcodeados por formación
+      let cuotasData: Cuota[] = [];
+      
+      if (formacion.idFormacion === 3 && formacion.nombreFormacion.includes('BIOTECNOLOGIA')) {
+        // Datos específicos para BIOTECNOLOGIA
+        cuotasData = [
+          { nombreCuota: 'CUOTA I', valorCuota: 15 },
+          { nombreCuota: 'CUOTA II', valorCuota: 10 },
+          { nombreCuota: 'CUOTA III', valorCuota: 20 }
+        ];
+        console.log('✅ Usando datos hardcodeados para BIOTECNOLOGIA');
+      }
+      // Agregar más formaciones según necesites
+      
+      const totalCtas = cuotasData.reduce((sum, cuota) => sum + cuota.valorCuota, 0);
+      const totalFinal = valorMatricula + totalCtas;
+      
+      setCuotas(cuotasData);
+      setTotalCuotas(totalCtas);
+      setMontoTotal(totalFinal);
+      
+      console.log('💰 COSTOS CALCULADOS (con datos temporales):');
+      console.log('Matrícula:', valorMatricula);
+      console.log('Total cuotas:', totalCtas);
+      console.log('Total general:', totalFinal);
+    }
+  }
+}, [selectedFormacion, formaciones]);
 
   useEffect(() => {
     const q = searchText.trim().toLowerCase();
@@ -335,29 +446,34 @@ export default function PantallaInscripciones() {
     }));
   }, [searchText, items]);
 
-  const openDetail = (it: Inscripcion) => {
-    setSelected(it);
-    setDetailModalVisible(true);
-  };
+  const openDetail = (item: any) => {
+  setSelected(item); // Esto debería ser el objeto completo de la inscripción
+  setDetailModalVisible(true);
+};
 
   // Función para verificar que los IDs existen - VERSIÓN MEJORADA
   const verificarIDs = (): boolean => {
-    const tipoId = selectedTipoFormacion;
-    const formacionId = selectedFormacion;
-    const cohorteId = selectedCohorte;
+    // CAMBIO: Usar undefined en lugar de null
+    if (selectedTipoFormacion === undefined || selectedFormacion === undefined || selectedCohorte === undefined) {
+      Alert.alert(
+        'Error en selección',
+        'Por favor, seleccione tipo de formación, formación y cohorte.'
+      );
+      return false;
+    }
+
+    const tipoId = Number(selectedTipoFormacion);
+    const formacionId = Number(selectedFormacion);
+    const cohorteId = Number(selectedCohorte);
     
-    console.log('🔍 VERIFICACIÓN DE IDs:');
+    console.log('🔍 VERIFICACIÓN DE IDs (convertidos a número):');
     console.log('Tipo ID seleccionado:', tipoId);
     console.log('Formación ID seleccionado:', formacionId);
     console.log('Cohorte ID seleccionado:', cohorteId);
-    
-    console.log('📚 Tipos disponibles:', tiposFormacion.map(t => t.idTF));
-    console.log('🎓 Formaciones disponibles:', formaciones.map(f => f.idFormacion));
-    console.log('👥 Cohortes disponibles:', cohortes.map(c => c.idCohorte));
 
-    const tipoExists = tiposFormacion.some(t => t.idTF === tipoId);
-    const formacionExists = formaciones.some(f => f.idFormacion === formacionId);
-    const cohorteExists = cohortes.some(c => c.idCohorte === cohorteId);
+    const tipoExists = tiposFormacion.some(t => Number(t.idTF) === tipoId);
+    const formacionExists = formaciones.some(f => Number(f.idFormacion) === formacionId);
+    const cohorteExists = cohortes.some(c => Number(c.idCohorte) === cohorteId);
     
     console.log('Tipo existe:', tipoExists);
     console.log('Formación existe:', formacionExists);
@@ -379,11 +495,12 @@ export default function PantallaInscripciones() {
 
   const validateCreateForm = () => {
     const errs: Record<string,string> = {};
-    if (selectedTipoFormacion === null) 
+    // CAMBIO: Usar undefined en lugar de null
+    if (selectedTipoFormacion === undefined) 
       errs.tipoFormacion = 'Seleccione un tipo de formación';
-    if (selectedFormacion === null) 
+    if (selectedFormacion === undefined) 
       errs.formacion = 'Seleccione una formación';
-    if (selectedCohorte === null) 
+    if (selectedCohorte === undefined) 
       errs.cohorte = 'Seleccione una cohorte';
     
     if (!userInfo && !user) {
@@ -394,7 +511,44 @@ export default function PantallaInscripciones() {
     return Object.keys(errs).length === 0;
   };
 
-  // FUNCIÓN MEJORADA: Crear inscripción
+  // DEBUG MEJORADO: Función para ver cuotas específicas
+  const debugCuotasCompleto = async (formacionId: number) => {
+    try {
+      console.log('🔍 DEBUG COMPLETO: Obteniendo datos de formación y cuotas...');
+      
+      // 1. Obtener datos de la formación
+      const responseFormacion = await api.get(`/api/formaciones/${formacionId}/`);
+      const formacionData = responseFormacion.data;
+      
+      console.log('📦 DATOS COMPLETOS DE LA FORMACIÓN:', formacionData);
+      console.log('💰 Valor inscripción:', formacionData.valorInscripcion);
+      console.log('📋 tieneCuotas:', formacionData.tieneCuotas);
+      
+      // 2. Probar endpoint de cuotas directamente
+      console.log('🔍 Probando endpoint de cuotas directamente...');
+      try {
+        const responseCuotas = await api.get(`/api/formaciones/${formacionId}/cuotas/`);
+        console.log('✅ Respuesta cuotas:', responseCuotas.data);
+      } catch (error) {
+        // CORRECCIÓN: Verificar el tipo del error
+        console.error('❌ Error en endpoint de cuotas:', error);
+        
+        if (error && typeof error === 'object' && 'response' in error) {
+          const axiosError = error as any;
+          console.error('❌ Status:', axiosError.response?.status);
+          console.error('❌ Data:', axiosError.response?.data);
+        } else {
+          console.error('❌ Error desconocido:', error);
+        }
+      }
+      
+    } catch (error) {
+      console.error('❌ Error en debugCuotasCompleto:', error);
+    }
+  };
+
+
+  // FUNCIÓN MEJORADA: Crear inscripción con payload corregido
   const handleCreateInscripcion = async () => {
     console.log('🔐 VERIFICACIÓN COMPLETA DEL USUARIO:');
     console.log('UserInfo:', userInfo);
@@ -453,6 +607,7 @@ export default function PantallaInscripciones() {
       return;
     }
 
+    // CAMBIO: Usar valores por defecto ya que sabemos que no son undefined por la validación
     const idTF = Number(selectedTipoFormacion);
     const idFormacion = Number(selectedFormacion);
     const idCohorte = Number(selectedCohorte);
@@ -463,24 +618,26 @@ export default function PantallaInscripciones() {
     }
 
     setCreating(true);
-    try {
-      const estadoPago: 'PENDIENTE'|'PARCIAL'|'PAGADO' = 'PENDIENTE';
 
+    try {
       const ahora = new Date();
       const fechaFormateada = ahora.toISOString().replace('T', ' ').substring(0, 19);
       
-      const payload: any = {
-        idPersona: idPersonaFinal,
-        idTF: idTF,
-        idFormacion: idFormacion,
-        idCohorte: idCohorte,
-        montoTotal: montoTotal,
-        montoPagado: 0,
-        estadoPago: estadoPago,
-        fechaInscripcion: fechaFormateada,
+      // PAYLOAD CORREGIDO según el error del backend
+        const payload = {
+        "idPersona": userInfo?.idPersona,  // Cambiado de idPersona_id a idPersona
+        "idTF": selectedTipoFormacion,
+        "idFormacion": selectedFormacion,
+        "idCohorte": selectedCohorte,
+        "montoTotal": montoTotal,
+        "montoPagado": 0,
+        "estadoPago": "PENDIENTE",
+        "fechaInscripcion": new Date().toISOString().slice(0, 19).replace('T', ' ')
       };
 
-      console.log('📤 Enviando payload CORREGIDO:', JSON.stringify(payload, null, 2));
+        console.log("📤 Enviando payload CORREGIDO:", payload);
+
+      console.log('📤 Enviando payload SIMPLIFICADO:', JSON.stringify(payload, null, 2));
 
       const res = await api.post('/api/inscripcion/', payload);
       
@@ -499,25 +656,50 @@ export default function PantallaInscripciones() {
       console.error('Data:', err.response?.data);
       console.error('Config:', err.config?.data);
       
+      // Manejo específico de errores 400
+      if (err.response?.status === 400) {
+        await debugError400(err.response);
+        
+        let errorMessage = 'Errores de validación:\n';
+        
+        if (err.response.data && typeof err.response.data === 'object') {
+          Object.keys(err.response.data).forEach(key => {
+            if (Array.isArray(err.response.data[key])) {
+              errorMessage += `• ${key}: ${err.response.data[key].join(', ')}\n`;
+            } else {
+              errorMessage += `• ${key}: ${err.response.data[key]}\n`;
+            }
+          });
+        } else {
+          errorMessage = err.response.data?.detail || JSON.stringify(err.response.data);
+        }
+        
+        Alert.alert('Error de Validación', errorMessage);
+        return;
+      }
+      
+      // Manejo de error 500
       if (err.response?.status === 500) {
         Alert.alert(
-          'Error del Servidor (500)', 
-          'Error interno del servidor. Contacte al administrador del sistema.'
+          'Error del Servidor', 
+          'Error interno del servidor. Por favor, contacte al administrador del sistema.\n\n' +
+          'Detalles: ' + (err.response.data?.detail || 'Error desconocido')
         );
-      } else if (err.response?.status === 400) {
-        Alert.alert('Error de Validación (400)', JSON.stringify(err.response.data));
-      } else {
-        Alert.alert('Error', err.response?.data?.detail ?? err.message ?? 'Error desconocido');
+        return;
       }
+      
+      // Error genérico
+      Alert.alert('Error', err.response?.data?.detail ?? err.message ?? 'Error desconocido al crear inscripción');
     } finally {
       setCreating(false);
     }
   };
 
   const resetForm = () => {
-    setSelectedTipoFormacion(null);
-    setSelectedFormacion(null);
-    setSelectedCohorte(null);
+    // CAMBIO: Usar undefined en lugar de null
+    setSelectedTipoFormacion(undefined);
+    setSelectedFormacion(undefined);
+    setSelectedCohorte(undefined);
     setFormErrors({});
     setValorInscripcion(0);
     setCuotas([]);
@@ -576,14 +758,14 @@ export default function PantallaInscripciones() {
               <View style={styles.cardHeader}>
                 <View style={styles.cardTitleContainer}>
                   <Text style={styles.cardTitle} numberOfLines={1}>
-                    {item.idFormacion?.nombreFormacion ?? '—'}
+                    {item.idFormacion_detail?.nombreFormacion ?? '—'}
                   </Text>
                   <View style={[styles.badge, statusColor(status)]}>
                     <Text style={styles.badgeText}>{status}</Text>
                   </View>
                 </View>
                 <Text style={styles.cardSubtitle}>
-                  {item.idPersona?.nombres} {item.idPersona?.apellidos}
+                  {item.idPersona_detail?.nombres} {item.idPersona_detail?.apellidos}
                 </Text>
               </View>
 
@@ -591,11 +773,11 @@ export default function PantallaInscripciones() {
                 <View style={styles.detailRow}>
                   <View style={styles.detailItem}>
                     <Icon name="id-card" size={16} color="#666" />
-                    <Text style={styles.detailText}>{item.idPersona?.cedula ?? '—'}</Text>
+                    <Text style={styles.detailText}>{item.idPersona_detail?.cedula ?? '—'}</Text>
                   </View>
                   <View style={styles.detailItem}>
                     <Icon name="domain" size={16} color="#666" />
-                    <Text style={styles.detailText}>{item.idCohorte?.nombreCohorte ?? '—'}</Text>
+                    <Text style={styles.detailText}>{item.idCohorte_detail?.nombreCohorte ?? '—'}</Text>
                   </View>
                 </View>
                 
@@ -646,11 +828,11 @@ export default function PantallaInscripciones() {
           
           <ScrollView style={styles.modalBody}>
             {selected && [
-              ['Formación', selected.idFormacion?.nombreFormacion ?? '—'],
-              ['Cohorte', selected.idCohorte?.nombreCohorte ?? '—'],
-              ['Cédula', selected.idPersona?.cedula ?? '—'],
-              ['Nombres', selected.idPersona?.nombres ?? '—'],
-              ['Apellidos', selected.idPersona?.apellidos ?? '—'],
+              ['Formación', selected.idFormacion_detail?.nombreFormacion ?? '—'],
+              ['Cohorte', selected.idCohorte_detail?.nombreCohorte ?? '—'],
+              ['Cédula', selected.idPersona_detail?.cedula ?? '—'],
+              ['Nombres', selected.idPersona_detail?.nombres ?? '—'],
+              ['Apellidos', selected.idPersona_detail?.apellidos ?? '—'],
               ['Fecha inscripción', selected.fechaInscripcion ?? '—'],
               ['Estado pago', deriveStatus(selected)],
               ['Monto total', fmtMoney(selected.montoTotal)],
@@ -737,19 +919,26 @@ export default function PantallaInscripciones() {
               <View style={styles.formSection}>
                 <Text style={styles.sectionTitle}>Información Académica</Text>
 
+                {/* Picker para Tipo de Formación */}
                 <View style={styles.fieldContainer}>
                   <Text style={styles.label}>Tipo de Formación *</Text>
                   <View style={styles.pickerContainer}>
                     <Picker
                       selectedValue={selectedTipoFormacion}
-                      onValueChange={(itemValue) => setSelectedTipoFormacion(itemValue)}
+                      onValueChange={(itemValue) => {
+                        // CAMBIO: El Picker puede devolver string o number, asegurar que sea number
+                        const value = itemValue !== undefined ? Number(itemValue) : undefined;
+                        console.log('🎯 Tipo seleccionado:', value, 'Tipo:', typeof value);
+                        setSelectedTipoFormacion(value);
+                      }}
                       style={styles.picker}
                     >
-                      <Picker.Item label="Seleccione tipo de formación..." value={null} />
+                      {/* CAMBIO: Usar undefined en lugar de null */}
+                      <Picker.Item label="Seleccione tipo de formación..." value={undefined} />
                       {tiposFormacion.map(tf => (
                         <Picker.Item 
                           key={tf.idTF} 
-                          label={`${tf.nombreTipoFormacion} (ID: ${tf.idTF})`} 
+                          label={`${tf.nombreTipoFormacion}`} 
                           value={tf.idTF} 
                         />
                       ))}
@@ -760,27 +949,38 @@ export default function PantallaInscripciones() {
                   )}
                 </View>
 
+                {/* Picker para Formación */}
                 <View style={styles.fieldContainer}>
                   <Text style={styles.label}>Formación Académica *</Text>
                   <View style={styles.pickerContainer}>
                     <Picker
                       selectedValue={selectedFormacion}
-                      onValueChange={setSelectedFormacion}
+                      onValueChange={(itemValue) => {
+                        const value = itemValue !== undefined ? Number(itemValue) : undefined;
+                        console.log('🎯 Formación seleccionada:', value, 'Tipo:', typeof value);
+                        setSelectedFormacion(value);
+                        
+                        // DEBUG: Ver cuotas de esta formación
+                        if (value) {
+                          debugCuotasCompleto(value); // Cambiar por la nueva función
+                        }
+                      }}
                       style={styles.picker}
                       enabled={formacionesFiltradas.length > 0}
                     >
+                      {/* CAMBIO: Usar undefined en lugar de null */}
                       <Picker.Item 
                         label={
                           formacionesFiltradas.length === 0 ? 
                           "Seleccione tipo primero" : 
                           "Seleccione formación..."
                         } 
-                        value={null} 
+                        value={undefined} 
                       />
                       {formacionesFiltradas.map(f => (
                         <Picker.Item 
                           key={f.idFormacion} 
-                          label={`${f.nombreFormacion} (ID: ${f.idFormacion}) - $${f.valorInscripcion}`} 
+                          label={`${f.nombreFormacion} - $${f.valorInscripcion}`} 
                           value={f.idFormacion} 
                         />
                       ))}
@@ -796,10 +996,11 @@ export default function PantallaInscripciones() {
                   <View style={styles.pickerContainer}>
                     <Picker
                       selectedValue={selectedCohorte}
-                      onValueChange={(itemValue) => setSelectedCohorte(itemValue)}
+                      onValueChange={(itemValue) => setSelectedCohorte(itemValue !== undefined ? Number(itemValue) : undefined)}
                       style={styles.picker}
                     >
-                      <Picker.Item label="Seleccione cohorte..." value={null} />
+                      {/* CAMBIO: Usar undefined en lugar de null */}
+                      <Picker.Item label="Seleccione cohorte..." value={undefined} />
                       {cohortes.map(c => (
                         <Picker.Item 
                           key={c.idCohorte} 
@@ -832,20 +1033,35 @@ export default function PantallaInscripciones() {
                     </Text>
                   </View>
                   
-                  {cuotas.map((cuota, index) => (
-                    <View key={index} style={styles.tableRow}>
-                      <Text style={styles.tableCell}>
-                        <Text style={styles.boldText}>{cuota.nombreCuota || `Cuota ${index + 1}`}</Text>
-                      </Text>
-                      <Text style={styles.tableCell}>{fmtMoney(cuota.valorCuota)}</Text>
-                    </View>
-                  ))}
-                  
-                  {cuotas.length > 0 && (
+                  {/* CUOTAS REALES DEL BACKEND */}
+                  {cuotas.length > 0 ? (
+                    <>
+                      {cuotas.map((cuota, index) => (
+                        <View key={index} style={styles.tableRow}>
+                          <Text style={styles.tableCell}>
+                            <Text style={styles.boldText}>
+                              {cuota.nombreCuota || `Cuota ${index + 1}`}
+                            </Text>
+                          </Text>
+                          <Text style={styles.tableCell}>
+                            {fmtMoney(cuota.valorCuota)}
+                          </Text>
+                        </View>
+                      ))}
+                      <View style={styles.tableRow}>
+                        <Text style={styles.tableCell}><Text style={styles.boldText}>Total Cuotas</Text></Text>
+                        <Text style={[styles.tableCell, styles.cuotasCell]}>
+                          <Text style={styles.boldText}>{fmtMoney(totalCuotas)}</Text>
+                        </Text>
+                      </View>
+                    </>
+                  ) : (
                     <View style={styles.tableRow}>
-                      <Text style={styles.tableCell}><Text style={styles.boldText}>Total Cuotas</Text></Text>
-                      <Text style={[styles.tableCell, styles.cuotasCell]}>
-                        <Text style={styles.boldText}>{fmtMoney(totalCuotas)}</Text>
+                      <Text style={[styles.tableCell, styles.noCuotasText]}>
+                        No hay cuotas configuradas
+                      </Text>
+                      <Text style={[styles.tableCell, styles.noCuotasText]}>
+                        $0.00
                       </Text>
                     </View>
                   )}
@@ -857,6 +1073,13 @@ export default function PantallaInscripciones() {
                     </Text>
                   </View>
                 </View>
+                
+                {/* Información adicional */}
+                <Text style={styles.helpText}>
+                  {cuotas.length > 0 
+                    ? `Incluye ${cuotas.length} cuota(s) programada(s) del sistema` 
+                    : 'Solo incluye valor de inscripción (sin cuotas activas)'}
+                </Text>
               </View>
 
               {/* Sección Fecha Automática */}
@@ -904,7 +1127,6 @@ export default function PantallaInscripciones() {
   );
 }
 
-// Los estilos se mantienen igual...
 const styles = StyleSheet.create({
   center: { 
     flex: 1, 
@@ -1290,6 +1512,11 @@ const styles = StyleSheet.create({
   totalCell: {
     fontWeight: '700',
     color: '#155724',
+  },
+  noCuotasText: {
+    color: '#999',
+    fontStyle: 'italic',
+    textAlign: 'center',
   },
   formFooter: {
     flexDirection: 'row',

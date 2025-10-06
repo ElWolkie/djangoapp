@@ -54,9 +54,25 @@ class TPFormacionSerializer(serializers.ModelSerializer):
         fields = ['idTF', 'nombreTipoFormacion', 'estadoTipoFormacion', 'fechaTipoFormacion']
 
 class FormacionSerializer(serializers.ModelSerializer):
+    # Campo para mostrar cuotas en las respuestas (opcional)
+    cuotas_count = serializers.SerializerMethodField()
+    
     class Meta:
-        model = Formacion  # Usa el modelo de home
-        fields = ['idFormacion', 'idTF', 'nombreFormacion', 'valorInscripcion', 'tieneCuotas', 'duracion', 'estadoFormacion', 'fechaFormacion']
+        model = Formacion
+        fields = [
+            'idFormacion',
+            'idTF',
+            'nombreFormacion',
+            'valorInscripcion',
+            'tieneCuotas',
+            'duracion',
+            'estadoFormacion',
+            'fechaFormacion',
+            'cuotas_count'  # Número de cuotas activas
+        ]
+    
+    def get_cuotas_count(self, obj):
+        return obj.cuotas.filter(is_active=True).count()
 
 class MateriaSerializer(serializers.ModelSerializer):
     class Meta:
@@ -84,9 +100,16 @@ class HonorarioSerializer(serializers.ModelSerializer):
         fields = ['idHonorario','idPersona','idCargo','idCohorte','idMateria','horas','estadoHonorario','fechaHonorario','monto']
 
 class InscripcionSerializer(serializers.ModelSerializer):
-    idPersona = PersonaSerializer(read_only=True)
-    idFormacion = FormacionSerializer(read_only=True)
-    idCohorte = CohorteSerializer(read_only=True)
+    # Campos para LECTURA (serializadores anidados)
+    idPersona_detail = PersonaSerializer(source='idPersona', read_only=True)
+    idFormacion_detail = FormacionSerializer(source='idFormacion', read_only=True)
+    idCohorte_detail = CohorteSerializer(source='idCohorte', read_only=True)
+
+    # Campos para ESCRITURA (IDs enteros)
+    idPersona = serializers.IntegerField(write_only=True)
+    idFormacion = serializers.IntegerField(write_only=True)
+    idCohorte = serializers.IntegerField(write_only=True)
+    idTF = serializers.IntegerField(write_only=True)
 
     # exponemos montoTotal y saldoPendiente basados en las properties del modelo
     montoTotal = serializers.SerializerMethodField()
@@ -96,15 +119,21 @@ class InscripcionSerializer(serializers.ModelSerializer):
         model = Inscripcion
         fields = [
             'idInscripcion',
+            # Campos de lectura (detalles completos)
+            'idPersona_detail',
+            'idFormacion_detail', 
+            'idCohorte_detail',
+            # Campos de escritura (solo IDs)
             'idPersona',
+            'idFormacion',
             'idCohorte',
             'idTF',
-            'idFormacion',
+            # Otros campos
             'fechaInscripcion',
             'estadoPago',
-            'montoPagado',    # usa el campo directo del modelo
-            'montoTotal',     # calculado vía property en el modelo
-            'saldoPendiente', # calculado vía property en el modelo
+            'montoPagado',
+            'montoTotal',
+            'saldoPendiente',
             'is_active',
         ]
 
@@ -119,6 +148,28 @@ class InscripcionSerializer(serializers.ModelSerializer):
             return float(obj.saldoPendiente or 0.0)
         except Exception:
             return 0.0
+
+    def create(self, validated_data):
+        print("🔄 Serializer.create() llamado")
+        print("🔄 validated_data:", validated_data)
+        
+        # Extraer los campos de relación
+        id_persona = validated_data.pop('idPersona')
+        id_formacion = validated_data.pop('idFormacion')
+        id_cohorte = validated_data.pop('idCohorte')
+        id_tf = validated_data.pop('idTF')
+        
+        # Crear la instancia
+        inscripcion = Inscripcion.objects.create(
+            idPersona_id=id_persona,
+            idFormacion_id=id_formacion,
+            idCohorte_id=id_cohorte,
+            idTF_id=id_tf,
+            **validated_data
+        )
+        
+        print("✅ Instancia creada en serializer:", inscripcion.idInscripcion)
+        return inscripcion
 
 class RequisitoSerializer(serializers.ModelSerializer):
     class Meta:

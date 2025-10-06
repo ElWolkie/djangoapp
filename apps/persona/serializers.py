@@ -17,7 +17,7 @@ class PersonaCreateSerializer(serializers.Serializer):
     apellidos = serializers.CharField(max_length=100, required=True)
     telefono = serializers.CharField(max_length=20, required=True)
     direccion = serializers.CharField(required=True)
-    email = serializers.EmailField(required=False, allow_blank=True, source='correo')
+    correo = serializers.EmailField(required=False, allow_blank=True, source='correo')
     rif = serializers.CharField(max_length=20, required=False, allow_blank=True)
     id = serializers.IntegerField(read_only=True, source='idPersona')
     cedula = serializers.CharField(read_only=True)
