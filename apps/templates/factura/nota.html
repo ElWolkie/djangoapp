@@ -200,7 +200,7 @@
           </div>
         </div>
 
-        <div class="col-md-4">
+        <div class="col-md-4" >
           <label for="tipoArticulo" class="form-label">Tipo de Nota:</label>
           <div class="field-wrap">
             <select id="tipoArticulo" name="tipoArticulo" class="form-select large" required disabled>
@@ -230,8 +230,8 @@
       </div>
 
       <!-- FILA 2: Tipo Entidad (radio) | Persona/Empresa selector -->
-      <div class="row g-3 align-items-end w-100">
-        <div class="col-md-2">
+      <div class="row g-3 align-items-end w-100 mt-3">
+        <div class="col-md-2 mb-4">
           <label class="form-label small">Tipo de Entidad:</label>
           <div class="field-wrap">
             <div>
@@ -252,16 +252,16 @@
           <div id="personaGroup" style="display:none;">
             <label for="personaInput" class="form-label">Persona:</label>
             <div class="field-wrap">
-              <div class="input-group">
+              <div class="input-group ">
                 <input type="text" id="personaInput" class="form-control text-dark" placeholder="Seleccione una persona" readonly />
                 <button type="button" id="buscarPersona" class="btn btn-outline-warning" data-toggle="modal" data-target="#personaModal">
                   <i class="fas fa-search"></i>
                 </button>              
                 <div class="invalid-feedback">Por favor seleccione una persona.</div>
-
+                <div class="valid-feedback">Persona seleccionada correctamente.</div>
               </div>
             </div>
-            <input type="hidden" id="idPersona" name="idPersona" />
+            <input type="hidden" id="idPersona" name="idPersona" data-tipo-persona-relacion="" />
           </div>
 
           <div id="empresaGroup" style="display:none;">
@@ -271,9 +271,10 @@
                 <input type="text" id="empresaInput" class="form-control text-dark" placeholder="Seleccione una empresa" readonly  required/>
                 <button type="button" id="buscarEmpresa" class="btn btn-outline-warning" data-toggle="modal" data-target="#empresaModal">
                   <i class="fas fa-search"></i>
-                </button>
+                </button>              
+                <div class="invalid-feedback">Por favor seleccione una empresa.</div>
+                <div class="valid-feedback">Empresa seleccionada correctamente.</div>
               </div>
-              <div class="invalid-feedback">Por favor seleccione una empresa.</div>
             </div>
             <input type="hidden" id="idEmpresa" name="idEmpresa" />
           </div>
@@ -288,6 +289,7 @@
                 <button type="button" class="btn btn-success">
                   <i class="fas fa-check"></i>
                 </button>
+                <div class="valid-feedback">&nbsp;</div>
               </div>
             </div>
           </div>
@@ -299,9 +301,11 @@
                 <input type="text" id="cuota" class="form-control text-dark" placeholder="Seleccione un plan de cuota" readonly required />
                 <button type="button" id="buscarCuota" class="btn btn-outline-warning" data-toggle="modal" data-target="#cuotaModal">
                   <i class="fas fa-search"></i>
-                </button>
+                </button>              
+                <div class="invalid-feedback">Por favor seleccione una cuota.</div>
+                <div class="valid-feedback">Cuota seleccionada correctamente.</div>
+
               </div>
-              <div class="invalid-feedback">Por favor seleccione una cuota.</div>
             </div>
             <input type="hidden" id="idCuota" name="idCuota" />
           </div>
@@ -313,9 +317,11 @@
                 <input type="text" id="inscripcion" class="form-control " placeholder="Seleccione una inscripcion" readonly required />
                 <button type="button" id="buscarInscripcion" class="btn btn-outline-warning" data-toggle="modal" data-target="#inscripcionModal">
                   <i class="fas fa-search"></i>
-                </button>
+                </button>              
+                <div class="invalid-feedback">Por favor seleccione una inscripción.</div>
+                <div class="valid-feedback">Inscripción seleccionada correctamente.</div>
+
               </div>
-              <div class="invalid-feedback">Por favor seleccione una inscripción.</div>
             </div>
             <input type="hidden" id="idInscripcion" name="idInscripcion" />
           </div>
@@ -327,9 +333,11 @@
                 <input type="text" id="honorario" class="form-control text-dark" placeholder="Seleccione un honorario" readonly required />
                 <button type="button" id="buscarHonorario" class="btn btn-outline-warning" data-toggle="modal" data-target="#honorarioModal">
                   <i class="fas fa-search"></i>
-                </button>
+                </button>              
+                <div class="invalid-feedback">Por favor seleccione un Honorario.</div>
+                <div class="valid-feedback">Honorario seleccionado correctamente.</div>
+
               </div>
-              <div class="invalid-feedback">Por favor seleccione un Honorario.</div>
             </div>
             <input type="hidden" id="idHonorario" name="idHonorario" />
           </div>
@@ -342,8 +350,9 @@
                 <button type="button" id="buscarSolicitud" class="btn btn-outline-warning" data-toggle="modal" data-target="#solicitudModal">
                   <i class="fas fa-search"></i>
                 </button>
-              </div>
               <div class="invalid-feedback">Por favor seleccione una solicitud.</div>
+              <div class="valid-feedback">Solicitud seleccionada correctamente.</div>
+              </div>
             </div>
             <input type="hidden" id="idSolicitud" name="idSolicitud" />
           </div>
@@ -364,7 +373,7 @@
           </div>
         </div>
 
-        <div class="col-md-6">
+        <div class="col-md-6 mt-3">
           <label for="fechaEmision" class="form-label">Fecha de Emisión:</label>
           <div class="field-wrap">
             <input type="date" id="fechaEmision" name="fechaEmision" class="form-control text-dark" max="{{ today_date }}" required />
@@ -429,6 +438,8 @@
           <div class="field-wrap">
             <input type="number" id="iva" name="iva" class="form-control text-dark" placeholder="Ingrese el IVA" step="0.01" min="0" readonly required />
             <div class="invalid-feedback">Por favor ingrese un IVA válido.</div>
+            <small class="form-text text-muted">El IVA no aplica al monto exento</small>
+
           </div>
         </div>
       </div>
@@ -456,7 +467,7 @@
         <div class="col-md-6">
           <label for="descuento" class="form-label">Descuento:</label>
           <div class="field-wrap">
-            <input type="number" id="descuento" name="descuento" class="form-control text-dark" placeholder="Ingrese el descuento" step="0.01" min="0" required />
+            <input type="number" id="descuento" name="descuento" class="form-control text-dark" placeholder="Ingrese el descuento" step="0.01" min="0" readonly />
             <div class="invalid-feedback">Por favor ingrese un descuento válido.</div>
           </div>
         </div>
@@ -505,7 +516,7 @@
         <h5 class="modal-title text-white" id="personaModalLabel">
           <i class="fas fa-user mr-2"></i> Seleccionar Persona
         </h5>
-        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
           <i class="fas fa-times"></i>
         </button>
       </div>
@@ -526,16 +537,24 @@
                 <th style="width: 20%;">Cédula</th>
                 <th style="width: 25%;">Nombre</th>
                 <th style="width: 25%;">Apellidos</th>
+                <th style="width: 25%;">Tipo</th>
                 <th style="width: 15%;">Seleccionar</th>
               </tr>
             </thead>
             <tbody>
               {% for persona in personas %}
-                <tr data-id="{{ persona.idPersona }}" data-nombre="{{ persona.nombres }} {{ persona.apellidos }}">
+                <tr data-id="{{ persona.idPersona }}" data-nombre="{{ persona.nombres }} {{ persona.apellidos }}" data-tp="{% for tp in persona.personatp_set.all %}{{ tp.idTP.idTP }}{% if not forloop.last %},{% endif %}{% endfor %}">
                   <td>{{ persona.idPersona }}</td>
                   <td>{{ persona.cedula }}</td>
                   <td>{{ persona.nombres }}</td>
                   <td>{{ persona.apellidos }}</td>
+                  <td>
+                    {% for tp in persona.personatp_set.all %}
+                      <span class="badge bg-info text-dark">{{ tp.idTP.nombreTP }}</span>
+                    {% empty %}
+                      <span class="text-muted">—</span>
+                    {% endfor %}
+                  </td>
                   <td>
                     <button class="btn btn-sm btn-warning btn-select">
                       <i class="fas fa-check"></i> Elegir
@@ -553,7 +572,7 @@
         </p>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
       </div>
     </div>
   </div>
@@ -567,7 +586,7 @@
         <h5 class="modal-title text-white" id="empresaModalLabel">
           <i class="fas fa-building mr-2"></i> Seleccionar Empresa
         </h5>
-        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
           <i class="fas fa-times"></i>
         </button>
       </div>
@@ -611,7 +630,7 @@
         </p>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
       </div>
     </div>
   </div>
@@ -625,7 +644,7 @@
         <h5 class="modal-title text-white" id="cuotaModalLabel">
           <i class="fas fa-money-bill-wave mr-2"></i> Seleccionar Cuota
         </h5>
-        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
           <i class="fas fa-times"></i>
         </button>
       </div>
@@ -677,7 +696,7 @@
         </p>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
       </div>
     </div>
   </div>
@@ -691,7 +710,7 @@
         <h5 class="modal-title text-white" id="inscripcionModalLabel">
           <i class="fas fa-user-graduate mr-2"></i> Seleccionar Inscripción
         </h5>
-        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
           <i class="fas fa-times"></i>
         </button>
       </div>
@@ -741,7 +760,7 @@
         </p>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
       </div>
     </div>
   </div>
@@ -755,7 +774,7 @@
         <h5 class="modal-title text-white" id="honorarioModalLabel">
           <i class="fas fa-user-tie mr-2"></i> Seleccionar Honorario
         </h5>
-        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
           <i class="fas fa-times"></i>
         </button>
       </div>
@@ -807,7 +826,7 @@
         </p>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
       </div>
     </div>
   </div>
@@ -821,7 +840,7 @@
         <h5 class="modal-title text-white" id="solicitudModalLabel">
           <i class="fas fa-file-alt mr-2"></i> Seleccionar Solicitud
         </h5>
-        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
           <i class="fas fa-times"></i>
         </button>
       </div>
@@ -847,7 +866,7 @@
             </thead>
             <tbody>
               {% for solicitud in solicitudes %}
-                <tr data-id="{{ solicitud.idSoli }}" data-valor="{{ solicitud.montoTotal }}" data-nombre="{{ solicitud.idTramite.nombreTramite }} {{ solicitud.idServicio.nombreServicio }}" data-monto="{{ solicitud.montoTotal }}" data-persona-id="{{ solicitud.idPersona.idPersona }}">
+                <tr data-id="{{ solicitud.idSoli }}" data-valor="{{ solicitud.montoTotal }}" data-nombre="{{ solicitud.idTramite.nombreTramite }} {{ solicitud.idServicio.nombreServicio }}" data-monto="{{ solicitud.montoTotal }}" data-persona-id="{{ solicitud.idPersona.idPersona }}" >
                   <td>{{ solicitud.idSoli }}</td>
                   <td>{{ solicitud.idTramite.nombreTramite }}</td>
                   <td>{{ solicitud.idServicio.nombreServicio }}</td>
@@ -869,7 +888,7 @@
         </p>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
       </div>
     </div>
   </div>
@@ -1019,6 +1038,34 @@ document.addEventListener('DOMContentLoaded', function () {
         }
       }
     }
+    // Validar campos de texto
+    const camposTexto = [ 'tipoArticulo','formaPago', 'fechaEmision'];
+    camposTexto.forEach(id => {
+      const campo = document.getElementById(id);
+      if (campo) {
+        if (campo.value.trim() === '') {
+          campo.classList.add('is-invalid');
+          campo.classList.remove('is-valid');
+        } else {
+          campo.classList.add('is-valid');
+          campo.classList.remove('is-invalid');
+        }
+      }
+    });
+
+    // Validar total Nota (es mayor a 0)
+    if (totalNota) {
+      const totalValue = parseFloat(normalizeCurrencyString(totalNota.value));
+      if (isNaN(totalValue) || totalValue <= 0) {
+      totalNota.classList.add('is-invalid');
+      totalNota.classList.remove('is-valid');
+      // Si el total es menor o igual a 0, limpiar el valor para que el formulario lo detecte como vacío
+      totalNota.value = '';
+      } else {
+      totalNota.classList.add('is-valid');
+      totalNota.classList.remove('is-invalid');
+      }
+    }
 
     // Validar artículo visible (excepto "no aplica")
     const gruposArticulos = [
@@ -1059,6 +1106,7 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     }
   }
+
 
   /**
    * Valida si el formulario está listo para enviar
@@ -1354,12 +1402,16 @@ document.addEventListener('DOMContentLoaded', function () {
   function actualizarVisibilidadPlazoCredito() {
     const plazoCreditoGroup = document.getElementById('plazoCreditoGroup');
     if (!plazoCreditoGroup || !formaPago) return;
-    
+
     if (formaPago.value === 'credito') {
       plazoCreditoGroup.style.display = 'block';
+      if (plazoCreditoInput) plazoCreditoInput.setAttribute('required', 'required');
     } else {
       plazoCreditoGroup.style.display = 'none';
-      if (plazoCreditoInput) plazoCreditoInput.value = '';
+      if (plazoCreditoInput) {
+        plazoCreditoInput.value = '';
+        plazoCreditoInput.removeAttribute('required');
+      }
     }
   }
 
@@ -1423,50 +1475,73 @@ document.addEventListener('DOMContentLoaded', function () {
   /**
    * Calcula todos los montos de la nota (IVA, retenciones, total) (MODIFICADO: usa parseFloat con normalizeCurrencyString)
    */
-  function calcularMontos() {
-    const gravado = parseFloat(normalizeCurrencyString(subtotalGravado.value)) || 0;
-    const exento = parseFloat(normalizeCurrencyString(subtotalExento.value)) || 0;
-    const descuentoValor = parseFloat(normalizeCurrencyString(descuento.value)) || 0;
-    const tipoArticulo = tipoArticuloSelect?.value;
+/**
+ * Calcula todos los montos de la nota (IVA, retenciones, total) (MODIFICADO: incluye cálculo de descuento automático y manual)
+ */
+function calcularMontos() {
+  const gravado = parseFloat(normalizeCurrencyString(subtotalGravado.value)) || 0;
+  const exento = parseFloat(normalizeCurrencyString(subtotalExento.value)) || 0;
+  const tipoArticulo = tipoArticuloSelect?.value;
+  const descuentoInput = document.getElementById('descuento');
+  const idPersonaInput = document.getElementById('idPersona');
+  const tipoPersonaRelacion = idPersonaInput?.dataset.tipoPersonaRelacion || ''; // IDs de tipoPersona relacionados
 
-    // Obtener parámetros tributarios
-    const parametroIva = obtenerParametro('IVA_GENERAL', tipoArticulo);
-    const parametroRetencionIva = obtenerParametro('IVA_RETENIDO_SERVICIOS', tipoArticulo);
-    const parametroRetencionIslr = egresoCheckbox?.checked
-      ? obtenerParametro(tipoArticulo === 'HONORARIO_PROFESOR' ? 'ISLR_HONORARIOS' : 'ISLR_SERVICIOS', tipoArticulo)
-      : null;
+  let descuentoValor = 0;
 
-    // Calcular IVA
-    const porcentajeIva = parametroIva?.porcentaje ?? 16;
-    const ivaCalculado = gravado * (porcentajeIva / 100);
-    setCurrencyField('iva', ivaCalculado); // MODIFICADO: usa setCurrencyField
-
-    // Calcular retenciones si es egreso
-    if (egresoCheckbox?.checked) {
-      setCurrencyField('ivaRetenido', ivaCalculado * (parametroRetencionIva?.porcentaje ?? 0) / 100); // MODIFICADO
-      setCurrencyField('islrRetenido', (gravado + exento) * (parametroRetencionIslr?.porcentaje ?? 0) / 100); // MODIFICADO
-    } else {
-      setCurrencyField('ivaRetenido', 0); // MODIFICADO
-      setCurrencyField('islrRetenido', 0); // MODIFICADO
+  // Verificar si aplica descuento automático
+  if (tipoPersonaRelacion.includes('3') && (tipoArticulo === 'INSCRIPCION' || tipoArticulo === 'SOLICITUD' || tipoArticulo === 'CUOTA')) {
+    const porcentajeDescuento = parseFloat("{{ descuento }}") || 0; // Porcentaje enviado desde el backend
+    descuentoValor = (gravado + exento) * (porcentajeDescuento / 100);
+    if (descuentoInput) {
+      descuentoInput.value = descuentoValor.toFixed(2);
+      descuentoInput.setAttribute('readonly', true); // Bloquear edición manual
     }
-
-    // Calcular total
-    let total = exento + gravado + ivaCalculado - descuentoValor;
-    if (total < 0) total = 0;
-    setCurrencyField('totalNota', total); // MODIFICADO
-
-    // Actualizar porcentajes en la UI
-    const ivaPercentageEl = document.getElementById('ivaPercentage');
-    if (ivaPercentageEl) ivaPercentageEl.textContent = porcentajeIva;
-    
-    if (egresoCheckbox?.checked) {
-      const ivaRetentionEl = document.getElementById('ivaRetentionPercentage');
-      const islrRetentionEl = document.getElementById('islrRetentionPercentage');
-      
-      if (ivaRetentionEl) ivaRetentionEl.textContent = parametroRetencionIva?.porcentaje ?? 0;
-      if (islrRetentionEl) islrRetentionEl.textContent = parametroRetencionIslr?.porcentaje ?? 0;
+  } else {
+    // Permitir al usuario definir el descuento manualmente
+    if (descuentoInput) {
+      descuentoInput.removeAttribute('readonly'); // Habilitar edición manual
+      descuentoValor = parseFloat(normalizeCurrencyString(descuentoInput.value)) || 0;
     }
   }
+
+  // Obtener parámetros tributarios
+  const parametroIva = obtenerParametro('IVA_GENERAL', tipoArticulo);
+  const parametroRetencionIva = obtenerParametro('IVA_RETENIDO_SERVICIOS', tipoArticulo);
+  const parametroRetencionIslr = egresoCheckbox?.checked
+    ? obtenerParametro(tipoArticulo === 'HONORARIO_PROFESOR' ? 'ISLR_HONORARIOS' : 'ISLR_SERVICIOS', tipoArticulo)
+    : null;
+
+  // Calcular IVA
+  const porcentajeIva = parametroIva?.porcentaje ?? 16;
+  const ivaCalculado = gravado * (porcentajeIva / 100);
+  setCurrencyField('iva', ivaCalculado);
+
+  // Calcular retenciones si es egreso
+  if (egresoCheckbox?.checked) {
+    setCurrencyField('ivaRetenido', ivaCalculado * (parametroRetencionIva?.porcentaje ?? 0) / 100);
+    setCurrencyField('islrRetenido', (gravado + exento) * (parametroRetencionIslr?.porcentaje ?? 0) / 100);
+  } else {
+    setCurrencyField('ivaRetenido', 0);
+    setCurrencyField('islrRetenido', 0);
+  }
+
+  // Calcular total
+  let total = exento + gravado + ivaCalculado - descuentoValor;
+  if (total < 0) total = 0;
+  setCurrencyField('totalNota', total);
+
+  // Actualizar porcentajes en la UI
+  const ivaPercentageEl = document.getElementById('ivaPercentage');
+  if (ivaPercentageEl) ivaPercentageEl.textContent = porcentajeIva;
+
+  if (egresoCheckbox?.checked) {
+    const ivaRetentionEl = document.getElementById('ivaRetentionPercentage');
+    const islrRetentionEl = document.getElementById('islrRetentionPercentage');
+
+    if (ivaRetentionEl) ivaRetentionEl.textContent = parametroRetencionIva?.porcentaje ?? 0;
+    if (islrRetentionEl) islrRetentionEl.textContent = parametroRetencionIslr?.porcentaje ?? 0;
+  }
+}
 
   /**
    * Valida que el descuento no sea mayor al total y ajusta si es necesario
@@ -1727,10 +1802,17 @@ document.addEventListener('DOMContentLoaded', function () {
       const id = fila.getAttribute('data-id');
       const nombre = fila.getAttribute('data-nombre');
       const valor = fila.getAttribute('data-valor');
-      
+      const tipoPersonaRelacion = fila.getAttribute('data-tp'); // Obtener el atributo data-tp
+
       document.getElementById(input).value = nombre;
       document.getElementById(hidden).value = id;
       
+      // Asignar el valor de data-tp al atributo data-tipo-persona-relacion
+      if (hidden === 'idPersona') {
+        document.getElementById(hidden).setAttribute('data-tipo-persona-relacion', tipoPersonaRelacion || '');
+        console.log(`Asignado data-tipo-persona-relacion="${tipoPersonaRelacion || ''}" al campo idPersona`);
+      }
+
       // Actualizar montos si corresponde
       if (valor !== null && gravado !== undefined) {
         const monto = parseFloat(valor) || 0;

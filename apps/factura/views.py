@@ -250,6 +250,7 @@ def nota_create(request):
     solicitudes = Solicitud.objects.filter(estadoSolicitud='ACTIVO').order_by('idSoli')
     honorarios = Honorario.objects.filter(estadoHonorario='ACTIVO').order_by('idHonorario')
     inscripciones = Inscripcion.objects.filter(is_active=True).order_by('idInscripcion')
+    descuento= Configuracion.objects.first().descuento if Configuracion.objects.exists() else 0
     # Obtener la moneda de configuración
     configuracion = Configuracion.objects.first()
     if not configuracion:
@@ -265,7 +266,7 @@ def nota_create(request):
             'success': False,
             'message': f'No se encontró una tasa registrada para la moneda de configuración ({moneda_configuracion.nombreMoneda}).'
         }, status=400)
-
+    print(f"DESCUENTO de configuración: {descuento}%")
     # Convertir a Decimal de forma segura (acepta cadenas con comas/miles)
     try:
         raw_tasa = str(tasa_configuracion.montoTasa or '0').replace('.', '').replace(',', '.')
@@ -426,6 +427,7 @@ def nota_create(request):
         'tasa_configuracion_valor': tasa_configuracion_valor,
         'tasa_configuracion_id': tasa_configuracion_id,
         'moneda_configuracion': moneda_configuracion,
+        'descuento': descuento
     })
 
 @transaction.atomic
