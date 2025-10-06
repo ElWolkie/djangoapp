@@ -5,8 +5,6 @@ from .endpoints import verificar_cedula, PersonaPublicRegisterView, UsuarioPubli
 from .views import CedulaTokenObtainView  # Nueva función
 
 urlpatterns = [
-    path('api/', include('apps.api.endpoints')),  # Ajusta según tu app
-    
     path('personas/', views.PersonaListCreate.as_view(), name='persona-list'),
     path('personas/<int:pk>/', views.PersonaRetrieveUpdateDestroy.as_view(), name='persona-detail'),
     path('tipo-personas/', views.TipoPersonaListCreate.as_view(), name='tipo-persona-list'),
