@@ -138,7 +138,7 @@ function CustomDrawerContent(props: any) {
           >
             <View style={styles.accordionTitleRow}>
               <Icon name="school-outline" size={20} color="#4f8cff" />
-              <Text style={styles.accordionTitle}>Gestión Académica</Text>
+              <Text style={styles.accordionTitle}>Mi Perfil</Text>
             </View>
             <Animated.View style={{ transform: [{ rotate: rotateAcademica }] }}>
               <Icon name="chevron-down" size={22} color="#4f8cff" />
@@ -353,7 +353,7 @@ export default function AppNavigator() {
       }}
     >
       <Drawer.Screen name="Dashboard" component={DashboardScreen} options={{ title: 'Inicio' }} />
-      <Drawer.Screen name="Personas" component={PantallaPersonas} options={{ title: 'Gestión de Personas' }} />
+      <Drawer.Screen name="Personas" component={PantallaPersonas} options={{ title: 'Mi Perfil' }} />
       <Drawer.Screen name="Formaciones" component={PantallaFormaciones} options={{ title: 'Formaciones' }} />
       <Drawer.Screen name="TipoFormaciones" component={PantallaTPFormaciones} options={{ title: 'Tipo Formaciones' }} />
       <Drawer.Screen name="Materias" component={PantallaMaterias} options={{ title: 'Materias' }} />
