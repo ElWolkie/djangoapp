@@ -605,20 +605,31 @@ def notas_por_usuario_autenticado(request):
 
         notas_data = []
         for nota in notas:
-            # Obtener información de formación
-            formacion_nombre = "N/A"
+            # Obtener información de formación - MEJORADO
+            formacion_nombre = "Formación no especificada"
             
             try:
+                # Buscar en NotaRelacionada para obtener la formación
                 relacion = NotaRelacionada.objects.filter(idNota=nota).first()
                 if relacion:
-                    if relacion.idInscripcion:
+                    if relacion.idInscripcion and relacion.idInscripcion.idFormacion:
                         formacion_nombre = relacion.idInscripcion.idFormacion.nombreFormacion
-                    elif relacion.idCuota:
+                    elif relacion.idCuota and relacion.idCuota.idFormacion:
                         formacion_nombre = relacion.idCuota.idFormacion.nombreFormacion
-                    elif relacion.idSolicitud:
+                    elif relacion.idSolicitud and relacion.idSolicitud.idFormacion:
                         formacion_nombre = relacion.idSolicitud.idFormacion.nombreFormacion
+                    
+                    # Si aún no tenemos nombre, buscar en otros campos
+                    if formacion_nombre == "Formación no especificada":
+                        if relacion.idInscripcion:
+                            formacion_nombre = f"Inscripción #{relacion.idInscripcion.idInscripcion}"
+                        elif relacion.idCuota:
+                            formacion_nombre = f"Cuota #{relacion.idCuota.idCuota}"
+                        elif relacion.idSolicitud:
+                            formacion_nombre = f"Solicitud #{relacion.idSolicitud.idSolicitud}"
             except Exception as e:
-                print(f"Error obteniendo formación: {str(e)}")
+                print(f"⚠️ Error obteniendo formación para nota {nota.idNota}: {str(e)}")
+                formacion_nombre = "Información no disponible"
 
             notas_data.append({
                 'idNota': nota.idNota,
