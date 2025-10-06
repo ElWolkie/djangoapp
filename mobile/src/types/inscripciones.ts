@@ -36,6 +36,9 @@ export interface Persona {
 }
 
 export interface Inscripcion {
+  idFormacion_detail: any;
+  idPersona_detail: any;
+  idCohorte_detail: any;
   id: number;
   idInscripcion: number;
   idPersona: Persona;

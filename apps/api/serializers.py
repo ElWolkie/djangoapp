@@ -54,9 +54,25 @@ class TPFormacionSerializer(serializers.ModelSerializer):
         fields = ['idTF', 'nombreTipoFormacion', 'estadoTipoFormacion', 'fechaTipoFormacion']
 
 class FormacionSerializer(serializers.ModelSerializer):
+    # Campo para mostrar cuotas en las respuestas (opcional)
+    cuotas_count = serializers.SerializerMethodField()
+    
     class Meta:
-        model = Formacion  # Usa el modelo de home
-        fields = ['idFormacion', 'idTF', 'nombreFormacion', 'valorInscripcion', 'tieneCuotas', 'duracion', 'estadoFormacion', 'fechaFormacion']
+        model = Formacion
+        fields = [
+            'idFormacion',
+            'idTF',
+            'nombreFormacion',
+            'valorInscripcion',
+            'tieneCuotas',
+            'duracion',
+            'estadoFormacion',
+            'fechaFormacion',
+            'cuotas_count'  # Número de cuotas activas
+        ]
+    
+    def get_cuotas_count(self, obj):
+        return obj.cuotas.filter(is_active=True).count()
 
 class MateriaSerializer(serializers.ModelSerializer):
     class Meta:

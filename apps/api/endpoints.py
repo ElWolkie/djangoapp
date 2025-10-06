@@ -1,4 +1,5 @@
 # En api/endpoints.py o en tu archivo de vistas
+import traceback
 from rest_framework.decorators import api_view
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -6,7 +7,7 @@ from rest_framework import status
 from rest_framework.permissions import AllowAny
 
 from apps.persona.models import Personas
-from apps.home.models import Usuarios
+from apps.home.models import CuotaFormacion, Formacion, Usuarios
 import logging
 
 from apps.persona.serializers import PersonaCreateSerializer
@@ -154,3 +155,64 @@ def obtener_persona_login(request):
         'debug_similares': [{'cedula': p.cedula, 'id': p.idPersona} for p in similares]
     }, status=status.HTTP_404_NOT_FOUND)
 
+
+class CuotasFormacionAPIView(APIView):
+    def get(self, request, formacion_id):
+        try:
+            logger.info(f"🔍 [PRODUCTION] Solicitando cuotas para formación: {formacion_id}")
+            
+            # Verificar que formacion_id sea válido
+            if not formacion_id or formacion_id <= 0:
+                return Response({'error': 'ID de formación inválido'}, status=400)
+            
+            # Intentar obtener la formación
+            formacion = Formacion.objects.get(idFormacion=formacion_id)
+            logger.info(f"✅ [PRODUCTION] Formación encontrada: {formacion.nombreFormacion}")
+            
+            # Obtener cuotas activas
+            cuotas = CuotaFormacion.objects.filter(
+                idFormacion=formacion_id, 
+                is_active=True
+            ).order_by('orden')
+            
+            logger.info(f"✅ [PRODUCTION] Cuotas encontradas: {cuotas.count()}")
+            
+            cuotas_data = []
+            for cuota in cuotas:
+                cuotas_data.append({
+                    'idCuota': cuota.idCuota,
+                    'nombreCuota': cuota.nombreCuota,
+                    'tipoCuota': cuota.tipoCuota,
+                    'valorCuota': float(cuota.valorCuota),
+                    'orden': cuota.orden
+                })
+            
+            response_data = {
+                'formacion_id': formacion.idFormacion,
+                'nombre_formacion': formacion.nombreFormacion,
+                'cuotas': cuotas_data,
+                'total_cuotas': len(cuotas_data),
+                'valor_total_cuotas': sum(cuota['valorCuota'] for cuota in cuotas_data),
+                'status': 'success'
+            }
+            
+            logger.info(f"✅ [PRODUCTION] Respuesta enviada exitosamente")
+            return Response(response_data)
+            
+        except Formacion.DoesNotExist:
+            logger.error(f"❌ [PRODUCTION] Formación no encontrada: {formacion_id}")
+            return Response({
+                'error': 'Formación no encontrada',
+                'formacion_id': formacion_id,
+                'status': 'error'
+            }, status=404)
+            
+        except Exception as e:
+            logger.error(f"❌ [PRODUCTION] Error inesperado: {str(e)}")
+            logger.error(f"❌ [PRODUCTION] Traceback: {traceback.format_exc()}")
+            
+            return Response({
+                'error': 'Error interno del servidor',
+                'detalle': str(e) if logging.DEBUG else 'Contacte al administrador',
+                'status': 'error'
+            }, status=500)

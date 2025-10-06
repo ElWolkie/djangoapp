@@ -1,10 +1,12 @@
-from django.urls import path
+from django.urls import include, path
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from . import views
-from .endpoints import verificar_cedula, PersonaPublicRegisterView, UsuarioPublicRegisterView, obtener_persona_login  # Nuevas funciónes
+from .endpoints import verificar_cedula, PersonaPublicRegisterView, UsuarioPublicRegisterView, obtener_persona_login, CuotasFormacionAPIView
 from .views import CedulaTokenObtainView  # Nueva función
 
 urlpatterns = [
+    path('api/', include('apps.api.endpoints')),  # Ajusta según tu app
+    
     path('personas/', views.PersonaListCreate.as_view(), name='persona-list'),
     path('personas/<int:pk>/', views.PersonaRetrieveUpdateDestroy.as_view(), name='persona-detail'),
     path('tipo-personas/', views.TipoPersonaListCreate.as_view(), name='tipo-persona-list'),
@@ -17,6 +19,7 @@ urlpatterns = [
     path('registrar_persona/', PersonaPublicRegisterView.as_view(), name='registrar_persona_public'),
     path('registrar_usuario/', UsuarioPublicRegisterView.as_view(), name='registrar_usuario_public'),
     path('obtener-persona-login/', obtener_persona_login, name='obtener-persona-login'),
+    path('api/formaciones/<int:formacion_id>/cuotas/', CuotasFormacionAPIView.as_view(), name='formacion-cuotas'),
 
     path('cohorte/', views.CohorteListCreate.as_view(), name='cohorte-list'),
     path('cargo/', views.CargoListCreate.as_view(), name='cargo-list'),
