@@ -13,6 +13,7 @@ import PantallaMaterias from './src/screens/materias';
 import PantallaCohortes from './src/screens/cohortes';
 import PantallaCargos from './src/screens/cargos';
 import PantallaHonorarios from './src/screens/honorarios';
+import PantallaInscripciones from './src/screens/inscripciones';
 import PantallaSolicitudes from './src/screens/solicitudes';
 import PantallaTramites from './src/screens/tramites';
 import PantallaServicios from './src/screens/servicios';
@@ -122,8 +123,8 @@ function CustomDrawerContent(props: any) {
         />
 
         <DrawerItem
-          label="Gestión de Personas"
-          icon={({ color, size }) => <Icon name="account-group" color={color} size={size} />}
+          label="Mi Perfil"
+          icon={({ color, size }) => <Icon name="account" color={color} size={size} />}
           onPress={() => navigateTo('Personas')}
           labelStyle={styles.drawerLabel}
         />
@@ -207,13 +208,14 @@ export default function AppNavigator() {
       }}
     >
       <Drawer.Screen name="Dashboard" component={DashboardScreen} options={{ title: 'Inicio' }} />
-      <Drawer.Screen name="Personas" component={PantallaPersonas} options={{ title: 'Gestión de Personas' }} />
+      <Drawer.Screen name="Personas" component={PantallaPersonas} options={{ title: 'Mi Perfil' }} />
       <Drawer.Screen name="Formaciones" component={PantallaFormaciones} options={{ title: 'Formaciones' }} />
       <Drawer.Screen name="TipoFormaciones" component={PantallaTPFormaciones} options={{ title: 'Tipo Formaciones' }} />
       <Drawer.Screen name="Materias" component={PantallaMaterias} options={{ title: 'Materias' }} />
       <Drawer.Screen name="Cohortes" component={PantallaCohortes} options={{ title: 'Cohortes' }} />
       <Drawer.Screen name="Cargos" component={PantallaCargos} options={{ title: 'Cargos' }} />
       <Drawer.Screen name="Honorarios" component={PantallaHonorarios} options={{ title: 'Honorarios' }} />
+      <Drawer.Screen name="Inscripciones" component={PantallaInscripciones} options={{ title: 'Inscripciones' }} />
       <Drawer.Screen name="Solicitudes" component={PantallaSolicitudes} options={{ title: 'Solicitudes' }} />
       <Drawer.Screen name="Tramites" component={PantallaTramites} options={{ title: 'Trámites' }} />
       <Drawer.Screen name="Servicios" component={PantallaServicios} options={{ title: 'Servicios' }} />
