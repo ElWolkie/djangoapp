@@ -20,6 +20,9 @@ import { Picker } from '@react-native-picker/picker';
 import api from '../api/api';
 import { AuthContext } from '../contexts/AuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { RootStackParamList } from '../../App';
 import { 
   TipoFormacion, 
   Formacion, 
@@ -36,7 +39,8 @@ const fmtMoney = (v: any) => {
   return `$${n.toFixed(2)}`;
 };
 
-export default function PantallaInscripciones() {
+const InscripcionesScreen = () => {
+  const navigation = useNavigation<any>();
   const { user, fetchUserFromCedula } = useContext(AuthContext);
   const [items, setItems] = useState<Inscripcion[]>([]);
   const [mostradas, setMostradas] = useState<Inscripcion[]>([]);
@@ -642,14 +646,43 @@ useEffect(() => {
       const res = await api.post('/api/inscripcion/', payload);
       
       if (res.status === 201 || res.status === 200) {
-        Alert.alert('Éxito', 'Inscripción creada correctamente.');
-        setFormModalVisible(false);
-        resetForm();
-        await fetchInscripciones();
-      } else {
-        const message = res.data?.detail ?? JSON.stringify(res.data);
-        Alert.alert('Respuesta del servidor', String(message));
+      console.log('✅ Inscripción creada, ID:', res.data.idInscripcion);
+      
+      // 🆕 PASO 2: Crear nota de cobro automáticamente
+      try {
+        const notaResponse = await api.post('/api/nota-cobro/create/', {
+          idInscripcion: res.data.idInscripcion
+        });
+        
+        if (notaResponse.data.success) {
+          console.log('✅ Nota de cobro creada:', notaResponse.data.data);
+          
+          // 🆕 PASO 3: Navegar a pantalla de pago con los datos
+          // En la función handleCreateInscripcion, después de crear la nota:
+            navigation.navigate('pago', {
+              notaData: notaResponse.data.data,
+              inscripcionId: res.data.idInscripcion
+            });
+          
+          Alert.alert('Éxito', 'Inscripción y nota de cobro creadas correctamente. Proceda al pago.');
+        } else {
+          throw new Error(notaResponse.data.message);
+        }
+      } catch (notaError) {
+        console.error('❌ Error creando nota de cobro:', notaError);
+        Alert.alert(
+          'Atención', 
+          'Inscripción creada pero hubo un error al generar la nota de cobro. Contacte al administrador.'
+        );
       }
+      
+      setFormModalVisible(false);
+      resetForm();
+      await fetchInscripciones();
+    } else {
+      const message = res.data?.detail ?? JSON.stringify(res.data);
+      Alert.alert('Respuesta del servidor', String(message));
+    }
     } catch (err: any) {
       console.error('❌ ERROR EN handleCreateInscripcion:');
       console.error('Status:', err.response?.status);
@@ -1554,3 +1587,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
 });
+
+export default InscripcionesScreen

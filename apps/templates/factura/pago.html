@@ -568,8 +568,9 @@ select.input-with-icon.form-select {
 {% block javascripts %}
 <script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
 <script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script>
+<script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
+
+<script>g
 // ✅ DATOS LIMPIOS DESDE EL BACKEND
 window.notasData = {{ notas_json|safe }};
 console.log('📊 Datos de notas cargados:', window.notasData);
