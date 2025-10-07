@@ -15,6 +15,16 @@ from apps.asientoContable.models import AsientoContable, DetalleAsiento
 from apps.planCuenta.models import PlanCuenta
 from apps.periodoContable.models import periodoContable
 
+from rest_framework import status
+from django.db import transaction
+from django.utils.timezone import now
+from decimal import Decimal
+import uuid
+
+from apps.factura.models import Nota, Pago, NotaRelacionada, PlanArticulo
+from apps.home.models import Moneda, Tasa, Configuracion
+from .serializers import PagoCreateSerializer
+
 from apps.api import serializers
 
 # Vista para Personas
@@ -141,6 +151,172 @@ class InscripcionListCreate(generics.ListCreateAPIView):
                 {"error": str(e), "details": "Error interno del servidor"}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+class PagoCreateAPIView(APIView):
+    @transaction.atomic
+    def post(self, request):
+        print("🚀 [PAGO-VIEW] Iniciando procesamiento...")
+        
+        try:
+            # Usar el serializer para validación
+            serializer = PagoCreateSerializer(data=request.data, context={'request': request})
+            
+            if not serializer.is_valid():
+                print(f"❌ Validación falló: {serializer.errors}")
+                return Response({
+                    'success': False,
+                    'message': 'Datos inválidos',
+                    'errors': serializer.errors
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            print("✅ Serializer válido")
+            
+            # Obtener datos validados
+            validated_data = serializer.validated_data
+            nota = serializer.context['nota']
+            monto_pago = validated_data['monto']
+
+            print(f"📥 Procesando nota ID: {nota.idNota}, Monto: {monto_pago}")
+
+            # 🔥 MONEDA FIJA ID=1 - como solicitaste
+            moneda_base = Moneda.objects.filter(idMoneda=1).first()
+            if not moneda_base:
+                return Response({
+                    'success': False,
+                    'message': 'Moneda base (ID=1) no configurada'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            print(f"✅ Moneda base: {moneda_base.nombreMoneda}")
+
+            # Obtener tasa más reciente para la moneda base
+            tasa = Tasa.objects.filter(idMoneda=moneda_base).order_by('-idTasa').first()
+            if not tasa:
+                return Response({
+                    'success': False,
+                    'message': f'No se encontró tasa para la moneda base ({moneda_base.nombreMoneda})'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            print(f"✅ Tasa encontrada: {tasa.idTasa} - {tasa.montoTasa}")
+
+            # Obtener periodo contable activo
+            periodo_activo = periodoContable.objects.filter(estadoPeriodo=True).first()
+            if not periodo_activo:
+                return Response({
+                    'success': False,
+                    'message': 'No hay periodo contable activo'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            print(f"✅ Periodo activo: {periodo_activo.nombrePeriodo}")
+
+            # Crear asiento contable
+            numero_asiento = f"PAGO-{now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
+            
+            asiento = AsientoContable.objects.create(
+                numeroAsiento=numero_asiento,
+                fechaAsiento=now().date(),
+                conceptoAsiento=f"Pago de {validated_data['formaPago']} - Nota: {nota.numeroNota}",
+                idPeriodo=periodo_activo
+            )
+            print(f"✅ Asiento contable creado: {asiento.idAsiento}")
+
+            # Crear pago
+            pago = Pago.objects.create(
+                idNota=nota,
+                idAsiento=asiento,
+                idTasa=tasa,
+                monto=monto_pago,
+                fechaPago=validated_data['fechaPago'],
+                formaPago=validated_data['formaPago'],
+                referencia=validated_data.get('referencia', ''),
+                observaciones=validated_data.get('observaciones', '')
+            )
+            print(f"✅ Pago creado: {pago.idPago}")
+
+            # Actualizar estado de la nota
+            if monto_pago >= nota.totalNota:
+                nota.estado = 'PAGADA'
+                print(f"✅ Nota marcada como PAGADA")
+            else:
+                nota.estado = 'PARCIAL'
+                print(f"✅ Nota marcada como PARCIAL")
+            
+            nota.save()
+
+            # Actualizar estado de la inscripción relacionada si existe
+            try:
+                nota_relacionada = NotaRelacionada.objects.filter(idNota=nota).first()
+                if nota_relacionada and nota_relacionada.idInscripcion:
+                    inscripcion = nota_relacionada.idInscripcion
+                    if monto_pago >= nota.totalNota:
+                        inscripcion.estadoPago = 'PAGADO'
+                    else:
+                        inscripcion.estadoPago = 'PARCIAL'
+                    inscripcion.save()
+                    print(f"✅ Inscripción actualizada: {inscripcion.idInscripcion}")
+            except Exception as e:
+                print(f"⚠️ No se pudo actualizar inscripción: {str(e)}")
+
+            # Crear detalles del asiento contable (opcional)
+            try:
+                plan_articulo_debe = PlanArticulo.objects.filter(
+                    tipoArticulo=nota.tipoArticulo,
+                    tipo=1  # DEBE
+                ).order_by('-fecha').first()
+                
+                plan_articulo_haber = PlanArticulo.objects.filter(
+                    tipoArticulo=nota.tipoArticulo, 
+                    tipo=0  # HABER
+                ).order_by('-fecha').first()
+
+                if plan_articulo_debe and plan_articulo_haber:
+                    DetalleAsiento.objects.create(
+                        idAsiento=asiento,
+                        idPlanCuenta=plan_articulo_debe.idPlanCuenta,
+                        debe=monto_pago,
+                        haber=Decimal('0.00')
+                    )
+                    DetalleAsiento.objects.create(
+                        idAsiento=asiento,
+                        idPlanCuenta=plan_articulo_haber.idPlanCuenta,
+                        debe=Decimal('0.00'),
+                        haber=monto_pago
+                    )
+                    print(f"✅ Detalles de asiento creados")
+            except Exception as e:
+                print(f"⚠️ Error creando detalles de asiento: {str(e)}")
+
+            # Respuesta exitosa
+            response_data = {
+                'success': True,
+                'message': '¡Pago procesado exitosamente! 🎉',
+                'data': {
+                    'idPago': pago.idPago,
+                    'numeroAsiento': asiento.numeroAsiento,
+                    'monto': float(pago.monto),
+                    'fechaPago': pago.fechaPago.isoformat(),
+                    'formaPago': pago.formaPago,
+                    'referencia': pago.referencia,
+                    'nota': {
+                        'idNota': nota.idNota,
+                        'numeroNota': nota.numeroNota,
+                        'nuevoEstado': nota.estado,
+                        'totalNota': float(nota.totalNota)
+                    }
+                }
+            }
+            
+            print("🎊 Pago procesado exitosamente!")
+            return Response(response_data, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            print(f"💥 Error en PagoCreateAPIView: {str(e)}")
+            import traceback
+            print(f"📋 Traceback: {traceback.format_exc()}")
+            
+            return Response({
+                'success': False,
+                'message': f'Error procesando pago: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class RequisitoListCreate(generics.ListCreateAPIView):
     queryset = Requisito.objects.all()  # Usa el modelo Requisito

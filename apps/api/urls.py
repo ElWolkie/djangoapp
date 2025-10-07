@@ -19,7 +19,7 @@ urlpatterns = [
     path('obtener-persona-login/', obtener_persona_login, name='obtener-persona-login'),
     path('api/formaciones/<int:formacion_id>/cuotas/', CuotasFormacionAPIView.as_view(), name='formacion-cuotas'),
     path('nota-cobro/create/', NotaCobroCreateAPIView.as_view(), name='nota_cobro_create'),
-    path('api/pagos/create/', PagoCreateAPIView.as_view(), name='pago_create'),
+    path('api/pagos/create/', views.PagoCreateAPIView.as_view(), name='pago_create'),
     path('notas/usuario/autenticado/', notas_por_usuario_autenticado, name='notas_autenticado'),
     path('corregir-relaciones/', corregir_relaciones_notas, name='corregir_relaciones'),
     

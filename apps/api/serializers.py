@@ -225,7 +225,9 @@ class PagoCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Esta nota ya ha sido pagada completamente.")
         
         if data['monto'] > nota.totalNota:
-            raise serializers.ValidationError({"monto": f"El monto no puede exceder el total de la nota (${nota.totalNota})."})
+            raise serializers.ValidationError({
+                "monto": f"El monto no puede exceder el total de la nota (${nota.totalNota})."
+            })
         
         # Guardar la nota en el contexto para usarla en create
         self.context['nota'] = nota
