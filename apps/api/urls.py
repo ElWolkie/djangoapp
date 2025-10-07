@@ -22,10 +22,6 @@ urlpatterns = [
     path('api/pagos/create/', views.PagoCreateAPIView.as_view(), name='pago_create'),
     path('notas/usuario/autenticado/', notas_por_usuario_autenticado, name='notas_autenticado'),
     path('corregir-relaciones/', corregir_relaciones_notas, name='corregir_relaciones'),
-
-    path('api/debug-produccion/', debug_produccion, name='debug_produccion'),
-    path('api/pago-ultra-minimo/', pago_ultra_minimo, name='pago_ultra_minimo'),
-    path('api/emergencia-total/', emergencia_total, name='emergencia_total'),
     
     path('cohorte/', views.CohorteListCreate.as_view(), name='cohorte-list'),
     path('cargo/', views.CargoListCreate.as_view(), name='cargo-list'),

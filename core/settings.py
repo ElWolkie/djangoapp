@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.join(BASE_DIR, 'apps'))
 SECRET_KEY = config("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config("DEBUG", default=True, cast=bool)
+DEBUG = config("DEBUG", default=False, cast=bool)
 
 # 365 días de retención (ajustable)
 BITACORA_RETENCION_DIAS = 365
@@ -38,21 +38,6 @@ SESSION_ENGINE = "django.contrib.sessions.backends.cached_db"  # Combina caché 
 # Application definition
 ALLOWED_HOSTS = ['djangoapp-6wxv.onrender.com']
 WSGI_APPLICATION = "core.wsgi.application"
-
-# Logging detallado
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-        },
-    },
-    'root': {
-        'handlers': ['console'],
-        'level': 'DEBUG',
-    },
-}
 
 # Primero intenta con dj_database_url, si falla usa configuración directa
 try:

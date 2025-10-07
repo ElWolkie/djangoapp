@@ -174,7 +174,7 @@ const PagoScreen = () => {
 
     console.log('📤 [PAGO-FINAL] Enviando payload:', payload);
 
-    const response = await api.post('/api/pagos/create/', payload);
+    const response = await api.post('api/pago-ultra-minimo/', payload);
     console.log('📨 [PAGO-FINAL] Respuesta:', response.data);
 
     if (response.data.success) {
