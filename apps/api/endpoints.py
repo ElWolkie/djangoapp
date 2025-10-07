@@ -541,37 +541,44 @@ def notas_por_usuario_autenticado(request):
         }, status=500)
 
 class PagoCreateAPIView(APIView):
-    @transaction.atomic
     def post(self, request):
-        print("🚀 [PAGO-UPDATE] Iniciando procesamiento de pago...")
+        """
+        Versión MEGA-ROBUSTA del procesador de pagos
+        """
+        print("🚀 [PAGO-MEGA] Iniciando procesamiento MEGA-ROBUSTO...")
+        
+        # Inicializar variables para evitar errores de referencia
+        asiento = None
+        pago = None
         
         try:
-            # Validar que sea JSON
-            if not request.content_type.startswith('application/json'):
-                print("⚠️ [PAGO-UPDATE] Content-Type no es JSON")
+            # ========== VALIDACIÓN INICIAL ==========
+            print("🔍 [PAGO-MEGA] Validación inicial...")
+            
+            if not hasattr(request, 'data'):
                 return Response({
                     'success': False,
-                    'message': 'Content-Type debe ser application/json'
+                    'message': 'Datos de solicitud inválidos'
+                }, status=status.HTTP_400_BAD_REQUEST)
+                
+            data = request.data
+            print(f"📥 [PAGO-MEGA] Datos recibidos: {data}")
+            
+            # Validar campos requeridos
+            required_fields = ['idNota', 'formaPago', 'monto', 'fechaPago']
+            missing_fields = [field for field in required_fields if field not in data]
+            if missing_fields:
+                return Response({
+                    'success': False,
+                    'message': f'Campos requeridos faltantes: {", ".join(missing_fields)}'
                 }, status=status.HTTP_400_BAD_REQUEST)
 
-            data = request.data
-            print(f"📥 [PAGO-UPDATE] Datos recibidos: {data}")
-            
-            # Validación básica de campos requeridos
-            required_fields = ['idNota', 'formaPago', 'monto', 'fechaPago']
-            for field in required_fields:
-                if field not in data:
-                    print(f"❌ [PAGO-UPDATE] Campo faltante: {field}")
-                    return Response({
-                        'success': False,
-                        'message': f'Campo requerido faltante: {field}'
-                    }, status=status.HTTP_400_BAD_REQUEST)
-
             # ========== OBTENER NOTA ==========
+            print("📋 [PAGO-MEGA] Obteniendo nota...")
             try:
                 nota_id = int(data['idNota'])
                 nota = Nota.objects.get(idNota=nota_id)
-                print(f"📋 [PAGO-UPDATE] Nota encontrada: {nota.numeroNota}")
+                print(f"✅ [PAGO-MEGA] Nota encontrada: {nota.numeroNota}")
             except (ValueError, TypeError):
                 return Response({
                     'success': False,
@@ -591,6 +598,7 @@ class PagoCreateAPIView(APIView):
                 }, status=status.HTTP_400_BAD_REQUEST)
 
             # ========== VALIDAR MONTO ==========
+            print("💰 [PAGO-MEGA] Validando monto...")
             try:
                 monto_pago = Decimal(str(data['monto']))
                 if monto_pago <= 0:
@@ -610,29 +618,33 @@ class PagoCreateAPIView(APIView):
                     'message': 'Monto inválido'
                 }, status=status.HTTP_400_BAD_REQUEST)
 
-            # ========== CONFIGURACIONES BÁSICAS ==========
-            # Obtener periodo contable
+            # ========== CONFIGURACIONES DEL SISTEMA ==========
+            print("⚙️ [PAGO-MEGA] Obteniendo configuraciones del sistema...")
+            
+            # 1. Periodo contable
             periodo_activo = periodoContable.objects.filter(estadoPeriodo=True).first()
             if not periodo_activo:
                 periodo_activo = periodoContable.objects.order_by('-idPeriodo').first()
-                if not periodo_activo:
-                    return Response({
-                        'success': False,
-                        'message': 'No hay periodos contables configurados'
-                    }, status=status.HTTP_400_BAD_REQUEST)
+            if not periodo_activo:
+                return Response({
+                    'success': False,
+                    'message': 'No hay periodos contables configurados'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            print(f"✅ [PAGO-MEGA] Periodo: {periodo_activo.idPeriodo}")
 
-            # Obtener tasa (usar la que se creó en la verificación)
-            tasa = Tasa.objects.filter(idTasa=4).first()  # Usar la tasa que se creó
+            # 2. Tasa (usar la que se creó en verificación - ID 4)
+            tasa = Tasa.objects.filter(idTasa=4).first()
             if not tasa:
-                # Si no existe, usar cualquier tasa activa
                 tasa = Tasa.objects.filter(estadoTasa=True).order_by('-idTasa').first()
-                if not tasa:
-                    return Response({
-                        'success': False,
-                        'message': 'No hay tasas configuradas'
-                    }, status=status.HTTP_400_BAD_REQUEST)
+            if not tasa:
+                return Response({
+                    'success': False,
+                    'message': 'No hay tasas configuradas'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            print(f"✅ [PAGO-MEGA] Tasa: {tasa.idTasa}")
 
             # ========== CREAR ASIENTO CONTABLE ==========
+            print("📘 [PAGO-MEGA] Creando asiento contable...")
             try:
                 numero_asiento = f"PAGO-{now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
                 
@@ -642,15 +654,16 @@ class PagoCreateAPIView(APIView):
                     conceptoAsiento=f"Pago de {data['formaPago']} - Nota: {nota.numeroNota}",
                     idPeriodo=periodo_activo
                 )
-                print(f"✅ [PAGO-UPDATE] Asiento creado: {asiento.numeroAsiento}")
+                print(f"✅ [PAGO-MEGA] Asiento creado: {asiento.numeroAsiento}")
             except Exception as e:
-                print(f"❌ [PAGO-UPDATE] Error creando asiento: {str(e)}")
+                print(f"❌ [PAGO-MEGA] Error creando asiento: {str(e)}")
                 return Response({
                     'success': False,
                     'message': f'Error creando asiento contable: {str(e)}'
                 }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-            # ========== CREAR PAGO ==========
+            # ========== CREAR REGISTRO DE PAGO ==========
+            print("💰 [PAGO-MEGA] Creando registro de pago...")
             try:
                 # Preparar datos del pago
                 pago_data = {
@@ -662,23 +675,32 @@ class PagoCreateAPIView(APIView):
                     'fechaPago': data['fechaPago'],
                     'referencia': data.get('referencia', ''),
                     'observaciones': data.get('observaciones', ''),
-                    # idCuentaBanco se deja como NULL (opcional)
                 }
-
-                # Crear el pago
+                
+                print(f"📝 [PAGO-MEGA] Datos para crear pago: {pago_data}")
+                
+                # CREAR EL PAGO - punto crítico
                 pago = Pago.objects.create(**pago_data)
-                print(f"✅ [PAGO-UPDATE] Pago creado: ID {pago.idPago}")
+                print(f"✅ [PAGO-MEGA] Pago creado exitosamente: ID {pago.idPago}")
 
             except Exception as e:
-                print(f"❌ [PAGO-UPDATE] Error creando pago: {str(e)}")
-                # Revertir el asiento si el pago falla
-                asiento.delete()
+                print(f"❌ [PAGO-MEGA] Error CRÍTICO creando pago: {str(e)}")
+                # Revertir asiento si el pago falla
+                if asiento:
+                    asiento.delete()
+                    print("✅ [PAGO-MEGA] Asiento revertido por error en pago")
+                
                 return Response({
                     'success': False,
-                    'message': f'Error creando registro de pago: {str(e)}'
+                    'message': f'Error creando registro de pago: {str(e)}',
+                    'error_type': type(e).__name__,
+                    'error_details': str(e)
                 }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
             # ========== ACTUALIZAR ESTADOS ==========
+            print("🔄 [PAGO-MEGA] Actualizando estados...")
+            nuevo_estado = 'PENDIENTE'
+            
             try:
                 # Actualizar estado de la nota
                 if monto_pago >= nota.totalNota:
@@ -689,27 +711,30 @@ class PagoCreateAPIView(APIView):
                     nuevo_estado = 'PARCIAL'
                 
                 nota.save()
-                print(f"✅ [PAGO-UPDATE] Nota actualizada: {nuevo_estado}")
+                print(f"✅ [PAGO-MEGA] Estado de nota actualizado: {nuevo_estado}")
 
                 # Actualizar inscripción relacionada
-                relacion = NotaRelacionada.objects.filter(idNota=nota).first()
-                if relacion and relacion.idInscripcion:
-                    inscripcion = relacion.idInscripcion
-                    if monto_pago >= nota.totalNota:
-                        inscripcion.estadoPago = 'PAGADO'
-                    else:
-                        inscripcion.estadoPago = 'PARCIAL'
-                    inscripcion.save()
-                    print(f"✅ [PAGO-UPDATE] Inscripción actualizada: {inscripcion.estadoPago}")
+                try:
+                    relacion = NotaRelacionada.objects.filter(idNota=nota).first()
+                    if relacion and relacion.idInscripcion:
+                        inscripcion = relacion.idInscripcion
+                        if monto_pago >= nota.totalNota:
+                            inscripcion.estadoPago = 'PAGADO'
+                        else:
+                            inscripcion.estadoPago = 'PARCIAL'
+                        inscripcion.save()
+                        print(f"✅ [PAGO-MEGA] Inscripción actualizada: {inscripcion.estadoPago}")
+                except Exception as e:
+                    print(f"⚠️ [PAGO-MEGA] Error actualizando inscripción: {str(e)}")
 
             except Exception as e:
-                print(f"⚠️ [PAGO-UPDATE] Error actualizando estados: {str(e)}")
+                print(f"⚠️ [PAGO-MEGA] Error actualizando estados: {str(e)}")
                 # No revertimos el pago por este error
 
             # ========== RESPUESTA EXITOSA ==========
             response_data = {
                 'success': True,
-                'message': '¡Pago procesado exitosamente!',
+                'message': '¡Pago procesado exitosamente! 🎉',
                 'data': {
                     'idPago': pago.idPago,
                     'numeroPago': numero_asiento,
@@ -726,20 +751,25 @@ class PagoCreateAPIView(APIView):
                 }
             }
 
-            print(f"🎉 [PAGO-UPDATE] Pago completado: {response_data}")
+            print(f"🎉 [PAGO-MEGA] Pago completado EXITOSAMENTE: {response_data}")
             return Response(response_data, status=status.HTTP_201_CREATED)
 
         except Exception as e:
-            print(f"💥 [PAGO-UPDATE] ERROR NO CAPTURADO: {str(e)}")
+            print(f"💥 [PAGO-MEGA] ERROR NO CAPTURADO EN EL BLOQUE PRINCIPAL: {str(e)}")
             import traceback
             error_traceback = traceback.format_exc()
-            print(f"📋 [PAGO-UPDATE] Traceback:\n{error_traceback}")
+            print(f"📋 [PAGO-MEGA] Traceback completo:\n{error_traceback}")
             
-            # IMPORTANTE: Siempre devolver JSON, nunca HTML
+            # Limpiar recursos en caso de error
+            if asiento and not pago:
+                asiento.delete()
+                print("✅ [PAGO-MEGA] Asiento revertido por error general")
+            
             return Response({
                 'success': False,
                 'message': 'Error interno del servidor al procesar el pago',
-                'error': str(e),
+                'error_type': type(e).__name__,
+                'error_message': str(e),
                 'debug_info': 'Consulte los logs del servidor para más detalles'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 

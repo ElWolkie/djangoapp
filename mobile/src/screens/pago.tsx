@@ -157,11 +157,10 @@ const PagoScreen = () => {
     return;
   }
 
-  console.log('🚀 [FRONTEND-UPDATE] Iniciando procesamiento de pago...');
+  console.log('🚀 [FRONTEND-FINAL] Iniciando procesamiento de pago...');
   setLoading(true);
 
   try {
-    // Payload mejorado
     const payload = {
       idNota: parseInt(formData.idNota),
       formaPago: formData.formaPago,
@@ -171,28 +170,20 @@ const PagoScreen = () => {
       fechaPago: formData.fechaPago
     };
 
-    console.log('📤 [FRONTEND-UPDATE] Enviando payload:', payload);
+    console.log('📤 [FRONTEND-FINAL] Enviando payload:', payload);
 
-    // Configurar headers explícitamente
-    const config = {
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      }
-    };
+    const response = await api.post('/api/pagos/create/', payload);
+    console.log('📨 [FRONTEND-FINAL] Respuesta completa:', response);
 
-    const response = await api.post('/api/pagos/create/', payload, config);
-    
-    // Verificar que la respuesta sea JSON
-    if (typeof response.data === 'object' && response.data !== null) {
-      console.log('✅ [FRONTEND-UPDATE] Respuesta JSON recibida:', response.data);
-      
+    // Verificar estructura de respuesta
+    if (response.data && typeof response.data === 'object') {
       if (response.data.success) {
         Alert.alert(
           '¡Pago Exitoso! 🎉',
           `Pago procesado correctamente.\n\n` +
           `Número de transacción: ${response.data.data.numeroPago}\n` +
-          `Monto: $${formatCurrency(response.data.data.monto)}`,
+          `Monto: $${formatCurrency(response.data.data.monto)}\n` +
+          `Referencia: ${response.data.data.referencia || 'N/A'}`,
           [
             {
               text: 'Aceptar',
@@ -215,48 +206,47 @@ const PagoScreen = () => {
         throw new Error(response.data.message || 'Error del servidor');
       }
     } else {
-      // Si recibimos HTML en lugar de JSON
-      console.error('❌ [FRONTEND-UPDATE] Se recibió HTML en lugar de JSON');
-      throw new Error('El servidor respondió con un formato incorrecto');
+      throw new Error('Respuesta del servidor en formato incorrecto');
     }
 
   } catch (error: any) {
-    console.error('💥 [FRONTEND-UPDATE] Error procesando pago:', error);
+    console.error('💥 [FRONTEND-FINAL] Error:', error);
     
     let errorMessage = 'Error al procesar el pago';
     
     if (error.response) {
-      // El servidor respondió con un código de error
-      console.log('🔍 [FRONTEND-UPDATE] Detalles de respuesta:', {
+      console.log('🔍 [FRONTEND-FINAL] Detalles del error:', {
         status: error.response.status,
         data: error.response.data,
         headers: error.response.headers
       });
 
-      if (error.response.status === 500) {
-        errorMessage = 'Error interno del servidor. Por favor, contacte al administrador.';
-      } else if (error.response.data && typeof error.response.data === 'object') {
-        errorMessage = error.response.data.message || errorMessage;
-      } else if (typeof error.response.data === 'string') {
-        // Si el servidor devuelve HTML como string
-        if (error.response.data.includes('<!DOCTYPE html>')) {
-          errorMessage = 'Error de comunicación con el servidor. Intente nuevamente.';
-        } else {
-          errorMessage = error.response.data;
+      if (error.response.data) {
+        if (typeof error.response.data === 'object') {
+          errorMessage = error.response.data.message || errorMessage;
+          
+          // Mostrar detalles técnicos en desarrollo
+          if (__DEV__) {
+            console.log('🐛 [FRONTEND-FINAL] Error detallado:', error.response.data);
+          }
+        } else if (typeof error.response.data === 'string') {
+          if (error.response.data.includes('<!DOCTYPE html>')) {
+            errorMessage = 'Error interno del servidor. El administrador ha sido notificado.';
+          } else {
+            errorMessage = error.response.data;
+          }
         }
       }
     } else if (error.request) {
-      // La petición fue hecha pero no se recibió respuesta
       errorMessage = 'No se pudo conectar con el servidor. Verifique su conexión.';
     } else {
-      // Algo pasó al configurar la petición
       errorMessage = error.message || errorMessage;
     }
 
     Alert.alert('Error en Pago', errorMessage);
   } finally {
     setLoading(false);
-    console.log('🏁 [FRONTEND-UPDATE] Procesamiento finalizado');
+    console.log('🏁 [FRONTEND-FINAL] Procesamiento finalizado');
   }
 };
 
