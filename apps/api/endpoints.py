@@ -584,6 +584,7 @@ def corregir_relaciones_notas(request):
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 import json
+import sys
 
 @csrf_exempt
 def debug_produccion(request):
@@ -747,4 +748,43 @@ def pago_ultra_minimo(request):
         return JsonResponse({
             'error': str(e),
             'traceback': error_traceback
+        }, status=500)
+
+
+@csrf_exempt
+def emergencia_total(request):
+    """
+    Endpoint de emergencia - sin imports, sin modelos, solo Django puro
+    """
+    print("🆘 [EMERGENCIA-TOTAL] Ejecutando...")
+    
+    try:
+        # Sin imports, solo Python puro
+        import json
+        import traceback
+        
+        body = request.body.decode('utf-8') if request.body else '{}'
+        data = json.loads(body) if body else {}
+        
+        # Verificar versión de Django y Python
+        import django
+        info = {
+            'django_version': django.get_version(),
+            'python_version': sys.version,
+            'method': request.method,
+            'content_type': request.content_type,
+            'data_received': data
+        }
+        
+        return JsonResponse({
+            'success': True,
+            'message': '✅ SERVIDOR FUNCIONA',
+            'system_info': info
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'ERROR CRÍTICO: {str(e)}',
+            'python_version': sys.version
         }, status=500)

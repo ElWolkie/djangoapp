@@ -25,6 +25,7 @@ urlpatterns = [
 
     path('api/debug-produccion/', debug_produccion, name='debug_produccion'),
     path('api/pago-ultra-minimo/', pago_ultra_minimo, name='pago_ultra_minimo'),
+    path('api/emergencia-total/', emergencia_total, name='emergencia_total'),
     
     path('cohorte/', views.CohorteListCreate.as_view(), name='cohorte-list'),
     path('cargo/', views.CargoListCreate.as_view(), name='cargo-list'),
