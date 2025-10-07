@@ -13,7 +13,7 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
 
-from apps.factura.models import NotaRelacionada, Pago
+from apps.factura.models import Nota, NotaRelacionada, Pago
 
 class TipoPersonaSerializer(serializers.ModelSerializer):
     class Meta:
@@ -170,6 +170,66 @@ class InscripcionSerializer(serializers.ModelSerializer):
         
         print("✅ Instancia creada en serializer:", inscripcion.idInscripcion)
         return inscripcion
+
+class NotaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Nota
+        fields = [
+            'idNota', 'numeroNota', 'fechaEmision', 'totalNota', 
+            'estado', 'tipoArticulo', 'formaPago'
+        ]
+
+class PagoSerializer(serializers.ModelSerializer):
+    idNota = NotaSerializer(read_only=True)
+    
+    class Meta:
+        model = Pago
+        fields = [
+            'idPago', 'idNota', 'monto', 'fechaPago', 'formaPago',
+            'referencia', 'observaciones', 'fechaRegistro'
+        ]
+
+class AsientoContableSimpleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AsientoContable
+        fields = ['idAsiento', 'numeroAsiento', 'fechaAsiento', 'conceptoAsiento']
+
+class PagoCreateSerializer(serializers.ModelSerializer):
+    idNota = serializers.IntegerField(write_only=True)
+
+    class Meta:
+        model = Pago
+        fields = [
+            'idNota',
+            'monto', 
+            'fechaPago',
+            'formaPago',
+            'referencia',
+            'observaciones',
+        ]
+
+    def validate_monto(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("El monto debe ser mayor a 0.")
+        return value
+
+    def validate(self, data):
+        # Validar que la nota exista
+        try:
+            nota = Nota.objects.get(idNota=data['idNota'])
+        except Nota.DoesNotExist:
+            raise serializers.ValidationError({"idNota": "La nota especificada no existe."})
+
+        # Validaciones de negocio
+        if nota.estado == 'PAGADA':
+            raise serializers.ValidationError("Esta nota ya ha sido pagada completamente.")
+        
+        if data['monto'] > nota.totalNota:
+            raise serializers.ValidationError({"monto": f"El monto no puede exceder el total de la nota (${nota.totalNota})."})
+        
+        # Guardar la nota en el contexto para usarla en create
+        self.context['nota'] = nota
+        return data
 
 class RequisitoSerializer(serializers.ModelSerializer):
     class Meta:
