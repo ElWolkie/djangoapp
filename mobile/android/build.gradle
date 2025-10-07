@@ -1,3 +1,15 @@
+/*
+  Added ext properties to satisfy CI/autolinking expectations:
+  - ndkVersion must exist (usamos la versión que vimos instalado en CI: 27.1.12297006)
+  - compile/target/min sdk defaults
+*/
+ext {
+    ndkVersion = "27.1.12297006"
+    compileSdkVersion = 36
+    targetSdkVersion = 36
+    minSdkVersion = 24
+}
+
 // android/build.gradle - VERSIÓN CORREGIDA
 buildscript {
     repositories {
