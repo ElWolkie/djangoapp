@@ -152,64 +152,71 @@ const PagoScreen = () => {
   };
 
   const handleProcesarPago = async () => {
-    if (!validateForm()) {
-      Alert.alert('Error', 'Por favor complete todos los campos requeridos');
-      return;
-    }
+  if (!validateForm()) {
+    Alert.alert('Error', 'Por favor complete todos los campos requeridos');
+    return;
+  }
 
-    setLoading(true);
+  setLoading(true);
 
-    try {
-      const payload = {
-        idNota: parseInt(formData.idNota),
-        formaPago: formData.formaPago,
-        monto: parseFloat(formData.monto),
-        referencia: formData.referencia,
-        observaciones: formData.observaciones,
-        fechaPago: formData.fechaPago,
-        idTasa: 1,
-      };
+  try {
+    // Payload mínimo y seguro
+    const payload = {
+      idNota: parseInt(formData.idNota),
+      formaPago: formData.formaPago,
+      monto: parseFloat(formData.monto),
+      referencia: formData.referencia,
+      observaciones: formData.observaciones,
+      fechaPago: formData.fechaPago
+      // NO enviar idTasa, idCuentaBanco, ni idAsiento - el backend los maneja
+    };
 
-      console.log('📤 Enviando pago:', payload);
+    console.log('📤 Enviando pago (payload limpio):', payload);
 
-      const response = await api.post('/api/pagos/create/', payload);
+    const response = await api.post('/api/pagos/create/', payload);
 
-      if (response.data.success) {
-        Alert.alert(
-          '¡Pago Exitoso!',
-          `Pago procesado correctamente.\nNúmero de transacción: ${response.data.data.numeroPago}`,
-          [
-            {
-              text: 'Aceptar',
-              onPress: () => {
-                cargarNotasUsuario();
-                setNotaSeleccionada(null);
-                setFormData({
-                  idNota: '',
-                  formaPago: 'TRANSFERENCIA',
-                  monto: '',
-                  referencia: '',
-                  observaciones: '',
-                  fechaPago: new Date().toISOString().split('T')[0]
-                });
-              }
-            }
-          ]
-        );
-      } else {
-        throw new Error(response.data.message);
-      }
-
-    } catch (error: any) {
-      console.error('❌ Error procesando pago:', error);
+    if (response.data.success) {
       Alert.alert(
-        'Error en Pago',
-        error.response?.data?.message || error.message || 'Error al procesar el pago'
+        '¡Pago Exitoso!',
+        `Pago procesado correctamente.\nNúmero de transacción: ${response.data.data.numeroPago}`,
+        [
+          {
+            text: 'Aceptar',
+            onPress: () => {
+              cargarNotasUsuario();
+              setNotaSeleccionada(null);
+              setFormData({
+                idNota: '',
+                formaPago: 'TRANSFERENCIA',
+                monto: '',
+                referencia: '',
+                observaciones: '',
+                fechaPago: new Date().toISOString().split('T')[0]
+              });
+            }
+          }
+        ]
       );
-    } finally {
-      setLoading(false);
+    } else {
+      throw new Error(response.data.message);
     }
-  };
+
+  } catch (error: any) {
+    console.error('❌ Error procesando pago:', error);
+    console.log('🔍 Detalles completos del error:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status
+    });
+    
+    Alert.alert(
+      'Error en Pago',
+      error.response?.data?.message || error.message || 'Error al procesar el pago'
+    );
+  } finally {
+    setLoading(false);
+  }
+};
 
   const formatCurrency = (amount: number): string => {
     return new Intl.NumberFormat('es-VE', {
