@@ -1,11 +1,10 @@
 # En api/endpoints.py o en tu archivo de vistas
 from datetime import timedelta, timezone
-import json
 import traceback
 from rest_framework.decorators import api_view
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status, serializers
+from rest_framework import status
 from rest_framework.permissions import AllowAny
 
 from apps.persona.models import PersonaTP, Personas
@@ -26,7 +25,6 @@ from apps.factura.templatetags.decimal_filters import to_decimal
 from django.utils.timezone import now
 import uuid
 from decimal import Decimal, InvalidOperation
-from core import settings
 
 logger = logging.getLogger(__name__)
 
@@ -435,11 +433,216 @@ def generar_numero_nota():
     numero_unico = uuid.uuid4().hex[:6].upper()  # Tomar los primeros 6 caracteres del UUID
     return f"NOTA-{fecha_actual}-{numero_unico}"
 
-# En tu archivo de vistas (endpoints.py o views.py)
+from django.utils.timezone import now
+from decimal import Decimal
+import uuid
+
+class PagoCreateAPIView(APIView):
+    @transaction.atomic
+    def post(self, request):
+        try:
+            data = request.data
+            print(f"📥 Datos recibidos: {data}")
+            
+            # Validar datos requeridos
+            required_fields = ['idNota', 'formaPago', 'monto', 'fechaPago']
+            for field in required_fields:
+                if field not in data:
+                    return Response({
+                        'success': False,
+                        'message': f'Campo requerido faltante: {field}'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Obtener y validar nota
+            try:
+                nota = Nota.objects.get(idNota=data['idNota'])
+                print(f"✅ Nota encontrada: {nota.numeroNota} - Estado: {nota.estado}")
+            except Nota.DoesNotExist:
+                return Response({
+                    'success': False,
+                    'message': 'Nota no encontrada'
+                }, status=status.HTTP_404_NOT_FOUND)
+
+            if nota.estado == 'PAGADA':
+                return Response({
+                    'success': False,
+                    'message': 'Esta nota ya ha sido pagada completamente'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Validar monto
+            try:
+                monto_pago = Decimal(str(data['monto']))
+                if monto_pago <= 0:
+                    return Response({
+                        'success': False,
+                        'message': 'El monto debe ser mayor a 0'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
+                if monto_pago > nota.totalNota:
+                    return Response({
+                        'success': False,
+                        'message': f'El monto no puede ser mayor al total de la nota (${nota.totalNota})'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+            except (ValueError, InvalidOperation):
+                return Response({
+                    'success': False,
+                    'message': 'Formato de monto inválido'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # 🔥 CORRECCIÓN: Obtener tasa de la configuración, no moneda base
+            configuracion = Configuracion.objects.first()
+            if not configuracion:
+                return Response({
+                    'success': False,
+                    'message': 'Configuración del sistema no encontrada'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            moneda_configuracion = configuracion.moneda
+            tasa = Tasa.objects.filter(idMoneda=moneda_configuracion).order_by('-idTasa').first()
+            
+            if not tasa:
+                return Response({
+                    'success': False,
+                    'message': f'No se encontró tasa para la moneda de configuración ({moneda_configuracion.nombreMoneda})'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            print(f"✅ Tasa encontrada: {tasa.idTasa} - {tasa.montoTasa}")
+
+            # Obtener periodo contable activo
+            periodo_activo = periodoContable.objects.filter(estadoPeriodo=True).first()
+            if not periodo_activo:
+                return Response({
+                    'success': False,
+                    'message': 'No hay periodo contable activo'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            print(f"✅ Periodo activo: {periodo_activo.nombrePeriodo}")
+
+            # 🔥 CORRECCIÓN: Crear asiento contable con número único
+            numero_asiento = f"PAGO-{now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
+            
+            asiento = AsientoContable.objects.create(
+                numeroAsiento=numero_asiento,
+                fechaAsiento=now().date(),
+                conceptoAsiento=f"Pago de {data['formaPago']} - Nota: {nota.numeroNota}",
+                idPeriodo=periodo_activo
+            )
+            print(f"✅ Asiento contable creado: {asiento.idAsiento}")
+
+            # 🔥 CORRECCIÓN: Crear pago según el modelo REAL
+            pago = Pago.objects.create(
+                idNota=nota,
+                idAsiento=asiento,
+                idTasa=tasa,
+                # idCuentaBanco se deja null por ahora (no viene del frontend)
+                monto=monto_pago,
+                fechaPago=data['fechaPago'],
+                formaPago=data['formaPago'],
+                referencia=data.get('referencia', ''),
+                observaciones=data.get('observaciones', '')
+                # fechaRegistro se auto-genera
+            )
+            print(f"✅ Pago creado: {pago.idPago}")
+
+            # Actualizar estado de la nota
+            if monto_pago >= nota.totalNota:
+                nota.estado = 'PAGADA'
+                print(f"✅ Nota marcada como PAGADA")
+            else:
+                nota.estado = 'PARCIAL'
+                print(f"✅ Nota marcada como PARCIAL")
+            
+            nota.save()
+
+            # Actualizar estado de la inscripción relacionada si existe
+            try:
+                nota_relacionada = NotaRelacionada.objects.filter(idNota=nota).first()
+                if nota_relacionada and nota_relacionada.idInscripcion:
+                    inscripcion = nota_relacionada.idInscripcion
+                    if monto_pago >= nota.totalNota:
+                        inscripcion.estadoPago = 'PAGADO'
+                    else:
+                        inscripcion.estadoPago = 'PARCIAL'
+                    inscripcion.save()
+                    print(f"✅ Inscripción actualizada: {inscripcion.idInscripcion}")
+            except Exception as e:
+                print(f"⚠️ No se pudo actualizar inscripción: {str(e)}")
+
+            # 🔥 CORRECCIÓN: Crear detalles del asiento contable
+            try:
+                # Buscar cuentas contables para el tipo de artículo
+                plan_articulo_debe = PlanArticulo.objects.filter(
+                    tipoArticulo=nota.tipoArticulo,
+                    tipo=1  # DEBE
+                ).order_by('-fecha').first()
+                
+                plan_articulo_haber = PlanArticulo.objects.filter(
+                    tipoArticulo=nota.tipoArticulo, 
+                    tipo=0  # HABER
+                ).order_by('-fecha').first()
+
+                if plan_articulo_debe and plan_articulo_haber:
+                    DetalleAsiento.objects.create(
+                        idAsiento=asiento,
+                        idPlanCuenta=plan_articulo_debe.idPlanCuenta,
+                        debe=monto_pago,
+                        haber=Decimal('0.00')
+                    )
+                    DetalleAsiento.objects.create(
+                        idAsiento=asiento,
+                        idPlanCuenta=plan_articulo_haber.idPlanCuenta,
+                        debe=Decimal('0.00'),
+                        haber=monto_pago
+                    )
+                    print(f"✅ Detalles de asiento creados")
+                else:
+                    print(f"⚠️ No se encontraron cuentas contables para {nota.tipoArticulo}")
+            except Exception as e:
+                print(f"⚠️ Error creando detalles de asiento: {str(e)}")
+
+            # Respuesta exitosa
+            response_data = {
+                'success': True,
+                'message': '¡Pago procesado exitosamente! 🎉',
+                'data': {
+                    'idPago': pago.idPago,
+                    'numeroAsiento': asiento.numeroAsiento,  # Usar número de asiento como referencia
+                    'monto': float(pago.monto),
+                    'fechaPago': pago.fechaPago.isoformat(),
+                    'formaPago': pago.formaPago,
+                    'referencia': pago.referencia,
+                    'nota': {
+                        'idNota': nota.idNota,
+                        'numeroNota': nota.numeroNota,
+                        'nuevoEstado': nota.estado,
+                        'totalNota': float(nota.totalNota)
+                    }
+                }
+            }
+            
+            print("🎊 Pago procesado exitosamente!")
+            return Response(response_data, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            print(f"💥 Error en PagoCreateAPIView: {str(e)}")
+            import traceback
+            print(f"📋 Traceback: {traceback.format_exc()}")
+            
+            return Response({
+                'success': False,
+                'message': f'Error procesando pago: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def generar_numero_pago(self):
+        # CORREGIDO: usar now() en lugar de timezone.now()
+        fecha_actual = now().strftime('%Y%m%d')
+        numero_unico = uuid.uuid4().hex[:6].upper()
+        return f"PAGO-{fecha_actual}-{numero_unico}"
+
 @api_view(['GET'])
 def notas_por_usuario_autenticado(request):
     """
-    Obtener notas del usuario autenticado - VERSIÓN ROBUSTA
+    Obtener notas del usuario autenticado (usando el idPersona del usuario logueado)
     """
     try:
         # Obtener el usuario autenticado
@@ -468,48 +671,36 @@ def notas_por_usuario_autenticado(request):
 
         notas_data = []
         for nota in notas:
-            # Obtener información de formación - ENFOQUE DIRECTO Y ROBUSTO
+            # Obtener información de formación - MEJORADO
             formacion_nombre = "Formación no especificada"
             
-            # Método 1: Buscar directamente en NotaRelacionada
             try:
+                # Buscar en NotaRelacionada para obtener la formación
                 relacion = NotaRelacionada.objects.filter(idNota=nota).first()
                 if relacion:
-                    print(f"🔍 Relación encontrada para nota {nota.idNota}")
+                    if relacion.idInscripcion and relacion.idInscripcion.idFormacion:
+                        formacion_nombre = relacion.idInscripcion.idFormacion.nombreFormacion
+                    elif relacion.idCuota and relacion.idCuota.idFormacion:
+                        formacion_nombre = relacion.idCuota.idFormacion.nombreFormacion
+                    elif relacion.idSolicitud and relacion.idSolicitud.idFormacion:
+                        formacion_nombre = relacion.idSolicitud.idFormacion.nombreFormacion
                     
-                    # Intentar obtener desde inscripción
-                    if relacion.idInscripcion:
-                        print(f"📚 Tiene inscripción: {relacion.idInscripcion.idInscripcion}")
-                        if relacion.idInscripcion.idFormacion:
-                            formacion_nombre = relacion.idInscripcion.idFormacion.nombreFormacion
-                            print(f"✅ Formación desde inscripción: {formacion_nombre}")
-                    
-                    # Intentar obtener desde cuota
-                    elif relacion.idCuota:
-                        print(f"💰 Tiene cuota: {relacion.idCuota.idCuota}")
-                        if relacion.idCuota.idFormacion:
-                            formacion_nombre = relacion.idCuota.idFormacion.nombreFormacion
-                            print(f"✅ Formación desde cuota: {formacion_nombre}")
-                    
-                    # Intentar obtener desde solicitud
-                    elif relacion.idSolicitud:
-                        print(f"📋 Tiene solicitud: {relacion.idSolicitud.idSolicitud}")
-                        if relacion.idSolicitud.idFormacion:
-                            formacion_nombre = relacion.idSolicitud.idFormacion.nombreFormacion
-                            print(f"✅ Formación desde solicitud: {formacion_nombre}")
-                    
-                else:
-                    print(f"⚠️ No se encontró relación para nota {nota.idNota}")
-                    
+                    # Si aún no tenemos nombre, buscar en otros campos
+                    if formacion_nombre == "Formación no especificada":
+                        if relacion.idInscripcion:
+                            formacion_nombre = f"Inscripción #{relacion.idInscripcion.idInscripcion}"
+                        elif relacion.idCuota:
+                            formacion_nombre = f"Cuota #{relacion.idCuota.idCuota}"
+                        elif relacion.idSolicitud:
+                            formacion_nombre = f"Solicitud #{relacion.idSolicitud.idSolicitud}"
             except Exception as e:
-                print(f"❌ Error obteniendo formación para nota {nota.idNota}: {str(e)}")
-                import traceback
-                print(f"📋 Traceback: {traceback.format_exc()}")
+                print(f"⚠️ Error obteniendo formación para nota {nota.idNota}: {str(e)}")
+                formacion_nombre = "Información no disponible"
 
             notas_data.append({
                 'idNota': nota.idNota,
                 'numeroNota': nota.numeroNota,
-                'fechaEmision': nota.fechaEmision.strftime('%Y-%m-%d') if nota.fechaEmision else None,
+                'fechaEmision': nota.fechaEmision,
                 'totalNota': float(nota.totalNota),
                 'estado': nota.estado,
                 'formacion': {
@@ -525,228 +716,20 @@ def notas_por_usuario_autenticado(request):
             'success': True,
             'data': notas_data,
             'total': len(notas_data),
-            'debug_info': {
-                'persona_id': persona.idPersona,
-                'total_notas': len(notas_data)
+            'persona_info': {
+                'idPersona': persona.idPersona,
+                'nombre': f"{persona.nombres} {persona.apellidos}",
+                'cedula': persona.cedula
             }
         })
 
     except Exception as e:
         print(f"❌ Error en notas_por_usuario_autenticado: {str(e)}")
-        import traceback
-        print(f"📋 Traceback: {traceback.format_exc()}")
         return Response({
             'success': False,
             'message': f'Error obteniendo notas: {str(e)}'
         }, status=500)
 
-# --- SERIALIZER PARA VALIDACIÓN PROFESIONAL ---
-class PagoCreateSerializer(serializers.ModelSerializer):
-    # Definimos campos adicionales que vienen del frontend pero no están en el modelo Pago
-    # Usamos write_only=True para que solo se usen para la entrada/validación
-    idNota = serializers.IntegerField(write_only=True)
-
-    class Meta:
-        model = Pago
-        # Listamos los campos que el frontend enviará y que el modelo Pago espera
-        fields = [
-            'idNota',
-            'monto',
-            'fechaPago',
-            'formaPago',
-            'referencia',
-            'observaciones',
-        ]
-
-    def validate_monto(self, value):
-        if value <= 0:
-            raise serializers.ValidationError("El monto debe ser mayor a 0.")
-        return value
-
-    def validate(self, data):
-        # Obtenemos la nota y la guardamos en el contexto para usarla después
-        try:
-            nota = Nota.objects.get(idNota=data['idNota'])
-            self.context['nota'] = nota
-        except Nota.DoesNotExist:
-            raise serializers.ValidationError({"idNota": "La nota especificada no existe."})
-
-        # Validaciones de negocio
-        if nota.estado == 'PAGADA':
-            raise serializers.ValidationError("Esta nota ya ha sido pagada completamente.")
-        
-        if Decimal(data['monto']) > nota.totalNota:
-            raise serializers.ValidationError({"monto": f"El monto no puede exceder el total de la nota (${nota.totalNota})."})
-        
-        return data
-
-class PagoCreateAPIView(APIView):
-    def post(self, request, *args, **kwargs):
-        print("=" * 80)
-        print("🚀 [DEBUG-EXTREMO] PagoCreateAPIView INICIADA")
-        print("=" * 80)
-        
-        # 🔥 DEBUG SUPER EXTREMO
-        print("📥 HEADERS:", dict(request.headers))
-        print("📥 DATA RAW:", request.body)
-        print("📥 DATA PARSED:", request.data)
-        print("🔑 USER:", request.user)
-        print("🔑 AUTH:", request.auth)
-        print("🎯 METHOD:", request.method)
-        
-        try:
-            # 1. VERIFICAR SERIALIZER
-            print("🔍 [PASO 1] Creando serializer...")
-            serializer = PagoCreateSerializer(data=request.data)
-            print("✅ Serializer creado")
-            
-            print("🔍 [PASO 2] Validando serializer...")
-            if not serializer.is_valid():
-                print(f"❌ Serializer inválido: {serializer.errors}")
-                return Response({
-                    "success": False,
-                    "message": "Datos inválidos",
-                    "errors": serializer.errors
-                }, status=status.HTTP_400_BAD_REQUEST)
-            print("✅ Serializer válido")
-            
-            # 2. OBTENER DATOS VALIDADOS
-            validated_data = serializer.validated_data
-            nota = serializer.context['nota']
-            monto_pago = validated_data['monto']
-            
-            print(f"📥 Nota ID: {nota.idNota}")
-            print(f"💰 Monto: {monto_pago}")
-            
-            # 3. CONFIGURACIÓN
-            print("🔍 [PASO 3] Buscando configuración...")
-            configuracion = Configuracion.objects.first()
-            print(f"✅ Configuración: {configuracion}")
-            
-            if not configuracion:
-                raise Exception("No hay configuración en el sistema")
-            
-            # 4. MONEDA
-            print("🔍 [PASO 4] Buscando moneda...")
-            moneda_configuracion = configuracion.moneda
-            print(f"✅ Moneda: {moneda_configuracion}")
-            
-            # 5. TASA
-            print("🔍 [PASO 5] Buscando tasa...")
-            tasa = Tasa.objects.filter(idMoneda=moneda_configuracion).order_by('-idTasa').first()
-            print(f"✅ Tasa: {tasa}")
-            
-            if not tasa:
-                raise Exception(f"No se encontró tasa para moneda: {moneda_configuracion.nombreMoneda}")
-            
-            # 6. PERIODO CONTABLE
-            print("🔍 [PASO 6] Buscando periodo contable...")
-            periodo_activo = periodoContable.objects.filter(estadoPeriodo=True).first()
-            print(f"✅ Periodo: {periodo_activo}")
-            
-            if not periodo_activo:
-                raise Exception("No hay periodo contable activo")
-            
-            # 7. CREAR ASIENTO
-            print("🔍 [PASO 7] Creando asiento contable...")
-            numero_asiento = f"PAGO-{now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
-            asiento = AsientoContable.objects.create(
-                numeroAsiento=numero_asiento,
-                fechaAsiento=now().date(),
-                conceptoAsiento=f"Pago de {validated_data['formaPago']} - Nota: {nota.numeroNota}",
-                idPeriodo=periodo_activo
-            )
-            print(f"✅ Asiento creado: {asiento.idAsiento}")
-            
-            # 8. CREAR PAGO
-            print("🔍 [PASO 8] Creando pago...")
-            pago = Pago.objects.create(
-                idNota=nota,
-                idAsiento=asiento,
-                idTasa=tasa,
-                monto=monto_pago,
-                fechaPago=validated_data['fechaPago'],
-                formaPago=validated_data['formaPago'],
-                referencia=validated_data.get('referencia', ''),
-                observaciones=validated_data.get('observaciones', '')
-            )
-            print(f"✅ Pago creado: {pago.idPago}")
-            
-            # 9. ACTUALIZAR ESTADOS
-            print("🔍 [PASO 9] Actualizando estados...")
-            nuevo_estado_nota = 'PARCIAL'
-            if monto_pago >= nota.totalNota:
-                nuevo_estado_nota = 'PAGADA'
-            
-            nota.estado = nuevo_estado_nota
-            nota.save()
-            print(f"✅ Nota actualizada: {nuevo_estado_nota}")
-            
-            # 10. ACTUALIZAR INSCRIPCIÓN
-            relacion = NotaRelacionada.objects.filter(idNota=nota).first()
-            if relacion and relacion.idInscripcion:
-                inscripcion = relacion.idInscripcion
-                inscripcion.estadoPago = nuevo_estado_nota
-                inscripcion.save()
-                print(f"✅ Inscripción actualizada: {inscripcion.idInscripcion}")
-            
-            # ÉXITO
-            response_data = {
-                'success': True,
-                'message': '¡Pago procesado exitosamente! 🎉',
-                'data': {
-                    'idPago': pago.idPago,
-                    'numeroPago': numero_asiento,
-                    'monto': float(pago.monto),
-                    'fechaPago': pago.fechaPago.isoformat(),
-                    'formaPago': pago.formaPago,
-                    'referencia': pago.referencia,
-                    'nota': {
-                        'idNota': nota.idNota,
-                        'numeroNota': nota.numeroNota,
-                        'nuevoEstado': nuevo_estado_nota,
-                    }
-                }
-            }
-            
-            print("=" * 80)
-            print("🎊 [DEBUG-EXTREMO] PROCESO COMPLETADO EXITOSAMENTE!")
-            print("=" * 80)
-            
-            return Response(response_data, status=status.HTTP_201_CREATED)
-            
-        except Exception as e:
-            print("=" * 80)
-            print("💥 [DEBUG-EXTREMO] ERROR CRÍTICO CAPTURADO!")
-            print("=" * 80)
-            
-            # 🔥 FORZAR EL ERROR A LA CONSOLA
-            import traceback
-            error_traceback = traceback.format_exc()
-            
-            print(f"❌ ERROR: {str(e)}")
-            print(f"📋 TRACEBACK COMPLETO:")
-            print(error_traceback)
-            print("=" * 80)
-            
-            # También usar logging
-            logger.error(f"Error en PagoCreateAPIView: {str(e)}")
-            logger.error(f"Traceback: {error_traceback}")
-            
-            # Guardar en archivo
-            with open('debug_pago_error.txt', 'w', encoding='utf-8') as f:
-                f.write(f"ERROR: {str(e)}\n")
-                f.write(f"TRACEBACK:\n{error_traceback}\n")
-                f.write(f"DATA: {request.data}\n")
-                f.write(f"USER: {request.user}\n")
-            
-            return Response({
-                "success": False,
-                "message": f"Error interno: {str(e)}",
-                "debug_traceback": error_traceback
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-# Crea un script temporal para corregir las relaciones de notas
 @api_view(['POST'])
 def corregir_relaciones_notas(request):
     """
@@ -793,119 +776,4 @@ def corregir_relaciones_notas(request):
         return Response({
             'success': False,
             'message': f'Error: {str(e)}'
-        }, status=500)
-
-@api_view(['POST'])
-def debug_pago_render(request):
-    """
-    Endpoint especial de debug para Render.com
-    """
-    logger.info("🎯 [RENDER-DEBUG] Endpoint de debug llamado")
-    
-    try:
-        # Log detallado de la request
-        logger.info(f"📥 Headers: {dict(request.headers)}")
-        logger.info(f"📥 Método: {request.method}")
-        logger.info(f"📥 User: {request.user}")
-        logger.info(f"📥 Auth: {request.auth}")
-        
-        # Leer el body manualmente para evitar problemas de parsing
-        body = request.body.decode('utf-8') if request.body else '{}'
-        logger.info(f"📥 Body raw: {body}")
-        
-        try:
-            data = json.loads(body) if body else {}
-            logger.info(f"📥 Data parsed: {data}")
-        except json.JSONDecodeError as e:
-            logger.error(f"❌ Error parseando JSON: {e}")
-            data = {}
-        
-        # Verificar datos requeridos
-        required_fields = ['idNota', 'monto', 'formaPago', 'referencia', 'fechaPago']
-        missing_fields = [field for field in required_fields if field not in data]
-        
-        if missing_fields:
-            logger.error(f"❌ Campos faltantes: {missing_fields}")
-            return Response({
-                'success': False,
-                'message': f'Campos faltantes: {", ".join(missing_fields)}'
-            }, status=400)
-        
-        # Verificar que la nota existe
-        try:
-            nota = Nota.objects.get(idNota=data['idNota'])
-            logger.info(f"✅ Nota encontrada: {nota.idNota} - {nota.numeroNota}")
-        except Nota.DoesNotExist:
-            logger.error(f"❌ Nota no encontrada: {data['idNota']}")
-            return Response({
-                'success': False,
-                'message': 'Nota no encontrada'
-            }, status=404)
-        
-        # Simular proceso exitoso
-        response_data = {
-            'success': True,
-            'message': '✅ DEBUG - Endpoint funciona correctamente',
-            'debug_info': {
-                'nota_id': nota.idNota,
-                'nota_numero': nota.numeroNota,
-                'monto_recibido': data['monto'],
-                'forma_pago': data['formaPago'],
-                'timestamp': now().isoformat()
-            }
-        }
-        
-        logger.info("🎊 [RENDER-DEBUG] Proceso completado exitosamente")
-        return Response(response_data)
-        
-    except Exception as e:
-        logger.error(f"💥 [RENDER-DEBUG] Error crítico: {str(e)}")
-        import traceback
-        error_traceback = traceback.format_exc()
-        logger.error(f"📋 [RENDER-DEBUG] Traceback: {error_traceback}")
-        
-        return Response({
-            'success': False,
-            'message': f'Error en debug: {str(e)}',
-            'traceback': error_traceback
-        }, status=500)
-
-@api_view(['GET'])
-def health_check(request):
-    """
-    Health check para verificar que todo funciona
-    """
-    logger.info("🔍 [HEALTH-CHECK] Solicitado")
-    
-    checks = {}
-    
-    try:
-        # Verificar base de datos
-        from django.db import connection
-        with connection.cursor() as cursor:
-            cursor.execute("SELECT 1")
-            checks['database'] = 'OK'
-        
-        # Verificar modelos críticos
-        checks['configuracion'] = 'OK' if Configuracion.objects.exists() else 'MISSING'
-        checks['tasa'] = 'OK' if Tasa.objects.exists() else 'MISSING' 
-        checks['periodo'] = 'OK' if periodoContable.objects.filter(estadoPeriodo=True).exists() else 'MISSING'
-        checks['notas'] = Nota.objects.count()
-        
-        # Verificar que el usuario esté autenticado (si aplica)
-        checks['user_authenticated'] = request.user.is_authenticated
-        
-        logger.info(f"✅ [HEALTH-CHECK] Completado: {checks}")
-        
-        return Response({
-            'status': 'healthy',
-            'checks': checks,
-            'timestamp': now().isoformat()
-        })
-        
-    except Exception as e:
-        logger.error(f"❌ [HEALTH-CHECK] Error: {str(e)}")
-        return Response({
-            'status': 'unhealthy',
-            'error': str(e)
         }, status=500)

@@ -153,14 +153,13 @@ const PagoScreen = () => {
   };
 
   // 🚀 FUNCIÓN ACTUALIZADA PARA EL NUEVO ENDPOINT
-  // TEMPORAL: Función para testing en Render
-const handleProcesarPago = async () => {
+ const handleProcesarPago = async () => {
   if (!validateForm()) {
     Alert.alert('Error', 'Por favor complete todos los campos requeridos');
     return;
   }
 
-  console.log('🚀 [RENDER-TEST] Iniciando prueba en Render...');
+  console.log('🚀 [PAGO-FINAL] Iniciando procesamiento...');
   setLoading(true);
 
   try {
@@ -173,51 +172,57 @@ const handleProcesarPago = async () => {
       fechaPago: formData.fechaPago
     };
 
-    console.log('📤 [RENDER-TEST] Enviando a endpoint de debug...');
-    
-    // 🔥 TEMPORAL: Usar endpoint de debug
-    const response = await api.post('/api/pagos/debug-render/', payload);
-    
-    console.log('✅ [RENDER-TEST] Respuesta:', response.data);
-    
+    console.log('📤 [PAGO-FINAL] Enviando payload:', payload);
+
+    const response = await api.post('/api/pagos/create/', payload);
+    console.log('📨 [PAGO-FINAL] Respuesta:', response.data);
+
     if (response.data.success) {
+      const pagoData = response.data.data;
+      
       Alert.alert(
-        '✅ Debug Exitoso', 
-        `El endpoint funciona en Render!\n\n` +
-        `Nota: ${response.data.debug_info.nota_numero}\n` +
-        `Monto: $${response.data.debug_info.monto_recibido}\n` +
-        `Forma pago: ${response.data.debug_info.forma_pago}`,
+        '¡Pago Exitoso! 🎉',
+        `Pago procesado correctamente.\n\n` +
+        `Número de transacción: ${pagoData.numeroAsiento}\n` +
+        `Monto: $${formatCurrency(pagoData.monto)}\n` +
+        `Referencia: ${pagoData.referencia || 'N/A'}\n` +
+        `Estado de nota: ${pagoData.nota.nuevoEstado}`,
         [
           {
-            text: 'Continuar',
+            text: 'Aceptar',
             onPress: () => {
-              // Aquí podrías intentar con el endpoint real
-              // handleProcesarPagoReal();
+              if (modoDirecto) {
+                cargarNotasUsuario();
+                setNotaSeleccionada(null);
+                setFormData({
+                  idNota: '',
+                  formaPago: 'TRANSFERENCIA',
+                  monto: '',
+                  referencia: '',
+                  observaciones: '',
+                  fechaPago: new Date().toISOString().split('T')[0]
+                });
+              } else {
+                navigation.goBack();
+              }
             }
           }
         ]
       );
     } else {
-      throw new Error(response.data.message);
+      throw new Error(response.data.message || 'Error del servidor');
     }
-    
+
   } catch (error: any) {
-    console.error('❌ [RENDER-TEST] Error:', error);
+    console.error('💥 [PAGO-FINAL] Error:', error);
     
-    let errorMessage = 'Error en prueba de Render';
+    let errorMessage = 'Error al procesar el pago';
     
     if (error.response?.data) {
       errorMessage = error.response.data.message || errorMessage;
-      if (error.response.data.traceback) {
-        console.log('📋 Traceback del servidor:', error.response.data.traceback);
-        // En desarrollo, mostrar el traceback completo
-        if (__DEV__) {
-          errorMessage += `\n\nDebug: ${error.response.data.traceback}`;
-        }
-      }
     }
     
-    Alert.alert('Error en Render', errorMessage);
+    Alert.alert('Error en Pago', errorMessage);
   } finally {
     setLoading(false);
   }
