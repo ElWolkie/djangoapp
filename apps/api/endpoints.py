@@ -580,10 +580,8 @@ class PagoCreateSerializer(serializers.ModelSerializer):
         return data
 
 
-# --- VISTA DE API REFORJADA ---
+# CORREGIR ESTA PARTE DEL ENDPOINT
 class PagoCreateAPIView(APIView):
-    # permission_classes = [IsAuthenticated] # Descomenta si requieres autenticación
-
     @transaction.atomic
     def post(self, request, *args, **kwargs):
         print("🚀 [PAGO-REFORJADO] Iniciando procesamiento...")
@@ -597,22 +595,39 @@ class PagoCreateAPIView(APIView):
                 "errors": serializer.errors
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        # Si la validación es exitosa, los datos están en serializer.validated_data
         validated_data = serializer.validated_data
-        nota = serializer.context['nota'] # Recuperamos la nota desde el contexto
+        nota = serializer.context['nota']
         monto_pago = validated_data['monto']
 
         print(f"📥 [PAGO-REFORJADO] Datos validados para Nota ID {nota.idNota}")
 
         try:
-            # 1. OBTENER CONFIGURACIONES
+            # 1. OBTENER CONFIGURACIONES - CORREGIDO
             periodo_activo = periodoContable.objects.filter(estadoPeriodo=True).first()
             if not periodo_activo:
-                raise Exception("No hay un periodo contable activo configurado.")
+                return Response({
+                    "success": False,
+                    "message": "No hay un periodo contable activo configurado."
+                }, status=status.HTTP_400_BAD_REQUEST)
 
-            tasa = Tasa.objects.filter(idTasa=4).first() # Asumiendo idTasa=4
+            # 🔥 CORRECIÓN IMPORTANTE: Obtener tasa de la configuración
+            configuracion = Configuracion.objects.first()
+            if not configuracion:
+                return Response({
+                    "success": False,
+                    "message": "No se encontró configuración en el sistema."
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            moneda_configuracion = configuracion.moneda
+            tasa = Tasa.objects.filter(idMoneda=moneda_configuracion).order_by('-idTasa').first()
+            
             if not tasa:
-                raise Exception("Tasa con ID 4 no encontrada.")
+                return Response({
+                    "success": False,
+                    "message": f"No se encontró tasa para la moneda de configuración ({moneda_configuracion.nombreMoneda})."
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            print(f"✅ [PAGO-REFORJADO] Tasa encontrada: {tasa.idTasa}")
 
             # 2. CREAR ASIENTO CONTABLE
             numero_asiento = f"PAGO-{now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
@@ -628,7 +643,7 @@ class PagoCreateAPIView(APIView):
             pago = Pago.objects.create(
                 idNota=nota,
                 idAsiento=asiento,
-                idTasa=tasa,
+                idTasa=tasa,  # 🔥 Usamos la tasa obtenida de configuración
                 monto=monto_pago,
                 fechaPago=validated_data['fechaPago'],
                 formaPago=validated_data['formaPago'],
@@ -677,11 +692,14 @@ class PagoCreateAPIView(APIView):
 
         except Exception as e:
             print(f"💣 [PAGO-REFORJADO] ERROR en la transacción: {str(e)}")
-            # La transacción se revertirá automáticamente gracias a @transaction.atomic
+            import traceback
+            print(f"📋 Traceback completo: {traceback.format_exc()}")
+            
             return Response({
                 "success": False,
                 "message": "Error interno del servidor al procesar el pago.",
-                "error": str(e)
+                "error": str(e),
+                "traceback": traceback.format_exc() if settings.DEBUG else None
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 # Crea un script temporal para corregir las relaciones de notas

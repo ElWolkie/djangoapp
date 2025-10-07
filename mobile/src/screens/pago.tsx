@@ -153,121 +153,112 @@ const PagoScreen = () => {
   };
 
   // 🚀 FUNCIÓN ACTUALIZADA PARA EL NUEVO ENDPOINT
-  const handleProcesarPago = async () => {
-    if (!validateForm()) {
-      Alert.alert('Error', 'Por favor complete todos los campos requeridos');
-      return;
+  // ACTUALIZA SOLO LA FUNCIÓN handleProcesarPago - VERSIÓN DEBUG
+const handleProcesarPago = async () => {
+  if (!validateForm()) {
+    Alert.alert('Error', 'Por favor complete todos los campos requeridos');
+    return;
+  }
+
+  console.log('🚀 [PAGO-DEBUG] Iniciando procesamiento...');
+  setLoading(true);
+
+  try {
+    const payload = {
+      idNota: parseInt(formData.idNota),
+      formaPago: formData.formaPago,
+      monto: parseFloat(formData.monto),
+      referencia: formData.referencia,
+      observaciones: formData.observaciones,
+      fechaPago: formData.fechaPago
+    };
+
+    console.log('📤 [PAGO-DEBUG] Enviando payload:', payload);
+
+    const response = await api.post('/api/pagos/create/', payload);
+    
+    // 🔥 DETECCIÓN DE RESPUESTA HTML
+    const contentType = response.headers['content-type'] || '';
+    if (contentType.includes('text/html')) {
+      console.error('❌ [PAGO-DEBUG] Servidor respondió con HTML en lugar de JSON');
+      throw new Error('El servidor está respondiendo con una página de error. Verifica los logs del backend.');
     }
 
-    console.log('🚀 [PAGO-ADAPTADO] Iniciando procesamiento de pago...');
-    setLoading(true);
+    console.log('📨 [PAGO-DEBUG] Respuesta JSON:', response.data);
 
-    try {
-      // 🔥 PAYLOAD ADAPTADO AL NUEVO ENDPOINT
-      const payload = {
-        idNota: parseInt(formData.idNota),
-        formaPago: formData.formaPago,
-        monto: parseFloat(formData.monto),
-        referencia: formData.referencia,
-        observaciones: formData.observaciones,
-        fechaPago: formData.fechaPago
-        // idTasa e idAsiento se manejan automáticamente en el backend
-      };
-
-      console.log('📤 [PAGO-ADAPTADO] Enviando payload:', payload);
-
-      // 🔥 ENDPOINT ACTUALIZADO
-      const response = await api.post('/api/pagos/create/', payload);
-      console.log('📨 [PAGO-ADAPTADO] Respuesta completa:', response);
-
-      // 🔥 MANEJO DE RESPUESTA ACTUALIZADO
-      if (response.data && response.data.success) {
-        const pagoData = response.data.data;
-        
-        Alert.alert(
-          '¡Pago Exitoso! 🎉',
-          `Pago procesado correctamente.\n\n` +
-          `Número de transacción: ${pagoData.numeroPago}\n` +
-          `Monto: $${formatCurrency(pagoData.monto)}\n` +
-          `Referencia: ${pagoData.referencia || 'N/A'}\n` +
-          `Estado de nota: ${pagoData.nota.nuevoEstado}`,
-          [
-            {
-              text: 'Aceptar',
-              onPress: () => {
-                // Resetear formulario y estado
-                if (modoDirecto) {
-                  cargarNotasUsuario();
-                  setNotaSeleccionada(null);
-                  setFormData({
-                    idNota: '',
-                    formaPago: 'TRANSFERENCIA',
-                    monto: '',
-                    referencia: '',
-                    observaciones: '',
-                    fechaPago: new Date().toISOString().split('T')[0]
-                  });
-                } else {
-                  // En modo automático, navegar hacia atrás
-                  navigation.goBack();
-                }
+    if (response.data && response.data.success) {
+      const pagoData = response.data.data;
+      
+      Alert.alert(
+        '¡Pago Exitoso! 🎉',
+        `Pago procesado correctamente.\n\n` +
+        `Número de transacción: ${pagoData.numeroPago}\n` +
+        `Monto: $${formatCurrency(pagoData.monto)}\n` +
+        `Referencia: ${pagoData.referencia || 'N/A'}`,
+        [
+          {
+            text: 'Aceptar',
+            onPress: () => {
+              if (modoDirecto) {
+                cargarNotasUsuario();
+                setNotaSeleccionada(null);
+                setFormData({
+                  idNota: '',
+                  formaPago: 'TRANSFERENCIA',
+                  monto: '',
+                  referencia: '',
+                  observaciones: '',
+                  fechaPago: new Date().toISOString().split('T')[0]
+                });
+              } else {
+                navigation.goBack();
               }
             }
-          ]
-        );
-      } else {
-        throw new Error(response.data.message || 'Error del servidor');
-      }
-
-    } catch (error: any) {
-      console.error('💥 [PAGO-ADAPTADO] Error:', error);
-      
-      let errorMessage = 'Error al procesar el pago';
-      
-      if (error.response) {
-        console.log('🔍 [PAGO-ADAPTADO] Detalles del error:', {
-          status: error.response.status,
-          data: error.response.data,
-          headers: error.response.headers
-        });
-
-        // 🔥 MANEJO MEJORADO DE ERRORES DEL NUEVO ENDPOINT
-        if (error.response.data) {
-          if (typeof error.response.data === 'object') {
-            // Manejar errores de validación del serializer
-            if (error.response.data.errors) {
-              const validationErrors = error.response.data.errors;
-              // Mostrar el primer error de validación
-              const firstError = Object.values(validationErrors)[0];
-              errorMessage = Array.isArray(firstError) ? firstError[0] : String(firstError);
-            } else {
-              errorMessage = error.response.data.message || errorMessage;
-            }
-            
-            // Mostrar detalles técnicos en desarrollo
-            if (__DEV__) {
-              console.log('🐛 [PAGO-ADAPTADO] Error detallado:', error.response.data);
-            }
-          } else if (typeof error.response.data === 'string') {
-            if (error.response.data.includes('<!DOCTYPE html>')) {
-              errorMessage = 'Error interno del servidor. El administrador ha sido notificado.';
-            } else {
-              errorMessage = error.response.data;
-            }
           }
-        }
-      } else if (error.request) {
-        errorMessage = 'No se pudo conectar con el servidor. Verifique su conexión.';
-      } else {
-        errorMessage = error.message || errorMessage;
-      }
-
-      Alert.alert('Error en Pago', errorMessage);
-    } finally {
-      setLoading(false);
-      console.log('🏁 [PAGO-ADAPTADO] Procesamiento finalizado');
+        ]
+      );
+    } else {
+      throw new Error(response.data.message || 'Error del servidor');
     }
-  };
+
+  } catch (error: any) {
+    console.error('💥 [PAGO-DEBUG] Error completo:', error);
+    
+    let errorMessage = 'Error al procesar el pago';
+    
+    if (error.response) {
+      console.log('🔍 [PAGO-DEBUG] Detalles respuesta:', {
+        status: error.response.status,
+        headers: error.response.headers,
+        data: error.response.data
+      });
+
+      // Detectar si es HTML
+      const contentType = error.response.headers['content-type'];
+      if (contentType && contentType.includes('text/html')) {
+        errorMessage = 'Error interno del servidor (500). El administrador ha sido notificado.';
+        console.log('⚠️ [PAGO-DEBUG] El servidor devolvió HTML en lugar de JSON');
+      } else if (error.response.data && typeof error.response.data === 'object') {
+        if (error.response.data.errors) {
+          const validationErrors = error.response.data.errors;
+          const firstError = Object.values(validationErrors)[0];
+          errorMessage = Array.isArray(firstError) ? firstError[0] : String(firstError);
+        } else {
+          errorMessage = error.response.data.message || errorMessage;
+        }
+      }
+    } else if (error.request) {
+      errorMessage = 'No se pudo conectar con el servidor. Verifique su conexión.';
+    } else {
+      errorMessage = error.message || errorMessage;
+    }
+
+    Alert.alert('Error en Pago', errorMessage);
+  } finally {
+    setLoading(false);
+    console.log('🏁 [PAGO-DEBUG] Procesamiento finalizado');
+  }
+};
 
   const formatCurrency = (amount: number): string => {
     return new Intl.NumberFormat('es-VE', {
