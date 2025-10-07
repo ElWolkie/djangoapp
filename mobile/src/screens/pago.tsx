@@ -157,32 +157,37 @@ const PagoScreen = () => {
     return;
   }
 
+  console.log('🚀 [FRONTEND] Iniciando procesamiento de pago...');
   setLoading(true);
 
   try {
-    // Payload mínimo y seguro
+    // Payload MÍNIMO y SEGURO
     const payload = {
       idNota: parseInt(formData.idNota),
       formaPago: formData.formaPago,
       monto: parseFloat(formData.monto),
-      referencia: formData.referencia,
-      observaciones: formData.observaciones,
+      referencia: formData.referencia || 'SIN-REFERENCIA', // Nunca vacío
+      observaciones: formData.observaciones || '',
       fechaPago: formData.fechaPago
-      // NO enviar idTasa, idCuentaBanco, ni idAsiento - el backend los maneja
     };
 
-    console.log('📤 Enviando pago (payload limpio):', payload);
+    console.log('📤 [FRONTEND] Enviando payload:', payload);
 
     const response = await api.post('/api/pagos/create/', payload);
+    console.log('✅ [FRONTEND] Respuesta del servidor:', response.data);
 
     if (response.data.success) {
       Alert.alert(
-        '¡Pago Exitoso!',
-        `Pago procesado correctamente.\nNúmero de transacción: ${response.data.data.numeroPago}`,
+        '¡Pago Exitoso! 🎉',
+        `Pago procesado correctamente.\n\n` +
+        `Monto: $${formatCurrency(parseFloat(formData.monto))}\n` +
+        `Referencia: ${formData.referencia}\n` +
+        `Número de transacción: ${response.data.data.numeroPago}`,
         [
           {
             text: 'Aceptar',
             onPress: () => {
+              console.log('🔄 [FRONTEND] Recargando lista de notas...');
               cargarNotasUsuario();
               setNotaSeleccionada(null);
               setFormData({
@@ -198,23 +203,44 @@ const PagoScreen = () => {
         ]
       );
     } else {
-      throw new Error(response.data.message);
+      throw new Error(response.data.message || 'Error desconocido del servidor');
     }
 
   } catch (error: any) {
-    console.error('❌ Error procesando pago:', error);
-    console.log('🔍 Detalles completos del error:', {
+    console.error('💥 [FRONTEND] Error procesando pago:', error);
+    
+    // Log detallado del error
+    const errorDetails = {
       message: error.message,
       response: error.response?.data,
-      status: error.response?.status
-    });
+      status: error.response?.status,
+      headers: error.response?.headers,
+      config: error.response?.config
+    };
+    console.log('🔍 [FRONTEND] Detalles completos del error:', errorDetails);
+
+    // Mensaje de error específico
+    let errorMessage = 'Error al procesar el pago';
     
+    if (error.response?.data?.message) {
+      errorMessage = error.response.data.message;
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+
+    // Mostrar detalles técnicos en desarrollo
+    if (__DEV__ && error.response?.data?.traceback) {
+      console.log('🐛 [FRONTEND] Traceback del servidor:', error.response.data.traceback);
+    }
+
     Alert.alert(
       'Error en Pago',
-      error.response?.data?.message || error.message || 'Error al procesar el pago'
+      errorMessage,
+      [{ text: 'Entendido' }]
     );
   } finally {
     setLoading(false);
+    console.log('🏁 [FRONTEND] Procesamiento de pago finalizado');
   }
 };
 

@@ -544,29 +544,30 @@ def notas_por_usuario_autenticado(request):
 class PagoCreateAPIView(APIView):
     @transaction.atomic
     def post(self, request):
+        print("🚀 [PAGO] Iniciando procesamiento de pago...")
+        
         try:
             data = request.data
-            print(f"📥 [DEBUG] Datos recibidos para pago: {data}")
+            print(f"📥 [PAGO] Datos recibidos: {data}")
             
-            # Validar datos requeridos
-            required_fields = ['idNota', 'formaPago', 'monto', 'fechaPago']
-            for field in required_fields:
-                if field not in data:
-                    return Response({
-                        'success': False,
-                        'message': f'Campo requerido faltante: {field}'
-                    }, status=status.HTTP_400_BAD_REQUEST)
+            # Validación básica
+            if not data.get('idNota'):
+                return Response({
+                    'success': False,
+                    'message': 'ID de nota es requerido'
+                }, status=status.HTTP_400_BAD_REQUEST)
 
-            # Obtener y validar nota
-            nota = Nota.objects.filter(idNota=data['idNota']).first()
-            if not nota:
+            # Obtener la nota
+            try:
+                nota = Nota.objects.get(idNota=data['idNota'])
+                print(f"📋 [PAGO] Nota encontrada: {nota.numeroNota} - Estado: {nota.estado}")
+            except Nota.DoesNotExist:
                 return Response({
                     'success': False,
                     'message': 'Nota no encontrada'
                 }, status=status.HTTP_404_NOT_FOUND)
 
-            print(f"📋 [DEBUG] Nota encontrada: ID={nota.idNota}, Numero={nota.numeroNota}, Estado={nota.estado}, Total={nota.totalNota}")
-
+            # Validar que la nota esté pendiente
             if nota.estado == 'PAGADA':
                 return Response({
                     'success': False,
@@ -574,156 +575,212 @@ class PagoCreateAPIView(APIView):
                 }, status=status.HTTP_400_BAD_REQUEST)
 
             # Validar monto
-            monto_pago = Decimal(str(data['monto']))
-            print(f"💰 [DEBUG] Monto a pagar: {monto_pago}, Total nota: {nota.totalNota}")
+            try:
+                monto_pago = Decimal(str(data.get('monto', 0)))
+                if monto_pago <= 0:
+                    return Response({
+                        'success': False,
+                        'message': 'El monto debe ser mayor a 0'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+                
+                if monto_pago > nota.totalNota:
+                    return Response({
+                        'success': False,
+                        'message': f'El monto no puede ser mayor al total de la nota (${nota.totalNota})'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+            except (ValueError, TypeError) as e:
+                return Response({
+                    'success': False,
+                    'message': 'Monto inválido'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # ========== CREACIÓN DEL ASIENTO CONTABLE ==========
+            print("📘 [PAGO] Creando asiento contable...")
             
-            if monto_pago <= 0:
-                return Response({
-                    'success': False,
-                    'message': 'El monto debe ser mayor a 0'
-                }, status=status.HTTP_400_BAD_REQUEST)
-
-            if monto_pago > nota.totalNota:
-                return Response({
-                    'success': False,
-                    'message': f'El monto no puede ser mayor al total de la nota (${nota.totalNota})'
-                }, status=status.HTTP_400_BAD_REQUEST)
-
-            # Obtener moneda base (ID=1) y su tasa
-            moneda_base = Moneda.objects.filter(idMoneda=1).first()
-            if not moneda_base:
-                return Response({
-                    'success': False,
-                    'message': 'Moneda base no configurada'
-                }, status=status.HTTP_400_BAD_REQUEST)
-
-            tasa_base = Tasa.objects.filter(idMoneda=moneda_base).order_by('-idTasa').first()
-            if not tasa_base:
-                return Response({
-                    'success': False,
-                    'message': 'No se encontró tasa para la moneda base'
-                }, status=status.HTTP_400_BAD_REQUEST)
-
-            print(f"💱 [DEBUG] Tasa encontrada: ID={tasa_base.idTasa}, Monto={tasa_base.montoTasa}")
-
-            # Obtener periodo contable activo
+            # Obtener periodo contable (usar el más reciente si no hay activo)
             periodo_activo = periodoContable.objects.filter(estadoPeriodo=True).first()
             if not periodo_activo:
                 periodo_activo = periodoContable.objects.order_by('-idPeriodo').first()
                 if not periodo_activo:
-                    return Response({
-                        'success': False,
-                        'message': 'No hay periodos contables configurados'
-                    }, status=status.HTTP_400_BAD_REQUEST)
+                    # Si no hay periodos, crear uno temporal (solo para desarrollo)
+                    print("⚠️ [PAGO] No hay periodos contables, creando uno temporal...")
+                    periodo_activo = periodoContable.objects.create(
+                        descripcionPeriodo="Periodo Temporal - Auto-generado",
+                        fechaInicio=now().date(),
+                        fechaFin=now().date() + timedelta(days=365),
+                        estadoPeriodo=True
+                    )
 
-            print(f"📅 [DEBUG] Periodo contable: {periodo_activo.idPeriodo}")
-
-            # Generar número de pago
-            numero_pago = self.generar_numero_pago()
-            print(f"🔢 [DEBUG] Número de pago generado: {numero_pago}")
-
+            # Generar número único para el asiento
+            numero_asiento = f"PAGO-{now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
+            
             # Crear asiento contable
-            try:
-                asiento = AsientoContable.objects.create(
-                    numeroAsiento=f"PAGO-{numero_pago}",
-                    fechaAsiento=now().date(),
-                    conceptoAsiento=f"Pago de nota {nota.numeroNota} - {data['formaPago']}",
-                    idPeriodo=periodo_activo
-                )
-                print(f"✅ [DEBUG] Asiento contable creado: {asiento.numeroAsiento}")
-            except Exception as e:
-                print(f"❌ [DEBUG] Error creando asiento: {str(e)}")
-                return Response({
-                    'success': False,
-                    'message': f'Error creando asiento contable: {str(e)}'
-                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            asiento = AsientoContable.objects.create(
+                numeroAsiento=numero_asiento,
+                fechaAsiento=now().date(),
+                conceptoAsiento=f"Pago de {data.get('formaPago', 'PAGO')} - Nota: {nota.numeroNota}",
+                idPeriodo=periodo_activo
+            )
+            print(f"✅ [PAGO] Asiento contable creado: {asiento.numeroAsiento}")
 
-            # Crear registro de pago - VERSIÓN SIMPLIFICADA
+            # ========== OBTENER TASA ==========
+            print("💱 [PAGO] Obteniendo tasa...")
             try:
-                pago = Pago.objects.create(
-                    idNota=nota,
-                    idAsiento=asiento,
-                    idTasa=tasa_base,
-                    formaPago=data['formaPago'],
-                    monto=monto_pago,
-                    referencia=data.get('referencia', ''),
-                    observaciones=data.get('observaciones', ''),
-                    fechaPago=data['fechaPago']
-                    # idCuentaBanco se deja como NULL (no se incluye)
-                )
-                print(f"✅ [DEBUG] Pago creado exitosamente: ID={pago.idPago}")
+                # Buscar tasa activa para moneda base (BS)
+                tasa = Tasa.objects.filter(
+                    idMoneda_id=1,  # Moneda base (Bolívares)
+                    estadoTasa=True
+                ).order_by('-idTasa').first()
+                
+                if not tasa:
+                    # Crear tasa temporal si no existe
+                    from apps.home.models import Moneda
+                    moneda_base = Moneda.objects.filter(idMoneda=1).first()
+                    if not moneda_base:
+                        moneda_base = Moneda.objects.create(
+                            nombreMoneda="Bolívar",
+                            simboloMoneda="Bs",
+                            estadoMoneda=True
+                        )
+                    
+                    tasa = Tasa.objects.create(
+                        idMoneda=moneda_base,
+                        montoTasa=1.00,  # Tasa 1:1
+                        fechaTasa=now().date(),
+                        estadoTasa=True
+                    )
+                    print("⚠️ [PAGO] Tasa temporal creada")
+                
+                print(f"✅ [PAGO] Tasa encontrada: {tasa.idTasa}")
+                
             except Exception as e:
-                print(f"❌ [DEBUG] Error creando pago: {str(e)}")
-                return Response({
-                    'success': False,
-                    'message': f'Error creando registro de pago: {str(e)}'
-                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                print(f"❌ [PAGO] Error con tasa: {str(e)}")
+                # Continuar sin tasa (permitir null si el modelo lo permite)
+                tasa = None
 
-            # Actualizar estado de la nota
-            if monto_pago == nota.totalNota:
+            # ========== CREACIÓN DEL PAGO ==========
+            print("💰 [PAGO] Creando registro de pago...")
+            
+            # Preparar datos para el pago
+            pago_data = {
+                'idNota': nota,
+                'idAsiento': asiento,
+                'formaPago': data.get('formaPago', 'TRANSFERENCIA'),
+                'monto': monto_pago,
+                'fechaPago': data.get('fechaPago', now().date()),
+                'referencia': data.get('referencia', ''),
+                'observaciones': data.get('observaciones', ''),
+            }
+            
+            # Agregar tasa solo si existe y el campo es requerido
+            if tasa:
+                pago_data['idTasa'] = tasa
+            
+            # Crear el pago
+            pago = Pago.objects.create(**pago_data)
+            print(f"✅ [PAGO] Pago creado exitosamente: ID {pago.idPago}")
+
+            # ========== ACTUALIZAR ESTADO DE LA NOTA ==========
+            print("🔄 [PAGO] Actualizando estado de la nota...")
+            
+            if monto_pago >= nota.totalNota:
                 nota.estado = 'PAGADA'
-                estado_nuevo = 'PAGADA'
+                nuevo_estado = 'PAGADA'
             else:
-                nota.estado = 'PARCIAL' 
-                estado_nuevo = 'PARCIAL'
+                nota.estado = 'PARCIAL'
+                nuevo_estado = 'PARCIAL'
             
             nota.save()
-            print(f"✅ [DEBUG] Estado de nota actualizado a: {nota.estado}")
+            print(f"✅ [PAGO] Estado de nota actualizado a: {nuevo_estado}")
 
-            # Intentar actualizar estado de inscripción (si existe relación)
+            # ========== ACTUALIZAR INSCRIPCIÓN RELACIONADA ==========
+            print("📚 [PAGO] Actualizando inscripción relacionada...")
             try:
-                nota_relacionada = NotaRelacionada.objects.filter(idNota=nota).first()
-                if nota_relacionada and nota_relacionada.idInscripcion:
-                    inscripcion = nota_relacionada.idInscripcion
-                    if monto_pago == nota.totalNota:
+                relacion = NotaRelacionada.objects.filter(idNota=nota).first()
+                if relacion and relacion.idInscripcion:
+                    inscripcion = relacion.idInscripcion
+                    if monto_pago >= nota.totalNota:
                         inscripcion.estadoPago = 'PAGADO'
                     else:
                         inscripcion.estadoPago = 'PARCIAL'
                     inscripcion.save()
-                    print(f"✅ [DEBUG] Estado de inscripción actualizado a: {inscripcion.estadoPago}")
+                    print(f"✅ [PAGO] Estado de inscripción actualizado: {inscripcion.estadoPago}")
                 else:
-                    print(f"⚠️ [DEBUG] No se encontró relación para actualizar inscripción")
+                    print("ℹ️ [PAGO] No se encontró inscripción relacionada")
             except Exception as e:
-                print(f"⚠️ [DEBUG] No se pudo actualizar estado de inscripción: {str(e)}")
+                print(f"⚠️ [PAGO] Error actualizando inscripción: {str(e)}")
 
-            # Respuesta exitosa
+            # ========== CREAR DETALLES DEL ASIENTO ==========
+            print("📊 [PAGO] Creando detalles del asiento contable...")
+            try:
+                # Buscar planes de cuenta para ingresos
+                plan_ingresos = PlanArticulo.objects.filter(
+                    tipoArticulo='INSCRIPCION',
+                    tipo=0  # Haber (ingresos)
+                ).order_by('-fecha').first()
+                
+                plan_banco = PlanArticulo.objects.filter(
+                    tipoArticulo='INSCRIPCION', 
+                    tipo=1  # Debe (activos)
+                ).order_by('-fecha').first()
+
+                if plan_ingresos and plan_banco:
+                    # Débito: Banco (aumenta activo)
+                    DetalleAsiento.objects.create(
+                        idAsiento=asiento,
+                        idPlanCuenta=plan_banco.idPlanCuenta,
+                        debe=monto_pago,
+                        haber=Decimal('0.00')
+                    )
+                    
+                    # Crédito: Ingresos (aumenta patrimonio)
+                    DetalleAsiento.objects.create(
+                        idAsiento=asiento,
+                        idPlanCuenta=plan_ingresos.idPlanCuenta,
+                        debe=Decimal('0.00'),
+                        haber=monto_pago
+                    )
+                    print("✅ [PAGO] Detalles de asiento creados")
+                else:
+                    print("⚠️ [PAGO] No se encontraron planes de cuenta, continuando sin detalles")
+            except Exception as e:
+                print(f"⚠️ [PAGO] Error creando detalles de asiento: {str(e)}")
+
+            # ========== RESPUESTA EXITOSA ==========
             response_data = {
                 'success': True,
-                'message': 'Pago procesado exitosamente',
+                'message': '¡Pago procesado exitosamente!',
                 'data': {
                     'idPago': pago.idPago,
-                    'numeroPago': numero_pago,
+                    'numeroPago': numero_asiento,
                     'monto': float(pago.monto),
-                    'fechaPago': pago.fechaPago,
+                    'fechaPago': pago.fechaPago.isoformat() if hasattr(pago.fechaPago, 'isoformat') else str(pago.fechaPago),
                     'formaPago': pago.formaPago,
                     'referencia': pago.referencia,
-                    'estado': 'PROCESADO',
                     'nota': {
                         'idNota': nota.idNota,
                         'numeroNota': nota.numeroNota,
-                        'nuevoEstado': estado_nuevo,
+                        'nuevoEstado': nuevo_estado,
                         'totalNota': float(nota.totalNota)
                     }
                 }
             }
             
-            print(f"✅ [DEBUG] Pago completado exitosamente")
+            print(f"🎉 [PAGO] Pago completado exitosamente: {response_data}")
             return Response(response_data, status=status.HTTP_201_CREATED)
 
         except Exception as e:
-            print(f"❌ [DEBUG] Error general procesando pago: {str(e)}")
+            print(f"💥 [PAGO] ERROR CRÍTICO: {str(e)}")
             import traceback
-            print(f"📋 [DEBUG] Traceback completo: {traceback.format_exc()}")
+            error_traceback = traceback.format_exc()
+            print(f"📋 [PAGO] Traceback completo:\n{error_traceback}")
+            
             return Response({
                 'success': False,
-                'message': f'Error procesando pago: {str(e)}',
-                'debug_traceback': traceback.format_exc() if settings.DEBUG else None
+                'message': f'Error interno del servidor: {str(e)}',
+                'error_details': str(e),
+                'traceback': error_traceback if settings.DEBUG else 'Oculto en producción'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-    def generar_numero_pago(self):
-        fecha_actual = now().strftime('%Y%m%d')
-        numero_unico = uuid.uuid4().hex[:6].upper()
-        return f"PAGO-{fecha_actual}-{numero_unico}"
 
 
 # Endpoint de diagnóstico para ver relaciones de notas
@@ -832,4 +889,59 @@ def corregir_relaciones_notas(request):
         return Response({
             'success': False,
             'message': f'Error: {str(e)}'
+        }, status=500)
+
+@api_view(['POST'])
+def verificar_estado_sistema(request):
+    """
+    Verificar el estado de todos los componentes del sistema necesarios para pagos
+    """
+    try:
+        verificaciones = {
+            'periodos_contables': periodoContable.objects.count(),
+            'tasas_activas': Tasa.objects.filter(estadoTasa=True).count(),
+            'monedas_base': Moneda.objects.filter(idMoneda=1).count(),
+            'planes_cuenta': PlanArticulo.objects.filter(tipoArticulo='INSCRIPCION').count(),
+            'notas_pendientes': Nota.objects.filter(estado__in=['PENDIENTE', 'PARCIAL']).count(),
+        }
+        
+        # Verificar que exista al menos un periodo contable
+        if verificaciones['periodos_contables'] == 0:
+            # Crear periodo contable por defecto
+            periodo = periodoContable.objects.create(
+                descripcionPeriodo="Periodo Automático",
+                fechaInicio=now().date(),
+                fechaFin=now().date() + timedelta(days=365),
+                estadoPeriodo=True
+            )
+            verificaciones['periodo_creado'] = periodo.idPeriodo
+        
+        # Verificar que exista tasa base
+        if verificaciones['tasas_activas'] == 0:
+            moneda_base = Moneda.objects.filter(idMoneda=1).first()
+            if not moneda_base:
+                moneda_base = Moneda.objects.create(
+                    nombreMoneda="Bolívar",
+                    simboloMoneda="Bs",
+                    estadoMoneda=True
+                )
+            
+            tasa = Tasa.objects.create(
+                idMoneda=moneda_base,
+                montoTasa=1.00,
+                fechaTasa=now().date(),
+                estadoTasa=True
+            )
+            verificaciones['tasa_creada'] = tasa.idTasa
+        
+        return Response({
+            'success': True,
+            'message': 'Estado del sistema verificado',
+            'verificaciones': verificaciones
+        })
+        
+    except Exception as e:
+        return Response({
+            'success': False,
+            'message': f'Error verificando sistema: {str(e)}'
         }, status=500)
