@@ -1,0 +1,51 @@
+
+// Insertado por CI-fix: definir propiedades globales tempranas para plugins/autolinking
+gradle.ext {
+    buildToolsVersion = "36.0.0"
+    compileSdkVersion = 36
+    targetSdkVersion = 36
+    minSdkVersion = 24
+    ndkVersion = "27.1.12297006"
+}
+
+// Insertado por CI-fix: definir propiedades globales tempranas para plugins/autolinking
+gradle.ext {
+    buildToolsVersion = "36.0.0"
+    compileSdkVersion = 36
+    targetSdkVersion = 36
+    minSdkVersion = 24
+    ndkVersion = "27.1.12297006"
+}
+
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        google()
+        mavenCentral()
+    }
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
+    repositories {
+        google()
+        mavenCentral()
+        maven { url 'https://www.jitpack.io' }
+    }
+}
+
+rootProject.name = 'MiAppMovil'
+
+def nativeModulesGradle = file("$rootDir/node_modules/@react-native-community/cli-platform-android/native_modules.gradle")
+def nativeModulesGradleAlt = file("$rootDir/node_modules/react-native/cli-platform-android/native_modules.gradle")
+
+if (nativeModulesGradle.exists()) {
+    apply from: nativeModulesGradle
+} else if (nativeModulesGradleAlt.exists()) {
+    apply from: nativeModulesGradleAlt
+} else {
+    println("WARNING: native_modules.gradle not found. Skipping apply (checked both paths).")
+}
+
+include ':app'
+includeBuild('../node_modules/@react-native/gradle-plugin')
