@@ -578,3 +578,169 @@ def corregir_relaciones_notas(request):
             'success': False,
             'message': f'Error: {str(e)}'
         }, status=500)
+
+
+# En tu endpoints.py - AGREGA ESTO PRIMERO
+import sys
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
+
+@api_view(['POST'])
+@csrf_exempt
+def pago_diagnostico_extremo(request):
+    """
+    Endpoint de diagnóstico EXTREMO - sin DRF, solo Django puro
+    """
+    print("🎯 [DIAGNOSTICO-EXTREMO] Iniciando...")
+    
+    try:
+        # Leer el body manualmente
+        body = request.body.decode('utf-8') if request.body else '{}'
+        print(f"📥 Body raw: {body}")
+        
+        # Parsear JSON manualmente
+        import json
+        try:
+            data = json.loads(body) if body else {}
+        except json.JSONDecodeError as e:
+            data = {'error': f'JSON inválido: {str(e)}'}
+        
+        print(f"📥 Data: {data}")
+        
+        # Verificar TODOS los imports críticos
+        diagnostic = {}
+        
+        # 1. Verificar imports de modelos
+        try:
+            from apps.factura.models import Nota, Pago
+            diagnostic['modelo_nota'] = '✅ OK'
+            diagnostic['modelo_pago'] = '✅ OK'
+            
+            # Verificar si existe la nota
+            if 'idNota' in data:
+                try:
+                    nota = Nota.objects.get(idNota=data['idNota'])
+                    diagnostic['nota_encontrada'] = f'✅ {nota.numeroNota}'
+                except Nota.DoesNotExist:
+                    diagnostic['nota_encontrada'] = '❌ No existe'
+            
+        except Exception as e:
+            diagnostic['modelos_factura'] = f'❌ Error: {str(e)}'
+        
+        # 2. Verificar modelos de home
+        try:
+            from apps.home.models import Moneda, Tasa
+            diagnostic['modelo_moneda'] = '✅ OK'
+            diagnostic['modelo_tasa'] = '✅ OK'
+            
+            # Verificar moneda ID=1
+            moneda = Moneda.objects.filter(idMoneda=1).first()
+            if moneda:
+                diagnostic['moneda_1'] = f'✅ {moneda.nombreMoneda}'
+                tasa = Tasa.objects.filter(idMoneda=moneda).first()
+                if tasa:
+                    diagnostic['tasa'] = f'✅ {tasa.montoTasa}'
+                else:
+                    diagnostic['tasa'] = '❌ No hay tasa'
+            else:
+                diagnostic['moneda_1'] = '❌ No existe'
+                
+        except Exception as e:
+            diagnostic['modelos_home'] = f'❌ Error: {str(e)}'
+        
+        # 3. Verificar otros modelos críticos
+        try:
+            from apps.periodoContable.models import periodoContable
+            from apps.asientoContable.models import AsientoContable
+            
+            periodo = periodoContable.objects.filter(estadoPeriodo=True).first()
+            diagnostic['periodo_activo'] = f'✅ {periodo.nombrePeriodo}' if periodo else '❌ No activo'
+            diagnostic['modelo_asiento'] = '✅ OK'
+            
+        except Exception as e:
+            diagnostic['modelos_contables'] = f'❌ Error: {str(e)}'
+        
+        # 4. Verificar que el serializer exista
+        try:
+            from .serializers import PagoCreateSerializer
+            diagnostic['serializer'] = '✅ OK'
+        except Exception as e:
+            diagnostic['serializer'] = f'❌ Error: {str(e)}'
+        
+        # Respuesta de diagnóstico
+        response_data = {
+            'success': True,
+            'message': 'Diagnóstico completado',
+            'diagnostic': diagnostic,
+            'timestamp': now().isoformat()
+        }
+        
+        print("✅ Diagnóstico exitoso")
+        return Response(response_data)
+        
+    except Exception as e:
+        print(f"💥 ERROR CRÍTICO EN DIAGNÓSTICO: {str(e)}")
+        
+        # Devolver error en formato JSON puro
+        return JsonResponse({
+            'success': False,
+            'error': str(e),
+            'type': type(e).__name__,
+            'timestamp': now().isoformat()
+        }, status=500)
+
+# Endpoint SIMPLIFICADO de pago - sin serializer, sin transacción
+@api_view(['POST'])
+@csrf_exempt
+def pago_super_simple(request):
+    """
+    Pago SUPER SIMPLE - solo lo básico
+    """
+    print("🎯 [PAGO-SUPER-SIMPLE] Iniciando...")
+    
+    try:
+        data = request.data
+        print(f"📥 Datos: {data}")
+        
+        # Validaciones mínimas
+        if 'idNota' not in data:
+            return Response({
+                'success': False,
+                'message': 'idNota es requerido'
+            }, status=400)
+        
+        # Obtener nota
+        from apps.factura.models import Nota
+        try:
+            nota = Nota.objects.get(idNota=data['idNota'])
+            print(f"✅ Nota: {nota.numeroNota}")
+        except Nota.DoesNotExist:
+            return Response({
+                'success': False,
+                'message': 'Nota no encontrada'
+            }, status=404)
+        
+        # Simular éxito sin crear nada
+        return Response({
+            'success': True,
+            'message': '✅ PAGO SIMULADO EXITOSO',
+            'nota': {
+                'id': nota.idNota,
+                'numero': nota.numeroNota,
+                'total': float(nota.totalNota)
+            },
+            'debug': 'No se crearon registros reales'
+        })
+        
+    except Exception as e:
+        print(f"💥 ERROR: {str(e)}")
+        import traceback
+        error_traceback = traceback.format_exc()
+        print(f"📋 TRACEBACK: {error_traceback}")
+        
+        return Response({
+            'success': False,
+            'error': str(e),
+            'traceback': error_traceback
+        }, status=500)

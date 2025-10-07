@@ -22,6 +22,9 @@ urlpatterns = [
     path('api/pagos/create/', views.PagoCreateAPIView.as_view(), name='pago_create'),
     path('notas/usuario/autenticado/', notas_por_usuario_autenticado, name='notas_autenticado'),
     path('corregir-relaciones/', corregir_relaciones_notas, name='corregir_relaciones'),
+
+    path('api/diagnostico-extremo/', pago_diagnostico_extremo, name='diagnostico_extremo'),
+    path('api/pago-super-simple/', pago_super_simple, name='pago_super_simple'),
     
     path('cohorte/', views.CohorteListCreate.as_view(), name='cohorte-list'),
     path('cargo/', views.CargoListCreate.as_view(), name='cargo-list'),
