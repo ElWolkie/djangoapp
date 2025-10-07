@@ -575,9 +575,6 @@ class PagoCreateAPIView(APIView):
 
 @api_view(['GET'])
 def notas_por_usuario_autenticado(request):
-    """
-    Obtener notas del usuario autenticado (usando el idPersona del usuario logueado)
-    """
     try:
         # Obtener el usuario autenticado
         usuario = request.user
@@ -597,39 +594,67 @@ def notas_por_usuario_autenticado(request):
                 'message': 'Perfil de persona no encontrado para este usuario'
             }, status=404)
 
-        # Obtener notas relacionadas con esta persona
+        # Obtener notas relacionadas con esta persona - INCLUYENDO LAS RELACIONES
         notas = Nota.objects.filter(
             idPersona=persona,
             estado__in=['PENDIENTE', 'PARCIAL']
+        ).prefetch_related(
+            'relaciones__idInscripcion__idFormacion',
+            'relaciones__idCuota__idFormacion', 
+            'relaciones__idSolicitud__idFormacion'
         ).order_by('-fechaEmision')
 
         notas_data = []
         for nota in notas:
-            # Obtener información de formación - MEJORADO
+            # Obtener información de formación - MÉTODO MEJORADO
             formacion_nombre = "Formación no especificada"
             
             try:
                 # Buscar en NotaRelacionada para obtener la formación
-                relacion = NotaRelacionada.objects.filter(idNota=nota).first()
-                if relacion:
-                    if relacion.idInscripcion and relacion.idInscripcion.idFormacion:
-                        formacion_nombre = relacion.idInscripcion.idFormacion.nombreFormacion
-                    elif relacion.idCuota and relacion.idCuota.idFormacion:
-                        formacion_nombre = relacion.idCuota.idFormacion.nombreFormacion
-                    elif relacion.idSolicitud and relacion.idSolicitud.idFormacion:
-                        formacion_nombre = relacion.idSolicitud.idFormacion.nombreFormacion
+                relaciones = nota.relaciones.all()  # Usamos el related_name 'relaciones'
+                
+                for relacion in relaciones:
+                    print(f"🔍 Procesando relación para nota {nota.idNota}: {relacion}")
                     
-                    # Si aún no tenemos nombre, buscar en otros campos
-                    if formacion_nombre == "Formación no especificada":
-                        if relacion.idInscripcion:
-                            formacion_nombre = f"Inscripción #{relacion.idInscripcion.idInscripcion}"
-                        elif relacion.idCuota:
-                            formacion_nombre = f"Cuota #{relacion.idCuota.idCuota}"
-                        elif relacion.idSolicitud:
-                            formacion_nombre = f"Solicitud #{relacion.idSolicitud.idSolicitud}"
+                    # Intentar obtener formación desde inscripción
+                    if relacion.idInscripcion and hasattr(relacion.idInscripcion, 'idFormacion'):
+                        if relacion.idInscripcion.idFormacion:
+                            formacion_nombre = relacion.idInscripcion.idFormacion.nombreFormacion
+                            print(f"✅ Formación encontrada desde inscripción: {formacion_nombre}")
+                            break
+                    
+                    # Intentar obtener formación desde cuota
+                    elif relacion.idCuota and hasattr(relacion.idCuota, 'idFormacion'):
+                        if relacion.idCuota.idFormacion:
+                            formacion_nombre = relacion.idCuota.idFormacion.nombreFormacion
+                            print(f"✅ Formación encontrada desde cuota: {formacion_nombre}")
+                            break
+                    
+                    # Intentar obtener formación desde solicitud
+                    elif relacion.idSolicitud and hasattr(relacion.idSolicitud, 'idFormacion'):
+                        if relacion.idSolicitud.idFormacion:
+                            formacion_nombre = relacion.idSolicitud.idFormacion.nombreFormacion
+                            print(f"✅ Formación encontrada desde solicitud: {formacion_nombre}")
+                            break
+                            
             except Exception as e:
                 print(f"⚠️ Error obteniendo formación para nota {nota.idNota}: {str(e)}")
                 formacion_nombre = "Información no disponible"
+
+            # Si después de todo sigue siendo "Formación no especificada", intentar un método alternativo
+            if formacion_nombre == "Formación no especificada":
+                try:
+                    # Buscar directamente en alguna relación sin prefetch
+                    relacion_directa = NotaRelacionada.objects.filter(idNota=nota).first()
+                    if relacion_directa:
+                        if relacion_directa.idInscripcion:
+                            formacion_nombre = relacion_directa.idInscripcion.idFormacion.nombreFormacion
+                        elif relacion_directa.idCuota:
+                            formacion_nombre = relacion_directa.idCuota.idFormacion.nombreFormacion
+                        elif relacion_directa.idSolicitud:
+                            formacion_nombre = relacion_directa.idSolicitud.idFormacion.nombreFormacion
+                except Exception as e:
+                    print(f"⚠️ Error en método alternativo: {str(e)}")
 
             notas_data.append({
                 'idNota': nota.idNota,
@@ -659,6 +684,8 @@ def notas_por_usuario_autenticado(request):
 
     except Exception as e:
         print(f"❌ Error en notas_por_usuario_autenticado: {str(e)}")
+        import traceback
+        print(f"📋 Traceback: {traceback.format_exc()}")
         return Response({
             'success': False,
             'message': f'Error obteniendo notas: {str(e)}'
