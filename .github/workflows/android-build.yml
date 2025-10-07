@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+      NODE_ENV: production
 
     steps:
     - name: Checkout repo
@@ -45,6 +46,16 @@ jobs:
       working-directory: mobile
       run: |
         if [ -f package-lock.json ]; then npm ci; else npm install; fi
+        
+    - name: Ensure autolinking.json exists
+      run: |
+        mkdir -p mobile/android/build/generated/autolinking
+        if [ ! -f mobile/android/build/generated/autolinking/autolinking.json ]; then
+          echo '{}' > mobile/android/build/generated/autolinking/autolinking.json
+          echo "Created stub autolinking.json"
+        else
+          echo "autolinking.json already exists"
+        fi
 
     - name: Build debug APK
       working-directory: mobile/android
