@@ -1,4 +1,3 @@
-import logging
 import traceback
 from rest_framework import generics, status
 from rest_framework.response import Response
@@ -151,44 +150,59 @@ class InscripcionListCreate(generics.ListCreateAPIView):
                 {"error": str(e), "details": "Error interno del servidor"}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-
-logger = logging.getLogger(__name__)
-
+        
 class PagoCreateAPIView(APIView):
-    permission_classes = [AllowAny]  # temporal para pruebas; luego poner auth real
     @transaction.atomic
     def post(self, request):
-        logger.info("🚀 [PAGO-VIEW] Iniciando procesamiento...")
+        print("🚀 [PAGO-VIEW] Iniciando procesamiento...")
         serializer = PagoCreateSerializer(data=request.data, context={'request': request})
 
         if not serializer.is_valid():
-            logger.warning(f"❌ Validación falló: {serializer.errors}")
+            print(f"❌ Validación falló: {serializer.errors}")
             return Response({
                 'success': False,
                 'message': 'Datos inválidos',
                 'errors': serializer.errors
             }, status=status.HTTP_400_BAD_REQUEST)
 
+        print("✅ Serializer válido")
+
+        # Antes de llamar a serializer.save() validamos que exista periodo contable y tasa en forma robusta
+        # (Nota ya fue comprobada en serializer.validate y está en serializer.context['nota'])
+        nota = serializer.context['nota']
+
+        # Intentar obtener moneda por configuración, sino fallback a Moneda id=1
+        configuracion = Configuracion.objects.first()
+        moneda = None
+        if configuracion and getattr(configuracion, 'moneda', None):
+            moneda = configuracion.moneda
+        else:
+            moneda = Moneda.objects.filter(idMoneda=1).first()
+
+        if not moneda:
+            return Response({
+                'success': False,
+                'message': 'Moneda del sistema no configurada (ni configuración ni moneda id=1).'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        tasa = Tasa.objects.filter(idMoneda=moneda).order_by('-idTasa').first()
+        if not tasa:
+            return Response({
+                'success': False,
+                'message': f'No se encontró tasa para la moneda {moneda}.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        periodo_activo = periodoContable.objects.filter(estadoPeriodo=True).first()
+        if not periodo_activo:
+            return Response({
+                'success': False,
+                'message': 'No hay periodo contable activo'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Todo validado — crear dentro de la misma transacción (serializer.create hace la mayoría del trabajo)
         try:
-            # Validaciones adicionales (moneda / tasa / periodo)
-            configuracion = Configuracion.objects.first()
-            if configuracion and getattr(configuracion, 'moneda', None):
-                moneda = configuracion.moneda
-            else:
-                moneda = Moneda.objects.filter(idMoneda=1).first()
-
-            if not moneda:
-                return Response({'success': False, 'message': 'Moneda no configurada.'}, status=status.HTTP_400_BAD_REQUEST)
-
-            tasa = Tasa.objects.filter(idMoneda=moneda).order_by('-idTasa').first()
-            if not tasa:
-                return Response({'success': False, 'message': 'Tasa no encontrada para la moneda.'}, status=status.HTTP_400_BAD_REQUEST)
-
-            periodo_activo = periodoContable.objects.filter(estadoPeriodo=True).first()
-            if not periodo_activo:
-                return Response({'success': False, 'message': 'No hay periodo contable activo.'}, status=status.HTTP_400_BAD_REQUEST)
-
-            pago = serializer.save()  # tu create() del serializer hace la creación
+            pago = serializer.save()
+            # serializar la respuesta
             pago_serializado = PagoSerializer(pago).data
 
             response_data = {
@@ -202,25 +216,32 @@ class PagoCreateAPIView(APIView):
                     'formaPago': pago.formaPago,
                     'referencia': pago.referencia or '',
                     'nota': {
-                        'idNota': serializer.context['nota'].idNota,
-                        'numeroNota': serializer.context['nota'].numeroNota,
-                        'nuevoEstado': serializer.context['nota'].estado,
-                        'totalNota': float(serializer.context['nota'].totalNota)
+                        'idNota': nota.idNota,
+                        'numeroNota': nota.numeroNota,
+                        'nuevoEstado': nota.estado,
+                        'totalNota': float(nota.totalNota)
                     }
                 }
             }
-            logger.info("🎊 Pago procesado exitosamente!")
+            print("🎊 Pago procesado exitosamente!")
             return Response(response_data, status=status.HTTP_201_CREATED)
 
-        except Exception as exc:
-            # Loguea la excepción con stack completo (se verá en Render logs)
-            logger.exception("💥 Error procesando pago en PagoCreateAPIView")
-            # además para debugging temporal: imprimir traceback en consola
-            print(traceback.format_exc())
-            # Devuelve JSON limpio para el cliente
+        except serializers.ValidationError as ve:
+            # errores arrojados por serializer.create
+            print(f"💥 ValidationError en creación: {ve.detail if hasattr(ve, 'detail') else str(ve)}")
             return Response({
                 'success': False,
-                'message': 'Error procesando pago (ver logs del servidor para más detalle).'
+                'message': 'Error en validación al crear pago',
+                'errors': ve.detail if hasattr(ve, 'detail') else str(ve)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            import traceback
+            print(f"💥 Error en PagoCreateAPIView: {str(e)}")
+            print(f"📋 Traceback: {traceback.format_exc()}")
+            return Response({
+                'success': False,
+                'message': f'Error procesando pago: {str(e)}'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class RequisitoListCreate(generics.ListCreateAPIView):

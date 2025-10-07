@@ -1,4 +1,4 @@
-// src/screens/PagoScreen.tsx - ADAPTADO AL NUEVO ENDPOINT
+// src/screens/pago.tsx - MODIFICADO PARA PAGO FICTICIO
 import React, { useState, useEffect, useContext } from 'react';
 import {
   View,
@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
-  ActivityIndicator,
   StyleSheet,
   FlatList,
   RefreshControl,
@@ -41,7 +40,6 @@ const PagoScreen = () => {
   
   const { notaData, inscripcionId } = route.params || {};
   
-  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [formData, setFormData] = useState({
     idNota: notaData?.idNota || '',
@@ -125,7 +123,6 @@ const PagoScreen = () => {
       newErrors.monto = `El monto no puede ser mayor a $${formatCurrency(notaSeleccionada.totalNota)}`;
     }
 
-    // REFERENCIA SIEMPRE REQUERIDA - eliminamos la condición de EFECTIVO
     if (!formData.referencia.trim()) {
       newErrors.referencia = 'Número de referencia es requerido';
     }
@@ -152,93 +149,34 @@ const PagoScreen = () => {
     }
   };
 
-  // 🚀 FUNCIÓN ACTUALIZADA PARA EL NUEVO ENDPOINT
- const handleProcesarPago = async () => {
-  if (!validateForm()) {
-    Alert.alert('Error', 'Por favor complete todos los campos requeridos');
-    return;
-  }
+  // 🚀 FUNCIÓN MODIFICADA - AHORA NAVEGA A PAGO MÓVIL FICTICIO
+  const handleProcesarPago = () => {
+    if (!validateForm()) {
+      Alert.alert('Error', 'Por favor complete todos los campos requeridos');
+      return;
+    }
 
-  console.log('🚀 [PAGO-FINAL] Iniciando procesamiento...');
-  setLoading(true);
-
-  try {
-    const payload = {
-      idNota: parseInt(formData.idNota),
-      formaPago: formData.formaPago,
+    console.log('🚀 [PAGO-FICTICIO] Navegando a pantalla de pago móvil...');
+    
+    // Preparar datos para la pantalla de pago móvil
+    const pagoParams = {
       monto: parseFloat(formData.monto),
       referencia: formData.referencia,
-      observaciones: formData.observaciones,
-      fechaPago: formData.fechaPago
+      formaPago: formData.formaPago,
+      notaData: notaSeleccionada || notaData,
+      userData: user ? {
+        nombre: user.nombre,
+        cedula: user.cedula,
+        telefono: user.telefono, // si está disponible en tu contexto
+        bancoPreferido: user.bancoPreferido // si está disponible
+      } : undefined
     };
 
-    console.log('📤 [PAGO-FINAL] Enviando payload:', payload);
+    console.log('📤 [PAGO-FICTICIO] Parámetros:', pagoParams);
 
-    const response = await api.post('api/pago-ultra-minimo/', payload);
-    console.log('📨 [PAGO-FINAL] Respuesta:', response.data);
-
-    if (response.data.success) {
-      const pagoData = response.data.data;
-      
-      Alert.alert(
-        '¡Pago Exitoso! 🎉',
-        `Pago procesado correctamente.\n\n` +
-        `Número de transacción: ${pagoData.numeroAsiento}\n` +
-        `Monto: $${formatCurrency(pagoData.monto)}\n` +
-        `Referencia: ${pagoData.referencia || 'N/A'}\n` +
-        `Estado de nota: ${pagoData.nota.nuevoEstado}`,
-        [
-          {
-            text: 'Aceptar',
-            onPress: () => {
-              if (modoDirecto) {
-                cargarNotasUsuario();
-                setNotaSeleccionada(null);
-                setFormData({
-                  idNota: '',
-                  formaPago: 'TRANSFERENCIA',
-                  monto: '',
-                  referencia: '',
-                  observaciones: '',
-                  fechaPago: new Date().toISOString().split('T')[0]
-                });
-              } else {
-                navigation.goBack();
-              }
-            }
-          }
-        ]
-      );
-    } else {
-      throw new Error(response.data.message || 'Error del servidor');
-    }
-
-  } catch (error: any) {
-    console.error('💥 [PAGO-FINAL] Error:', error);
-    
-    let errorMessage = 'Error al procesar el pago';
-    
-    if (error.response?.data) {
-      errorMessage = error.response.data.message || errorMessage;
-    }
-    
-    Alert.alert('Error en Pago', errorMessage);
-  } finally {
-    setLoading(false);
-  }
-};
-
-// También puedes agregar un botón para health check
-const testHealthCheck = async () => {
-  try {
-    const response = await api.get('/api/health/');
-    console.log('🏥 Health Check:', response.data);
-    Alert.alert('Health Check', JSON.stringify(response.data, null, 2));
-  } catch (error) {
-    console.error('❌ Health Check failed:', error);
-    Alert.alert('Health Check Error', String(error));
-  }
-};
+    // Navegar a la pantalla ficticia de pago móvil
+    navigation.navigate('PagoMovilFicticio', pagoParams);
+  };
 
   const formatCurrency = (amount: number): string => {
     return new Intl.NumberFormat('es-VE', {
@@ -314,7 +252,6 @@ const testHealthCheck = async () => {
         <View style={styles.listaContainer}>
           {cargandoNotas ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#4f8cff" />
               <Text style={styles.loadingText}>Cargando notas...</Text>
             </View>
           ) : notasUsuario.length === 0 ? (
@@ -515,20 +452,15 @@ const testHealthCheck = async () => {
                   />
                 </View>
 
-                {/* Botón de Procesar */}
+                {/* Botón de Procesar - AHORA NAVEGA A PAGO MÓVIL */}
                 <TouchableOpacity
-                  style={[styles.submitButton, loading && styles.submitButtonDisabled]}
+                  style={styles.submitButton}
                   onPress={handleProcesarPago}
-                  disabled={loading}
                 >
-                  {loading ? (
-                    <ActivityIndicator color="#fff" size="small" />
-                  ) : (
-                    <View style={styles.submitButtonContent}>
-                      <Icon name="check-circle" size={20} color="#fff" />
-                      <Text style={styles.submitButtonText}>Procesar Pago</Text>
-                    </View>
-                  )}
+                  <View style={styles.submitButtonContent}>
+                    <Icon name="arrow-right" size={20} color="#fff" />
+                    <Text style={styles.submitButtonText}>Continuar al Pago</Text>
+                  </View>
                 </TouchableOpacity>
               </View>
             </ScrollView>
@@ -594,7 +526,6 @@ const testHealthCheck = async () => {
             <Text style={styles.formTitle}>Datos del Pago</Text>
           </View>
 
-          {/* Los mismos campos mejorados del formulario flotante */}
           {/* Forma de Pago */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Forma de Pago *</Text>
@@ -720,20 +651,15 @@ const testHealthCheck = async () => {
             />
           </View>
 
-          {/* Botón de Procesar */}
+          {/* Botón de Procesar - AHORA NAVEGA A PAGO MÓVIL */}
           <TouchableOpacity
-            style={[styles.submitButton, loading && styles.submitButtonDisabled]}
+            style={styles.submitButton}
             onPress={handleProcesarPago}
-            disabled={loading}
           >
-            {loading ? (
-              <ActivityIndicator color="#fff" size="small" />
-            ) : (
-              <View style={styles.submitButtonContent}>
-                <Icon name="check-circle" size={20} color="#fff" />
-                <Text style={styles.submitButtonText}>Procesar Pago</Text>
-              </View>
-            )}
+            <View style={styles.submitButtonContent}>
+              <Icon name="arrow-right" size={20} color="#fff" />
+              <Text style={styles.submitButtonText}>Continuar al Pago</Text>
+            </View>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -741,7 +667,6 @@ const testHealthCheck = async () => {
   );
 };
 
-// ESTILOS PROFESIONALES ACTUALIZADOS
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -752,32 +677,26 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
+    paddingBottom: 20,
   },
-  // Header mejorado
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     backgroundColor: '#fff',
-    padding: 24,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#e9ecef',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 3,
   },
   headerContent: {
     flex: 1,
   },
   headerIcon: {
-    padding: 8,
-    backgroundColor: '#f8f9fa',
-    borderRadius: 12,
+    marginLeft: 10,
   },
   title: {
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#343a40',
     marginBottom: 4,
@@ -785,90 +704,77 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 16,
     color: '#6c757d',
-    fontWeight: '500',
   },
-  // Lista de notas
   listaContainer: {
     flex: 1,
-    padding: 16,
-  },
-  listaContent: {
-    paddingBottom: 20,
+    backgroundColor: '#f8f9fa',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 60,
+    padding: 20,
   },
   loadingText: {
-    marginTop: 12,
-    color: '#6c757d',
+    marginTop: 10,
     fontSize: 16,
-    fontWeight: '500',
+    color: '#6c757d',
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 80,
+    padding: 40,
   },
   emptyText: {
     fontSize: 18,
     color: '#6c757d',
-    fontWeight: '600',
     marginTop: 16,
     textAlign: 'center',
   },
   emptySubtext: {
     fontSize: 14,
-    color: '#6c757d',
-    textAlign: 'center',
+    color: '#adb5bd',
     marginTop: 8,
-    paddingHorizontal: 40,
-    lineHeight: 20,
+    textAlign: 'center',
   },
-  // Items de nota
+  listaContent: {
+    padding: 16,
+  },
   notaItem: {
     backgroundColor: '#fff',
-    padding: 20,
+    padding: 16,
     borderRadius: 12,
     marginBottom: 12,
-    borderWidth: 2,
-    borderColor: 'transparent',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
   },
   notaItemSeleccionada: {
-    borderColor: '#28a745',
-    backgroundColor: '#f8fff9',
-    shadowColor: '#28a745',
-    shadowOpacity: 0.15,
+    borderColor: '#4f8cff',
+    borderWidth: 2,
+    backgroundColor: '#f0f7ff',
   },
   notaHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   notaNumero: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#343a40',
   },
   estadoBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
   },
   estadoPendiente: {
     backgroundColor: '#fff3cd',
   },
   estadoParcial: {
-    backgroundColor: '#d1ecf1',
+    backgroundColor: '#cce7ff',
   },
   estadoPagada: {
     backgroundColor: '#d4edda',
@@ -876,12 +782,12 @@ const styles = StyleSheet.create({
   estadoText: {
     fontSize: 12,
     fontWeight: 'bold',
-    color: '#000',
+    color: '#343a40',
   },
   notaFormacion: {
-    fontSize: 15,
+    fontSize: 14,
     color: '#495057',
-    marginBottom: 12,
+    marginBottom: 8,
     lineHeight: 20,
   },
   notaFooter: {
@@ -890,104 +796,89 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   notaFecha: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#6c757d',
-    fontWeight: '500',
   },
   notaMonto: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#28a745',
   },
   seleccionadoIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 12,
-    paddingTop: 12,
+    marginTop: 8,
+    paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: '#e9ecef',
   },
   seleccionadoText: {
-    marginLeft: 8,
+    marginLeft: 6,
+    fontSize: 14,
     color: '#28a745',
     fontWeight: '600',
-    fontSize: 14,
   },
-  // Formulario flotante
   formularioOverlay: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
   },
   formScrollView: {
-    flex: 1,
+    maxHeight: '80%',
   },
   formScrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
-    padding: 16,
+    justifyContent: 'flex-end',
   },
   formCard: {
     backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    maxHeight: '100%',
   },
   formHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
   },
   formTitleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   formTitle: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#343a40',
     marginLeft: 8,
   },
   cancelarBtn: {
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: '#f8f9fa',
+    padding: 4,
   },
-  // Cards de información
   infoCard: {
-    backgroundColor: '#fff',
-    marginBottom: 24,
-    padding: 20,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 3,
-    borderLeftWidth: 4,
-    borderLeftColor: '#4f8cff',
+    backgroundColor: '#f8f9fa',
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 20,
   },
   infoHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   infoTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#495057',
     marginLeft: 8,
   },
   infoGrid: {
-    gap: 12,
+    gap: 8,
   },
   infoItem: {
     flexDirection: 'row',
@@ -996,45 +887,41 @@ const styles = StyleSheet.create({
   },
   totalItem: {
     borderTopWidth: 1,
-    borderTopColor: '#e9ecef',
-    paddingTop: 12,
+    borderTopColor: '#dee2e6',
+    paddingTop: 8,
     marginTop: 4,
   },
   infoLabel: {
     fontSize: 14,
     color: '#6c757d',
     fontWeight: '500',
-    flex: 1,
   },
   infoValue: {
     fontSize: 14,
     color: '#495057',
-    fontWeight: '400',
-    flex: 2,
+    fontWeight: '600',
+    flex: 1,
     textAlign: 'right',
+    marginLeft: 10,
   },
   totalLabel: {
     fontSize: 16,
-    fontWeight: 'bold',
     color: '#495057',
-    flex: 1,
+    fontWeight: 'bold',
   },
   totalValue: {
     fontSize: 18,
-    fontWeight: 'bold',
     color: '#28a745',
-    flex: 2,
-    textAlign: 'right',
+    fontWeight: 'bold',
   },
-  // Grupos de input
   inputGroup: {
-    marginBottom: 24,
+    marginBottom: 20,
   },
   label: {
     fontSize: 16,
     fontWeight: '600',
     color: '#495057',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   inputContainer: {
     flexDirection: 'row',
@@ -1045,15 +932,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   currencySymbol: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#495057',
     paddingHorizontal: 12,
-    backgroundColor: '#f8f9fa',
-    borderRightWidth: 1,
-    borderRightColor: '#ced4da',
-    height: 48,
-    textAlignVertical: 'center',
+    fontSize: 16,
+    color: '#495057',
+    fontWeight: '600',
   },
   inputIcon: {
     paddingHorizontal: 12,
@@ -1063,25 +945,33 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 16,
     color: '#495057',
-    minHeight: 48,
   },
   inputError: {
     borderColor: '#dc3545',
   },
   textArea: {
-    height: 100,
+    minHeight: 80,
     textAlignVertical: 'top',
   },
   helperText: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#6c757d',
-    marginTop: 6,
+    marginTop: 4,
   },
   helperTextBold: {
     fontWeight: '600',
     color: '#495057',
   },
-  // Radio buttons mejorados
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  errorText: {
+    fontSize: 12,
+    color: '#dc3545',
+    marginLeft: 4,
+  },
   radioGroup: {
     gap: 12,
   },
@@ -1090,9 +980,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 16,
-    borderWidth: 2,
-    borderColor: '#e9ecef',
-    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#ced4da',
+    borderRadius: 8,
     backgroundColor: '#fff',
   },
   radioOptionSelected: {
@@ -1105,9 +995,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   radioCircle: {
-    height: 24,
-    width: 24,
-    borderRadius: 12,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     borderWidth: 2,
     borderColor: '#ced4da',
     alignItems: 'center',
@@ -1115,9 +1005,9 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   radioSelected: {
-    height: 12,
-    width: 12,
-    borderRadius: 6,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     backgroundColor: '#4f8cff',
   },
   radioLabel: {
@@ -1129,38 +1019,19 @@ const styles = StyleSheet.create({
     color: '#4f8cff',
     fontWeight: '600',
   },
-  // Errores
-  errorContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 6,
-  },
-  errorText: {
-    fontSize: 13,
-    color: '#dc3545',
-    marginLeft: 6,
-    fontWeight: '500',
-  },
-  // Botón de enviar
   submitButton: {
     backgroundColor: '#28a745',
     padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: 8,
-    shadowColor: '#28a745',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    borderRadius: 8,
+    marginTop: 10,
   },
   submitButtonDisabled: {
     backgroundColor: '#6c757d',
-    shadowColor: '#6c757d',
   },
   submitButtonContent: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   submitButtonText: {
     color: '#fff',
