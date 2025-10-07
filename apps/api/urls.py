@@ -1,7 +1,7 @@
 from django.urls import include, path
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from . import views
-from .endpoints import verificar_cedula, PersonaPublicRegisterView, UsuarioPublicRegisterView, obtener_persona_login, CuotasFormacionAPIView, NotaCobroCreateAPIView, PagoCreateAPIView, notas_por_usuario_autenticado, debug_nota_relaciones, corregir_relaciones_notas, verificar_estado_sistema, test_pago_simple, diagnostico_modelo_pago
+from .endpoints import verificar_cedula, PersonaPublicRegisterView, UsuarioPublicRegisterView, obtener_persona_login, CuotasFormacionAPIView, NotaCobroCreateAPIView, PagoCreateAPIView, notas_por_usuario_autenticado, corregir_relaciones_notas
 from .views import CedulaTokenObtainView  # Nueva función
 
 urlpatterns = [
@@ -21,11 +21,7 @@ urlpatterns = [
     path('nota-cobro/create/', NotaCobroCreateAPIView.as_view(), name='nota_cobro_create'),
     path('api/pagos/create/', PagoCreateAPIView.as_view(), name='pago_create'),
     path('notas/usuario/autenticado/', notas_por_usuario_autenticado, name='notas_autenticado'),
-    path('debug/nota/<int:id_nota>/', debug_nota_relaciones, name='debug_nota'),
     path('corregir-relaciones/', corregir_relaciones_notas, name='corregir_relaciones'),
-    path('sistema/verificar/', verificar_estado_sistema, name='verificar_sistema'),
-    path('pagos/test-simple/', test_pago_simple, name='test_pago_simple'),
-    path('pagos/diagnostico-modelo/', diagnostico_modelo_pago, name='diagnostico_modelo'),
 
     path('cohorte/', views.CohorteListCreate.as_view(), name='cohorte-list'),
     path('cargo/', views.CargoListCreate.as_view(), name='cargo-list'),

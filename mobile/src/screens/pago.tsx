@@ -1,4 +1,4 @@
-// src/screens/PagoScreen.tsx - VERSIÓN MEJORADA Y PROFESIONAL
+// src/screens/PagoScreen.tsx - ADAPTADO AL NUEVO ENDPOINT
 import React, { useState, useEffect, useContext } from 'react';
 import {
   View,
@@ -125,7 +125,8 @@ const PagoScreen = () => {
       newErrors.monto = `El monto no puede ser mayor a $${formatCurrency(notaSeleccionada.totalNota)}`;
     }
 
-    if (formData.formaPago !== 'EFECTIVO' && !formData.referencia) {
+    // REFERENCIA SIEMPRE REQUERIDA - eliminamos la condición de EFECTIVO
+    if (!formData.referencia.trim()) {
       newErrors.referencia = 'Número de referencia es requerido';
     }
 
@@ -151,53 +152,65 @@ const PagoScreen = () => {
     }
   };
 
+  // 🚀 FUNCIÓN ACTUALIZADA PARA EL NUEVO ENDPOINT
   const handleProcesarPago = async () => {
-  if (!validateForm()) {
-    Alert.alert('Error', 'Por favor complete todos los campos requeridos');
-    return;
-  }
+    if (!validateForm()) {
+      Alert.alert('Error', 'Por favor complete todos los campos requeridos');
+      return;
+    }
 
-  console.log('🚀 [FRONTEND-FINAL] Iniciando procesamiento de pago...');
-  setLoading(true);
+    console.log('🚀 [PAGO-ADAPTADO] Iniciando procesamiento de pago...');
+    setLoading(true);
 
-  try {
-    const payload = {
-      idNota: parseInt(formData.idNota),
-      formaPago: formData.formaPago,
-      monto: parseFloat(formData.monto),
-      referencia: formData.referencia,
-      observaciones: formData.observaciones,
-      fechaPago: formData.fechaPago
-    };
+    try {
+      // 🔥 PAYLOAD ADAPTADO AL NUEVO ENDPOINT
+      const payload = {
+        idNota: parseInt(formData.idNota),
+        formaPago: formData.formaPago,
+        monto: parseFloat(formData.monto),
+        referencia: formData.referencia,
+        observaciones: formData.observaciones,
+        fechaPago: formData.fechaPago
+        // idTasa e idAsiento se manejan automáticamente en el backend
+      };
 
-    console.log('📤 [FRONTEND-FINAL] Enviando payload:', payload);
+      console.log('📤 [PAGO-ADAPTADO] Enviando payload:', payload);
 
-    const response = await api.post('/api/pagos/create/', payload);
-    console.log('📨 [FRONTEND-FINAL] Respuesta completa:', response);
+      // 🔥 ENDPOINT ACTUALIZADO
+      const response = await api.post('/api/pagos/create/', payload);
+      console.log('📨 [PAGO-ADAPTADO] Respuesta completa:', response);
 
-    // Verificar estructura de respuesta
-    if (response.data && typeof response.data === 'object') {
-      if (response.data.success) {
+      // 🔥 MANEJO DE RESPUESTA ACTUALIZADO
+      if (response.data && response.data.success) {
+        const pagoData = response.data.data;
+        
         Alert.alert(
           '¡Pago Exitoso! 🎉',
           `Pago procesado correctamente.\n\n` +
-          `Número de transacción: ${response.data.data.numeroPago}\n` +
-          `Monto: $${formatCurrency(response.data.data.monto)}\n` +
-          `Referencia: ${response.data.data.referencia || 'N/A'}`,
+          `Número de transacción: ${pagoData.numeroPago}\n` +
+          `Monto: $${formatCurrency(pagoData.monto)}\n` +
+          `Referencia: ${pagoData.referencia || 'N/A'}\n` +
+          `Estado de nota: ${pagoData.nota.nuevoEstado}`,
           [
             {
               text: 'Aceptar',
               onPress: () => {
-                cargarNotasUsuario();
-                setNotaSeleccionada(null);
-                setFormData({
-                  idNota: '',
-                  formaPago: 'TRANSFERENCIA',
-                  monto: '',
-                  referencia: '',
-                  observaciones: '',
-                  fechaPago: new Date().toISOString().split('T')[0]
-                });
+                // Resetear formulario y estado
+                if (modoDirecto) {
+                  cargarNotasUsuario();
+                  setNotaSeleccionada(null);
+                  setFormData({
+                    idNota: '',
+                    formaPago: 'TRANSFERENCIA',
+                    monto: '',
+                    referencia: '',
+                    observaciones: '',
+                    fechaPago: new Date().toISOString().split('T')[0]
+                  });
+                } else {
+                  // En modo automático, navegar hacia atrás
+                  navigation.goBack();
+                }
               }
             }
           ]
@@ -205,50 +218,56 @@ const PagoScreen = () => {
       } else {
         throw new Error(response.data.message || 'Error del servidor');
       }
-    } else {
-      throw new Error('Respuesta del servidor en formato incorrecto');
-    }
 
-  } catch (error: any) {
-    console.error('💥 [FRONTEND-FINAL] Error:', error);
-    
-    let errorMessage = 'Error al procesar el pago';
-    
-    if (error.response) {
-      console.log('🔍 [FRONTEND-FINAL] Detalles del error:', {
-        status: error.response.status,
-        data: error.response.data,
-        headers: error.response.headers
-      });
+    } catch (error: any) {
+      console.error('💥 [PAGO-ADAPTADO] Error:', error);
+      
+      let errorMessage = 'Error al procesar el pago';
+      
+      if (error.response) {
+        console.log('🔍 [PAGO-ADAPTADO] Detalles del error:', {
+          status: error.response.status,
+          data: error.response.data,
+          headers: error.response.headers
+        });
 
-      if (error.response.data) {
-        if (typeof error.response.data === 'object') {
-          errorMessage = error.response.data.message || errorMessage;
-          
-          // Mostrar detalles técnicos en desarrollo
-          if (__DEV__) {
-            console.log('🐛 [FRONTEND-FINAL] Error detallado:', error.response.data);
-          }
-        } else if (typeof error.response.data === 'string') {
-          if (error.response.data.includes('<!DOCTYPE html>')) {
-            errorMessage = 'Error interno del servidor. El administrador ha sido notificado.';
-          } else {
-            errorMessage = error.response.data;
+        // 🔥 MANEJO MEJORADO DE ERRORES DEL NUEVO ENDPOINT
+        if (error.response.data) {
+          if (typeof error.response.data === 'object') {
+            // Manejar errores de validación del serializer
+            if (error.response.data.errors) {
+              const validationErrors = error.response.data.errors;
+              // Mostrar el primer error de validación
+              const firstError = Object.values(validationErrors)[0];
+              errorMessage = Array.isArray(firstError) ? firstError[0] : String(firstError);
+            } else {
+              errorMessage = error.response.data.message || errorMessage;
+            }
+            
+            // Mostrar detalles técnicos en desarrollo
+            if (__DEV__) {
+              console.log('🐛 [PAGO-ADAPTADO] Error detallado:', error.response.data);
+            }
+          } else if (typeof error.response.data === 'string') {
+            if (error.response.data.includes('<!DOCTYPE html>')) {
+              errorMessage = 'Error interno del servidor. El administrador ha sido notificado.';
+            } else {
+              errorMessage = error.response.data;
+            }
           }
         }
+      } else if (error.request) {
+        errorMessage = 'No se pudo conectar con el servidor. Verifique su conexión.';
+      } else {
+        errorMessage = error.message || errorMessage;
       }
-    } else if (error.request) {
-      errorMessage = 'No se pudo conectar con el servidor. Verifique su conexión.';
-    } else {
-      errorMessage = error.message || errorMessage;
-    }
 
-    Alert.alert('Error en Pago', errorMessage);
-  } finally {
-    setLoading(false);
-    console.log('🏁 [FRONTEND-FINAL] Procesamiento finalizado');
-  }
-};
+      Alert.alert('Error en Pago', errorMessage);
+    } finally {
+      setLoading(false);
+      console.log('🏁 [PAGO-ADAPTADO] Procesamiento finalizado');
+    }
+  };
 
   const formatCurrency = (amount: number): string => {
     return new Intl.NumberFormat('es-VE', {
