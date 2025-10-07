@@ -1,4 +1,4 @@
-// src/screens/PagoMovilFicticioScreen.tsx
+// src/screens/PagoMovilFicticioScreen.tsx - VERSIÓN CORREGIDA
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -10,7 +10,6 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import * as ImagePicker from 'react-native-image-picker';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useRoute, useNavigation } from '@react-navigation/native';
 
@@ -52,7 +51,7 @@ const BANCOS_VENEZUELA = [
 
 const PagoMovilFicticioScreen = () => {
   const route = useRoute();
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>(); // Usamos any temporalmente para resolver rápido
   const params = route.params as PagoMovilParams;
   
   const [image, setImage] = useState<string | null>(null);
@@ -76,52 +75,75 @@ const PagoMovilFicticioScreen = () => {
   }, [params]);
 
   const seleccionarImagen = () => {
-    ImagePicker.launchImageLibrary(
-      {
-        mediaType: 'photo',
-        includeBase64: false,
-        maxHeight: 200,
-        maxWidth: 200,
-      },
-      (response) => {
-        if (response.didCancel) {
-          console.log('Usuario canceló la selección');
-        } else if (response.errorCode) {
-          console.log('Error: ', response.errorMessage);
-        } else {
-          if (response.assets && response.assets[0].uri) {
-            setImage(response.assets[0].uri);
+    console.log('📸 Seleccionando imagen de comprobante...');
+    
+    Alert.alert(
+      '📷 Comprobante de Pago',
+      'Para completar el proceso, necesitamos una captura del comprobante de pago móvil.\n\nEn una app real, aquí seleccionarías una imagen de tu galería.',
+      [
+        {
+          text: '📁 Usar imagen de prueba',
+          onPress: () => {
+            setImage('https://via.placeholder.com/300x400/4f8cff/ffffff?text=COMPROBANTE+PAGO+MOVIL');
+            console.log('✅ Imagen de prueba asignada');
           }
+        },
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+          onPress: () => console.log('❌ Selección de imagen cancelada')
         }
-      },
+      ]
     );
   };
 
   const procesarPagoFicticio = () => {
     if (!image) {
-      Alert.alert('Error', 'Por favor sube una captura del comprobante de pago');
+      Alert.alert(
+        '❌ Comprobante Requerido', 
+        'Por favor sube una captura del comprobante de pago para continuar con el proceso.'
+      );
       return;
     }
 
     setLoading(true);
+    console.log('🔄 Procesando pago ficticio...');
 
-    // Simulamos un envío al servidor con un timeout
+    // Simulamos un envío al servidor
     setTimeout(() => {
       setLoading(false);
+      console.log('✅ Pago ficticio procesado exitosamente');
+      
       Alert.alert(
-        '¡Pago Enviado! 🎉',
-        `Su pago de $${params?.monto || '0.00'} está pendiente por confirmación.\n\nLe notificaremos cuando sea procesado.`,
+        '🎉 ¡Pago Procesado Exitosamente!',
+        `Hemos recibido su comprobante de pago correctamente.\n\n` +
+        `**Resumen de transacción:**\n` +
+        `• Monto: $${formatCurrency(params?.monto || 0)}\n` +
+        `• Referencia: ${params?.referencia}\n` +
+        `• Método: Pago Móvil\n` +
+        `• Banco: ${datosUsuario.banco}\n\n` +
+        `**Próximos pasos:**\n` +
+        `✓ Comprobante recibido\n` +
+        `⏳ En verificación (24-48 horas)\n` +
+        `📲 Le notificaremos cuando sea confirmado`,
         [
           {
-            text: 'Aceptar',
+            text: 'Entendido',
             onPress: () => {
-              // Navegar de regreso o a la pantalla de confirmación
-              navigation.goBack();
+              console.log('🚀 Cerrando pantalla de pago móvil...');
+              
+              // Navegar de regreso limpiamente
+              if (navigation.canGoBack()) {
+                navigation.goBack();
+              } else {
+                // Usamos 'any' temporalmente para evitar errores de TypeScript
+                navigation.navigate('Pagos' as any);
+              }
             },
           },
-        ],
+        ]
       );
-    }, 2000);
+    }, 1500);
   };
 
   const formatCurrency = (amount: number): string => {
@@ -133,7 +155,7 @@ const PagoMovilFicticioScreen = () => {
 
   const cambiarBanco = () => {
     Alert.alert(
-      'Seleccionar Banco',
+      '🏦 Seleccionar Banco',
       'Elija su banco para Pago Móvil',
       BANCOS_VENEZUELA.map(banco => ({
         text: banco.nombre,
@@ -144,7 +166,7 @@ const PagoMovilFicticioScreen = () => {
 
   const cambiarTelefono = () => {
     Alert.prompt(
-      'Número de Teléfono',
+      '📞 Número de Teléfono',
       'Ingrese su número para Pago Móvil',
       [
         { text: 'Cancelar', style: 'cancel' },
@@ -544,6 +566,6 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     lineHeight: 18,
   },
-});
+} as const); // ← ESTO ES CLAVE
 
 export default PagoMovilFicticioScreen;
