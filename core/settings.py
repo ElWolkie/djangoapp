@@ -39,6 +39,19 @@ SESSION_ENGINE = "django.contrib.sessions.backends.cached_db"  # Combina caché 
 ALLOWED_HOSTS = ['djangoapp-6wxv.onrender.com']
 WSGI_APPLICATION = "core.wsgi.application"
 
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {'class': 'logging.StreamHandler'},
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+}
+
+
 # Primero intenta con dj_database_url, si falla usa configuración directa
 try:
     DATABASES = {
