@@ -21,6 +21,7 @@ import PantallaRequisitos from './src/screens/requisitos';
 import PantallaMonedas from './src/screens/monedas';
 import PantallaTasas from './src/screens/tasas';
 import PagoScreen from './src/screens/pago'; // 🆕 IMPORTAR PAGO SCREEN
+import PagoMovilFicticioScreen from './src/screens/PagoMovilFicticioScreen';
 import { 
   View, 
   Text, 
@@ -256,6 +257,7 @@ export default function AppNavigator() {
       <Drawer.Screen name="Requisitos" component={PantallaRequisitos} options={{ title: 'Requisitos' }} />
       <Drawer.Screen name="Monedas" component={PantallaMonedas} options={{ title: 'Monedas' }} />
       <Drawer.Screen name="Tasas" component={PantallaTasas} options={{ title: 'Tasas' }} />
+      <Drawer.Screen name="PagoMovilFicticio" component={PagoMovilFicticioScreen} options={{ title: 'Pago Móvil' }} />
     </Drawer.Navigator>
   );
 }

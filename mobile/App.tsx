@@ -23,6 +23,7 @@ import PantallaRequisitos from './src/screens/requisitos';
 import PantallaMonedas from './src/screens/monedas';
 import PantallaTasas from './src/screens/tasas';
 import PagoScreen from './src/screens/pago';
+import PagoMovilFicticioScreen from './src/screens/PagoMovilFicticioScreen';
 import { AuthProvider } from './src/contexts/AuthContext';
 import { ReloadProvider } from './src/contexts/ReloadContext';
 
@@ -51,6 +52,7 @@ export type RootStackParamList = {
     notaData: any;
     inscripcionId: number;
   };
+  PagoMovilFicticio: undefined; // 🆕 AGREGAR ESTA LÍNEA
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -93,6 +95,7 @@ export default function App() {
             <Stack.Screen name="Monedas" component={PantallaMonedas} options={{ title: 'Monedas' }} />
             <Stack.Screen name="Tasas" component={PantallaTasas} options={{ title: 'Tasas' }} />
             <Stack.Screen name="pago" component={PagoScreen} options={{ title: 'Procesar Pago' }} />
+            <Stack.Screen name="PagoMovilFicticio" component={PagoMovilFicticioScreen} options={{ title: 'Pago Móvil', headerShown: true }} />
           </Stack.Navigator>
         </NavigationContainer>
       </ReloadProvider>
