@@ -1,7 +1,7 @@
 from django.urls import include, path
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from . import views
-from .endpoints import verificar_cedula, PersonaPublicRegisterView, UsuarioPublicRegisterView, obtener_persona_login, CuotasFormacionAPIView, NotaCobroCreateAPIView, PagoCreateAPIView, notas_por_usuario_autenticado
+from .endpoints import verificar_cedula, PersonaPublicRegisterView, UsuarioPublicRegisterView, obtener_persona_login, CuotasFormacionAPIView, NotaCobroCreateAPIView, PagoCreateAPIView, notas_por_usuario_autenticado, debug_nota_relaciones
 from .views import CedulaTokenObtainView  # Nueva función
 
 urlpatterns = [
@@ -21,6 +21,7 @@ urlpatterns = [
     path('nota-cobro/create/', NotaCobroCreateAPIView.as_view(), name='nota_cobro_create'),
     path('api/pagos/create/', PagoCreateAPIView.as_view(), name='pago_create'),
     path('notas/usuario/autenticado/', notas_por_usuario_autenticado, name='notas_autenticado'),
+    path('debug/nota/<int:id_nota>/', debug_nota_relaciones, name='debug_nota'),
 
     path('cohorte/', views.CohorteListCreate.as_view(), name='cohorte-list'),
     path('cargo/', views.CargoListCreate.as_view(), name='cargo-list'),

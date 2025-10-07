@@ -168,7 +168,6 @@ const PagoScreen = () => {
         observaciones: formData.observaciones,
         fechaPago: formData.fechaPago,
         idTasa: 1,
-        idCuentaBanco: null
       };
 
       console.log('📤 Enviando pago:', payload);

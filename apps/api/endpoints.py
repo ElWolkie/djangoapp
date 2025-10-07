@@ -433,11 +433,118 @@ def generar_numero_nota():
     numero_unico = uuid.uuid4().hex[:6].upper()  # Tomar los primeros 6 caracteres del UUID
     return f"NOTA-{fecha_actual}-{numero_unico}"
 
+# En tu archivo de vistas (endpoints.py o views.py)
+@api_view(['GET'])
+def notas_por_usuario_autenticado(request):
+    """
+    Obtener notas del usuario autenticado - VERSIÓN ROBUSTA
+    """
+    try:
+        # Obtener el usuario autenticado
+        usuario = request.user
+        if not usuario.is_authenticated:
+            return Response({
+                'success': False,
+                'message': 'Usuario no autenticado'
+            }, status=401)
+
+        # Obtener la persona desde el usuario
+        try:
+            persona = usuario.idPersona
+            print(f"🔍 Buscando notas para persona ID: {persona.idPersona}")
+        except Personas.DoesNotExist:
+            return Response({
+                'success': False,
+                'message': 'Perfil de persona no encontrado para este usuario'
+            }, status=404)
+
+        # Obtener notas relacionadas con esta persona
+        notas = Nota.objects.filter(
+            idPersona=persona,
+            estado__in=['PENDIENTE', 'PARCIAL']
+        ).order_by('-fechaEmision')
+
+        notas_data = []
+        for nota in notas:
+            # Obtener información de formación - ENFOQUE DIRECTO Y ROBUSTO
+            formacion_nombre = "Formación no especificada"
+            
+            # Método 1: Buscar directamente en NotaRelacionada
+            try:
+                relacion = NotaRelacionada.objects.filter(idNota=nota).first()
+                if relacion:
+                    print(f"🔍 Relación encontrada para nota {nota.idNota}")
+                    
+                    # Intentar obtener desde inscripción
+                    if relacion.idInscripcion:
+                        print(f"📚 Tiene inscripción: {relacion.idInscripcion.idInscripcion}")
+                        if relacion.idInscripcion.idFormacion:
+                            formacion_nombre = relacion.idInscripcion.idFormacion.nombreFormacion
+                            print(f"✅ Formación desde inscripción: {formacion_nombre}")
+                    
+                    # Intentar obtener desde cuota
+                    elif relacion.idCuota:
+                        print(f"💰 Tiene cuota: {relacion.idCuota.idCuota}")
+                        if relacion.idCuota.idFormacion:
+                            formacion_nombre = relacion.idCuota.idFormacion.nombreFormacion
+                            print(f"✅ Formación desde cuota: {formacion_nombre}")
+                    
+                    # Intentar obtener desde solicitud
+                    elif relacion.idSolicitud:
+                        print(f"📋 Tiene solicitud: {relacion.idSolicitud.idSolicitud}")
+                        if relacion.idSolicitud.idFormacion:
+                            formacion_nombre = relacion.idSolicitud.idFormacion.nombreFormacion
+                            print(f"✅ Formación desde solicitud: {formacion_nombre}")
+                    
+                else:
+                    print(f"⚠️ No se encontró relación para nota {nota.idNota}")
+                    
+            except Exception as e:
+                print(f"❌ Error obteniendo formación para nota {nota.idNota}: {str(e)}")
+                import traceback
+                print(f"📋 Traceback: {traceback.format_exc()}")
+
+            notas_data.append({
+                'idNota': nota.idNota,
+                'numeroNota': nota.numeroNota,
+                'fechaEmision': nota.fechaEmision.strftime('%Y-%m-%d') if nota.fechaEmision else None,
+                'totalNota': float(nota.totalNota),
+                'estado': nota.estado,
+                'formacion': {
+                    'nombreFormacion': formacion_nombre
+                },
+                'persona': {
+                    'nombre': f"{persona.nombres} {persona.apellidos}",
+                    'cedula': persona.cedula
+                }
+            })
+
+        return Response({
+            'success': True,
+            'data': notas_data,
+            'total': len(notas_data),
+            'debug_info': {
+                'persona_id': persona.idPersona,
+                'total_notas': len(notas_data)
+            }
+        })
+
+    except Exception as e:
+        print(f"❌ Error en notas_por_usuario_autenticado: {str(e)}")
+        import traceback
+        print(f"📋 Traceback: {traceback.format_exc()}")
+        return Response({
+            'success': False,
+            'message': f'Error obteniendo notas: {str(e)}'
+        }, status=500)
+
+
 class PagoCreateAPIView(APIView):
     @transaction.atomic
     def post(self, request):
         try:
             data = request.data
+            print(f"📥 Datos recibidos para pago: {data}")
             
             # Validar datos requeridos
             required_fields = ['idNota', 'formaPago', 'monto', 'fechaPago']
@@ -456,6 +563,8 @@ class PagoCreateAPIView(APIView):
                     'message': 'Nota no encontrada'
                 }, status=status.HTTP_404_NOT_FOUND)
 
+            print(f"📋 Nota encontrada: {nota.numeroNota}, Estado: {nota.estado}")
+
             if nota.estado == 'PAGADA':
                 return Response({
                     'success': False,
@@ -473,7 +582,7 @@ class PagoCreateAPIView(APIView):
             if monto_pago > nota.totalNota:
                 return Response({
                     'success': False,
-                    'message': f'El monto no puede ser mayor al total de la nota ({nota.totalNota})'
+                    'message': f'El monto no puede ser mayor al total de la nota (${nota.totalNota})'
                 }, status=status.HTTP_400_BAD_REQUEST)
 
             # Obtener moneda base (ID=1) y su tasa
@@ -494,199 +603,188 @@ class PagoCreateAPIView(APIView):
             # Obtener periodo contable activo
             periodo_activo = periodoContable.objects.filter(estadoPeriodo=True).first()
             if not periodo_activo:
-                return Response({
-                    'success': False,
-                    'message': 'No hay periodo contable activo'
-                }, status=status.HTTP_400_BAD_REQUEST)
+                # Si no hay periodo activo, usar el más reciente
+                periodo_activo = periodoContable.objects.order_by('-idPeriodo').first()
+                if not periodo_activo:
+                    return Response({
+                        'success': False,
+                        'message': 'No hay periodos contables configurados'
+                    }, status=status.HTTP_400_BAD_REQUEST)
 
             # Generar número de pago
             numero_pago = self.generar_numero_pago()
+            print(f"🔢 Número de pago generado: {numero_pago}")
 
-            # Crear asiento contable - CORREGIDO: usar now() en lugar de timezone.now()
+            # Crear asiento contable
             asiento = AsientoContable.objects.create(
                 numeroAsiento=f"PAGO-{numero_pago}",
-                fechaAsiento=now().date(),  # ✅ CORREGIDO
-                conceptoAsiento=f"Pago de nota {nota.numeroNota}",
+                fechaAsiento=now().date(),
+                conceptoAsiento=f"Pago de nota {nota.numeroNota} - {data['formaPago']}",
                 idPeriodo=periodo_activo
             )
+            print(f"✅ Asiento contable creado: {asiento.numeroAsiento}")
 
-            # Crear registro de pago
-            pago = Pago.objects.create(
-                idNota=nota,
-                idTasa=tasa_base,
-                formaPago=data['formaPago'],
-                monto=monto_pago,
-                referencia=data.get('referencia', ''),
-                observaciones=data.get('observaciones', ''),
-                fechaPago=data['fechaPago'],
-                numeroPago=numero_pago,
-                estado='PROCESADO'
-            )
+            # Crear registro de pago - SIN idCuentaBanco ya que es opcional
+            pago_data = {
+                'idNota': nota,
+                'idAsiento': asiento,
+                'idTasa': tasa_base,
+                'formaPago': data['formaPago'],
+                'monto': monto_pago,
+                'referencia': data.get('referencia', ''),
+                'observaciones': data.get('observaciones', ''),
+                'fechaPago': data['fechaPago']
+            }
+            
+            # Solo agregar idCuentaBanco si viene en los datos y no es null
+            if data.get('idCuentaBanco') is not None:
+                pago_data['idCuentaBanco_id'] = data['idCuentaBanco']
+
+            pago = Pago.objects.create(**pago_data)
+            print(f"✅ Pago creado: {pago.idPago}")
 
             # Actualizar estado de la nota
             if monto_pago == nota.totalNota:
                 nota.estado = 'PAGADA'
+                estado_nuevo = 'PAGADA'
             else:
-                nota.estado = 'PARCIAL'
+                nota.estado = 'PARCIAL' 
+                estado_nuevo = 'PARCIAL'
             
             nota.save()
+            print(f"✅ Estado de nota actualizado a: {nota.estado}")
 
-            # Actualizar estado de la inscripción relacionada
-            nota_relacionada = NotaRelacionada.objects.filter(idNota=nota).first()
-            if nota_relacionada and nota_relacionada.idInscripcion:
-                inscripcion = nota_relacionada.idInscripcion
-                if monto_pago == nota.totalNota:
-                    inscripcion.estadoPago = 'PAGADO'
-                else:
-                    inscripcion.estadoPago = 'PARCIAL'
-                inscripcion.save()
+            # Actualizar estado de la inscripción relacionada si existe
+            try:
+                nota_relacionada = NotaRelacionada.objects.filter(idNota=nota).first()
+                if nota_relacionada and nota_relacionada.idInscripcion:
+                    inscripcion = nota_relacionada.idInscripcion
+                    if monto_pago == nota.totalNota:
+                        inscripcion.estadoPago = 'PAGADO'
+                    else:
+                        inscripcion.estadoPago = 'PARCIAL'
+                    inscripcion.save()
+                    print(f"✅ Estado de inscripción actualizado a: {inscripcion.estadoPago}")
+            except Exception as e:
+                print(f"⚠️ No se pudo actualizar estado de inscripción: {str(e)}")
 
-            # Crear detalles del asiento contable (simplificado)
-            # Aquí iría la lógica completa de asientos contables según tu negocio
+            # Crear detalles del asiento contable básico
+            try:
+                # Buscar planes de cuenta para pagos
+                plan_articulos = PlanArticulo.objects.filter(
+                    tipoArticulo__in=['INSCRIPCION', 'CUOTA']
+                ).order_by('-fecha')
+                
+                if plan_articulos.exists():
+                    plan_debe = plan_articulos.filter(tipo=1).first()  # Débito
+                    plan_haber = plan_articulos.filter(tipo=0).first()  # Crédito
+                    
+                    if plan_debe and plan_haber:
+                        DetalleAsiento.objects.create(
+                            idAsiento=asiento,
+                            idPlanCuenta=plan_debe.idPlanCuenta,
+                            debe=monto_pago,
+                            haber=Decimal('0.00')
+                        )
+                        DetalleAsiento.objects.create(
+                            idAsiento=asiento,
+                            idPlanCuenta=plan_haber.idPlanCuenta,
+                            debe=Decimal('0.00'),
+                            haber=monto_pago
+                        )
+                        print("✅ Detalles de asiento contable creados")
+            except Exception as e:
+                print(f"⚠️ No se pudieron crear detalles de asiento: {str(e)}")
 
             return Response({
                 'success': True,
                 'message': 'Pago procesado exitosamente',
                 'data': {
                     'idPago': pago.idPago,
-                    'numeroPago': pago.numeroPago,
+                    'numeroPago': numero_pago,
                     'monto': float(pago.monto),
                     'fechaPago': pago.fechaPago,
-                    'estado': pago.estado,
+                    'formaPago': pago.formaPago,
+                    'estado': 'PROCESADO',
                     'nota': {
                         'idNota': nota.idNota,
                         'numeroNota': nota.numeroNota,
-                        'nuevoEstado': nota.estado
+                        'nuevoEstado': estado_nuevo,
+                        'totalNota': float(nota.totalNota)
                     }
                 }
             }, status=status.HTTP_201_CREATED)
 
         except Exception as e:
+            print(f"❌ Error procesando pago: {str(e)}")
+            import traceback
+            print(f"📋 Traceback completo: {traceback.format_exc()}")
             return Response({
                 'success': False,
                 'message': f'Error procesando pago: {str(e)}'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def generar_numero_pago(self):
-        # CORREGIDO: usar now() en lugar de timezone.now()
         fecha_actual = now().strftime('%Y%m%d')
         numero_unico = uuid.uuid4().hex[:6].upper()
         return f"PAGO-{fecha_actual}-{numero_unico}"
 
+
+# Endpoint de diagnóstico para ver relaciones de notas
 @api_view(['GET'])
-def notas_por_usuario_autenticado(request):
+def debug_nota_relaciones(request, id_nota):
+    """
+    Endpoint para diagnosticar las relaciones de una nota específica
+    """
     try:
-        # Obtener el usuario autenticado
-        usuario = request.user
-        if not usuario.is_authenticated:
-            return Response({
-                'success': False,
-                'message': 'Usuario no autenticado'
-            }, status=401)
-
-        # Obtener la persona desde el usuario
-        try:
-            persona = usuario.idPersona
-            print(f"🔍 Buscando notas para persona ID: {persona.idPersona}")
-        except Personas.DoesNotExist:
-            return Response({
-                'success': False,
-                'message': 'Perfil de persona no encontrado para este usuario'
-            }, status=404)
-
-        # Obtener notas relacionadas con esta persona - INCLUYENDO LAS RELACIONES
-        notas = Nota.objects.filter(
-            idPersona=persona,
-            estado__in=['PENDIENTE', 'PARCIAL']
-        ).prefetch_related(
-            'relaciones__idInscripcion__idFormacion',
-            'relaciones__idCuota__idFormacion', 
-            'relaciones__idSolicitud__idFormacion'
-        ).order_by('-fechaEmision')
-
-        notas_data = []
-        for nota in notas:
-            # Obtener información de formación - MÉTODO MEJORADO
-            formacion_nombre = "Formación no especificada"
-            
-            try:
-                # Buscar en NotaRelacionada para obtener la formación
-                relaciones = nota.relaciones.all()  # Usamos el related_name 'relaciones'
-                
-                for relacion in relaciones:
-                    print(f"🔍 Procesando relación para nota {nota.idNota}: {relacion}")
-                    
-                    # Intentar obtener formación desde inscripción
-                    if relacion.idInscripcion and hasattr(relacion.idInscripcion, 'idFormacion'):
-                        if relacion.idInscripcion.idFormacion:
-                            formacion_nombre = relacion.idInscripcion.idFormacion.nombreFormacion
-                            print(f"✅ Formación encontrada desde inscripción: {formacion_nombre}")
-                            break
-                    
-                    # Intentar obtener formación desde cuota
-                    elif relacion.idCuota and hasattr(relacion.idCuota, 'idFormacion'):
-                        if relacion.idCuota.idFormacion:
-                            formacion_nombre = relacion.idCuota.idFormacion.nombreFormacion
-                            print(f"✅ Formación encontrada desde cuota: {formacion_nombre}")
-                            break
-                    
-                    # Intentar obtener formación desde solicitud
-                    elif relacion.idSolicitud and hasattr(relacion.idSolicitud, 'idFormacion'):
-                        if relacion.idSolicitud.idFormacion:
-                            formacion_nombre = relacion.idSolicitud.idFormacion.nombreFormacion
-                            print(f"✅ Formación encontrada desde solicitud: {formacion_nombre}")
-                            break
-                            
-            except Exception as e:
-                print(f"⚠️ Error obteniendo formación para nota {nota.idNota}: {str(e)}")
-                formacion_nombre = "Información no disponible"
-
-            # Si después de todo sigue siendo "Formación no especificada", intentar un método alternativo
-            if formacion_nombre == "Formación no especificada":
-                try:
-                    # Buscar directamente en alguna relación sin prefetch
-                    relacion_directa = NotaRelacionada.objects.filter(idNota=nota).first()
-                    if relacion_directa:
-                        if relacion_directa.idInscripcion:
-                            formacion_nombre = relacion_directa.idInscripcion.idFormacion.nombreFormacion
-                        elif relacion_directa.idCuota:
-                            formacion_nombre = relacion_directa.idCuota.idFormacion.nombreFormacion
-                        elif relacion_directa.idSolicitud:
-                            formacion_nombre = relacion_directa.idSolicitud.idFormacion.nombreFormacion
-                except Exception as e:
-                    print(f"⚠️ Error en método alternativo: {str(e)}")
-
-            notas_data.append({
+        nota = Nota.objects.get(idNota=id_nota)
+        
+        relaciones = NotaRelacionada.objects.filter(idNota=nota)
+        
+        debug_info = {
+            'nota': {
                 'idNota': nota.idNota,
                 'numeroNota': nota.numeroNota,
-                'fechaEmision': nota.fechaEmision,
-                'totalNota': float(nota.totalNota),
+                'tipoArticulo': nota.tipoArticulo,
                 'estado': nota.estado,
-                'formacion': {
-                    'nombreFormacion': formacion_nombre
-                },
-                'persona': {
-                    'nombre': f"{persona.nombres} {persona.apellidos}",
-                    'cedula': persona.cedula
-                }
-            })
-
-        return Response({
-            'success': True,
-            'data': notas_data,
-            'total': len(notas_data),
-            'persona_info': {
-                'idPersona': persona.idPersona,
-                'nombre': f"{persona.nombres} {persona.apellidos}",
-                'cedula': persona.cedula
+            },
+            'relaciones_count': relaciones.count(),
+            'relaciones': []
+        }
+        
+        for rel in relaciones:
+            relacion_info = {
+                'id_relacion': rel.id,
+                'tiene_inscripcion': bool(rel.idInscripcion),
+                'tiene_cuota': bool(rel.idCuota),
+                'tiene_solicitud': bool(rel.idSolicitud),
             }
-        })
-
+            
+            if rel.idInscripcion:
+                relacion_info['inscripcion'] = {
+                    'id': rel.idInscripcion.idInscripcion,
+                    'tiene_formacion': bool(rel.idInscripcion.idFormacion),
+                    'formacion_nombre': rel.idInscripcion.idFormacion.nombreFormacion if rel.idInscripcion.idFormacion else None,
+                    'estado_pago': rel.idInscripcion.estadoPago
+                }
+            
+            if rel.idCuota:
+                relacion_info['cuota'] = {
+                    'id': rel.idCuota.idCuota,
+                    'tiene_formacion': bool(rel.idCuota.idFormacion),
+                    'formacion_nombre': rel.idCuota.idFormacion.nombreFormacion if rel.idCuota.idFormacion else None
+                }
+            
+            if rel.idSolicitud:
+                relacion_info['solicitud'] = {
+                    'id': rel.idSolicitud.idSolicitud,
+                    'tiene_formacion': bool(rel.idSolicitud.idFormacion),
+                    'formacion_nombre': rel.idSolicitud.idFormacion.nombreFormacion if rel.idSolicitud.idFormacion else None
+                }
+            
+            debug_info['relaciones'].append(relacion_info)
+        
+        return Response(debug_info)
+        
     except Exception as e:
-        print(f"❌ Error en notas_por_usuario_autenticado: {str(e)}")
-        import traceback
-        print(f"📋 Traceback: {traceback.format_exc()}")
-        return Response({
-            'success': False,
-            'message': f'Error obteniendo notas: {str(e)}'
-        }, status=500)
+        return Response({'error': str(e)}, status=500)
