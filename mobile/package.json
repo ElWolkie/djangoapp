@@ -30,6 +30,7 @@
     "expo-build-properties": "~1.0.9",
     "expo-linear-gradient": "~15.0.7",
     "expo-status-bar": "~3.0.8",
+    "expo-updates": "~29.0.12",
     "formik": "^2.4.6",
     "global": "^2.0.2",
     "nativewind": "^2.0.11",

@@ -1,32 +1,36 @@
-// metro.config.js - VERSIÓN SIMPLIFICADA Y FUNCIONAL
-const {getDefaultConfig, mergeConfig} = require('@react-native/metro-config');
+// metro.config.js — Configuración oficial compatible con Expo y EAS Build
+const { getDefaultConfig } = require('expo/metro-config');
 
 /**
- * Metro configuration for React Native
- * https://facebook.github.io/metro/docs/configuration
+ * Configuración Metro para Expo
+ * https://docs.expo.dev/guides/customizing-metro/
  *
- * @type {import('metro-config').MetroConfig}
+ * Esta versión garantiza compatibilidad con EAS Build
+ * y evita errores como "Serializer did not return expected format".
  */
-const config = {
-  transformer: {
-    getTransformOptions: async () => ({
-      transform: {
-        experimentalImportSupport: false,
-        inlineRequires: true,
-      },
-    }),
-    // ELIMINAMOS esta línea: babelTransformerPath: require.resolve('react-native-svg-transformer'),
-  },
-  resolver: {
-    assetExts: [
-      'bmp', 'gif', 'jpg', 'jpeg', 'png', 'psd', 'svg', 'webp',
-      'm4v', 'mov', 'mp4', 'mpeg', 'mpg', 'webm',
-      'aac', 'aiff', 'caf', 'm4a', 'mp3', 'wav',
-      'html', 'pdf', 'yaml', 'yml', 'json',
-      'otf', 'ttf',
-    ],
-    sourceExts: ['js', 'jsx', 'ts', 'tsx', 'json'],
-  },
+const projectRoot = __dirname;
+const config = getDefaultConfig(projectRoot);
+
+// ✅ Opciones de transformación recomendadas
+config.transformer = {
+  ...config.transformer,
+  getTransformOptions: async () => ({
+    transform: {
+      experimentalImportSupport: false,
+      inlineRequires: true,
+    },
+  }),
+  // Si usas SVGs con react-native-svg-transformer, descomenta esta línea:
+  // babelTransformerPath: require.resolve('react-native-svg-transformer'),
 };
 
-module.exports = mergeConfig(getDefaultConfig(__dirname), config);
+// ✅ Resolver configurado correctamente
+config.resolver = {
+  ...config.resolver,
+  // Si no usas transformer SVG, puedes tratar los .svg como assets
+  assetExts: config.resolver.assetExts.filter(ext => ext !== 'svg'),
+  sourceExts: [...config.resolver.sourceExts, 'svg'],
+};
+
+// ✅ Exportar la configuración final
+module.exports = config;

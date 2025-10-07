@@ -4,7 +4,7 @@ export default {
     slug: "MiAppMovil",
     version: "1.0.0",
     orientation: "portrait",
-    icon: "./assets/icon.png",
+    icon: "./assets/iconApp.png",
     userInterfaceStyle: "light",
     newArchEnabled: true,
     splash: {
@@ -28,7 +28,7 @@ export default {
       ]
     },
     web: {
-      favicon: "./assets/favicon.png"
+      favicon: "./assets/iconApp.png"
     },
 
     // <- Aquí actualizamos extra para incluir eas.projectId (ya lo tenías)
