@@ -967,3 +967,63 @@ def test_pago_simple(request):
             'success': False,
             'message': f'Error en prueba: {str(e)}'
         }, status=500)
+
+@api_view(['POST'])
+def diagnostico_pago(request):
+    """
+    Diagnóstico completo del sistema de pagos
+    """
+    try:
+        data = request.data
+        print("🔧 [DIAGNOSTICO] Ejecutando diagnóstico completo...")
+        
+        # Verificar modelo Pago
+        from django.db import connection
+        from django.apps import apps
+        
+        diagnostico = {
+            'modelo_pago': {
+                'existe': apps.all_models['factura'].get('Pago') is not None,
+                'campos': [],
+                'problemas': []
+            },
+            'configuraciones': {},
+            'datos_recibidos': data
+        }
+        
+        # Analizar modelo Pago
+        if diagnostico['modelo_pago']['existe']:
+            modelo_pago = apps.get_model('factura', 'Pago')
+            for field in modelo_pago._meta.fields:
+                field_info = {
+                    'name': field.name,
+                    'type': type(field).__name__,
+                    'required': not field.null and not field.blank,
+                    'default': field.default if field.has_default() else 'NO',
+                }
+                diagnostico['modelo_pago']['campos'].append(field_info)
+                
+                # Verificar campos requeridos problemáticos
+                if field_info['required'] and field_info['default'] == 'NO':
+                    if field.name not in ['idNota', 'idAsiento', 'idTasa', 'formaPago', 'monto', 'fechaPago']:
+                        diagnostico['modelo_pago']['problemas'].append(f"Campo requerido no manejado: {field.name}")
+        
+        # Verificar configuraciones
+        diagnostico['configuraciones'] = {
+            'periodos': periodoContable.objects.count(),
+            'tasas': Tasa.objects.count(),
+            'tasas_activas': Tasa.objects.filter(estadoTasa=True).count(),
+            'notas_pendientes': Nota.objects.filter(estado__in=['PENDIENTE', 'PARCIAL']).count(),
+        }
+        
+        return Response({
+            'success': True,
+            'message': 'Diagnóstico completado',
+            'diagnostico': diagnostico
+        })
+        
+    except Exception as e:
+        return Response({
+            'success': False,
+            'message': f'Error en diagnóstico: {str(e)}'
+        }, status=500)
