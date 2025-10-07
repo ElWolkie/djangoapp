@@ -16,13 +16,3 @@ def reactNativeAndroidDir = new File(
     "../node_modules/react-native/android"
 )
 
-allprojects {
-    repositories {
-        maven {
-            url(reactNativeAndroidDir)
-        }
-        google()
-        mavenCentral()
-        maven { url 'https://www.jitpack.io' }
-    }
-}
