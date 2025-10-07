@@ -580,72 +580,74 @@ class PagoCreateSerializer(serializers.ModelSerializer):
         return data
 
 class PagoCreateAPIView(APIView):
-    @transaction.atomic
     def post(self, request, *args, **kwargs):
-        print("🚀 [PAGO-DEBUG] Iniciando procesamiento...")
+        print("=" * 80)
+        print("🚀 [DEBUG-EXTREMO] PagoCreateAPIView INICIADA")
+        print("=" * 80)
         
-        # 🔥 DEBUG EXTREMO - Imprimir todo
-        print("📥 Datos recibidos:", request.data)
-        print("🔑 Usuario:", request.user)
-        print("🎯 Método:", request.method)
+        # 🔥 DEBUG SUPER EXTREMO
+        print("📥 HEADERS:", dict(request.headers))
+        print("📥 DATA RAW:", request.body)
+        print("📥 DATA PARSED:", request.data)
+        print("🔑 USER:", request.user)
+        print("🔑 AUTH:", request.auth)
+        print("🎯 METHOD:", request.method)
         
         try:
+            # 1. VERIFICAR SERIALIZER
+            print("🔍 [PASO 1] Creando serializer...")
             serializer = PagoCreateSerializer(data=request.data)
             print("✅ Serializer creado")
-
+            
+            print("🔍 [PASO 2] Validando serializer...")
             if not serializer.is_valid():
-                print(f"❌ Validación falló: {serializer.errors}")
+                print(f"❌ Serializer inválido: {serializer.errors}")
                 return Response({
                     "success": False,
-                    "message": "Datos inválidos.",
+                    "message": "Datos inválidos",
                     "errors": serializer.errors
                 }, status=status.HTTP_400_BAD_REQUEST)
-
             print("✅ Serializer válido")
             
+            # 2. OBTENER DATOS VALIDADOS
             validated_data = serializer.validated_data
             nota = serializer.context['nota']
             monto_pago = validated_data['monto']
-
-            print(f"📥 Procesando nota ID: {nota.idNota}, Monto: {monto_pago}")
-
-            # 1. OBTENER CONFIGURACIONES - CON MÁS DEBUG
-            print("🔍 Buscando configuración...")
+            
+            print(f"📥 Nota ID: {nota.idNota}")
+            print(f"💰 Monto: {monto_pago}")
+            
+            # 3. CONFIGURACIÓN
+            print("🔍 [PASO 3] Buscando configuración...")
             configuracion = Configuracion.objects.first()
             print(f"✅ Configuración: {configuracion}")
             
             if not configuracion:
-                return Response({
-                    "success": False,
-                    "message": "No se encontró configuración en el sistema."
-                }, status=status.HTTP_400_BAD_REQUEST)
-
-            print("🔍 Buscando moneda de configuración...")
+                raise Exception("No hay configuración en el sistema")
+            
+            # 4. MONEDA
+            print("🔍 [PASO 4] Buscando moneda...")
             moneda_configuracion = configuracion.moneda
             print(f"✅ Moneda: {moneda_configuracion}")
             
-            print("🔍 Buscando tasa...")
+            # 5. TASA
+            print("🔍 [PASO 5] Buscando tasa...")
             tasa = Tasa.objects.filter(idMoneda=moneda_configuracion).order_by('-idTasa').first()
-            print(f"✅ Tasa encontrada: {tasa}")
+            print(f"✅ Tasa: {tasa}")
             
             if not tasa:
-                return Response({
-                    "success": False,
-                    "message": f"No se encontró tasa para la moneda de configuración ({moneda_configuracion.nombreMoneda})."
-                }, status=status.HTTP_400_BAD_REQUEST)
-
-            print("🔍 Buscando periodo activo...")
+                raise Exception(f"No se encontró tasa para moneda: {moneda_configuracion.nombreMoneda}")
+            
+            # 6. PERIODO CONTABLE
+            print("🔍 [PASO 6] Buscando periodo contable...")
             periodo_activo = periodoContable.objects.filter(estadoPeriodo=True).first()
-            print(f"✅ Periodo activo: {periodo_activo}")
+            print(f"✅ Periodo: {periodo_activo}")
             
             if not periodo_activo:
-                return Response({
-                    "success": False,
-                    "message": "No hay un periodo contable activo configurado."
-                }, status=status.HTTP_400_BAD_REQUEST)
-
-            # 2. CREAR ASIENTO CONTABLE
-            print("🏗️ Creando asiento contable...")
+                raise Exception("No hay periodo contable activo")
+            
+            # 7. CREAR ASIENTO
+            print("🔍 [PASO 7] Creando asiento contable...")
             numero_asiento = f"PAGO-{now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
             asiento = AsientoContable.objects.create(
                 numeroAsiento=numero_asiento,
@@ -653,10 +655,10 @@ class PagoCreateAPIView(APIView):
                 conceptoAsiento=f"Pago de {validated_data['formaPago']} - Nota: {nota.numeroNota}",
                 idPeriodo=periodo_activo
             )
-            print(f"✅ Asiento Creado: {asiento.idAsiento}")
-
-            # 3. CREAR PAGO
-            print("💰 Creando pago...")
+            print(f"✅ Asiento creado: {asiento.idAsiento}")
+            
+            # 8. CREAR PAGO
+            print("🔍 [PASO 8] Creando pago...")
             pago = Pago.objects.create(
                 idNota=nota,
                 idAsiento=asiento,
@@ -667,27 +669,27 @@ class PagoCreateAPIView(APIView):
                 referencia=validated_data.get('referencia', ''),
                 observaciones=validated_data.get('observaciones', '')
             )
-            print(f"✅ Pago Creado: {pago.idPago}")
-
-            # 4. ACTUALIZAR ESTADOS
-            print("🔄 Actualizando estados...")
+            print(f"✅ Pago creado: {pago.idPago}")
+            
+            # 9. ACTUALIZAR ESTADOS
+            print("🔍 [PASO 9] Actualizando estados...")
             nuevo_estado_nota = 'PARCIAL'
             if monto_pago >= nota.totalNota:
                 nuevo_estado_nota = 'PAGADA'
             
             nota.estado = nuevo_estado_nota
             nota.save()
-            print(f"✅ Estado de Nota actualizado a: {nuevo_estado_nota}")
+            print(f"✅ Nota actualizada: {nuevo_estado_nota}")
             
-            # Actualizar Inscripción
+            # 10. ACTUALIZAR INSCRIPCIÓN
             relacion = NotaRelacionada.objects.filter(idNota=nota).first()
             if relacion and relacion.idInscripcion:
                 inscripcion = relacion.idInscripcion
                 inscripcion.estadoPago = nuevo_estado_nota
                 inscripcion.save()
-                print(f"✅ Estado de Inscripción actualizado")
-
-            # 5. RESPUESTA EXITOSA
+                print(f"✅ Inscripción actualizada: {inscripcion.idInscripcion}")
+            
+            # ÉXITO
             response_data = {
                 'success': True,
                 'message': '¡Pago procesado exitosamente! 🎉',
@@ -705,24 +707,42 @@ class PagoCreateAPIView(APIView):
                     }
                 }
             }
-            print("🎊 Proceso completado exitosamente!")
+            
+            print("=" * 80)
+            print("🎊 [DEBUG-EXTREMO] PROCESO COMPLETADO EXITOSAMENTE!")
+            print("=" * 80)
+            
             return Response(response_data, status=status.HTTP_201_CREATED)
-
+            
         except Exception as e:
-            print(f"💥 ERROR CRÍTICO: {str(e)}")
+            print("=" * 80)
+            print("💥 [DEBUG-EXTREMO] ERROR CRÍTICO CAPTURADO!")
+            print("=" * 80)
+            
+            # 🔥 FORZAR EL ERROR A LA CONSOLA
             import traceback
             error_traceback = traceback.format_exc()
-            print(f"📋 TRACEBACK COMPLETO:\n{error_traceback}")
             
-            # Guardar en un archivo de log si es necesario
-            with open('pago_error.log', 'w') as f:
-                f.write(f"Error: {str(e)}\n")
-                f.write(f"Traceback: {error_traceback}\n")
+            print(f"❌ ERROR: {str(e)}")
+            print(f"📋 TRACEBACK COMPLETO:")
+            print(error_traceback)
+            print("=" * 80)
+            
+            # También usar logging
+            logger.error(f"Error en PagoCreateAPIView: {str(e)}")
+            logger.error(f"Traceback: {error_traceback}")
+            
+            # Guardar en archivo
+            with open('debug_pago_error.txt', 'w', encoding='utf-8') as f:
+                f.write(f"ERROR: {str(e)}\n")
+                f.write(f"TRACEBACK:\n{error_traceback}\n")
+                f.write(f"DATA: {request.data}\n")
+                f.write(f"USER: {request.user}\n")
             
             return Response({
                 "success": False,
-                "message": f"Error interno del servidor: {str(e)}",
-                "traceback": error_traceback if settings.DEBUG else "Contacte al administrador"
+                "message": f"Error interno: {str(e)}",
+                "debug_traceback": error_traceback
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 # Crea un script temporal para corregir las relaciones de notas
