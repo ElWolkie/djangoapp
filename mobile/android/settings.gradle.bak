@@ -1,3 +1,4 @@
+// android/settings.gradle - VERSIÓN CORREGIDA
 pluginManagement {
     repositories {
         gradlePluginPortal()
@@ -16,9 +17,8 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = 'MiAppMovil'
-
-def nativeModulesGradle = file("$rootDir/node_modules/@react-native-community/cli-platform-android/native_modules.gradle")
-def nativeModulesGradleAlt = file("$rootDir/node_modules/react-native/cli-platform-android/native_modules.gradle")
+def nativeModulesGradle = file("\$rootDir/node_modules/@react-native-community/cli-platform-android/native_modules.gradle")
+def nativeModulesGradleAlt = file("\$rootDir/node_modules/react-native/cli-platform-android/native_modules.gradle")
 
 if (nativeModulesGradle.exists()) {
     apply from: nativeModulesGradle
@@ -27,6 +27,5 @@ if (nativeModulesGradle.exists()) {
 } else {
     println("WARNING: native_modules.gradle not found. Skipping apply (checked both paths).")
 }
-
 include ':app'
 includeBuild('../node_modules/@react-native/gradle-plugin')
