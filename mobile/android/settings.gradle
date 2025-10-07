@@ -1,28 +1,36 @@
-
-// Insertado por CI-fix: definir propiedades globales tempranas para plugins/autolinking
-gradle.ext {
-    buildToolsVersion = "36.0.0"
-    compileSdkVersion = 36
-    targetSdkVersion = 36
-    minSdkVersion = 24
-    ndkVersion = "27.1.12297006"
-}
-
-// Insertado por CI-fix: definir propiedades globales tempranas para plugins/autolinking
-gradle.ext {
-    buildToolsVersion = "36.0.0"
-    compileSdkVersion = 36
-    targetSdkVersion = 36
-    minSdkVersion = 24
-    ndkVersion = "27.1.12297006"
-}
-
 pluginManagement {
     repositories {
         gradlePluginPortal()
         google()
         mavenCentral()
     }
+}
+// Insertado por CI-fix: definir propiedades globales tempranas para plugins/autolinking
+gradle.ext {
+    buildToolsVersion = "36.0.0"
+    compileSdkVersion = 36
+    targetSdkVersion = 36
+    minSdkVersion = 24
+    ndkVersion = "27.1.12297006"
+}
+
+
+// Insertado por CI-fix: definir propiedades globales tempranas para plugins/autolinking
+gradle.ext {
+    buildToolsVersion = "36.0.0"
+    compileSdkVersion = 36
+    targetSdkVersion = 36
+    minSdkVersion = 24
+    ndkVersion = "27.1.12297006"
+}
+
+// Insertado por CI-fix: definir propiedades globales tempranas para plugins/autolinking
+gradle.ext {
+    buildToolsVersion = "36.0.0"
+    compileSdkVersion = 36
+    targetSdkVersion = 36
+    minSdkVersion = 24
+    ndkVersion = "27.1.12297006"
 }
 
 dependencyResolutionManagement {
