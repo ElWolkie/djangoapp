@@ -579,168 +579,176 @@ def corregir_relaciones_notas(request):
             'message': f'Error: {str(e)}'
         }, status=500)
 
-
-# En tu endpoints.py - AGREGA ESTO PRIMERO
-import sys
+# En tu endpoints.py - REEMPLAZA el PagoCreateAPIView con esto
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
+import json
+from django.utils.timezone import now
+import uuid
 
-@api_view(['POST'])
 @csrf_exempt
-def pago_diagnostico_extremo(request):
+def pago_minimo_funcional(request):
     """
-    Endpoint de diagnóstico EXTREMO - sin DRF, solo Django puro
+    Endpoint MINIMO y FUNCIONAL - evita todos los problemas complejos
     """
-    print("🎯 [DIAGNOSTICO-EXTREMO] Iniciando...")
+    print("🎯 [PAGO-MINIMO-FUNCIONAL] Iniciando...")
+    
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Método no permitido'}, status=405)
     
     try:
-        # Leer el body manualmente
+        # Leer body manualmente - evitando problemas de DRF
         body = request.body.decode('utf-8') if request.body else '{}'
         print(f"📥 Body raw: {body}")
         
-        # Parsear JSON manualmente
-        import json
-        try:
-            data = json.loads(body) if body else {}
-        except json.JSONDecodeError as e:
-            data = {'error': f'JSON inválido: {str(e)}'}
+        data = json.loads(body) if body else {}
+        print(f"📥 Data parsed: {data}")
         
-        print(f"📥 Data: {data}")
+        # Validaciones básicas
+        required_fields = ['idNota', 'formaPago', 'monto', 'fechaPago']
+        for field in required_fields:
+            if field not in data:
+                return JsonResponse({
+                    'success': False,
+                    'message': f'Campo faltante: {field}'
+                }, status=400)
         
-        # Verificar TODOS los imports críticos
-        diagnostic = {}
+        # 🔥 IMPORTACIONES DIRECTAS - sin depender de serializers complejos
+        from apps.factura.models import Nota, Pago, NotaRelacionada
+        from apps.home.models import Moneda, Tasa, Configuracion
+        from apps.periodoContable.models import periodoContable
+        from apps.asientoContable.models import AsientoContable
         
-        # 1. Verificar imports de modelos
-        try:
-            from apps.factura.models import Nota, Pago
-            diagnostic['modelo_nota'] = '✅ OK'
-            diagnostic['modelo_pago'] = '✅ OK'
-            
-            # Verificar si existe la nota
-            if 'idNota' in data:
-                try:
-                    nota = Nota.objects.get(idNota=data['idNota'])
-                    diagnostic['nota_encontrada'] = f'✅ {nota.numeroNota}'
-                except Nota.DoesNotExist:
-                    diagnostic['nota_encontrada'] = '❌ No existe'
-            
-        except Exception as e:
-            diagnostic['modelos_factura'] = f'❌ Error: {str(e)}'
-        
-        # 2. Verificar modelos de home
-        try:
-            from apps.home.models import Moneda, Tasa
-            diagnostic['modelo_moneda'] = '✅ OK'
-            diagnostic['modelo_tasa'] = '✅ OK'
-            
-            # Verificar moneda ID=1
-            moneda = Moneda.objects.filter(idMoneda=1).first()
-            if moneda:
-                diagnostic['moneda_1'] = f'✅ {moneda.nombreMoneda}'
-                tasa = Tasa.objects.filter(idMoneda=moneda).first()
-                if tasa:
-                    diagnostic['tasa'] = f'✅ {tasa.montoTasa}'
-                else:
-                    diagnostic['tasa'] = '❌ No hay tasa'
-            else:
-                diagnostic['moneda_1'] = '❌ No existe'
-                
-        except Exception as e:
-            diagnostic['modelos_home'] = f'❌ Error: {str(e)}'
-        
-        # 3. Verificar otros modelos críticos
-        try:
-            from apps.periodoContable.models import periodoContable
-            from apps.asientoContable.models import AsientoContable
-            
-            periodo = periodoContable.objects.filter(estadoPeriodo=True).first()
-            diagnostic['periodo_activo'] = f'✅ {periodo.nombrePeriodo}' if periodo else '❌ No activo'
-            diagnostic['modelo_asiento'] = '✅ OK'
-            
-        except Exception as e:
-            diagnostic['modelos_contables'] = f'❌ Error: {str(e)}'
-        
-        # 4. Verificar que el serializer exista
-        try:
-            from .serializers import PagoCreateSerializer
-            diagnostic['serializer'] = '✅ OK'
-        except Exception as e:
-            diagnostic['serializer'] = f'❌ Error: {str(e)}'
-        
-        # Respuesta de diagnóstico
-        response_data = {
-            'success': True,
-            'message': 'Diagnóstico completado',
-            'diagnostic': diagnostic,
-            'timestamp': now().isoformat()
-        }
-        
-        print("✅ Diagnóstico exitoso")
-        return Response(response_data)
-        
-    except Exception as e:
-        print(f"💥 ERROR CRÍTICO EN DIAGNÓSTICO: {str(e)}")
-        
-        # Devolver error en formato JSON puro
-        return JsonResponse({
-            'success': False,
-            'error': str(e),
-            'type': type(e).__name__,
-            'timestamp': now().isoformat()
-        }, status=500)
-
-# Endpoint SIMPLIFICADO de pago - sin serializer, sin transacción
-@api_view(['POST'])
-@csrf_exempt
-def pago_super_simple(request):
-    """
-    Pago SUPER SIMPLE - solo lo básico
-    """
-    print("🎯 [PAGO-SUPER-SIMPLE] Iniciando...")
-    
-    try:
-        data = request.data
-        print(f"📥 Datos: {data}")
-        
-        # Validaciones mínimas
-        if 'idNota' not in data:
-            return Response({
-                'success': False,
-                'message': 'idNota es requerido'
-            }, status=400)
-        
-        # Obtener nota
-        from apps.factura.models import Nota
+        # Validar nota
         try:
             nota = Nota.objects.get(idNota=data['idNota'])
-            print(f"✅ Nota: {nota.numeroNota}")
+            print(f"✅ Nota encontrada: {nota.numeroNota}")
         except Nota.DoesNotExist:
-            return Response({
+            return JsonResponse({
                 'success': False,
                 'message': 'Nota no encontrada'
             }, status=404)
         
-        # Simular éxito sin crear nada
-        return Response({
+        if nota.estado == 'PAGADA':
+            return JsonResponse({
+                'success': False,
+                'message': 'La nota ya está pagada'
+            }, status=400)
+        
+        # Validar monto
+        monto_pago = float(data['monto'])
+        if monto_pago <= 0:
+            return JsonResponse({
+                'success': False,
+                'message': 'Monto debe ser mayor a 0'
+            }, status=400)
+        
+        if monto_pago > float(nota.totalNota):
+            return JsonResponse({
+                'success': False,
+                'message': f'Monto excede el total de la nota (${nota.totalNota})'
+            }, status=400)
+        
+        # 🔥 CONFIGURACIÓN MÍNIMA - Moneda ID=1 como dijiste
+        moneda = Moneda.objects.filter(idMoneda=1).first()
+        if not moneda:
+            return JsonResponse({
+                'success': False,
+                'message': 'Moneda base (ID=1) no configurada'
+            }, status=400)
+        
+        tasa = Tasa.objects.filter(idMoneda=moneda).order_by('-idTasa').first()
+        if not tasa:
+            return JsonResponse({
+                'success': False,
+                'message': 'No hay tasa configurada'
+            }, status=400)
+        
+        # Periodo contable
+        periodo = periodoContable.objects.filter(estadoPeriodo=True).first()
+        if not periodo:
+            return JsonResponse({
+                'success': False,
+                'message': 'No hay periodo contable activo'
+            }, status=400)
+        
+        # 🔥 CREAR PAGO - TRANSACCIÓN SIMPLE
+        from django.db import transaction
+        
+        with transaction.atomic():
+            # Asiento contable
+            numero_asiento = f"PAGO-{now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
+            asiento = AsientoContable.objects.create(
+                numeroAsiento=numero_asiento,
+                fechaAsiento=now().date(),
+                conceptoAsiento=f"Pago de {data['formaPago']} - Nota: {nota.numeroNota}",
+                idPeriodo=periodo
+            )
+            
+            # Pago
+            pago = Pago.objects.create(
+                idNota=nota,
+                idAsiento=asiento,
+                idTasa=tasa,
+                monto=monto_pago,
+                fechaPago=data['fechaPago'],
+                formaPago=data['formaPago'],
+                referencia=data.get('referencia', ''),
+                observaciones=data.get('observaciones', '')
+            )
+            
+            # Actualizar estado de nota
+            if monto_pago >= float(nota.totalNota):
+                nota.estado = 'PAGADA'
+            else:
+                nota.estado = 'PARCIAL'
+            nota.save()
+            
+            # Actualizar inscripción si existe
+            relacion = NotaRelacionada.objects.filter(idNota=nota).first()
+            if relacion and relacion.idInscripcion:
+                inscripcion = relacion.idInscripcion
+                inscripcion.estadoPago = nota.estado
+                inscripcion.save()
+        
+        # ÉXITO
+        response_data = {
             'success': True,
-            'message': '✅ PAGO SIMULADO EXITOSO',
-            'nota': {
-                'id': nota.idNota,
-                'numero': nota.numeroNota,
-                'total': float(nota.totalNota)
-            },
-            'debug': 'No se crearon registros reales'
-        })
+            'message': '¡Pago procesado exitosamente! 🎉',
+            'data': {
+                'idPago': pago.idPago,
+                'numeroAsiento': asiento.numeroAsiento,
+                'monto': pago.monto,
+                'fechaPago': pago.fechaPago.isoformat(),
+                'formaPago': pago.formaPago,
+                'referencia': pago.referencia,
+                'nota': {
+                    'idNota': nota.idNota,
+                    'numeroNota': nota.numeroNota,
+                    'nuevoEstado': nota.estado
+                }
+            }
+        }
+        
+        print("🎊 PAGO EXITOSO!")
+        return JsonResponse(response_data, status=201)
+        
+    except json.JSONDecodeError as e:
+        print(f"❌ Error JSON: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'message': 'JSON inválido'
+        }, status=400)
         
     except Exception as e:
-        print(f"💥 ERROR: {str(e)}")
+        print(f"💥 ERROR CRÍTICO: {str(e)}")
         import traceback
         error_traceback = traceback.format_exc()
         print(f"📋 TRACEBACK: {error_traceback}")
         
-        return Response({
+        return JsonResponse({
             'success': False,
-            'error': str(e),
-            'traceback': error_traceback
+            'message': f'Error interno: {str(e)}',
+            'debug_traceback': error_traceback
         }, status=500)
