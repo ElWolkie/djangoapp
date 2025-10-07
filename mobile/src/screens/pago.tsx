@@ -153,14 +153,14 @@ const PagoScreen = () => {
   };
 
   // 🚀 FUNCIÓN ACTUALIZADA PARA EL NUEVO ENDPOINT
-  // ACTUALIZA SOLO LA FUNCIÓN handleProcesarPago - VERSIÓN DEBUG
+  // TEMPORAL: Función para testing en Render
 const handleProcesarPago = async () => {
   if (!validateForm()) {
     Alert.alert('Error', 'Por favor complete todos los campos requeridos');
     return;
   }
 
-  console.log('🚀 [PAGO-DEBUG] Iniciando procesamiento...');
+  console.log('🚀 [RENDER-TEST] Iniciando prueba en Render...');
   setLoading(true);
 
   try {
@@ -173,90 +173,65 @@ const handleProcesarPago = async () => {
       fechaPago: formData.fechaPago
     };
 
-    console.log('📤 [PAGO-DEBUG] Enviando payload:', payload);
-
-    const response = await api.post('/api/pagos/create/', payload);
+    console.log('📤 [RENDER-TEST] Enviando a endpoint de debug...');
     
-    // 🔥 DETECCIÓN DE RESPUESTA HTML
-    const contentType = response.headers['content-type'] || '';
-    if (contentType.includes('text/html')) {
-      console.error('❌ [PAGO-DEBUG] Servidor respondió con HTML en lugar de JSON');
-      throw new Error('El servidor está respondiendo con una página de error. Verifica los logs del backend.');
-    }
-
-    console.log('📨 [PAGO-DEBUG] Respuesta JSON:', response.data);
-
-    if (response.data && response.data.success) {
-      const pagoData = response.data.data;
-      
+    // 🔥 TEMPORAL: Usar endpoint de debug
+    const response = await api.post('/api/pagos/debug-render/', payload);
+    
+    console.log('✅ [RENDER-TEST] Respuesta:', response.data);
+    
+    if (response.data.success) {
       Alert.alert(
-        '¡Pago Exitoso! 🎉',
-        `Pago procesado correctamente.\n\n` +
-        `Número de transacción: ${pagoData.numeroPago}\n` +
-        `Monto: $${formatCurrency(pagoData.monto)}\n` +
-        `Referencia: ${pagoData.referencia || 'N/A'}`,
+        '✅ Debug Exitoso', 
+        `El endpoint funciona en Render!\n\n` +
+        `Nota: ${response.data.debug_info.nota_numero}\n` +
+        `Monto: $${response.data.debug_info.monto_recibido}\n` +
+        `Forma pago: ${response.data.debug_info.forma_pago}`,
         [
           {
-            text: 'Aceptar',
+            text: 'Continuar',
             onPress: () => {
-              if (modoDirecto) {
-                cargarNotasUsuario();
-                setNotaSeleccionada(null);
-                setFormData({
-                  idNota: '',
-                  formaPago: 'TRANSFERENCIA',
-                  monto: '',
-                  referencia: '',
-                  observaciones: '',
-                  fechaPago: new Date().toISOString().split('T')[0]
-                });
-              } else {
-                navigation.goBack();
-              }
+              // Aquí podrías intentar con el endpoint real
+              // handleProcesarPagoReal();
             }
           }
         ]
       );
     } else {
-      throw new Error(response.data.message || 'Error del servidor');
+      throw new Error(response.data.message);
     }
-
+    
   } catch (error: any) {
-    console.error('💥 [PAGO-DEBUG] Error completo:', error);
+    console.error('❌ [RENDER-TEST] Error:', error);
     
-    let errorMessage = 'Error al procesar el pago';
+    let errorMessage = 'Error en prueba de Render';
     
-    if (error.response) {
-      console.log('🔍 [PAGO-DEBUG] Detalles respuesta:', {
-        status: error.response.status,
-        headers: error.response.headers,
-        data: error.response.data
-      });
-
-      // Detectar si es HTML
-      const contentType = error.response.headers['content-type'];
-      if (contentType && contentType.includes('text/html')) {
-        errorMessage = 'Error interno del servidor (500). El administrador ha sido notificado.';
-        console.log('⚠️ [PAGO-DEBUG] El servidor devolvió HTML en lugar de JSON');
-      } else if (error.response.data && typeof error.response.data === 'object') {
-        if (error.response.data.errors) {
-          const validationErrors = error.response.data.errors;
-          const firstError = Object.values(validationErrors)[0];
-          errorMessage = Array.isArray(firstError) ? firstError[0] : String(firstError);
-        } else {
-          errorMessage = error.response.data.message || errorMessage;
+    if (error.response?.data) {
+      errorMessage = error.response.data.message || errorMessage;
+      if (error.response.data.traceback) {
+        console.log('📋 Traceback del servidor:', error.response.data.traceback);
+        // En desarrollo, mostrar el traceback completo
+        if (__DEV__) {
+          errorMessage += `\n\nDebug: ${error.response.data.traceback}`;
         }
       }
-    } else if (error.request) {
-      errorMessage = 'No se pudo conectar con el servidor. Verifique su conexión.';
-    } else {
-      errorMessage = error.message || errorMessage;
     }
-
-    Alert.alert('Error en Pago', errorMessage);
+    
+    Alert.alert('Error en Render', errorMessage);
   } finally {
     setLoading(false);
-    console.log('🏁 [PAGO-DEBUG] Procesamiento finalizado');
+  }
+};
+
+// También puedes agregar un botón para health check
+const testHealthCheck = async () => {
+  try {
+    const response = await api.get('/api/health/');
+    console.log('🏥 Health Check:', response.data);
+    Alert.alert('Health Check', JSON.stringify(response.data, null, 2));
+  } catch (error) {
+    console.error('❌ Health Check failed:', error);
+    Alert.alert('Health Check Error', String(error));
   }
 };
 

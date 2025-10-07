@@ -1,5 +1,6 @@
 # En api/endpoints.py o en tu archivo de vistas
 from datetime import timedelta, timezone
+import json
 import traceback
 from rest_framework.decorators import api_view
 from rest_framework.views import APIView
@@ -792,4 +793,119 @@ def corregir_relaciones_notas(request):
         return Response({
             'success': False,
             'message': f'Error: {str(e)}'
+        }, status=500)
+
+@api_view(['POST'])
+def debug_pago_render(request):
+    """
+    Endpoint especial de debug para Render.com
+    """
+    logger.info("🎯 [RENDER-DEBUG] Endpoint de debug llamado")
+    
+    try:
+        # Log detallado de la request
+        logger.info(f"📥 Headers: {dict(request.headers)}")
+        logger.info(f"📥 Método: {request.method}")
+        logger.info(f"📥 User: {request.user}")
+        logger.info(f"📥 Auth: {request.auth}")
+        
+        # Leer el body manualmente para evitar problemas de parsing
+        body = request.body.decode('utf-8') if request.body else '{}'
+        logger.info(f"📥 Body raw: {body}")
+        
+        try:
+            data = json.loads(body) if body else {}
+            logger.info(f"📥 Data parsed: {data}")
+        except json.JSONDecodeError as e:
+            logger.error(f"❌ Error parseando JSON: {e}")
+            data = {}
+        
+        # Verificar datos requeridos
+        required_fields = ['idNota', 'monto', 'formaPago', 'referencia', 'fechaPago']
+        missing_fields = [field for field in required_fields if field not in data]
+        
+        if missing_fields:
+            logger.error(f"❌ Campos faltantes: {missing_fields}")
+            return Response({
+                'success': False,
+                'message': f'Campos faltantes: {", ".join(missing_fields)}'
+            }, status=400)
+        
+        # Verificar que la nota existe
+        try:
+            nota = Nota.objects.get(idNota=data['idNota'])
+            logger.info(f"✅ Nota encontrada: {nota.idNota} - {nota.numeroNota}")
+        except Nota.DoesNotExist:
+            logger.error(f"❌ Nota no encontrada: {data['idNota']}")
+            return Response({
+                'success': False,
+                'message': 'Nota no encontrada'
+            }, status=404)
+        
+        # Simular proceso exitoso
+        response_data = {
+            'success': True,
+            'message': '✅ DEBUG - Endpoint funciona correctamente',
+            'debug_info': {
+                'nota_id': nota.idNota,
+                'nota_numero': nota.numeroNota,
+                'monto_recibido': data['monto'],
+                'forma_pago': data['formaPago'],
+                'timestamp': now().isoformat()
+            }
+        }
+        
+        logger.info("🎊 [RENDER-DEBUG] Proceso completado exitosamente")
+        return Response(response_data)
+        
+    except Exception as e:
+        logger.error(f"💥 [RENDER-DEBUG] Error crítico: {str(e)}")
+        import traceback
+        error_traceback = traceback.format_exc()
+        logger.error(f"📋 [RENDER-DEBUG] Traceback: {error_traceback}")
+        
+        return Response({
+            'success': False,
+            'message': f'Error en debug: {str(e)}',
+            'traceback': error_traceback
+        }, status=500)
+
+@api_view(['GET'])
+def health_check(request):
+    """
+    Health check para verificar que todo funciona
+    """
+    logger.info("🔍 [HEALTH-CHECK] Solicitado")
+    
+    checks = {}
+    
+    try:
+        # Verificar base de datos
+        from django.db import connection
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+            checks['database'] = 'OK'
+        
+        # Verificar modelos críticos
+        checks['configuracion'] = 'OK' if Configuracion.objects.exists() else 'MISSING'
+        checks['tasa'] = 'OK' if Tasa.objects.exists() else 'MISSING' 
+        checks['periodo'] = 'OK' if periodoContable.objects.filter(estadoPeriodo=True).exists() else 'MISSING'
+        checks['notas'] = Nota.objects.count()
+        
+        # Verificar que el usuario esté autenticado (si aplica)
+        checks['user_authenticated'] = request.user.is_authenticated
+        
+        logger.info(f"✅ [HEALTH-CHECK] Completado: {checks}")
+        
+        return Response({
+            'status': 'healthy',
+            'checks': checks,
+            'timestamp': now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ [HEALTH-CHECK] Error: {str(e)}")
+        return Response({
+            'status': 'unhealthy',
+            'error': str(e)
         }, status=500)
