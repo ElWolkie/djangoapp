@@ -1,3 +1,20 @@
+// CI-FIX: early fallback to ensure properties are available to plugins
+if (!project.hasProperty('buildToolsVersion') && gradle.hasProperty('ext') && gradle.ext.hasProperty('buildToolsVersion')) {
+    project.ext.buildToolsVersion = gradle.ext.buildToolsVersion
+}
+if (!project.hasProperty('compileSdkVersion') && gradle.hasProperty('ext') && gradle.ext.hasProperty('compileSdkVersion')) {
+    project.ext.compileSdkVersion = gradle.ext.compileSdkVersion
+}
+if (!project.hasProperty('targetSdkVersion') && gradle.hasProperty('ext') && gradle.ext.hasProperty('targetSdkVersion')) {
+    project.ext.targetSdkVersion = gradle.ext.targetSdkVersion
+}
+if (!project.hasProperty('minSdkVersion') && gradle.hasProperty('ext') && gradle.ext.hasProperty('minSdkVersion')) {
+    project.ext.minSdkVersion = gradle.ext.minSdkVersion
+}
+if (!project.hasProperty('ndkVersion') && gradle.hasProperty('ext') && gradle.ext.hasProperty('ndkVersion')) {
+    project.ext.ndkVersion = gradle.ext.ndkVersion
+}
+
 // Insertado por CI-fix: asegurar propiedades ext disponibles
 if (!project.hasProperty('buildToolsVersion') && gradle.hasProperty('ext') && gradle.ext.hasProperty('buildToolsVersion')) {
     project.ext.buildToolsVersion = gradle.ext.buildToolsVersion
