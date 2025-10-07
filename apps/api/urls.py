@@ -1,7 +1,7 @@
 from django.urls import include, path
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from . import views
-from .endpoints import verificar_cedula, PersonaPublicRegisterView, UsuarioPublicRegisterView, obtener_persona_login, CuotasFormacionAPIView, NotaCobroCreateAPIView, PagoCreateAPIView, notas_por_usuario_autenticado, debug_nota_relaciones, corregir_relaciones_notas, verificar_estado_sistema
+from .endpoints import verificar_cedula, PersonaPublicRegisterView, UsuarioPublicRegisterView, obtener_persona_login, CuotasFormacionAPIView, NotaCobroCreateAPIView, PagoCreateAPIView, notas_por_usuario_autenticado, debug_nota_relaciones, corregir_relaciones_notas, verificar_estado_sistema, test_pago_simple
 from .views import CedulaTokenObtainView  # Nueva función
 
 urlpatterns = [
@@ -24,6 +24,7 @@ urlpatterns = [
     path('debug/nota/<int:id_nota>/', debug_nota_relaciones, name='debug_nota'),
     path('corregir-relaciones/', corregir_relaciones_notas, name='corregir_relaciones'),
     path('sistema/verificar/', verificar_estado_sistema, name='verificar_sistema'),
+    path('pagos/test-simple/', test_pago_simple, name='test_pago_simple'),
 
     path('cohorte/', views.CohorteListCreate.as_view(), name='cohorte-list'),
     path('cargo/', views.CargoListCreate.as_view(), name='cargo-list'),
