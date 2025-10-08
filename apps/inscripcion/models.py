@@ -24,6 +24,8 @@ class Inscripcion(models.Model):
     fechaInscripcion = models.DateField(auto_now_add=True)
     estadoPago = models.CharField(max_length=20, choices=ESTADOS_PAGO, default='PENDIENTE')
     montoPagado = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    metodoPago = models.CharField(max_length=50, blank=True, null=True, verbose_name="Método de Pago")
+    comprobantePago = models.ImageField(upload_to='comprobantes/inscripciones/', blank=True, null=True, verbose_name="Comprobante de Pago")
     
     class Meta:
         verbose_name = "Inscripción"

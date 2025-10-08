@@ -13,18 +13,19 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Image,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import Modal from 'react-native-modal';
-import { Picker } from '@react-native-picker/picker';
+import * as ImagePicker from 'expo-image-picker';
 import api from '../api/api';
 import { AuthContext } from '../contexts/AuthContext';
-import { 
-  TipoFormacion, 
-  Formacion, 
-  Cohorte, 
+import {
+  TipoFormacion,
+  Formacion,
+  Cohorte,
   Inscripcion,
-  Cuota 
+  Cuota
 } from '../types/inscripciones';
 
 const { width, height } = Dimensions.get('window');
@@ -58,6 +59,8 @@ export default function PantallaInscripciones() {
   const [selectedTipoFormacion, setSelectedTipoFormacion] = useState<number | undefined>(undefined);
   const [selectedFormacion, setSelectedFormacion] = useState<number | undefined>(undefined);
   const [selectedCohorte, setSelectedCohorte] = useState<number | undefined>(undefined);
+  const [selectedMetodoPago, setSelectedMetodoPago] = useState<string>('');
+  const [selectedImage, setSelectedImage] = useState<ImagePicker.ImagePickerAsset | null>(null);
   
   // Resumen de costos
   const [valorInscripcion, setValorInscripcion] = useState(0);
@@ -67,7 +70,55 @@ export default function PantallaInscripciones() {
   
   const [fechaInscripcion, setFechaInscripcion] = useState<string>('');
   const [formErrors, setFormErrors] = useState<Record<string,string>>({});
+const [pickerModalVisible, setPickerModalVisible] = useState(false);
+const [currentPicker, setCurrentPicker] = useState<'tipo'|'formacion'|'cohorte'|'metodo'|null>(null);
 
+const pickImage = async () => {
+  const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (status !== 'granted') {
+    Alert.alert('Permiso denegado', 'Necesitamos acceso a la galería para seleccionar imágenes.');
+    return;
+  }
+
+  const result = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    allowsEditing: true,
+    aspect: [4, 3],
+    quality: 1,
+  });
+
+  if (!result.canceled) {
+    setSelectedImage(result.assets[0]);
+  }
+};
+
+const getPickerData = (): PickerOption[] => {
+  if (currentPicker === 'tipo') return tiposFormacion.map(tf => ({label: tf.nombreTipoFormacion, value: tf.idTF}));
+  if (currentPicker === 'formacion') return formacionesFiltradas.map(f => ({label: f.nombreFormacion, value: f.idFormacion}));
+  if (currentPicker === 'cohorte') return cohortes.map(c => ({label: c.nombreCohorte, value: c.idCohorte}));
+  if (currentPicker === 'metodo') return [
+    {label: 'Efectivo', value: 'Efectivo'},
+    {label: 'Transferencia Bancaria', value: 'Transferencia Bancaria'},
+    {label: 'Pago Móvil', value: 'Pago Móvil'},
+    {label: 'Tarjeta de Crédito', value: 'Tarjeta de Crédito'},
+    {label: 'Otro', value: 'Otro'},
+  ];
+  return [];
+};
+
+type PickerOption = {
+  label: string;
+  value: string | number;
+};
+
+const handlePickerSelect = (value: string | number) => {
+  if (currentPicker === 'tipo') setSelectedTipoFormacion(value as number);
+  else if (currentPicker === 'formacion') setSelectedFormacion(value as number);
+  else if (currentPicker === 'cohorte') setSelectedCohorte(value as number);
+  else if (currentPicker === 'metodo') setSelectedMetodoPago(value as string);
+  setPickerModalVisible(false);
+  setCurrentPicker(null);
+};
   // DEBUG: Verificar el usuario
   useEffect(() => {
     console.log('🔐 USUARIO COMPLETO EN INSCRIPCIONES:', JSON.stringify(user, null, 2));
@@ -105,15 +156,15 @@ export default function PantallaInscripciones() {
       console.log('🔍 Cargando datos del formulario...');
       
       const [r1, r2, r3] = await Promise.all([
-        api.get('/api/tipo-formaciones/').catch((error) => {
+        api.get('/api/tipo-formaciones/').catch((error: any) => {
           console.error('Error cargando tipos formación:', error.response?.data);
           return { data: [] };
         }),
-        api.get('/api/formaciones/').catch((error) => {
+        api.get('/api/formaciones/').catch((error: any) => {
           console.error('Error cargando formaciones:', error.response?.data);
           return { data: [] };
         }),
-        api.get('/api/cohorte/').catch((error) => {
+        api.get('/api/cohorte/').catch((error: any) => {
           console.error('Error cargando cohortes:', error.response?.data);
           return { data: [] };
         }),
@@ -297,6 +348,7 @@ export default function PantallaInscripciones() {
     if (selectedTipoFormacion === undefined) errs.tipoFormacion = 'Seleccione un tipo de formación';
     if (selectedFormacion === undefined) errs.formacion = 'Seleccione una formación';
     if (selectedCohorte === undefined) errs.cohorte = 'Seleccione una cohorte';
+    if (!selectedMetodoPago) errs.metodoPago = 'Seleccione un método de pago';
     
     // Validación mejorada del usuario
     if (!user) {
@@ -368,27 +420,71 @@ export default function PantallaInscripciones() {
     try {
       const estadoPago: 'PENDIENTE'|'PARCIAL'|'PAGADO' = 'PENDIENTE';
 
-      const payload: any = {
-        idPersona: idPersona,
-        idTF: idTF,
-        idFormacion: idFormacion,
-        idCohorte: idCohorte,
-        montoTotal: montoTotal,
-        montoPagado: 0,
-        estadoPago,
-        fechaInscripcion,
-      };
+      let payload: any;
+      let config = {};
 
-      // Incluir cédula si está disponible, si no, incluir displayName
-      if (user?.cedula) {
-        payload.cedulaPersona = user.cedula;
-      } else if (user?.displayName) {
-        payload.cedulaPersona = user.displayName;
+      if (selectedImage) {
+        // Usar FormData para enviar imagen
+        payload = new FormData();
+        payload.append('idPersona', idPersona.toString());
+        payload.append('idTF', idTF.toString());
+        payload.append('idFormacion', idFormacion.toString());
+        payload.append('idCohorte', idCohorte.toString());
+        payload.append('montoTotal', montoTotal.toString());
+        payload.append('montoPagado', '0');
+        payload.append('estadoPago', estadoPago);
+        payload.append('fechaInscripcion', fechaInscripcion);
+        payload.append('metodoPago', selectedMetodoPago);
+
+        // Incluir cédula si está disponible
+        if (user?.cedula) {
+          payload.append('cedulaPersona', user.cedula);
+        } else if (user?.displayName) {
+          payload.append('cedulaPersona', user.displayName);
+        }
+
+        // Adjuntar imagen
+        const imageUri = selectedImage.uri;
+        const filename = imageUri.split('/').pop() || 'comprobante.jpg';
+        const match = /\.(\w+)$/.exec(filename);
+        const type = match ? `image/${match[1]}` : 'image/jpeg';
+
+        payload.append('comprobantePago', {
+          uri: imageUri,
+          name: filename,
+          type,
+        } as any);
+
+        config = {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        };
+      } else {
+        // Payload normal sin imagen
+        payload = {
+          idPersona: idPersona,
+          idTF: idTF,
+          idFormacion: idFormacion,
+          idCohorte: idCohorte,
+          montoTotal: montoTotal,
+          montoPagado: 0,
+          estadoPago,
+          fechaInscripcion,
+          metodoPago: selectedMetodoPago,
+        };
+
+        // Incluir cédula si está disponible
+        if (user?.cedula) {
+          payload.cedulaPersona = user.cedula;
+        } else if (user?.displayName) {
+          payload.cedulaPersona = user.displayName;
+        }
       }
 
-      console.log('📤 Enviando payload CORREGIDO:', payload);
+      console.log('📤 Enviando payload:', payload);
 
-      const res = await api.post('/api/inscripcion/', payload);
+      const res = await api.post('/api/inscripcion/', payload, config);
       
       if (res.status === 201 || res.status === 200) {
         Alert.alert('Éxito', 'Inscripción creada correctamente.');
@@ -418,6 +514,7 @@ export default function PantallaInscripciones() {
     setSelectedTipoFormacion(undefined);
     setSelectedFormacion(undefined);
     setSelectedCohorte(undefined);
+    setSelectedMetodoPago('');
     setFormErrors({});
     setValorInscripcion(0);
     setCuotas([]);
@@ -469,7 +566,7 @@ export default function PantallaInscripciones() {
       <FlatList
         data={mostradas}
         keyExtractor={(i) => String(i.idInscripcion ?? i.id ?? Math.random())}
-        renderItem={({item}) => {
+        renderItem={({item}: {item: Inscripcion}) => {
           const status = deriveStatus(item);
           return (
             <View style={styles.card}>
@@ -634,20 +731,12 @@ export default function PantallaInscripciones() {
                 <View style={styles.fieldContainer}>
                   <Text style={styles.label}>Tipo de Formación *</Text>
                   <View style={styles.pickerContainer}>
-                    <Picker
-                      selectedValue={selectedTipoFormacion}
-                      onValueChange={(itemValue) => setSelectedTipoFormacion(itemValue)}
-                      style={styles.picker}
-                    >
-                      <Picker.Item label="Seleccione tipo de formación..." value={undefined} />
-                      {tiposFormacion.map(tf => (
-                        <Picker.Item 
-                          key={tf.idTF} 
-                          label={tf.nombreTipoFormacion} 
-                          value={tf.idTF} 
-                        />
-                      ))}
-                    </Picker>
+                    <TouchableOpacity style={styles.pickerTouchable} onPress={() => { setCurrentPicker('tipo'); setPickerModalVisible(true); }}>
+                      <Text style={styles.pickerText}>
+                        {selectedTipoFormacion ? tiposFormacion.find(tf => tf.idTF === selectedTipoFormacion)?.nombreTipoFormacion : "Seleccione tipo de formación..."}
+                      </Text>
+                      <Icon name="chevron-down" size={20} color="#666" />
+                    </TouchableOpacity>
                   </View>
                   {formErrors.tipoFormacion && (
                     <Text style={styles.errorText}>{formErrors.tipoFormacion}</Text>
@@ -657,28 +746,16 @@ export default function PantallaInscripciones() {
                 <View style={styles.fieldContainer}>
                   <Text style={styles.label}>Formación Académica *</Text>
                   <View style={styles.pickerContainer}>
-                    <Picker
-                      selectedValue={selectedFormacion}
-                      onValueChange={setSelectedFormacion}
-                      style={styles.picker}
-                      enabled={selectedTipoFormacion !== undefined && formacionesFiltradas.length > 0}
-                    >
-                      <Picker.Item 
-                        label={
+                    <TouchableOpacity style={[styles.pickerTouchable, !(selectedTipoFormacion !== undefined && formacionesFiltradas.length > 0) && styles.pickerDisabled]} onPress={() => { if (selectedTipoFormacion !== undefined && formacionesFiltradas.length > 0) { setCurrentPicker('formacion'); setPickerModalVisible(true); } }}>
+                      <Text style={styles.pickerText}>
+                        {selectedFormacion ? formacionesFiltradas.find(f => f.idFormacion === selectedFormacion)?.nombreFormacion : (
                           selectedTipoFormacion === undefined ? "Seleccione tipo primero" :
-                          formacionesFiltradas.length === 0 ? "No hay formaciones disponibles" : 
+                          formacionesFiltradas.length === 0 ? "No hay formaciones disponibles" :
                           "Seleccione formación..."
-                        } 
-                        value={undefined} 
-                      />
-                      {formacionesFiltradas.map(f => (
-                        <Picker.Item 
-                          key={f.idFormacion} 
-                          label={f.nombreFormacion} 
-                          value={f.idFormacion} 
-                        />
-                      ))}
-                    </Picker>
+                        )}
+                      </Text>
+                      <Icon name="chevron-down" size={20} color="#666" />
+                    </TouchableOpacity>
                   </View>
                   {formErrors.formacion && (
                     <Text style={styles.errorText}>{formErrors.formacion}</Text>
@@ -688,24 +765,55 @@ export default function PantallaInscripciones() {
                 <View style={styles.fieldContainer}>
                   <Text style={styles.label}>Cohorte *</Text>
                   <View style={styles.pickerContainer}>
-                    <Picker
-                      selectedValue={selectedCohorte}
-                      onValueChange={(itemValue) => setSelectedCohorte(itemValue)}
-                      style={styles.picker}
-                    >
-                      <Picker.Item label="Seleccione cohorte..." value={undefined} />
-                      {cohortes.map(c => (
-                        <Picker.Item 
-                          key={c.idCohorte} 
-                          label={c.nombreCohorte} 
-                          value={c.idCohorte} 
-                        />
-                      ))}
-                    </Picker>
+                    <TouchableOpacity style={styles.pickerTouchable} onPress={() => { setCurrentPicker('cohorte'); setPickerModalVisible(true); }}>
+                      <Text style={styles.pickerText}>
+                        {selectedCohorte ? cohortes.find(c => c.idCohorte === selectedCohorte)?.nombreCohorte : "Seleccione cohorte..."}
+                      </Text>
+                      <Icon name="chevron-down" size={20} color="#666" />
+                    </TouchableOpacity>
                   </View>
                   {formErrors.cohorte && (
                     <Text style={styles.errorText}>{formErrors.cohorte}</Text>
                   )}
+                </View>
+
+                <View style={styles.fieldContainer}>
+                  <Text style={styles.label}>Método de Pago *</Text>
+                  <View style={styles.pickerContainer}>
+                    <TouchableOpacity style={styles.pickerTouchable} onPress={() => { setCurrentPicker('metodo'); setPickerModalVisible(true); }}>
+                      <Text style={styles.pickerText}>
+                        {selectedMetodoPago || "Seleccione método de pago..."}
+                      </Text>
+                      <Icon name="chevron-down" size={20} color="#666" />
+                    </TouchableOpacity>
+                  </View>
+                  {formErrors.metodoPago && (
+                    <Text style={styles.errorText}>{formErrors.metodoPago}</Text>
+                  )}
+                </View>
+
+                <View style={styles.fieldContainer}>
+                  <Text style={styles.label}>Comprobante de Pago (Opcional)</Text>
+                  <TouchableOpacity style={styles.imagePickerButton} onPress={pickImage}>
+                    <Icon name="camera" size={20} color="#4f8cff" />
+                    <Text style={styles.imagePickerText}>
+                      {selectedImage ? 'Cambiar imagen' : 'Seleccionar imagen'}
+                    </Text>
+                  </TouchableOpacity>
+                  {selectedImage && (
+                    <View style={styles.imagePreviewContainer}>
+                      <Image source={{ uri: selectedImage.uri }} style={styles.imagePreview} />
+                      <TouchableOpacity
+                        style={styles.removeImageButton}
+                        onPress={() => setSelectedImage(null)}
+                      >
+                        <Icon name="close" size={16} color="#fff" />
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                  <Text style={styles.helpText}>
+                    Adjunte una imagen del comprobante de pago (opcional)
+                  </Text>
                 </View>
               </View>
 
@@ -794,6 +902,27 @@ export default function PantallaInscripciones() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Picker modal */}
+      <Modal isVisible={pickerModalVisible} onBackdropPress={() => setPickerModalVisible(false)} style={styles.modal}>
+        <View style={styles.pickerModalContent}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Seleccionar</Text>
+            <TouchableOpacity style={styles.closeButton} onPress={() => setPickerModalVisible(false)}>
+              <Icon name="close" size={24} color="#666" />
+            </TouchableOpacity>
+          </View>
+          <FlatList
+            data={getPickerData()}
+            keyExtractor={(item: PickerOption) => item.value.toString()}
+            renderItem={({item}: {item: PickerOption}) => (
+              <TouchableOpacity style={styles.pickerItem} onPress={() => handlePickerSelect(item.value)}>
+                <Text style={styles.pickerItemText}>{item.label}</Text>
+              </TouchableOpacity>
+            )}
+          />
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -806,8 +935,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#f5f7fa',
   },
-  container: { 
-    flex: 1, 
+  container: {
+    flex: 1,
     backgroundColor: '#f5f7fa',
   },
   header: {
@@ -1219,5 +1348,78 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
     fontSize: 16,
+  },
+  imagePickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+    borderWidth: 1,
+    borderColor: '#e1e5e9',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 12,
+  },
+  imagePickerText: {
+    fontSize: 16,
+    color: '#4f8cff',
+    fontWeight: '600',
+  },
+  imagePreviewContainer: {
+    marginTop: 12,
+    position: 'relative',
+    alignSelf: 'center',
+  },
+  imagePreview: {
+    width: 200,
+    height: 150,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e1e5e9',
+  },
+  removeImageButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: '#e63946',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pickerTouchable: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    height: 52,
+  },
+  pickerText: {
+    fontSize: 16,
+    color: '#333',
+    flex: 1,
+  },
+  pickerDisabled: {
+    opacity: 0.5,
+  },
+  pickerModalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    width: width * 0.8,
+    maxWidth: 400,
+    maxHeight: height * 0.6,
+    overflow: 'hidden',
+  },
+  pickerItem: {
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f8f9fa',
+  },
+  pickerItemText: {
+    fontSize: 16,
+    color: '#333',
   },
 });

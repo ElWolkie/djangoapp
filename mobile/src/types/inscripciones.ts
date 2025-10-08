@@ -46,4 +46,6 @@ export interface Inscripcion {
   montoTotal: number;
   saldoPendiente: number;
   is_active: boolean;
+  metodoPago?: string;
+  comprobantePago?: string; // URL del comprobante de pago
 }

@@ -106,6 +106,8 @@ class InscripcionSerializer(serializers.ModelSerializer):
             'montoTotal',     # calculado vía property en el modelo
             'saldoPendiente', # calculado vía property en el modelo
             'is_active',
+            'metodoPago',
+            'comprobantePago',
         ]
 
     def get_montoTotal(self, obj):
