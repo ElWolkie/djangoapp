@@ -11,7 +11,6 @@ from apps.persona.models import PersonaTP, Personas
 from apps.home.models import CuotaFormacion, Formacion, Moneda, Usuarios
 import logging
 
-from apps.persona.serializers import PersonaCreateSerializer
 from rest_framework.authentication import SessionAuthentication
 from apps.persona.serializers import PersonaCreateSerializer, UsuarioCreateSerializer
 
@@ -28,45 +27,39 @@ from decimal import Decimal, InvalidOperation
 
 logger = logging.getLogger(__name__)
 
-
+# En tu views.py, modifica la vista para más logging
 class PersonaPublicRegisterView(APIView):
-    authentication_classes = [] # Le dice a DRF: "No intentes autenticar esta petición".
-    permission_classes = [AllowAny]   # Le dice a DRF: "Cualquiera tiene permiso para acceder".
+    authentication_classes = []
+    permission_classes = [AllowAny]
 
     def post(self, request, *args, **kwargs):
-        # ... el resto de tu función post se queda exactamente igual
-        logger.info(f"📥 Datos recibidos para registro de persona: {request.data}")
+        logger.info(f"📥 Datos recibidos RAW: {request.data}")
         
-        serializer = PersonaCreateSerializer(data=request.data)
-        
-        if serializer.is_valid():
-            try:
-                # El método .save() llamará internamente a nuestro método create() en el serializer
+        try:
+            serializer = PersonaCreateSerializer(data=request.data)
+            
+            if serializer.is_valid():
+                logger.info(f"✅ Datos válidos: {serializer.validated_data}")
                 persona_creada = serializer.save()
                 
-                # Preparamos la respuesta usando los datos del serializer post-creación
-                # El serializer automáticamente convierte el objeto 'persona_creada' a JSON
                 response_data = serializer.data
                 response_data['mensaje'] = 'Persona registrada exitosamente'
                 
-                logger.info(f"📤 Enviando respuesta exitosa: {response_data}")
+                logger.info(f"✅ Persona creada exitosamente: {persona_creada.idPersona}")
                 return Response(response_data, status=status.HTTP_201_CREATED)
                 
-            except Exception as e:
-                logger.error(f"❌ Error interno durante la creación de la persona: {str(e)}", exc_info=True)
+            else:
+                logger.error(f"❌ Errores de validación: {serializer.errors}")
                 return Response({
-                    'error': 'Ocurrió un error inesperado al guardar los datos.',
-                    'codigo': 'ERROR_INTERNO'
-                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-        else:
-            # Si los datos no son válidos, el serializer.errors contendrá los detalles
-            logger.warning(f"⚠️ Datos de registro inválidos: {serializer.errors}")
+                    'error': 'Datos inválidos',
+                    'detalles': serializer.errors,
+                }, status=status.HTTP_400_BAD_REQUEST)
+                
+        except Exception as e:
+            logger.error(f"🔥 Error crítico: {str(e)}", exc_info=True)
             return Response({
-                'error': 'Datos inválidos. Por favor, revisa los campos.',
-                'detalles': serializer.errors,
-                'codigo': 'VALIDATION_ERROR'
-            }, status=status.HTTP_400_BAD_REQUEST)
+                'error': f'Error interno: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['GET'])

@@ -9,15 +9,14 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-
 class PersonaCreateSerializer(serializers.Serializer):
     tipo_cedula = serializers.ChoiceField(choices=['V', 'E', 'P'], required=True, write_only=True)
     numero_cedula = serializers.CharField(max_length=20, required=True, write_only=True)
     nombres = serializers.CharField(max_length=100, required=True)
     apellidos = serializers.CharField(max_length=100, required=True)
     telefono = serializers.CharField(max_length=20, required=True)
-    direccion = serializers.CharField(required=True)
-    correo = serializers.EmailField(required=False, allow_blank=True, source='correo')
+    direccion = serializers.CharField(required=False, allow_blank=True)
+    email = serializers.EmailField(required=False, allow_blank=True)  # Cambiado de 'correo' a 'email'
     rif = serializers.CharField(max_length=20, required=False, allow_blank=True)
     id = serializers.IntegerField(read_only=True, source='idPersona')
     cedula = serializers.CharField(read_only=True)
@@ -29,7 +28,6 @@ class PersonaCreateSerializer(serializers.Serializer):
         return value
 
     def validate(self, data):
-        # Guardar como T-NNNNNNNN (con guion) para consistencia
         cedula_completa = f"{data['tipo_cedula']}-{data['numero_cedula']}"
         if Personas.objects.filter(cedula=cedula_completa).exists():
             raise serializers.ValidationError({
@@ -40,39 +38,49 @@ class PersonaCreateSerializer(serializers.Serializer):
 
     def create(self, validated_data):
         """
-        Crea la persona guardando 'cedula' con formato T-NNNNNN (ej: V-12345678)
-        y asigna automáticamente los tipos 'Cliente' y 'Usuario'.
+        Crea la persona - IMPORTANTE: Ahora usa 'email' en lugar de 'correo'
         """
         cedula_completa = f"{validated_data['tipo_cedula']}-{validated_data['numero_cedula']}"
-        persona = Personas.objects.create(
-            cedula=cedula_completa,
-            nombres=validated_data['nombres'],
-            apellidos=validated_data['apellidos'],
-            telefono=validated_data['telefono'],
-            correo=validated_data.get('correo', ''),
-            rif=validated_data.get('rif', ''),
-            direccion=validated_data['direccion'],
-            estadoPersona='ACTIVO'
-        )
-        logger.info(f"✅ Persona creada en BD - ID: {persona.idPersona} - Cédula: {persona.cedula}")
+        
+        # Mapeo CORRECTO de campos
+        persona_data = {
+            'cedula': cedula_completa,
+            'nombres': validated_data['nombres'],
+            'apellidos': validated_data['apellidos'],
+            'telefono': validated_data['telefono'],
+            'correo': validated_data.get('email', ''),  # ¡IMPORTANTE! 'email' del frontend -> 'correo' en BD
+            'rif': validated_data.get('rif', ''),
+            'estadoPersona': 'ACTIVO'
+        }
+        
+        # Solo agregar dirección si existe en el modelo
+        if hasattr(Personas, 'direccion') and 'direccion' in validated_data:
+            persona_data['direccion'] = validated_data['direccion']
+        
+        try:
+            persona = Personas.objects.create(**persona_data)
+            logger.info(f"✅ Persona creada en BD - ID: {persona.idPersona} - Cédula: {persona.cedula}")
 
-        # Crear/obtener tipos y asignar (usar 'Usuario' singular)
-        tipo_cliente, _ = TipoPersona.objects.get_or_create(
-            nombreTP='Cliente',
-            defaults={'estadoTP': 'ACTIVO'}
-        )
+            # Asignar tipos automáticamente
+            tipo_cliente, _ = TipoPersona.objects.get_or_create(
+                nombreTP='Cliente',
+                defaults={'estadoTP': 'ACTIVO'}
+            )
 
-        tipo_usuario, _ = TipoPersona.objects.get_or_create(
-            nombreTP='Usuario',
-            defaults={'estadoTP': 'ACTIVO'}
-        )
+            tipo_usuario, _ = TipoPersona.objects.get_or_create(
+                nombreTP='Usuario',
+                defaults={'estadoTP': 'ACTIVO'}
+            )
 
-        PersonaTP.objects.create(idPersona=persona, idTP=tipo_cliente)
-        PersonaTP.objects.create(idPersona=persona, idTP=tipo_usuario)
+            PersonaTP.objects.create(idPersona=persona, idTP=tipo_cliente)
+            PersonaTP.objects.create(idPersona=persona, idTP=tipo_usuario)
 
-        logger.info(f"✅ Tipos 'Cliente' y 'Usuario' asignados automáticamente a {persona.cedula}.")
-
-        return persona
+            logger.info(f"✅ Tipos asignados a {persona.cedula}")
+            return persona
+            
+        except Exception as e:
+            logger.error(f"❌ Error al crear persona: {str(e)}")
+            raise
 
 
 class UsuarioCreateSerializer(serializers.Serializer):
