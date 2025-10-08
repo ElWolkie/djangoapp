@@ -39,7 +39,7 @@ type PersonFormData = {
   rif?: string;
   nombres: string;
   apellidos: string;
-  email?: string;
+  correo?: string;
   telefono: string; // ¡AHORA ES OBLIGATORIO!
   direccion: string;
 };
@@ -54,7 +54,7 @@ export default function RegisterScreen({ navigation }: Props) {
     rif: initial.rif ?? '',
     nombres: initial.nombres ?? '',
     apellidos: initial.apellidos ?? '',
-    email: initial.email ?? '',
+    correo: initial.correo ?? '',
     telefono: initial.telefono ?? '', // ¡OBLIGATORIO!
     direccion: initial.direccion ?? '',
   });
@@ -128,9 +128,9 @@ export default function RegisterScreen({ navigation }: Props) {
   };
 
   const validEmail = () => {
-    if (!form.email) return true; // Email es opcional en tu modelo
+    if (!form.correo) return true; // Email es opcional en tu modelo
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return re.test(form.email.trim().toLowerCase());
+    return re.test(form.correo.trim().toLowerCase());
   };
 
   const validTelefono = () => {
@@ -197,7 +197,7 @@ export default function RegisterScreen({ navigation }: Props) {
         numero_cedula: normalizeDigits(form.numero_cedula),
         nombres: form.nombres.trim(),
         apellidos: form.apellidos.trim(),
-        email: form.email ? form.email.trim().toLowerCase() : '', // Se mapea a 'correo' en backend
+        correo: form.correo ? form.correo.trim().toLowerCase() : '', // Se mapea a 'correo' en backend
         telefono: form.telefono.trim(), // ¡OBLIGATORIO!
         direccion: form.direccion.trim(),
         rif: form.rif ? form.rif.trim() : '',
@@ -304,7 +304,7 @@ export default function RegisterScreen({ navigation }: Props) {
       rif: '',
       nombres: '',
       apellidos: '',
-      email: '',
+      correo: '',
       telefono: '', // ¡NO OLVIDAR!
       direccion: '',
     });
@@ -413,8 +413,8 @@ export default function RegisterScreen({ navigation }: Props) {
               <TextInput
                 placeholder="correo@ejemplo.com"
                 placeholderTextColor="#9aa"
-                value={form.email}
-                onChangeText={(t) => changeField('email', t.trim())}
+                value={form.correo}
+                onChangeText={(t) => changeField('correo', t.trim())}
                 style={styles.input}
                 keyboardType="email-address"
                 editable={!loading}
