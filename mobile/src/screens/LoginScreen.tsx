@@ -13,6 +13,7 @@ import {
   Dimensions,
   Animated,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import type { StackNavigationProp } from '@react-navigation/stack';
@@ -34,7 +35,7 @@ interface LoginScreenProps {
   navigation: LoginScreenNavigationProp;
 }
 
-const { width: screenWidth } = Dimensions.get('window');
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const BASE_URL = 'https://djangoapp-6wxv.onrender.com';
 
 export default function LoginScreen({ navigation }: LoginScreenProps) {
@@ -47,6 +48,10 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
   const [loading, setLoading] = useState(false);
   const formAnim = useRef(new Animated.Value(0)).current;
   const logoAnim = useRef(new Animated.Value(0)).current;
+
+  const isSmallScreen = screenWidth < 375;
+  const isMediumScreen = screenWidth >= 375 && screenWidth < 768;
+  const isLargeScreen = screenWidth >= 768;
 
   useEffect(() => {
     Animated.parallel([
@@ -75,7 +80,6 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
     return String(raw).replace(/\D+/g, '');
   };
 
-  // FUNCIÓN MEJORADA - Obtener información completa del usuario después del login
   const tryObtainToken = async (digits: string, passwordValue: string) => {
     try {
       console.log('[login] 🔄 Iniciando proceso de login para cédula:', digits);
@@ -147,7 +151,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
       return { 
         access: res.data.access, 
         refresh: res.data.refresh,
-        user: userInfo // ← ENVIAMOS LA INFORMACIÓN COMPLETA DEL USUARIO
+        user: userInfo
       };
       
     } catch (err: any) {
@@ -200,7 +204,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
 
       const access = result.access as string | undefined;
       const refresh = result.refresh as string | undefined;
-      const user = result.user; // ← INFORMACIÓN DEL USUARIO OBTENIDA
+      const user = result.user;
 
       if (!access) {
         Alert.alert('Error', 'El servidor no devolvió token de acceso válido.');
@@ -208,13 +212,11 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         return;
       }
 
-      // USAR EL CONTEXTO DE AUTENTICACIÓN PARA GUARDAR TODO
       console.log('[login] 📝 Guardando tokens e información de usuario...');
       await loginWithTokens(access, refresh, user);
       
       console.log('[login] ✅ Login completado exitosamente');
       
-      // Navegar a Main (reset para evitar volver atrás)
       navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
     } catch (err: any) {
       console.error('Login error', err);
@@ -234,118 +236,439 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
     navigation.navigate('RegisterUser' as any, { person: { cedula: cedulaDigits } });
   };
 
-  const isWide = screenWidth >= 1000;
-  const formWidth = isWide ? 560 : Math.min(720, screenWidth * 0.88);
+  // Cálculos responsivos
+  const getFormWidth = () => {
+    if (isSmallScreen) return screenWidth * 0.92;
+    if (isMediumScreen) return Math.min(500, screenWidth * 0.85);
+    return Math.min(560, screenWidth * 0.8);
+  };
+
+  const getLogoFontSize = () => {
+    if (isSmallScreen) return { title: 22, subtitle: 14 };
+    if (isMediumScreen) return { title: 24, subtitle: 15 };
+    return { title: 26, subtitle: 16 };
+  };
+
+  const logoSize = getLogoFontSize();
+  const formWidth = getFormWidth();
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <Image style={styles.bgImage} source={require('../../assets/frontImg.jpg')} blurRadius={3} />
       <View style={styles.overlay} />
-      <Animated.View style={[styles.logoContainer, { transform: [{ scale: logoAnim.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] }) }, { translateY: logoAnim.interpolate({ inputRange: [0, 1], outputRange: [-40, 0] }) }], opacity: logoAnim }]}>
-        <Text style={styles.logoTitle}>FUNDACIÓN UPTYAB</Text>
-        <Text style={styles.logoSubtitle}>Trámites académicos</Text>
-      </Animated.View>
-
-      <Animated.View style={[ styles.form, { width: formWidth, opacity: formAnim, transform: [{ translateY: formAnim.interpolate({ inputRange: [0,1], outputRange: [80,0] }) }] } ]}>
-        <View style={[ styles.inputContainer, focusField === 'cedula' && styles.inputContainerFocused, errors.cedula && styles.inputContainerError ]}>
-          <Icon name="card-account-details" size={24} color={focusField === 'cedula' ? '#4f8cff' : errors.cedula ? '#e63946' : '#aaa'} style={styles.inputIcon} />
-          <TextInput
-            style={styles.inputs}
-            placeholder="Cédula (solo números)"
-            keyboardType="numeric"
-            placeholderTextColor="#aaa"
-            value={cedula}
-            onChangeText={(text) => {
-              const onlyDigits = text.replace(/\D+/g, '');
-              setCedula(onlyDigits);
-              if (errors.cedula) setErrors({ ...errors, cedula: undefined });
-            }}
-            onFocus={() => setFocusField('cedula')}
-            onBlur={() => setFocusField(null)}
-            returnKeyType="next"
-            editable={!loading}
-          />
-        </View>
-        {errors.cedula && <Text style={styles.errorText}>{errors.cedula}</Text>}
-
-        <View style={[ styles.inputContainer, focusField === 'password' && styles.inputContainerFocused, errors.password && styles.inputContainerError ]}>
-          <Icon name="lock" size={24} color={focusField === 'password' ? '#4f8cff' : errors.password ? '#e63946' : '#aaa'} style={styles.inputIcon} />
-          <TextInput
-            style={styles.inputs}
-            placeholder="Contraseña"
-            secureTextEntry
-            placeholderTextColor="#aaa"
-            value={password}
-            onChangeText={(text) => { setPassword(text); if (errors.password) setErrors({ ...errors, password: undefined }); }}
-            onFocus={() => setFocusField('password')}
-            onBlur={() => setFocusField(null)}
-            returnKeyType="done"
-            editable={!loading}
-          />
-        </View>
-        {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
-
-        <TouchableOpacity style={styles.btnForgotPassword} onPress={() => Alert.alert('Recuperar contraseña', 'Funcionalidad próximamente disponible')} disabled={loading}>
-          <Text style={styles.btnForgotText}>¿Olvidó su contraseña?</Text>
-        </TouchableOpacity>
-
-        <Animated.View style={{ width: '100%', transform: [{ scale: buttonScale }] }}>
-          <TouchableOpacity style={[styles.buttonContainer, styles.loginButton, loading && { opacity: 0.8 }]} onPress={handleLogin} activeOpacity={0.85} disabled={loading}>
-            {loading ? (
-              <>
-                <ActivityIndicator color="#fff" size="small" style={{ marginRight: 8 }} />
-                <Text style={styles.loginText}>Entrando...</Text>
-              </>
-            ) : (
-              <Text style={styles.loginText}>Entrar</Text>
-            )}
-          </TouchableOpacity>
+      
+      <ScrollView 
+        contentContainerStyle={styles.scrollContainer}
+        showsVerticalScrollIndicator={false}
+      >
+        <Animated.View style={[
+          styles.logoContainer, 
+          { 
+            transform: [
+              { scale: logoAnim.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] }) }, 
+              { translateY: logoAnim.interpolate({ inputRange: [0, 1], outputRange: [-40, 0] }) }
+            ], 
+            opacity: logoAnim 
+          }
+        ]}>
+          <Text style={[styles.logoTitle, { fontSize: logoSize.title }]}>FUNDACIÓN UPTYAB</Text>
+          <Text style={[styles.logoSubtitle, { fontSize: logoSize.subtitle }]}>Trámites académicos</Text>
         </Animated.View>
 
-        <View style={styles.registerRow}>
-          <Text style={styles.registerHint}>¿No estás registrado?</Text>
-
-          <View style={styles.registerButtonsGroup}>
-            <TouchableOpacity style={styles.registerButton} onPress={openRegister} activeOpacity={0.85}>
-              <Icon name="account-plus" size={18} color="#fff" style={{ marginRight: 8 }} />
-              <Text style={styles.registerText}>Registrarse</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.registerUserButton} onPress={openRegisterUser} activeOpacity={0.85}>
-              <Icon name="account-key" size={16} color="#fff" style={{ marginRight: 8 }} />
-              <Text style={styles.registerUserText}>Registrar usuario</Text>
-            </TouchableOpacity>
+        <Animated.View style={[
+          styles.form, 
+          { 
+            width: formWidth, 
+            opacity: formAnim, 
+            transform: [
+              { translateY: formAnim.interpolate({ inputRange: [0,1], outputRange: [80,0] }) }
+            ] 
+          }
+        ]}>
+          {/* Campo Cédula */}
+          <View style={[
+            styles.inputContainer, 
+            focusField === 'cedula' && styles.inputContainerFocused, 
+            errors.cedula && styles.inputContainerError
+          ]}>
+            <Icon 
+              name="card-account-details" 
+              size={isSmallScreen ? 20 : 24} 
+              color={focusField === 'cedula' ? '#4f8cff' : errors.cedula ? '#e63946' : '#aaa'} 
+              style={styles.inputIcon} 
+            />
+            <TextInput
+              style={[styles.inputs, { fontSize: isSmallScreen ? 14 : 16 }]}
+              placeholder="Cédula (solo números)"
+              keyboardType="numeric"
+              placeholderTextColor="#aaa"
+              value={cedula}
+              onChangeText={(text) => {
+                const onlyDigits = text.replace(/\D+/g, '');
+                setCedula(onlyDigits);
+                if (errors.cedula) setErrors({ ...errors, cedula: undefined });
+              }}
+              onFocus={() => setFocusField('cedula')}
+              onBlur={() => setFocusField(null)}
+              returnKeyType="next"
+              editable={!loading}
+            />
           </View>
-        </View>
-      </Animated.View>
+          {errors.cedula && <Text style={styles.errorText}>{errors.cedula}</Text>}
+
+          {/* Campo Contraseña */}
+          <View style={[
+            styles.inputContainer, 
+            focusField === 'password' && styles.inputContainerFocused, 
+            errors.password && styles.inputContainerError
+          ]}>
+            <Icon 
+              name="lock" 
+              size={isSmallScreen ? 20 : 24} 
+              color={focusField === 'password' ? '#4f8cff' : errors.password ? '#e63946' : '#aaa'} 
+              style={styles.inputIcon} 
+            />
+            <TextInput
+              style={[styles.inputs, { fontSize: isSmallScreen ? 14 : 16 }]}
+              placeholder="Contraseña"
+              secureTextEntry
+              placeholderTextColor="#aaa"
+              value={password}
+              onChangeText={(text) => { 
+                setPassword(text); 
+                if (errors.password) setErrors({ ...errors, password: undefined }); 
+              }}
+              onFocus={() => setFocusField('password')}
+              onBlur={() => setFocusField(null)}
+              returnKeyType="done"
+              editable={!loading}
+            />
+          </View>
+          {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
+
+          {/* Olvidó contraseña */}
+          <TouchableOpacity 
+            style={styles.btnForgotPassword} 
+            onPress={() => Alert.alert('Recuperar contraseña', 'Funcionalidad próximamente disponible')} 
+            disabled={loading}
+          >
+            <Text style={[styles.btnForgotText, { fontSize: isSmallScreen ? 12 : 14 }]}>
+              ¿Olvidó su contraseña?
+            </Text>
+          </TouchableOpacity>
+
+          {/* Botón Entrar */}
+          <Animated.View style={{ width: '100%', transform: [{ scale: buttonScale }] }}>
+            <TouchableOpacity 
+              style={[
+                styles.buttonContainer, 
+                styles.loginButton, 
+                loading && { opacity: 0.8 },
+                { height: isSmallScreen ? 44 : 48 }
+              ]} 
+              onPress={handleLogin} 
+              activeOpacity={0.85} 
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <ActivityIndicator color="#fff" size="small" style={{ marginRight: 8 }} />
+                  <Text style={[styles.loginText, { fontSize: isSmallScreen ? 15 : 17 }]}>
+                    Entrando...
+                  </Text>
+                </>
+              ) : (
+                <Text style={[styles.loginText, { fontSize: isSmallScreen ? 15 : 17 }]}>
+                  Entrar
+                </Text>
+              )}
+            </TouchableOpacity>
+          </Animated.View>
+
+          {/* Sección de Registro - MEJORADO Y RESPONSIVE */}
+          <View style={[
+            styles.registerSection,
+            isSmallScreen && styles.registerSectionSmall
+          ]}>
+            <Text style={[
+              styles.registerHint,
+              { fontSize: isSmallScreen ? 13 : 14 }
+            ]}>
+              ¿No estás registrado?
+            </Text>
+
+            <View style={[
+              styles.registerButtonsGroup,
+              isSmallScreen && styles.registerButtonsGroupSmall,
+              isMediumScreen && styles.registerButtonsGroupMedium
+            ]}>
+              <TouchableOpacity 
+                style={[
+                  styles.registerButton,
+                  isSmallScreen && styles.registerButtonSmall,
+                  isMediumScreen && styles.registerButtonMedium
+                ]} 
+                onPress={openRegister} 
+                activeOpacity={0.85}
+              >
+                <Icon 
+                  name="account-plus" 
+                  size={isSmallScreen ? 16 : 18} 
+                  color="#fff" 
+                  style={{ marginRight: 6 }} 
+                />
+                <Text style={[
+                  styles.registerText,
+                  isSmallScreen && styles.registerTextSmall,
+                  isMediumScreen && styles.registerTextMedium
+                ]}>
+                  Registrarse
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={[
+                  styles.registerUserButton,
+                  isSmallScreen && styles.registerUserButtonSmall,
+                  isMediumScreen && styles.registerUserButtonMedium
+                ]} 
+                onPress={openRegisterUser} 
+                activeOpacity={0.85}
+              >
+                <Icon 
+                  name="account-key" 
+                  size={isSmallScreen ? 14 : 16} 
+                  color="#fff" 
+                  style={{ marginRight: 6 }} 
+                />
+                <Text style={[
+                  styles.registerUserText,
+                  isSmallScreen && styles.registerUserTextSmall,
+                  isMediumScreen && styles.registerUserTextMedium
+                ]}>
+                  Registrar usuario
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Animated.View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#DCDCDC' },
-  bgImage: { position: 'absolute', width: '100%', height: '100%', resizeMode: 'cover', top: 0, left: 0 },
-  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,40,0.35)' },
-  logoContainer: { alignItems: 'center', marginBottom: 40 },
-  logoTitle: { color: '#fff', fontWeight: 'bold', fontSize: 26, textAlign: 'center', letterSpacing: 1 },
-  logoSubtitle: { color: '#fff', fontWeight: '600', fontSize: 16, textAlign: 'center', marginTop: 2 },
-  form: { width: screenWidth * 0.88, backgroundColor: 'rgba(255,255,255,0.96)', borderRadius: 22, padding: 26, alignItems: 'center', elevation: 10 },
-  inputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 30, height: 50, marginBottom: 10, width: '100%', paddingHorizontal: 12, borderWidth: 1.2, borderColor: 'transparent' },
-  inputContainerFocused: { borderColor: '#4f8cff' },
-  inputContainerError: { borderColor: '#e63946' },
-  inputs: { flex: 1, height: 45, marginLeft: 10, color: '#22223b', fontSize: 16 },
-  inputIcon: { marginLeft: 2, marginRight: 2 },
-  errorText: { color: '#e63946', fontSize: 13, marginBottom: 6, alignSelf: 'flex-start', marginLeft: 8 },
-  btnForgotPassword: { alignSelf: 'flex-end', marginBottom: 10 },
-  btnForgotText: { color: '#4f8cff', fontWeight: 'bold', fontSize: 14 },
-  buttonContainer: { height: 48, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 10, width: '100%', borderRadius: 30, backgroundColor: 'transparent' },
-  loginButton: { backgroundColor: '#4f8cff' },
-  loginText: { color: 'white', fontWeight: 'bold', fontSize: 17 },
-  registerRow: { width: '100%', marginTop: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  registerHint: { color: '#555', fontSize: 14 },
-  registerButtonsGroup: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  registerButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#2b8cff', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 24, marginLeft: 8 },
-  registerText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  registerUserButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1f6fe0', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 24, marginLeft: 8 },
-  registerUserText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  container: { 
+    flex: 1, 
+    backgroundColor: '#DCDCDC' 
+  },
+  scrollContainer: {
+    flexGrow: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+  },
+  bgImage: { 
+    position: 'absolute', 
+    width: '100%', 
+    height: '100%', 
+    resizeMode: 'cover', 
+    top: 0, 
+    left: 0 
+  },
+  overlay: { 
+    ...StyleSheet.absoluteFillObject, 
+    backgroundColor: 'rgba(0,0,40,0.35)' 
+  },
+  logoContainer: { 
+    alignItems: 'center', 
+    marginBottom: 30,
+    paddingHorizontal: 20,
+  },
+  logoTitle: { 
+    color: '#fff', 
+    fontWeight: 'bold', 
+    textAlign: 'center', 
+    letterSpacing: 1,
+    textShadowColor: 'rgba(0,0,0,0.3)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
+  },
+  logoSubtitle: { 
+    color: '#fff', 
+    fontWeight: '600', 
+    textAlign: 'center', 
+    marginTop: 4,
+    textShadowColor: 'rgba(0,0,0,0.3)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+  form: { 
+    backgroundColor: 'rgba(255,255,255,0.96)', 
+    borderRadius: 22, 
+    padding: 26, 
+    alignItems: 'center', 
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+  },
+  inputContainer: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    backgroundColor: '#fff', 
+    borderRadius: 30, 
+    height: 50, 
+    marginBottom: 10, 
+    width: '100%', 
+    paddingHorizontal: 12, 
+    borderWidth: 1.2, 
+    borderColor: 'transparent' 
+  },
+  inputContainerFocused: { 
+    borderColor: '#4f8cff' 
+  },
+  inputContainerError: { 
+    borderColor: '#e63946' 
+  },
+  inputs: { 
+    flex: 1, 
+    height: 45, 
+    marginLeft: 10, 
+    color: '#22223b',
+  },
+  inputIcon: { 
+    marginLeft: 2, 
+    marginRight: 2 
+  },
+  errorText: { 
+    color: '#e63946', 
+    fontSize: 12, 
+    marginBottom: 6, 
+    alignSelf: 'flex-start', 
+    marginLeft: 12 
+  },
+  btnForgotPassword: { 
+    alignSelf: 'flex-end', 
+    marginBottom: 10 
+  },
+  btnForgotText: { 
+    color: '#4f8cff', 
+    fontWeight: 'bold' 
+  },
+  buttonContainer: { 
+    flexDirection: 'row', 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    marginBottom: 10, 
+    width: '100%', 
+    borderRadius: 30, 
+    backgroundColor: 'transparent' 
+  },
+  loginButton: { 
+    backgroundColor: '#4f8cff' 
+  },
+  loginText: { 
+    color: 'white', 
+    fontWeight: 'bold' 
+  },
+  
+  // Sección de registro - Estilos base
+  registerSection: {
+    width: '100%',
+    marginTop: 12,
+    alignItems: 'center',
+  },
+  registerSectionSmall: {
+    marginTop: 8,
+  },
+  registerHint: {
+    color: '#555',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  
+  // Grupo de botones de registro
+  registerButtonsGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    width: '100%',
+  },
+  registerButtonsGroupSmall: {
+    flexDirection: 'column',
+    gap: 6,
+  },
+  registerButtonsGroupMedium: {
+    gap: 6,
+  },
+  
+  // Botón Registrarse
+  registerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#2b8cff',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 24,
+    minWidth: 120,
+    justifyContent: 'center',
+  },
+  registerButtonSmall: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    minWidth: '100%',
+    borderRadius: 20,
+  },
+  registerButtonMedium: {
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    minWidth: 110,
+  },
+  registerText: {
+    color: '#fff',
+    fontWeight: '700',
+  },
+  registerTextSmall: {
+    fontSize: 13,
+  },
+  registerTextMedium: {
+    fontSize: 13,
+  },
+  
+  // Botón Registrar Usuario
+  registerUserButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#2b8cff', // Mismo color que Registrarse
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 24,
+    minWidth: 140,
+    justifyContent: 'center',
+  },
+  registerUserButtonSmall: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    minWidth: '100%',
+    borderRadius: 20,
+  },
+  registerUserButtonMedium: {
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    minWidth: 130,
+  },
+  registerUserText: {
+    color: '#fff',
+    fontWeight: '700',
+  },
+  registerUserTextSmall: {
+    fontSize: 13,
+  },
+  registerUserTextMedium: {
+    fontSize: 13,
+  },
 });
