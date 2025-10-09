@@ -1,4 +1,4 @@
-package com.anonymous.MiAppMovil
+package com.edgar.minisacfu
 
 import android.app.Application
 import android.content.res.Configuration

@@ -29,7 +29,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = 'MiAppMovil'
+rootProject.name = 'Mini SACFU'
 
 def nativeModulesGradle = file("$rootDir/node_modules/@react-native-community/cli-platform-android/native_modules.gradle")
 def nativeModulesGradleAlt = file("$rootDir/node_modules/react-native/cli-platform-android/native_modules.gradle")
