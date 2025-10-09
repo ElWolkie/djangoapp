@@ -422,7 +422,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
                   isSmallScreen && styles.registerTextSmall,
                   isMediumScreen && styles.registerTextMedium
                 ]}>
-                  Registrarse
+                   Registrarse
                 </Text>
               </TouchableOpacity>
 
@@ -446,7 +446,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
                   isSmallScreen && styles.registerUserTextSmall,
                   isMediumScreen && styles.registerUserTextMedium
                 ]}>
-                  Registrar usuario
+                   Registrar usuario
                 </Text>
               </TouchableOpacity>
             </View>
