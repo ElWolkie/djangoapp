@@ -14,6 +14,7 @@ export default ({ config }: { config: any }) => {
       slug: SLUG,
       version: '1.0.0',
       sdkVersion: SDK_VERSION,
+      runtimeVersion: { policy: "sdkVersion" },    // <<--- AÑADIR ESTA LINEA
       orientation: 'portrait',
       icon: './assets/icon.png',
       userInterfaceStyle: 'light',
@@ -29,36 +30,28 @@ export default ({ config }: { config: any }) => {
         buildNumber: process.env.IOS_BUILD_NUMBER ?? '1'
       },
       android: {
-        adaptiveIcon: {
-          foregroundImage: './assets/adaptive-icon.png',
-          backgroundColor: '#ffffff'
-        },
+        adaptiveIcon: { foregroundImage: './assets/adaptive-icon.png', backgroundColor: '#ffffff' },
         edgeToEdgeEnabled: true,
         package: PACKAGE,
         permissions: ['INTERNET','ACCESS_NETWORK_STATE'],
         versionCode: Number(process.env.ANDROID_VERSION_CODE ?? 1)
       },
       web: { favicon: './assets/favicon.png' },
-      // Aquí incluimos el projectId que EAS creó para asociar el proyecto
+
+      // CONFIGURACIÓN DE UPDATES (recomendado)
+      updates: {
+        fallbackToCacheTimeout: 0
+      },
+
       extra: {
         API_BASE_URL: API_BASE,
-        eas: {
-          projectId: 'a0212456-d171-49be-97a5-e6400ce43427'
-        }
+        eas: { projectId: 'a0212456-d171-49be-97a5-e6400ce43427' }
       },
+
       plugins: [
-        [
-          'expo-build-properties',
-          {
-            android: {
-              usesCleartextTraffic: true,
-              compileSdkVersion: 34,
-              targetSdkVersion: 34,
-              buildToolsVersion: '34.0.0'
-            }
-          }
-        ]
+        [ 'expo-build-properties', { android: { usesCleartextTraffic: true, compileSdkVersion: 34, targetSdkVersion: 34, buildToolsVersion: '34.0.0' } } ]
       ]
     }
-  };
+
+      };
 };
