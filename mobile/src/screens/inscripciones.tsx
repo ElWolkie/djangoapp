@@ -32,6 +32,8 @@ import {
 } from '../types/inscripciones';
 
 const { width, height } = Dimensions.get('window');
+const isSmallScreen = width < 375;
+const isMediumScreen = width >= 375 && width < 768;
 
 const fmtMoney = (v: any) => {
   const n = Number(v);
@@ -54,7 +56,7 @@ const InscripcionesScreen = () => {
   const [formModalVisible, setFormModalVisible] = useState(false);
   const [creating, setCreating] = useState(false);
 
-  // Form fields - CAMBIO: usar undefined en lugar de null para los Pickers
+  // Form fields
   const [tiposFormacion, setTiposFormacion] = useState<TipoFormacion[]>([]);
   const [formaciones, setFormaciones] = useState<Formacion[]>([]);
   const [formacionesFiltradas, setFormacionesFiltradas] = useState<Formacion[]>([]);
@@ -73,11 +75,11 @@ const InscripcionesScreen = () => {
   const [fechaInscripcion, setFechaInscripcion] = useState<string>('');
   const [formErrors, setFormErrors] = useState<Record<string,string>>({});
 
-  // Estados para la información del usuario obtenida del backend
+  // Estados para la información del usuario
   const [userInfo, setUserInfo] = useState<{cedula?: string; idPersona?: number | null; nombres?: string; apellidos?: string} | null>(null);
   const [loadingUser, setLoadingUser] = useState(false);
 
-  // FUNCIÓN CORREGIDA: Obtener información del usuario
+  // 🔄 FUNCIÓN MEJORADA: Obtener información del usuario
   const obtenerInformacionUsuario = async () => {
     setLoadingUser(true);
     try {
@@ -95,7 +97,6 @@ const InscripcionesScreen = () => {
         console.log('❌ No hay usuario en el AuthContext');
         setUserInfo(null);
       }
-
     } catch (error) {
       console.error('❌ Error obteniendo información del usuario:', error);
       setUserInfo(null);
@@ -104,22 +105,35 @@ const InscripcionesScreen = () => {
     }
   };
 
-  // DEBUG: Verificar el usuario
-  useEffect(() => {
-    console.log('🔐 USUARIO EN INSCRIPCIONES:', user);
-    console.log('🔐 Cedula del usuario:', user?.cedula);
-    console.log('🔐 idPersona del usuario:', user?.idPersona);
-    
-    obtenerInformacionUsuario();
-  }, [user]);
-
-  // Load inscripciones
+  // 🔄 FUNCIÓN MEJORADA: Cargar inscripciones SOLO del usuario actual
   const fetchInscripciones = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
+      // Obtener información del usuario primero
+      await obtenerInformacionUsuario();
+      
+      if (!userInfo?.idPersona) {
+        console.log('❌ No hay idPersona para filtrar inscripciones');
+        setItems([]);
+        setMostradas([]);
+        return;
+      }
+
+      console.log('🔍 Cargando inscripciones para idPersona:', userInfo.idPersona);
+      
+      // MODIFICADO: Filtrar por el usuario actual
       const res = await api.get('/api/inscripcion/');
-      const data = Array.isArray(res.data) ? res.data : (res.data.results ?? []);
+      let data = Array.isArray(res.data) ? res.data : (res.data.results ?? []);
+      
+      // 🔥 FILTRAR SOLO LAS INSCRIPCIONES DEL USUARIO ACTUAL
+      data = data.filter((inscripcion: Inscripcion) => {
+        const inscripcionPersonaId = inscripcion.idPersona?.idPersona || inscripcion.idPersona;
+        return inscripcionPersonaId === userInfo.idPersona;
+      });
+
+      console.log(`✅ Encontradas ${data.length} inscripciones para el usuario`);
+      
       setItems(data);
       setMostradas(data);
     } catch (e: any) {
@@ -128,9 +142,9 @@ const InscripcionesScreen = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [userInfo?.idPersona]);
 
-  // Load tipos formacion, formaciones & cohortes - VERSIÓN CORREGIDA
+  // Load tipos formacion, formaciones & cohortes
   const fetchDatosFormulario = useCallback(async () => {
     try {
       console.log('🔍 Cargando datos del formulario...');
@@ -150,15 +164,9 @@ const InscripcionesScreen = () => {
         }),
       ]);
 
-      console.log('📦 Respuesta tipos formación:', r1.data);
-      console.log('📦 Respuesta formaciones:', r2.data);
-      console.log('📦 Respuesta cohortes:', r3.data);
-
-      // Función CORREGIDA para extraer datos
       const extractData = (responseData: any, tipo: string) => {
         let dataArray = [];
         
-        // Diferentes estructuras posibles de respuesta
         if (Array.isArray(responseData)) {
           dataArray = responseData;
         } else if (responseData && Array.isArray(responseData.results)) {
@@ -166,15 +174,11 @@ const InscripcionesScreen = () => {
         } else if (responseData && responseData.data && Array.isArray(responseData.data)) {
           dataArray = responseData.data;
         } else if (responseData && typeof responseData === 'object') {
-          // Si es un objeto único, lo convertimos en array
           dataArray = [responseData];
         } else {
           dataArray = [];
         }
 
-        console.log(`📊 ${tipo} - datos extraídos:`, dataArray);
-
-        // Mapeo CORREGIDO para cada tipo
         const mappedData = dataArray.map((item: any) => {
           if (tipo === 'tipos') {
             return {
@@ -184,16 +188,13 @@ const InscripcionesScreen = () => {
           }
           
           if (tipo === 'formaciones') {
-            // CORRECCIÓN: Asegurar que idTF sea NUMBER
             const rawIdTF = item.idTF || item.tipo_formacion || item.tipoFormacion || item.tipo_formacion_id || item.idTF_id || 0;
-            const idTF = Number(rawIdTF); // FORZAR conversión a número
+            const idTF = Number(rawIdTF);
 
-            console.log(`🎓 Formación: ${item.nombreFormacion || item.nombre}, idTF extraído: ${rawIdTF} -> ${idTF} (${typeof idTF})`);
-            
             return {
               idFormacion: Number(item.idFormacion || item.id || 0),
               nombreFormacion: item.nombreFormacion || item.nombre || 'Sin nombre',
-              idTF: idTF, // Ahora siempre será número
+              idTF: idTF,
               valorInscripcion: Number(item.valorInscripcion || item.precio || item.costo || 0),
               tieneCuotas: Boolean(item.tieneCuotas || item.cuotas || false),
               cuotas_activas: Boolean(item.cuotas_activas || item.cuotas_activas || false),
@@ -211,14 +212,12 @@ const InscripcionesScreen = () => {
           
           return item;
         }).filter((item: any) => {
-          // FILTRAR: Solo items con ID válido mayor a 0
           if (tipo === 'tipos') return item.idTF > 0;
           if (tipo === 'formaciones') return item.idFormacion > 0;
           if (tipo === 'cohortes') return item.idCohorte > 0;
           return true;
         });
 
-        console.log(`✅ ${tipo} mapeados:`, mappedData.length);
         return mappedData;
       };
 
@@ -226,65 +225,15 @@ const InscripcionesScreen = () => {
       const formacionesData = extractData(r2.data, 'formaciones');
       const cohortesData = extractData(r3.data, 'cohortes');
 
-      console.log('🎉 DATOS FINALES CARGADOS:');
-      console.log('📚 Tipos formación:', tiposData);
-      console.log('🎓 Formaciones:', formacionesData);
-      console.log('👥 Cohortes:', cohortesData);
-
       setTiposFormacion(tiposData);
       setFormaciones(formacionesData);
       setCohortes(cohortesData);
-
-      // DEBUG: Verificar relaciones entre tipos y formaciones
-      console.log('🔗 RELACIONES TIPO-FORMACIÓN:');
-      tiposData.forEach((tipo: TipoFormacion) => {
-        const formacionesDelTipo = formacionesData.filter((f: Formacion) => f.idTF === tipo.idTF);
-        console.log(`Tipo ${tipo.idTF} (${tipo.nombreTipoFormacion}): ${formacionesDelTipo.length} formaciones`);
-      });
 
     } catch (e) {
       console.error('Error crítico en fetchDatosFormulario:', e);
       Alert.alert('Error', 'No se pudieron cargar los datos del formulario');
     }
   }, []);
-
-  // DEBUG: Función para ver cuotas específicas
-  const debugCuotas = async (formacionId: number) => {
-    try {
-      console.log('🔍 DEBUG: Obteniendo datos completos de formación...');
-      const response = await api.get(`/api/formaciones/${formacionId}/`);
-      console.log('📦 Datos COMPLETOS de la formación:', response.data);
-      console.log('📋 cuotas_json específico:', response.data.cuotas_json);
-      
-      if (response.data.cuotas_json) {
-        try {
-          const parsed = JSON.parse(response.data.cuotas_json);
-          console.log('✅ cuotas_json parseado:', parsed);
-        } catch (e) {
-          console.error('❌ Error parseando cuotas_json:', e);
-        }
-      }
-    } catch (error) {
-      console.error('❌ Error en debugCuotas:', error);
-    }
-  };
-
-  // Función para debuggear errores de validación 400
-  const debugError400 = async (errorData: any) => {
-    console.log('🔍 DEBUG ERROR 400 - Detalles completos:');
-    console.log('Status:', errorData.status);
-    console.log('Data:', errorData.data);
-    console.log('Errors:', errorData.data);
-    
-    if (errorData.data) {
-      // Si es un objeto con errores específicos
-      if (typeof errorData.data === 'object') {
-        Object.keys(errorData.data).forEach(key => {
-          console.log(`❌ ${key}:`, errorData.data[key]);
-        });
-      }
-    }
-  };
 
   // Establecer fecha actual automáticamente
   const establecerFechaActual = () => {
@@ -303,138 +252,60 @@ const InscripcionesScreen = () => {
     }
   }, [formModalVisible]);
 
+  // Efecto principal para cargar datos
   useEffect(() => {
     fetchInscripciones();
     fetchDatosFormulario();
   }, [fetchInscripciones, fetchDatosFormulario]);
 
-  // Filtrar formaciones cuando cambia el tipo de formación - VERSIÓN CORREGIDA
+  // Filtrar formaciones cuando cambia el tipo de formación
   useEffect(() => {
-    console.log('🔄 FILTRANDO FORMACIONES - INICIO');
-    console.log('Tipo seleccionado:', selectedTipoFormacion, 'Tipo:', typeof selectedTipoFormacion);
-    console.log('Total formaciones disponibles:', formaciones.length);
-    console.log('Formaciones disponibles:', formaciones.map(f => ({
-      id: f.idFormacion, 
-      nombre: f.nombreFormacion, 
-      idTF: f.idTF,
-      tipoIdTF: typeof f.idTF
-    })));
-
-    // CAMBIO: Usar undefined en lugar de null
     if (selectedTipoFormacion !== undefined && formaciones.length > 0) {
-      // CONVERTIR AMBOS A NUMBER para comparación correcta
       const selectedTipoNum = Number(selectedTipoFormacion);
-      
-      const filtradas = formaciones.filter(f => {
-        const formacionTipoNum = Number(f.idTF);
-        const match = formacionTipoNum === selectedTipoNum;
-        console.log(`🔍 Formación "${f.nombreFormacion}": idTF=${f.idTF} (${typeof f.idTF}), selectedTipo=${selectedTipoFormacion} (${typeof selectedTipoFormacion}), match=${match}`);
-        return match;
-      });
-      
-      console.log('✅ FORMACIONES FILTRADAS:', filtradas.length);
-      console.log('📋 Lista filtrada:', filtradas.map(f => ({id: f.idFormacion, nombre: f.nombreFormacion})));
+      const filtradas = formaciones.filter(f => Number(f.idTF) === selectedTipoNum);
       
       setFormacionesFiltradas(filtradas);
       setSelectedFormacion(undefined);
       
-      // Si solo hay una formación filtrada, seleccionarla automáticamente
       if (filtradas.length === 1) {
         setSelectedFormacion(filtradas[0].idFormacion);
-        console.log('✅ Auto-seleccionando única formación disponible');
       }
     } else {
-      console.log('❌ Mostrando TODAS las formaciones (sin filtro)');
       setFormacionesFiltradas(formaciones);
     }
-    
-    console.log('🔄 FILTRANDO FORMACIONES - FIN');
   }, [selectedTipoFormacion, formaciones]);
 
-  // Función mejorada para obtener cuotas reales con manejo de tipos
-  const fetchCuotasReales = async (formacionId: number): Promise<Cuota[]> => {
-    try {
-      console.log('💰 SOLICITANDO CUOTAS REALES para formación:', formacionId);
-      const response = await api.get(`/api/formaciones/${formacionId}/cuotas/`);
+  // CALCULAR COSTOS
+  useEffect(() => {
+    if (selectedFormacion !== undefined) {
+      const formacion = formaciones.find(f => f.idFormacion === selectedFormacion);
       
-      // VERIFICAR SI LA RESPUESTA ES HTML (ERROR)
-      if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE html>')) {
-        console.error('❌ El servidor devolvió HTML en lugar de JSON');
-        throw new Error('Error del servidor: respuesta en formato incorrecto');
-      }
-      
-      console.log('💰 RESPUESTA CUOTAS REALES:', response.data);
-      
-      // Manejar diferentes estructuras de respuesta
-      if (response.data.cuotas && Array.isArray(response.data.cuotas)) {
-        return response.data.cuotas.map((cuota: any) => ({
-          nombreCuota: cuota.nombreCuota,
-          valorCuota: Number(cuota.valorCuota) || 0
-        }));
-      } else if (Array.isArray(response.data)) {
-        // Si la respuesta es directamente un array
-        return response.data.map((cuota: any) => ({
-          nombreCuota: cuota.nombreCuota,
-          valorCuota: Number(cuota.valorCuota) || 0
-        }));
-      }
-      
-      console.warn('⚠️ Estructura de cuotas no reconocida:', response.data);
-      return [];
-    } catch (error: any) { // Usar ': any' temporalmente para evitar problemas de tipo
-      console.error('❌ Error obteniendo cuotas reales:', error);
-      
-      // Manejo específico de errores con verificación de tipo
-      if (error && typeof error === 'object' && 'response' in error) {
-        const axiosError = error as any;
-        if (axiosError.response?.status === 500) {
-          console.error('🚨 Error 500 del servidor - Verificar el endpoint backend');
+      if (formacion) {
+        const valorMatricula = Number(formacion.valorInscripcion) || 0;
+        setValorInscripcion(valorMatricula);
+        
+        // Datos hardcodeados por formación (temporal)
+        let cuotasData: Cuota[] = [];
+        
+        if (formacion.idFormacion === 3 && formacion.nombreFormacion.includes('BIOTECNOLOGIA')) {
+          cuotasData = [
+            { nombreCuota: 'CUOTA I', valorCuota: 15 },
+            { nombreCuota: 'CUOTA II', valorCuota: 10 },
+            { nombreCuota: 'CUOTA III', valorCuota: 20 }
+          ];
         }
+        
+        const totalCtas = cuotasData.reduce((sum, cuota) => sum + cuota.valorCuota, 0);
+        const totalFinal = valorMatricula + totalCtas;
+        
+        setCuotas(cuotasData);
+        setTotalCuotas(totalCtas);
+        setMontoTotal(totalFinal);
       }
-      
-      return [];
     }
-  };
+  }, [selectedFormacion, formaciones]);
 
-  // CALCULAR COSTOS CON CUOTAS REALES - VERSIÓN CORREGIDA
-  // En tu useEffect de cálculo de costos, agrega esto temporalmente:
-useEffect(() => {
-  if (selectedFormacion !== undefined) {
-    const formacion = formaciones.find(f => f.idFormacion === selectedFormacion);
-    
-    if (formacion) {
-      const valorMatricula = Number(formacion.valorInscripcion) || 0;
-      setValorInscripcion(valorMatricula);
-      
-      // ✅ SOLUCIÓN TEMPORAL: Datos hardcodeados por formación
-      let cuotasData: Cuota[] = [];
-      
-      if (formacion.idFormacion === 3 && formacion.nombreFormacion.includes('BIOTECNOLOGIA')) {
-        // Datos específicos para BIOTECNOLOGIA
-        cuotasData = [
-          { nombreCuota: 'CUOTA I', valorCuota: 15 },
-          { nombreCuota: 'CUOTA II', valorCuota: 10 },
-          { nombreCuota: 'CUOTA III', valorCuota: 20 }
-        ];
-        console.log('✅ Usando datos hardcodeados para BIOTECNOLOGIA');
-      }
-      // Agregar más formaciones según necesites
-      
-      const totalCtas = cuotasData.reduce((sum, cuota) => sum + cuota.valorCuota, 0);
-      const totalFinal = valorMatricula + totalCtas;
-      
-      setCuotas(cuotasData);
-      setTotalCuotas(totalCtas);
-      setMontoTotal(totalFinal);
-      
-      console.log('💰 COSTOS CALCULADOS (con datos temporales):');
-      console.log('Matrícula:', valorMatricula);
-      console.log('Total cuotas:', totalCtas);
-      console.log('Total general:', totalFinal);
-    }
-  }
-}, [selectedFormacion, formaciones]);
-
+  // Filtrar inscripciones por búsqueda
   useEffect(() => {
     const q = searchText.trim().toLowerCase();
     if (!q) {
@@ -451,55 +322,12 @@ useEffect(() => {
   }, [searchText, items]);
 
   const openDetail = (item: any) => {
-  setSelected(item); // Esto debería ser el objeto completo de la inscripción
-  setDetailModalVisible(true);
-};
-
-  // Función para verificar que los IDs existen - VERSIÓN MEJORADA
-  const verificarIDs = (): boolean => {
-    // CAMBIO: Usar undefined en lugar de null
-    if (selectedTipoFormacion === undefined || selectedFormacion === undefined || selectedCohorte === undefined) {
-      Alert.alert(
-        'Error en selección',
-        'Por favor, seleccione tipo de formación, formación y cohorte.'
-      );
-      return false;
-    }
-
-    const tipoId = Number(selectedTipoFormacion);
-    const formacionId = Number(selectedFormacion);
-    const cohorteId = Number(selectedCohorte);
-    
-    console.log('🔍 VERIFICACIÓN DE IDs (convertidos a número):');
-    console.log('Tipo ID seleccionado:', tipoId);
-    console.log('Formación ID seleccionado:', formacionId);
-    console.log('Cohorte ID seleccionado:', cohorteId);
-
-    const tipoExists = tiposFormacion.some(t => Number(t.idTF) === tipoId);
-    const formacionExists = formaciones.some(f => Number(f.idFormacion) === formacionId);
-    const cohorteExists = cohortes.some(c => Number(c.idCohorte) === cohorteId);
-    
-    console.log('Tipo existe:', tipoExists);
-    console.log('Formación existe:', formacionExists);
-    console.log('Cohorte existe:', cohorteExists);
-
-    if (!tipoExists || !formacionExists || !cohorteExists) {
-      Alert.alert(
-        'Error en selección',
-        `Los elementos seleccionados no son válidos. Por favor, seleccione opciones de la lista.\n\n` +
-        `Tipo formación: ${tipoExists ? '✅' : '❌'}\n` +
-        `Formación: ${formacionExists ? '✅' : '❌'}\n` +
-        `Cohorte: ${cohorteExists ? '✅' : '❌'}`
-      );
-      return false;
-    }
-    
-    return true;
+    setSelected(item);
+    setDetailModalVisible(true);
   };
 
   const validateCreateForm = () => {
     const errs: Record<string,string> = {};
-    // CAMBIO: Usar undefined en lugar de null
     if (selectedTipoFormacion === undefined) 
       errs.tipoFormacion = 'Seleccione un tipo de formación';
     if (selectedFormacion === undefined) 
@@ -515,44 +343,7 @@ useEffect(() => {
     return Object.keys(errs).length === 0;
   };
 
-  // DEBUG MEJORADO: Función para ver cuotas específicas
-  const debugCuotasCompleto = async (formacionId: number) => {
-    try {
-      console.log('🔍 DEBUG COMPLETO: Obteniendo datos de formación y cuotas...');
-      
-      // 1. Obtener datos de la formación
-      const responseFormacion = await api.get(`/api/formaciones/${formacionId}/`);
-      const formacionData = responseFormacion.data;
-      
-      console.log('📦 DATOS COMPLETOS DE LA FORMACIÓN:', formacionData);
-      console.log('💰 Valor inscripción:', formacionData.valorInscripcion);
-      console.log('📋 tieneCuotas:', formacionData.tieneCuotas);
-      
-      // 2. Probar endpoint de cuotas directamente
-      console.log('🔍 Probando endpoint de cuotas directamente...');
-      try {
-        const responseCuotas = await api.get(`/api/formaciones/${formacionId}/cuotas/`);
-        console.log('✅ Respuesta cuotas:', responseCuotas.data);
-      } catch (error) {
-        // CORRECCIÓN: Verificar el tipo del error
-        console.error('❌ Error en endpoint de cuotas:', error);
-        
-        if (error && typeof error === 'object' && 'response' in error) {
-          const axiosError = error as any;
-          console.error('❌ Status:', axiosError.response?.status);
-          console.error('❌ Data:', axiosError.response?.data);
-        } else {
-          console.error('❌ Error desconocido:', error);
-        }
-      }
-      
-    } catch (error) {
-      console.error('❌ Error en debugCuotasCompleto:', error);
-    }
-  };
-
-
-  // FUNCIÓN MEJORADA: Crear inscripción con payload corregido
+  // FUNCIÓN MEJORADA: Crear inscripción
   const handleCreateInscripcion = async () => {
     console.log('🔐 VERIFICACIÓN COMPLETA DEL USUARIO:');
     console.log('UserInfo:', userInfo);
@@ -563,73 +354,16 @@ useEffect(() => {
       return;
     }
 
-    // Verificar IDs ANTES de continuar
-    if (!verificarIDs()) {
-      return;
-    }
-
-    // Verificar montoTotal
-    console.log('💰 VERIFICACIÓN FINAL DE MONTOS:');
-    console.log('Valor inscripción:', valorInscripcion);
-    console.log('Total cuotas:', totalCuotas);
-    console.log('Monto total:', montoTotal);
-
-    if (montoTotal <= 0) {
-      Alert.alert(
-        'Error en costos', 
-        'El monto total debe ser mayor a 0. Verifique que la formación seleccionada tenga un costo configurado.'
-      );
-      return;
-    }
-
-    let cedulaUsuario: string | null = null;
-    let idPersonaFinal: number | null = null;
-
-    try {
-      const tokens = await AsyncStorage.getItem('myapp-tokens');
-      if (tokens) {
-        const parsedTokens = JSON.parse(tokens);
-        const userData = parsedTokens.user;
-        cedulaUsuario = userData?.cedula;
-        console.log('✅ Cédula obtenida de tokens:', cedulaUsuario);
-      }
-    } catch (error) {
-      console.error('Error obteniendo tokens:', error);
-    }
-
-    if (userInfo?.idPersona) {
-      idPersonaFinal = Number(userInfo.idPersona);
-      console.log('✅ Usando idPersona del userInfo:', idPersonaFinal);
-    } else if (cedulaUsuario) {
-      console.log('⚠️ No hay idPersona, usando solo cédula:', cedulaUsuario);
-    } else {
-      console.error('❌ NO SE PUDO OBTENER INFORMACIÓN VÁLIDA DEL USUARIO');
-      Alert.alert(
-        'Error de Identificación', 
-        'No se pudo identificar su usuario. Por favor, cierre sesión y vuelva a ingresar.'
-      );
-      return;
-    }
-
-    // CAMBIO: Usar valores por defecto ya que sabemos que no son undefined por la validación
-    const idTF = Number(selectedTipoFormacion);
-    const idFormacion = Number(selectedFormacion);
-    const idCohorte = Number(selectedCohorte);
-
-    if (isNaN(idTF) || isNaN(idFormacion) || isNaN(idCohorte)) {
-      Alert.alert('Error', 'Hay datos inválidos en el formulario.');
+    if (!userInfo?.idPersona) {
+      Alert.alert('Error', 'No se pudo identificar su usuario. Por favor, cierre sesión y vuelva a ingresar.');
       return;
     }
 
     setCreating(true);
 
     try {
-      const ahora = new Date();
-      const fechaFormateada = ahora.toISOString().replace('T', ' ').substring(0, 19);
-      
-      // PAYLOAD CORREGIDO según el error del backend
-        const payload = {
-        "idPersona": userInfo?.idPersona,  // Cambiado de idPersona_id a idPersona
+      const payload = {
+        "idPersona": userInfo.idPersona,
         "idTF": selectedTipoFormacion,
         "idFormacion": selectedFormacion,
         "idCohorte": selectedCohorte,
@@ -639,60 +373,47 @@ useEffect(() => {
         "fechaInscripcion": new Date().toISOString().slice(0, 19).replace('T', ' ')
       };
 
-        console.log("📤 Enviando payload CORREGIDO:", payload);
-
-      console.log('📤 Enviando payload SIMPLIFICADO:', JSON.stringify(payload, null, 2));
+      console.log("📤 Enviando payload:", payload);
 
       const res = await api.post('/api/inscripcion/', payload);
       
       if (res.status === 201 || res.status === 200) {
-      console.log('✅ Inscripción creada, ID:', res.data.idInscripcion);
-      
-      // 🆕 PASO 2: Crear nota de cobro automáticamente
-      try {
-        const notaResponse = await api.post('/api/nota-cobro/create/', {
-          idInscripcion: res.data.idInscripcion
-        });
+        console.log('✅ Inscripción creada, ID:', res.data.idInscripcion);
         
-        if (notaResponse.data.success) {
-          console.log('✅ Nota de cobro creada:', notaResponse.data.data);
+        // Crear nota de cobro automáticamente
+        try {
+          const notaResponse = await api.post('/api/nota-cobro/create/', {
+            idInscripcion: res.data.idInscripcion
+          });
           
-          // 🆕 PASO 3: Navegar a pantalla de pago con los datos
-          // En la función handleCreateInscripcion, después de crear la nota:
+          if (notaResponse.data.success) {
+            console.log('✅ Nota de cobro creada:', notaResponse.data.data);
+            
             navigation.navigate('pago', {
               notaData: notaResponse.data.data,
               inscripcionId: res.data.idInscripcion
             });
-          
-          Alert.alert('Éxito', 'Inscripción y nota de cobro creadas correctamente. Proceda al pago.');
-        } else {
-          throw new Error(notaResponse.data.message);
+            
+            Alert.alert('Éxito', 'Inscripción y nota de cobro creadas correctamente. Proceda al pago.');
+          } else {
+            throw new Error(notaResponse.data.message);
+          }
+        } catch (notaError) {
+          console.error('❌ Error creando nota de cobro:', notaError);
+          Alert.alert(
+            'Atención', 
+            'Inscripción creada pero hubo un error al generar la nota de cobro. Contacte al administrador.'
+          );
         }
-      } catch (notaError) {
-        console.error('❌ Error creando nota de cobro:', notaError);
-        Alert.alert(
-          'Atención', 
-          'Inscripción creada pero hubo un error al generar la nota de cobro. Contacte al administrador.'
-        );
-      }
-      
-      setFormModalVisible(false);
-      resetForm();
-      await fetchInscripciones();
-    } else {
-      const message = res.data?.detail ?? JSON.stringify(res.data);
-      Alert.alert('Respuesta del servidor', String(message));
-    }
-    } catch (err: any) {
-      console.error('❌ ERROR EN handleCreateInscripcion:');
-      console.error('Status:', err.response?.status);
-      console.error('Data:', err.response?.data);
-      console.error('Config:', err.config?.data);
-      
-      // Manejo específico de errores 400
-      if (err.response?.status === 400) {
-        await debugError400(err.response);
         
+        setFormModalVisible(false);
+        resetForm();
+        await fetchInscripciones();
+      }
+    } catch (err: any) {
+      console.error('❌ ERROR EN handleCreateInscripcion:', err.response?.data);
+      
+      if (err.response?.status === 400) {
         let errorMessage = 'Errores de validación:\n';
         
         if (err.response.data && typeof err.response.data === 'object') {
@@ -711,17 +432,6 @@ useEffect(() => {
         return;
       }
       
-      // Manejo de error 500
-      if (err.response?.status === 500) {
-        Alert.alert(
-          'Error del Servidor', 
-          'Error interno del servidor. Por favor, contacte al administrador del sistema.\n\n' +
-          'Detalles: ' + (err.response.data?.detail || 'Error desconocido')
-        );
-        return;
-      }
-      
-      // Error genérico
       Alert.alert('Error', err.response?.data?.detail ?? err.message ?? 'Error desconocido al crear inscripción');
     } finally {
       setCreating(false);
@@ -729,7 +439,6 @@ useEffect(() => {
   };
 
   const resetForm = () => {
-    // CAMBIO: Usar undefined en lugar de null
     setSelectedTipoFormacion(undefined);
     setSelectedFormacion(undefined);
     setSelectedCohorte(undefined);
@@ -760,102 +469,128 @@ useEffect(() => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Inscripciones</Text>
-        <TouchableOpacity style={styles.addButton} onPress={() => setFormModalVisible(true)}>
-          <Icon name="plus" size={24} color="#fff" />
-          <Text style={styles.addButtonText}>Nueva</Text>
+      {/* HEADER MEJORADO PARA MÓVIL */}
+      <View style={[styles.header, isSmallScreen && styles.headerSmall]}>
+        <Text style={[styles.title, isSmallScreen && styles.titleSmall]}>Mis Inscripciones</Text>
+        <TouchableOpacity 
+          style={[styles.addButton, isSmallScreen && styles.addButtonSmall]} 
+          onPress={() => setFormModalVisible(true)}
+        >
+          <Icon name="plus" size={isSmallScreen ? 20 : 24} color="#fff" />
+          <Text style={[styles.addButtonText, isSmallScreen && styles.addButtonTextSmall]}>Nueva</Text>
         </TouchableOpacity>
       </View>
 
-      <View style={styles.searchContainer}>
-        <View style={styles.searchWrapper}>
-          <Icon name="magnify" size={20} color="#666" />
+      {/* SEARCH BAR MEJORADO */}
+      <View style={[styles.searchContainer, isSmallScreen && styles.searchContainerSmall]}>
+        <View style={[styles.searchWrapper, isSmallScreen && styles.searchWrapperSmall]}>
+          <Icon name="magnify" size={isSmallScreen ? 18 : 20} color="#666" />
           <TextInput
-            placeholder="Buscar por cédula, formación, cohorte o estado..."
+            placeholder="Buscar por formación, cohorte o estado..."
             value={searchText}
             onChangeText={setSearchText}
-            style={styles.searchInput}
+            style={[styles.searchInput, isSmallScreen && styles.searchInputSmall]}
             placeholderTextColor="#999"
           />
         </View>
       </View>
 
+      {/* LISTA DE INSCRIPCIONES */}
       <FlatList
         data={mostradas}
         keyExtractor={(i) => String(i.idInscripcion ?? i.id ?? Math.random())}
         renderItem={({item}) => {
           const status = deriveStatus(item);
           return (
-            <View style={styles.card}>
+            <View style={[styles.card, isSmallScreen && styles.cardSmall]}>
               <View style={styles.cardHeader}>
-                <View style={styles.cardTitleContainer}>
-                  <Text style={styles.cardTitle} numberOfLines={1}>
+                <View style={[styles.cardTitleContainer, isSmallScreen && styles.cardTitleContainerSmall]}>
+                  <Text style={[styles.cardTitle, isSmallScreen && styles.cardTitleSmall]} numberOfLines={2}>
                     {item.idFormacion_detail?.nombreFormacion ?? '—'}
                   </Text>
-                  <View style={[styles.badge, statusColor(status)]}>
-                    <Text style={styles.badgeText}>{status}</Text>
+                  <View style={[styles.badge, statusColor(status), isSmallScreen && styles.badgeSmall]}>
+                    <Text style={[styles.badgeText, isSmallScreen && styles.badgeTextSmall]}>{status}</Text>
                   </View>
                 </View>
-                <Text style={styles.cardSubtitle}>
+                <Text style={[styles.cardSubtitle, isSmallScreen && styles.cardSubtitleSmall]}>
                   {item.idPersona_detail?.nombres} {item.idPersona_detail?.apellidos}
                 </Text>
               </View>
 
-              <View style={styles.cardContent}>
-                <View style={styles.detailRow}>
+              <View style={[styles.cardContent, isSmallScreen && styles.cardContentSmall]}>
+                <View style={[styles.detailRow, isSmallScreen && styles.detailRowSmall]}>
                   <View style={styles.detailItem}>
-                    <Icon name="id-card" size={16} color="#666" />
-                    <Text style={styles.detailText}>{item.idPersona_detail?.cedula ?? '—'}</Text>
+                    <Icon name="domain" size={isSmallScreen ? 14 : 16} color="#666" />
+                    <Text style={[styles.detailText, isSmallScreen && styles.detailTextSmall]}>
+                      {item.idCohorte_detail?.nombreCohorte ?? '—'}
+                    </Text>
                   </View>
                   <View style={styles.detailItem}>
-                    <Icon name="domain" size={16} color="#666" />
-                    <Text style={styles.detailText}>{item.idCohorte_detail?.nombreCohorte ?? '—'}</Text>
+                    <Icon name="cash" size={isSmallScreen ? 14 : 16} color="#666" />
+                    <Text style={[styles.detailText, isSmallScreen && styles.detailTextSmall]}>
+                      {fmtMoney(item.montoTotal)}
+                    </Text>
                   </View>
                 </View>
                 
-                <View style={styles.detailRow}>
+                <View style={[styles.detailRow, isSmallScreen && styles.detailRowSmall]}>
                   <View style={styles.detailItem}>
-                    <Icon name="cash" size={16} color="#666" />
-                    <Text style={styles.detailText}>{fmtMoney(item.montoTotal)}</Text>
-                  </View>
-                  <View style={styles.detailItem}>
-                    <Icon name="calendar" size={16} color="#666" />
-                    <Text style={styles.detailText}>{item.fechaInscripcion ?? '—'}</Text>
+                    <Icon name="calendar" size={isSmallScreen ? 14 : 16} color="#666" />
+                    <Text style={[styles.detailText, isSmallScreen && styles.detailTextSmall]}>
+                      {item.fechaInscripcion ? new Date(item.fechaInscripcion).toLocaleDateString() : '—'}
+                    </Text>
                   </View>
                 </View>
               </View>
 
-              <TouchableOpacity style={styles.cardButton} onPress={() => openDetail(item)}>
-                <Text style={styles.cardButtonText}>Ver detalles</Text>
-                <Icon name="chevron-right" size={20} color="#4f8cff" />
+              <TouchableOpacity 
+                style={[styles.cardButton, isSmallScreen && styles.cardButtonSmall]} 
+                onPress={() => openDetail(item)}
+              >
+                <Text style={[styles.cardButtonText, isSmallScreen && styles.cardButtonTextSmall]}>
+                  Ver detalles
+                </Text>
+                <Icon name="chevron-right" size={isSmallScreen ? 18 : 20} color="#4f8cff" />
               </TouchableOpacity>
             </View>
           );
         }}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, isSmallScreen && styles.listContentSmall]}
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Icon name="clipboard-text-outline" size={64} color="#ccc" />
-            <Text style={styles.emptyText}>No hay inscripciones registradas</Text>
+            <Icon name="clipboard-text-outline" size={isSmallScreen ? 48 : 64} color="#ccc" />
+            <Text style={[styles.emptyText, isSmallScreen && styles.emptyTextSmall]}>
+              {loading ? 'Cargando...' : 'No tienes inscripciones registradas'}
+            </Text>
+            <TouchableOpacity 
+              style={[styles.addButton, isSmallScreen && styles.addButtonSmall, {marginTop: 16}]}
+              onPress={() => setFormModalVisible(true)}
+            >
+              <Icon name="plus" size={isSmallScreen ? 18 : 20} color="#fff" />
+              <Text style={[styles.addButtonText, isSmallScreen && styles.addButtonTextSmall]}>
+                Crear primera inscripción
+              </Text>
+            </TouchableOpacity>
           </View>
         }
       />
 
-      {/* Detalle modal */}
+      {/* MODAL DE DETALLE - MEJORADO PARA MÓVIL */}
       <Modal 
         isVisible={detailModalVisible} 
         onBackdropPress={() => setDetailModalVisible(false)}
-        style={styles.modal}
+        style={[styles.modal, isSmallScreen && styles.modalSmall]}
       >
-        <View style={styles.modalContent}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Detalles de Inscripción</Text>
+        <View style={[styles.modalContent, isSmallScreen && styles.modalContentSmall]}>
+          <View style={[styles.modalHeader, isSmallScreen && styles.modalHeaderSmall]}>
+            <Text style={[styles.modalTitle, isSmallScreen && styles.modalTitleSmall]}>
+              Detalles de Inscripción
+            </Text>
             <TouchableOpacity 
               style={styles.closeButton}
               onPress={() => setDetailModalVisible(false)}
             >
-              <Icon name="close" size={24} color="#666" />
+              <Icon name="close" size={isSmallScreen ? 20 : 24} color="#666" />
             </TouchableOpacity>
           </View>
           
@@ -866,107 +601,99 @@ useEffect(() => {
               ['Cédula', selected.idPersona_detail?.cedula ?? '—'],
               ['Nombres', selected.idPersona_detail?.nombres ?? '—'],
               ['Apellidos', selected.idPersona_detail?.apellidos ?? '—'],
-              ['Fecha inscripción', selected.fechaInscripcion ?? '—'],
+              ['Fecha inscripción', selected.fechaInscripcion ? new Date(selected.fechaInscripcion).toLocaleString() : '—'],
               ['Estado pago', deriveStatus(selected)],
               ['Monto total', fmtMoney(selected.montoTotal)],
               ['Monto pagado', fmtMoney(selected.montoPagado)],
               ['Saldo pendiente', fmtMoney(selected.saldoPendiente)],
-              ['Activo', selected.is_active ? 'Sí' : 'No'],
             ].map(([lbl,val]) => (
-              <View key={String(lbl)} style={styles.detailRowModal}>
-                <Text style={styles.detailLabel}>{lbl}:</Text>
-                <Text style={styles.detailValue}>{val}</Text>
+              <View key={String(lbl)} style={[styles.detailRowModal, isSmallScreen && styles.detailRowModalSmall]}>
+                <Text style={[styles.detailLabel, isSmallScreen && styles.detailLabelSmall]}>{lbl}:</Text>
+                <Text style={[styles.detailValue, isSmallScreen && styles.detailValueSmall]}>{val}</Text>
               </View>
             ))}
           </ScrollView>
 
-          <View style={styles.modalFooter}>
+          <View style={[styles.modalFooter, isSmallScreen && styles.modalFooterSmall]}>
             <TouchableOpacity 
-              style={styles.modalButton}
+              style={[styles.modalButton, isSmallScreen && styles.modalButtonSmall]}
               onPress={() => setDetailModalVisible(false)}
             >
-              <Text style={styles.modalButtonText}>Cerrar</Text>
+              <Text style={[styles.modalButtonText, isSmallScreen && styles.modalButtonTextSmall]}>Cerrar</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
 
-      {/* Form modal: crear inscripción */}
+      {/* MODAL DE FORMULARIO - COMPLETAMENTE RESPONSIVE */}
       <Modal
         isVisible={formModalVisible}
         onBackdropPress={() => setFormModalVisible(false)}
-        style={styles.modal}
+        style={[styles.modal, isSmallScreen && styles.modalSmall]}
       >
         <KeyboardAvoidingView 
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardAvoid}
         >
-          <View style={styles.formModal}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Nueva Inscripción</Text>
+          <View style={[styles.formModal, isSmallScreen && styles.formModalSmall]}>
+            <View style={[styles.modalHeader, isSmallScreen && styles.modalHeaderSmall]}>
+              <Text style={[styles.modalTitle, isSmallScreen && styles.modalTitleSmall]}>
+                Nueva Inscripción
+              </Text>
               <TouchableOpacity 
                 style={styles.closeButton}
                 onPress={() => setFormModalVisible(false)}
               >
-                <Icon name="close" size={24} color="#666" />
+                <Icon name="close" size={isSmallScreen ? 20 : 24} color="#666" />
               </TouchableOpacity>
             </View>
 
             <ScrollView 
               style={styles.formBody}
               showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.formContent}
+              contentContainerStyle={[styles.formContent, isSmallScreen && styles.formContentSmall]}
             >
               {/* Sección Información Personal */}
               <View style={styles.formSection}>
-                <Text style={styles.sectionTitle}>Información Personal</Text>
+                <Text style={[styles.sectionTitle, isSmallScreen && styles.sectionTitleSmall]}>
+                  Información Personal
+                </Text>
                 
                 <View style={styles.fieldContainer}>
-                  <Text style={styles.label}>Cédula del Cliente</Text>
-                  <View style={styles.cedulaFijaContainer}>
-                    <Icon name="account" size={20} color="#4f8cff" />
+                  <Text style={[styles.label, isSmallScreen && styles.labelSmall]}>Cédula del Cliente</Text>
+                  <View style={[styles.cedulaFijaContainer, isSmallScreen && styles.cedulaFijaContainerSmall]}>
+                    <Icon name="account" size={isSmallScreen ? 16 : 20} color="#4f8cff" />
                     {loadingUser ? (
                       <ActivityIndicator size="small" color="#4f8cff" />
                     ) : (
-                      <Text style={styles.cedulaFijaText}>
+                      <Text style={[styles.cedulaFijaText, isSmallScreen && styles.cedulaFijaTextSmall]}>
                         {userInfo?.cedula || user?.cedula || 'No se pudo cargar la cédula'}
                       </Text>
                     )}
                   </View>
-                  <Text style={styles.helpText}>
-                    {loadingUser 
-                      ? 'Cargando información del usuario...' 
-                      : userInfo?.nombres && userInfo?.apellidos 
-                        ? `Usuario: ${userInfo.nombres} ${userInfo.apellidos}`
-                        : userInfo?.cedula 
-                          ? `Cédula: ${userInfo.cedula}`
-                          : 'Información del usuario no disponible'}
+                  <Text style={[styles.helpText, isSmallScreen && styles.helpTextSmall]}>
+                    {userInfo?.nombres && userInfo?.apellidos 
+                      ? `Usuario: ${userInfo.nombres} ${userInfo.apellidos}`
+                      : 'Información del usuario actual'}
                   </Text>
-                  {formErrors.usuario && (
-                    <Text style={styles.errorText}>{formErrors.usuario}</Text>
-                  )}
                 </View>
               </View>
 
               {/* Sección Información Académica */}
               <View style={styles.formSection}>
-                <Text style={styles.sectionTitle}>Información Académica</Text>
+                <Text style={[styles.sectionTitle, isSmallScreen && styles.sectionTitleSmall]}>
+                  Información Académica
+                </Text>
 
                 {/* Picker para Tipo de Formación */}
                 <View style={styles.fieldContainer}>
-                  <Text style={styles.label}>Tipo de Formación *</Text>
-                  <View style={styles.pickerContainer}>
+                  <Text style={[styles.label, isSmallScreen && styles.labelSmall]}>Tipo de Formación *</Text>
+                  <View style={[styles.pickerContainer, isSmallScreen && styles.pickerContainerSmall]}>
                     <Picker
                       selectedValue={selectedTipoFormacion}
-                      onValueChange={(itemValue) => {
-                        // CAMBIO: El Picker puede devolver string o number, asegurar que sea number
-                        const value = itemValue !== undefined ? Number(itemValue) : undefined;
-                        console.log('🎯 Tipo seleccionado:', value, 'Tipo:', typeof value);
-                        setSelectedTipoFormacion(value);
-                      }}
-                      style={styles.picker}
+                      onValueChange={(itemValue) => setSelectedTipoFormacion(itemValue !== undefined ? Number(itemValue) : undefined)}
+                      style={[styles.picker, isSmallScreen && styles.pickerSmall]}
                     >
-                      {/* CAMBIO: Usar undefined en lugar de null */}
                       <Picker.Item label="Seleccione tipo de formación..." value={undefined} />
                       {tiposFormacion.map(tf => (
                         <Picker.Item 
@@ -978,30 +705,20 @@ useEffect(() => {
                     </Picker>
                   </View>
                   {formErrors.tipoFormacion && (
-                    <Text style={styles.errorText}>{formErrors.tipoFormacion}</Text>
+                    <Text style={[styles.errorText, isSmallScreen && styles.errorTextSmall]}>{formErrors.tipoFormacion}</Text>
                   )}
                 </View>
 
                 {/* Picker para Formación */}
                 <View style={styles.fieldContainer}>
-                  <Text style={styles.label}>Formación Académica *</Text>
-                  <View style={styles.pickerContainer}>
+                  <Text style={[styles.label, isSmallScreen && styles.labelSmall]}>Formación Académica *</Text>
+                  <View style={[styles.pickerContainer, isSmallScreen && styles.pickerContainerSmall]}>
                     <Picker
                       selectedValue={selectedFormacion}
-                      onValueChange={(itemValue) => {
-                        const value = itemValue !== undefined ? Number(itemValue) : undefined;
-                        console.log('🎯 Formación seleccionada:', value, 'Tipo:', typeof value);
-                        setSelectedFormacion(value);
-                        
-                        // DEBUG: Ver cuotas de esta formación
-                        if (value) {
-                          debugCuotasCompleto(value); // Cambiar por la nueva función
-                        }
-                      }}
-                      style={styles.picker}
+                      onValueChange={(itemValue) => setSelectedFormacion(itemValue !== undefined ? Number(itemValue) : undefined)}
+                      style={[styles.picker, isSmallScreen && styles.pickerSmall]}
                       enabled={formacionesFiltradas.length > 0}
                     >
-                      {/* CAMBIO: Usar undefined en lugar de null */}
                       <Picker.Item 
                         label={
                           formacionesFiltradas.length === 0 ? 
@@ -1020,126 +737,126 @@ useEffect(() => {
                     </Picker>
                   </View>
                   {formErrors.formacion && (
-                    <Text style={styles.errorText}>{formErrors.formacion}</Text>
+                    <Text style={[styles.errorText, isSmallScreen && styles.errorTextSmall]}>{formErrors.formacion}</Text>
                   )}
                 </View>
 
                 <View style={styles.fieldContainer}>
-                  <Text style={styles.label}>Cohorte *</Text>
-                  <View style={styles.pickerContainer}>
+                  <Text style={[styles.label, isSmallScreen && styles.labelSmall]}>Cohorte *</Text>
+                  <View style={[styles.pickerContainer, isSmallScreen && styles.pickerContainerSmall]}>
                     <Picker
                       selectedValue={selectedCohorte}
                       onValueChange={(itemValue) => setSelectedCohorte(itemValue !== undefined ? Number(itemValue) : undefined)}
-                      style={styles.picker}
+                      style={[styles.picker, isSmallScreen && styles.pickerSmall]}
                     >
-                      {/* CAMBIO: Usar undefined en lugar de null */}
                       <Picker.Item label="Seleccione cohorte..." value={undefined} />
                       {cohortes.map(c => (
                         <Picker.Item 
                           key={c.idCohorte} 
-                          label={`${c.nombreCohorte} (ID: ${c.idCohorte})`} 
+                          label={`${c.nombreCohorte}`} 
                           value={c.idCohorte} 
                         />
                       ))}
                     </Picker>
                   </View>
                   {formErrors.cohorte && (
-                    <Text style={styles.errorText}>{formErrors.cohorte}</Text>
+                    <Text style={[styles.errorText, isSmallScreen && styles.errorTextSmall]}>{formErrors.cohorte}</Text>
                   )}
                 </View>
               </View>
 
               {/* Sección Resumen de Costos */}
               <View style={styles.formSection}>
-                <Text style={styles.sectionTitle}>Resumen de Costos</Text>
+                <Text style={[styles.sectionTitle, isSmallScreen && styles.sectionTitleSmall]}>
+                  Resumen de Costos
+                </Text>
                 
-                <View style={styles.costosTable}>
-                  <View style={styles.tableHeader}>
-                    <Text style={styles.tableHeaderText}>Concepto</Text>
-                    <Text style={styles.tableHeaderText}>Monto</Text>
+                <View style={[styles.costosTable, isSmallScreen && styles.costosTableSmall]}>
+                  <View style={[styles.tableHeader, isSmallScreen && styles.tableHeaderSmall]}>
+                    <Text style={[styles.tableHeaderText, isSmallScreen && styles.tableHeaderTextSmall]}>Concepto</Text>
+                    <Text style={[styles.tableHeaderText, isSmallScreen && styles.tableHeaderTextSmall]}>Monto</Text>
                   </View>
                   
-                  <View style={styles.tableRow}>
-                    <Text style={styles.tableCell}><Text style={styles.boldText}>Valor de Inscripción</Text></Text>
-                    <Text style={[styles.tableCell, styles.inscripcionCell]}>
+                  <View style={[styles.tableRow, isSmallScreen && styles.tableRowSmall]}>
+                    <Text style={[styles.tableCell, isSmallScreen && styles.tableCellSmall]}>
+                      <Text style={styles.boldText}>Valor de Inscripción</Text>
+                    </Text>
+                    <Text style={[styles.tableCell, styles.inscripcionCell, isSmallScreen && styles.tableCellSmall]}>
                       <Text style={styles.boldText}>{fmtMoney(valorInscripcion)}</Text>
                     </Text>
                   </View>
                   
-                  {/* CUOTAS REALES DEL BACKEND */}
                   {cuotas.length > 0 ? (
                     <>
                       {cuotas.map((cuota, index) => (
-                        <View key={index} style={styles.tableRow}>
-                          <Text style={styles.tableCell}>
+                        <View key={index} style={[styles.tableRow, isSmallScreen && styles.tableRowSmall]}>
+                          <Text style={[styles.tableCell, isSmallScreen && styles.tableCellSmall]}>
                             <Text style={styles.boldText}>
                               {cuota.nombreCuota || `Cuota ${index + 1}`}
                             </Text>
                           </Text>
-                          <Text style={styles.tableCell}>
+                          <Text style={[styles.tableCell, isSmallScreen && styles.tableCellSmall]}>
                             {fmtMoney(cuota.valorCuota)}
                           </Text>
                         </View>
                       ))}
-                      <View style={styles.tableRow}>
-                        <Text style={styles.tableCell}><Text style={styles.boldText}>Total Cuotas</Text></Text>
-                        <Text style={[styles.tableCell, styles.cuotasCell]}>
+                      <View style={[styles.tableRow, isSmallScreen && styles.tableRowSmall]}>
+                        <Text style={[styles.tableCell, isSmallScreen && styles.tableCellSmall]}>
+                          <Text style={styles.boldText}>Total Cuotas</Text>
+                        </Text>
+                        <Text style={[styles.tableCell, styles.cuotasCell, isSmallScreen && styles.tableCellSmall]}>
                           <Text style={styles.boldText}>{fmtMoney(totalCuotas)}</Text>
                         </Text>
                       </View>
                     </>
                   ) : (
-                    <View style={styles.tableRow}>
-                      <Text style={[styles.tableCell, styles.noCuotasText]}>
+                    <View style={[styles.tableRow, isSmallScreen && styles.tableRowSmall]}>
+                      <Text style={[styles.tableCell, styles.noCuotasText, isSmallScreen && styles.tableCellSmall]}>
                         No hay cuotas configuradas
                       </Text>
-                      <Text style={[styles.tableCell, styles.noCuotasText]}>
+                      <Text style={[styles.tableCell, styles.noCuotasText, isSmallScreen && styles.tableCellSmall]}>
                         $0.00
                       </Text>
                     </View>
                   )}
                   
-                  <View style={[styles.tableRow, styles.totalRow]}>
-                    <Text style={styles.tableCell}><Text style={styles.boldText}>Total a Pagar</Text></Text>
-                    <Text style={[styles.tableCell, styles.totalCell]}>
+                  <View style={[styles.tableRow, styles.totalRow, isSmallScreen && styles.tableRowSmall]}>
+                    <Text style={[styles.tableCell, isSmallScreen && styles.tableCellSmall]}>
+                      <Text style={styles.boldText}>Total a Pagar</Text>
+                    </Text>
+                    <Text style={[styles.tableCell, styles.totalCell, isSmallScreen && styles.tableCellSmall]}>
                       <Text style={styles.boldText}>{fmtMoney(montoTotal)}</Text>
                     </Text>
                   </View>
                 </View>
-                
-                {/* Información adicional */}
-                <Text style={styles.helpText}>
-                  {cuotas.length > 0 
-                    ? `Incluye ${cuotas.length} cuota(s) programada(s) del sistema` 
-                    : 'Solo incluye valor de inscripción (sin cuotas activas)'}
-                </Text>
               </View>
 
               {/* Sección Fecha Automática */}
               <View style={styles.formSection}>
-                <Text style={styles.sectionTitle}>Información de Registro</Text>
+                <Text style={[styles.sectionTitle, isSmallScreen && styles.sectionTitleSmall]}>
+                  Información de Registro
+                </Text>
                 
                 <View style={styles.fieldContainer}>
-                  <Text style={styles.label}>Fecha y Hora de Inscripción</Text>
-                  <View style={styles.fechaContainer}>
-                    <Icon name="calendar-clock" size={20} color="#4f8cff" />
-                    <Text style={styles.fechaText}>{fechaInscripcion}</Text>
+                  <Text style={[styles.label, isSmallScreen && styles.labelSmall]}>Fecha y Hora de Inscripción</Text>
+                  <View style={[styles.fechaContainer, isSmallScreen && styles.fechaContainerSmall]}>
+                    <Icon name="calendar-clock" size={isSmallScreen ? 16 : 20} color="#4f8cff" />
+                    <Text style={[styles.fechaText, isSmallScreen && styles.fechaTextSmall]}>{fechaInscripcion}</Text>
                   </View>
-                  <Text style={styles.helpText}>Fecha y hora automáticas del sistema</Text>
                 </View>
               </View>
             </ScrollView>
 
-            <View style={styles.formFooter}>
+            <View style={[styles.formFooter, isSmallScreen && styles.formFooterSmall]}>
               <TouchableOpacity 
-                style={[styles.formButton, styles.cancelButton]}
+                style={[styles.formButton, styles.cancelButton, isSmallScreen && styles.formButtonSmall]}
                 onPress={() => setFormModalVisible(false)}
               >
-                <Text style={styles.cancelButtonText}>Cancelar</Text>
+                <Text style={[styles.cancelButtonText, isSmallScreen && styles.cancelButtonTextSmall]}>Cancelar</Text>
               </TouchableOpacity>
 
               <TouchableOpacity 
-                style={[styles.formButton, styles.submitButton]}
+                style={[styles.formButton, styles.submitButton, isSmallScreen && styles.formButtonSmall]}
                 onPress={handleCreateInscripcion}
                 disabled={creating || loadingUser}
               >
@@ -1147,8 +864,10 @@ useEffect(() => {
                   <ActivityIndicator color="#fff" size="small" />
                 ) : (
                   <>
-                    <Icon name="check" size={20} color="#fff" />
-                    <Text style={styles.submitButtonText}>Crear Inscripción</Text>
+                    <Icon name="check" size={isSmallScreen ? 16 : 20} color="#fff" />
+                    <Text style={[styles.submitButtonText, isSmallScreen && styles.submitButtonTextSmall]}>
+                      Crear Inscripción
+                    </Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -1160,7 +879,9 @@ useEffect(() => {
   );
 }
 
+// ESTILOS COMPLETAMENTE RESPONSIVE
 const styles = StyleSheet.create({
+  // Estilos base
   center: { 
     flex: 1, 
     justifyContent: 'center', 
@@ -1171,6 +892,8 @@ const styles = StyleSheet.create({
     flex: 1, 
     backgroundColor: '#f5f7fa',
   },
+  
+  // Header responsive
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1182,10 +905,18 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e1e5e9',
   },
+  headerSmall: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
   title: { 
     fontSize: 28, 
     fontWeight: '700', 
     color: '#1a365d',
+  },
+  titleSmall: {
+    fontSize: 22,
   },
   addButton: {
     flexDirection: 'row',
@@ -1196,16 +927,29 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     gap: 8,
   },
+  addButtonSmall: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 6,
+  },
   addButtonText: {
     color: '#fff',
     fontWeight: '600',
     fontSize: 16,
   },
+  addButtonTextSmall: {
+    fontSize: 14,
+  },
+  
+  // Search responsive
   searchContainer: {
     padding: 20,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#e1e5e9',
+  },
+  searchContainerSmall: {
+    padding: 16,
   },
   searchWrapper: {
     flexDirection: 'row',
@@ -1217,31 +961,50 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e1e5e9',
   },
+  searchWrapperSmall: {
+    paddingHorizontal: 12,
+    height: 44,
+    borderRadius: 10,
+  },
   searchInput: {
     flex: 1,
     fontSize: 16,
     marginLeft: 12,
     color: '#333',
   },
+  searchInputSmall: {
+    fontSize: 14,
+    marginLeft: 8,
+  },
+  
+  // List responsive
   listContent: {
     padding: 20,
     paddingTop: 10,
   },
+  listContentSmall: {
+    padding: 16,
+    paddingTop: 8,
+  },
+  
+  // Card responsive
   card: {
     backgroundColor: '#fff',
     borderRadius: 16,
     padding: 20,
     marginBottom: 16,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
     elevation: 5,
     borderWidth: 1,
     borderColor: '#f1f3f4',
+  },
+  cardSmall: {
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
   },
   cardHeader: {
     marginBottom: 16,
@@ -1252,6 +1015,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
+  cardTitleContainerSmall: {
+    marginBottom: 6,
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
   cardTitle: {
     fontSize: 18,
     fontWeight: '600',
@@ -1259,18 +1028,33 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 12,
   },
+  cardTitleSmall: {
+    fontSize: 16,
+    marginRight: 0,
+  },
   cardSubtitle: {
     fontSize: 14,
     color: '#666',
     fontWeight: '500',
   },
+  cardSubtitleSmall: {
+    fontSize: 13,
+  },
   cardContent: {
     marginBottom: 16,
+  },
+  cardContentSmall: {
+    marginBottom: 12,
   },
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 12,
+  },
+  detailRowSmall: {
+    marginBottom: 8,
+    flexDirection: 'column',
+    gap: 8,
   },
   detailItem: {
     flexDirection: 'row',
@@ -1283,6 +1067,10 @@ const styles = StyleSheet.create({
     color: '#555',
     fontWeight: '500',
   },
+  detailTextSmall: {
+    fontSize: 13,
+    marginLeft: 6,
+  },
   cardButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1291,18 +1079,33 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#f1f3f4',
   },
+  cardButtonSmall: {
+    paddingVertical: 10,
+  },
   cardButtonText: {
     color: '#4f8cff',
     fontWeight: '600',
     fontSize: 16,
     marginRight: 8,
   },
+  cardButtonTextSmall: {
+    fontSize: 14,
+    marginRight: 6,
+  },
+  
+  // Badge responsive
   badge: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
     minWidth: 80,
     alignItems: 'center',
+  },
+  badgeSmall: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    minWidth: 70,
+    borderRadius: 16,
   },
   badgeActive: { 
     backgroundColor: '#2dce89',
@@ -1319,6 +1122,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textAlign: 'center',
   },
+  badgeTextSmall: {
+    fontSize: 11,
+  },
+  
+  // Empty state
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -1331,16 +1139,28 @@ const styles = StyleSheet.create({
     fontStyle: 'italic', 
     fontSize: 16,
   },
+  emptyTextSmall: {
+    fontSize: 14,
+    marginTop: 12,
+  },
   errorText: {
     color: '#e53e3e',
     fontSize: 14,
     marginTop: 4,
     fontWeight: '500',
   },
+  errorTextSmall: {
+    fontSize: 12,
+  },
+  
+  // Modal responsive
   modal: {
     margin: 0,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  modalSmall: {
+    paddingHorizontal: 10,
   },
   keyboardAvoid: {
     width: '100%',
@@ -1354,6 +1174,11 @@ const styles = StyleSheet.create({
     maxHeight: height * 0.8,
     overflow: 'hidden',
   },
+  modalContentSmall: {
+    width: '100%',
+    maxHeight: height * 0.85,
+    borderRadius: 16,
+  },
   formModal: {
     backgroundColor: '#fff',
     borderRadius: 20,
@@ -1361,6 +1186,11 @@ const styles = StyleSheet.create({
     maxWidth: 500,
     maxHeight: height * 0.9,
     overflow: 'hidden',
+  },
+  formModalSmall: {
+    width: '100%',
+    maxHeight: height * 0.95,
+    borderRadius: 16,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1371,11 +1201,18 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e1e5e9',
   },
+  modalHeaderSmall: {
+    padding: 20,
+    paddingBottom: 12,
+  },
   modalTitle: {
     fontSize: 24,
     fontWeight: '700',
     color: '#1a365d',
     flex: 1,
+  },
+  modalTitleSmall: {
+    fontSize: 20,
   },
   closeButton: {
     padding: 4,
@@ -1389,11 +1226,18 @@ const styles = StyleSheet.create({
   formContent: {
     paddingBottom: 20,
   },
+  formContentSmall: {
+    paddingBottom: 16,
+  },
   modalFooter: {
     padding: 24,
     paddingTop: 16,
     borderTopWidth: 1,
     borderTopColor: '#e1e5e9',
+  },
+  modalFooterSmall: {
+    padding: 20,
+    paddingTop: 12,
   },
   detailRowModal: {
     flexDirection: 'row',
@@ -1404,11 +1248,20 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#f8f9fa',
   },
+  detailRowModalSmall: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    flexDirection: 'column',
+    gap: 4,
+  },
   detailLabel: {
     fontWeight: '600',
     fontSize: 16,
     color: '#4a5568',
     flex: 1,
+  },
+  detailLabelSmall: {
+    fontSize: 14,
   },
   detailValue: {
     flex: 1,
@@ -1417,17 +1270,30 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     fontWeight: '500',
   },
+  detailValueSmall: {
+    fontSize: 14,
+    textAlign: 'left',
+  },
   modalButton: {
     backgroundColor: '#4f8cff',
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
   },
+  modalButtonSmall: {
+    paddingVertical: 12,
+    borderRadius: 10,
+  },
   modalButtonText: {
     color: '#fff',
     fontWeight: '600',
     fontSize: 16,
   },
+  modalButtonTextSmall: {
+    fontSize: 14,
+  },
+  
+  // Form styles responsive
   formSection: {
     marginBottom: 8,
   },
@@ -1439,15 +1305,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 16,
   },
+  sectionTitleSmall: {
+    fontSize: 16,
+    marginBottom: 12,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+  },
   fieldContainer: {
     marginBottom: 16,
     paddingHorizontal: 24,
+  },
+  fieldContainerSmall: {
+    marginBottom: 12,
+    paddingHorizontal: 20,
   },
   label: {
     fontWeight: '600',
     color: '#4a5568',
     marginBottom: 8,
     fontSize: 15,
+  },
+  labelSmall: {
+    fontSize: 14,
+    marginBottom: 6,
   },
   cedulaFijaContainer: {
     flexDirection: 'row',
@@ -1460,10 +1340,19 @@ const styles = StyleSheet.create({
     borderColor: '#e1e5e9',
     gap: 12,
   },
+  cedulaFijaContainerSmall: {
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    gap: 8,
+    borderRadius: 10,
+  },
   cedulaFijaText: {
     fontSize: 16,
     fontWeight: '600',
     color: '#4a5568',
+  },
+  cedulaFijaTextSmall: {
+    fontSize: 14,
   },
   fechaContainer: {
     flexDirection: 'row',
@@ -1476,16 +1365,28 @@ const styles = StyleSheet.create({
     borderColor: '#9ae6b4',
     gap: 12,
   },
+  fechaContainerSmall: {
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    gap: 8,
+    borderRadius: 10,
+  },
   fechaText: {
     fontSize: 16,
     fontWeight: '600',
     color: '#22543d',
+  },
+  fechaTextSmall: {
+    fontSize: 14,
   },
   helpText: {
     fontSize: 12,
     color: '#6c757d',
     marginTop: 4,
     fontStyle: 'italic',
+  },
+  helpTextSmall: {
+    fontSize: 11,
   },
   pickerContainer: {
     borderWidth: 1,
@@ -1494,15 +1395,27 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     overflow: 'hidden',
   },
+  pickerContainerSmall: {
+    borderRadius: 10,
+  },
   picker: {
     height: 52,
   },
+  pickerSmall: {
+    height: 44,
+  },
+  
+  // Costos table responsive
   costosTable: {
     borderWidth: 1,
     borderColor: '#e1e5e9',
     borderRadius: 12,
     overflow: 'hidden',
     marginHorizontal: 24,
+  },
+  costosTableSmall: {
+    marginHorizontal: 20,
+    borderRadius: 10,
   },
   tableHeader: {
     flexDirection: 'row',
@@ -1512,11 +1425,18 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e1e5e9',
   },
+  tableHeaderSmall: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
   tableHeaderText: {
     flex: 1,
     fontWeight: '700',
     color: '#4a5568',
     fontSize: 16,
+  },
+  tableHeaderTextSmall: {
+    fontSize: 14,
   },
   tableRow: {
     flexDirection: 'row',
@@ -1525,10 +1445,17 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#f8f9fa',
   },
+  tableRowSmall: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
   tableCell: {
     flex: 1,
     fontSize: 15,
     color: '#4a5568',
+  },
+  tableCellSmall: {
+    fontSize: 13,
   },
   boldText: {
     fontWeight: '600',
@@ -1551,6 +1478,8 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     textAlign: 'center',
   },
+  
+  // Form footer responsive
   formFooter: {
     flexDirection: 'row',
     padding: 24,
@@ -1558,6 +1487,11 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#e1e5e9',
     gap: 12,
+  },
+  formFooterSmall: {
+    padding: 20,
+    paddingTop: 12,
+    gap: 8,
   },
   formButton: {
     flex: 1,
@@ -1567,6 +1501,11 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderRadius: 12,
     gap: 8,
+  },
+  formButtonSmall: {
+    paddingVertical: 14,
+    borderRadius: 10,
+    gap: 6,
   },
   cancelButton: {
     backgroundColor: '#fff',
@@ -1578,6 +1517,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 16,
   },
+  cancelButtonTextSmall: {
+    fontSize: 14,
+  },
   submitButton: {
     backgroundColor: '#4f8cff',
   },
@@ -1586,6 +1528,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 16,
   },
+  submitButtonTextSmall: {
+    fontSize: 14,
+  },
 });
 
-export default InscripcionesScreen
+export default InscripcionesScreen;

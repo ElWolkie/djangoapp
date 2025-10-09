@@ -16,7 +16,7 @@ class PersonaCreateSerializer(serializers.Serializer):
     apellidos = serializers.CharField(max_length=100, required=True)
     telefono = serializers.CharField(max_length=20, required=True)
     direccion = serializers.CharField(required=False, allow_blank=True)
-    email = serializers.EmailField(required=False, allow_blank=True)  # Cambiado de 'correo' a 'email'
+    correo = serializers.EmailField(required=False, allow_blank=True)
     rif = serializers.CharField(max_length=20, required=False, allow_blank=True)
     id = serializers.IntegerField(read_only=True, source='idPersona')
     cedula = serializers.CharField(read_only=True)
@@ -34,32 +34,46 @@ class PersonaCreateSerializer(serializers.Serializer):
                 "error": f"La cédula {cedula_completa} ya está registrada.",
                 "codigo": "CEDULA_DUPLICADA"
             })
+        
+        # ✅ NUEVA VALIDACIÓN: Para tipo V, RIF es requerido
+        if data['tipo_cedula'] == 'V' and (not data.get('rif') or data.get('rif') == ''):
+            raise serializers.ValidationError({
+                "error": "El RIF es obligatorio para cédula venezolana (V).",
+                "codigo": "RIF_REQUERIDO"
+            })
+        
         return data
 
     def create(self, validated_data):
-        """
-        Crea la persona - IMPORTANTE: Ahora usa 'email' en lugar de 'correo'
-        """
         cedula_completa = f"{validated_data['tipo_cedula']}-{validated_data['numero_cedula']}"
         
-        # Mapeo CORRECTO de campos
+        # ✅ SOLUCIÓN DEFINITIVA: Manejo inteligente de RIF
+        rif = validated_data.get('rif', '')
+        
+        # Para tipos E y P, RIF debe ser NULL en la base de datos
+        if validated_data['tipo_cedula'] in ['E', 'P']:
+            rif = None  # Esto evita el problema de unique constraint
+        # Para tipo V, usar el RIF proporcionado (ya validado que no está vacío)
+        elif validated_data['tipo_cedula'] == 'V' and rif == '':
+            # Generar RIF automáticamente si no se proporcionó
+            rif = self._generar_rif_automatico(validated_data['tipo_cedula'], validated_data['numero_cedula'])
+        
         persona_data = {
             'cedula': cedula_completa,
             'nombres': validated_data['nombres'],
             'apellidos': validated_data['apellidos'],
             'telefono': validated_data['telefono'],
-            'correo': validated_data.get('email', ''),  # ¡IMPORTANTE! 'email' del frontend -> 'correo' en BD
-            'rif': validated_data.get('rif', ''),
+            'correo': validated_data.get('correo', ''),
+            'rif': rif,  # ✅ Ahora es None para E/P, evitando duplicados
             'estadoPersona': 'ACTIVO'
         }
         
-        # Solo agregar dirección si existe en el modelo
         if hasattr(Personas, 'direccion') and 'direccion' in validated_data:
             persona_data['direccion'] = validated_data['direccion']
         
         try:
             persona = Personas.objects.create(**persona_data)
-            logger.info(f"✅ Persona creada en BD - ID: {persona.idPersona} - Cédula: {persona.cedula}")
+            logger.info(f"✅ Persona creada en BD - ID: {persona.idPersona} - Cédula: {persona.cedula} - RIF: {persona.rif}")
 
             # Asignar tipos automáticamente
             tipo_cliente, _ = TipoPersona.objects.get_or_create(
@@ -80,7 +94,30 @@ class PersonaCreateSerializer(serializers.Serializer):
             
         except Exception as e:
             logger.error(f"❌ Error al crear persona: {str(e)}")
+            # Manejo específico de error de RIF duplicado
+            if 'persona_personas_rif_key' in str(e):
+                raise serializers.ValidationError({
+                    "error": "Ya existe un registro con RIF vacío en el sistema. Contacte al administrador.",
+                    "codigo": "RIF_DUPLICADO"
+                })
             raise
+
+    def _generar_rif_automatico(self, tipo_cedula, numero_cedula):
+        """Genera RIF automático para tipo V si no se proporciona"""
+        # Lógica para generar RIF (puedes adaptar tu función existente)
+        tipo_mapeo = {'V': 1, 'E': 2, 'J': 3, 'P': 4, 'G': 5}
+        letra = tipo_cedula.upper()
+        nums = numero_cedula.zfill(8)[-8:]  # Rellena con ceros a la izquierda
+        
+        # Cálculo del dígito verificador (puedes usar tu función existente)
+        base_numerico = f"{tipo_mapeo[letra]}{nums}"
+        multiplicadores = [4, 3, 2, 7, 6, 5, 4, 3, 2]
+        suma = sum(int(base_numerico[i]) * multiplicadores[i] for i in range(len(multiplicadores)))
+        resto = suma % 11
+        digito = 11 - resto
+        digito = 0 if digito in [10, 11] else digito
+        
+        return f"{letra}-{nums}-{digito}"
 
 
 class UsuarioCreateSerializer(serializers.Serializer):
