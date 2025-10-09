@@ -348,18 +348,33 @@ export default function RegisterScreen({ navigation }: Props) {
           <View style={[styles.rowTwo, isSmallScreen && styles.rowTwoSmall]}>
             <View style={[styles.col, isSmallScreen && styles.colSmall]}>
               <Text style={[styles.label, isSmallScreen && styles.labelSmall]}>Tipo de cédula *</Text>
-              <View style={[styles.pickerWrapInline, isSmallScreen && styles.pickerWrapInlineSmall]}>
-                <Picker 
-                  selectedValue={form.tipo_cedula} 
-                  onValueChange={onTipoCedulaChange} 
-                  mode="dropdown" 
-                  style={[styles.pickerInner, isSmallScreen && styles.pickerInnerSmall]}
-                >
-                  <Picker.Item label="Venezolano (V)" value="V" />
-                  <Picker.Item label="Extranjero (E)" value="E" />
-                  <Picker.Item label="Pasaporte (P)" value="P" />
-                </Picker>
-              </View>
+              {/* Picker de Tipo de Cédula - MEJORADO */}
+                <View style={[styles.pickerWrapInline, isSmallScreen && styles.pickerWrapInlineSmall]}>
+                  <Picker 
+                    selectedValue={form.tipo_cedula} 
+                    onValueChange={onTipoCedulaChange} 
+                    mode="dropdown"
+                    dropdownIconColor="#4f8cff"
+                    style={[styles.pickerInner, isSmallScreen && styles.pickerInnerSmall]}
+                    itemStyle={isSmallScreen ? styles.pickerInnerSmall : styles.pickerInnerSmall}
+                  >
+                    <Picker.Item 
+                      label="Venezolano (V)" 
+                      value="V" 
+                      color={isSmallScreen ? '#444' : '#222'}
+                    />
+                    <Picker.Item 
+                      label="Extranjero (E)" 
+                      value="E" 
+                      color={isSmallScreen ? '#444' : '#222'}
+                    />
+                    <Picker.Item 
+                      label="Pasaporte (P)" 
+                      value="P" 
+                      color={isSmallScreen ? '#444' : '#222'}
+                    />
+                  </Picker>
+                </View>
 
               <Text style={[styles.label, isSmallScreen && styles.labelSmall, { marginTop: 10 }]}>Número de cédula *</Text>
               <TextInput

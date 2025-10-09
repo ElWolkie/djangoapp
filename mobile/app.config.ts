@@ -1,8 +1,8 @@
 // app.config.js
 export default {
   expo: {
-    name: "MiAppMovil",
-    slug: "MiAppMovil",
+    name: "MiniSACFU",
+    slug: "MiniSACFU",
     version: "1.0.0",
     orientation: "portrait",
     icon: "./assets/icon.png",
@@ -22,7 +22,7 @@ export default {
         backgroundColor: "#ffffff"
       },
       edgeToEdgeEnabled: true,
-      package: "com.anonymous.MiAppMovil",
+      package: "com.anonymous.MiniSACFU",
       permissions: [
         "INTERNET",
         "ACCESS_NETWORK_STATE"
