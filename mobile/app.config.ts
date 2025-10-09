@@ -14,7 +14,10 @@ export default ({ config }: { config: any }) => {
       slug: SLUG,
       version: '1.0.0',
       sdkVersion: SDK_VERSION,
-      runtimeVersion: { policy: "sdkVersion" },    // <<--- AÑADIR ESTA LINEA
+      runtimeVersion: "1.0",
+        updates: {
+          fallbackToCacheTimeout: 0
+        },
       orientation: 'portrait',
       icon: './assets/icon.png',
       userInterfaceStyle: 'light',
@@ -37,11 +40,6 @@ export default ({ config }: { config: any }) => {
         versionCode: Number(process.env.ANDROID_VERSION_CODE ?? 1)
       },
       web: { favicon: './assets/favicon.png' },
-
-      // CONFIGURACIÓN DE UPDATES (recomendado)
-      updates: {
-        fallbackToCacheTimeout: 0
-      },
 
       extra: {
         API_BASE_URL: API_BASE,
