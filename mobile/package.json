@@ -72,7 +72,7 @@
     "eslint-plugin-prettier": "^5.5.1",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-native": "^5.0.0",
-    "expo-dev-client": "^6.0.14"
+    "expo-dev-client": "6.0.14"
   },
   "overrides": {
     "expo-dev-menu": "7.0.14"
