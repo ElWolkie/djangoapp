@@ -21,7 +21,7 @@
   }
   
   .container-balance {
-    max-width: 1200px;
+    max-width: 1500px;
     margin: 2rem auto;
     padding: 2rem;
     background: white;
@@ -237,7 +237,7 @@
     <p class="text-muted">Registro cronológico de transacciones</p>
   </div>
 
-  <div class="filters-container">
+  <div class="filters-container align-items-center" style="grid-template-columns: repeat(4, 2fr); gap: 2rem;">
     <div class="input-group">
        <!-- Buscador directo del bakend NO BORRAR -->
       <form onsubmit="updateSearchParam(event)" class="d-flex w-100">
@@ -252,8 +252,20 @@
       <input id="startDate" class="form-control" type="date" placeholder="Fecha inicio">
       <input id="endDate" class="form-control" type="date" placeholder="Fecha fin">
     </div>
+
+    <div class="input-group">
+      <span class="input-group-text"><i class="fas fa-calendar-alt"></i></span>
+      <select id="periodoSelect" class="form-control" name="periodo">
+        <option value="">Seleccionar período</option>
+        {% for periodo in periodos %}
+          <option value="{{ periodo.idPeriodo }}" {% if periodo.idPeriodo == periodo_seleccionado %}selected{% endif %}>
+            {{ periodo.nombrePeriodo }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
     
-    <button id="filterButton" class="btn btn-warning" title="Cuando apliques un filtro de fechas, los calculos de totales se ajustarán a los asientos relacionados. Para resetear el filtro, borra las fechas y presiona el botón.">
+    <button id="filterButton" class="btn btn-warning" style="width: 50%;" title="Cuando apliques un filtro de fechas, los calculos de totales se ajustarán a los asientos relacionados. Para resetear el filtro, borra las fechas y presiona el botón.">
       <i class="fas fa-filter me-1"></i> Filtrar
     </button>
   </div>
@@ -291,7 +303,6 @@
           <th>Cuenta</th>
           <th>Debe</th>
           <th>Haber</th>
-          <th>Acciones</th>
         </tr>
       </thead>
       <tbody>
@@ -300,11 +311,14 @@
             <tr>
               <td data-label="Número de Asiento">{{ asiento.numeroAsiento }}</td>
               <td data-label="Fecha">{{ asiento.fechaAsiento|date:"d/m/Y" }}</td>
-              <td data-label="Concepto">
+              <td  data-label="Concepto">
+                {{ asiento.conceptoAsiento }}
+              </td>
+              <!-- <td data-label="Concepto">
                 <button class="btn btn-info btn-sm" data-bs-toggle="modal" data-bs-target="#conceptoModal" data-concepto="{{ asiento.conceptoAsiento }}">
                   <i class="fas fa-eye"></i> Ver
                 </button>
-              </td>
+              </td> -->
               <td data-label="Cuenta">{{ detalle.idPlanCuenta.nombrePlanCuenta }}</td>
               <td data-label="Debe" class="highlight-debe">
                 {% if detalle.debe|floatformat:2 != "0.00" %}
@@ -316,16 +330,7 @@
                   {{ detalle.haber|floatformat:2 }}
                 {% endif %}
               </td>
-              <td data-label="Acciones" class="actions-column">
-                <div class="d-flex gap-2">
-                  <button class="btn btn-primary btn-icon" data-bs-toggle="modal" data-bs-target="#editAsientoModal" data-url="{% url 'editar_asiento_detalle' asiento.idAsiento %}">
-                    <i class="fas fa-edit"></i>
-                  </button>
-                  <button class="btn btn-outline-warning btn-icon" data-bs-toggle="modal" data-bs-target="#deleteAsientoModal" data-url="{% url 'detalle_asiento_create' asiento.idAsiento %}">
-                    <i class="fas fa-trash-alt"></i>
-                  </button>
-                </div>
-              </td>
+             
             </tr>
           {% endfor %}
         {% empty %}
@@ -431,6 +436,7 @@
     const searchInput = document.getElementById('searchInput');
     const startDate = document.getElementById('startDate');
     const endDate = document.getElementById('endDate');
+    const periodoSelect = document.getElementById('periodoSelect');
     const filterButton = document.getElementById('filterButton');
     const totalDebe = document.getElementById('totalDebe');
     const totalHaber = document.getElementById('totalHaber');
@@ -510,7 +516,7 @@
     filterButton.addEventListener('click', () => {
       const url = new URL(window.location.href);
 
-      // Agregar parámetros de fecha a la URL
+      // Agregar o eliminar parámetros de fecha y período según los valores
       if (startDate.value) {
         url.searchParams.set('start_date', startDate.value);
       } else {
@@ -521,6 +527,18 @@
         url.searchParams.set('end_date', endDate.value);
       } else {
         url.searchParams.delete('end_date');
+      }
+
+      if (periodoSelect.value) {
+        url.searchParams.set('periodo', periodoSelect.value);
+      } else {
+        url.searchParams.delete('periodo');
+      }
+
+      if (searchInput.value.trim()) {
+        url.searchParams.set('search', searchInput.value.trim());
+      } else {
+        url.searchParams.delete('search');
       }
 
       // Redirigir a la nueva URL

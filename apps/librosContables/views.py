@@ -6,6 +6,7 @@ from apps.planCuenta.models import PlanCuenta
 from django.core.paginator import Paginator
 from django.db.models import Q
 from apps.periodoContable.models import periodoContable
+from apps.saldoContable.models import SaldoContable  # Importar modelo SaldoContable
 
 def libro_diario(request):
     """
@@ -15,6 +16,7 @@ def libro_diario(request):
     search_query = request.GET.get('search', '').strip()  # Obtener el término de búsqueda
     start_date = request.GET.get('start_date')  # Obtener la fecha de inicio
     end_date = request.GET.get('end_date')  # Obtener la fecha de fin
+    periodo_id = request.GET.get('periodo')  # Obtener el ID del período contable
 
     asientos = AsientoContable.objects.prefetch_related('detalles').order_by('fechaAsiento', 'numeroAsiento')
 
@@ -36,6 +38,10 @@ def libro_diario(request):
     if end_date:
         asientos = asientos.filter(fechaAsiento__lte=end_date)
 
+    # Filtrar por período contable si existe
+    if periodo_id:
+        asientos = asientos.filter(idPeriodo__idPeriodo=periodo_id)
+
     # Calcular los totales de debe y haber
     totales = asientos.aggregate(
         total_debe=Sum('detalles__debe'),
@@ -45,11 +51,21 @@ def libro_diario(request):
     paginator = Paginator(asientos, 10)  # 10 asientos por página
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
+    print("=== Libro Diario: Datos de Asientos ===")
+    for asiento in asientos:
+        print(f"Asiento #{asiento.numeroAsiento} | Fecha: {asiento.fechaAsiento} | Concepto: {asiento.conceptoAsiento}")
+        for detalle in asiento.detalles.all():
+            print(f"  Cuenta: {detalle.idPlanCuenta.codigoPlanCuenta} - {detalle.idPlanCuenta.nombrePlanCuenta} | Debe: {detalle.debe} | Haber: {detalle.haber}")
+    print(f"Total Debe: {totales['total_debe'] or 0}")
+    print(f"Total Haber: {totales['total_haber'] or 0}")
+    print("=======================================")
 
     return render(request, 'librosContables/libroDiario.html', {
         'asientos': page_obj,
         'total_debe': totales['total_debe'] or 0,
-        'total_haber': totales['total_haber'] or 0
+        'total_haber': totales['total_haber'] or 0,
+        'periodos': periodoContable.objects.all(),  # Lista de períodos contables
+        'periodo_seleccionado': periodo_id  # Período seleccionado
     })
 
 def libro_mayor(request):
@@ -71,38 +87,28 @@ def libro_mayor(request):
         })
 
     cuentas = PlanCuenta.objects.prefetch_related('subcuentas').filter(cuentaPadre__isnull=True).order_by('codigoPlanCuenta')
-    print("Cuentas principales:", cuentas)
 
     # Variables globales para acumular totales
     global_total_debe = 0
     global_total_haber = 0
 
-    def calcular_saldos(cuenta, saldo_inicial=0, nivel=0):
+    def calcular_saldos(cuenta, nivel=0):
         """
-        Función recursiva para calcular los saldos iniciales y finales de una cuenta y sus subcuentas.
+        Función recursiva para calcular los totales de debe y haber de una cuenta y sus subcuentas.
+        También incluye los detalles de los asientos relacionados.
         """
         nonlocal global_total_debe, global_total_haber
-        
-        indent = "  " * nivel
-        print(f"{indent}Procesando cuenta: {cuenta.codigoPlanCuenta} - {cuenta.nombrePlanCuenta}")
-        print(f"{indent}Saldo inicial recibido: {saldo_inicial}")
 
         movimientos = DetalleAsiento.objects.filter(
             idPlanCuenta=cuenta,
             idAsiento__idPeriodo=periodo
         ).order_by('idAsiento__fechaAsiento', 'idAsiento__numeroAsiento')
 
-        print(f"{indent}Movimientos encontrados para la cuenta {cuenta.codigoPlanCuenta}: {len(movimientos)}")
-
-        saldo = saldo_inicial
-        detalles = []
+        saldo_inicial = 0
+        saldo_final = saldo_inicial
         total_debe = 0
         total_haber = 0
-
-        # VALIDACIÓN: Cuentas de grupo no deben tener movimientos directos
-        if movimientos and cuenta.subcuentas.exists():
-            print(f"⚠️  ADVERTENCIA: La cuenta {cuenta.codigoPlanCuenta} es un grupo pero tiene movimientos directos")
-            print(f"⚠️  Esto viola la estructura contable venezolana")
+        detalles = []
 
         # Obtener todos los IDs de asientos para buscar movimientos relacionados
         asientos_ids = movimientos.values_list('idAsiento__idAsiento', flat=True)
@@ -113,7 +119,7 @@ def libro_mayor(request):
             todos_movimientos_asiento = DetalleAsiento.objects.filter(
                 idAsiento__idAsiento__in=asientos_ids
             ).select_related('idPlanCuenta', 'idAsiento')
-            
+
             # Organizar por ID de asiento para fácil acceso
             for mov in todos_movimientos_asiento:
                 if mov.idAsiento.idAsiento not in movimientos_relacionados:
@@ -121,26 +127,14 @@ def libro_mayor(request):
                 movimientos_relacionados[mov.idAsiento.idAsiento].append(mov)
 
         for movimiento in movimientos:
-            print(f"{indent}Procesando movimiento: Fecha={movimiento.idAsiento.fechaAsiento}, Concepto={movimiento.idAsiento.conceptoAsiento}, Debe={movimiento.debe}, Haber={movimiento.haber}")
-            
-            saldo_anterior = saldo
-            saldo += movimiento.debe - movimiento.haber
+            saldo_anterior = saldo_final
+            saldo_final += movimiento.debe - movimiento.haber
             total_debe += movimiento.debe
             total_haber += movimiento.haber
-            
-            # Determinar naturaleza del saldo después de cada movimiento
-            if saldo > 0:
-                naturaleza = "Deudor"
-            elif saldo < 0:
-                naturaleza = "Acreedor"
-            else:
-                naturaleza = "Saldado"
-                
-            print(f"{indent}Saldo actualizado después del movimiento: {saldo} ({naturaleza})")
-            
+
             # Obtener movimientos relacionados para este asiento específico
             movimientos_asiento_completo = movimientos_relacionados.get(movimiento.idAsiento.idAsiento, [])
-            
+
             # Preparar movimientos completos para JSON
             movimientos_completos_json = [
                 {
@@ -151,124 +145,44 @@ def libro_mayor(request):
                 for mov_rel in movimientos_asiento_completo
                 if mov_rel.idPlanCuenta.codigoPlanCuenta != cuenta.codigoPlanCuenta  # Excluir el movimiento actual
             ]
-            
+
             detalles.append({
                 'fecha': movimiento.idAsiento.fechaAsiento,
                 'concepto': movimiento.idAsiento.conceptoAsiento,
                 'debe': movimiento.debe,
                 'haber': movimiento.haber,
-                'saldo': saldo,
-                'naturaleza': naturaleza,
+                'saldo': saldo_final,
                 'id_asiento': movimiento.idAsiento.idAsiento,
-                'movimientos_completos': movimientos_completos_json,
-                'movimientos_completos_json': json.dumps(movimientos_completos_json)  # Añadido para el template
+                'movimientos_completos': movimientos_completos_json
             })
-        
-        # Determinar naturaleza del saldo final después de todos los movimientos
-        if saldo > 0:
-            naturaleza_final = "Deudor"
-        elif saldo < 0:
-            naturaleza_final = "Acreedor"
-        else:
-            naturaleza_final = "Saldado"
-            
-        print(f"{indent}Saldo después de procesar movimientos: {saldo} ({naturaleza_final})")
-        print(f"{indent}Total Débitos: {total_debe}, Total Créditos: {total_haber}")
 
-        # SUMAR AL TOTAL GLOBAL (solo para cuentas de movimiento, no grupos)
-        if not cuenta.subcuentas.exists():
-            global_total_debe += total_debe
-            global_total_haber += total_haber
-            print(f"{indent}Sumando a total global: Débito={total_debe}, Crédito={total_haber}")
-            print(f"{indent}Total global acumulado: Débito={global_total_debe}, Crédito={global_total_haber}")
+        # Sumar al total global
+        global_total_debe += total_debe
+        global_total_haber += total_haber
 
         subcuentas = []
-        saldo_final_subcuentas = 0
         for subcuenta in cuenta.subcuentas.all():
-            print(f"{indent}Procesando subcuenta: {subcuenta.codigoPlanCuenta} - {subcuenta.nombrePlanCuenta}")
-            subcuenta_data = calcular_saldos(subcuenta, 0, nivel + 1)
-            saldo_final_subcuentas += subcuenta_data['saldo_final']
+            subcuenta_data = calcular_saldos(subcuenta, nivel + 1)
             subcuentas.append(subcuenta_data)
-
-        # LÓGICA VENEZOLANA: Las cuentas de grupo suman sus subcuentas
-        if subcuentas:
-            saldo_final = saldo_final_subcuentas
-            
-            # Determinar naturaleza para cuenta grupo
-            if saldo_final > 0:
-                naturaleza_final = "Deudor"
-            elif saldo_final < 0:
-                naturaleza_final = "Acreedor"
-            else:
-                naturaleza_final = "Saldado"
-                
-            print(f"{indent}✓ Cuenta grupo - Saldo final: {saldo_final} ({naturaleza_final}) - Suma de {len(subcuentas)} subcuentas")
-        else:
-            saldo_final = saldo
-            # naturaleza_final ya está calculada arriba
-            
-            # Validar consistencia según naturaleza de la cuenta
-            codigo = cuenta.codigoPlanCuenta
-            if codigo.startswith('1'):  # Activo
-                if naturaleza_final == "Acreedor":
-                    print(f"⚠️  ALERTA: Cuenta de activo {codigo} con saldo acreedor (anormal)")
-            elif codigo.startswith(('2', '3')):  # Pasivo/Patrimonio
-                if naturaleza_final == "Deudor":
-                    print(f"⚠️  ALERTA: Cuenta de pasivo/patrimonio {codigo} con saldo deudor (anormal)")
-            elif codigo.startswith('4'):  # Ingresos
-                if naturaleza_final == "Deudor":
-                    print(f"⚠️  ALERTA: Cuenta de ingreso {codigo} con saldo deudor (anormal)")
-            elif codigo.startswith('5'):  # Gastos
-                if naturaleza_final == "Acreedor":
-                    print(f"⚠️  ALERTA: Cuenta de gasto {codigo} con saldo acreedor (anormal)")
-            
-            print(f"{indent}✓ Cuenta de movimiento - Saldo final: {saldo_final} ({naturaleza_final})")
-
-        # Preparar datos JSON para la cuenta completa
-        movimientos_json = []
-        for detalle in detalles:
-            movimientos_json.append({
-                'id_asiento': detalle['id_asiento'],
-                'movimientos_completos': detalle['movimientos_completos']
-            })
 
         return {
             'cuenta': cuenta,
             'saldo_inicial': saldo_inicial,
             'saldo_final': saldo_final,
-            'naturaleza_final': naturaleza_final,
             'total_debe': total_debe,
             'total_haber': total_haber,
             'detalles': detalles,
-            'movimientos_json': json.dumps(movimientos_json),  # Añadido para el template
-            'subcuentas': subcuentas,
-            'tiene_movimientos_invalidos': bool(movimientos and subcuentas)
+            'subcuentas': subcuentas
         }
 
     # Calcular saldos para todas las cuentas principales
     cuentas_data = [calcular_saldos(cuenta) for cuenta in cuentas]
-    
-    # Ya no necesitamos este bucle porque los totales se acumularon durante la recursión
-    # total_general_debe = 0
-    # total_general_haber = 0
-    # for cuenta_data in cuentas_data:
-    #     total_general_debe += cuenta_data['total_debe']
-    #     total_general_haber += cuenta_data['total_haber']
-    #     print(f"Totales generales - Débito: {total_general_debe}, Crédito: {total_general_haber}")
-
-    # Verificar inconsistencias estructurales
-    cuentas_con_problemas = [c for c in cuentas_data if c['tiene_movimientos_invalidos']]
-    if cuentas_con_problemas:
-        print("🚨 CUENTAS CON ESTRUCTURA INCONSISTENTE:")
-        for cuenta in cuentas_con_problemas:
-            print(f"   - {cuenta['cuenta'].codigoPlanCuenta} - {cuenta['cuenta'].nombrePlanCuenta}")
 
     if search_query:
         cuentas_data = [
             cuenta for cuenta in cuentas_data
             if search_query.lower() in cuenta['cuenta'].nombrePlanCuenta.lower() or
-               search_query.lower() in cuenta['cuenta'].codigoPlanCuenta.lower() or
-               any(search_query.lower() in detalle['concepto'].lower() for detalle in cuenta['detalles'])
+               search_query.lower() in cuenta['cuenta'].codigoPlanCuenta.lower()
         ]
 
     page_number = request.GET.get('page', 1)
@@ -276,38 +190,17 @@ def libro_mayor(request):
 
     cuentas_data_paginadas = paginate_cuentas_data(cuentas_data, page_number, items_per_page)
 
-    # Debugging: Print the paginated data and related records
-    print("=== Debugging Information ===")
-    print("Cuentas Data Paginadas (Page Data):")
-    for page in cuentas_data_paginadas['page_data']:
-        for item in page:
-            print(item)
-
-    print("Related Records:")
-    for record in cuentas_data_paginadas['related_records']:
-        print(record)
-    print("=============================")
-
-    # Filtrar registros relacionados para evitar duplicados
-    unique_related_records = []
-    seen_ids = set()
-    for record in cuentas_data_paginadas['related_records']:
-        if record['data']['id_asiento'] not in seen_ids:
-            unique_related_records.append(record)
-            seen_ids.add(record['data']['id_asiento'])
-
     context = {
         'cuentas_data': cuentas_data_paginadas['page_data'],
-        'related_records': unique_related_records,  # Usar registros únicos
         'search_query': search_query,
         'periodos': periodoContable.objects.all(),
         'periodo_seleccionado': periodo,
-        'inconsistencias': len(cuentas_con_problemas) > 0,
         'total_debe': global_total_debe,
         'total_haber': global_total_haber
     }
 
     return render(request, 'librosContables/libroMayor.html', context)
+
 def balance_cuentas(request):
     """
     Vista para generar el Balance de Cuentas.
