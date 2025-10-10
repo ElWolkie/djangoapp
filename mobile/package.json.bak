@@ -28,7 +28,7 @@
     "cli": "^1.0.1",
     "expo": "^54.0.12",
     "expo-build-properties": "~1.0.9",
-    "expo-dev-menu": "7.0.14",
+    "expo-dev-client": "~6.0.13",
     "expo-linear-gradient": "~15.0.7",
     "expo-status-bar": "~3.0.8",
     "expo-updates": "~29.0.12",
@@ -73,10 +73,12 @@
     "eslint-config-prettier": "^10.1.5",
     "eslint-plugin-prettier": "^5.5.1",
     "eslint-plugin-react": "^7.37.5",
-    "eslint-plugin-react-native": "^5.0.0",
-    "expo-dev-client": "^6.0.14"
+    "eslint-plugin-react-native": "^5.0.0"
   },
-  "overrides": {
-    "expo-dev-menu": "7.0.14"
+    "overrides": {
+    "expo-dev-menu": "7.0.13",
+    "expo-dev-launcher>expo-dev-menu": "7.0.13",
+    "expo-dev-client>expo-dev-menu": "7.0.13"
   }
 }
+

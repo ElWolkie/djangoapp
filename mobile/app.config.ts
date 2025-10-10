@@ -14,7 +14,7 @@ export default ({ config }: { config: any }) => {
       slug: SLUG,
       version: '1.0.0',
       sdkVersion: SDK_VERSION,
-      runtimeVersion: "1.0",
+      runtimeVersion: "1.0.0",
         updates: {
           fallbackToCacheTimeout: 0
         },
