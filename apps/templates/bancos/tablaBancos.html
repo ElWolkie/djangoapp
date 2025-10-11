@@ -164,9 +164,9 @@
         <tbody>
           {% for banco in bancos %}
           <tr>
-            <td class="text-start">{{ banco.nombreBanco }}</td>
-            <td class="text-start">{{ banco.codLocalBanco }}</td>
-            <td class="text-start">{{ banco.codSwiftBanco }}</td>
+            <td class="text-left">{{ banco.nombreBanco }}</td>
+            <td class="text-left">{{ banco.codLocalBanco }}</td>
+            <td class="text-left">{{ banco.codSwiftBanco }}</td>
             <td class="text-start">
               {% if banco.estadoBanco %}
                 <span class="badge bg-success text-white">Activo</span>

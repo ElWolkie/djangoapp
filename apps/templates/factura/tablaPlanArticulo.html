@@ -83,10 +83,10 @@
         <tbody>
           {% for plan in planes %}
           <tr>
-            <td>{{ plan.idPlanArti }}</td>
-            <td>{{ plan.tipoArticulo }}</td>
-            <td>{{ plan.idPlanCuenta }}</td>
-            <td>{{ plan.tipo|yesno:"debe,haber" }}</td>
+            <td class="text-center"  >{{ plan.idPlanArti }}</td>
+            <td class="text-center" >{{ plan.tipoArticulo }}</td>
+            <td class="text-center" >{{ plan.idPlanCuenta }}</td>
+            <td class="text-center" >{{ plan.tipo|yesno:"debe,haber" }}</td>
             <td class="actions-column">
               <div class="d-flex gap-2">
                 {% if perms.factura.change_planarticulo %}

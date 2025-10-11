@@ -102,9 +102,9 @@
         <tbody>
           {% for periodo in periodos %}
           <tr>
-            <td>{{ periodo.nombrePeriodo }}</td>
-            <td>{{ periodo.fechaInicioPeriodo|date:"d/m/Y" }}</td>
-            <td>{{ periodo.fechaFinPeriodo|date:"d/m/Y" }}</td>
+            <td class="text-center">{{ periodo.nombrePeriodo }}</td>
+            <td class="text-center">{{ periodo.fechaInicioPeriodo|date:"d/m/Y" }}</td>
+            <td class="text-center">{{ periodo.fechaFinPeriodo|date:"d/m/Y" }}</td>
             <td>
               {% if periodo.estadoPeriodo %}
                 <span class="badge bg-success text-white">Activo</span>

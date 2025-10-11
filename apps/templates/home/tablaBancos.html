@@ -117,11 +117,11 @@
         <tbody>
           {% for banco in bancos %}
           <tr>
-            <td>{{ banco.idBanco }}</td>
-            <td>{{ banco.codBanco }}</td>
-            <td>{{ banco.codContable }}</td>
-            <td>{{ banco.nombreBanco }}</td>
-            <td>{{ banco.fechaBanco|date:"d/m/Y" }}</td>
+            <td class="text-center">{{ banco.idBanco }}</td>
+            <td class="text-center">{{ banco.codBanco }}</td>
+            <td class="text-center">{{ banco.codContable }}</td>
+            <td class="text-center">{{ banco.nombreBanco }}</td>
+            <td class="text-center">{{ banco.fechaBanco|date:"d/m/Y" }}</td>
             <td>
               {% if banco.estadoBanco|upper == "ACTIVO" %}
                 <span class="badge bg-success text-white">
