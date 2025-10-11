@@ -246,7 +246,7 @@
        <!-- Buscador directo del bakend NO BORRAR -->
       <form onsubmit="updateSearchParam(event)" class="d-flex w-100">
         <span class="input-group-text"><i class="fas fa-search"></i></span>
-        <input type="text" id="searchInput" name="search" class="form-control" placeholder="Buscar..." value="{{ search_query|default:'' }}" title="Escribe lo que buscas y preciona la tecla Enter. Para resetear el filtro, borra el texto y presiona Enter.">
+        <input type="text" id="searchInput" name="search" class="form-control" placeholder="Buscar por código, nombre, fecha, concepto, naturaleza, debe, haber o saldo..." value="{{ search_query|default:'' }}" title="Escribe lo que buscas y presiona Enter. Para resetear el filtro, borra el texto y presiona Enter.">
         <button type="submit" style="display:none" tabindex="-1" aria-hidden="true"></button>
       </form>
     </div>
@@ -262,7 +262,7 @@
       <select id="periodoSelect" class="form-control" name="periodo">
         <option value="">Seleccionar período</option>
         {% for periodo in periodos %}
-          <option value="{{ periodo.idPeriodo }}" {% if periodo.idPeriodo == periodo_seleccionado %}selected{% endif %}>
+          <option value="{{ periodo.idPeriodo }}" {% if periodo.idPeriodo == periodo_seleccionado.idPeriodo %}selected{% endif %}>
             {{ periodo.nombrePeriodo }}
           </option>
         {% endfor %}
@@ -293,6 +293,7 @@
       <th>Nombre de Cuenta</th>
       <th>Fecha</th>
       <th>Concepto</th>
+      <th>Beneficiario</th>
       <th>Debe</th>
       <th>Haber</th>
       <th>Saldo</th>
@@ -320,6 +321,7 @@
             {% endif %}
           </td>
           <td></td>
+          <td></td>
         </tr>
 
         <!-- Fila de saldos (inicial y final) -->
@@ -346,14 +348,17 @@
             {% endif %}
           </td>
           <td></td>
+          <td></td>
+
         </tr>
         {% elif item.tipo == 'detalle' %}
         <!-- Fila de detalle/movimiento -->
         <tr style="background-color: white;">
-          <td></td>
-          <td></td>
+          <td>{{ item.data.cuenta.codigoPlanCuenta }}</td>
+          <td>{{ item.data.cuenta.nombrePlanCuenta }}</td>
           <td>{{ item.data.fecha|date:"d/m/Y" }}</td>
           <td>{{ item.data.concepto }}</td>
+          <td>{{ item.data.beneficiario }}</td>
             <td class="highlight-debe">
             {% if item.data.debe > 0 %}
               {{ item.data.debe|floatformat:2 }}

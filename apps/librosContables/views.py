@@ -75,13 +75,19 @@ def libro_mayor(request):
     """
     search_query = request.GET.get('search', '').strip()
     periodo_id = request.GET.get('periodo')
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
 
-    if not periodo_id:
-        periodo = periodoContable.objects.filter(estadoPeriodo=True).first()
+    if start_date or end_date:
+        # Si se está utilizando el filtro de rango de fechas, ignorar el filtro de período
+        periodo = None
     else:
-        periodo = periodoContable.objects.filter(idPeriodo=periodo_id).first()
+        if not periodo_id:
+            periodo = periodoContable.objects.filter(estadoPeriodo=True).first()
+        else:
+            periodo = periodoContable.objects.filter(idPeriodo=periodo_id).first()
 
-    if not periodo:
+    if not periodo and not (start_date or end_date):
         return render(request, 'librosContables/libroMayor.html', {
             'error': 'No hay períodos contables disponibles.'
         })
@@ -99,10 +105,16 @@ def libro_mayor(request):
         """
         nonlocal global_total_debe, global_total_haber
 
-        movimientos = DetalleAsiento.objects.filter(
-            idPlanCuenta=cuenta,
-            idAsiento__idPeriodo=periodo
-        ).order_by('idAsiento__fechaAsiento', 'idAsiento__numeroAsiento')
+        movimientos = DetalleAsiento.objects.filter(idPlanCuenta=cuenta)
+
+        if periodo:
+            movimientos = movimientos.filter(idAsiento__idPeriodo=periodo)
+        if start_date:
+            movimientos = movimientos.filter(idAsiento__fechaAsiento__gte=start_date)
+        if end_date:
+            movimientos = movimientos.filter(idAsiento__fechaAsiento__lte=end_date)
+
+        movimientos = movimientos.order_by('idAsiento__fechaAsiento', 'idAsiento__numeroAsiento')
 
         saldo_inicial = 0
         saldo_final = saldo_inicial
@@ -146,9 +158,21 @@ def libro_mayor(request):
                 if mov_rel.idPlanCuenta.codigoPlanCuenta != cuenta.codigoPlanCuenta  # Excluir el movimiento actual
             ]
 
+            # Obtener beneficiario desde el pago relacionado
+            beneficiario = None
+            from apps.factura.models import Pago  # Importar el modelo Pago si no está importado arriba
+            pago = Pago.objects.filter(idAsiento=movimiento.idAsiento).first()  # Obtener el primer pago relacionado al asiento
+            if pago and pago.idNota:
+                nota = pago.idNota
+                if nota.idPersona:
+                    beneficiario = f"{nota.idPersona.cedula} - {nota.idPersona.nombres} {nota.idPersona.apellidos}"
+                elif nota.idEmpresa:
+                    beneficiario = f"{nota.idEmpresa.rifEmpresa} - {nota.idEmpresa.nombreEmpresa}"
+
             detalles.append({
                 'fecha': movimiento.idAsiento.fechaAsiento,
                 'concepto': movimiento.idAsiento.conceptoAsiento,
+                'beneficiario': beneficiario,
                 'debe': movimiento.debe,
                 'haber': movimiento.haber,
                 'saldo': saldo_final,
@@ -175,15 +199,46 @@ def libro_mayor(request):
             'subcuentas': subcuentas
         }
 
+    def buscar_en_cuentas(cuentas_data, search_query):
+        """
+        Función recursiva para buscar en cuentas y subcuentas.
+        """
+        resultados = []
+        for cuenta in cuentas_data:
+            if search_query.lower() in cuenta['cuenta'].nombrePlanCuenta.lower() or \
+               search_query.lower() in cuenta['cuenta'].codigoPlanCuenta.lower() or \
+               any(
+                   search_query.lower() in str(detalle.get('debe', '')).lower() or
+                   search_query.lower() in str(detalle.get('haber', '')).lower() or
+                   search_query.lower() in str(detalle.get('saldo', '')).lower() or
+                   search_query.lower() in detalle.get('concepto', '').lower()
+                   for detalle in cuenta['detalles']
+               ):
+                resultados.append(cuenta)
+
+            # Buscar en subcuentas
+            subcuentas_resultados = buscar_en_cuentas(cuenta.get('subcuentas', []), search_query)
+            resultados.extend(subcuentas_resultados)
+
+        return resultados
+
     # Calcular saldos para todas las cuentas principales
     cuentas_data = [calcular_saldos(cuenta) for cuenta in cuentas]
 
+    print("=== Datos de cuentas antes del filtro ===")
+    for cuenta in cuentas_data:
+        print(f"Cuenta: {cuenta['cuenta'].codigoPlanCuenta} - {cuenta['cuenta'].nombrePlanCuenta}")
+        for detalle in cuenta['detalles']:
+            print(f"  Detalle: Fecha: {detalle['fecha']}, Concepto: {detalle['concepto']}, Beneficiario: {detalle['beneficiario']}, Debe: {detalle['debe']}, Haber: {detalle['haber']}, Saldo: {detalle['saldo']}")
+
     if search_query:
-        cuentas_data = [
-            cuenta for cuenta in cuentas_data
-            if search_query.lower() in cuenta['cuenta'].nombrePlanCuenta.lower() or
-               search_query.lower() in cuenta['cuenta'].codigoPlanCuenta.lower()
-        ]
+        print(f"=== Búsqueda: {search_query} ===")
+        cuentas_data = buscar_en_cuentas(cuentas_data, search_query)
+        print(f"=== Resultados encontrados: {len(cuentas_data)} ===")
+        for cuenta in cuentas_data:
+            print(f"Cuenta: {cuenta['cuenta'].codigoPlanCuenta} - {cuenta['cuenta'].nombrePlanCuenta}")
+            for detalle in cuenta['detalles']:
+                print(f"  Detalle: Fecha: {detalle['fecha']}, Concepto: {detalle['concepto']}, Beneficiario: {detalle['beneficiario']}, Debe: {detalle['debe']}, Haber: {detalle['haber']}, Saldo: {detalle['saldo']}")
 
     page_number = request.GET.get('page', 1)
     items_per_page = 10

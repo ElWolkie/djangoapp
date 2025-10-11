@@ -260,6 +260,7 @@ def nota_create(request):
         }, status=400)
     moneda_configuracion = configuracion.moneda
     tasa_configuracion = Tasa.objects.filter(idMoneda=moneda_configuracion).order_by('-idTasa').first()
+    operacion = request.POST.get('tipoOperacion', '') 
 
     if not tasa_configuracion:
         return JsonResponse({
@@ -308,12 +309,14 @@ def nota_create(request):
 
                 # Crear el asiento contable
                 try:
+
                     asiento = AsientoContable.objects.create(
                         numeroAsiento=f"NOTA-{numero_nota}",
                         fechaAsiento=nota.fechaEmision,
-                        conceptoAsiento=f"Asiento para la nota {numero_nota}",
+                        conceptoAsiento=f"{numero_nota} - Artículo: {nota.tipoArticulo} - Operación: {operacion}",
                         idPeriodo=periodo_activo
                     )
+                    print(f"Creado AsientoContable con concepto: {asiento.conceptoAsiento} ")
                 except Exception as e:
                     return JsonResponse({
                         'success': False,
@@ -496,7 +499,7 @@ def nota_administrativa_create(request):
                     asiento = AsientoContable.objects.create(
                         numeroAsiento=f"NOTA-ADM-{numero_nota}",  # Diferenciar con prefijo ADM
                         fechaAsiento=nota.fechaEmision,
-                        conceptoAsiento=f"Asiento para la nota administrativa {numero_nota}",
+                        conceptoAsiento=f"Asiento ADM {numero_nota}",
                         idPeriodo=periodo_activo
                     )
                 except Exception as e:
@@ -1401,7 +1404,7 @@ def pago_create(request, pk=None):
                             asiento_pago = AsientoContable.objects.create(
                                 numeroAsiento=numero_asiento_pago,
                                 fechaAsiento=pago.fechaPago,
-                                conceptoAsiento=f"Asiento para el pago de la nota {pago.idNota.numeroNota}",
+                                conceptoAsiento=f"Pago de {pago.idNota.numeroNota}",
                                 idPeriodo=periodo_activo
                             )
                         except Exception as e:
