@@ -231,6 +231,24 @@
       justify-content: flex-end;
     }
   }
+    .periodo-info {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 1rem 1.5rem;
+    border-radius: 10px;
+    margin-bottom: 1.5rem;
+  }
+  
+  .periodo-info h5 {
+    margin: 0;
+    font-weight: 600;
+  }
+  
+  .periodo-info .fechas {
+    font-size: 0.9rem;
+    opacity: 0.9;
+  }
+  
 </style>
 {% endblock stylesheets %}
 
@@ -273,7 +291,16 @@
       <i class="fas fa-filter me-1"></i> Filtrar
     </button>
   </div>
-
+  {% if periodo_seleccionado %}
+  <div class="periodo-info">
+    <div class="d-flex justify-content-between align-items-center">
+      <h5 class="mb-0">{{ periodo_seleccionado.nombrePeriodo }}</h5>
+      <span class="fechas">
+        {{ periodo_seleccionado.fechaInicioPeriodo|date:"d/m/Y" }} - {{ periodo_seleccionado.fechaFinPeriodo|date:"d/m/Y" }}
+      </span>
+    </div>
+  </div>
+  {% endif %}
   <div class="totals-container">
     <div class="total-card total-debe">
       <h5>Total Debe</h5>
@@ -290,7 +317,7 @@
   <thead>
     <tr>
       <th>Código</th>
-      <th>Nombre de Cuenta</th>
+      <th>Nombre</th>
       <th>Fecha</th>
       <th>Concepto</th>
       <th>Beneficiario</th>
@@ -307,11 +334,11 @@
         {% if item.tipo == 'cuenta' %}
         <!-- Fila de cuenta principal -->
         <tr class="toggle-row" data-target="saldo-{{ item.data.cuenta.codigoPlanCuenta }}" 
-            style="background-color: #ee6815cb; color: rgb(65, 65, 65); cursor: pointer;" 
+            style=" background: linear-gradient(140deg, #ffa657e7 0%, #f78710d8 100%); color: rgb(0, 0, 0); cursor: pointer;" 
             title="Haz clic aquí para visualizar el saldo de inicio y fin de esta cuenta">
           <td>{{ item.data.cuenta.codigoPlanCuenta }}</td>
           <td colspan="6">{{ item.data.cuenta.nombrePlanCuenta }}</td>
-          <td>
+          <!-- <td>
             {% if item.data.naturaleza_final == "Deudor" %}
               <span class="badge bg-success">Deudor</span>
             {% elif item.data.naturaleza_final == "Acreedor" %}
@@ -319,7 +346,8 @@
             {% else %}
               <span class="badge bg-secondary">Saldado</span>
             {% endif %}
-          </td>
+          </td> -->
+          <td></td>
           <td></td>
           <td></td>
         </tr>
@@ -339,13 +367,13 @@
             </span>
           </td>
           <td>
-            {% if item.data.naturaleza_final == "Deudor" %}
+            <!-- {% if item.data.naturaleza_final == "Deudor" %}
               <span class="badge bg-success">Deudor</span>
             {% elif item.data.naturaleza_final == "Acreedor" %}
               <span class="badge bg-danger">Acreedor</span>
             {% else %}
               <span class="badge bg-secondary">Saldado</span>
-            {% endif %}
+            {% endif %} -->
           </td>
           <td></td>
           <td></td>

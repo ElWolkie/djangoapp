@@ -1,9 +1,9 @@
 import json
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
 from django.db.models import Sum
 from apps.asientoContable.models import AsientoContable, DetalleAsiento
 from apps.planCuenta.models import PlanCuenta
-from django.core.paginator import Paginator
+from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 from django.db.models import Q
 from apps.periodoContable.models import periodoContable
 from apps.saldoContable.models import SaldoContable  # Importar modelo SaldoContable
@@ -256,30 +256,219 @@ def libro_mayor(request):
 
     return render(request, 'librosContables/libroMayor.html', context)
 
+
 def balance_cuentas(request):
     """
-    Vista para generar el Balance de Cuentas.
-    Agrupa las cuentas por tipo y calcula los totales y saldos.
+    Vista optimizada para generar el Balance de Cuentas con saldo anterior.
     """
-    tipos_cuentas = PlanCuenta.objects.values('tipoPlanCuenta').annotate(
-        total_debe=Sum('detalleasiento__debe'),
-        total_haber=Sum('detalleasiento__haber')
-    ).order_by('tipoPlanCuenta')
+    periodo_id = request.GET.get('periodo')
+    page_number = request.GET.get('page', 1)
+    items_per_page = 20
 
-    # Calcular el saldo para cada tipo de cuenta
-    for tipo in tipos_cuentas:
-        debe = tipo['total_debe'] or 0
-        haber = tipo['total_haber'] or 0
-        if debe > haber:
-            tipo['saldo'] = f"Deudor: {debe - haber:.2f}"
-        elif haber > debe:
-            tipo['saldo'] = f"Acreedor: {haber - debe:.2f}"
-        else:
-            tipo['saldo'] = "Saldo Cero"
+    # Obtener período contable
+    if periodo_id:
+        periodo = get_object_or_404(periodoContable, idPeriodo=periodo_id)
+    else:
+        periodo = periodoContable.objects.filter(estadoPeriodo=True).first()
+        if not periodo:
+            return render(request, 'librosContables/balanceCuentas.html', {
+                'error': 'No hay períodos contables disponibles.',
+                'periodos': periodoContable.objects.all().order_by('-fechaInicioPeriodo'),
+                'cuentas_data': [],
+                'periodo_seleccionado': None
+            })
 
-    return render(request, 'librosContables/balanceCuentas.html', {'tipos_cuentas': tipos_cuentas})
+    # Obtener el período anterior
+    periodo_anterior = periodoContable.objects.filter(
+        fechaFinPeriodo__lt=periodo.fechaInicioPeriodo
+    ).order_by('-fechaFinPeriodo').first()
 
+    # OBTENER TODOS LOS MOVIMIENTOS DEL PERÍODO ACTUAL EN UNA SOLA CONSULTA
+    movimientos_actual = DetalleAsiento.objects.filter(
+        idAsiento__idPeriodo=periodo
+    ).select_related('idPlanCuenta').values(
+        'idPlanCuenta',
+        'idPlanCuenta__codigoPlanCuenta',
+        'idPlanCuenta__nombrePlanCuenta',
+        'idPlanCuenta__cuentaPadre_id'
+    ).annotate(
+        total_debe=Sum('debe'),
+        total_haber=Sum('haber')
+    )
 
+    print("=== Movimientos del periodo actual ===")
+    for mov in movimientos_actual:
+        print(f"Cuenta: {mov['idPlanCuenta__codigoPlanCuenta']} - {mov['idPlanCuenta__nombrePlanCuenta']}, Debe: {mov['total_debe']}, Haber: {mov['total_haber']}")
+
+    # OBTENER MOVIMIENTOS DEL PERÍODO ANTERIOR (SALDO ANTERIOR)
+    movimientos_anterior = {}
+    if periodo_anterior:
+        movimientos_anterior_query = DetalleAsiento.objects.filter(
+            idAsiento__idPeriodo=periodo_anterior
+        ).select_related('idPlanCuenta').values(
+            'idPlanCuenta'
+        ).annotate(
+            total_debe=Sum('debe'),
+            total_haber=Sum('haber')
+        )
+
+        print("=== Movimientos del periodo anterior ===")
+        for mov in movimientos_anterior_query:
+            cuenta_id = mov['idPlanCuenta']
+            saldo_anterior = (mov['total_debe'] or 0) - (mov['total_haber'] or 0)
+            movimientos_anterior[cuenta_id] = saldo_anterior
+            print(f"Cuenta ID: {cuenta_id}, Saldo anterior: {saldo_anterior}")
+
+    # Crear diccionario de saldos por cuenta ID
+    saldos_por_cuenta = {}
+    for mov in movimientos_actual:
+        cuenta_id = mov['idPlanCuenta']
+        saldo_anterior = movimientos_anterior.get(cuenta_id, 0)
+        total_debe = mov['total_debe'] or 0
+        total_haber = mov['total_haber'] or 0
+        saldo_actual = total_debe - total_haber
+        saldo_acumulado = saldo_anterior + saldo_actual
+
+        print(f"Cuenta: {mov['idPlanCuenta__codigoPlanCuenta']} - {mov['idPlanCuenta__nombrePlanCuenta']}, "
+              f"Debe: {total_debe}, Haber: {total_haber}, Saldo anterior: {saldo_anterior}, "
+              f"Saldo actual: {saldo_actual}, Saldo acumulado: {saldo_acumulado}")
+
+        saldos_por_cuenta[cuenta_id] = {
+            'total_debe': total_debe,
+            'total_haber': total_haber,
+            'saldo_actual': saldo_actual,
+            'saldo_anterior': saldo_anterior,
+            'saldo_acumulado': saldo_acumulado,
+            'codigo': mov['idPlanCuenta__codigoPlanCuenta'],
+            'nombre': mov['idPlanCuenta__nombrePlanCuenta'],
+            'cuentaPadre_id': mov['idPlanCuenta__cuentaPadre_id']
+        }
+
+    # OBTENER TODAS LAS CUENTAS EN ORDEN JERÁRQUICO
+    todas_las_cuentas = PlanCuenta.objects.all().select_related('cuentaPadre').order_by('codigoPlanCuenta')
+
+    # Crear estructuras para el árbol
+    cuentas_por_id = {cuenta.idPlanCuenta: cuenta for cuenta in todas_las_cuentas}
+    hijos_por_padre = {}
+
+    for cuenta in todas_las_cuentas:
+        padre_id = cuenta.cuentaPadre_id if cuenta.cuentaPadre else None
+        if padre_id not in hijos_por_padre:
+            hijos_por_padre[padre_id] = []
+        hijos_por_padre[padre_id].append(cuenta)
+
+    # FUNCIÓN RECURSIVA OPTIMIZADA CON SALDO ANTERIOR
+    def construir_arbol_cuentas(cuenta_padre_id=None, nivel=0):
+        if cuenta_padre_id not in hijos_por_padre:
+            return []
+
+        resultado = []
+        for cuenta in hijos_por_padre[cuenta_padre_id]:
+            # Obtener saldos de esta cuenta
+            saldo_data = saldos_por_cuenta.get(cuenta.idPlanCuenta, {
+                'total_debe': 0,
+                'total_haber': 0,
+                'saldo_actual': 0,
+                'saldo_anterior': 0,
+                'saldo_acumulado': 0
+            })
+
+            # Obtener subcuentas recursivamente
+            subcuentas = construir_arbol_cuentas(cuenta.idPlanCuenta, nivel + 1)
+
+            # Calcular totales acumulados (incluyendo subcuentas)
+            total_debe_acumulado = saldo_data['total_debe']
+            total_haber_acumulado = saldo_data['total_haber']
+            saldo_anterior_acumulado = saldo_data['saldo_anterior']
+            saldo_actual_acumulado = saldo_data['saldo_actual']
+            saldo_acumulado_total = saldo_data['saldo_acumulado']
+
+            # Acumular de las subcuentas
+            for subcuenta in subcuentas:
+                total_debe_acumulado += subcuenta['total_debe_acumulado']
+                total_haber_acumulado += subcuenta['total_haber_acumulado']
+                saldo_anterior_acumulado += subcuenta['saldo_anterior_acumulado']
+                saldo_actual_acumulado += subcuenta['saldo_actual_acumulado']
+                saldo_acumulado_total += subcuenta['saldo_acumulado_total']
+
+            print(f"[Nivel {nivel}] Cuenta: {cuenta.codigoPlanCuenta} - {cuenta.nombrePlanCuenta}, "
+                  f"Debe acumulado: {total_debe_acumulado}, Haber acumulado: {total_haber_acumulado}, "
+                  f"Saldo anterior acumulado: {saldo_anterior_acumulado}, "
+                  f"Saldo actual acumulado: {saldo_actual_acumulado}, "
+                  f"Saldo acumulado total: {saldo_acumulado_total}")
+
+            cuenta_info = {
+                'cuenta': cuenta,
+                'nivel': nivel,
+                'total_debe': saldo_data['total_debe'],
+                'total_haber': saldo_data['total_haber'],
+                'saldo_anterior': saldo_data['saldo_anterior'],
+                'saldo_actual': saldo_data['saldo_actual'],
+                'saldo_acumulado': saldo_data['saldo_acumulado'],
+                'total_debe_acumulado': total_debe_acumulado,
+                'total_haber_acumulado': total_haber_acumulado,
+                'saldo_anterior_acumulado': saldo_anterior_acumulado,
+                'saldo_actual_acumulado': saldo_actual_acumulado,
+                'saldo_acumulado_total': saldo_acumulado_total,
+                'subcuentas': subcuentas,
+                'tiene_subcuentas': len(subcuentas) > 0,
+                'es_cuenta_principal': nivel == 0
+            }
+            resultado.append(cuenta_info)
+
+        return resultado
+
+    # Construir el árbol completo empezando por las cuentas principales (nivel 0)
+    arbol_cuentas = construir_arbol_cuentas(None, 0)
+
+    # Aplanar el árbol para paginación manteniendo la jerarquía visual
+    cuentas_aplanadas = []
+    def aplanar_arbol(arbol, lista_plana):
+        for item in arbol:
+            lista_plana.append(item)
+            aplanar_arbol(item['subcuentas'], lista_plana)
+
+    aplanar_arbol(arbol_cuentas, cuentas_aplanadas)
+
+    # Calcular totales generales del balance
+    total_general_debe = sum(item['total_debe_acumulado'] for item in arbol_cuentas)
+    total_general_haber = sum(item['total_haber_acumulado'] for item in arbol_cuentas)
+    total_general_saldo_anterior = sum(item['saldo_anterior_acumulado'] for item in arbol_cuentas)
+    total_general_saldo_actual = sum(item['saldo_actual_acumulado'] for item in arbol_cuentas)
+    total_general_saldo_acumulado = sum(item['saldo_acumulado_total'] for item in arbol_cuentas)
+
+    print("=== Totales generales del balance ===")
+    print(f"Total Debe: {total_general_debe}")
+    print(f"Total Haber: {total_general_haber}")
+    print(f"Total Saldo Anterior: {total_general_saldo_anterior}")
+    print(f"Total Saldo Actual: {total_general_saldo_actual}")
+    print(f"Total Saldo Acumulado: {total_general_saldo_acumulado}")
+
+    # PAGINACIÓN
+    paginator = Paginator(cuentas_aplanadas, items_per_page)
+
+    try:
+        cuentas_paginadas = paginator.get_page(page_number)
+    except PageNotAnInteger:
+        cuentas_paginadas = paginator.get_page(1)
+    except EmptyPage:
+        cuentas_paginadas = paginator.get_page(paginator.num_pages)
+
+    context = {
+        'cuentas_data': cuentas_paginadas,
+        'periodos': periodoContable.objects.all().order_by('-fechaInicioPeriodo'),
+        'periodo_seleccionado': periodo,
+        'periodo_anterior': periodo_anterior,
+        'total_general_debe': total_general_debe,
+        'total_general_haber': total_general_haber,
+        'total_general_saldo_anterior': total_general_saldo_anterior,
+        'total_general_saldo_actual': total_general_saldo_actual,
+        'total_general_saldo_acumulado': total_general_saldo_acumulado,
+        'paginator': paginator,
+        'mostrando_total': f"Mostrando {len(cuentas_aplanadas)} cuentas"
+    }
+
+    return render(request, 'librosContables/balanceCuentas.html', context)
 def paginate_cuentas_data(cuentas_data, page_number, items_per_page):
     """
     Función para paginar los datos de cuentas tratándolos como una lista plana.
