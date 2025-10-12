@@ -164,10 +164,10 @@
           {% for factura in facturas %}
           <tr>
             <td class="fw-bold">{{ factura.numeroFactura }}</td>
-            <td>{{ factura.idPersonaCedula|default:"N/A" }}</td>
-            <td>{{ factura.idEmpresa.nombreEmpresa|default:"N/A" }}</td>
-            <td>{{ factura.totalVenta }}</td>
-            <td>{{ factura.fechaEmision }}</td>
+            <td class="text-center" >{{ factura.idPersonaCedula|default:"N/A" }}</td>
+            <td class="text-center">{{ factura.idEmpresa.nombreEmpresa|default:"N/A" }}</td>
+            <td class="text-center">{{ factura.totalVenta }}</td>
+            <td class="text-center">{{ factura.fechaEmision }}</td>
             <td>
               <span class="factura-status 
                 {% if factura.estado == 'Generada' %}status-generada

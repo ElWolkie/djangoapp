@@ -164,11 +164,11 @@
           {% for pago in pagos %}
           <tr>
             <td class="fw-bold">{{ pago.idPago }}</td>
-            <td>{{ pago.idNota.numeroNota }}</td>
-            <td>{{ pago.monto|floatformat:2 }} {{ pago.idTasa.idMoneda.simboloMoneda }}</td>
-            <td>{{ pago.fechaPago|date:"d/m/Y" }}</td>
-            <td>{{ pago.formaPago }}</td>
-            <td>{{ pago.referencia|default:"—" }}</td>
+            <td class="text-center">{{ pago.idNota.numeroNota }}</td>
+            <td class="text-center">{{ pago.monto|floatformat:2 }} {{ pago.idTasa.idMoneda.simboloMoneda }}</td>
+            <td class="text-center">{{ pago.fechaPago|date:"d/m/Y" }}</td>
+            <td class="text-center">{{ pago.formaPago }}</td>
+            <td class="text-center">{{ pago.referencia|default:"—" }}</td>
             <td class="actions-column">
               <div class="d-flex gap-2">
                 <button class="btn btn-info btn-sm"

@@ -169,10 +169,10 @@
         <tbody>
         {% for inscripcion in inscripciones %}
           <tr>
-            <td>{{ inscripcion.idInscripcion }}</td>
-            <td>{{ inscripcion.idPersona.cedula }}</td>
-            <td>{{ inscripcion.idFormacion.nombreFormacion }}</td>
-            <td>{{ inscripcion.idCohorte.nombreCohorte }}</td>
+            <td class="text-center">{{ inscripcion.idInscripcion }}</td>
+            <td class="text-center">{{ inscripcion.idPersona.cedula }}</td>
+            <td class="text-center">{{ inscripcion.idFormacion.nombreFormacion }}</td>
+            <td class="text-center">{{ inscripcion.idCohorte.nombreCohorte }}</td>
             <td>
               {% if inscripcion.is_active %}
                 <span class="badge bg-success text-white"><i class="fas fa-check-circle me-1"></i> Activo</span>

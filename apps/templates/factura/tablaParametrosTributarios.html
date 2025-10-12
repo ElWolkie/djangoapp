@@ -86,13 +86,13 @@
         <tbody>
           {% for parametro in parametros %}
           <tr>
-            <td>{{ parametro.idPT }}</td>
-            <td>{{ parametro.get_tipo_display }}</td>
-            <td>{{ parametro.get_aplica_a_display }}</td>
-            <td>{{ parametro.porcentaje }}%</td>
-            <td>{{ parametro.valor_fijo|default:"-" }}</td>
-            <td>{{ parametro.fecha_inicio|date:"d/m/Y" }}</td>
-            <td>{{ parametro.fecha_fin|default:"-" }}</td>
+            <td class="text-center" >{{ parametro.idPT }}</td>
+            <td class="text-center">{{ parametro.get_tipo_display }}</td>
+            <td class="text-center">{{ parametro.get_aplica_a_display }}</td>
+            <td class="text-center" >{{ parametro.porcentaje }}%</td>
+            <td class="text-center" >{{ parametro.valor_fijo|default:"-" }}</td>
+            <td class="text-center" >{{ parametro.fecha_inicio|date:"d/m/Y" }}</td>
+            <td class="text-center" >{{ parametro.fecha_fin|default:"-" }}</td>
             <td>
               {% if parametro.activo %}
                 <span class="badge bg-success">

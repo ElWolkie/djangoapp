@@ -79,7 +79,7 @@
           {% if perms.saldoContable.view_saldocontable %}
           {% for saldo in saldos %}
               <tr>
-                <td>{{ saldo.idSaldo }}</td>
+                <td class="text-center">{{ saldo.idSaldo }}</td>
                 <td>
                   <strong>{{ saldo.id_plan_cuenta.codigoPlanCuenta }}</strong> - 
                   {{ saldo.id_plan_cuenta.nombrePlanCuenta }}

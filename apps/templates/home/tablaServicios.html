@@ -120,11 +120,11 @@
         <tbody>
           {% for servicio in servicios %}
           <tr>
-            <td>{{ servicio.idServicio }}</td>
-            <td>{{ servicio.nombreServicio }}</td>
-            <td>{{ servicio.tiempoServicio }}</td>
-            <td>{{ servicio.precioServicio }}</td>
-            <td>{{ servicio.fechaServicio|date:"d/m/Y" }}</td>
+            <td class="text-center">{{ servicio.idServicio }}</td>
+            <td class="text-center">{{ servicio.nombreServicio }}</td>
+            <td class="text-center">{{ servicio.tiempoServicio }}</td>
+            <td class="text-center">{{ servicio.precioServicio }}</td>
+            <td class="text-center">{{ servicio.fechaServicio|date:"d/m/Y" }}</td>
             <td>
               {% if servicio.estadoServicio|upper == "ACTIVO" %}
                 <span class="badge bg-success text-white">

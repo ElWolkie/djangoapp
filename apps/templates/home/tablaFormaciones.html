@@ -154,11 +154,11 @@
         <tbody>
           {% for formacion in formaciones %}
           <tr>
-            <td>{{ formacion.idFormacion }}</td>
-            <td>{{ formacion.idTF.nombreTipoFormacion }}</td>
-            <td>{{ formacion.nombreFormacion }}</td>
-            <td>{{ formacion.valorInscripcion }}</td>
-            <td>{{ formacion.duracion }}</td>
+            <td class="text-center">{{ formacion.idFormacion }}</td>
+            <td class="text-center">{{ formacion.idTF.nombreTipoFormacion }}</td>
+            <td class="text-center"> {{ formacion.nombreFormacion }}</td>
+            <td class="text-center">{{ formacion.valorInscripcion }}</td>
+            <td class="text-center">{{ formacion.duracion }}</td>
             <td>
               {% if formacion.estadoFormacion|upper == "ACTIVO" %}
               <span class="badge bg-success text-white">

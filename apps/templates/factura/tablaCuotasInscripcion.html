@@ -86,13 +86,13 @@
         <tbody>
           {% for pago in pagos %}
           <tr>
-            <td>{{ pago.idPago }}</td>
-            <td>{{ pago.idFactura.numeroFactura }}</td>
-            <td>{{ pago.monto }}</td>
-            <td>{{ pago.fechaPago|date:"d/m/Y" }}</td>
-            <td>{{ pago.formaPago }}</td>
-            <td>{{ pago.referencia|default:"—" }}</td>
-            <td>{{ pago.observaciones|default:"—" }}</td>
+            <td class="text-center">{{ pago.idPago }}</td>
+            <td class="text-center">{{ pago.idFactura.numeroFactura }}</td>
+            <td class="text-center">{{ pago.monto }}</td>
+            <td class="text-center">{{ pago.fechaPago|date:"d/m/Y" }}</td>
+            <td class="text-center">{{ pago.formaPago }}</td>
+            <td class="text-center">{{ pago.referencia|default:"—" }}</td>
+            <td class="text-center">{{ pago.observaciones|default:"—" }}</td>
             <td class="actions-column">
               <div class="d-flex gap-2">
                 {% if perms.factura.change_pago %}

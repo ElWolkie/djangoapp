@@ -146,12 +146,12 @@
         <tbody>
           {% for cuota in cuotas %}
           <tr>
-            <td>{{ forloop.counter }}</td>
-            <td>{{ cuota.idFormacion.nombreFormacion }}</td>
-            <td>{{ cuota.nombreCuota }}</td>
-            <td>{{ cuota.get_tipoCuota_display }}</td>
-            <td>{{ cuota.valorCuota }}</td>
-            <td>{{ cuota.orden }}</td>
+            <td class="text-center">{{ forloop.counter }}</td>
+            <td class="text-center">{{ cuota.idFormacion.nombreFormacion }}</td>
+            <td class="text-center">{{ cuota.nombreCuota }}</td>
+            <td class="text-center">{{ cuota.get_tipoCuota_display }}</td>
+            <td class="text-center">{{ cuota.valorCuota }}</td>
+            <td class="text-center">{{ cuota.orden }}</td>
             <td>
               {% if cuota.is_active %}
               <span class="badge bg-success text-white">

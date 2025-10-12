@@ -163,10 +163,10 @@
         <tbody>
           {% for honorario in honorarios %}
           <tr>
-            <td>{{ forloop.counter }}</td>
-            <td>{{ honorario.idPersona.cedula }}</td>
-            <td>{{ honorario.idCargo.nombreCargo }}</td>
-            <td>{{ honorario.idMateria.nombreMateria }}</td>
+            <td class="text-center">{{ forloop.counter }}</td>
+            <td class="text-center">{{ honorario.idPersona.cedula }}</td>
+            <td class="text-center">{{ honorario.idCargo.nombreCargo }}</td>
+            <td class="text-center">{{ honorario.idMateria.nombreMateria }}</td>
             <td>
               {% if honorario.estadoHonorario == "ACTIVO" %}
                 <span class="badge bg-success text-white">

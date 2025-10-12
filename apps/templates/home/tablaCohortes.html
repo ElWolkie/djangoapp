@@ -117,9 +117,9 @@
         <tbody>
           {% for cohorte in cohortes %}
           <tr>
-            <td>{{ cohorte.idCohorte }}</td>
-            <td>{{ cohorte.nombreCohorte }}</td>
-            <td>{{ cohorte.fechaCohorte|date:"d/m/Y" }}</td>
+            <td class="text-center">{{ cohorte.idCohorte }}</td>
+            <td class="text-center">{{ cohorte.nombreCohorte }}</td>
+            <td class="text-center">{{ cohorte.fechaCohorte|date:"d/m/Y" }}</td>
             <td>
               {% if cohorte.estadoCohorte|upper == "ACTIVO" %}
                 <span class="badge bg-success text-white">

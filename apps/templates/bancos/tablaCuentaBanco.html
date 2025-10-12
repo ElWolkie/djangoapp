@@ -151,9 +151,9 @@
         <tbody>
           {% for cuenta in cuentas %}
           <tr>
-            <td>{{ cuenta.banco.nombreBanco }}</td>
-            <td>{{ cuenta.numeroCuentaBanco }}</td>
-            <td>{{ cuenta.get_tipoProducto_display }}</td>
+             <td class="text-left">{{ cuenta.banco.nombreBanco }}</td>
+             <td class="text-left">{{ cuenta.numeroCuentaBanco }}</td>
+            <td class="text-left">{{ cuenta.get_tipoProducto_display }}</td>
             <td>
               {% if cuenta.estado %}
                 <span class="badge bg-success text-white">Activo</span>
