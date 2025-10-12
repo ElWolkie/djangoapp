@@ -162,6 +162,7 @@
             <th>Cédula</th>
             <th>Formación</th>
             <th>Cohorte</th>
+            <th>Estatus</th>
             <th>Estado</th>
             <th class="actions-column">Acciones</th>
           </tr>
@@ -174,10 +175,20 @@
             <td>{{ inscripcion.idFormacion.nombreFormacion }}</td>
             <td>{{ inscripcion.idCohorte.nombreCohorte }}</td>
             <td>
-              {% if inscripcion.is_active %}
-                <span class="badge bg-success text-white"><i class="fas fa-check-circle me-1"></i> Activo</span>
+              {% if inscripcion.estadoPago == "PAGADO" %}
+              <span class="badge bg-success text-white"><i class="fas fa-check-circle me-1"></i> Pagado</span>
+              {% elif inscripcion.estadoPago == "PENDIENTE" %}
+              <span class="badge bg-warning text-dark"><i class="fas fa-clock me-1"></i> Pendiente</span>
               {% else %}
-                <span class="badge bg-danger text-white"><i class="fas fa-times-circle me-1"></i> Inactivo</span>
+              <span class="badge bg-secondary text-white">{{ inscripcion.estadoPago }}</span>
+              {% endif %}
+            </td>
+
+            <td>
+              {% if inscripcion.is_active %}
+              <span class="badge bg-success text-white"><i class="fas fa-check-circle me-1"></i> Activo</span>
+              {% else %}
+              <span class="badge bg-danger text-white"><i class="fas fa-times-circle me-1"></i> Inactivo</span>
               {% endif %}
             </td>
 
@@ -243,6 +254,9 @@
                     </button>
                   {% endif %}
                 {% endif %}
+                
+                <!-- Botón Cuotas -->
+                <button class="btn btn-info btn-sm" data-bs-toggle="modal" data-bs-target="#cuotasModal" onclick="cargarCuotas('{{ inscripcion.idInscripcion }}')" title="Ver cuotas">Cuotas</button>
               </div>
             </td>
           </tr>
@@ -261,7 +275,7 @@
     <ul class="pagination justify-content-center">
       {% if inscripciones.has_previous %}
         <li class="page-item">
-          <a class="page-link" href="javascript:void(0);" onclick="updatePageParam({{ inscripciones.previous_page_number }})" aria-label="Anterior">
+          <a class="page-link" href="javascript:void(0);" onclick="updatePageParam('{{ inscripciones.previous_page_number }}')" aria-label="Anterior">
             <span aria-hidden="true">&laquo;</span>
           </a>
         </li>
@@ -270,7 +284,7 @@
       {% for num in inscripciones.paginator.page_range %}
         {% if num == 1 or num == inscripciones.paginator.num_pages or num >= inscripciones.number|add:"-2" and num <= inscripciones.number|add:"2" %}
           <li class="page-item {% if inscripciones.number == num %}active{% endif %}">
-            <a class="page-link" href="javascript:void(0);" onclick="updatePageParam({{ num }})">{{ num }}</a>
+            <a class="page-link" href="javascript:void(0);" onclick="updatePageParam('{{ num }}')">{{ num }}</a>
           </li>
         {% elif num == inscripciones.number|add:"-3" or num == inscripciones.number|add:"3" %}
           <li class="page-item disabled"><span class="page-link">...</span></li>
@@ -279,7 +293,7 @@
 
       {% if inscripciones.has_next %}
         <li class="page-item">
-          <a class="page-link" href="javascript:void(0);" onclick="updatePageParam({{ inscripciones.next_page_number }})" aria-label="Siguiente">
+          <a class="page-link" href="javascript:void(0);" onclick="updatePageParam('{{ inscripciones.next_page_number }}')" aria-label="Siguiente">
             <span aria-hidden="true">&raquo;</span>
           </a>
         </li>
@@ -424,6 +438,37 @@
         <!-- Aquí se cargará el formulario dinámicamente -->
       </div>
       </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal para mostrar las cuotas -->
+<div class="modal fade" id="cuotasModal" tabindex="-1" aria-labelledby="cuotasModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="cuotasModalLabel">Cuotas de la Inscripción</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <table class="table table-striped">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Nombre</th>
+              <th>Valor</th>
+              <th>Estado</th>
+              <th>Fecha de Pago</th>
+            </tr>
+          </thead>
+          <tbody id="cuotasTableBody">
+            <!-- Las filas se llenarán dinámicamente con JavaScript -->
+          </tbody>
+        </table>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
     </div>
   </div>
 </div>
@@ -633,6 +678,46 @@ $(function(){
     });
   });
 
+  // CARGAR CUOTAS
+  window.cargarCuotas = function(inscripcionId) {
+    const modalBody = $('#cuotasTableBody');
+    modalBody.html('<tr><td colspan="5" class="text-center py-4"><div class="spinner-border text-primary" role="status"></div></td></tr>');
+    
+    $.get("{% url 'ver_cuotas_inscripcion' 0 %}".replace('0', inscripcionId))
+      .done(data => {
+        modalBody.empty();
+        if (data.success && data.cuotas.length > 0) {
+          data.cuotas.forEach(cuota => {
+            const row = `
+              <tr>
+                <td>${cuota.id}</td>
+                <td>${cuota.nombre}</td>
+                <td>${cuota.valor}</td>
+                <td>
+                  ${
+                  cuota.estado === "PAGADO"
+                    ? '<span class="badge bg-success text-white"><i class="fas fa-check-circle me-1"></i> Pagado</span>'
+                    : cuota.estado === "PENDIENTE"
+                    ? '<span class="badge bg-warning text-dark"><i class="fas fa-clock me-1"></i> Pendiente</span>'
+                    : cuota.estado === "EN ESPERA"
+                      ? '<span class="badge bg-info text-dark"><i class="fas fa-hourglass-half me-1"></i> En espera</span>'
+                      : `<span class="badge bg-light text-dark">${cuota.estado}</span>`
+                  }
+                </td>
+                
+              </tr>
+            `;
+            modalBody.append(row);
+          });
+        } else {
+          modalBody.append('<tr><td colspan="5" class="text-center py-4">No se encontraron cuotas.</td></tr>');
+        }
+      })
+      .fail(() => {
+        modalBody.html('<tr><td colspan="5" class="text-center py-4">Error al cargar las cuotas.</td></tr>');
+      });
+  };
+
   // SCROLL HORIZONTAL
   $('.table-responsive').on('wheel', function(e) {
     if(e.originalEvent.deltaY !== 0){
@@ -641,6 +726,7 @@ $(function(){
     }
   });
 });
+
 </script>
 
 
