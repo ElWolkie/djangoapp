@@ -672,7 +672,7 @@
             <tbody>
               {% for cuota in cuotas %}
                 {% for inscripcion in cuota.inscripciones.all %}
-                  <tr data-id="{{ cuota.idCuota }}" data-nombre="{{ cuota.nombreCuota }}" data-valor="{{ cuota.valorCuota }}" data-idIn="{{ inscripcion.idInscripcion }}">
+                  <tr data-id="{{ cuota.idCuota }}" data-nombre="{{ cuota.nombreCuota }}" data-valor="{{ cuota.valorCuota }}" data-idIn="{{ inscripcion.idInscripcion }}"  data-persona-id="{{ inscripcion.idPersona.idPersona }}">
                     <td>{{ cuota.idCuota }}</td>
                     <td>{{ inscripcion.idInscripcion }}</td>
                     <td>{{ cuota.nombreCuota }}</td>
@@ -728,6 +728,8 @@
             <thead class="bg-light">
               <tr>
                 <th style="width: 10%;">ID</th>
+                <th style="width: 15%;">ID persona</th>
+
                 <th style="width: 20%;">Tipo Formación</th>
                 <th style="width: 25%;">Formación</th>
                 <th style="width: 15%;">Valor</th>
@@ -739,6 +741,7 @@
               {% for inscripcion in inscripciones %}
                 <tr data-id="{{ inscripcion.idInscripcion }}" data-valor="{{ inscripcion.idFormacion.valorInscripcion }}" data-nombre="{{ inscripcion.idTF.nombreTipoFormacion }} {{ inscripcion.idFormacion.nombreFormacion }}" data-persona-id="{{ inscripcion.idPersona.idPersona }}">
                   <td>{{ inscripcion.idInscripcion }}</td>
+                  <td>{{ inscripcion.idPersona.idPersona }}</td>
                   <td>{{ inscripcion.idTF.nombreTipoFormacion }}</td>
                   <td>{{ inscripcion.idFormacion.nombreFormacion }}</td>
                   <td>{{ inscripcion.idFormacion.valorInscripcion }}</td>
@@ -802,7 +805,7 @@
             </thead>
             <tbody>
               {% for honorario in honorarios %}
-                <tr data-id="{{ honorario.idHonorario }}" data-valor="{{ honorario.monto }}" data-nombre="{{ honorario.idCargo.nombreCargo }}">
+                <tr data-id="{{ honorario.idHonorario }}" data-valor="{{ honorario.monto }}" data-nombre="{{ honorario.idCargo.nombreCargo }}" data-persona-id="{{ honorario.idPersona.idPersona }}">
                   <td>{{ honorario.idHonorario }}</td>
                   <td>{{ honorario.idCargo.nombreCargo }}</td>
                   <td>{{ honorario.idCohorte.nombreCohorte }}</td>
@@ -1000,6 +1003,114 @@ document.addEventListener('DOMContentLoaded', function () {
   // ===== VARIABLES GLOBALES =====
   let parametrosTributarios = {};
   let lastError = null;
+
+  // ===== FUNCIONES DE FILTRADO DE MODALES =====
+
+  /**
+   * Filtra una tabla modal para mostrar solo registros de la persona seleccionada
+   */
+  function filtrarModalPorPersona(tableId, personaId) {
+    const table = document.getElementById(tableId);
+    if (!table) return;
+    
+    const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+    let hasVisibleRows = false;
+    
+    for (let i = 0; i < rows.length; i++) {
+      const rowPersonaId = rows[i].getAttribute('data-persona-id');
+      
+      // Mostrar solo si coincide con la persona seleccionada
+      if (rowPersonaId === personaId) {
+        rows[i].style.display = '';
+        hasVisibleRows = true;
+      } else {
+        rows[i].style.display = 'none';
+      }
+    }
+    
+    // Mostrar mensaje si no hay registros
+    const mensajeId = getMensajeIdByTableId(tableId);
+    const mensajeEl = document.getElementById(mensajeId);
+    if (mensajeEl) {
+      mensajeEl.style.display = hasVisibleRows ? 'none' : 'block';
+      mensajeEl.innerHTML = hasVisibleRows ? '' : 
+        `<i class="fas fa-info-circle mr-2"></i> No se encontraron registros para esta persona`;
+    }
+    
+    // Reiniciar paginación y búsqueda
+    reiniciarPaginacionModal(tableId);
+  }
+
+  /**
+   * Obtiene el ID del mensaje de "sin registros" basado en el ID de la tabla
+   */
+  function getMensajeIdByTableId(tableId) {
+    const mapping = {
+      'tablaCuotas': 'mensajeSinRegistrosCuota',
+      'tablaInscripciones': 'mensajeSinRegistrosInscripcion',
+      'tablaHonorarios': 'mensajeSinRegistrosHonorario',
+      'tablaSolicitudes': 'mensajeSinRegistrosSolicitud'
+    };
+    return mapping[tableId];
+  }
+
+  /**
+   * Reinicia la paginación y búsqueda de un modal
+   */
+  function reiniciarPaginacionModal(tableId) {
+    const searchInputId = getSearchInputIdByTableId(tableId);
+    const searchInput = document.getElementById(searchInputId);
+    if (searchInput) {
+      searchInput.value = ''; // Limpiar búsqueda
+    }
+    
+    // Disparar evento de input para recalcular paginación
+    if (searchInput) {
+      searchInput.dispatchEvent(new Event('input'));
+    }
+  }
+
+  /**
+   * Obtiene el ID del input de búsqueda basado en el ID de la tabla
+   */
+  function getSearchInputIdByTableId(tableId) {
+    const mapping = {
+      'tablaCuotas': 'searchCuotaInput',
+      'tablaInscripciones': 'searchInscripcionInput',
+      'tablaHonorarios': 'searchHonorarioInput',
+      'tablaSolicitudes': 'searchSolicitudInput'
+    };
+    return mapping[tableId];
+  }
+
+  /**
+   * Limpia todos los filtros de modales cuando se cambia o elimina la selección de persona
+   */
+  function limpiarFiltrosModales() {
+    const modalesAFiltrar = ['tablaCuotas', 'tablaInscripciones', 'tablaHonorarios', 'tablaSolicitudes'];
+    
+    modalesAFiltrar.forEach(tableId => {
+      const table = document.getElementById(tableId);
+      if (!table) return;
+      
+      const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+      for (let i = 0; i < rows.length; i++) {
+        rows[i].style.display = ''; // Mostrar todas las filas
+      }
+      
+      // Ocultar mensaje de sin registros
+      const mensajeId = getMensajeIdByTableId(tableId);
+      const mensajeEl = document.getElementById(mensajeId);
+      if (mensajeEl) {
+        mensajeEl.style.display = 'none';
+      }
+      
+      // Reiniciar paginación
+      reiniciarPaginacionModal(tableId);
+    });
+    
+    window.selectedPersonaId = null;
+  }
 
   // ===== FUNCIONES DE VALIDACIÓN VISUAL =====
 
@@ -1335,6 +1446,13 @@ document.addEventListener('DOMContentLoaded', function () {
     } else if (empresaCheckbox && empresaCheckbox.checked) {
       personaGroup.style.display = 'none';
       empresaGroup.style.display = 'block';
+      // Limpiar filtros cuando se cambia a empresa
+      limpiarFiltrosModales();
+      
+      // También limpiar la selección de persona
+      document.getElementById('personaInput').value = '';
+      document.getElementById('idPersona').value = '';
+      document.getElementById('idPersona').removeAttribute('data-tipo-persona-relacion');
     }
     // Aplicar validación visual después de cambiar visibilidad
     setTimeout(aplicarValidacionVisual, 10);
@@ -1473,75 +1591,72 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   /**
-   * Calcula todos los montos de la nota (IVA, retenciones, total) (MODIFICADO: usa parseFloat con normalizeCurrencyString)
+   * Calcula todos los montos de la nota (IVA, retenciones, total) (MODIFICADO: incluye cálculo de descuento automático y manual)
    */
-/**
- * Calcula todos los montos de la nota (IVA, retenciones, total) (MODIFICADO: incluye cálculo de descuento automático y manual)
- */
-function calcularMontos() {
-  const gravado = parseFloat(normalizeCurrencyString(subtotalGravado.value)) || 0;
-  const exento = parseFloat(normalizeCurrencyString(subtotalExento.value)) || 0;
-  const tipoArticulo = tipoArticuloSelect?.value;
-  const descuentoInput = document.getElementById('descuento');
-  const idPersonaInput = document.getElementById('idPersona');
-  const tipoPersonaRelacion = idPersonaInput?.dataset.tipoPersonaRelacion || ''; // IDs de tipoPersona relacionados
+  function calcularMontos() {
+    const gravado = parseFloat(normalizeCurrencyString(subtotalGravado.value)) || 0;
+    const exento = parseFloat(normalizeCurrencyString(subtotalExento.value)) || 0;
+    const tipoArticulo = tipoArticuloSelect?.value;
+    const descuentoInput = document.getElementById('descuento');
+    const idPersonaInput = document.getElementById('idPersona');
+    const tipoPersonaRelacion = idPersonaInput?.dataset.tipoPersonaRelacion || ''; // IDs de tipoPersona relacionados
 
-  let descuentoValor = 0;
+    let descuentoValor = 0;
 
-  // Verificar si aplica descuento automático
-  if (tipoPersonaRelacion.includes('3') && (tipoArticulo === 'INSCRIPCION' || tipoArticulo === 'SOLICITUD' || tipoArticulo === 'CUOTA')) {
-    const porcentajeDescuento = parseFloat("{{ descuento }}") || 0; // Porcentaje enviado desde el backend
-    descuentoValor = (gravado + exento) * (porcentajeDescuento / 100);
-    if (descuentoInput) {
-      descuentoInput.value = descuentoValor.toFixed(2);
-      descuentoInput.setAttribute('readonly', true); // Bloquear edición manual
+    // Verificar si aplica descuento automático
+    if (tipoPersonaRelacion.includes('3') && (tipoArticulo === 'INSCRIPCION' || tipoArticulo === 'SOLICITUD' || tipoArticulo === 'CUOTA')) {
+      const porcentajeDescuento = parseFloat("{{ descuento }}") || 0; // Porcentaje enviado desde el backend
+      descuentoValor = (gravado + exento) * (porcentajeDescuento / 100);
+      if (descuentoInput) {
+        descuentoInput.value = descuentoValor.toFixed(2);
+        descuentoInput.setAttribute('readonly', true); // Bloquear edición manual
+      }
+    } else {
+      // Permitir al usuario definir el descuento manualmente
+      if (descuentoInput) {
+        descuentoInput.removeAttribute('readonly'); // Habilitar edición manual
+        descuentoValor = parseFloat(normalizeCurrencyString(descuentoInput.value)) || 0;
+      }
     }
-  } else {
-    // Permitir al usuario definir el descuento manualmente
-    if (descuentoInput) {
-      descuentoInput.removeAttribute('readonly'); // Habilitar edición manual
-      descuentoValor = parseFloat(normalizeCurrencyString(descuentoInput.value)) || 0;
+
+    // Obtener parámetros tributarios
+    const parametroIva = obtenerParametro('IVA_GENERAL', tipoArticulo);
+    const parametroRetencionIva = obtenerParametro('IVA_RETENIDO_SERVICIOS', tipoArticulo);
+    const parametroRetencionIslr = egresoCheckbox?.checked
+      ? obtenerParametro(tipoArticulo === 'HONORARIO_PROFESOR' ? 'ISLR_HONORARIOS' : 'ISLR_SERVICIOS', tipoArticulo)
+      : null;
+
+    // Calcular IVA
+    const porcentajeIva = parametroIva?.porcentaje ?? 16;
+    const ivaCalculado = gravado * (porcentajeIva / 100);
+    setCurrencyField('iva', ivaCalculado);
+
+    // Calcular retenciones si es egreso
+    if (egresoCheckbox?.checked) {
+      setCurrencyField('ivaRetenido', ivaCalculado * (parametroRetencionIva?.porcentaje ?? 0) / 100);
+      setCurrencyField('islrRetenido', (gravado + exento) * (parametroRetencionIslr?.porcentaje ?? 0) / 100);
+    } else {
+      setCurrencyField('ivaRetenido', 0);
+      setCurrencyField('islrRetenido', 0);
+    }
+
+    // Calcular total
+    let total = exento + gravado + ivaCalculado - descuentoValor;
+    if (total < 0) total = 0;
+    setCurrencyField('totalNota', total);
+
+    // Actualizar porcentajes en la UI
+    const ivaPercentageEl = document.getElementById('ivaPercentage');
+    if (ivaPercentageEl) ivaPercentageEl.textContent = porcentajeIva;
+
+    if (egresoCheckbox?.checked) {
+      const ivaRetentionEl = document.getElementById('ivaRetentionPercentage');
+      const islrRetentionEl = document.getElementById('islrRetentionPercentage');
+
+      if (ivaRetentionEl) ivaRetentionEl.textContent = parametroRetencionIva?.porcentaje ?? 0;
+      if (islrRetentionEl) islrRetentionEl.textContent = parametroRetencionIslr?.porcentaje ?? 0;
     }
   }
-
-  // Obtener parámetros tributarios
-  const parametroIva = obtenerParametro('IVA_GENERAL', tipoArticulo);
-  const parametroRetencionIva = obtenerParametro('IVA_RETENIDO_SERVICIOS', tipoArticulo);
-  const parametroRetencionIslr = egresoCheckbox?.checked
-    ? obtenerParametro(tipoArticulo === 'HONORARIO_PROFESOR' ? 'ISLR_HONORARIOS' : 'ISLR_SERVICIOS', tipoArticulo)
-    : null;
-
-  // Calcular IVA
-  const porcentajeIva = parametroIva?.porcentaje ?? 16;
-  const ivaCalculado = gravado * (porcentajeIva / 100);
-  setCurrencyField('iva', ivaCalculado);
-
-  // Calcular retenciones si es egreso
-  if (egresoCheckbox?.checked) {
-    setCurrencyField('ivaRetenido', ivaCalculado * (parametroRetencionIva?.porcentaje ?? 0) / 100);
-    setCurrencyField('islrRetenido', (gravado + exento) * (parametroRetencionIslr?.porcentaje ?? 0) / 100);
-  } else {
-    setCurrencyField('ivaRetenido', 0);
-    setCurrencyField('islrRetenido', 0);
-  }
-
-  // Calcular total
-  let total = exento + gravado + ivaCalculado - descuentoValor;
-  if (total < 0) total = 0;
-  setCurrencyField('totalNota', total);
-
-  // Actualizar porcentajes en la UI
-  const ivaPercentageEl = document.getElementById('ivaPercentage');
-  if (ivaPercentageEl) ivaPercentageEl.textContent = porcentajeIva;
-
-  if (egresoCheckbox?.checked) {
-    const ivaRetentionEl = document.getElementById('ivaRetentionPercentage');
-    const islrRetentionEl = document.getElementById('islrRetentionPercentage');
-
-    if (ivaRetentionEl) ivaRetentionEl.textContent = parametroRetencionIva?.porcentaje ?? 0;
-    if (islrRetentionEl) islrRetentionEl.textContent = parametroRetencionIslr?.porcentaje ?? 0;
-  }
-}
 
   /**
    * Valida que el descuento no sea mayor al total y ajusta si es necesario
@@ -1783,7 +1898,24 @@ function calcularMontos() {
   // ===== MANEJO DE MODALES =====
 
   const modales = [
-    { tabla: 'tablaPersonas', input: 'personaInput', hidden: 'idPersona', modal: 'personaModal' },
+    { 
+      tabla: 'tablaPersonas', 
+      input: 'personaInput', 
+      hidden: 'idPersona', 
+      modal: 'personaModal',
+      callback: function(id, nombre, tipoPersonaRelacion) {
+        // Almacenar el ID de persona seleccionado
+        window.selectedPersonaId = id;
+        
+        // Filtrar todos los modales relacionados
+        filtrarModalPorPersona('tablaCuotas', id);
+        filtrarModalPorPersona('tablaInscripciones', id);
+        filtrarModalPorPersona('tablaHonorarios', id);
+        filtrarModalPorPersona('tablaSolicitudes', id);
+        
+        console.log(`Persona seleccionada: ${id}, filtrando modales...`);
+      }
+    },
     { tabla: 'tablaEmpresas', input: 'empresaInput', hidden: 'idEmpresa', modal: 'empresaModal' },
     { tabla: 'tablaCuotas', input: 'cuota', hidden: 'idCuota', modal: 'cuotaModal', gravado: true },
     { tabla: 'tablaInscripciones', input: 'inscripcion', hidden: 'idInscripcion', modal: 'inscripcionModal', gravado: false },
@@ -1791,7 +1923,7 @@ function calcularMontos() {
     { tabla: 'tablaSolicitudes', input: 'solicitud', hidden: 'idSolicitud', modal: 'solicitudModal', gravado: false }
   ];
 
-  modales.forEach(({ tabla, input, hidden, modal, gravado }) => {
+  modales.forEach(({ tabla, input, hidden, modal, gravado, callback }) => {
     const tablaEl = document.getElementById(tabla);
     if (!tablaEl) return;
     
@@ -1802,15 +1934,21 @@ function calcularMontos() {
       const id = fila.getAttribute('data-id');
       const nombre = fila.getAttribute('data-nombre');
       const valor = fila.getAttribute('data-valor');
-      const tipoPersonaRelacion = fila.getAttribute('data-tp'); // Obtener el atributo data-tp
+      const tipoPersonaRelacion = fila.getAttribute('data-tp');
+      const personaId = fila.getAttribute('data-persona-id');
 
       document.getElementById(input).value = nombre;
       document.getElementById(hidden).value = id;
       
-      // Asignar el valor de data-tp al atributo data-tipo-persona-relacion
+      // Asignar el valor de data-tp al atributo data-tipo-persona-relacion (solo para persona)
       if (hidden === 'idPersona') {
         document.getElementById(hidden).setAttribute('data-tipo-persona-relacion', tipoPersonaRelacion || '');
         console.log(`Asignado data-tipo-persona-relacion="${tipoPersonaRelacion || ''}" al campo idPersona`);
+        
+        // Ejecutar callback si existe (para filtrar otros modales)
+        if (callback) {
+          callback(id, nombre, tipoPersonaRelacion);
+        }
       }
 
       // Actualizar montos si corresponde
@@ -2101,129 +2239,7 @@ function calcularMontos() {
     setTimeout(aplicarValidacionVisual, 150);
   }
 });
+
 </script>
 
-
-<script>
-/**
- * Utilidad para paginación y búsqueda de tablas de selección en modales.
- * Uso: llamar setupTableSearchAndPagination({tableId, searchInputId, paginationId, mensajeSinRegistrosId, rowsPerPage})
- */
-function setupTableSearchAndPagination({tableId, searchInputId, paginationId, mensajeSinRegistrosId, rowsPerPage=10}) {
-  const table = document.getElementById(tableId);
-  const searchInput = document.getElementById(searchInputId);
-  const pagination = document.getElementById(paginationId);
-  const mensajeSinRegistros = document.getElementById(mensajeSinRegistrosId);
-
-  if (!table || !searchInput || !pagination) return;
-
-  let currentPage = 1;
-  let filteredRows = [];
-
-  function filterRows() {
-    const filter = searchInput.value.trim().toUpperCase();
-    const allRows = Array.from(table.tBodies[0].rows);
-    filteredRows = allRows.filter(row => {
-      return Array.from(row.cells).some(cell =>
-        cell.textContent.toUpperCase().indexOf(filter) > -1
-      );
-    });
-    allRows.forEach(row => row.style.display = 'none');
-    filteredRows.forEach(row => row.style.display = '');
-    currentPage = 1;
-    displayRows();
-    setupPagination();
-    if (mensajeSinRegistros) {
-      mensajeSinRegistros.style.display = filteredRows.length === 0 ? 'block' : 'none';
-    }
-  }
-
-  function displayRows() {
-    filteredRows.forEach((row, idx) => {
-      row.style.display = (idx >= (currentPage-1)*rowsPerPage && idx < currentPage*rowsPerPage) ? '' : 'none';
-    });
-  }
-
-  function setupPagination() {
-    pagination.innerHTML = '';
-    const totalPages = Math.ceil(filteredRows.length / rowsPerPage) || 1;
-
-    const createPageItem = (label, page, disabled, active) => {
-      const li = document.createElement('li');
-      li.className = `page-item${disabled ? ' disabled' : ''}${active ? ' active' : ''}`;
-      const a = document.createElement('a');
-      a.className = 'page-link';
-      a.href = '#';
-      a.innerHTML = label;
-      a.addEventListener('click', e => {
-        e.preventDefault();
-        if (!disabled && currentPage !== page) {
-          currentPage = page;
-          displayRows();
-          setupPagination();
-        }
-      });
-      li.appendChild(a);
-      return li;
-    };
-
-    const ul = document.createElement('ul');
-    ul.className = 'pagination';
-
-    ul.appendChild(createPageItem('&laquo;', Math.max(1, currentPage-1), currentPage === 1, false));
-    for (let i = 1; i <= totalPages; i++) {
-      ul.appendChild(createPageItem(i, i, false, i === currentPage));
-    }
-    ul.appendChild(createPageItem('&raquo;', Math.min(totalPages, currentPage+1), currentPage === totalPages, false));
-
-    pagination.appendChild(ul);
-  }
-
-  searchInput.addEventListener('input', filterRows);
-
-  // Inicialización
-  filteredRows = Array.from(table.tBodies[0].rows);
-  filterRows();
-}
-
-// Inicializar para cada tabla/modal
-document.addEventListener('DOMContentLoaded', function() {
-  setupTableSearchAndPagination({
-    tableId: 'tablaPersonas',
-    searchInputId: 'searchPersonaInput',
-    paginationId: 'paginationPersonas',
-    mensajeSinRegistrosId: 'mensajeSinRegistrosPersona'
-  });
-  setupTableSearchAndPagination({
-    tableId: 'tablaEmpresas',
-    searchInputId: 'searchEmpresaInput',
-    paginationId: 'paginationEmpresas',
-    mensajeSinRegistrosId: 'mensajeSinRegistrosEmpresa'
-  });
-  setupTableSearchAndPagination({
-    tableId: 'tablaCuotas',
-    searchInputId: 'searchCuotaInput',
-    paginationId: 'paginationCuotas',
-    mensajeSinRegistrosId: 'mensajeSinRegistrosCuota'
-  });
-  setupTableSearchAndPagination({
-    tableId: 'tablaInscripciones',
-    searchInputId: 'searchInscripcionInput',
-    paginationId: 'paginationInscripciones',
-    mensajeSinRegistrosId: 'mensajeSinRegistrosInscripcion'
-  });
-  setupTableSearchAndPagination({
-    tableId: 'tablaHonorarios',
-    searchInputId: 'searchHonorarioInput',
-    paginationId: 'paginationHonorarios',
-    mensajeSinRegistrosId: 'mensajeSinRegistrosHonorario'
-  });
-  setupTableSearchAndPagination({
-    tableId: 'tablaSolicitudes',
-    searchInputId: 'searchSolicitudInput',
-    paginationId: 'paginationSolicitudes',
-    mensajeSinRegistrosId: 'mensajeSinRegistrosSolicitud'
-  });
-});
-</script>
 {% endblock javascripts %}

@@ -19,6 +19,9 @@ urlpatterns = [
     path('requisitosInscripcion/<int:pk>/form/', views.requisitos_inscripcion_modal, name='requisitos_inscripcion_modal'),
     path('requisitosInscripcion/<int:pk>/', views.guardar_requisitos_inscripcion, name='guardar_requisitos_inscripcion'),
 
+    # Nueva ruta para ver cuotas de inscripción
+    path('verCuotasInscripcion/<int:pk>/', views.ver_cuotas_inscripcion, name='ver_cuotas_inscripcion'),
+
     # Coincide con cualquier archivo HTML (no mover de lugar)
     re_path(r'^.*\.*', views.pages, name='pages'),
 ]
