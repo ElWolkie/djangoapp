@@ -227,6 +227,25 @@
       justify-content: flex-end;
     }
   }
+
+
+    .periodo-info {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 1rem 1.5rem;
+    border-radius: 10px;
+    margin-bottom: 1.5rem;
+  }
+  
+  .periodo-info h5 {
+    margin: 0;
+    font-weight: 600;
+  }
+  
+  .periodo-info .fechas {
+    font-size: 0.9rem;
+    opacity: 0.9;
+  }
 </style>
 {% endblock stylesheets %}
 
@@ -234,7 +253,6 @@
 <div class="container-balance">
   <div class="header-balance">
     <h2>Libro Diario</h2>
-    <p class="text-muted">Registro cronológico de transacciones</p>
   </div>
 
   <div class="filters-container align-items-center" style="grid-template-columns: repeat(4, 2fr); gap: 2rem;">
@@ -258,7 +276,7 @@
       <select id="periodoSelect" class="form-control" name="periodo">
         <option value="">Seleccionar período</option>
         {% for periodo in periodos %}
-          <option value="{{ periodo.idPeriodo }}" {% if periodo.idPeriodo == periodo_seleccionado %}selected{% endif %}>
+          <option value="{{ periodo.idPeriodo }}" {% if periodo.idPeriodo == periodo_seleccionado.idPeriodo %}selected{% endif %}>
             {{ periodo.nombrePeriodo }}
           </option>
         {% endfor %}
@@ -269,7 +287,17 @@
       <i class="fas fa-filter me-1"></i> Filtrar
     </button>
   </div>
-
+ {% if periodo_seleccionado %}
+  <div class="periodo-info">
+    <div class="d-flex justify-content-between align-items-center">
+      <h5 class="mb-0">{{ periodo_seleccionado.nombrePeriodo }}</h5>
+      <span class="fechas">
+        {{ periodo_seleccionado.fechaInicioPeriodo|date:"d/m/Y" }} - {{ periodo_seleccionado.fechaFinPeriodo|date:"d/m/Y" }}
+      </span>
+    </div>
+  </div>
+  {% endif %}
+  
   <div class="totals-container">
     <div class="total-card total-debe">
       <h5>Total Debe</h5>

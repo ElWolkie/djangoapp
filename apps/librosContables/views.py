@@ -60,12 +60,17 @@ def libro_diario(request):
     print(f"Total Haber: {totales['total_haber'] or 0}")
     print("=======================================")
 
+    # Obtener el objeto del período contable seleccionado
+    periodo_seleccionado = None
+    if periodo_id:
+        periodo_seleccionado = periodoContable.objects.filter(idPeriodo=periodo_id).first()
+
     return render(request, 'librosContables/libroDiario.html', {
         'asientos': page_obj,
         'total_debe': totales['total_debe'] or 0,
         'total_haber': totales['total_haber'] or 0,
         'periodos': periodoContable.objects.all(),  # Lista de períodos contables
-        'periodo_seleccionado': periodo_id  # Período seleccionado
+        'periodo_seleccionado': periodo_seleccionado  # Objeto del período seleccionado
     })
 
 def libro_mayor(request):
@@ -265,6 +270,8 @@ def balance_cuentas(request):
     page_number = request.GET.get('page', 1)
     items_per_page = 20
 
+    search_query = request.GET.get('search', '').strip()
+
     # Obtener período contable
     if periodo_id:
         periodo = get_object_or_404(periodoContable, idPeriodo=periodo_id)
@@ -346,6 +353,13 @@ def balance_cuentas(request):
 
     # OBTENER TODAS LAS CUENTAS EN ORDEN JERÁRQUICO
     todas_las_cuentas = PlanCuenta.objects.all().select_related('cuentaPadre').order_by('codigoPlanCuenta')
+
+    # Filtrar cuentas por el término de búsqueda
+    if search_query:
+        todas_las_cuentas = todas_las_cuentas.filter(
+            Q(codigoPlanCuenta__icontains=search_query) |
+            Q(nombrePlanCuenta__icontains=search_query)
+        )
 
     # Crear estructuras para el árbol
     cuentas_por_id = {cuenta.idPlanCuenta: cuenta for cuenta in todas_las_cuentas}
