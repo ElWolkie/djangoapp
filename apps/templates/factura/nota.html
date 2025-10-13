@@ -670,21 +670,23 @@
               </tr>
             </thead>
             <tbody>
-              {% for cuota in cuotas %}
-                {% for inscripcion in cuota.inscripciones.all %}
-                  <tr data-id="{{ cuota.idCuota }}" data-nombre="{{ cuota.nombreCuota }}" data-valor="{{ cuota.valorCuota }}" data-idIn="{{ inscripcion.idInscripcion }}"  data-persona-id="{{ inscripcion.idPersona.idPersona }}">
-                    <td>{{ cuota.idCuota }}</td>
-                    <td>{{ inscripcion.idInscripcion }}</td>
-                    <td>{{ cuota.nombreCuota }}</td>
-                    <td>{{ cuota.valorCuota }}</td>
-                    <td>{{ inscripcion.idFormacion.nombreFormacion }}</td>
-                    <td>
-                      <button class="btn btn-sm btn-warning btn-select">
-                        <i class="fas fa-check"></i> Elegir
-                      </button>
-                    </td>
-                  </tr>
-                {% endfor %}
+              {% for inscripcion in inscripciones %}
+              {% for inscripcion_cuota in inscripcion.inscripcioncuota_set.all %}
+              {% if inscripcion_cuota.estadoPago == "EN ESPERA" %}
+              <tr data-id="{{ inscripcion_cuota.idCuota.idCuota }}" data-nombre="{{ inscripcion_cuota.idCuota.nombreCuota }}" data-valor="{{ inscripcion_cuota.idCuota.valorCuota }}" data-idIn="{{ inscripcion.idInscripcion }}" data-persona-id="{{ inscripcion.idPersona.idPersona }}">
+                <td>{{ inscripcion_cuota.idCuota.idCuota }}</td>
+                <td>{{ inscripcion.idInscripcion }}</td>
+                <td>{{ inscripcion_cuota.idCuota.nombreCuota }}</td>
+                <td>{{ inscripcion_cuota.idCuota.valorCuota }}</td>
+                <td>{{ inscripcion.idFormacion.nombreFormacion }}</td>
+                <td>
+                <button class="btn btn-sm btn-warning btn-select">
+                  <i class="fas fa-check"></i> Elegir
+                </button>
+                </td>
+              </tr>
+              {% endif %}
+              {% endfor %}
               {% endfor %}
             </tbody>
           </table>
@@ -1754,7 +1756,7 @@ document.addEventListener('DOMContentLoaded', function () {
         break;
 
       case 'CUOTA':
-        setCurrencyField('subtotalGravado', parseFloat(valor) || 0);
+        setCurrencyField('subtotalExento', parseFloat(valor) || 0);
         if (subtotalGravado) subtotalGravado.setAttribute('readonly', true);
         
         if (ingresoCheckbox) ingresoCheckbox.checked = true;
@@ -1917,7 +1919,7 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     },
     { tabla: 'tablaEmpresas', input: 'empresaInput', hidden: 'idEmpresa', modal: 'empresaModal' },
-    { tabla: 'tablaCuotas', input: 'cuota', hidden: 'idCuota', modal: 'cuotaModal', gravado: true },
+    { tabla: 'tablaCuotas', input: 'cuota', hidden: 'idCuota', modal: 'cuotaModal', gravado: false },
     { tabla: 'tablaInscripciones', input: 'inscripcion', hidden: 'idInscripcion', modal: 'inscripcionModal', gravado: false },
     { tabla: 'tablaHonorarios', input: 'honorario', hidden: 'idHonorario', modal: 'honorarioModal', gravado: true },
     { tabla: 'tablaSolicitudes', input: 'solicitud', hidden: 'idSolicitud', modal: 'solicitudModal', gravado: false }

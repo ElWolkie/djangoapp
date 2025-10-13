@@ -281,7 +281,6 @@ def nota_create(request):
     tasa_configuracion_id= tasa_configuracion.idTasa
     tasa_configuracion_valor = to_decimal(tasa_configuracion.montoTasa)  # Convertir a Decimal
     print(f"Tasa de configuración ({moneda_configuracion.nombreMoneda}): {tasa_configuracion_valor}")
-
     if request.method == 'POST':
         form = NotaForm(request.POST)
         if form.is_valid():
@@ -686,14 +685,16 @@ def crear_relacion_nota(nota, request):
     id_inscripcion = request.POST.get('idInscripcion')
     id_honorario = request.POST.get('idHonorario')
     id_solicitud = request.POST.get('idSolicitud')
+    id_cuota = request.POST.get('idCuota')  # Agregar idCuota
 
     # Solo crea el registro si alguno de los IDs está presente
-    if id_inscripcion or id_honorario or id_solicitud:
+    if id_inscripcion or id_honorario or id_solicitud or id_cuota:  # Incluir idCuota
         NotaRelacionada.objects.create(
             idNota=nota,
             idInscripcion_id=id_inscripcion if id_inscripcion else None,
             idHonorario_id=id_honorario if id_honorario else None,
-            idSolicitud_id=id_solicitud if id_solicitud else None
+            idSolicitud_id=id_solicitud if id_solicitud else None,
+            idCuota_id=id_cuota if id_cuota else None  # Agregar idCuota
         )
 @transaction.atomic
 def factura_edit(request, pk):
@@ -1535,19 +1536,24 @@ def pago_create(request, pk=None):
                             # Actualizar estado de entidades relacionadas a 'PAGADO'
                             nota_relacionada = NotaRelacionada.objects.filter(idNota=pago.idNota).first()
                             if nota_relacionada:
+                                # Usamos pattern matching para actualizar el estado de la entidad relacionada a 'PAGADO'
                                 match nota_relacionada:
                                     case _ if nota_relacionada.idInscripcion:
+                                        # Si la nota está relacionada a una inscripción, actualizamos su estado y el de sus cuotas pendientes
                                         inscripcion = nota_relacionada.idInscripcion
                                         inscripcion.estadoPago = 'PAGADO'
                                         inscripcion.save()
-                                        InscripcionCuota.objects.filter(idInscripcion=inscripcion, estadoPago='PENDIENTE').update(estadoPago='PAGADO')
+                                     
                                     case _ if nota_relacionada.idCuota:
+                                        # Si la nota está relacionada a una cuota, actualizamos su estado a pagado
                                         nota_relacionada.idCuota.estadoPago = 'PAGADO'
                                         nota_relacionada.idCuota.save()
                                     case _ if nota_relacionada.idSolicitud:
+                                        # Si la nota está relacionada a una solicitud, actualizamos su estado a pagado
                                         nota_relacionada.idSolicitud.estadoPago = 'PAGADO'
                                         nota_relacionada.idSolicitud.save()
                                     case _ if nota_relacionada.idHonorario:
+                                        # Si la nota está relacionada a un honorario, actualizamos su estado a pagado
                                         nota_relacionada.idHonorario.estadoPago = 'PAGADO'
                                         nota_relacionada.idHonorario.save()
 

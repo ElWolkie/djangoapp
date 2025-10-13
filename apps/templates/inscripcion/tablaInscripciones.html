@@ -178,7 +178,7 @@
               {% if inscripcion.estadoPago == "PAGADO" %}
               <span class="badge bg-success text-white"><i class="fas fa-check-circle me-1"></i> Pagado</span>
               {% elif inscripcion.estadoPago == "PENDIENTE" %}
-              <span class="badge bg-warning text-dark"><i class="fas fa-clock me-1"></i> Pendiente</span>
+              <span class="badge bg-danger text-white"><i class="fas fa-clock me-1"></i> Pendiente</span>
               {% else %}
               <span class="badge bg-secondary text-white">{{ inscripcion.estadoPago }}</span>
               {% endif %}
@@ -256,7 +256,15 @@
                 {% endif %}
                 
                 <!-- Botón Cuotas -->
-                <button class="btn btn-info btn-sm" data-bs-toggle="modal" data-bs-target="#cuotasModal" onclick="cargarCuotas('{{ inscripcion.idInscripcion }}')" title="Ver cuotas">Cuotas</button>
+                <button class="btn btn-purple btn-sm" data-bs-toggle="modal" data-bs-target="#cuotasModal" onclick="cargarCuotas('{{ inscripcion.idInscripcion }}')" title="Ver Cuotas">
+                   <i class="fas fa-coins"></i>
+                </button>
+               
+                {% if inscripcion.estadoPago == 'PENDIENTE' or inscripcion.estadoPago == 'PARCIAL' %}
+                  <a href="{% url 'nota_create' %}?inscripcion={{ inscripcion.idFormacion.valorInscripcion }}&idP={{ inscripcion.idPersona.idPersona }}&id={{ inscripcion.idInscripcion }}" title="Pagar" class="btn btn-warning btn-sm">
+                  <i class="fas fa-money-bill-wave"></i>
+                  </a>
+                {% endif %}
               </div>
             </td>
           </tr>
@@ -458,14 +466,21 @@
               <th>Nombre</th>
               <th>Valor</th>
               <th>Estado</th>
-              <th>Fecha de Pago</th>
             </tr>
           </thead>
           <tbody id="cuotasTableBody">
             <!-- Las filas se llenarán dinámicamente con JavaScript -->
           </tbody>
         </table>
+         <div class="alert alert-warning d-flex align-items-center mb-3" role="alert">
+        <i class="fas fa-exclamation-triangle me-2 mb-3 mr-3"></i>
+        <div>
+         <p><b>ADVERTENCIA: </b> Las cuotas son montos diferentes al valor de la inscripción. Corresponden a pagos adicionales que el estudiante debe realizar.</p>  
+         <p>Por ejemplo: cuotas mensuales o por servicios adicionales correspondientes a una formación.</p>
+        </div>
       </div>
+      </div>
+   
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
       </div>
