@@ -2,7 +2,8 @@
   "build": {
     "production": {
       "android": {
-        "buildType": "app-bundle"
+        "buildType": "app-bundle",
+        "gradleCommand": ":app:assembleRelease"
       },
       "env": {
         "EXPO_PUBLIC_API_BASE_URL": "https://djangoapp-6wxv.onrender.com"
@@ -13,7 +14,8 @@
       "developmentClient": true,
       "distribution": "internal",
       "android": {
-        "buildType": "apk"
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleDebug"
       },
       "env": {
         "EXPO_PUBLIC_API_BASE_URL": "https://djangoapp-6wxv.onrender.com"
@@ -22,7 +24,8 @@
     "preview": {
       "distribution": "internal",
       "android": {
-        "buildType": "apk"
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease"
       },
       "env": {
         "EXPO_PUBLIC_API_BASE_URL": "https://djangoapp-6wxv.onrender.com"

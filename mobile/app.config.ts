@@ -26,7 +26,7 @@ export default ({ config }: { config: any }) => {
 
       // Web config (mantener)
       web: {
-        favicon: './assets/favicon.png'
+        favicon: './assets/appfu.png'
       },
 
       // Identificadores nativos IMPORTANTES — necesarios para prebuild / EAS
