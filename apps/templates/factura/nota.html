@@ -670,23 +670,19 @@
               </tr>
             </thead>
             <tbody>
-              {% for inscripcion in inscripciones %}
-              {% for inscripcion_cuota in inscripcion.inscripcioncuota_set.all %}
-              {% if inscripcion_cuota.estadoPago == "EN ESPERA" %}
-              <tr data-id="{{ inscripcion_cuota.idCuota.idCuota }}" data-nombre="{{ inscripcion_cuota.idCuota.nombreCuota }}" data-valor="{{ inscripcion_cuota.idCuota.valorCuota }}" data-idIn="{{ inscripcion.idInscripcion }}" data-persona-id="{{ inscripcion.idPersona.idPersona }}">
-                <td>{{ inscripcion_cuota.idCuota.idCuota }}</td>
-                <td>{{ inscripcion.idInscripcion }}</td>
-                <td>{{ inscripcion_cuota.idCuota.nombreCuota }}</td>
-                <td>{{ inscripcion_cuota.idCuota.valorCuota }}</td>
-                <td>{{ inscripcion.idFormacion.nombreFormacion }}</td>
-                <td>
-                <button class="btn btn-sm btn-warning btn-select">
-                  <i class="fas fa-check"></i> Elegir
-                </button>
-                </td>
-              </tr>
-              {% endif %}
-              {% endfor %}
+              {% for cuota in cuotas %}
+                <tr data-id="{{ cuota.idCuota.idCuota }}" data-nombre="{{ cuota.idCuota.nombreCuota }}" data-valor="{{ cuota.idCuota.valorCuota }}" data-idIn="{{ cuota.idInscripcion.idInscripcion }}" data-persona-id="{{ cuota.idInscripcion.idPersona.idPersona }}">
+                  <td>{{ cuota.id}}</td>
+                  <td>{{ cuota.idInscripcion.idInscripcion }}</td>
+                  <td>{{ cuota.idCuota.nombreCuota }}</td>
+                  <td>{{ cuota.idCuota.valorCuota }}</td>
+                  <td>{{ cuota.idInscripcion.idFormacion.nombreFormacion }}</td>
+                  <td>
+                    <button class="btn btn-sm btn-warning btn-select">
+                      <i class="fas fa-check"></i> Elegir
+                    </button>
+                  </td>
+                </tr>
               {% endfor %}
             </tbody>
           </table>
@@ -1017,19 +1013,29 @@ document.addEventListener('DOMContentLoaded', function () {
     
     const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
     let hasVisibleRows = false;
+    let visibles = [];
+    let ocultos = [];
+
+    console.log(`[filtrarModalPorPersona] Filtrando tabla "${tableId}" para personaId="${personaId}"`);
     
     for (let i = 0; i < rows.length; i++) {
       const rowPersonaId = rows[i].getAttribute('data-persona-id');
+      console.log(`  Fila ${i}: data-persona-id="${rowPersonaId}"`);
       
       // Mostrar solo si coincide con la persona seleccionada
       if (rowPersonaId === personaId) {
         rows[i].style.display = '';
         hasVisibleRows = true;
+        visibles.push(rowPersonaId);
       } else {
         rows[i].style.display = 'none';
+        ocultos.push(rowPersonaId);
       }
     }
     
+    console.log(`[filtrarModalPorPersona] Visibles:`, visibles);
+    console.log(`[filtrarModalPorPersona] Ocultos:`, ocultos);
+
     // Mostrar mensaje si no hay registros
     const mensajeId = getMensajeIdByTableId(tableId);
     const mensajeEl = document.getElementById(mensajeId);
