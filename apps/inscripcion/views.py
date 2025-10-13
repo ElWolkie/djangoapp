@@ -554,6 +554,7 @@ def ver_cuotas_inscripcion(request, pk):
             'estado': cuota.estadoPago,
             'monto_pagado': float(cuota.montoPagado),
             'fecha_pago': cuota.fechaPago.strftime('%Y-%m-%d') if cuota.fechaPago else None,
+            'idPersona': cuota.idInscripcion.idPersona.idPersona if cuota.idInscripcion.idPersona else None
         }
         for cuota in cuotas
     ]

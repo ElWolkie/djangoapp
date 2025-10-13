@@ -260,7 +260,7 @@
                    <i class="fas fa-coins"></i>
                 </button>
                
-                {% if inscripcion.estadoPago == 'PENDIENTE' or inscripcion.estadoPago == 'PARCIAL' %}
+                {% if inscripcion.estadoPago == 'PENDIENTE' %}
                   <a href="{% url 'nota_create' %}?inscripcion={{ inscripcion.idFormacion.valorInscripcion }}&idP={{ inscripcion.idPersona.idPersona }}&id={{ inscripcion.idInscripcion }}" title="Pagar" class="btn btn-warning btn-sm">
                   <i class="fas fa-money-bill-wave"></i>
                   </a>
@@ -466,10 +466,12 @@
               <th>Nombre</th>
               <th>Valor</th>
               <th>Estado</th>
+              <th>Acciones</th>
             </tr>
           </thead>
           <tbody id="cuotasTableBody">
             <!-- Las filas se llenarán dinámicamente con JavaScript -->
+            
           </tbody>
         </table>
          <div class="alert alert-warning d-flex align-items-center mb-3" role="alert">
@@ -719,7 +721,13 @@ $(function(){
                       : `<span class="badge bg-light text-dark">${cuota.estado}</span>`
                   }
                 </td>
-                
+                <td>
+                  ${
+                    cuota.estado === "EN ESPERA"
+                      ? `<a href="{% url 'nota_create' %}?cuota=${cuota.valor}&idP=${cuota.idPersona}&idC=${cuota.id}" class="btn btn-sm btn-warning" title="Pagar"><i class="fas fa-money-bill-wave"></i></a>`
+                      : '<button class="btn btn-sm btn-secondary" disabled title="No disponible"><i class="fas fa-ban"></i></button>'
+                  }
+                </td>
               </tr>
             `;
             modalBody.append(row);
