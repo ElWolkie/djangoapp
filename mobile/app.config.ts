@@ -18,10 +18,11 @@ export default ({ config }: { config: any }) => {
       sdkVersion: SDK_VERSION,
       // Runtime version: debe ser un string fijo cuando usas workflow "bare" / prebuild.
       runtimeVersion: '1.0.0',
+      scheme: "minisacfu", // Agrega esto
 
       // Control de actualizaciones OTA (opcional)
       updates: {
-        fallbackToCacheTimeout: 0
+        enabled: false // ← Agrega esta línea
       },
 
       // Web config (mantener)
