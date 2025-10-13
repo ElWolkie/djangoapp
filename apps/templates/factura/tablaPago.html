@@ -164,11 +164,11 @@
           {% for pago in pagos %}
           <tr>
             <td class="fw-bold">{{ pago.idPago }}</td>
-            <td>{{ pago.idNota.numeroNota }}</td>
-            <td>{{ pago.monto|floatformat:2 }} {{ pago.idTasa.idMoneda.simboloMoneda }}</td>
-            <td>{{ pago.fechaPago|date:"d/m/Y" }}</td>
-            <td>{{ pago.formaPago }}</td>
-            <td>{{ pago.referencia|default:"—" }}</td>
+            <td class="text-center">{{ pago.idNota.numeroNota }}</td>
+            <td class="text-center">{{ pago.monto|floatformat:2 }} {{ pago.idTasa.idMoneda.simboloMoneda }}</td>
+            <td class="text-center">{{ pago.fechaPago|date:"d/m/Y" }}</td>
+            <td class="text-center">{{ pago.formaPago }}</td>
+            <td class="text-center">{{ pago.referencia|default:"—" }}</td>
             <td class="actions-column">
               <div class="d-flex gap-2">
                 <button class="btn btn-info btn-sm"
@@ -181,7 +181,6 @@
                         data-forma="{{ pago.formaPago }}"
                         data-referencia="{{ pago.referencia|default:'—' }}"
                         data-observaciones="{{ pago.observaciones|default:'—' }}"
-                        data-estado="{{ pago.estado|default:'Pendiente' }}"
                         title="Ver detalles">
                   <i class="fas fa-eye"></i>
                 </button>
@@ -295,10 +294,7 @@
           <div class="detail-label">Observaciones:</div>
           <div class="detail-value" id="detail-observaciones"></div>
         </div>
-        <div class="detail-item">
-          <div class="detail-label">Estado:</div>
-          <div class="detail-value" id="detail-estado"></div>
-        </div>
+        
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>

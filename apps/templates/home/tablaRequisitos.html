@@ -119,9 +119,9 @@
         <tbody>
           {% for requisito in requisitos %}
           <tr>
-            <td>{{ requisito.idRequisito }}</td>
-            <td>{{ requisito.nombreRequisito }}</td>
-            <td>{{ requisito.fechaRequisito|date:"d/m/Y" }}</td>
+            <td class="text-center">{{ requisito.idRequisito }}</td>
+            <td class="text-center">{{ requisito.nombreRequisito }}</td>
+            <td class="text-center">{{ requisito.fechaRequisito|date:"d/m/Y" }}</td>
             <td>
               {% if requisito.estadoRequisito|upper == "ACTIVO" %}
                 <span class="badge bg-success text-white">

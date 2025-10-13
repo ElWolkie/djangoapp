@@ -31,6 +31,7 @@ from apps.persona.models import Personas
 from apps.empresa.models import empresa
 from apps.planCuenta.models import PlanCuenta
 from apps.asientoContable.models import AsientoContable, DetalleAsiento
+from .templatetags.decimal_filters import to_decimal
 
 from .models import (
     TIPOS_ARTICULO, Factura, FacturaDetalle, NotaRelacionada, Pago, ParametroTributario, Nota, PlanArticulo
@@ -250,6 +251,7 @@ def nota_create(request):
     solicitudes = Solicitud.objects.filter(estadoSolicitud='ACTIVO').order_by('idSoli')
     honorarios = Honorario.objects.filter(estadoHonorario='ACTIVO').order_by('idHonorario')
     inscripciones = Inscripcion.objects.filter(is_active=True).order_by('idInscripcion')
+    descuento= Configuracion.objects.first().descuento if Configuracion.objects.exists() else 0
     # Obtener la moneda de configuración
     configuracion = Configuracion.objects.first()
     if not configuracion:
@@ -259,13 +261,14 @@ def nota_create(request):
         }, status=400)
     moneda_configuracion = configuracion.moneda
     tasa_configuracion = Tasa.objects.filter(idMoneda=moneda_configuracion).order_by('-idTasa').first()
+    operacion = request.POST.get('tipoOperacion', '') 
 
     if not tasa_configuracion:
         return JsonResponse({
             'success': False,
             'message': f'No se encontró una tasa registrada para la moneda de configuración ({moneda_configuracion.nombreMoneda}).'
         }, status=400)
-
+    print(f"DESCUENTO de configuración: {descuento}%")
     # Convertir a Decimal de forma segura (acepta cadenas con comas/miles)
     try:
         raw_tasa = str(tasa_configuracion.montoTasa or '0').replace('.', '').replace(',', '.')
@@ -279,7 +282,6 @@ def nota_create(request):
     tasa_configuracion_id= tasa_configuracion.idTasa
     tasa_configuracion_valor = to_decimal(tasa_configuracion.montoTasa)  # Convertir a Decimal
     print(f"Tasa de configuración ({moneda_configuracion.nombreMoneda}): {tasa_configuracion_valor}")
-
     if request.method == 'POST':
         form = NotaForm(request.POST)
         if form.is_valid():
@@ -307,12 +309,14 @@ def nota_create(request):
 
                 # Crear el asiento contable
                 try:
+
                     asiento = AsientoContable.objects.create(
                         numeroAsiento=f"NOTA-{numero_nota}",
                         fechaAsiento=nota.fechaEmision,
-                        conceptoAsiento=f"Asiento para la nota {numero_nota}",
+                        conceptoAsiento=f"{numero_nota} - Artículo: {nota.tipoArticulo} - Operación: {operacion}",
                         idPeriodo=periodo_activo
                     )
+                    print(f"Creado AsientoContable con concepto: {asiento.conceptoAsiento} ")
                 except Exception as e:
                     return JsonResponse({
                         'success': False,
@@ -426,6 +430,7 @@ def nota_create(request):
         'tasa_configuracion_valor': tasa_configuracion_valor,
         'tasa_configuracion_id': tasa_configuracion_id,
         'moneda_configuracion': moneda_configuracion,
+        'descuento': descuento
     })
 
 @transaction.atomic
@@ -494,7 +499,7 @@ def nota_administrativa_create(request):
                     asiento = AsientoContable.objects.create(
                         numeroAsiento=f"NOTA-ADM-{numero_nota}",  # Diferenciar con prefijo ADM
                         fechaAsiento=nota.fechaEmision,
-                        conceptoAsiento=f"Asiento para la nota administrativa {numero_nota}",
+                        conceptoAsiento=f"Asiento ADM {numero_nota}",
                         idPeriodo=periodo_activo
                     )
                 except Exception as e:
@@ -681,14 +686,16 @@ def crear_relacion_nota(nota, request):
     id_inscripcion = request.POST.get('idInscripcion')
     id_honorario = request.POST.get('idHonorario')
     id_solicitud = request.POST.get('idSolicitud')
+    id_cuota = request.POST.get('idCuota')  # Agregar idCuota
 
     # Solo crea el registro si alguno de los IDs está presente
-    if id_inscripcion or id_honorario or id_solicitud:
+    if id_inscripcion or id_honorario or id_solicitud or id_cuota:  # Incluir idCuota
         NotaRelacionada.objects.create(
             idNota=nota,
             idInscripcion_id=id_inscripcion if id_inscripcion else None,
             idHonorario_id=id_honorario if id_honorario else None,
-            idSolicitud_id=id_solicitud if id_solicitud else None
+            idSolicitud_id=id_solicitud if id_solicitud else None,
+            idCuota_id=id_cuota if id_cuota else None  # Agregar idCuota
         )
 @transaction.atomic
 def factura_edit(request, pk):
@@ -1399,7 +1406,7 @@ def pago_create(request, pk=None):
                             asiento_pago = AsientoContable.objects.create(
                                 numeroAsiento=numero_asiento_pago,
                                 fechaAsiento=pago.fechaPago,
-                                conceptoAsiento=f"Asiento para el pago de la nota {pago.idNota.numeroNota}",
+                                conceptoAsiento=f"Pago de {pago.idNota.numeroNota}",
                                 idPeriodo=periodo_activo
                             )
                         except Exception as e:
@@ -1530,19 +1537,24 @@ def pago_create(request, pk=None):
                             # Actualizar estado de entidades relacionadas a 'PAGADO'
                             nota_relacionada = NotaRelacionada.objects.filter(idNota=pago.idNota).first()
                             if nota_relacionada:
+                                # Usamos pattern matching para actualizar el estado de la entidad relacionada a 'PAGADO'
                                 match nota_relacionada:
                                     case _ if nota_relacionada.idInscripcion:
+                                        # Si la nota está relacionada a una inscripción, actualizamos su estado y el de sus cuotas pendientes
                                         inscripcion = nota_relacionada.idInscripcion
                                         inscripcion.estadoPago = 'PAGADO'
                                         inscripcion.save()
-                                        InscripcionCuota.objects.filter(idInscripcion=inscripcion, estadoPago='PENDIENTE').update(estadoPago='PAGADO')
+                                     
                                     case _ if nota_relacionada.idCuota:
+                                        # Si la nota está relacionada a una cuota, actualizamos su estado a pagado
                                         nota_relacionada.idCuota.estadoPago = 'PAGADO'
                                         nota_relacionada.idCuota.save()
                                     case _ if nota_relacionada.idSolicitud:
+                                        # Si la nota está relacionada a una solicitud, actualizamos su estado a pagado
                                         nota_relacionada.idSolicitud.estadoPago = 'PAGADO'
                                         nota_relacionada.idSolicitud.save()
                                     case _ if nota_relacionada.idHonorario:
+                                        # Si la nota está relacionada a un honorario, actualizamos su estado a pagado
                                         nota_relacionada.idHonorario.estadoPago = 'PAGADO'
                                         nota_relacionada.idHonorario.save()
 
@@ -2142,6 +2154,9 @@ def factura_generar_pdf(request, pk):
     p.line(30, y, width - 30, y)
     y -= 18
     p.setFont("Helvetica", 10)
+    # Obtener el símbolo de la moneda desde la configuración
+    moneda_simbolo = config.moneda.simboloMoneda if config and hasattr(config, 'moneda') and hasattr(config.moneda, 'simboloMoneda') else ""
+
     for det in detalles:
         p.drawString(40, y, det.descripcion[:40])
         y -= 14
@@ -2149,8 +2164,8 @@ def factura_generar_pdf(request, pk):
         p.drawString(50, y, f"Artículo: {det.tipoItem}")
         p.setFont("Helvetica", 10)
         p.drawRightString(300, y, f"{det.cantidad:.2f}")
-        p.drawRightString(400, y, f"{det.precioUnitario:.2f}")
-        p.drawRightString(510, y, f"{det.subtotal:.2f}")
+        p.drawRightString(400, y, f"{det.precioUnitario:.2f} {moneda_simbolo}")
+        p.drawRightString(510, y, f"{det.subtotal:.2f} {moneda_simbolo}")
         y -= 18
         if y < 120:
             p.showPage()
@@ -2160,22 +2175,22 @@ def factura_generar_pdf(request, pk):
 
     # --- Totales y resumen ---
     p.setFont("Helvetica", 10)
-    p.drawRightString(510, y, f"Subtotal Exento:      {factura.subtotalExento:.2f}")
+    p.drawRightString(510, y, f"Subtotal Exento:      {factura.subtotalExento:.2f} {moneda_simbolo}")
     y -= 16
-    p.drawRightString(510, y, f"Subtotal Gravado:     {factura.subtotalGravado:.2f}")
+    p.drawRightString(510, y, f"Subtotal Gravado:     {factura.subtotalGravado:.2f} {moneda_simbolo}")
     y -= 16
-    p.drawRightString(510, y, f"IVA (16%):            {factura.iva:.2f}")
+    p.drawRightString(510, y, f"IVA (16%):            {factura.iva:.2f} {moneda_simbolo}")
     y -= 16
-    p.drawRightString(510, y, f"IVA Retenido (75%):   {factura.ivaRetenido if factura.ivaRetenido else 0:.2f}")
+    p.drawRightString(510, y, f"IVA Retenido (75%):   {factura.ivaRetenido if factura.ivaRetenido else 0:.2f} {moneda_simbolo}")
     y -= 16
-    p.drawRightString(510, y, f"ISLR Retenido (3%):   {factura.islrRetenido if factura.islrRetenido else 0:.2f}")
+    p.drawRightString(510, y, f"ISLR Retenido (3%):   {factura.islrRetenido if factura.islrRetenido else 0:.2f} {moneda_simbolo}")
     y -= 16
-    p.drawRightString(510, y, f"Descuento:            {factura.descuento:.2f}")
+    p.drawRightString(510, y, f"Descuento:            {factura.descuento:.2f} {moneda_simbolo}")
     y -= 16
     p.line(250, y, width - 30, y)
     y -= 18
     p.setFont("Helvetica-Bold", 11)
-    p.drawRightString(510, y, f"TOTAL:                {factura.totalVenta:.2f}")
+    p.drawRightString(510, y, f"TOTAL:                {factura.totalVenta:.2f} {moneda_simbolo}")
     y -= 20
     p.line(30, y, width - 30, y)
     y -= 20
@@ -2185,18 +2200,96 @@ def factura_generar_pdf(request, pk):
     p.drawString(40, y, "Pagos realizados:")
     y -= 16
     p.setFont("Helvetica", 10)
+    
     if pagos.exists():
+        # Función para dividir texto en múltiples líneas
+        def draw_wrapped_text(text, x, y, max_width, line_height=14):
+            words = text.split()
+            lines = []
+            current_line = []
+            
+            for word in words:
+                test_line = current_line + [word]
+                test_text = ' '.join(test_line)
+                text_width = p.stringWidth(test_text, "Helvetica", 10)
+                
+                if text_width <= max_width:
+                    current_line.append(word)
+                else:
+                    if current_line:
+                        lines.append(' '.join(current_line))
+                    current_line = [word]
+            
+            if current_line:
+                lines.append(' '.join(current_line))
+            
+            # Dibujar todas las líneas
+            for line in lines:
+                p.drawString(x, y, line)
+                y -= line_height
+                if y < 80:
+                    p.showPage()
+                    y = height - 80
+                    p.setFont("Helvetica", 10)  # Restaurar fuente después del salto de página
+            
+            return y
+
+        # Ancho máximo disponible para los textos de pago
+        max_text_width = width - 100  # 50px izquierda + 50px derecha
+        
         for pago in pagos:
-            moneda_simbolo = pago.idTasa.idMoneda.simboloMoneda if pago.idTasa and pago.idTasa.idMoneda else ""
-            p.drawString(50, y, f"Fecha: {pago.fechaPago.strftime('%d/%m/%Y')} | Monto: {pago.monto:.2f} {moneda_simbolo} | Forma: {pago.formaPago} | Referencia: {pago.referencia or ''}")
-            y -= 14
-            if y < 80:
-                p.showPage()
-                y = height - 80
+            moneda_simbolo = ""
+            monto_bolivares = ""
+            tasa_utilizada = ""
+            fecha_tasa = ""
+
+            # Buscar la tasa activa para la moneda del pago en la fecha de la nota
+            tasa_pago = Tasa.objects.filter(
+                idMoneda=pago.idTasa.idMoneda,
+                fechaTasa__lte=nota.fechaEmision
+            ).order_by('-fechaTasa').first()
+
+            if tasa_pago:
+                moneda_simbolo = getattr(tasa_pago.idMoneda, 'simboloMoneda', '')
+                # CORRECCIÓN: Usar to_decimal en lugar de float
+                tasa_pago_valor = to_decimal(getattr(tasa_pago, 'montoTasa', 0))
+                tasa_utilizada = f" | Tasa: {tasa_pago_valor:.2f}"
+                fecha_tasa = f" | Fecha tasa: {getattr(tasa_pago, 'fechaTasa', datetime.now()).strftime('%d/%m/%Y')}"
+            else:
+                tasa_utilizada = " | Tasa: N/A"
+                fecha_tasa = " | Fecha tasa: N/A"
+
+            # Calcular monto en bolívares usando la tasa activa en la fecha de la nota
+            if tasa_pago and tasa_pago.idMoneda.idMoneda != 1:
+                tasa_bolivares = Tasa.objects.filter(
+                    idMoneda__idMoneda=1,
+                    fechaTasa__lte=nota.fechaEmision
+                ).order_by('-fechaTasa').first()
+                if tasa_bolivares:
+                    # CORRECCIÓN: Usar to_decimal en lugar de float
+                    tasa_bolivares_valor = to_decimal(tasa_bolivares.montoTasa)
+                    # CORRECCIÓN: Usar to_decimal para el monto del pago también
+                    monto_pago_valor = to_decimal(pago.monto)
+                    if tasa_bolivares_valor > Decimal('0'):
+                        monto_bolivares_valor = monto_pago_valor * tasa_pago_valor / tasa_bolivares_valor
+                        monto_bolivares = f" | Monto Bs: {monto_bolivares_valor:.2f}"
+                    else:
+                        monto_bolivares = " | Monto Bs: Error (tasa cero)"
+                else:
+                    monto_bolivares = " | Monto Bs: No hay tasa BS"
+            else:
+                # CORRECCIÓN: Usar to_decimal para el monto del pago
+                monto_bolivares = f" | Monto Bs: {to_decimal(pago.monto):.2f}"
+
+            # Construir el texto completo del pago
+            texto_pago = f"Fecha: {pago.fechaPago.strftime('%d/%m/%Y')} | Monto: {pago.monto:.2f} {moneda_simbolo}{tasa_utilizada}{fecha_tasa} | Forma: {pago.formaPago} | Referencia: {pago.referencia or ''}{monto_bolivares}"
+            
+            # Dibujar el texto con wrap automático
+            y = draw_wrapped_text(texto_pago, 50, y, max_text_width)
+            
     else:
         p.drawString(50, y, "No se han registrado pagos para esta factura.")
         y -= 14
-
     p.line(30, y, width - 30, y)
     y -= 20
 

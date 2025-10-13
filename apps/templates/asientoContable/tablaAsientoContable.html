@@ -142,8 +142,15 @@
         <tbody>
           {% for asiento in asientos %}
           <tr>
-            <td>{{ asiento.numeroAsiento }}</td>
-            <td>{{ asiento.idPeriodo }}</td>
+          <td class="text-center">{{ asiento.numeroAsiento }}</td>
+          <td class="text-center">{{ asiento.idPeriodo }}</td>
+            <!-- <td>
+              {% if asiento.estadoAsiento %}
+                <span class="badge bg-success text-white">Activo</span>
+              {% else %}
+                <span class="badge bg-danger text-white">Inactivo</span>
+              {% endif %}
+            </td> -->
             <td class="actions-column">
               <div class="d-flex gap-2">
                 {% if perms.asientoContable.view_asientocontable %}

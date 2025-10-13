@@ -21,7 +21,7 @@
   }
   
   .container-balance {
-    max-width: 1200px;
+    max-width: 1500px;
     margin: 2rem auto;
     padding: 2rem;
     background: white;
@@ -140,6 +140,33 @@
     border-bottom: none;
   }
   
+  .cuenta-principal {
+    background-color: rgba(94, 114, 228, 0.05);
+    font-weight: 600;
+  }
+  
+  .cuenta-principal td:first-child {
+    border-left: 4px solid #5e72e4;
+  }
+  
+  .subcuenta {
+    background-color: #fafbfe;
+  }
+  
+  .subcuenta-level-1 td:first-child { padding-left: 2.5rem; }
+  .subcuenta-level-2 td:first-child { padding-left: 4rem; }
+  .subcuenta-level-3 td:first-child { padding-left: 5.5rem; }
+  .subcuenta-level-4 td:first-child { padding-left: 7rem; }
+  
+  .codigo-indent {
+    display: inline-block;
+  }
+  
+  .indent-1 { margin-left: 1rem; }
+  .indent-2 { margin-left: 2rem; }
+  .indent-3 { margin-left: 3rem; }
+  .indent-4 { margin-left: 4rem; }
+  
   .highlight-debe {
     background-color: rgba(45, 206, 137, 0.1);
     font-weight: 600;
@@ -175,46 +202,27 @@
     color: #525f7f;
   }
   
-  .chart-container {
-    margin-top: 3rem;
-    background: white;
-    border-radius: 10px;
-    padding: 1.5rem;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+  .pagination-container {
+    margin-top: 2rem;
+    text-align: center;
   }
   
-  .chart-header {
-    text-align: center;
+  .periodo-info {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 1rem 1.5rem;
+    border-radius: 10px;
     margin-bottom: 1.5rem;
-    color: #5e72e4;
+  }
+  
+  .periodo-info h5 {
+    margin: 0;
     font-weight: 600;
   }
   
-  .chart-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 1.5rem;
-  }
-  
-  .chart-item {
-    height: 300px;
-    background: #f8f9fe;
-    border-radius: 10px;
-    padding: 1rem;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-  }
-  
-  .chart-placeholder {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    color: #8898aa;
-    font-size: 1.1rem;
+  .periodo-info .fechas {
+    font-size: 0.9rem;
+    opacity: 0.9;
   }
   
   @media (max-width: 768px) {
@@ -262,6 +270,12 @@
       text-align: left;
       color: #525f7f;
     }
+    
+    .cuenta-principal td:first-child,
+    .subcuenta td:first-child {
+      border-left: none;
+      padding-left: 50%;
+    }
   }
 </style>
 {% endblock stylesheets %}
@@ -270,166 +284,348 @@
 <div class="container-balance">
   <div class="header-balance">
     <h2>Balance de Cuentas</h2>
-    <p class="text-muted">Resumen financiero de todos los movimientos contables</p>
   </div>
 
+  {% if error %}
+    <div class="alert alert-danger">
+      <i class="fas fa-exclamation-triangle"></i> {{ error }}
+    </div>
+  {% endif %}
+
   <div class="search-container">
-    <div class="input-group">
-      <span class="input-group-text"><i class="fas fa-search"></i></span>
-      <input id="searchInput" class="form-control" type="text" placeholder="Buscar por tipo de cuenta...">
+    <form method="get" class="row g-3 align-items-center" onsubmit="updateSearchParam(event)">
+      <div class="col-md-4">
+        <div class="input-group">
+          <span class="input-group-text"><i class="fas fa-search"></i></span>
+          <input id="searchInput" name="search" class="form-control" type="text" placeholder="Buscar..." value="{{ request.GET.search|default:'' }}" title="La busqueda afecta los calculos totales debe/haber. Para restablecer los resultados, borre el texto y presione filtrar.">
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="input-group">
+          <span class="input-group-text"><i class="fas fa-calendar-alt"></i></span>
+          <select id="periodoSelect" name="periodo" class="form-control">
+            {% for periodo in periodos %}
+              <option value="{{ periodo.idPeriodo }}" {% if periodo == periodo_seleccionado %}selected{% endif %}>
+                {{ periodo.nombrePeriodo }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="col-md-3 d-flex align-items-center" style="margin-top: 1px;">
+        <button id="filterButton" class="btn btn-warning" type="submit" style="width: 50%;">
+          <i class="fas fa-filter me-1"></i> Filtrar
+        </button>
+      </div>
+    </form>
+  </div>
+
+  {% if periodo_seleccionado %}
+  <div class="periodo-info">
+    <div class="d-flex justify-content-between align-items-center">
+      <h5 class="mb-0">{{ periodo_seleccionado.nombrePeriodo }}</h5>
+      <span class="fechas">
+        {{ periodo_seleccionado.fechaInicioPeriodo|date:"d/m/Y" }} - {{ periodo_seleccionado.fechaFinPeriodo|date:"d/m/Y" }}
+      </span>
     </div>
   </div>
 
   <div class="totals-container">
     <div class="total-card total-debe">
-      <h5>Total Debe</h5>
-      <div class="total-value" id="totalDebe">0.00</div>
+      <h5>Total Debe General</h5>
+      <div class="total-value">${{ total_general_debe|floatformat:2 }}</div>
     </div>
     
     <div class="total-card total-haber">
-      <h5>Total Haber</h5>
-      <div class="total-value" id="totalHaber">0.00</div>
+      <h5>Total Haber General</h5>
+      <div class="total-value">${{ total_general_haber|floatformat:2 }}</div>
     </div>
     
-    <div class="total-card">
-      <h5>Saldo Neto</h5>
-      <div class="total-value" id="saldoNeto">0.00</div>
-    </div>
+    
   </div>
 
   <div class="table-container">
     <table id="balanceCuentasTable" class="table-balance">
-      <thead>
-        <tr>
-          <th>Tipo de Cuenta</th>
-          <th>Total Debe</th>
-          <th>Total Haber</th>
-          <th>Saldo</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for tipo in tipos_cuentas %}
-          <tr>
-            <td data-label="Tipo de Cuenta">{{ tipo.tipoPlanCuenta }}</td>
-            <td data-label="Total Debe" class="highlight-debe">{{ tipo.total_debe|floatformat:2 }}</td>
-            <td data-label="Total Haber" class="highlight-haber">{{ tipo.total_haber|floatformat:2 }}</td>
-            <td data-label="Saldo">
-              {% with tipo.total_debe|default:0 as debe %}
-              {% with tipo.total_haber|default:0 as haber %}
-              {% if debe > haber %}
-                <span class="saldo-badge saldo-deudor">Deudor: {{ debe|floatformat:2 }}</span>
-              {% elif haber > debe %}
-                <span class="saldo-badge saldo-acreedor">Acreedor: {{ haber|floatformat:2 }}</span>
-              {% else %}
-                <span class="saldo-badge saldo-cero">Saldo Cero</span>
-              {% endif %}
-              {% endwith %}
-              {% endwith %}
-            </td>
-          </tr>
-        {% empty %}
-        <tr>
-          <td colspan="4" class="text-center py-4">No hay tipos de cuentas registradas.</td>
-        </tr>
-        {% endfor %}
-        </tbody>
-      </table>
-    </div>
+     <thead>
+      <tr>
+        <th width="12%">Código</th>
+        <th width="33%">Nombre de Cuenta</th>
+        <th width="11%" class="text-end">Saldo Anterior</th>
+        <th width="11%" class="text-end">Total Débe</th>
+        <th width="11%" class="text-end">Total Haber</th>
+        <th width="11%" class="text-end">Saldo Actual</th>
+        <th width="11%" class="text-end">Saldo Acumulado</th>
+      </tr>
+    </thead>
+    <tbody>
+  {% for cuenta_data in cuentas_data %}
+    <tr class="{% if cuenta_data.es_cuenta_principal %}cuenta-principal{% else %}subcuenta subcuenta-level-{{ cuenta_data.nivel }}{% endif %}">
+      <td>
+        <span class="codigo-indent indent-{{ cuenta_data.nivel }}">
+          {% if cuenta_data.nivel > 0 %}↳{% endif %}
+          {{ cuenta_data.cuenta.codigoPlanCuenta }}
+        </span>
+      </td>
+      <td class="text-start">
+        {% if cuenta_data.tiene_subcuentas %}
+          <strong>{{ cuenta_data.cuenta.nombrePlanCuenta }}</strong>
+        {% else %}
+          {{ cuenta_data.cuenta.nombrePlanCuenta }}
+        {% endif %}
+      </td>
+      <td class="text-end highlight-saldo-anterior">
+        {% if cuenta_data.saldo_anterior_acumulado > 0 %}
+          <span class="saldo-anterior-badge saldo-anterior-deudor">
+            ${{ cuenta_data.saldo_anterior_acumulado|floatformat:2 }}
+          </span>
+        {% elif cuenta_data.saldo_anterior_acumulado < 0 %}
+          <span class="saldo-anterior-badge saldo-anterior-acreedor">
+            ${{ cuenta_data.saldo_anterior_acumulado|floatformat:2 }}
+          </span>
+        {% else %}
+          <span class="saldo-anterior-badge saldo-anterior-cero">$0.00</span>
+        {% endif %}
+      </td>
+      <td class="text-end highlight-debe">
+        ${{ cuenta_data.total_debe_acumulado|floatformat:2 }}
+      </td>
+      <td class="text-end highlight-haber">
+        ${{ cuenta_data.total_haber_acumulado|floatformat:2 }}
+      </td>
+      <td class="text-end">
+        {% if cuenta_data.saldo_actual > 0 %}
+          <span class="saldo-badge saldo-deudor">
+            ${{ cuenta_data.saldo_actual|floatformat:2 }}
+          </span>
+        {% elif cuenta_data.saldo_actual < 0 %}
+          <span class="saldo-badge saldo-acreedor">
+            ${{ cuenta_data.saldo_actual|floatformat:2 }}
+          </span>
+        {% else %}
+          <span class="saldo-badge saldo-cero">$0.00</span>
+        {% endif %}
+      </td>
+      <td class="text-end">
+        {% if cuenta_data.saldo_acumulado > 0 %}
+          <span class="saldo-badge saldo-deudor">
+            ${{ cuenta_data.saldo_acumulado|floatformat:2 }}
+          </span>
+        {% elif cuenta_data.saldo_acumulado < 0 %}
+          <span class="saldo-badge saldo-acreedor">
+            ${{ cuenta_data.saldo_acumulado|floatformat:2 }}
+          </span>
+        {% else %}
+          <span class="saldo-badge saldo-cero">$0.00</span>
+        {% endif %}
+      </td>
+    </tr>
+  {% empty %}
+    <tr>
+      <td colspan="7" class="text-center py-4 text-muted">
+        <i class="fas fa-info-circle me-2"></i>
+        No hay movimientos en el período seleccionado
+      </td>
+    </tr>
+  {% endfor %}
+</tbody>
+<tfoot class="table-dark">
+  <tr>
+    <th colspan="2" class="text-end">TOTALES GENERALES:</th>
+    <th class="text-end">
+      {% if total_general_saldo_anterior > 0 %}
+        <span class="text-success">${{ total_general_saldo_anterior|floatformat:2 }}</span>
+      {% elif total_general_saldo_anterior < 0 %}
+        <span class="text-danger">${{ total_general_saldo_anterior|floatformat:2 }}</span>
+      {% else %}
+        ${{ total_general_saldo_anterior|floatformat:2 }}
+      {% endif %}
+    </th>
+    <th class="text-end">${{ total_general_debe|floatformat:2 }}</th>
+    <th class="text-end">${{ total_general_haber|floatformat:2 }}</th>
+    <th class="text-end">
+      {% if total_general_saldo_actual > 0 %}
+        <span class="text-success">${{ total_general_saldo_actual|floatformat:2 }}</span>
+      {% elif total_general_saldo_actual < 0 %}
+        <span class="text-danger">${{ total_general_saldo_actual|floatformat:2 }}</span>
+      {% else %}
+        ${{ total_general_saldo_actual|floatformat:2 }}
+      {% endif %}
+    </th>
+    <th class="text-end">
+      {% if total_general_saldo_acumulado > 0 %}
+        <span class="text-success">${{ total_general_saldo_acumulado|floatformat:2 }}</span>
+      {% elif total_general_saldo_acumulado < 0 %}
+        <span class="text-danger">${{ total_general_saldo_acumulado|floatformat:2 }}</span>
+      {% else %}
+        ${{ total_general_saldo_acumulado|floatformat:2 }}
+      {% endif %}
+    </th>
+  </tr>
+</tfoot>
+    </table>
   </div>
+
+{% if paginator.num_pages > 1 %}
+<div class="pagination-container">
+  <nav aria-label="Paginación del balance">
+    <ul class="pagination justify-content-center">
+      {% if cuentas_data.has_previous %}
+        <li class="page-item">
+          <a class="page-link" href="?page=1{% if periodo_seleccionado %}&periodo={{ periodo_seleccionado.idPeriodo }}{% endif %}" aria-label="Primera">
+            <i class="fas fa-angle-double-left"></i>
+          </a>
+        </li>
+        <li class="page-item">
+          <a class="page-link" href="?page={{ cuentas_data.previous_page_number }}{% if periodo_seleccionado %}&periodo={{ periodo_seleccionado.idPeriodo }}{% endif %}" aria-label="Anterior">
+            <i class="fas fa-angle-left"></i>
+          </a>
+        </li>
+      {% else %}
+        <li class="page-item disabled">
+          <span class="page-link">
+            <i class="fas fa-angle-double-left"></i>
+          </span>
+        </li>
+        <li class="page-item disabled">
+          <span class="page-link">
+            <i class="fas fa-angle-left"></i>
+          </span>
+        </li>
+      {% endif %}
+
+      {% for num in cuentas_data.paginator.page_range %}
+        {% if num == cuentas_data.number %}
+          <li class="page-item active">
+            <span class="page-link">{{ num }}</span>
+          </li>
+        {% elif num > cuentas_data.number|add:'-3' and num < cuentas_data.number|add:'3' %}
+          <li class="page-item">
+            <a class="page-link" href="?page={{ num }}{% if periodo_seleccionado %}&periodo={{ periodo_seleccionado.idPeriodo }}{% endif %}">{{ num }}</a>
+          </li>
+        {% elif num == cuentas_data.number|add:'-3' or num == cuentas_data.number|add:'3' %}
+          <li class="page-item disabled">
+            <span class="page-link">...</span>
+          </li>
+        {% endif %}
+      {% endfor %}
+
+      {% if cuentas_data.has_next %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ cuentas_data.next_page_number }}{% if periodo_seleccionado %}&periodo={{ periodo_seleccionado.idPeriodo }}{% endif %}" aria-label="Siguiente">
+            <i class="fas fa-angle-right"></i>
+          </a>
+        </li>
+        <li class="page-item">
+          <a class="page-link" href="?page={{ paginator.num_pages }}{% if periodo_seleccionado %}&periodo={{ periodo_seleccionado.idPeriodo }}{% endif %}" aria-label="Última">
+            <i class="fas fa-angle-double-right"></i>
+          </a>
+        </li>
+      {% else %}
+        <li class="page-item disabled">
+          <span class="page-link">
+            <i class="fas fa-angle-right"></i>
+          </span>
+        </li>
+        <li class="page-item disabled">
+          <span class="page-link">
+            <i class="fas fa-angle-double-right"></i>
+          </span>
+        </li>
+      {% endif %}
+    </ul>
+    
+    <div class="text-center mt-2">
+      <small class="text-muted">
+        Página {{ cuentas_data.number }} de {{ paginator.num_pages }}
+        {% if periodo_seleccionado %}
+          - Período: {{ periodo_seleccionado.nombrePeriodo }}
+        {% endif %}
+      </small>
+    </div>
+  </nav>
+</div>
+{% endif %}
+
+  {% endif %}
+</div>
 {% endblock content %}
 
 {% block javascripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  const table = document.getElementById('balanceCuentasTable');
-  const searchInput = document.getElementById('searchInput');
-  const totalDebe = document.getElementById('totalDebe');
-  const totalHaber = document.getElementById('totalHaber');
-  const saldoNeto = document.getElementById('saldoNeto');
-
-  function updateTotals() {
-    let totalDebeValue = 0;
-    let totalHaberValue = 0;
-    const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
-
-    for (let i = 0; i < rows.length; i++) {
-      const cells = rows[i].getElementsByTagName('td');
-      if (cells.length > 0 && rows[i].style.display !== 'none') {
-        const debeValue = parseFloat(cells[1].textContent) || 0;
-        const haberValue = parseFloat(cells[2].textContent) || 0;
-        
-        totalDebeValue += debeValue;
-        totalHaberValue += haberValue;
-      }
-    }
-
-    totalDebe.textContent = totalDebeValue.toFixed(2);
-    totalHaber.textContent = totalHaberValue.toFixed(2);
-    
-    // Calcular saldo neto
-    const neto = totalDebeValue - totalHaberValue;
-    saldoNeto.textContent = neto.toFixed(2);
-    
-    // Estilizar saldo neto
-    if (neto > 0) {
-      saldoNeto.style.color = 'var(--success-color)';
-    } else if (neto < 0) {
-      saldoNeto.style.color = 'var(--danger-color)';
-      saldoNeto.textContent = `(${Math.abs(neto).toFixed(2)})`;
-    } else {
-      saldoNeto.style.color = '#525f7f';
-    }
-  }
-
-  function filterTable() {
-    const filter = searchInput.value.toLowerCase();
-    const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
-
-    for (let i = 0; i < rows.length; i++) {
-      const cells = rows[i].getElementsByTagName('td');
-      let match = false;
-
-      for (let j = 0; j < cells.length; j++) {
-        if (cells[j].textContent.toLowerCase().includes(filter)) {
-          match = true;
-          break;
-        }
-      }
-
-      rows[i].style.display = match ? '' : 'none';
-    }
-
-    updateTotals();
-  }
-
-  searchInput.addEventListener('input', filterTable);
-  updateTotals();
+  // Actualizar el color del saldo neto general
+  const saldoNetoGeneral = document.getElementById('saldoNetoGeneral');
+  const saldoValue = parseFloat('{{ total_general_saldo }}');
   
-  // Agregar animación a los números
-  const animateValue = (element, start, end, duration) => {
+  if (saldoValue > 0) {
+    saldoNetoGeneral.style.color = 'var(--success-color)';
+  } else if (saldoValue < 0) {
+    saldoNetoGeneral.style.color = 'var(--danger-color)';
+  }
+
+  // Función para formatear números con separadores de miles
+  function formatNumber(number) {
+    return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  }
+
+  // Animación para los totales
+  function animateValue(element, start, end, duration) {
     let startTimestamp = null;
     const step = (timestamp) => {
       if (!startTimestamp) startTimestamp = timestamp;
       const progress = Math.min((timestamp - startTimestamp) / duration, 1);
       const value = Math.floor(progress * (end - start) + start);
-      element.textContent = value.toFixed(2);
+      element.textContent = '$' + formatNumber(value.toFixed(2));
       if (progress < 1) {
         window.requestAnimationFrame(step);
       }
     };
     window.requestAnimationFrame(step);
-  };
-  
-  // Animar los totales
-  const totalDebeValue = parseFloat(totalDebe.textContent) || 0;
-  const totalHaberValue = parseFloat(totalHaber.textContent) || 0;
-  const netoValue = totalDebeValue - totalHaberValue;
-  
-  animateValue(totalDebe, 0, totalDebeValue, 1500);
-  animateValue(totalHaber, 0, totalHaberValue, 1500);
-  setTimeout(() => {
-    animateValue(saldoNeto, 0, Math.abs(netoValue), 1500);
-  }, 500);
+  }
+
+  // Animar los totales si la página se carga sin filtros
+  if (window.location.search === '' || window.location.search.includes('page=1')) {
+    const totalDebeElements = document.querySelectorAll('.total-debe .total-value');
+    const totalHaberElements = document.querySelectorAll('.total-haber .total-value');
+    
+    if (totalDebeElements.length > 0) {
+      const totalDebeValue = parseFloat('{{ total_general_debe }}') || 0;
+      animateValue(totalDebeElements[0], 0, totalDebeValue, 1500);
+    }
+    
+    if (totalHaberElements.length > 0) {
+      const totalHaberValue = parseFloat('{{ total_general_haber }}') || 0;
+      animateValue(totalHaberElements[0], 0, totalHaberValue, 1500);
+    }
+  }
+
+  // Procesar los saldos negativos para mostrar valores absolutos
+  const saldoBadges = document.querySelectorAll('.saldo-acreedor');
+  saldoBadges.forEach(badge => {
+    const text = badge.textContent;
+    // Extraer el número y mostrar el valor absoluto
+    const match = text.match(/Acreedor: \$(.+)/);
+    if (match) {
+      const valor = match[1];
+      badge.textContent = 'Acreedor: $' + valor;
+    }
+  });
+
+  // Mejorar la experiencia en móviles
+  if (window.innerWidth <= 768) {
+    const table = document.getElementById('balanceCuentasTable');
+    const headers = Array.from(table.querySelectorAll('thead th')).map(th => th.textContent.trim());
+    const rows = table.querySelectorAll('tbody tr');
+    
+    rows.forEach(row => {
+      const cells = row.querySelectorAll('td');
+      cells.forEach((cell, index) => {
+        if (index < headers.length) {
+          cell.setAttribute('data-label', headers[index]);
+        }
+      });
+    });
+  }
 });
 </script>
 {% endblock javascripts %}

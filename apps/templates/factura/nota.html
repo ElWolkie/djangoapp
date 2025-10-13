@@ -188,11 +188,11 @@
           <div class="field-wrap">
             <div>
               <div class="form-check">
-                <input class="form-check-input" type="radio" name="tipoOperacion" id="ingresoCheckbox" value="ingreso" checked>
+                <input class="form-check-input" type="radio" name="tipoOperacion" id="ingresoCheckbox" value="INGRESO" checked>
                 <label class="form-check-label small" for="ingresoCheckbox">Cobro</label>
               </div>
               <div class="form-check">
-                <input class="form-check-input" type="radio" name="tipoOperacion" id="egresoCheckbox" value="egreso">
+                <input class="form-check-input" type="radio" name="tipoOperacion" id="egresoCheckbox" value="EGRESO">
                 <label class="form-check-label small" for="egresoCheckbox">Pago</label>
               </div>
             </div>
@@ -200,7 +200,7 @@
           </div>
         </div>
 
-        <div class="col-md-4">
+        <div class="col-md-4" >
           <label for="tipoArticulo" class="form-label">Tipo de Nota:</label>
           <div class="field-wrap">
             <select id="tipoArticulo" name="tipoArticulo" class="form-select large" required disabled>
@@ -230,8 +230,8 @@
       </div>
 
       <!-- FILA 2: Tipo Entidad (radio) | Persona/Empresa selector -->
-      <div class="row g-3 align-items-end w-100">
-        <div class="col-md-2">
+      <div class="row g-3 align-items-end w-100 mt-3">
+        <div class="col-md-2 mb-4">
           <label class="form-label small">Tipo de Entidad:</label>
           <div class="field-wrap">
             <div>
@@ -252,16 +252,16 @@
           <div id="personaGroup" style="display:none;">
             <label for="personaInput" class="form-label">Persona:</label>
             <div class="field-wrap">
-              <div class="input-group">
+              <div class="input-group ">
                 <input type="text" id="personaInput" class="form-control text-dark" placeholder="Seleccione una persona" readonly />
                 <button type="button" id="buscarPersona" class="btn btn-outline-warning" data-toggle="modal" data-target="#personaModal">
                   <i class="fas fa-search"></i>
                 </button>              
                 <div class="invalid-feedback">Por favor seleccione una persona.</div>
-
+                <div class="valid-feedback">Persona seleccionada correctamente.</div>
               </div>
             </div>
-            <input type="hidden" id="idPersona" name="idPersona" />
+            <input type="hidden" id="idPersona" name="idPersona" data-tipo-persona-relacion="" />
           </div>
 
           <div id="empresaGroup" style="display:none;">
@@ -271,9 +271,10 @@
                 <input type="text" id="empresaInput" class="form-control text-dark" placeholder="Seleccione una empresa" readonly  required/>
                 <button type="button" id="buscarEmpresa" class="btn btn-outline-warning" data-toggle="modal" data-target="#empresaModal">
                   <i class="fas fa-search"></i>
-                </button>
+                </button>              
+                <div class="invalid-feedback">Por favor seleccione una empresa.</div>
+                <div class="valid-feedback">Empresa seleccionada correctamente.</div>
               </div>
-              <div class="invalid-feedback">Por favor seleccione una empresa.</div>
             </div>
             <input type="hidden" id="idEmpresa" name="idEmpresa" />
           </div>
@@ -288,6 +289,7 @@
                 <button type="button" class="btn btn-success">
                   <i class="fas fa-check"></i>
                 </button>
+                <div class="valid-feedback">&nbsp;</div>
               </div>
             </div>
           </div>
@@ -299,9 +301,11 @@
                 <input type="text" id="cuota" class="form-control text-dark" placeholder="Seleccione un plan de cuota" readonly required />
                 <button type="button" id="buscarCuota" class="btn btn-outline-warning" data-toggle="modal" data-target="#cuotaModal">
                   <i class="fas fa-search"></i>
-                </button>
+                </button>              
+                <div class="invalid-feedback">Por favor seleccione una cuota.</div>
+                <div class="valid-feedback">Cuota seleccionada correctamente.</div>
+
               </div>
-              <div class="invalid-feedback">Por favor seleccione una cuota.</div>
             </div>
             <input type="hidden" id="idCuota" name="idCuota" />
           </div>
@@ -313,9 +317,11 @@
                 <input type="text" id="inscripcion" class="form-control " placeholder="Seleccione una inscripcion" readonly required />
                 <button type="button" id="buscarInscripcion" class="btn btn-outline-warning" data-toggle="modal" data-target="#inscripcionModal">
                   <i class="fas fa-search"></i>
-                </button>
+                </button>              
+                <div class="invalid-feedback">Por favor seleccione una inscripción.</div>
+                <div class="valid-feedback">Inscripción seleccionada correctamente.</div>
+
               </div>
-              <div class="invalid-feedback">Por favor seleccione una inscripción.</div>
             </div>
             <input type="hidden" id="idInscripcion" name="idInscripcion" />
           </div>
@@ -327,9 +333,11 @@
                 <input type="text" id="honorario" class="form-control text-dark" placeholder="Seleccione un honorario" readonly required />
                 <button type="button" id="buscarHonorario" class="btn btn-outline-warning" data-toggle="modal" data-target="#honorarioModal">
                   <i class="fas fa-search"></i>
-                </button>
+                </button>              
+                <div class="invalid-feedback">Por favor seleccione un Honorario.</div>
+                <div class="valid-feedback">Honorario seleccionado correctamente.</div>
+
               </div>
-              <div class="invalid-feedback">Por favor seleccione un Honorario.</div>
             </div>
             <input type="hidden" id="idHonorario" name="idHonorario" />
           </div>
@@ -342,8 +350,9 @@
                 <button type="button" id="buscarSolicitud" class="btn btn-outline-warning" data-toggle="modal" data-target="#solicitudModal">
                   <i class="fas fa-search"></i>
                 </button>
-              </div>
               <div class="invalid-feedback">Por favor seleccione una solicitud.</div>
+              <div class="valid-feedback">Solicitud seleccionada correctamente.</div>
+              </div>
             </div>
             <input type="hidden" id="idSolicitud" name="idSolicitud" />
           </div>
@@ -364,7 +373,7 @@
           </div>
         </div>
 
-        <div class="col-md-6">
+        <div class="col-md-6 mt-3">
           <label for="fechaEmision" class="form-label">Fecha de Emisión:</label>
           <div class="field-wrap">
             <input type="date" id="fechaEmision" name="fechaEmision" class="form-control text-dark" max="{{ today_date }}" required />
@@ -429,6 +438,8 @@
           <div class="field-wrap">
             <input type="number" id="iva" name="iva" class="form-control text-dark" placeholder="Ingrese el IVA" step="0.01" min="0" readonly required />
             <div class="invalid-feedback">Por favor ingrese un IVA válido.</div>
+            <small class="form-text text-muted">El IVA no aplica al monto exento</small>
+
           </div>
         </div>
       </div>
@@ -456,7 +467,7 @@
         <div class="col-md-6">
           <label for="descuento" class="form-label">Descuento:</label>
           <div class="field-wrap">
-            <input type="number" id="descuento" name="descuento" class="form-control text-dark" placeholder="Ingrese el descuento" step="0.01" min="0" required />
+            <input type="number" id="descuento" name="descuento" class="form-control text-dark" placeholder="Ingrese el descuento" step="0.01" min="0" readonly />
             <div class="invalid-feedback">Por favor ingrese un descuento válido.</div>
           </div>
         </div>
@@ -505,7 +516,7 @@
         <h5 class="modal-title text-white" id="personaModalLabel">
           <i class="fas fa-user mr-2"></i> Seleccionar Persona
         </h5>
-        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
           <i class="fas fa-times"></i>
         </button>
       </div>
@@ -526,16 +537,24 @@
                 <th style="width: 20%;">Cédula</th>
                 <th style="width: 25%;">Nombre</th>
                 <th style="width: 25%;">Apellidos</th>
+                <th style="width: 25%;">Tipo</th>
                 <th style="width: 15%;">Seleccionar</th>
               </tr>
             </thead>
             <tbody>
               {% for persona in personas %}
-                <tr data-id="{{ persona.idPersona }}" data-nombre="{{ persona.nombres }} {{ persona.apellidos }}">
+                <tr data-id="{{ persona.idPersona }}" data-nombre="{{ persona.nombres }} {{ persona.apellidos }}" data-tp="{% for tp in persona.personatp_set.all %}{{ tp.idTP.idTP }}{% if not forloop.last %},{% endif %}{% endfor %}">
                   <td>{{ persona.idPersona }}</td>
                   <td>{{ persona.cedula }}</td>
                   <td>{{ persona.nombres }}</td>
                   <td>{{ persona.apellidos }}</td>
+                  <td>
+                    {% for tp in persona.personatp_set.all %}
+                      <span class="badge bg-info text-dark">{{ tp.idTP.nombreTP }}</span>
+                    {% empty %}
+                      <span class="text-muted">—</span>
+                    {% endfor %}
+                  </td>
                   <td>
                     <button class="btn btn-sm btn-warning btn-select">
                       <i class="fas fa-check"></i> Elegir
@@ -553,7 +572,7 @@
         </p>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
       </div>
     </div>
   </div>
@@ -567,7 +586,7 @@
         <h5 class="modal-title text-white" id="empresaModalLabel">
           <i class="fas fa-building mr-2"></i> Seleccionar Empresa
         </h5>
-        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
           <i class="fas fa-times"></i>
         </button>
       </div>
@@ -611,7 +630,7 @@
         </p>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
       </div>
     </div>
   </div>
@@ -625,7 +644,7 @@
         <h5 class="modal-title text-white" id="cuotaModalLabel">
           <i class="fas fa-money-bill-wave mr-2"></i> Seleccionar Cuota
         </h5>
-        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
           <i class="fas fa-times"></i>
         </button>
       </div>
@@ -652,20 +671,18 @@
             </thead>
             <tbody>
               {% for cuota in cuotas %}
-                {% for inscripcion in cuota.inscripciones.all %}
-                  <tr data-id="{{ cuota.idCuota }}" data-nombre="{{ cuota.nombreCuota }}" data-valor="{{ cuota.valorCuota }}" data-idIn="{{ inscripcion.idInscripcion }}">
-                    <td>{{ cuota.idCuota }}</td>
-                    <td>{{ inscripcion.idInscripcion }}</td>
-                    <td>{{ cuota.nombreCuota }}</td>
-                    <td>{{ cuota.valorCuota }}</td>
-                    <td>{{ inscripcion.idFormacion.nombreFormacion }}</td>
-                    <td>
-                      <button class="btn btn-sm btn-warning btn-select">
-                        <i class="fas fa-check"></i> Elegir
-                      </button>
-                    </td>
-                  </tr>
-                {% endfor %}
+                <tr data-id="{{ cuota.idCuota.idCuota }}" data-nombre="{{ cuota.idCuota.nombreCuota }}" data-valor="{{ cuota.idCuota.valorCuota }}" data-idIn="{{ cuota.idInscripcion.idInscripcion }}" data-persona-id="{{ cuota.idInscripcion.idPersona.idPersona }}">
+                  <td>{{ cuota.id}}</td>
+                  <td>{{ cuota.idInscripcion.idInscripcion }}</td>
+                  <td>{{ cuota.idCuota.nombreCuota }}</td>
+                  <td>{{ cuota.idCuota.valorCuota }}</td>
+                  <td>{{ cuota.idInscripcion.idFormacion.nombreFormacion }}</td>
+                  <td>
+                    <button class="btn btn-sm btn-warning btn-select">
+                      <i class="fas fa-check"></i> Elegir
+                    </button>
+                  </td>
+                </tr>
               {% endfor %}
             </tbody>
           </table>
@@ -677,7 +694,7 @@
         </p>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
       </div>
     </div>
   </div>
@@ -691,7 +708,7 @@
         <h5 class="modal-title text-white" id="inscripcionModalLabel">
           <i class="fas fa-user-graduate mr-2"></i> Seleccionar Inscripción
         </h5>
-        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
           <i class="fas fa-times"></i>
         </button>
       </div>
@@ -709,6 +726,8 @@
             <thead class="bg-light">
               <tr>
                 <th style="width: 10%;">ID</th>
+                <th style="width: 15%;">ID persona</th>
+
                 <th style="width: 20%;">Tipo Formación</th>
                 <th style="width: 25%;">Formación</th>
                 <th style="width: 15%;">Valor</th>
@@ -720,6 +739,7 @@
               {% for inscripcion in inscripciones %}
                 <tr data-id="{{ inscripcion.idInscripcion }}" data-valor="{{ inscripcion.idFormacion.valorInscripcion }}" data-nombre="{{ inscripcion.idTF.nombreTipoFormacion }} {{ inscripcion.idFormacion.nombreFormacion }}" data-persona-id="{{ inscripcion.idPersona.idPersona }}">
                   <td>{{ inscripcion.idInscripcion }}</td>
+                  <td>{{ inscripcion.idPersona.idPersona }}</td>
                   <td>{{ inscripcion.idTF.nombreTipoFormacion }}</td>
                   <td>{{ inscripcion.idFormacion.nombreFormacion }}</td>
                   <td>{{ inscripcion.idFormacion.valorInscripcion }}</td>
@@ -741,7 +761,7 @@
         </p>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
       </div>
     </div>
   </div>
@@ -755,7 +775,7 @@
         <h5 class="modal-title text-white" id="honorarioModalLabel">
           <i class="fas fa-user-tie mr-2"></i> Seleccionar Honorario
         </h5>
-        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
           <i class="fas fa-times"></i>
         </button>
       </div>
@@ -783,7 +803,7 @@
             </thead>
             <tbody>
               {% for honorario in honorarios %}
-                <tr data-id="{{ honorario.idHonorario }}" data-valor="{{ honorario.monto }}" data-nombre="{{ honorario.idCargo.nombreCargo }}">
+                <tr data-id="{{ honorario.idHonorario }}" data-valor="{{ honorario.monto }}" data-nombre="{{ honorario.idCargo.nombreCargo }}" data-persona-id="{{ honorario.idPersona.idPersona }}">
                   <td>{{ honorario.idHonorario }}</td>
                   <td>{{ honorario.idCargo.nombreCargo }}</td>
                   <td>{{ honorario.idCohorte.nombreCohorte }}</td>
@@ -807,7 +827,7 @@
         </p>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
       </div>
     </div>
   </div>
@@ -821,7 +841,7 @@
         <h5 class="modal-title text-white" id="solicitudModalLabel">
           <i class="fas fa-file-alt mr-2"></i> Seleccionar Solicitud
         </h5>
-        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
           <i class="fas fa-times"></i>
         </button>
       </div>
@@ -847,7 +867,7 @@
             </thead>
             <tbody>
               {% for solicitud in solicitudes %}
-                <tr data-id="{{ solicitud.idSoli }}" data-valor="{{ solicitud.montoTotal }}" data-nombre="{{ solicitud.idTramite.nombreTramite }} {{ solicitud.idServicio.nombreServicio }}" data-monto="{{ solicitud.montoTotal }}" data-persona-id="{{ solicitud.idPersona.idPersona }}">
+                <tr data-id="{{ solicitud.idSoli }}" data-valor="{{ solicitud.montoTotal }}" data-nombre="{{ solicitud.idTramite.nombreTramite }} {{ solicitud.idServicio.nombreServicio }}" data-monto="{{ solicitud.montoTotal }}" data-persona-id="{{ solicitud.idPersona.idPersona }}" >
                   <td>{{ solicitud.idSoli }}</td>
                   <td>{{ solicitud.idTramite.nombreTramite }}</td>
                   <td>{{ solicitud.idServicio.nombreServicio }}</td>
@@ -869,7 +889,7 @@
         </p>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
       </div>
     </div>
   </div>
@@ -982,6 +1002,124 @@ document.addEventListener('DOMContentLoaded', function () {
   let parametrosTributarios = {};
   let lastError = null;
 
+  // ===== FUNCIONES DE FILTRADO DE MODALES =====
+
+  /**
+   * Filtra una tabla modal para mostrar solo registros de la persona seleccionada
+   */
+  function filtrarModalPorPersona(tableId, personaId) {
+    const table = document.getElementById(tableId);
+    if (!table) return;
+    
+    const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+    let hasVisibleRows = false;
+    let visibles = [];
+    let ocultos = [];
+
+    console.log(`[filtrarModalPorPersona] Filtrando tabla "${tableId}" para personaId="${personaId}"`);
+    
+    for (let i = 0; i < rows.length; i++) {
+      const rowPersonaId = rows[i].getAttribute('data-persona-id');
+      console.log(`  Fila ${i}: data-persona-id="${rowPersonaId}"`);
+      
+      // Mostrar solo si coincide con la persona seleccionada
+      if (rowPersonaId === personaId) {
+        rows[i].style.display = '';
+        hasVisibleRows = true;
+        visibles.push(rowPersonaId);
+      } else {
+        rows[i].style.display = 'none';
+        ocultos.push(rowPersonaId);
+      }
+    }
+    
+    console.log(`[filtrarModalPorPersona] Visibles:`, visibles);
+    console.log(`[filtrarModalPorPersona] Ocultos:`, ocultos);
+
+    // Mostrar mensaje si no hay registros
+    const mensajeId = getMensajeIdByTableId(tableId);
+    const mensajeEl = document.getElementById(mensajeId);
+    if (mensajeEl) {
+      mensajeEl.style.display = hasVisibleRows ? 'none' : 'block';
+      mensajeEl.innerHTML = hasVisibleRows ? '' : 
+        `<i class="fas fa-info-circle mr-2"></i> No se encontraron registros para esta persona`;
+    }
+    
+    // Reiniciar paginación y búsqueda
+    reiniciarPaginacionModal(tableId);
+  }
+
+  /**
+   * Obtiene el ID del mensaje de "sin registros" basado en el ID de la tabla
+   */
+  function getMensajeIdByTableId(tableId) {
+    const mapping = {
+      'tablaCuotas': 'mensajeSinRegistrosCuota',
+      'tablaInscripciones': 'mensajeSinRegistrosInscripcion',
+      'tablaHonorarios': 'mensajeSinRegistrosHonorario',
+      'tablaSolicitudes': 'mensajeSinRegistrosSolicitud'
+    };
+    return mapping[tableId];
+  }
+
+  /**
+   * Reinicia la paginación y búsqueda de un modal
+   */
+  function reiniciarPaginacionModal(tableId) {
+    const searchInputId = getSearchInputIdByTableId(tableId);
+    const searchInput = document.getElementById(searchInputId);
+    if (searchInput) {
+      searchInput.value = ''; // Limpiar búsqueda
+    }
+    
+    // Disparar evento de input para recalcular paginación
+    if (searchInput) {
+      searchInput.dispatchEvent(new Event('input'));
+    }
+  }
+
+  /**
+   * Obtiene el ID del input de búsqueda basado en el ID de la tabla
+   */
+  function getSearchInputIdByTableId(tableId) {
+    const mapping = {
+      'tablaCuotas': 'searchCuotaInput',
+      'tablaInscripciones': 'searchInscripcionInput',
+      'tablaHonorarios': 'searchHonorarioInput',
+      'tablaSolicitudes': 'searchSolicitudInput'
+    };
+    return mapping[tableId];
+  }
+
+  /**
+   * Limpia todos los filtros de modales cuando se cambia o elimina la selección de persona
+   */
+  function limpiarFiltrosModales() {
+    const modalesAFiltrar = ['tablaCuotas', 'tablaInscripciones', 'tablaHonorarios', 'tablaSolicitudes'];
+    
+    modalesAFiltrar.forEach(tableId => {
+      const table = document.getElementById(tableId);
+      if (!table) return;
+      
+      const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+      for (let i = 0; i < rows.length; i++) {
+        rows[i].style.display = ''; // Mostrar todas las filas
+      }
+      
+      // Ocultar mensaje de sin registros
+      const mensajeId = getMensajeIdByTableId(tableId);
+      const mensajeEl = document.getElementById(mensajeId);
+      if (mensajeEl) {
+        mensajeEl.style.display = 'none';
+      }
+      
+      // Reiniciar paginación
+      reiniciarPaginacionModal(tableId);
+    });
+    
+    window.selectedPersonaId = null;
+  }
+
   // ===== FUNCIONES DE VALIDACIÓN VISUAL =====
 
   /**
@@ -1017,6 +1155,34 @@ document.addEventListener('DOMContentLoaded', function () {
           empresaInput.classList.add('is-invalid');
           empresaInput.classList.remove('is-valid');
         }
+      }
+    }
+    // Validar campos de texto
+    const camposTexto = [ 'tipoArticulo','formaPago', 'fechaEmision'];
+    camposTexto.forEach(id => {
+      const campo = document.getElementById(id);
+      if (campo) {
+        if (campo.value.trim() === '') {
+          campo.classList.add('is-invalid');
+          campo.classList.remove('is-valid');
+        } else {
+          campo.classList.add('is-valid');
+          campo.classList.remove('is-invalid');
+        }
+      }
+    });
+
+    // Validar total Nota (es mayor a 0)
+    if (totalNota) {
+      const totalValue = parseFloat(normalizeCurrencyString(totalNota.value));
+      if (isNaN(totalValue) || totalValue <= 0) {
+      totalNota.classList.add('is-invalid');
+      totalNota.classList.remove('is-valid');
+      // Si el total es menor o igual a 0, limpiar el valor para que el formulario lo detecte como vacío
+      totalNota.value = '';
+      } else {
+      totalNota.classList.add('is-valid');
+      totalNota.classList.remove('is-invalid');
       }
     }
 
@@ -1059,6 +1225,7 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     }
   }
+
 
   /**
    * Valida si el formulario está listo para enviar
@@ -1287,6 +1454,13 @@ document.addEventListener('DOMContentLoaded', function () {
     } else if (empresaCheckbox && empresaCheckbox.checked) {
       personaGroup.style.display = 'none';
       empresaGroup.style.display = 'block';
+      // Limpiar filtros cuando se cambia a empresa
+      limpiarFiltrosModales();
+      
+      // También limpiar la selección de persona
+      document.getElementById('personaInput').value = '';
+      document.getElementById('idPersona').value = '';
+      document.getElementById('idPersona').removeAttribute('data-tipo-persona-relacion');
     }
     // Aplicar validación visual después de cambiar visibilidad
     setTimeout(aplicarValidacionVisual, 10);
@@ -1354,12 +1528,16 @@ document.addEventListener('DOMContentLoaded', function () {
   function actualizarVisibilidadPlazoCredito() {
     const plazoCreditoGroup = document.getElementById('plazoCreditoGroup');
     if (!plazoCreditoGroup || !formaPago) return;
-    
+
     if (formaPago.value === 'credito') {
       plazoCreditoGroup.style.display = 'block';
+      if (plazoCreditoInput) plazoCreditoInput.setAttribute('required', 'required');
     } else {
       plazoCreditoGroup.style.display = 'none';
-      if (plazoCreditoInput) plazoCreditoInput.value = '';
+      if (plazoCreditoInput) {
+        plazoCreditoInput.value = '';
+        plazoCreditoInput.removeAttribute('required');
+      }
     }
   }
 
@@ -1421,13 +1599,33 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   /**
-   * Calcula todos los montos de la nota (IVA, retenciones, total) (MODIFICADO: usa parseFloat con normalizeCurrencyString)
+   * Calcula todos los montos de la nota (IVA, retenciones, total) (MODIFICADO: incluye cálculo de descuento automático y manual)
    */
   function calcularMontos() {
     const gravado = parseFloat(normalizeCurrencyString(subtotalGravado.value)) || 0;
     const exento = parseFloat(normalizeCurrencyString(subtotalExento.value)) || 0;
-    const descuentoValor = parseFloat(normalizeCurrencyString(descuento.value)) || 0;
     const tipoArticulo = tipoArticuloSelect?.value;
+    const descuentoInput = document.getElementById('descuento');
+    const idPersonaInput = document.getElementById('idPersona');
+    const tipoPersonaRelacion = idPersonaInput?.dataset.tipoPersonaRelacion || ''; // IDs de tipoPersona relacionados
+
+    let descuentoValor = 0;
+
+    // Verificar si aplica descuento automático
+    if (tipoPersonaRelacion.includes('3') && (tipoArticulo === 'INSCRIPCION' || tipoArticulo === 'SOLICITUD' || tipoArticulo === 'CUOTA')) {
+      const porcentajeDescuento = parseFloat("{{ descuento }}") || 0; // Porcentaje enviado desde el backend
+      descuentoValor = (gravado + exento) * (porcentajeDescuento / 100);
+      if (descuentoInput) {
+        descuentoInput.value = descuentoValor.toFixed(2);
+        descuentoInput.setAttribute('readonly', true); // Bloquear edición manual
+      }
+    } else {
+      // Permitir al usuario definir el descuento manualmente
+      if (descuentoInput) {
+        descuentoInput.removeAttribute('readonly'); // Habilitar edición manual
+        descuentoValor = parseFloat(normalizeCurrencyString(descuentoInput.value)) || 0;
+      }
+    }
 
     // Obtener parámetros tributarios
     const parametroIva = obtenerParametro('IVA_GENERAL', tipoArticulo);
@@ -1439,30 +1637,30 @@ document.addEventListener('DOMContentLoaded', function () {
     // Calcular IVA
     const porcentajeIva = parametroIva?.porcentaje ?? 16;
     const ivaCalculado = gravado * (porcentajeIva / 100);
-    setCurrencyField('iva', ivaCalculado); // MODIFICADO: usa setCurrencyField
+    setCurrencyField('iva', ivaCalculado);
 
     // Calcular retenciones si es egreso
     if (egresoCheckbox?.checked) {
-      setCurrencyField('ivaRetenido', ivaCalculado * (parametroRetencionIva?.porcentaje ?? 0) / 100); // MODIFICADO
-      setCurrencyField('islrRetenido', (gravado + exento) * (parametroRetencionIslr?.porcentaje ?? 0) / 100); // MODIFICADO
+      setCurrencyField('ivaRetenido', ivaCalculado * (parametroRetencionIva?.porcentaje ?? 0) / 100);
+      setCurrencyField('islrRetenido', (gravado + exento) * (parametroRetencionIslr?.porcentaje ?? 0) / 100);
     } else {
-      setCurrencyField('ivaRetenido', 0); // MODIFICADO
-      setCurrencyField('islrRetenido', 0); // MODIFICADO
+      setCurrencyField('ivaRetenido', 0);
+      setCurrencyField('islrRetenido', 0);
     }
 
     // Calcular total
     let total = exento + gravado + ivaCalculado - descuentoValor;
     if (total < 0) total = 0;
-    setCurrencyField('totalNota', total); // MODIFICADO
+    setCurrencyField('totalNota', total);
 
     // Actualizar porcentajes en la UI
     const ivaPercentageEl = document.getElementById('ivaPercentage');
     if (ivaPercentageEl) ivaPercentageEl.textContent = porcentajeIva;
-    
+
     if (egresoCheckbox?.checked) {
       const ivaRetentionEl = document.getElementById('ivaRetentionPercentage');
       const islrRetentionEl = document.getElementById('islrRetentionPercentage');
-      
+
       if (ivaRetentionEl) ivaRetentionEl.textContent = parametroRetencionIva?.porcentaje ?? 0;
       if (islrRetentionEl) islrRetentionEl.textContent = parametroRetencionIslr?.porcentaje ?? 0;
     }
@@ -1564,7 +1762,7 @@ document.addEventListener('DOMContentLoaded', function () {
         break;
 
       case 'CUOTA':
-        setCurrencyField('subtotalGravado', parseFloat(valor) || 0);
+        setCurrencyField('subtotalExento', parseFloat(valor) || 0);
         if (subtotalGravado) subtotalGravado.setAttribute('readonly', true);
         
         if (ingresoCheckbox) ingresoCheckbox.checked = true;
@@ -1708,15 +1906,32 @@ document.addEventListener('DOMContentLoaded', function () {
   // ===== MANEJO DE MODALES =====
 
   const modales = [
-    { tabla: 'tablaPersonas', input: 'personaInput', hidden: 'idPersona', modal: 'personaModal' },
+    { 
+      tabla: 'tablaPersonas', 
+      input: 'personaInput', 
+      hidden: 'idPersona', 
+      modal: 'personaModal',
+      callback: function(id, nombre, tipoPersonaRelacion) {
+        // Almacenar el ID de persona seleccionado
+        window.selectedPersonaId = id;
+        
+        // Filtrar todos los modales relacionados
+        filtrarModalPorPersona('tablaCuotas', id);
+        filtrarModalPorPersona('tablaInscripciones', id);
+        filtrarModalPorPersona('tablaHonorarios', id);
+        filtrarModalPorPersona('tablaSolicitudes', id);
+        
+        console.log(`Persona seleccionada: ${id}, filtrando modales...`);
+      }
+    },
     { tabla: 'tablaEmpresas', input: 'empresaInput', hidden: 'idEmpresa', modal: 'empresaModal' },
-    { tabla: 'tablaCuotas', input: 'cuota', hidden: 'idCuota', modal: 'cuotaModal', gravado: true },
+    { tabla: 'tablaCuotas', input: 'cuota', hidden: 'idCuota', modal: 'cuotaModal', gravado: false },
     { tabla: 'tablaInscripciones', input: 'inscripcion', hidden: 'idInscripcion', modal: 'inscripcionModal', gravado: false },
     { tabla: 'tablaHonorarios', input: 'honorario', hidden: 'idHonorario', modal: 'honorarioModal', gravado: true },
     { tabla: 'tablaSolicitudes', input: 'solicitud', hidden: 'idSolicitud', modal: 'solicitudModal', gravado: false }
   ];
 
-  modales.forEach(({ tabla, input, hidden, modal, gravado }) => {
+  modales.forEach(({ tabla, input, hidden, modal, gravado, callback }) => {
     const tablaEl = document.getElementById(tabla);
     if (!tablaEl) return;
     
@@ -1727,10 +1942,23 @@ document.addEventListener('DOMContentLoaded', function () {
       const id = fila.getAttribute('data-id');
       const nombre = fila.getAttribute('data-nombre');
       const valor = fila.getAttribute('data-valor');
-      
+      const tipoPersonaRelacion = fila.getAttribute('data-tp');
+      const personaId = fila.getAttribute('data-persona-id');
+
       document.getElementById(input).value = nombre;
       document.getElementById(hidden).value = id;
       
+      // Asignar el valor de data-tp al atributo data-tipo-persona-relacion (solo para persona)
+      if (hidden === 'idPersona') {
+        document.getElementById(hidden).setAttribute('data-tipo-persona-relacion', tipoPersonaRelacion || '');
+        console.log(`Asignado data-tipo-persona-relacion="${tipoPersonaRelacion || ''}" al campo idPersona`);
+        
+        // Ejecutar callback si existe (para filtrar otros modales)
+        if (callback) {
+          callback(id, nombre, tipoPersonaRelacion);
+        }
+      }
+
       // Actualizar montos si corresponde
       if (valor !== null && gravado !== undefined) {
         const monto = parseFloat(valor) || 0;
@@ -2019,129 +2247,7 @@ document.addEventListener('DOMContentLoaded', function () {
     setTimeout(aplicarValidacionVisual, 150);
   }
 });
+
 </script>
 
-
-<script>
-/**
- * Utilidad para paginación y búsqueda de tablas de selección en modales.
- * Uso: llamar setupTableSearchAndPagination({tableId, searchInputId, paginationId, mensajeSinRegistrosId, rowsPerPage})
- */
-function setupTableSearchAndPagination({tableId, searchInputId, paginationId, mensajeSinRegistrosId, rowsPerPage=10}) {
-  const table = document.getElementById(tableId);
-  const searchInput = document.getElementById(searchInputId);
-  const pagination = document.getElementById(paginationId);
-  const mensajeSinRegistros = document.getElementById(mensajeSinRegistrosId);
-
-  if (!table || !searchInput || !pagination) return;
-
-  let currentPage = 1;
-  let filteredRows = [];
-
-  function filterRows() {
-    const filter = searchInput.value.trim().toUpperCase();
-    const allRows = Array.from(table.tBodies[0].rows);
-    filteredRows = allRows.filter(row => {
-      return Array.from(row.cells).some(cell =>
-        cell.textContent.toUpperCase().indexOf(filter) > -1
-      );
-    });
-    allRows.forEach(row => row.style.display = 'none');
-    filteredRows.forEach(row => row.style.display = '');
-    currentPage = 1;
-    displayRows();
-    setupPagination();
-    if (mensajeSinRegistros) {
-      mensajeSinRegistros.style.display = filteredRows.length === 0 ? 'block' : 'none';
-    }
-  }
-
-  function displayRows() {
-    filteredRows.forEach((row, idx) => {
-      row.style.display = (idx >= (currentPage-1)*rowsPerPage && idx < currentPage*rowsPerPage) ? '' : 'none';
-    });
-  }
-
-  function setupPagination() {
-    pagination.innerHTML = '';
-    const totalPages = Math.ceil(filteredRows.length / rowsPerPage) || 1;
-
-    const createPageItem = (label, page, disabled, active) => {
-      const li = document.createElement('li');
-      li.className = `page-item${disabled ? ' disabled' : ''}${active ? ' active' : ''}`;
-      const a = document.createElement('a');
-      a.className = 'page-link';
-      a.href = '#';
-      a.innerHTML = label;
-      a.addEventListener('click', e => {
-        e.preventDefault();
-        if (!disabled && currentPage !== page) {
-          currentPage = page;
-          displayRows();
-          setupPagination();
-        }
-      });
-      li.appendChild(a);
-      return li;
-    };
-
-    const ul = document.createElement('ul');
-    ul.className = 'pagination';
-
-    ul.appendChild(createPageItem('&laquo;', Math.max(1, currentPage-1), currentPage === 1, false));
-    for (let i = 1; i <= totalPages; i++) {
-      ul.appendChild(createPageItem(i, i, false, i === currentPage));
-    }
-    ul.appendChild(createPageItem('&raquo;', Math.min(totalPages, currentPage+1), currentPage === totalPages, false));
-
-    pagination.appendChild(ul);
-  }
-
-  searchInput.addEventListener('input', filterRows);
-
-  // Inicialización
-  filteredRows = Array.from(table.tBodies[0].rows);
-  filterRows();
-}
-
-// Inicializar para cada tabla/modal
-document.addEventListener('DOMContentLoaded', function() {
-  setupTableSearchAndPagination({
-    tableId: 'tablaPersonas',
-    searchInputId: 'searchPersonaInput',
-    paginationId: 'paginationPersonas',
-    mensajeSinRegistrosId: 'mensajeSinRegistrosPersona'
-  });
-  setupTableSearchAndPagination({
-    tableId: 'tablaEmpresas',
-    searchInputId: 'searchEmpresaInput',
-    paginationId: 'paginationEmpresas',
-    mensajeSinRegistrosId: 'mensajeSinRegistrosEmpresa'
-  });
-  setupTableSearchAndPagination({
-    tableId: 'tablaCuotas',
-    searchInputId: 'searchCuotaInput',
-    paginationId: 'paginationCuotas',
-    mensajeSinRegistrosId: 'mensajeSinRegistrosCuota'
-  });
-  setupTableSearchAndPagination({
-    tableId: 'tablaInscripciones',
-    searchInputId: 'searchInscripcionInput',
-    paginationId: 'paginationInscripciones',
-    mensajeSinRegistrosId: 'mensajeSinRegistrosInscripcion'
-  });
-  setupTableSearchAndPagination({
-    tableId: 'tablaHonorarios',
-    searchInputId: 'searchHonorarioInput',
-    paginationId: 'paginationHonorarios',
-    mensajeSinRegistrosId: 'mensajeSinRegistrosHonorario'
-  });
-  setupTableSearchAndPagination({
-    tableId: 'tablaSolicitudes',
-    searchInputId: 'searchSolicitudInput',
-    paginationId: 'paginationSolicitudes',
-    mensajeSinRegistrosId: 'mensajeSinRegistrosSolicitud'
-  });
-});
-</script>
 {% endblock javascripts %}

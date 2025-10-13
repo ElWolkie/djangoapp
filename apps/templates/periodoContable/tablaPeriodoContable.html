@@ -102,9 +102,9 @@
         <tbody>
           {% for periodo in periodos %}
           <tr>
-            <td>{{ periodo.nombrePeriodo }}</td>
-            <td>{{ periodo.fechaInicioPeriodo|date:"d/m/Y" }}</td>
-            <td>{{ periodo.fechaFinPeriodo|date:"d/m/Y" }}</td>
+            <td class="text-center">{{ periodo.nombrePeriodo }}</td>
+            <td class="text-center">{{ periodo.fechaInicioPeriodo|date:"d/m/Y" }}</td>
+            <td class="text-center">{{ periodo.fechaFinPeriodo|date:"d/m/Y" }}</td>
             <td>
               {% if periodo.estadoPeriodo %}
                 <span class="badge bg-success text-white">Activo</span>
@@ -156,7 +156,7 @@
   </div>
 </div>
 
-<!-- Modal: Registrar Periodo Contable -->
+<!-- Modal: Registrar Período Contable -->
 <div class="modal fade" id="periodoContableModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-md">
     <div class="modal-content">
@@ -173,7 +173,7 @@
   </div>
 </div>
 
-<!-- Modal: Editar Periodo Contable -->
+<!-- Modal: Editar Período Contable -->
 <div class="modal fade" id="editPeriodoModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-md">
     <div class="modal-content">
@@ -190,7 +190,7 @@
   </div>
 </div>
 
-<!-- Modal: Inhabilitar Periodo Contable -->
+<!-- Modal: Inhabilitar Período Contable -->
 <div class="modal fade" id="deletePeriodoModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -214,7 +214,7 @@
   </div>
 </div>
 
-<!-- Modal: Reactivar Periodo Contable -->
+<!-- Modal: Reactivar Período Contable -->
 <div class="modal fade" id="reactivatePeriodoModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">

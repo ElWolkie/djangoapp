@@ -540,6 +540,25 @@ def pages(request):
         html_template = loader.get_template("home/page-500.html")
         return HttpResponse(html_template.render(context, request))
 
+@login_required(login_url='login')
+@permission_required("inscripcion.view_inscripcion", raise_exception=True)
+def ver_cuotas_inscripcion(request, pk):
+    inscripcion = get_object_or_404(Inscripcion, pk=pk)
+    cuotas = InscripcionCuota.objects.filter(idInscripcion=inscripcion).select_related('idCuota')
+
+    cuotas_data = [
+        {
+            'id': cuota.idCuota.idCuota,
+            'nombre': cuota.idCuota.nombreCuota,
+            'valor': float(cuota.idCuota.valorCuota),
+            'estado': cuota.estadoPago,
+            'monto_pagado': float(cuota.montoPagado),
+            'fecha_pago': cuota.fechaPago.strftime('%Y-%m-%d') if cuota.fechaPago else None,
+        }
+        for cuota in cuotas
+    ]
+
+    return JsonResponse({'success': True, 'cuotas': cuotas_data})
 
 
 

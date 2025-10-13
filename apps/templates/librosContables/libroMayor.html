@@ -231,41 +231,75 @@
       justify-content: flex-end;
     }
   }
+    .periodo-info {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 1rem 1.5rem;
+    border-radius: 10px;
+    margin-bottom: 1.5rem;
+  }
+  
+  .periodo-info h5 {
+    margin: 0;
+    font-weight: 600;
+  }
+  
+  .periodo-info .fechas {
+    font-size: 0.9rem;
+    opacity: 0.9;
+  }
+  
 </style>
 {% endblock stylesheets %}
 
 {% block content %}
-<div class="container-balance w-100">
+<div class="container-balance">
   <div class="header-balance">
     <h2>Libro Mayor</h2>
-    <p class="text-muted">Estructura jerárquica de cuentas contables</p>
   </div>
 
-  <div class="filters-container">
-    <form method="get">
-      <div class="row">
-        <div class="col-md-6">
-          <div class="input-group">
-            <span class="input-group-text"><i class="fas fa-search"></i></span>
-            <input id="searchInput" name="search" class="form-control" type="text" placeholder="Buscar por código o nombre de cuenta..." value="{{ search_query }}">
-          </div>
-        </div>
-        <div class="col-md-6">
-          <select name="periodo" class="form-select">
-            {% for periodo in periodos %}
-              <option value="{{ periodo.idPeriodo }}" {% if periodo == periodo_seleccionado %}selected{% endif %}>
-                {{ periodo.nombrePeriodo }}
-              </option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="col-md-12 mt-3 text-end">
-          <button type="submit" class="btn btn-primary">Filtrar</button>
-        </div>
-      </div>
-    </form>
-  </div>
+  <div class="filters-container align-items-center" style="grid-template-columns: repeat(4, 2fr); gap: 2rem;">
+    <div class="input-group">
+       <!-- Buscador directo del bakend NO BORRAR -->
+      <form onsubmit="updateSearchParam(event)" class="d-flex w-100">
+        <span class="input-group-text"><i class="fas fa-search"></i></span>
+        <input type="text" id="searchInput" name="search" class="form-control" placeholder="Buscar por código, nombre, fecha, concepto, naturaleza, debe, haber o saldo..." value="{{ search_query|default:'' }}" title="Escribe lo que buscas y presiona Enter. Para resetear el filtro, borra el texto y presiona Enter.">
+        <button type="submit" style="display:none" tabindex="-1" aria-hidden="true"></button>
+      </form>
+    </div>
 
+    <div class="input-group">
+      <span class="input-group-text"><i class="fas fa-calendar-alt"></i></span>
+      <input id="startDate" class="form-control" type="date" placeholder="Fecha inicio">
+      <input id="endDate" class="form-control" type="date" placeholder="Fecha fin">
+    </div>
+
+    <div class="input-group">
+      <span class="input-group-text"><i class="fas fa-calendar-alt"></i></span>
+      <select id="periodoSelect" class="form-control" name="periodo">
+        <option value="">Seleccionar período</option>
+        {% for periodo in periodos %}
+          <option value="{{ periodo.idPeriodo }}" {% if periodo.idPeriodo == periodo_seleccionado.idPeriodo %}selected{% endif %}>
+            {{ periodo.nombrePeriodo }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <button id="filterButton" class="btn btn-warning" style="width: 50%;" title="Cuando apliques un filtro de fechas, los calculos de totales se ajustarán a los asientos relacionados. Para resetear el filtro, borra las fechas y presiona el botón.">
+      <i class="fas fa-filter me-1"></i> Filtrar
+    </button>
+  </div>
+  {% if periodo_seleccionado %}
+  <div class="periodo-info">
+    <div class="d-flex justify-content-between align-items-center">
+      <h5 class="mb-0">{{ periodo_seleccionado.nombrePeriodo }}</h5>
+      <span class="fechas">
+        {{ periodo_seleccionado.fechaInicioPeriodo|date:"d/m/Y" }} - {{ periodo_seleccionado.fechaFinPeriodo|date:"d/m/Y" }}
+      </span>
+    </div>
+  </div>
+  {% endif %}
   <div class="totals-container">
     <div class="total-card total-debe">
       <h5>Total Debe</h5>
@@ -282,9 +316,10 @@
   <thead>
     <tr>
       <th>Código</th>
-      <th>Nombre de Cuenta</th>
+      <th>Nombre</th>
       <th>Fecha</th>
       <th>Concepto</th>
+      <th>Beneficiario</th>
       <th>Debe</th>
       <th>Haber</th>
       <th>Saldo</th>
@@ -298,11 +333,11 @@
         {% if item.tipo == 'cuenta' %}
         <!-- Fila de cuenta principal -->
         <tr class="toggle-row" data-target="saldo-{{ item.data.cuenta.codigoPlanCuenta }}" 
-            style="background-color: #ee6815cb; color: rgb(65, 65, 65); cursor: pointer;" 
+            style=" background: linear-gradient(140deg, #ffa657e7 0%, #f78710d8 100%); color: rgb(0, 0, 0); cursor: pointer;" 
             title="Haz clic aquí para visualizar el saldo de inicio y fin de esta cuenta">
           <td>{{ item.data.cuenta.codigoPlanCuenta }}</td>
           <td colspan="6">{{ item.data.cuenta.nombrePlanCuenta }}</td>
-          <td>
+          <!-- <td>
             {% if item.data.naturaleza_final == "Deudor" %}
               <span class="badge bg-success">Deudor</span>
             {% elif item.data.naturaleza_final == "Acreedor" %}
@@ -310,7 +345,9 @@
             {% else %}
               <span class="badge bg-secondary">Saldado</span>
             {% endif %}
-          </td>
+          </td> -->
+          <td></td>
+          <td></td>
           <td></td>
         </tr>
 
@@ -329,23 +366,26 @@
             </span>
           </td>
           <td>
-            {% if item.data.naturaleza_final == "Deudor" %}
+            <!-- {% if item.data.naturaleza_final == "Deudor" %}
               <span class="badge bg-success">Deudor</span>
             {% elif item.data.naturaleza_final == "Acreedor" %}
               <span class="badge bg-danger">Acreedor</span>
             {% else %}
               <span class="badge bg-secondary">Saldado</span>
-            {% endif %}
+            {% endif %} -->
           </td>
           <td></td>
+          <td></td>
+
         </tr>
         {% elif item.tipo == 'detalle' %}
         <!-- Fila de detalle/movimiento -->
         <tr style="background-color: white;">
-          <td></td>
-          <td></td>
+          <td>{{ item.data.cuenta.codigoPlanCuenta }}</td>
+          <td>{{ item.data.cuenta.nombrePlanCuenta }}</td>
           <td>{{ item.data.fecha|date:"d/m/Y" }}</td>
           <td>{{ item.data.concepto }}</td>
+          <td>{{ item.data.beneficiario }}</td>
             <td class="highlight-debe">
             {% if item.data.debe > 0 %}
               {{ item.data.debe|floatformat:2 }}
@@ -373,17 +413,9 @@
             {% endif %}
           </td>
           <td>
-            {% with button_shown=False %}
-            {% for record in related_records %}
-              {% if record.data.id_asiento == item.data.id_asiento and not button_shown %}
-                <button class="btn btn-info btn-sm" data-bs-toggle="modal" data-bs-target="#modal-{{ item.data.id_asiento }}">
-                  <i class="fas fa-eye"></i>
-                </button>
-                {% with button_shown=True %}
-                {% endwith %}
-              {% endif %}
-            {% endfor %}
-            {% endwith %}
+            <button class="btn btn-info btn-sm" data-bs-toggle="modal" data-bs-target="#modal-{{ item.data.id_asiento }}">
+              <i class="fas fa-eye"></i> Ver
+            </button>
           </td>
         </tr>
         {% endif %}
@@ -393,43 +425,39 @@
 </table>
   </div>
 
-  <div class="pagination-container mt-3">
-    <nav aria-label="Page navigation">
-      <ul class="pagination justify-content-center">
-        {% if cuentas_data.has_previous %}
-          <li class="page-item">
-            <a class="page-link" href="?page={{ cuentas_data.previous_page_number }}&search={{ search_query }}&periodo={{ periodo_seleccionado.idPeriodo }}" aria-label="Anterior">
-              <span aria-hidden="true">&laquo;</span>
-            </a>
-          </li>
-        {% else %}
-          <li class="page-item disabled">
-            <span class="page-link">&laquo;</span>
-          </li>
-        {% endif %}
+  <div class="pagination-container text-center mt-4">
+  <nav aria-label="Page navigation">
+    <ul class="pagination justify-content-center">
+      {% if cuentas_data.has_previous %}
+        <li class="page-item">
+          <a class="page-link" href="javascript:updatePageParam({{ cuentas_data.previous_page_number }})" aria-label="Anterior">
+            <span aria-hidden="true">&laquo;</span>
+          </a>
+        </li>
+      {% endif %}
 
-        {% for num in cuentas_data.paginator.page_range %}
+      {% for num in cuentas_data.paginator.page_range %}
+        {% if num == 1 or num == cuentas_data.paginator.num_pages or num >= cuentas_data.number|add:"-2" and num <= cuentas_data.number|add:"2" %}
           {% if cuentas_data.number == num %}
             <li class="page-item active"><span class="page-link">{{ num }}</span></li>
           {% else %}
-            <li class="page-item"><a class="page-link" href="?page={{ num }}&search={{ search_query }}&periodo={{ periodo_seleccionado.idPeriodo }}">{{ num }}</a></li>
+            <li class="page-item"><a class="page-link" href="javascript:updatePageParam({{ num }})">{{ num }}</a></li>
           {% endif %}
-        {% endfor %}
-
-        {% if cuentas_data.has_next %}
-          <li class="page-item">
-            <a class="page-link" href="?page={{ cuentas_data.next_page_number }}&search={{ search_query }}&periodo={{ periodo_seleccionado.idPeriodo }}" aria-label="Siguiente">
-              <span aria-hidden="true">&raquo;</span>
-            </a>
-          </li>
-        {% else %}
-          <li class="page-item disabled">
-            <span class="page-link">&raquo;</span>
-          </li>
+        {% elif num == cuentas_data.number|add:"-3" or num == cuentas_data.number|add:"3" %}
+          <li class="page-item disabled"><span class="page-link">...</span></li>
         {% endif %}
-      </ul>
-    </nav>
-  </div>
+      {% endfor %}
+
+      {% if cuentas_data.has_next %}
+        <li class="page-item">
+          <a class="page-link" href="javascript:updatePageParam({{ cuentas_data.next_page_number }})" aria-label="Siguiente">
+            <span aria-hidden="true">&raquo;</span>
+          </a>
+        </li>
+      {% endif %}
+    </ul>
+  </nav>
+</div>
 </div>
 
 <!-- Modals for related records -->
@@ -467,6 +495,47 @@
     </div>
   </div>
 </div>
+{% endfor %}
+
+<!-- Modal para mostrar contrapartidas -->
+{% for page in cuentas_data %}
+  {% for item in page %}
+    {% if item.tipo == 'detalle' %}
+<div class="modal fade" id="modal-{{ item.data.id_asiento }}" tabindex="-1" aria-labelledby="modalLabel-{{ item.data.id_asiento }}" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalLabel-{{ item.data.id_asiento }}">Contrapartidas del Asiento</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Cuenta</th>
+              <th>Debe</th>
+              <th>Haber</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for movimiento in item.data.movimientos_completos %}
+            <tr>
+              <td>{{ movimiento.cuenta }}</td>
+              <td>{{ movimiento.debe }}</td>
+              <td>{{ movimiento.haber }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+    {% endif %}
+  {% endfor %}
 {% endfor %}
 {% endblock content %}
 
@@ -522,144 +591,48 @@
     };
     window.requestAnimationFrame(step);
   }
-
-  function filterTable() {
-    const filter = searchInput.value.toLowerCase();
-    const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
-
-    for (let i = 0; i < rows.length; i++) {
-      const cells = rows[i].getElementsByTagName('td');
-      let match = false;
-
-      // Buscar en las primeras dos columnas
-      for (let j = 0; j < 2; j++) {
-        if (cells[j].textContent.toLowerCase().includes(filter)) {
-          match = true;
-          break;
-        }
-      }
-
-      document.getElementById('totalDebe').textContent = totalDebeValue.toFixed(2);
-      document.getElementById('totalHaber').textContent = totalHaberValue.toFixed(2);
-    }
-
-    function displayRows() {
-      const rows = table.getElementsByTagName('tr');
-      const start = (currentPage - 1) * rowsPerPage + 1; // Ignorar encabezado
-      const end = start + rowsPerPage;
-
-      for (let i = 1; i < rows.length; i++) {
-        rows[i].style.display = i >= start && i < end ? '' : 'none';
-      }
-
-      updateTotals();
-    }
-
-    function setupPagination() {
-      const rows = table.getElementsByTagName('tr');
-      const totalPages = Math.ceil((rows.length - 1) / rowsPerPage);
-
-      pagination.innerHTML = '';
-
-      // Botón "Anterior"
-      const prevLi = document.createElement('li');
-      prevLi.className = 'page-item' + (currentPage === 1 ? ' disabled' : '');
-      prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Anterior"><span aria-hidden="true">&laquo;</span></a>`;
-      prevLi.addEventListener('click', function (e) {
-        e.preventDefault();
-        if (currentPage > 1) {
-          currentPage--;
-          displayRows();
-          setupPagination();
-        }
-      });
-      pagination.appendChild(prevLi);
-
-      // Botones de páginas
-      for (let i = 1; i <= totalPages; i++) {
-        const li = document.createElement('li');
-        li.className = 'page-item' + (i === currentPage ? ' active' : '');
-        li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
-        li.addEventListener('click', function (e) {
-          e.preventDefault();
-          currentPage = i;
-          displayRows();
-          setupPagination();
-        });
-        pagination.appendChild(li);
-      }
-
-      // Botón "Siguiente"
-      const nextLi = document.createElement('li');
-      nextLi.className = 'page-item' + (currentPage === totalPages ? ' disabled' : '');
-      nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Siguiente"><span aria-hidden="true">&raquo;</span></a>`;
-      nextLi.addEventListener('click', function (e) {
-        e.preventDefault();
-        if (currentPage < totalPages) {
-          currentPage++;
-          displayRows();
-          setupPagination();
-        }
-      });
-      pagination.appendChild(nextLi);
-    }
-
-    function filterTable() {
-      const filter = document.getElementById("searchInput").value.toLowerCase();
-      const rows = table.getElementsByTagName('tr');
-
-      for (let i = 1; i < rows.length; i++) {
-        const cells = rows[i].getElementsByTagName('td');
-        let match = false;
-
-        for (let j = 0; j <= 1; j++) { // Filtrar por columnas 0 y 1
-          if (cells[j].textContent.toLowerCase().includes(filter)) {
-            match = true;
-            break;
-          }
-        }
-
-        rows[i].style.display = match ? '' : 'none';
-      }
-
-      updateTotals();
-    }
-
-    document.getElementById('searchInput').addEventListener('input', filterTable);
-
-    // Llamar a las funciones iniciales
-    displayRows();
-    setupPagination();
-      } // Cierre correcto del document.addEventListener
-
-  }); // Cierre correcto del document.addEventListener
-</script>
-
-<script>
-  document.addEventListener('DOMContentLoaded', function () {
+    const filterButton = document.getElementById('filterButton');
+    const startDate = document.getElementById('startDate');
+    const endDate = document.getElementById('endDate');
+    const periodoSelect = document.getElementById('periodoSelect');
     const searchInput = document.getElementById('searchInput');
-    const table = document.querySelector('.table-balance tbody');
 
-    searchInput.addEventListener('input', function () {
-      const filter = searchInput.value.toLowerCase();
-      const rows = table.getElementsByTagName('tr');
+    filterButton.addEventListener('click', () => {
+      const url = new URL(window.location.href);
 
-      for (let i = 0; i < rows.length; i++) {
-        const cells = rows[i].getElementsByTagName('td');
-        let match = false;
-
-        for (let j = 0; j < cells.length; j++) {
-          if (cells[j].textContent.toLowerCase().includes(filter)) {
-            match = true;
-            break;
-          }
-        }
-
-        rows[i].style.display = match ? '' : 'none';
+      // Agregar o eliminar parámetros de fecha y período según los valores
+      if (startDate.value) {
+        url.searchParams.set('start_date', startDate.value);
+      } else {
+        url.searchParams.delete('start_date');
       }
+
+      if (endDate.value) {
+        url.searchParams.set('end_date', endDate.value);
+      } else {
+        url.searchParams.delete('end_date');
+      }
+
+      if (periodoSelect.value) {
+        url.searchParams.set('periodo', periodoSelect.value);
+      } else {
+        url.searchParams.delete('periodo');
+      }
+
+      if (searchInput.value.trim()) {
+        url.searchParams.set('search', searchInput.value.trim());
+      } else {
+        url.searchParams.delete('search');
+      }
+
+      // Redirigir a la nueva URL
+      window.location.href = url.toString();
     });
   });
+
 </script>
+
+
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
@@ -690,18 +663,35 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     });
   });
+});
+</script>
 
-  // Solución para eliminar la sombra activa al cerrar el modal
-  const closeModalButtons = document.querySelectorAll('.btn-close, .btn-secondary');
+<script>
+  function updatePageParam(pageNumber) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('page', pageNumber); // Actualiza o añade el parámetro 'page'
+    window.location.href = url.toString(); // Redirige a la nueva URL
+  }
+</script>
 
-  closeModalButtons.forEach(button => {
-    button.addEventListener('click', function () {
-      const backdrop = document.querySelector('.modal-backdrop');
-      if (backdrop) {
-        backdrop.remove();
-      }
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const modals = document.querySelectorAll('.modal');
+
+    modals.forEach(modal => {
+      modal.addEventListener('hidden.bs.modal', function () {
+        // Asegurarse de que el scroll de la página esté habilitado correctamente
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = 'auto';
+        document.body.style.paddingRight = '0';
+
+        // Eliminar cualquier sombra residual
+        const backdrop = document.querySelector('.modal-backdrop');
+        if (backdrop) {
+          backdrop.remove();
+        }
+      });
     });
   });
-});
 </script>
 {% endblock javascripts %}

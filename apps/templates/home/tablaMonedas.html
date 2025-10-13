@@ -127,10 +127,10 @@
         <tbody>
           {% for moneda in monedas %}
           <tr>
-            <td>{{ forloop.counter }}</td>
-            <td>{{ moneda.nombreMoneda }}</td>
-            <td>{{ moneda.simboloMoneda }}</td>
-            <td>{{ moneda.fechaMoneda|date:"d/m/Y" }}</td>
+            <td class="text-center">{{ forloop.counter }}</td>
+            <td class="text-center">{{ moneda.nombreMoneda }}</td>
+            <td class="text-center">{{ moneda.simboloMoneda }}</td>
+            <td class="text-center">{{ moneda.fechaMoneda|date:"d/m/Y" }}</td>
             <td>
               {% if moneda.estadoMoneda|upper == "ACTIVO" %}
                 <span class="badge bg-success text-white">
