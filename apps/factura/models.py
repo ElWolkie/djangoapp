@@ -1,7 +1,7 @@
 from django.db import models
 from django.forms import ValidationError
 from apps.honorario.models import Honorario
-from apps.inscripcion.models import Inscripcion
+from apps.inscripcion.models import Inscripcion, InscripcionCuota
 from apps.persona.models import Personas
 from apps.empresa.models import empresa
 from apps.periodoContable.models import periodoContable
@@ -68,7 +68,7 @@ class Nota(models.Model):
             raise ValidationError("Debe especificar al menos un valor para 'idPersona' o 'idEmpresa'.")
     def save(self, *args, **kwargs):
             # Automáticamente definir si es COBRO o PAGO basado en tipoArticulo
-            if self.tipoArticulo in ['INSCRIPCION', 'SOLICITUD']:
+            if self.tipoArticulo in ['INSCRIPCION', 'SOLICITUD', 'CUOTA']:
                 self.tipoOperacion = 'COBRO'
             elif self.tipoArticulo in ['HONORARIO_PROFESOR', 'SERVICIO_GENERAL', 'COMPRA_BIENES']:
                 self.tipoOperacion = 'PAGO'
@@ -81,7 +81,7 @@ class Nota(models.Model):
 class NotaRelacionada(models.Model):
     idNota = models.ForeignKey(Nota, on_delete=models.CASCADE, related_name='relaciones')
     idInscripcion = models.ForeignKey(Inscripcion, on_delete=models.SET_NULL, null=True, blank=True, related_name='notas')
-    idCuota = models.ForeignKey(CuotaFormacion, on_delete=models.SET_NULL, null=True, blank=True, related_name='notas')
+    idCuota = models.ForeignKey(InscripcionCuota, on_delete=models.SET_NULL, null=True, blank=True, related_name='notas')
     idHonorario = models.ForeignKey(Honorario, on_delete=models.SET_NULL, null=True, blank=True, related_name='notas')
     idSolicitud = models.ForeignKey(Solicitud, on_delete=models.SET_NULL, null=True, blank=True, related_name='notas')
 
