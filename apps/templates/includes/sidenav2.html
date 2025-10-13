@@ -74,73 +74,13 @@
                 </a>
             </li> -->
       
-            <li class="nav-item">
-              <a class="nav-link" href="#" id="facturaDropdown" data-toggle="collapse" data-target="#facturaMenu" aria-expanded="false" aria-controls="facturaMenu">
-                <i class="ni ni-single-copy-04 text-orange"></i>
-                <span class="nav-link-text">Factura</span>
-              </a>
-              <div id="facturaMenu" class="collapse ml-3">
-                <ul class="nav flex-column">
-                  <!-- Facturas -->
-                  <li class="nav-item">
-                    <a class="nav-link" href="{% url 'nota_create' %}" style="padding-left: 15px;">
-                      <i class="ni ni-fat-add text-orange"></i>
-                      <span class="nav-link-text">Registrar Nota</span>
-                    </a>
-                  </li>
-                  <li class="nav-item">
-                    <a class="nav-link" href="{% url 'nota_list' %}" style="padding-left: 15px;">
-                      <i class="ni ni-bullet-list-67 text-orange"></i>
-                      <span class="nav-link-text">Consultar Nota</span>
-                    </a>
-                  </li>
-                  <li class="nav-item">
-                    <a class="nav-link" href="{% url 'factura_list' %}" style="padding-left: 15px;">
-                      <i class="ni ni-bullet-list-67 text-orange"></i>
-                      <span class="nav-link-text">Consultar Factura</span>
-                    </a>
-                  </li>
-                </ul>
-              </div>
-            </li>
-              <!-- Pagos -->
-            <li class="nav-item">
-              <a class="nav-link" href="#" id="pagoDropdown" data-toggle="collapse" data-target="#pagoMenu" aria-expanded="false" aria-controls="pagoMenu">
-                <i class="ni ni-credit-card text-orange"></i>
-                <span class="nav-link-text">Pago</span>
-              </a>
-              <div id="pagoMenu" class="collapse ml-3">
-                <ul class="nav flex-column">
-                  <li class="nav-item">
-              <a class="nav-link" href="{% url 'pago_create' %}" style="padding-left: 15px;">
-                <i class="ni ni-fat-add text-orange"></i>
-                <span class="nav-link-text">Registrar Pago</span>
-              </a>
-                  </li>
-                  <li class="nav-item">
-              <a class="nav-link" href="{% url 'pago_list' %}" style="padding-left: 15px;">
-                <i class="ni ni-bullet-list-67 text-orange"></i>
-                <span class="nav-link-text">Consultar Pago</span>
-              </a>
-                  </li>
-                </ul>
-              </div>
-            </li>
             
-            {% if perms.empresa.add_empresa or perms.empresa.view_empresa or perms.empresa.change_empresa or perms.empresa.delete_empresa %}
-            <li class="nav-item">
-              <a class="nav-link" href="{% url 'empresa_list' %}">
-                <i class="ni ni-building text-orange"></i>
-                <span class="nav-link-text">Empresa</span>
-              </a>
-            </li>
-            {% endif %}
 
             {% if perms.cuentaBanco.add_banco or perms.cuentaBanco.view_banco or perms.cuentaBanco.change_banco or perms.cuentaBanco.delete_banco %}
             <li class="nav-item">
               <a class="nav-link" href="#" id="bancoDropdown" data-toggle="collapse" data-target="#bancoMenu" aria-expanded="false" aria-controls="bancoMenu">
                 <i class="ni ni-credit-card text-orange"></i>
-                <span class="nav-link-text">Banco</span>
+                <span class="nav-link-text">Gestionar Banco</span>
               </a>
               <div id="bancoMenu" class="collapse ml-3">
                 <ul class="nav flex-column">
@@ -170,7 +110,7 @@
               <li class="nav-item">
                 <a class="nav-link" href="#" id="cuentaBancoDropdown" data-toggle="collapse" data-target="#cuentaBancoMenu" aria-expanded="false" aria-controls="cuentaBancoMenu" style="padding-left: 15px;">
                   <i class="ni ni-archive-2 text-orange"></i>
-                  <span class="nav-link-text">Cuentas</span>
+                  <span class="nav-link-text">Gestionar Cuentas</span>
                 </a>
                 <div id="cuentaBancoMenu" class="collapse ml-3">
                   <ul class="nav flex-column">
@@ -206,7 +146,7 @@
       <li class="nav-item">
         <a class="nav-link" href="#" id="planCuentaDropdown" data-toggle="collapse" data-target="#planCuentaMenu" aria-expanded="false" aria-controls="planCuentaMenu">
           <i class="ni ni-folder-17 text-orange"></i>
-          <span class="nav-link-text">Plan de Cuenta</span>
+          <span class="nav-link-text">Gestionar Plan <br>de Cuenta</span>
         </a>
         <div id="planCuentaMenu" class="collapse ml-3">
           <ul class="nav flex-column">
@@ -237,7 +177,7 @@
       <li class="nav-item">
         <a class="nav-link" href="{% url 'periodo_contable_list' %}">
           <i class="ni ni-calendar-grid-58 text-orange"></i>
-          <span class="nav-link-text">Periodo Contable</span>
+          <span class="nav-link-text">Gestionar Periodo <br> Contable</span>
         </a>
       </li>
       {% endif %} 
@@ -246,7 +186,7 @@
       <li class="nav-item">
         <a class="nav-link" href="#" id="asientoContableDropdown" data-toggle="collapse" data-target="#asientoContableMenu" aria-expanded="false" aria-controls="asientoContableMenu">
           <i class="ni ni-single-copy-04 text-orange"></i>
-          <span class="nav-link-text">Asiento Contable</span>
+          <span class="nav-link-text">Gestionar Asiento <br>Contable</span>
         </a>
         <div id="asientoContableMenu" class="collapse ml-3">
           <ul class="nav flex-column">
@@ -277,7 +217,7 @@
       <li class="nav-item">
         <a class="nav-link" href="#" id="saldoContableDropdown" data-toggle="collapse" data-target="#saldoContableMenu" aria-expanded="false" aria-controls="saldoContableMenu">
           <i class="ni ni-chart-bar-32 text-orange"></i>
-          <span class="nav-link-text">Saldo Contable</span>
+          <span class="nav-link-text">Gestionar Saldo <br> Contable</span>
         </a>
         <div id="saldoContableMenu" class="collapse ml-3">
           <ul class="nav flex-column">
@@ -306,7 +246,7 @@
       <li class="nav-item">
         <a class="nav-link" href="#" id="librosContablesDropdown" data-toggle="collapse" data-target="#librosContablesMenu" aria-expanded="false" aria-controls="librosContablesMenu">
           <i class="ni ni-books text-orange"></i>
-          <span class="nav-link-text">Libros Contables</span>
+          <span class="nav-link-text">Gestionar Libros <br> Contables</span>
         </a>
         <div id="librosContablesMenu" class="collapse ml-3">
           <ul class="nav flex-column">
@@ -334,7 +274,7 @@
       <li class="nav-item">
         <a class="nav-link"  href="{% url 'plan_articulo_list' %}">
           <i class="ni ni-bullet-list-67 text-orange"></i>
-          <span class="nav-link-text">Articulo</span>
+          <span class="nav-link-text">Gestionar Articulos</span>
         </a>
       </li>
      
