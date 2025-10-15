@@ -119,9 +119,9 @@
         <tbody>
           {% for tipoFormacion in tipoFormaciones %}
           <tr>
-            <td>{{ tipoFormacion.idTF }}</td>
-            <td>{{ tipoFormacion.nombreTipoFormacion }}</td>
-            <td>{{ tipoFormacion.fechaTipoFormacion|date:"d/m/Y" }}</td>
+            <td class="text-center">{{ tipoFormacion.idTF }}</td>
+            <td class="text-center">{{ tipoFormacion.nombreTipoFormacion }}</td>
+            <td class="text-center">{{ tipoFormacion.fechaTipoFormacion|date:"d/m/Y" }}</td>
             <td>
               {% if tipoFormacion.estadoTipoFormacion|upper == "ACTIVO" %}
                 <span class="badge bg-success text-white">

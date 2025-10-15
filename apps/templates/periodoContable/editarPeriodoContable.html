@@ -3,33 +3,9 @@
 <link rel="stylesheet" href="/static/assets/css/styleForms.css" />
 <link rel="stylesheet" href="/static/assets/css/argon.css" />
 
-<style>
-/* Estilos en la misma línea del honorario/empresa que hemos usado */
-.periodo-container {
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-  border-radius: 1rem;
-  box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.08);
-  padding: 1.25rem;
-  margin: 0.5rem auto;
-  max-width: 720px;
-}
-.periodo-header {
-  text-align: center;
-  margin-bottom: 1rem;
-  position: relative;
-  padding-bottom: .6rem;
-}
-.periodo-header h2 { color: #343a40; font-weight: 800; font-size: 1.15rem; margin-bottom:.25rem; }
-.periodo-header p { margin:0; color:#6b7280; font-size:.92rem; }
-.periodo-header::after {
-  content: '';
-  position: absolute;
-  bottom: 0; left: 50%;
-  transform: translateX(-50%);
-  width: 80px; height: 4px;
-  background: linear-gradient(90deg,#ffc107,#fd7e14);
-  border-radius: 3px;
-}
+{% block content %}
+<div class="mt-5">
+  <h2 class="text-center text-dark">Modificar Período Contable</h2>
 
 /* Grid: dos columnas en escritorio, 1 en móvil */
 .form-grid { display:grid; grid-template-columns:repeat(2, 1fr); gap: 1rem; }

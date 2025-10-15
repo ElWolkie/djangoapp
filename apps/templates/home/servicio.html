@@ -250,44 +250,28 @@ if (nombreEl) {
   updateDiasHidden();
 })();
 
-document.getElementById("precioServicio").addEventListener("input", function() {
-  const input = this;
-  const raw = input.value;
-  const oldPos = input.selectionStart;
+// Configuración del campo de monto
+  const precioServicioInput = document.getElementById('precioServicio');
+  if (precioServicioInput) {
+    const formatearprecioServicio = (valor) => {
+      let raw = valor.replace(/[^\d]/g, '');
+      if (!raw) return '';
+      while (raw.length < 3) raw = '0' + raw;
+      const intPart = raw.slice(0, raw.length - 2);
+      const decimalPart = raw.slice(-2);
+      const formattedInt = parseInt(intPart, 10).toLocaleString('es-VE');
+      return `${formattedInt},${decimalPart}`;
+    };
 
-  if (/[A-Za-z]/.test(raw)) {
-    input.value = raw.replace(/[A-Za-z]/g, '');
-    return;
-  }
+    precioServicioInput.addEventListener('input', function () {
+      this.value = formatearprecioServicio(this.value);
+    });
 
-  const digitsBefore = raw.slice(0, oldPos).replace(/[^0-9]/g, '').length;
-  const cleaned = raw
-    .replace(/\./g, '')
-    .replace(/,/g, '.')
-    .replace(/[^0-9.]/g, '');
-  const num = parseFloat(cleaned);
-  if (isNaN(num)) return;
-
-  const formatted = num.toLocaleString('es-VE', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  });
-
-  let newPos = 0, counted = 0;
-  for (let i = 0; i < formatted.length; i++) {
-    if (/[0-9]/.test(formatted[i])) counted++;
-    if (counted === digitsBefore) {
-      newPos = i + 1;
-      break;
+    if (precioServicioInput.value) {
+      precioServicioInput.value = formatearprecioServicio(montoInput.value);
     }
   }
-  if (counted < digitsBefore) {
-    newPos = formatted.length;
-  }
 
-  input.value = formatted;
-  input.setSelectionRange(newPos, newPos);
-});
 
 (function() {
   'use strict';

@@ -1,4 +1,4 @@
-{% extends 'layouts/base2.html' %}
+{% extends 'layouts/base.html' %}
 {% load static %}
 
 {% block title %}Listado de Empresas{% endblock title %}
@@ -150,8 +150,8 @@
         <tbody>
           {% for empresa in empresas %}
           <tr>
-            <td>{{ empresa.nombreEmpresa }}</td>
-            <td>{{ empresa.rifEmpresa }}</td>
+            <td class="text-center">{{ empresa.nombreEmpresa }}</td>
+            <td class ="text-center">{{ empresa.rifEmpresa }}</td>
             <td>
               {% if empresa.estadoEmpresa %}
                 <span class="badge bg-success text-white">Activo</span>

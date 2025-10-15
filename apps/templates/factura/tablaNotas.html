@@ -1,4 +1,4 @@
-{% extends 'layouts/base2.html' %}
+{% extends 'layouts/base.html' %}
 {% load static %}
 
 {% block title %}Listado de Notas{% endblock title %}
@@ -87,14 +87,14 @@
         <tbody>
           {% for nota in notas %}
           <tr>
-            <td>{{ nota.idNota }}</td>
-            <td>{{ nota.tipoOperacion }}</td>
-            <td>{{ nota.tipoArticulo }}</td>
-            <td>{{ nota.numeroNota }}</td>
-            <td>{{ nota.totalNota }}</td>
+            <td class="text-center">{{ nota.idNota }}</td>
+            <td class="text-center">{{ nota.tipoOperacion }}</td>
+            <td class="text-center">{{ nota.tipoArticulo }}</td>
+            <td class="text-center">{{ nota.numeroNota }}</td>
+            <td class="text-center">{{ nota.totalNota }}</td>
 
-            <td>{{ nota.fechaEmision|date:"d/m/Y" }}</td>
-            <td>{{ nota.estado }}</td>
+            <td class="text-center">{{ nota.fechaEmision|date:"d/m/Y" }}</td>
+            <td class="text-center">{{ nota.estado }}</td>
             
             <td class="actions-column">
               <div class="d-flex gap-2">

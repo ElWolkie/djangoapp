@@ -91,9 +91,9 @@
         <tbody>
           {% for tipopersona in tipopersonas %}
           <tr>
-            <td>{{ tipopersona.idTP }}</td>
-            <td>{{ tipopersona.nombreTP }}</td>
-            <td>{{ tipopersona.fechaTP|date:"d/m/Y" }}</td>
+            <td class=" text-center">{{ tipopersona.idTP }}</td>
+            <td class=" text-center">{{ tipopersona.nombreTP }}</td>
+            <td class=" text-center">{{ tipopersona.fechaTP|date:"d/m/Y" }}</td>
             <td>
               {% if tipopersona.estadoTP|upper == "ACTIVO" %}
                 <span class="badge bg-success text-white">

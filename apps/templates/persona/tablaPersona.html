@@ -148,9 +148,9 @@
         <tbody>
           {% for persona in personas %}
           <tr>
-            <td>{{ persona.cedula }}</td>
-            <td>{{ persona.nombres }}</td>
-            <td>{{ persona.apellidos }}</td>
+            <td class="text-center">{{ persona.cedula }}</td>
+            <td class=" text-center">{{ persona.nombres }}</td>
+            <td class=" text-center"> {{ persona.apellidos }}</td>
             <td>{{ persona.telefono|default:"—" }}</td>
             <td>
               {% for tp in persona.personatp_set.all %}

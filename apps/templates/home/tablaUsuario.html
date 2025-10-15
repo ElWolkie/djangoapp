@@ -146,9 +146,9 @@
                     <tbody>
                         {% for usuario in usuarios %}
                         <tr>
-                            <td>{{ usuario.idPersona.cedula }}</td>
-                            <td>{{ usuario.idPersona.nombres }} {{ usuario.idPersona.apellidos }}</td>
-                            <td>{{ usuario.fechaUsuario|date:"d/m/Y H:i" }}</td>
+                            <td class="text-center">{{ usuario.idPersona.cedula }}</td>
+                            <td class="text-center">{{ usuario.idPersona.nombres }} {{ usuario.idPersona.apellidos }}</td>
+                            <td class="text-center">{{ usuario.fechaUsuario|date:"d/m/Y H:i" }}</td>
                             
                             <td>
                             {% if usuario.is_active %}

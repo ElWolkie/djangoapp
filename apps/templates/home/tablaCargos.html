@@ -123,9 +123,9 @@
         <tbody>
           {% for cargo in cargos %}
           <tr>
-            <td>{{ cargo.idCargo }}</td>
-            <td>{{ cargo.nombreCargo }}</td>
-            <td>{{ cargo.fechaCargo|date:"d/m/Y" }}</td>
+            <td class="text-center">{{ cargo.idCargo }}</td>
+            <td class="text-center">{{ cargo.nombreCargo }}</td>
+            <td class="text-center">{{ cargo.fechaCargo|date:"d/m/Y" }}</td>
             <td>
               {% if cargo.estadoCargo|upper == "ACTIVO" %}
                 <span class="badge bg-success text-white">

@@ -120,10 +120,10 @@
         <tbody>
           {% for tramite in tramites %}
           <tr>
-            <td>{{ tramite.idTramite }}</td>
-            <td>{{ tramite.nombreTramite }}</td>
-            <td>{{ tramite.diasTramite }}</td>
-            <td>{{ tramite.precioTramite }}</td>
+            <td class="text-center">{{ tramite.idTramite }}</td>
+            <td class="text-center">{{ tramite.nombreTramite }}</td>
+            <td class="text-center">{{ tramite.diasTramite }}</td>
+            <td class="text-center">{{ tramite.precioTramite }}</td>
             <td>
               {% if tramite.estadoTramite|upper == "ACTIVO" %}
               <span class="badge bg-success text-white"><i class="fas fa-check-circle me-1"></i>Activo</span>
