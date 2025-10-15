@@ -1,8 +1,8 @@
 from django.urls import include, path
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from . import views
-from .endpoints import verificar_cedula, PersonaPublicRegisterView, UsuarioPublicRegisterView, obtener_persona_login, CuotasFormacionAPIView, NotaCobroCreateAPIView
-from .views import CedulaTokenObtainView  # Nueva función
+from .endpoints import *
+from .views import CedulaTokenObtainView
 
 urlpatterns = [
     path('personas/', views.PersonaListCreate.as_view(), name='persona-list'),
@@ -19,7 +19,10 @@ urlpatterns = [
     path('obtener-persona-login/', obtener_persona_login, name='obtener-persona-login'),
     path('api/formaciones/<int:formacion_id>/cuotas/', CuotasFormacionAPIView.as_view(), name='formacion-cuotas'),
     path('nota-cobro/create/', NotaCobroCreateAPIView.as_view(), name='nota_cobro_create'),
-
+    path('api/pagos/create/', views.PagoCreateAPIView.as_view(), name='pago_create'),
+    path('notas/usuario/autenticado/', notas_por_usuario_autenticado, name='notas_autenticado'),
+    path('corregir-relaciones/', corregir_relaciones_notas, name='corregir_relaciones'),
+    
     path('cohorte/', views.CohorteListCreate.as_view(), name='cohorte-list'),
     path('cargo/', views.CargoListCreate.as_view(), name='cargo-list'),
     path('honorario/', views.HonorarioListCreate.as_view(), name='honorario-list'),

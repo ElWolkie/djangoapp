@@ -1,0 +1,37 @@
+/*
+  Added ext properties to satisfy CI/autolinking expectations:
+  - ndkVersion must exist (usamos la versión que vimos instalado en CI: 27.1.12297006)
+  - compile/target/min sdk defaults
+*/
+ext {
+    ndkVersion = "27.1.12297006"
+    compileSdkVersion = 36
+    targetSdkVersion = 36
+    minSdkVersion = 24
+}
+
+// android/build.gradle - VERSIÓN CORREGIDA
+buildscript {
+    ext {
+        buildToolsVersion = "36.0.0"
+        compileSdkVersion = 36
+        targetSdkVersion = 36
+        minSdkVersion = 24
+        ndkVersion = "27.1.12297006"
+    }
+    repositories {
+        google()
+        mavenCentral()
+        maven { url 'https://jitpack.io' }
+    }
+    dependencies {
+        classpath("com.android.tools.build:gradle:7.3.1")
+        classpath("com.facebook.react:react-native-gradle-plugin")
+    }
+}
+
+def reactNativeAndroidDir = new File(
+    rootDir,
+    "../node_modules/react-native/android"
+)
+

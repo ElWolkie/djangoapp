@@ -1,4 +1,4 @@
-// RegisterScreen.tsx - VERSIÓN CORREGIDA
+// RegisterScreen.tsx - VERSIÓN MEJORADA Y RESPONSIVE
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -39,10 +39,15 @@ type PersonFormData = {
   rif?: string;
   nombres: string;
   apellidos: string;
-  email?: string;
-  telefono: string; // ¡AHORA ES OBLIGATORIO!
+  correo?: string;
+  telefono: string;
   direccion: string;
 };
+
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+const isSmallScreen = screenWidth < 375;
+const isMediumScreen = screenWidth >= 375 && screenWidth < 768;
+const isLargeScreen = screenWidth >= 768;
 
 export default function RegisterScreen({ navigation }: Props) {
   const route = useRoute<RegisterScreenRouteProp>();
@@ -54,8 +59,8 @@ export default function RegisterScreen({ navigation }: Props) {
     rif: initial.rif ?? '',
     nombres: initial.nombres ?? '',
     apellidos: initial.apellidos ?? '',
-    email: initial.email ?? '',
-    telefono: initial.telefono ?? '', // ¡OBLIGATORIO!
+    correo: initial.correo ?? '',
+    telefono: initial.telefono ?? '',
     direccion: initial.direccion ?? '',
   });
 
@@ -68,9 +73,6 @@ export default function RegisterScreen({ navigation }: Props) {
       setForm(prev => ({ ...prev, ...(f as Partial<PersonFormData>) }));
     }
   }, [route.params]);
-
-  const screenWidth = Dimensions.get('window').width;
-  const isWide = screenWidth >= 1000;
 
   const changeField = <K extends keyof PersonFormData>(key: K, value: PersonFormData[K]) => {
     setForm(prev => ({ ...prev, [key]: value }));
@@ -100,7 +102,9 @@ export default function RegisterScreen({ navigation }: Props) {
     const max = form.tipo_cedula === 'V' ? 8 : 20;
     const trimmed = nums.slice(0, max);
     changeField('numero_cedula', trimmed);
-    if (form.tipo_cedula === 'V') {
+    
+    // ✅ SOLO generar RIF automático para tipo V
+    if (form.tipo_cedula === 'V' && trimmed.length >= 6) {
       try {
         const rifGen = generarRif('V', trimmed);
         changeField('rif', rifGen);
@@ -109,11 +113,14 @@ export default function RegisterScreen({ navigation }: Props) {
   };
 
   const changeRif = (raw: string) => {
+    // ✅ Solo permitir editar RIF para tipo V
+    if (form.tipo_cedula !== 'V') return;
+    
     const up = raw.toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 14);
     changeField('rif', up);
   };
 
-  // Validations ACTUALIZADAS
+  // Validaciones MEJORADAS
   const validCedula = () => {
     const num = normalizeDigits(form.numero_cedula);
     if (form.tipo_cedula === 'V') return num.length >= 6 && num.length <= 8;
@@ -121,20 +128,20 @@ export default function RegisterScreen({ navigation }: Props) {
   };
 
   const validRif = () => {
+    // ✅ RIF solo es requerido para tipo V
     if (form.tipo_cedula !== 'V') return true;
-    if (!form.rif) return false;
+    if (!form.rif || form.rif.trim() === '') return false;
     const re = /^[A-Z]-\d{8}-\d{1}$/;
     return re.test(form.rif.trim());
   };
 
   const validEmail = () => {
-    if (!form.email) return true; // Email es opcional en tu modelo
+    if (!form.correo || form.correo.trim() === '') return true;
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return re.test(form.email.trim().toLowerCase());
+    return re.test(form.correo.trim().toLowerCase());
   };
 
   const validTelefono = () => {
-    // Teléfono es OBLIGATORIO - mínimo 7 dígitos
     const dig = normalizeDigits(form.telefono);
     return dig.length >= 7 && dig.length <= 11;
   };
@@ -167,16 +174,16 @@ export default function RegisterScreen({ navigation }: Props) {
   }
 
   // -----------------------------
-  // GUARDADO CORREGIDO
+  // GUARDADO MEJORADO
   // -----------------------------
   const savePerson = async () => {
-    // Validaciones del formulario
     setValidationErrors({});
     const errs: Record<string, string> = {};
+    
     if (!validCedula()) errs.numero_cedula = 'Cédula inválida (revisar tipo/longitud).';
     if (!validNames()) errs.nombres = 'Ingrese nombres y apellidos válidos.';
-    if (!validRif()) errs.rif = 'RIF inválido (ej: J-12345678-9).';
-    if (!validEmail()) errs.email = 'Correo inválido.';
+    if (!validRif()) errs.rif = 'RIF inválido (ej: V-12345678-9).';
+    if (!validEmail()) errs.correo = 'Correo inválido.';
     if (!validTelefono()) errs.telefono = 'Teléfono inválido (mín. 7 dígitos).';
     if (!validDireccion()) errs.direccion = 'Dirección inválida (mín. 6 caracteres).';
 
@@ -189,37 +196,25 @@ export default function RegisterScreen({ navigation }: Props) {
     setLoading(true);
 
     try {
-      const cedulaCompleta = `${form.tipo_cedula}${normalizeDigits(form.numero_cedula)}`;
-      
-      // PAYLOAD CORREGIDO - solo campos que el backend espera
+      // ✅ PAYLOAD CORREGIDO: Enviar RIF SOLO para tipo V
       const payload = {
         tipo_cedula: form.tipo_cedula,
         numero_cedula: normalizeDigits(form.numero_cedula),
         nombres: form.nombres.trim(),
         apellidos: form.apellidos.trim(),
-        email: form.email ? form.email.trim().toLowerCase() : '', // Se mapea a 'correo' en backend
-        telefono: form.telefono.trim(), // ¡OBLIGATORIO!
+        correo: form.correo ? form.correo.trim().toLowerCase() : '',
+        telefono: form.telefono.trim(),
         direccion: form.direccion.trim(),
-        rif: form.rif ? form.rif.trim() : '',
+        // ✅ IMPORTANTE: Solo enviar RIF para tipo V, para E/P enviar string vacío
+        rif: form.tipo_cedula === 'V' ? (form.rif ? form.rif.trim() : '') : ''
       };
 
       console.log('📤 Enviando datos CORREGIDOS:', payload);
 
       const response = await api.post('/api/registrar_persona/', payload);
       
-      // DIAGNÓSTICO MEJORADO
-      console.log('🔍 RESPUESTA COMPLETA:', {
-        status: response.status,
-        statusText: response.statusText,
-        data: response.data,
-        dataType: typeof response.data,
-      });
-
-      // Verificar si la respuesta es HTML (error)
       if (typeof response.data === 'string') {
         console.log('❌ El backend devolvió HTML en lugar de JSON');
-        console.log('📄 Contenido HTML (primeros 200 chars):', response.data.substring(0, 200));
-        
         Alert.alert(
           'Error del Servidor', 
           'El servidor respondió con una página de error. Revisa los logs del backend.'
@@ -227,16 +222,13 @@ export default function RegisterScreen({ navigation }: Props) {
         return;
       }
 
-      // Si es objeto JSON, procesar respuesta
       if (typeof response.data === 'object') {
         if (response.data.error) {
-          // Error del backend
           Alert.alert('Error', response.data.error);
           return;
         }
         
         if (response.status === 201) {
-          // ¡ÉXITO!
           const personaCreada = response.data;
           console.log('✅ Persona creada exitosamente:', personaCreada);
           
@@ -272,9 +264,12 @@ export default function RegisterScreen({ navigation }: Props) {
         if (status === 400) {
           errorMessage = data.error || 'Datos inválidos. Verifica la información.';
         } else if (status === 500) {
-          errorMessage = 'Error interno del servidor. Intente más tarde.';
-        } else if (status === 403) {
-          errorMessage = 'Acceso denegado. El endpoint requiere configuración adicional.';
+          // Manejo específico de error de RIF duplicado
+          if (data.includes?.('RIF_DUPLICADO') || data.codigo === 'RIF_DUPLICADO') {
+            errorMessage = 'Error del sistema: Ya existe un registro con RIF vacío. Contacte al administrador.';
+          } else {
+            errorMessage = 'Error interno del servidor. Intente más tarde.';
+          }
         } else {
           errorMessage = `Error ${status}: ${JSON.stringify(data)}`;
         }
@@ -290,9 +285,24 @@ export default function RegisterScreen({ navigation }: Props) {
 
   const onTipoCedulaChange = (v: 'V' | 'E' | 'P') => {
     changeField('tipo_cedula', v);
-    if (v !== 'V') changeField('rif', '');
+    
+    // ✅ COMPORTAMIENTO MEJORADO: Limpiar RIF para E/P
+    if (v !== 'V') {
+      changeField('rif', '');
+    } else {
+      // Para tipo V, generar RIF automáticamente si hay cédula
+      if (form.numero_cedula && form.numero_cedula.length >= 6) {
+        try {
+          const rifGen = generarRif('V', form.numero_cedula);
+          changeField('rif', rifGen);
+        } catch { /* ignore */ }
+      }
+    }
+    
     const max = v === 'V' ? 8 : 20;
-    if (form.numero_cedula.length > max) changeField('numero_cedula', form.numero_cedula.slice(0, max));
+    if (form.numero_cedula.length > max) {
+      changeField('numero_cedula', form.numero_cedula.slice(0, max));
+    }
   };
 
   const goBackToLogin = () => navigation.navigate('Login');
@@ -304,208 +314,404 @@ export default function RegisterScreen({ navigation }: Props) {
       rif: '',
       nombres: '',
       apellidos: '',
-      email: '',
-      telefono: '', // ¡NO OLVIDAR!
+      correo: '',
+      telefono: '',
       direccion: '',
     });
     setValidationErrors({});
   };
+
+  // Cálculos responsivos
+  const getCardWidth = () => {
+    if (isSmallScreen) return '95%';
+    if (isMediumScreen) return '90%';
+    return Math.min(920, screenWidth * 0.85);
+  };
+
+  const cardWidth = getCardWidth();
 
   return (
     <KeyboardAvoidingView style={styles.wrapper} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <Image style={styles.bgImage} source={require('../../assets/frontImg.jpg')} blurRadius={4} />
       <View style={styles.overlay} />
 
-      <ScrollView contentContainerStyle={styles.container}>
-        <View style={[styles.card, isWide && { width: 920 }]}>
-          <Text style={styles.title}>Registro de Persona</Text>
-          <Text style={styles.subtitle}>
+      <ScrollView 
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={[styles.card, { width: cardWidth }]}>
+          <Text style={[styles.title, isSmallScreen && styles.titleSmall]}>Registro de Persona</Text>
+          <Text style={[styles.subtitle, isSmallScreen && styles.subtitleSmall]}>
             Complete todos los campos obligatorios para registrar una nueva persona.
           </Text>
 
-          <View style={styles.rowTwo}>
-            <View style={styles.col}>
-              <Text style={styles.label}>Tipo de cédula *</Text>
-              <View style={styles.pickerWrapInline}>
-                <Picker 
-                  selectedValue={form.tipo_cedula} 
-                  onValueChange={onTipoCedulaChange} 
-                  mode="dropdown" 
-                  style={styles.pickerInner}
-                >
-                  <Picker.Item label="Venezolano (V)" value="V" />
-                  <Picker.Item label="Extranjero (E)" value="E" />
-                  <Picker.Item label="Pasaporte (P)" value="P" />
-                </Picker>
-              </View>
+          <View style={[styles.rowTwo, isSmallScreen && styles.rowTwoSmall]}>
+            <View style={[styles.col, isSmallScreen && styles.colSmall]}>
+              <Text style={[styles.label, isSmallScreen && styles.labelSmall]}>Tipo de cédula *</Text>
+              {/* Picker de Tipo de Cédula - MEJORADO */}
+                <View style={[styles.pickerWrapInline, isSmallScreen && styles.pickerWrapInlineSmall]}>
+                  <Picker 
+                    selectedValue={form.tipo_cedula} 
+                    onValueChange={onTipoCedulaChange} 
+                    mode="dropdown"
+                    dropdownIconColor="#4f8cff"
+                    style={[styles.pickerInner, isSmallScreen && styles.pickerInnerSmall]}
+                    itemStyle={isSmallScreen ? styles.pickerInnerSmall : styles.pickerInnerSmall}
+                  >
+                    <Picker.Item 
+                      label="Venezolano (V)" 
+                      value="V" 
+                      color={isSmallScreen ? '#444' : '#222'}
+                    />
+                    <Picker.Item 
+                      label="Extranjero (E)" 
+                      value="E" 
+                      color={isSmallScreen ? '#444' : '#222'}
+                    />
+                    <Picker.Item 
+                      label="Pasaporte (P)" 
+                      value="P" 
+                      color={isSmallScreen ? '#444' : '#222'}
+                    />
+                  </Picker>
+                </View>
 
-              <Text style={styles.label}>Número de cédula *</Text>
+              <Text style={[styles.label, isSmallScreen && styles.labelSmall, { marginTop: 10 }]}>Número de cédula *</Text>
               <TextInput
                 placeholder="12345678"
                 placeholderTextColor="#9aa"
                 value={form.numero_cedula}
                 onChangeText={changeCedula}
                 keyboardType="numeric"
-                style={styles.input}
+                style={[styles.input, isSmallScreen && styles.inputSmall]}
                 editable={!loading}
                 maxLength={form.tipo_cedula === 'V' ? 8 : 20}
               />
               {validationErrors.numero_cedula && (
-                <Text style={styles.errorSmall}>{validationErrors.numero_cedula}</Text>
+                <Text style={[styles.errorSmall, isSmallScreen && styles.errorSmallText]}>{validationErrors.numero_cedula}</Text>
               )}
 
-              <Text style={[styles.label, { marginTop: 10 }]}>
-                RIF {form.tipo_cedula !== 'V' ? '(deshabilitado para E/P)' : ''}
+              <Text style={[styles.label, isSmallScreen && styles.labelSmall, { marginTop: 10 }]}>
+                RIF {form.tipo_cedula !== 'V' ? '(no aplica para E/P)' : '*'}
               </Text>
               <TextInput
-                placeholder="J-12345678-9"
+                placeholder={form.tipo_cedula === 'V' ? "V-12345678-9" : "No aplica"}
                 placeholderTextColor="#9aa"
                 value={form.rif}
                 onChangeText={changeRif}
-                style={[styles.input, form.tipo_cedula !== 'V' && styles.inputDisabled]}
+                style={[
+                  styles.input, 
+                  isSmallScreen && styles.inputSmall,
+                  form.tipo_cedula !== 'V' && styles.inputDisabled
+                ]}
                 editable={form.tipo_cedula === 'V' && !loading}
                 maxLength={14}
               />
-              {validationErrors.rif && <Text style={styles.errorSmall}>{validationErrors.rif}</Text>}
+              {validationErrors.rif && (
+                <Text style={[styles.errorSmall, isSmallScreen && styles.errorSmallText]}>{validationErrors.rif}</Text>
+              )}
             </View>
 
-            <View style={styles.col}>
-              <Text style={styles.label}>Nombres *</Text>
+            <View style={[styles.col, isSmallScreen && styles.colSmall]}>
+              <Text style={[styles.label, isSmallScreen && styles.labelSmall]}>Nombres *</Text>
               <TextInput
                 placeholder="Nombres"
                 placeholderTextColor="#9aa"
                 value={form.nombres}
                 onChangeText={(t) => changeField('nombres', sanitizeName(t))}
-                style={styles.input}
+                style={[styles.input, isSmallScreen && styles.inputSmall]}
                 editable={!loading}
                 maxLength={100}
                 autoCapitalize="words"
               />
-              {validationErrors.nombres && <Text style={styles.errorSmall}>{validationErrors.nombres}</Text>}
+              {validationErrors.nombres && (
+                <Text style={[styles.errorSmall, isSmallScreen && styles.errorSmallText]}>{validationErrors.nombres}</Text>
+              )}
 
-              <Text style={styles.label}>Apellidos *</Text>
+              <Text style={[styles.label, isSmallScreen && styles.labelSmall]}>Apellidos *</Text>
               <TextInput
                 placeholder="Apellidos"
                 placeholderTextColor="#9aa"
                 value={form.apellidos}
                 onChangeText={(t) => changeField('apellidos', sanitizeName(t))}
-                style={styles.input}
+                style={[styles.input, isSmallScreen && styles.inputSmall]}
                 editable={!loading}
                 maxLength={100}
                 autoCapitalize="words"
               />
-              {validationErrors.apellidos && <Text style={styles.errorSmall}>{validationErrors.apellidos}</Text>}
+              {validationErrors.apellidos && (
+                <Text style={[styles.errorSmall, isSmallScreen && styles.errorSmallText]}>{validationErrors.apellidos}</Text>
+              )}
 
-              <Text style={styles.label}>Teléfono *</Text>
+              <Text style={[styles.label, isSmallScreen && styles.labelSmall]}>Teléfono *</Text>
               <TextInput
                 placeholder="0412-1234567"
                 placeholderTextColor="#9aa"
                 value={form.telefono}
                 onChangeText={(t) => changeField('telefono', formatTelefono(t))}
-                style={styles.input}
+                style={[styles.input, isSmallScreen && styles.inputSmall]}
                 keyboardType="phone-pad"
                 editable={!loading}
                 maxLength={12}
               />
-              {validationErrors.telefono && <Text style={styles.errorSmall}>{validationErrors.telefono}</Text>}
+              {validationErrors.telefono && (
+                <Text style={[styles.errorSmall, isSmallScreen && styles.errorSmallText]}>{validationErrors.telefono}</Text>
+              )}
 
-              <Text style={styles.label}>Correo electrónico</Text>
+              <Text style={[styles.label, isSmallScreen && styles.labelSmall]}>Correo electrónico</Text>
               <TextInput
                 placeholder="correo@ejemplo.com"
                 placeholderTextColor="#9aa"
-                value={form.email}
-                onChangeText={(t) => changeField('email', t.trim())}
-                style={styles.input}
+                value={form.correo}
+                onChangeText={(t) => changeField('correo', t.trim())}
+                style={[styles.input, isSmallScreen && styles.inputSmall]}
                 keyboardType="email-address"
                 editable={!loading}
                 autoCapitalize="none"
                 maxLength={128}
               />
-              {validationErrors.email && <Text style={styles.errorSmall}>{validationErrors.email}</Text>}
+              {validationErrors.correo && (
+                <Text style={[styles.errorSmall, isSmallScreen && styles.errorSmallText]}>{validationErrors.correo}</Text>
+              )}
             </View>
           </View>
 
-          <View style={{ marginTop: 10 }}>
-            <Text style={styles.label}>Dirección completa *</Text>
+          <View style={{ marginTop: isSmallScreen ? 8 : 10 }}>
+            <Text style={[styles.label, isSmallScreen && styles.labelSmall]}>Dirección completa *</Text>
             <TextInput
               placeholder="Dirección completa (mínimo 6 caracteres)"
               placeholderTextColor="#9aa"
               value={form.direccion}
               onChangeText={(t) => changeField('direccion', t)}
-              style={[styles.input, { height: 100, textAlignVertical: 'top' }]}
+              style={[
+                styles.input, 
+                isSmallScreen && styles.inputSmall,
+                { height: isSmallScreen ? 80 : 100, textAlignVertical: 'top' }
+              ]}
               multiline
               editable={!loading}
               maxLength={400}
             />
-            {validationErrors.direccion && <Text style={styles.errorSmall}>{validationErrors.direccion}</Text>}
+            {validationErrors.direccion && (
+              <Text style={[styles.errorSmall, isSmallScreen && styles.errorSmallText]}>{validationErrors.direccion}</Text>
+            )}
           </View>
 
-          <View style={styles.buttonsRow}>
+          <View style={[styles.buttonsRow, isSmallScreen && styles.buttonsRowSmall]}>
             <TouchableOpacity
-              style={[styles.btn, styles.btnPrimary, !canSave() && styles.btnDisabled]}
+              style={[styles.btn, styles.btnPrimary, !canSave() && styles.btnDisabled, isSmallScreen && styles.btnSmall]}
               onPress={savePerson}
               disabled={!canSave()}
               activeOpacity={0.85}
             >
               {loading ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color="#fff" size={isSmallScreen ? 'small' : 'large'} />
               ) : (
-                <Text style={styles.btnText}>Registrar Persona</Text>
+                <Text style={[styles.btnText, isSmallScreen && styles.btnTextSmall]}>Registrar Persona</Text>
               )}
             </TouchableOpacity>
           </View>
 
-          <View style={styles.footerRow}>
+          <View style={[styles.footerRow, isSmallScreen && styles.footerRowSmall]}>
             <TouchableOpacity onPress={goBackToLogin} style={styles.linkBtn}>
-              <Text style={styles.linkText}>Volver al inicio de sesión</Text>
+              <Text style={[styles.linkText, isSmallScreen && styles.linkTextSmall]}>Volver al inicio de sesión</Text>
             </TouchableOpacity>
 
             <TouchableOpacity onPress={clearForm} style={styles.linkBtn}>
-              <Text style={styles.linkText}>Limpiar formulario</Text>
+              <Text style={[styles.linkText, isSmallScreen && styles.linkTextSmall]}>Limpiar formulario</Text>
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.requiredHint}>* Campos obligatorios</Text>
+          <Text style={[styles.requiredHint, isSmallScreen && styles.requiredHintSmall]}>* Campos obligatorios</Text>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
-// Estilos (los mismos que antes)
+// ESTILOS COMPLETAMENTE RESPONSIVE
 const styles = StyleSheet.create({
-  // ... (mantener los mismos estilos que tenías)
-  wrapper: { flex: 1, backgroundColor: '#f3f6fb' },
-  bgImage: { position: 'absolute', width: '100%', height: '100%', resizeMode: 'cover', top: 0, left: 0 },
-  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,40,0.35)' },
-  container: { padding: 18, alignItems: 'center', justifyContent: 'center', paddingVertical: 26 },
+  wrapper: { 
+    flex: 1, 
+    backgroundColor: '#f3f6fb' 
+  },
+  bgImage: { 
+    position: 'absolute', 
+    width: '100%', 
+    height: '100%', 
+    resizeMode: 'cover', 
+    top: 0, 
+    left: 0 
+  },
+  overlay: { 
+    ...StyleSheet.absoluteFillObject, 
+    backgroundColor: 'rgba(0,0,40,0.35)' 
+  },
+  container: { 
+    padding: 18, 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    paddingVertical: 26,
+    minHeight: '100%',
+  },
   card: {
-    width: '100%', maxWidth: 920, backgroundColor: 'rgba(255,255,255,0.94)', borderRadius: 12, padding: 18,
-    elevation: 8, shadowColor: '#000', shadowOpacity: 0.12, shadowOffset: { width: 0, height: 8 },
+    backgroundColor: 'rgba(255,255,255,0.94)', 
+    borderRadius: 12, 
+    padding: 18,
+    elevation: 8, 
+    shadowColor: '#000', 
+    shadowOpacity: 0.12, 
+    shadowOffset: { width: 0, height: 8 },
+    maxWidth: '100%',
   },
-  title: { fontSize: 20, fontWeight: '800', marginBottom: 4, color: '#222', textAlign: 'center' },
-  subtitle: { fontSize: 14, color: '#666', marginBottom: 12, textAlign: 'center' },
-  rowTwo: { flexDirection: 'row', gap: 12 },
-  col: { flex: 1, paddingRight: 6 },
-  label: { fontSize: 13, color: '#444', marginBottom: 6, fontWeight: '700' },
+  title: { 
+    fontSize: 20, 
+    fontWeight: '800', 
+    marginBottom: 4, 
+    color: '#222', 
+    textAlign: 'center' 
+  },
+  titleSmall: {
+    fontSize: 18,
+  },
+  subtitle: { 
+    fontSize: 14, 
+    color: '#666', 
+    marginBottom: 12, 
+    textAlign: 'center' 
+  },
+  subtitleSmall: {
+    fontSize: 12,
+  },
+  rowTwo: { 
+    flexDirection: 'row', 
+    gap: 12 
+  },
+  rowTwoSmall: {
+    flexDirection: 'column',
+    gap: 8,
+  },
+  col: { 
+    flex: 1, 
+    paddingRight: 6 
+  },
+  colSmall: {
+    paddingRight: 0,
+    width: '100%',
+  },
+  label: { 
+    fontSize: 13, 
+    color: '#444', 
+    marginBottom: 6, 
+    fontWeight: '700' 
+  },
+  labelSmall: {
+    fontSize: 12,
+  },
   input: {
-    borderWidth: 1, borderColor: '#eef2ff', borderRadius: 8, paddingHorizontal: 12, height: 46,
-    backgroundColor: '#fff', color: '#222',
+    borderWidth: 1, 
+    borderColor: '#eef2ff', 
+    borderRadius: 8, 
+    paddingHorizontal: 12, 
+    height: 46,
+    backgroundColor: '#fff', 
+    color: '#222',
   },
-  inputDisabled: { backgroundColor: '#f2f4f8', color: '#9aa' },
-  errorSmall: { color: '#e63946', fontSize: 12, marginTop: 6 },
-  buttonsRow: { flexDirection: 'row', justifyContent: 'center', marginTop: 12 },
-  btn: { paddingVertical: 12, borderRadius: 10, alignItems: 'center', minWidth: 200 },
-  btnPrimary: { backgroundColor: '#1f6fff' },
-  btnDisabled: { backgroundColor: '#a0a0a0', opacity: 0.6 },
-  btnText: { color: '#fff', fontWeight: '800', fontSize: 16 },
-  footerRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 14 },
-  linkBtn: { padding: 6 },
-  linkText: { color: '#4f8cff', fontWeight: '700' },
-  requiredHint: { fontSize: 12, color: '#666', marginTop: 10, textAlign: 'center', fontStyle: 'italic' },
+  inputSmall: {
+    height: 42,
+    fontSize: 14,
+  },
+  inputDisabled: { 
+    backgroundColor: '#f2f4f8', 
+    color: '#9aa' 
+  },
+  errorSmall: { 
+    color: '#e63946', 
+    fontSize: 12, 
+    marginTop: 6 
+  },
+  errorSmallText: {
+    fontSize: 11,
+  },
+  buttonsRow: { 
+    flexDirection: 'row', 
+    justifyContent: 'center', 
+    marginTop: 12 
+  },
+  buttonsRowSmall: {
+    marginTop: 10,
+  },
+  btn: { 
+    paddingVertical: 12, 
+    borderRadius: 10, 
+    alignItems: 'center', 
+    minWidth: 200 
+  },
+  btnSmall: {
+    paddingVertical: 10,
+    minWidth: 160,
+  },
+  btnPrimary: { 
+    backgroundColor: '#1f6fff' 
+  },
+  btnDisabled: { 
+    backgroundColor: '#a0a0a0', 
+    opacity: 0.6 
+  },
+  btnText: { 
+    color: '#fff', 
+    fontWeight: '800', 
+    fontSize: 16 
+  },
+  btnTextSmall: {
+    fontSize: 14,
+  },
+  footerRow: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    marginTop: 14 
+  },
+  footerRowSmall: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 8,
+  },
+  linkBtn: { 
+    padding: 6 
+  },
+  linkText: { 
+    color: '#4f8cff', 
+    fontWeight: '700' 
+  },
+  linkTextSmall: {
+    fontSize: 12,
+  },
+  requiredHint: { 
+    fontSize: 12, 
+    color: '#666', 
+    marginTop: 10, 
+    textAlign: 'center', 
+    fontStyle: 'italic' 
+  },
+  requiredHintSmall: {
+    fontSize: 11,
+  },
   pickerWrapInline: {
-    borderWidth: 1, borderColor: '#eef2ff', borderRadius: 8, overflow: 'hidden',
-    backgroundColor: '#fff', height: 46, justifyContent: 'center',
+    borderWidth: 1, 
+    borderColor: '#eef2ff', 
+    borderRadius: 8, 
+    overflow: 'hidden',
+    backgroundColor: '#fff', 
+    height: 46, 
+    justifyContent: 'center',
   },
-  pickerInner: { height: 46 },
+  pickerWrapInlineSmall: {
+    height: 42,
+  },
+  pickerInner: { 
+    height: 46 
+  },
+  pickerInnerSmall: {
+    height: 42,
+  },
 });

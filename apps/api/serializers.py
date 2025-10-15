@@ -1,6 +1,8 @@
+from decimal import Decimal
 import re
+import uuid
 from rest_framework import serializers
-from apps.home.models import Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Moneda, Tasa, Formacion, TipoFormacion, Usuarios
+from apps.home.models import Configuracion, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Moneda, Tasa, Formacion, TipoFormacion, Usuarios
 from apps.persona.models import Personas, PersonaTP, TipoPersona
 from apps.honorario.models import Honorario
 from apps.inscripcion.models import Inscripcion
@@ -12,8 +14,9 @@ from apps.cuentaBanco.models import Banco
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
+from django.utils.timezone import now
 
-from apps.factura.models import NotaRelacionada, Pago
+from apps.factura.models import Nota, NotaRelacionada, Pago, PlanArticulo
 
 class TipoPersonaSerializer(serializers.ModelSerializer):
     class Meta:
@@ -170,6 +173,172 @@ class InscripcionSerializer(serializers.ModelSerializer):
         
         print("✅ Instancia creada en serializer:", inscripcion.idInscripcion)
         return inscripcion
+
+class NotaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Nota
+        fields = [
+            'idNota', 'numeroNota', 'fechaEmision', 'totalNota', 
+            'estado', 'tipoArticulo', 'formaPago'
+        ]
+
+class PagoSerializer(serializers.ModelSerializer):
+    idNota = NotaSerializer(read_only=True)
+    
+    class Meta:
+        model = Pago
+        fields = [
+            'idPago', 'idNota', 'monto', 'fechaPago', 'formaPago',
+            'referencia', 'observaciones', 'fechaRegistro'
+        ]
+
+class AsientoContableSimpleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AsientoContable
+        fields = ['idAsiento', 'numeroAsiento', 'fechaAsiento', 'conceptoAsiento']
+
+class PagoCreateSerializer(serializers.ModelSerializer):
+    idNota = serializers.IntegerField(write_only=True)
+    monto = serializers.DecimalField(max_digits=20, decimal_places=4)
+    fechaPago = serializers.DateField()
+    formaPago = serializers.CharField(max_length=50)
+    referencia = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    observaciones = serializers.CharField(required=False, allow_blank=True)
+
+    class Meta:
+        model = Pago
+        fields = [
+            'idNota',
+            'monto',
+            'fechaPago',
+            'formaPago',
+            'referencia',
+            'observaciones',
+        ]
+
+    def validate_monto(self, value):
+        if value <= Decimal('0.00'):
+            raise serializers.ValidationError("El monto debe ser mayor a 0.")
+        return value
+
+    def validate(self, data):
+        # Validar que la nota exista
+        try:
+            nota = Nota.objects.get(idNota=data['idNota'])
+        except Nota.DoesNotExist:
+            raise serializers.ValidationError({"idNota": "La nota especificada no existe."})
+
+        # Validaciones de negocio
+        if nota.estado == 'PAGADA':
+            raise serializers.ValidationError("Esta nota ya ha sido pagada completamente.")
+
+        if data['monto'] > nota.totalNota:
+            raise serializers.ValidationError({
+                "monto": f"El monto no puede exceder el total de la nota (${nota.totalNota})."
+            })
+
+        # Guardar la nota en el contexto para usarla en create / view
+        self.context['nota'] = nota
+        return data
+
+    def create(self, validated_data):
+        """
+        Crea el AsientoContable, Pago y DetalleAsiento. 
+        Este método se espera sea llamado dentro de una transacción atómica desde la view.
+        """
+        nota = self.context.get('nota')
+        if nota is None:
+            raise serializers.ValidationError("Nota no encontrada en contexto.")
+
+        # Obtener moneda/tasa: preferir configuración si existe, si no fallback a Moneda id=1
+        configuracion = Configuracion.objects.first()
+        moneda = None
+        if configuracion and getattr(configuracion, 'moneda', None):
+            moneda = configuracion.moneda
+        else:
+            moneda = Moneda.objects.filter(idMoneda=1).first()
+
+        if not moneda:
+            raise serializers.ValidationError("No se pudo determinar la moneda del sistema (ni configuración ni idMoneda=1).")
+
+        tasa = Tasa.objects.filter(idMoneda=moneda).order_by('-idTasa').first()
+        if not tasa:
+            raise serializers.ValidationError(f"No se encontró tasa para la moneda {moneda}.")
+
+        # periodo contable activo (la view puede validar también)
+        from apps.periodoContable.models import periodoContable
+        periodo_activo = periodoContable.objects.filter(estadoPeriodo=True).first()
+        if not periodo_activo:
+            raise serializers.ValidationError("No hay periodo contable activo.")
+
+        # Crear AsientoContable con número único
+        numero_asiento = f"PAGO-{now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
+        asiento = AsientoContable.objects.create(
+            numeroAsiento=numero_asiento,
+            fechaAsiento=now().date(),
+            conceptoAsiento=f"Pago de {validated_data['formaPago']} - Nota: {nota.numeroNota}",
+            idPeriodo=periodo_activo
+        )
+
+        # Crear Pago
+        pago = Pago.objects.create(
+            idNota=nota,
+            idAsiento=asiento,
+            idTasa=tasa,
+            monto=validated_data['monto'],
+            fechaPago=validated_data['fechaPago'],
+            formaPago=validated_data['formaPago'],
+            referencia=validated_data.get('referencia', '') or '',
+            observaciones=validated_data.get('observaciones', '') or ''
+        )
+
+        # Actualizar estado de nota
+        if validated_data['monto'] >= nota.totalNota:
+            nota.estado = 'PAGADA'
+        else:
+            nota.estado = 'PARCIAL'
+        nota.save()
+
+        # Actualizar inscripción relacionada (si aplica)
+        try:
+            nota_relacionada = NotaRelacionada.objects.filter(idNota=nota).first()
+            if nota_relacionada and nota_relacionada.idInscripcion:
+                inscripcion = nota_relacionada.idInscripcion
+                inscripcion.estadoPago = 'PAGADO' if validated_data['monto'] >= nota.totalNota else 'PARCIAL'
+                inscripcion.save()
+        except Exception as e:
+            # no detiene el proceso si falla esto, solo log
+            print(f"⚠️ No se pudo actualizar inscripción: {str(e)}")
+
+        # Crear detalles de asiento (si existen planes)
+        try:
+            plan_articulo_debe = PlanArticulo.objects.filter(
+                tipoArticulo=nota.tipoArticulo,
+                tipo=True  # en tu modelo tipo es booleano; en versiones previas lo usabas 1/0
+            ).order_by('-fecha').first()
+
+            plan_articulo_haber = PlanArticulo.objects.filter(
+                tipoArticulo=nota.tipoArticulo,
+                tipo=False
+            ).order_by('-fecha').first()
+
+            if plan_articulo_debe and plan_articulo_haber:
+                DetalleAsiento.objects.create(
+                    idAsiento=asiento,
+                    idPlanCuenta=plan_articulo_debe.idPlanCuenta,
+                    debe=validated_data['monto'],
+                    haber=Decimal('0.00')
+                )
+                DetalleAsiento.objects.create(
+                    idAsiento=asiento,
+                    idPlanCuenta=plan_articulo_haber.idPlanCuenta,
+                    debe=Decimal('0.00'),
+                    haber=validated_data['monto']
+                )
+        except Exception as e:
+            print(f"⚠️ Error creando detalles de asiento: {str(e)}")
+
+        return pago
 
 class RequisitoSerializer(serializers.ModelSerializer):
     class Meta:

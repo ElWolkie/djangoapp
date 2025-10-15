@@ -196,7 +196,7 @@ class Pago(models.Model):
     fechaRegistro = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"Pago {self.idPago} de Factura {self.idFactura.numeroFactura}"
+        return f"Pago {self.idPago} de Nota {self.idNota.numeroNota}"
     
 class ParametroTributario(models.Model):
     # Opciones para tipos de factura (consistentes con tu formulario)

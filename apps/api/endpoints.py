@@ -1,5 +1,5 @@
 # En api/endpoints.py o en tu archivo de vistas
-from datetime import timedelta
+from datetime import timedelta, timezone
 import traceback
 from rest_framework.decorators import api_view
 from rest_framework.views import APIView
@@ -8,10 +8,9 @@ from rest_framework import status
 from rest_framework.permissions import AllowAny
 
 from apps.persona.models import PersonaTP, Personas
-from apps.home.models import CuotaFormacion, Formacion, Usuarios
+from apps.home.models import CuotaFormacion, Formacion, Moneda, Usuarios
 import logging
 
-from apps.persona.serializers import PersonaCreateSerializer
 from rest_framework.authentication import SessionAuthentication
 from apps.persona.serializers import PersonaCreateSerializer, UsuarioCreateSerializer
 
@@ -19,54 +18,48 @@ from apps.asientoContable.models import AsientoContable, DetalleAsiento
 from apps.periodoContable.models import periodoContable
 from django.db import transaction
 from apps.inscripcion.models import Inscripcion
-from apps.factura.models import Nota, NotaRelacionada, PlanArticulo, ParametroTributario
+from apps.factura.models import Nota, NotaRelacionada, Pago, PlanArticulo, ParametroTributario
 from apps.home.models import Tasa, Configuracion
 from apps.factura.templatetags.decimal_filters import to_decimal
 from django.utils.timezone import now
 import uuid
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 logger = logging.getLogger(__name__)
 
-
+# En tu views.py, modifica la vista para más logging
 class PersonaPublicRegisterView(APIView):
-    authentication_classes = [] # Le dice a DRF: "No intentes autenticar esta petición".
-    permission_classes = [AllowAny]   # Le dice a DRF: "Cualquiera tiene permiso para acceder".
+    authentication_classes = []
+    permission_classes = [AllowAny]
 
     def post(self, request, *args, **kwargs):
-        # ... el resto de tu función post se queda exactamente igual
-        logger.info(f"📥 Datos recibidos para registro de persona: {request.data}")
+        logger.info(f"📥 Datos recibidos RAW: {request.data}")
         
-        serializer = PersonaCreateSerializer(data=request.data)
-        
-        if serializer.is_valid():
-            try:
-                # El método .save() llamará internamente a nuestro método create() en el serializer
+        try:
+            serializer = PersonaCreateSerializer(data=request.data)
+            
+            if serializer.is_valid():
+                logger.info(f"✅ Datos válidos: {serializer.validated_data}")
                 persona_creada = serializer.save()
                 
-                # Preparamos la respuesta usando los datos del serializer post-creación
-                # El serializer automáticamente convierte el objeto 'persona_creada' a JSON
                 response_data = serializer.data
                 response_data['mensaje'] = 'Persona registrada exitosamente'
                 
-                logger.info(f"📤 Enviando respuesta exitosa: {response_data}")
+                logger.info(f"✅ Persona creada exitosamente: {persona_creada.idPersona}")
                 return Response(response_data, status=status.HTTP_201_CREATED)
                 
-            except Exception as e:
-                logger.error(f"❌ Error interno durante la creación de la persona: {str(e)}", exc_info=True)
+            else:
+                logger.error(f"❌ Errores de validación: {serializer.errors}")
                 return Response({
-                    'error': 'Ocurrió un error inesperado al guardar los datos.',
-                    'codigo': 'ERROR_INTERNO'
-                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-        else:
-            # Si los datos no son válidos, el serializer.errors contendrá los detalles
-            logger.warning(f"⚠️ Datos de registro inválidos: {serializer.errors}")
+                    'error': 'Datos inválidos',
+                    'detalles': serializer.errors,
+                }, status=status.HTTP_400_BAD_REQUEST)
+                
+        except Exception as e:
+            logger.error(f"🔥 Error crítico: {str(e)}", exc_info=True)
             return Response({
-                'error': 'Datos inválidos. Por favor, revisa los campos.',
-                'detalles': serializer.errors,
-                'codigo': 'VALIDATION_ERROR'
-            }, status=status.HTTP_400_BAD_REQUEST)
+                'error': f'Error interno: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['GET'])
@@ -226,7 +219,6 @@ class CuotasFormacionAPIView(APIView):
                 'detalle': str(e) if logging.DEBUG else 'Contacte al administrador',
                 'status': 'error'
             }, status=500)
-        
 
 class NotaCobroCreateAPIView(APIView):
     @transaction.atomic
@@ -397,13 +389,27 @@ class NotaCobroCreateAPIView(APIView):
             return Response({
                 'success': True,
                 'message': 'Nota de cobro creada exitosamente.',
-                'nota': {
+                'data': {
                     'idNota': nota.idNota,
                     'numeroNota': nota.numeroNota,
                     'tipoOperacion': nota.tipoOperacion,
                     'tipoArticulo': nota.tipoArticulo,
                     'totalNota': float(nota.totalNota),
-                    'estado': nota.estado
+                    'subtotalGravado': float(nota.subtotalGravado),
+                    'subtotalExento': float(nota.subtotalExento),
+                    'iva': float(nota.iva),
+                    'descuento': float(nota.descuento),
+                    'estado': nota.estado,
+                    'fechaEmision': nota.fechaEmision,
+                    'persona': {
+                        'idPersona': persona.idPersona,
+                        'cedula': persona.cedula,
+                        'nombre': f"{persona.nombre} {persona.apellido}"
+                    },
+                    'formacion': {
+                        'idFormacion': inscripcion.idFormacion.idFormacion,
+                        'nombreFormacion': inscripcion.idFormacion.nombreFormacion
+                    }
                 }
             }, status=status.HTTP_201_CREATED)
 
@@ -418,3 +424,344 @@ def generar_numero_nota():
     fecha_actual = now().strftime('%Y%m%d')  # Formato: YYYYMMDD
     numero_unico = uuid.uuid4().hex[:6].upper()  # Tomar los primeros 6 caracteres del UUID
     return f"NOTA-{fecha_actual}-{numero_unico}"
+
+class PagoCreateAPIView(APIView):
+    @transaction.atomic
+    def post(self, request):
+        try:
+            data = request.data
+            print(f"📥 Datos recibidos: {data}")
+            
+            # Validar datos requeridos
+            required_fields = ['idNota', 'formaPago', 'monto', 'fechaPago']
+            for field in required_fields:
+                if field not in data:
+                    return Response({
+                        'success': False,
+                        'message': f'Campo requerido faltante: {field}'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Obtener y validar nota
+            try:
+                nota = Nota.objects.get(idNota=data['idNota'])
+                print(f"✅ Nota encontrada: {nota.numeroNota} - Estado: {nota.estado}")
+            except Nota.DoesNotExist:
+                return Response({
+                    'success': False,
+                    'message': 'Nota no encontrada'
+                }, status=status.HTTP_404_NOT_FOUND)
+
+            if nota.estado == 'PAGADA':
+                return Response({
+                    'success': False,
+                    'message': 'Esta nota ya ha sido pagada completamente'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Validar monto
+            try:
+                monto_pago = Decimal(str(data['monto']))
+                if monto_pago <= 0:
+                    return Response({
+                        'success': False,
+                        'message': 'El monto debe ser mayor a 0'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
+                if monto_pago > nota.totalNota:
+                    return Response({
+                        'success': False,
+                        'message': f'El monto no puede ser mayor al total de la nota (${nota.totalNota})'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+            except (ValueError, InvalidOperation):
+                return Response({
+                    'success': False,
+                    'message': 'Formato de monto inválido'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # 🔥 CORRECCIÓN: Obtener tasa de la configuración, no moneda base
+            configuracion = Configuracion.objects.first()
+            if not configuracion:
+                return Response({
+                    'success': False,
+                    'message': 'Configuración del sistema no encontrada'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            moneda_configuracion = configuracion.moneda
+            tasa = Tasa.objects.filter(idMoneda=moneda_configuracion).order_by('-idTasa').first()
+            
+            if not tasa:
+                return Response({
+                    'success': False,
+                    'message': f'No se encontró tasa para la moneda de configuración ({moneda_configuracion.nombreMoneda})'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            print(f"✅ Tasa encontrada: {tasa.idTasa} - {tasa.montoTasa}")
+
+            # Obtener periodo contable activo
+            periodo_activo = periodoContable.objects.filter(estadoPeriodo=True).first()
+            if not periodo_activo:
+                return Response({
+                    'success': False,
+                    'message': 'No hay periodo contable activo'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            print(f"✅ Periodo activo: {periodo_activo.nombrePeriodo}")
+
+            # 🔥 CORRECCIÓN: Crear asiento contable con número único
+            numero_asiento = f"PAGO-{now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
+            
+            asiento = AsientoContable.objects.create(
+                numeroAsiento=numero_asiento,
+                fechaAsiento=now().date(),
+                conceptoAsiento=f"Pago de {data['formaPago']} - Nota: {nota.numeroNota}",
+                idPeriodo=periodo_activo
+            )
+            print(f"✅ Asiento contable creado: {asiento.idAsiento}")
+
+            # 🔥 CORRECCIÓN: Crear pago según el modelo REAL
+            pago = Pago.objects.create(
+                idNota=nota,
+                idAsiento=asiento,
+                idTasa=tasa,
+                # idCuentaBanco se deja null por ahora (no viene del frontend)
+                monto=monto_pago,
+                fechaPago=data['fechaPago'],
+                formaPago=data['formaPago'],
+                referencia=data.get('referencia', ''),
+                observaciones=data.get('observaciones', '')
+                # fechaRegistro se auto-genera
+            )
+            print(f"✅ Pago creado: {pago.idPago}")
+
+            # Actualizar estado de la nota
+            if monto_pago >= nota.totalNota:
+                nota.estado = 'PAGADA'
+                print(f"✅ Nota marcada como PAGADA")
+            else:
+                nota.estado = 'PARCIAL'
+                print(f"✅ Nota marcada como PARCIAL")
+            
+            nota.save()
+
+            # Actualizar estado de la inscripción relacionada si existe
+            try:
+                nota_relacionada = NotaRelacionada.objects.filter(idNota=nota).first()
+                if nota_relacionada and nota_relacionada.idInscripcion:
+                    inscripcion = nota_relacionada.idInscripcion
+                    if monto_pago >= nota.totalNota:
+                        inscripcion.estadoPago = 'PAGADO'
+                    else:
+                        inscripcion.estadoPago = 'PARCIAL'
+                    inscripcion.save()
+                    print(f"✅ Inscripción actualizada: {inscripcion.idInscripcion}")
+            except Exception as e:
+                print(f"⚠️ No se pudo actualizar inscripción: {str(e)}")
+
+            # 🔥 CORRECCIÓN: Crear detalles del asiento contable
+            try:
+                # Buscar cuentas contables para el tipo de artículo
+                plan_articulo_debe = PlanArticulo.objects.filter(
+                    tipoArticulo=nota.tipoArticulo,
+                    tipo=1  # DEBE
+                ).order_by('-fecha').first()
+                
+                plan_articulo_haber = PlanArticulo.objects.filter(
+                    tipoArticulo=nota.tipoArticulo, 
+                    tipo=0  # HABER
+                ).order_by('-fecha').first()
+
+                if plan_articulo_debe and plan_articulo_haber:
+                    DetalleAsiento.objects.create(
+                        idAsiento=asiento,
+                        idPlanCuenta=plan_articulo_debe.idPlanCuenta,
+                        debe=monto_pago,
+                        haber=Decimal('0.00')
+                    )
+                    DetalleAsiento.objects.create(
+                        idAsiento=asiento,
+                        idPlanCuenta=plan_articulo_haber.idPlanCuenta,
+                        debe=Decimal('0.00'),
+                        haber=monto_pago
+                    )
+                    print(f"✅ Detalles de asiento creados")
+                else:
+                    print(f"⚠️ No se encontraron cuentas contables para {nota.tipoArticulo}")
+            except Exception as e:
+                print(f"⚠️ Error creando detalles de asiento: {str(e)}")
+
+            # Respuesta exitosa
+            response_data = {
+                'success': True,
+                'message': '¡Pago procesado exitosamente! 🎉',
+                'data': {
+                    'idPago': pago.idPago,
+                    'numeroAsiento': asiento.numeroAsiento,  # Usar número de asiento como referencia
+                    'monto': float(pago.monto),
+                    'fechaPago': pago.fechaPago.isoformat(),
+                    'formaPago': pago.formaPago,
+                    'referencia': pago.referencia,
+                    'nota': {
+                        'idNota': nota.idNota,
+                        'numeroNota': nota.numeroNota,
+                        'nuevoEstado': nota.estado,
+                        'totalNota': float(nota.totalNota)
+                    }
+                }
+            }
+            
+            print("🎊 Pago procesado exitosamente!")
+            return Response(response_data, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            print(f"💥 Error en PagoCreateAPIView: {str(e)}")
+            import traceback
+            print(f"📋 Traceback: {traceback.format_exc()}")
+            
+            return Response({
+                'success': False,
+                'message': f'Error procesando pago: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def generar_numero_pago(self):
+        # CORREGIDO: usar now() en lugar de timezone.now()
+        fecha_actual = now().strftime('%Y%m%d')
+        numero_unico = uuid.uuid4().hex[:6].upper()
+        return f"PAGO-{fecha_actual}-{numero_unico}"
+
+@api_view(['GET'])
+def notas_por_usuario_autenticado(request):
+    """
+    Obtener notas del usuario autenticado (usando el idPersona del usuario logueado)
+    """
+    try:
+        # Obtener el usuario autenticado
+        usuario = request.user
+        if not usuario.is_authenticated:
+            return Response({
+                'success': False,
+                'message': 'Usuario no autenticado'
+            }, status=401)
+
+        # Obtener la persona desde el usuario
+        try:
+            persona = usuario.idPersona
+            print(f"🔍 Buscando notas para persona ID: {persona.idPersona}")
+        except Personas.DoesNotExist:
+            return Response({
+                'success': False,
+                'message': 'Perfil de persona no encontrado para este usuario'
+            }, status=404)
+
+        # Obtener notas relacionadas con esta persona
+        notas = Nota.objects.filter(
+            idPersona=persona,
+            estado__in=['PENDIENTE', 'PARCIAL']
+        ).order_by('-fechaEmision')
+
+        notas_data = []
+        for nota in notas:
+            # Obtener información de formación - MEJORADO
+            formacion_nombre = "Formación no especificada"
+            
+            try:
+                # Buscar en NotaRelacionada para obtener la formación
+                relacion = NotaRelacionada.objects.filter(idNota=nota).first()
+                if relacion:
+                    if relacion.idInscripcion and relacion.idInscripcion.idFormacion:
+                        formacion_nombre = relacion.idInscripcion.idFormacion.nombreFormacion
+                    elif relacion.idCuota and relacion.idCuota.idFormacion:
+                        formacion_nombre = relacion.idCuota.idFormacion.nombreFormacion
+                    elif relacion.idSolicitud and relacion.idSolicitud.idFormacion:
+                        formacion_nombre = relacion.idSolicitud.idFormacion.nombreFormacion
+                    
+                    # Si aún no tenemos nombre, buscar en otros campos
+                    if formacion_nombre == "Formación no especificada":
+                        if relacion.idInscripcion:
+                            formacion_nombre = f"Inscripción #{relacion.idInscripcion.idInscripcion}"
+                        elif relacion.idCuota:
+                            formacion_nombre = f"Cuota #{relacion.idCuota.idCuota}"
+                        elif relacion.idSolicitud:
+                            formacion_nombre = f"Solicitud #{relacion.idSolicitud.idSolicitud}"
+            except Exception as e:
+                print(f"⚠️ Error obteniendo formación para nota {nota.idNota}: {str(e)}")
+                formacion_nombre = "Información no disponible"
+
+            notas_data.append({
+                'idNota': nota.idNota,
+                'numeroNota': nota.numeroNota,
+                'fechaEmision': nota.fechaEmision,
+                'totalNota': float(nota.totalNota),
+                'estado': nota.estado,
+                'formacion': {
+                    'nombreFormacion': formacion_nombre
+                },
+                'persona': {
+                    'nombre': f"{persona.nombres} {persona.apellidos}",
+                    'cedula': persona.cedula
+                }
+            })
+
+        return Response({
+            'success': True,
+            'data': notas_data,
+            'total': len(notas_data),
+            'persona_info': {
+                'idPersona': persona.idPersona,
+                'nombre': f"{persona.nombres} {persona.apellidos}",
+                'cedula': persona.cedula
+            }
+        })
+
+    except Exception as e:
+        print(f"❌ Error en notas_por_usuario_autenticado: {str(e)}")
+        return Response({
+            'success': False,
+            'message': f'Error obteniendo notas: {str(e)}'
+        }, status=500)
+
+@api_view(['POST'])
+def corregir_relaciones_notas(request):
+    """
+    Script temporal para corregir relaciones de notas existentes
+    """
+    try:
+        # Obtener todas las notas de tipo INSCRIPCION que no tienen relaciones
+        notas_sin_relacion = Nota.objects.filter(
+            tipoArticulo='INSCRIPCION'
+        ).exclude(
+            idNota__in=NotaRelacionada.objects.values('idNota')
+        )
+        
+        correcciones = []
+        for nota in notas_sin_relacion:
+            # Buscar inscripciones relacionadas con esta persona
+            inscripciones = Inscripcion.objects.filter(
+                idPersona=nota.idPersona,
+                is_active=True
+            )
+            
+            for inscripcion in inscripciones:
+                # Crear la relación
+                relacion = NotaRelacionada.objects.create(
+                    idNota=nota,
+                    idInscripcion=inscripcion
+                )
+                correcciones.append({
+                    'nota_id': nota.idNota,
+                    'nota_numero': nota.numeroNota,
+                    'inscripcion_id': inscripcion.idInscripcion,
+                    'formacion': inscripcion.idFormacion.nombreFormacion if inscripcion.idFormacion else 'Sin formación'
+                })
+                print(f"✅ Relación creada: Nota {nota.numeroNota} -> Inscripción {inscripcion.idInscripcion}")
+                break  # Solo una relación por nota
+        
+        return Response({
+            'success': True,
+            'message': f'Se crearon {len(correcciones)} relaciones',
+            'correcciones': correcciones
+        })
+        
+    except Exception as e:
+        return Response({
+            'success': False,
+            'message': f'Error: {str(e)}'
+        }, status=500)

@@ -20,6 +20,8 @@ import PantallaServicios from './src/screens/servicios';
 import PantallaRequisitos from './src/screens/requisitos';
 import PantallaMonedas from './src/screens/monedas';
 import PantallaTasas from './src/screens/tasas';
+import PagoScreen from './src/screens/pago'; // 🆕 IMPORTAR PAGO SCREEN
+import PagoMovilFicticioScreen from './src/screens/PagoMovilFicticioScreen';
 import { 
   View, 
   Text, 
@@ -27,14 +29,14 @@ import {
   StyleSheet, 
   TouchableOpacity, 
   Animated, 
-  Easing, 
-  Platform,
+  Easing,
   ScrollView 
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { ReloadContext } from './src/contexts/ReloadContext';
 import { AuthContext } from './src/contexts/AuthContext';
 
+// 🆕 Crear el Drawer Navigator sin tipos complejos temporalmente
 const Drawer = createDrawerNavigator();
 
 function CustomDrawerContent(props: any) {
@@ -56,14 +58,14 @@ function CustomDrawerContent(props: any) {
     }).start();
   };
 
-  /* ---------- GESTIONAR TRÁMITE ---------- */
-  const [openTramPanel, setOpenTramPanel] = useState(false);
-  const animTramPanel = useRef(new Animated.Value(0)).current;
+  /* ---------- GESTIÓN FINANCIERA ---------- */
+  const [openFinanzas, setOpenFinanzas] = useState(false);
+  const animFinanzas = useRef(new Animated.Value(0)).current;
 
-  const toggleTramPanel = () => {
-    const toValue = openTramPanel ? 0 : 1;
-    setOpenTramPanel(!openTramPanel);
-    Animated.timing(animTramPanel, { 
+  const toggleFinanzas = () => {
+    const toValue = openFinanzas ? 0 : 1;
+    setOpenFinanzas(!openFinanzas);
+    Animated.timing(animFinanzas, { 
       toValue, 
       duration: 300, 
       easing: Easing.out(Easing.cubic), 
@@ -82,7 +84,7 @@ function CustomDrawerContent(props: any) {
     inputRange: [0,1], 
     outputRange: ['0deg','180deg'] 
   });
-  const rotateTramPanel = animTramPanel.interpolate({ 
+  const rotateFinanzas = animFinanzas.interpolate({ 
     inputRange: [0,1], 
     outputRange: ['0deg','180deg'] 
   });
@@ -90,10 +92,10 @@ function CustomDrawerContent(props: any) {
   // Alturas animadas - usando maxHeight en lugar de height
   const academicaMaxHeight = animAcademica.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, 1000] // Valor suficientemente alto
+    outputRange: [0, 1000]
   });
 
-  const tramPanelMaxHeight = animTramPanel.interpolate({
+  const finanzasMaxHeight = animFinanzas.interpolate({
     inputRange: [0, 1],
     outputRange: [0, 800]
   });
@@ -123,13 +125,13 @@ function CustomDrawerContent(props: any) {
         />
 
         <DrawerItem
-          label="Gestión de Personas"
-          icon={({ color, size }) => <Icon name="account-group" color={color} size={size} />}
+          label="Mi Perfil"
+          icon={({ color, size }) => <Icon name="account" color={color} size={size} />}
           onPress={() => navigateTo('Personas')}
           labelStyle={styles.drawerLabel}
         />
 
-        {/* ACORDEÓN: ACADEMICA - ahora SIN sub-acordeón (solo acordeón principal) */} 
+        {/* ACORDEÓN: ACADEMICA */}
         <View style={styles.sectionContainer}>
           <TouchableOpacity 
             style={styles.accordionHeader} 
@@ -149,60 +151,7 @@ function CustomDrawerContent(props: any) {
             styles.accordionContent, 
             { maxHeight: academicaMaxHeight }
           ]}>
-            {/* Antes había un sub-acordeón (Formaciones) — lo comenté/eliminé para simplificar */}
-            {/* Mantengo Inscripciones visible dentro del acordeón para consistencia */}
-            
-            {/* Formaciones y TipoFormaciones comentados (puedo reactivar luego si deseas) */}
-            {/*
-            <DrawerItem
-              label="Formaciones"
-              icon={({ color, size }) => <Icon name="school" color={color} size={size} />}
-              onPress={() => navigateTo('Formaciones')}
-              labelStyle={styles.submenuText}
-              style={styles.submenuItem}
-            />
-            <DrawerItem
-              label="Tipo Formaciones"
-              icon={({ color, size }) => <Icon name="format-list-bulleted" color={color} size={size} />}
-              onPress={() => navigateTo('TipoFormaciones')}
-              labelStyle={styles.submenuText}
-              style={styles.submenuItem}
-            />
-            */}
-
-            {/* Otros items académicos (comentados excepto Inscripciones) */}
-            {/*
-            <DrawerItem
-              label="Materias"
-              icon={({ color, size }) => <Icon name="book-open-variant" color={color} size={size} />}
-              onPress={() => navigateTo('Materias')}
-              labelStyle={styles.submenuText}
-              style={styles.submenuItem}
-            />
-            <DrawerItem
-              label="Cohortes"
-              icon={({ color, size }) => <Icon name="calendar-multiple" color={color} size={size} />}
-              onPress={() => navigateTo('Cohortes')}
-              labelStyle={styles.submenuText}
-              style={styles.submenuItem}
-            />
-            <DrawerItem
-              label="Cargos"
-              icon={({ color, size }) => <Icon name="briefcase" color={color} size={size} />}
-              onPress={() => navigateTo('Cargos')}
-              labelStyle={styles.submenuText}
-              style={styles.submenuItem}
-            />
-            <DrawerItem
-              label="Honorarios"
-              icon={({ color, size }) => <Icon name="currency-usd" color={color} size={size} />}
-              onPress={() => navigateTo('Honorarios')}
-              labelStyle={styles.submenuText}
-              style={styles.submenuItem}
-            />
-            */}
-
-            {/* Inscripciones queda activo */}
+            {/* Inscripciones activo */}
             <DrawerItem
               label="Inscripciones"
               icon={({ color, size }) => <Icon name="clipboard-list" color={color} size={size} />}
@@ -213,61 +162,7 @@ function CustomDrawerContent(props: any) {
           </Animated.View>
         </View>
 
-        {/* TRÁMITE - ahora SIN sub-acordeón (solo acordeón principal) */}
-        {/*
-        <View style={styles.sectionContainer}>
-          <TouchableOpacity 
-            style={styles.accordionHeader} 
-            onPress={toggleTramPanel}
-            activeOpacity={0.7}
-          >
-            <View style={styles.accordionTitleRow}>
-              <Icon name="file-document-multiple-outline" size={20} color="#4f8cff" />
-              <Text style={styles.accordionTitle}>Gestionar Trámite</Text>
-            </View>
-            <Animated.View style={{ transform: [{ rotate: rotateTramPanel }] }}>
-              <Icon name="chevron-down" size={22} color="#4f8cff" />
-            </Animated.View>
-          </TouchableOpacity>
-
-          <Animated.View style={[
-            styles.accordionContent, 
-            { maxHeight: tramPanelMaxHeight }
-          ]}>
-            <DrawerItem
-              label="Solicitudes"
-              icon={({ color, size }) => <Icon name="file-document" color={color} size={size} />}
-              onPress={() => navigateTo('Solicitudes')}
-              labelStyle={styles.submenuText}
-              style={styles.submenuItem}
-            />
-
-            {/* Trámites, Servicios y Requisitos comentados por ahora */}
-            {/*
-            <DrawerItem
-              label="Trámites"
-              icon={({ color, size }) => <Icon name="file-certificate" color={color} size={size} />}
-              onPress={() => navigateTo('Tramites')}
-              labelStyle={styles.submenuText}
-              style={styles.submenuItem}
-            />
-            <DrawerItem
-              label="Servicio Expedito"
-              icon={({ color, size }) => <Icon name="truck-fast" color={color} size={size} />}
-              onPress={() => navigateTo('Servicios')}
-              labelStyle={styles.submenuText}
-              style={styles.submenuItem}
-            />
-            <DrawerItem
-              label="Requisitos"
-              icon={({ color, size }) => <Icon name="check-circle-outline" color={color} size={size} />}
-              onPress={() => navigateTo('Requisitos')}
-              labelStyle={styles.submenuText}
-              style={styles.submenuItem}
-            />
-          </Animated.View>
-        </View>
-
+        {/* 🆕 ACORDEÓN: FINANZAS */}
         <View style={styles.sectionContainer}>
           <TouchableOpacity 
             style={styles.accordionHeader} 
@@ -275,10 +170,10 @@ function CustomDrawerContent(props: any) {
             activeOpacity={0.7}
           >
             <View style={styles.accordionTitleRow}>
-              <Icon name="finance" size={20} color="#4f8cff" />
-              <Text style={styles.accordionTitle}>Finanzas</Text>
+              <Icon name="cash-multiple" size={20} color="#4f8cff" />
+              <Text style={styles.accordionTitle}>Gestión Financiera</Text>
             </View>
-            <Animated.View style={{ transform: [{ rotate: rotateFin }] }}>
+            <Animated.View style={{ transform: [{ rotate: rotateFinanzas }] }}>
               <Icon name="chevron-down" size={22} color="#4f8cff" />
             </Animated.View>
           </TouchableOpacity>
@@ -287,23 +182,16 @@ function CustomDrawerContent(props: any) {
             styles.accordionContent, 
             { maxHeight: finanzasMaxHeight }
           ]}>
+            {/* Pago activo */}
             <DrawerItem
-              label="Monedas"
-              icon={({ color, size }) => <Icon name="currency-usd-circle" color={color} size={size} />}
-              onPress={() => navigateTo('Monedas')}
-              labelStyle={styles.submenuText}
-              style={styles.submenuItem}
-            />
-            <DrawerItem
-              label="Tasas"
-              icon={({ color, size }) => <Icon name="percent" color={color} size={size} />}
-              onPress={() => navigateTo('Tasas')}
+              label="Procesar Pagos"
+              icon={({ color, size }) => <Icon name="credit-card-check" color={color} size={size} />}
+              onPress={() => navigateTo('Pagos')}
               labelStyle={styles.submenuText}
               style={styles.submenuItem}
             />
           </Animated.View>
         </View>
-        */}
 
         {/* Espacio para empujar el logout hacia abajo */}
         <View style={styles.spacer} />
@@ -361,12 +249,15 @@ export default function AppNavigator() {
       <Drawer.Screen name="Cargos" component={PantallaCargos} options={{ title: 'Cargos' }} />
       <Drawer.Screen name="Honorarios" component={PantallaHonorarios} options={{ title: 'Honorarios' }} />
       <Drawer.Screen name="Inscripciones" component={PantallaInscripciones} options={{ title: 'Inscripciones' }} />
+      {/* 🆕 AGREGAR PANTALLA DE PAGOS AL DRAWER */}
+      <Drawer.Screen name="Pagos" component={PagoScreen} options={{ title: 'Procesar Pagos' }} />
       <Drawer.Screen name="Solicitudes" component={PantallaSolicitudes} options={{ title: 'Solicitudes' }} />
       <Drawer.Screen name="Tramites" component={PantallaTramites} options={{ title: 'Trámites' }} />
       <Drawer.Screen name="Servicios" component={PantallaServicios} options={{ title: 'Servicios' }} />
       <Drawer.Screen name="Requisitos" component={PantallaRequisitos} options={{ title: 'Requisitos' }} />
       <Drawer.Screen name="Monedas" component={PantallaMonedas} options={{ title: 'Monedas' }} />
       <Drawer.Screen name="Tasas" component={PantallaTasas} options={{ title: 'Tasas' }} />
+      <Drawer.Screen name="PagoMovilFicticio" component={PagoMovilFicticioScreen} options={{ title: 'Pago Móvil' }} />
     </Drawer.Navigator>
   );
 }
@@ -438,29 +329,6 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 8,
     borderBottomRightRadius: 8,
     marginBottom: 8,
-  },
-  subAccordionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    backgroundColor: '#f8f9fa',
-    marginTop: 4,
-  },
-  subAccordionTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  subAccordionTitle: {
-    marginLeft: 10,
-    fontSize: 14,
-    color: '#4f8cff',
-    fontWeight: '700',
-  },
-  subAccordionContent: {
-    overflow: 'hidden',
-    backgroundColor: '#fff',
   },
   submenuItem: {
     paddingHorizontal: 8,
