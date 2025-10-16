@@ -146,17 +146,16 @@
     {% endif %}
   </div>
 
-  <div class="card shadow-sm">
+  <div class="card shadow-lg">
     <div class="table-responsive">
       <table class="table table-striped table-hover align-middle text-gray-dark" id="pagosTable">
         <thead class="table-light">
           <tr>
             <th>ID Pago</th>
-            <th>Factura</th>
+            <th>Nº Nota</th>
             <th>Monto</th>
             <th>Fecha de Pago</th>
             <th>Forma de Pago</th>
-            <th>Referencia</th>
             <th class="actions-column">Acciones</th>
           </tr>
         </thead>
@@ -168,7 +167,6 @@
             <td class="text-center">{{ pago.monto|floatformat:2 }} {{ pago.idTasa.idMoneda.simboloMoneda }}</td>
             <td class="text-center">{{ pago.fechaPago|date:"d/m/Y" }}</td>
             <td class="text-center">{{ pago.formaPago }}</td>
-            <td class="text-center">{{ pago.referencia|default:"—" }}</td>
             <td class="actions-column">
               <div class="d-flex gap-2">
                 <button class="btn btn-info btn-sm"
@@ -270,10 +268,10 @@
           <div class="detail-label">ID Pago:</div>
           <div class="detail-value bold" id="detail-id"></div>
         </div>
-        <div class="detail-item">
+        <!-- <div class="detail-item">
           <div class="detail-label">Factura:</div>
           <div class="detail-value" id="detail-factura"></div>
-        </div>
+        </div> -->
         <div class="detail-item">
           <div class="detail-label">Monto:</div>
           <div class="detail-value" id="detail-monto"></div>
