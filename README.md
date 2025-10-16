@@ -49,6 +49,61 @@ $ # Access the web app in browser: http://127.0.0.1:8000/
 
 # CARGAR PARAMETROS TRIBUTARIOS
 # python manage.py create_parametros_tributarios
+
+# LINUX MINT
+# sudo apt update
+# sudo apt install python3 python3-pip python3-venv -y
+# curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+# sudo apt install -y nodejs
+# git clone https://github.com/ElWolkie/djangoapp.git
+# cd djangoapp
+# python3 -m venv env
+# source env/bin/activate
+# pip install -r requirements.txt
+# # Cargar grupos
+# python manage.py loaddata grupos.json
+
+# # Crear parámetros tributarios
+# python manage.py create_parametros_tributarios
+# ip addr show
+# python manage.py runserver 0.0.0.0:8000
+# sudo ufw allow 8000
+# http://192.168.x.x:8000
+
+#####################################################################################################
+# PARA EK SERVER: 
+# sudo apt update
+# sudo apt install nginx -y
+# pip install gunicorn
+# gunicorn --workers 3 --bind 0.0.0.0:8000 core.wsgi:application
+# sudo nano /etc/nginx/sites-available/djangoapp
+# server {
+#     listen 80;
+#     server_name 192.168.x.x; # Reemplaza con la IP de tu máquina
+
+#     location = /favicon.ico { access_log off; log_not_found off; }
+#     location /static/ {
+#         root /home/stelaringt/djangoapp;
+#     }
+
+#     location /media/ {
+#         root /home/stelaringt/djangoapp;
+#     }
+
+#     location / {
+#         proxy_pass http://127.0.0.1:8000;
+#         proxy_set_header Host $host;
+#         proxy_set_header X-Real-IP $remote_addr;
+#         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+#         proxy_set_header X-Forwarded-Proto $scheme;
+#     }
+# }
+# sudo ln -s /etc/nginx/sites-available/djangoapp /etc/nginx/sites-enabled/
+# sudo nginx -t
+# sudo systemctl restart nginx
+# sudo apt install certbot python3-certbot-nginx -y
+# sudo certbot --nginx -d tu-dominio.com
+# 
 ```
 
 > Note: Para usar esta aplicación es necesario tener un usuario autenticado para acceder a las pantallas.
