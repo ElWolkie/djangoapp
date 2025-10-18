@@ -20,7 +20,7 @@ import PantallaServicios from './src/screens/servicios';
 import PantallaRequisitos from './src/screens/requisitos';
 import PantallaMonedas from './src/screens/monedas';
 import PantallaTasas from './src/screens/tasas';
-import PagoScreen from './src/screens/pago'; // 🆕 IMPORTAR PAGO SCREEN
+import PagoScreen from './src/screens/pago';
 import PagoMovilFicticioScreen from './src/screens/PagoMovilFicticioScreen';
 import { 
   View, 
@@ -28,180 +28,208 @@ import {
   Image, 
   StyleSheet, 
   TouchableOpacity, 
-  Animated, 
-  Easing,
-  ScrollView 
+  Dimensions,
+  Platform
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { ReloadContext } from './src/contexts/ReloadContext';
 import { AuthContext } from './src/contexts/AuthContext';
 
-// 🆕 Crear el Drawer Navigator sin tipos complejos temporalmente
 const Drawer = createDrawerNavigator();
+const { height: screenHeight } = Dimensions.get('window');
 
 function CustomDrawerContent(props: any) {
-  const { navigation } = props;
+  const { navigation, state } = props;
   const { logout, user } = useContext(AuthContext);
 
-  /* ---------- GESTIÓN ACADÉMICA ---------- */
-  const [openAcademica, setOpenAcademica] = useState(false);
-  const animAcademica = useRef(new Animated.Value(0)).current;
-
-  const toggleAcademica = () => {
-    const toValue = openAcademica ? 0 : 1;
-    setOpenAcademica(!openAcademica);
-    Animated.timing(animAcademica, { 
-      toValue, 
-      duration: 300, 
-      easing: Easing.out(Easing.cubic), 
-      useNativeDriver: false 
-    }).start();
-  };
-
-  /* ---------- GESTIÓN FINANCIERA ---------- */
-  const [openFinanzas, setOpenFinanzas] = useState(false);
-  const animFinanzas = useRef(new Animated.Value(0)).current;
-
-  const toggleFinanzas = () => {
-    const toValue = openFinanzas ? 0 : 1;
-    setOpenFinanzas(!openFinanzas);
-    Animated.timing(animFinanzas, { 
-      toValue, 
-      duration: 300, 
-      easing: Easing.out(Easing.cubic), 
-      useNativeDriver: false 
-    }).start();
-  };
-
+  // Función mejorada de navegación para web
   const navigateTo = (screenName: string) => {
-    navigation.navigate(screenName);
-    // Cerrar el drawer después de navegar (opcional)
+    console.log(`🔄 Navegando a: ${screenName}`);
     navigation.closeDrawer();
+    
+    // Pequeño delay para asegurar que el drawer se cierra antes de navegar
+    setTimeout(() => {
+      navigation.navigate(screenName);
+    }, 10);
   };
-
-  // Animaciones de rotación
-  const rotateAcademica = animAcademica.interpolate({ 
-    inputRange: [0,1], 
-    outputRange: ['0deg','180deg'] 
-  });
-  const rotateFinanzas = animFinanzas.interpolate({ 
-    inputRange: [0,1], 
-    outputRange: ['0deg','180deg'] 
-  });
-
-  // Alturas animadas - usando maxHeight en lugar de height
-  const academicaMaxHeight = animAcademica.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 1000]
-  });
-
-  const finanzasMaxHeight = animFinanzas.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 800]
-  });
 
   // displayName fallback
   const userDisplay = user?.displayName ?? user?.nombres ?? user?.name ?? null;
+
+  // Función para verificar si una ruta está activa
+  const isRouteActive = (routeName: string) => {
+    return state.routes[state.index].name === routeName;
+  };
+
+  // Handler específico para web/mobile
+  const handleNavigation = (screenName: string) => {
+    if (Platform.OS === 'web') {
+      // En web, usar onPressIn es más confiable
+      navigateTo(screenName);
+    } else {
+      // En móvil, usar onPress normal
+      navigateTo(screenName);
+    }
+  };
 
   return (
     <View style={styles.container}>
       <DrawerContentScrollView 
         {...props}
         contentContainerStyle={styles.scrollContainer}
-        showsVerticalScrollIndicator={true}
-        scrollEnabled={true}
+        showsVerticalScrollIndicator={false}
       >
         <View style={styles.drawerHeader}>
           <Image source={require('./assets/SACFU.png')} style={styles.drawerLogo} resizeMode="contain" />
-          <Text style={styles.drawerTitle}>ADMINISTRATIVO</Text>
+          <Text style={styles.drawerTitle}>SISTEMA ACADÉMICO</Text>
           {userDisplay && <Text style={styles.userText}>{userDisplay}</Text>}
         </View>
 
-        <DrawerItem
-          label="Inicio"
-          icon={({ color, size }) => <Icon name="view-dashboard" color={color} size={size} />}
-          onPress={() => navigateTo('Dashboard')}
-          labelStyle={styles.drawerLabel}
-        />
-
-        <DrawerItem
-          label="Mi Perfil"
-          icon={({ color, size }) => <Icon name="account" color={color} size={size} />}
-          onPress={() => navigateTo('Personas')}
-          labelStyle={styles.drawerLabel}
-        />
-
-        {/* ACORDEÓN: ACADEMICA */}
-        <View style={styles.sectionContainer}>
+        {/* SECCIÓN PRINCIPAL - ITEMS CON DISEÑO PROFESIONAL */}
+        <View style={styles.menuSection}>
           <TouchableOpacity 
-            style={styles.accordionHeader} 
-            onPress={toggleAcademica}
+            style={[
+              styles.menuItem,
+              isRouteActive('Dashboard') && styles.menuItemActive
+            ]}
+            onPress={() => handleNavigation('Dashboard')}
+            onPressIn={Platform.OS === 'web' ? () => handleNavigation('Dashboard') : undefined}
             activeOpacity={0.7}
           >
-            <View style={styles.accordionTitleRow}>
-              <Icon name="school-outline" size={20} color="#4f8cff" />
-              <Text style={styles.accordionTitle}>Mi Perfil</Text>
+            <View style={styles.menuItemContent}>
+              <View style={[
+                styles.iconContainer,
+                isRouteActive('Dashboard') && styles.iconContainerActive
+              ]}>
+                <Icon 
+                  name="view-dashboard" 
+                  size={22} 
+                  color={isRouteActive('Dashboard') ? '#fff' : '#4f8cff'} 
+                />
+              </View>
+              <Text style={[
+                styles.menuItemText,
+                isRouteActive('Dashboard') && styles.menuItemTextActive
+              ]}>
+                Inicio
+              </Text>
             </View>
-            <Animated.View style={{ transform: [{ rotate: rotateAcademica }] }}>
-              <Icon name="chevron-down" size={22} color="#4f8cff" />
-            </Animated.View>
+            {isRouteActive('Dashboard') && (
+              <View style={styles.activeIndicator} />
+            )}
           </TouchableOpacity>
 
-          <Animated.View style={[
-            styles.accordionContent, 
-            { maxHeight: academicaMaxHeight }
-          ]}>
-            {/* Inscripciones activo */}
-            <DrawerItem
-              label="Inscripciones"
-              icon={({ color, size }) => <Icon name="clipboard-list" color={color} size={size} />}
-              onPress={() => navigateTo('Inscripciones')}
-              labelStyle={styles.submenuText}
-              style={styles.submenuItem}
-            />
-          </Animated.View>
-        </View>
-
-        {/* 🆕 ACORDEÓN: FINANZAS */}
-        <View style={styles.sectionContainer}>
           <TouchableOpacity 
-            style={styles.accordionHeader} 
-            onPress={toggleFinanzas}
+            style={[
+              styles.menuItem,
+              isRouteActive('Personas') && styles.menuItemActive
+            ]}
+            onPress={() => handleNavigation('Personas')}
+            onPressIn={Platform.OS === 'web' ? () => handleNavigation('Personas') : undefined}
             activeOpacity={0.7}
           >
-            <View style={styles.accordionTitleRow}>
-              <Icon name="cash-multiple" size={20} color="#4f8cff" />
-              <Text style={styles.accordionTitle}>Gestión Financiera</Text>
+            <View style={styles.menuItemContent}>
+              <View style={[
+                styles.iconContainer,
+                isRouteActive('Personas') && styles.iconContainerActive
+              ]}>
+                <Icon 
+                  name="account" 
+                  size={22} 
+                  color={isRouteActive('Personas') ? '#fff' : '#4f8cff'} 
+                />
+              </View>
+              <Text style={[
+                styles.menuItemText,
+                isRouteActive('Personas') && styles.menuItemTextActive
+              ]}>
+                Mi Perfil
+              </Text>
             </View>
-            <Animated.View style={{ transform: [{ rotate: rotateFinanzas }] }}>
-              <Icon name="chevron-down" size={22} color="#4f8cff" />
-            </Animated.View>
+            {isRouteActive('Personas') && (
+              <View style={styles.activeIndicator} />
+            )}
           </TouchableOpacity>
 
-          <Animated.View style={[
-            styles.accordionContent, 
-            { maxHeight: finanzasMaxHeight }
-          ]}>
-            {/* Pago activo */}
-            <DrawerItem
-              label="Procesar Pagos"
-              icon={({ color, size }) => <Icon name="credit-card-check" color={color} size={size} />}
-              onPress={() => navigateTo('Pagos')}
-              labelStyle={styles.submenuText}
-              style={styles.submenuItem}
-            />
-          </Animated.View>
+          <TouchableOpacity 
+            style={[
+              styles.menuItem,
+              isRouteActive('Inscripciones') && styles.menuItemActive
+            ]}
+            onPress={() => handleNavigation('Inscripciones')}
+            onPressIn={Platform.OS === 'web' ? () => handleNavigation('Inscripciones') : undefined}
+            activeOpacity={0.7}
+          >
+            <View style={styles.menuItemContent}>
+              <View style={[
+                styles.iconContainer,
+                isRouteActive('Inscripciones') && styles.iconContainerActive
+              ]}>
+                <Icon 
+                  name="clipboard-list" 
+                  size={22} 
+                  color={isRouteActive('Inscripciones') ? '#fff' : '#4f8cff'} 
+                />
+              </View>
+              <Text style={[
+                styles.menuItemText,
+                isRouteActive('Inscripciones') && styles.menuItemTextActive
+              ]}>
+                Mis Inscripciones
+              </Text>
+            </View>
+            {isRouteActive('Inscripciones') && (
+              <View style={styles.activeIndicator} />
+            )}
+          </TouchableOpacity>
+
+          {/* BOTÓN DE PAGOS - SOLUCIÓN ESPECÍFICA PARA WEB */}
+          <TouchableOpacity 
+            style={[
+              styles.menuItem,
+              isRouteActive('Pagos') && styles.menuItemActive
+            ]}
+            onPress={() => handleNavigation('Pagos')}
+            onPressIn={Platform.OS === 'web' ? () => handleNavigation('Pagos') : undefined}
+            activeOpacity={0.7}
+            // Propiedades específicas para web
+            {...(Platform.OS === 'web' && {
+              onMouseDown: (e: { preventDefault: () => void; }) => {
+                e.preventDefault();
+                handleNavigation('Pagos');
+              }
+            })}
+          >
+            <View style={styles.menuItemContent}>
+              <View style={[
+                styles.iconContainer,
+                isRouteActive('Pagos') && styles.iconContainerActive
+              ]}>
+                <Icon 
+                  name="credit-card-check" 
+                  size={22} 
+                  color={isRouteActive('Pagos') ? '#fff' : '#4f8cff'} 
+                />
+              </View>
+              <Text style={[
+                styles.menuItemText,
+                isRouteActive('Pagos') && styles.menuItemTextActive
+              ]}>
+                Procesar Pagos
+              </Text>
+            </View>
+            {isRouteActive('Pagos') && (
+              <View style={styles.activeIndicator} />
+            )}
+          </TouchableOpacity>
         </View>
 
-        {/* Espacio para empujar el logout hacia abajo */}
-        <View style={styles.spacer} />
+        <View style={styles.flexSpacer} />
       </DrawerContentScrollView>
 
-      {/* Botón de cerrar sesión fuera del ScrollView */} 
       <View style={styles.logoutContainer}>
-        <DrawerItem
-          label="Cerrar Sesión"
-          icon={({ color, size }) => <Icon name="logout" color="#e63946" size={size} />}
+        <TouchableOpacity 
+          style={styles.logoutButton}
           onPress={async () => {
             try {
               await logout();
@@ -210,8 +238,13 @@ function CustomDrawerContent(props: any) {
             }
             navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
           }}
-          labelStyle={styles.logoutText}
-        />
+          activeOpacity={0.7}
+        >
+          <View style={styles.logoutIconContainer}>
+            <Icon name="logout" size={20} color="#e63946" />
+          </View>
+          <Text style={styles.logoutText}>Cerrar Sesión</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -230,14 +263,23 @@ export default function AppNavigator() {
     <Drawer.Navigator
       drawerContent={(props) => <CustomDrawerContent {...props} />}
       screenOptions={{
-        headerStyle: { backgroundColor: '#4f8cff' },
-        headerTintColor: '#fff',
-        drawerActiveTintColor: '#4f8cff',
-        drawerLabelStyle: { fontWeight: '600', fontSize: 14 },
-        headerRight: () => renderReloadButton(),
-        drawerStyle: {
-          width: 320,
+        headerStyle: { 
+          backgroundColor: '#4f8cff',
+          elevation: 0,
+          shadowOpacity: 0,
+          borderBottomWidth: 0,
         },
+        headerTintColor: '#fff',
+        headerTitleStyle: {
+          fontWeight: '700',
+          fontSize: 18,
+        },
+        drawerStyle: {
+          width: Platform.OS === 'web' ? 320 : 280,
+          backgroundColor: '#fff',
+        },
+        drawerType: Platform.OS === 'web' ? 'front' : 'slide',
+        overlayColor: 'rgba(0,0,0,0.5)',
       }}
     >
       <Drawer.Screen name="Dashboard" component={DashboardScreen} options={{ title: 'Inicio' }} />
@@ -249,7 +291,6 @@ export default function AppNavigator() {
       <Drawer.Screen name="Cargos" component={PantallaCargos} options={{ title: 'Cargos' }} />
       <Drawer.Screen name="Honorarios" component={PantallaHonorarios} options={{ title: 'Honorarios' }} />
       <Drawer.Screen name="Inscripciones" component={PantallaInscripciones} options={{ title: 'Inscripciones' }} />
-      {/* 🆕 AGREGAR PANTALLA DE PAGOS AL DRAWER */}
       <Drawer.Screen name="Pagos" component={PagoScreen} options={{ title: 'Procesar Pagos' }} />
       <Drawer.Screen name="Solicitudes" component={PantallaSolicitudes} options={{ title: 'Solicitudes' }} />
       <Drawer.Screen name="Tramites" component={PantallaTramites} options={{ title: 'Trámites' }} />
@@ -265,6 +306,7 @@ export default function AppNavigator() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#fff',
   },
   scrollContainer: {
     flexGrow: 1,
@@ -272,85 +314,173 @@ const styles = StyleSheet.create({
   },
   drawerHeader: {
     alignItems: 'center',
-    paddingVertical: 24,
+    paddingVertical: 28,
+    paddingHorizontal: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: '#f0f2f5',
     backgroundColor: '#fff',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   drawerLogo: {
-    width: 140,
-    height: 60,
-    marginBottom: 8,
+    width: 150,
+    height: 65,
+    marginBottom: 10,
   },
   drawerTitle: {
-    fontWeight: 'bold',
+    fontWeight: '800',
     color: '#4f8cff',
     fontSize: 16,
-    letterSpacing: 1,
+    letterSpacing: 0.5,
+    textAlign: 'center',
   },
   userText: {
-    marginTop: 6,
+    marginTop: 8,
     color: '#666',
     fontWeight: '600',
     fontSize: 14,
+    textAlign: 'center',
   },
-  drawerLabel: {
-    fontWeight: '700',
-    color: '#222',
-    fontSize: 14,
+  menuSection: {
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingTop: 16,
   },
-  sectionContainer: {
-    marginTop: 8,
-    paddingHorizontal: 8,
-  },
-  accordionHeader: {
+  menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: '#f8f9fa',
-    marginBottom: 4,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginBottom: 6,
+    borderRadius: 12,
+    backgroundColor: '#fff',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.03,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 1,
+      },
+    }),
   },
-  accordionTitleRow: {
+  menuItemActive: {
+    backgroundColor: '#4f8cff',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#4f8cff',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  menuItemContent: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
-  accordionTitle: {
-    marginLeft: 10,
-    fontSize: 16,
-    color: '#4f8cff',
+  iconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: '#f0f7ff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  iconContainerActive: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  menuItemText: {
+    fontWeight: '600',
+    color: '#333',
+    fontSize: 15,
+    flex: 1,
+  },
+  menuItemTextActive: {
+    color: '#fff',
     fontWeight: '700',
   },
-  accordionContent: {
-    overflow: 'hidden',
-    backgroundColor: '#fff',
-    borderBottomLeftRadius: 8,
-    borderBottomRightRadius: 8,
-    marginBottom: 8,
-  },
-  submenuItem: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  submenuText: {
-    fontSize: 13,
-    color: '#444',
-    marginLeft: 8,
-    fontWeight: '600',
-  },
-  spacer: {
+  activeIndicator: {
+    width: 4,
     height: 20,
+    backgroundColor: '#fff',
+    borderRadius: 2,
+    marginLeft: 8,
+  },
+  flexSpacer: {
+    flex: 1,
+    minHeight: 20,
   },
   logoutContainer: {
     borderTopWidth: 1,
-    borderTopColor: '#eee',
+    borderTopColor: '#f0f2f5',
     backgroundColor: '#fff',
+    paddingHorizontal: 20,
+    paddingVertical: Platform.OS === 'ios' ? 24 : 20,
+    minHeight: Platform.OS === 'ios' ? 85 : 75,
+    paddingBottom: Platform.OS === 'ios' ? 35 : 20,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ffeaea',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#e63946',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  logoutIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#ffeaea',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
   logoutText: {
     color: '#e63946',
-    fontWeight: 'bold',
-    fontSize: 14,
+    fontWeight: '700',
+    fontSize: 15,
   },
 });

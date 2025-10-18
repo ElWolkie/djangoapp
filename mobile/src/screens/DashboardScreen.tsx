@@ -9,6 +9,7 @@ import {
   Animated,
   StatusBar,
   ActivityIndicator,
+  TouchableOpacity,
 } from 'react-native';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -33,8 +34,19 @@ type RootStackParamList = {
   Requisitos: undefined;
   Monedas: undefined;
   Tasas: undefined;
-  Pago: undefined;
+  Pagos: undefined;
 };
+
+interface Formacion {
+  idFormacion?: number;
+  nombreFormacion?: string;
+}
+
+interface Cohorte {
+  idCohorte?: number;
+  nombreCohorte?: string;
+  idFormacion?: Formacion;
+}
 
 interface Inscripcion {
   idInscripcion: number;
@@ -44,12 +56,10 @@ interface Inscripcion {
   idPersona_detail?: {
     cedula?: string;
   };
-  idCohorte?: {
-    idCohorte?: number;
-    nombreCohorte?: string;
-    idFormacion?: {
-      nombreFormacion?: string;
-    };
+  idCohorte?: Cohorte;
+  idFormacion_detail?: {
+    idFormacion?: number;
+    nombreFormacion?: string;
   };
   montoPagado?: number;
   montoTotal?: number;
@@ -140,7 +150,7 @@ export default function DashboardScreen() {
     return normalizada;
   };
 
-  // Función segura para hacer peticiones - VERSIÓN MEJORADA PARA DEBUG
+  // Función segura para hacer peticiones
     const safeApiCall = async (endpoint: string, options = {}) => {
       try {
         console.log(`🔍 Haciendo request a: ${endpoint}`);
@@ -150,7 +160,6 @@ export default function DashboardScreen() {
       } catch (error: any) {
         console.warn(`❌ Error en ${endpoint}:`, error?.response?.status, error?.response?.data);
         
-        // Si es error 500, mostrar más detalles
         if (error?.response?.status === 500) {
           console.error('💥 ERROR 500 - Detalles:', {
             url: error.config?.url,
@@ -167,6 +176,108 @@ export default function DashboardScreen() {
       }
     };
 
+  // Función MEJORADA para obtener nombre de cohorte
+  const getNombreCohorte = (inscripcion: Inscripcion): string => {
+    if (!inscripcion.idCohorte) {
+      return `Inscripción #${inscripcion.idInscripcion}`;
+    }
+    
+    // Si tenemos nombre de cohorte específico
+    if (inscripcion.idCohorte.nombreCohorte) {
+      return inscripcion.idCohorte.nombreCohorte;
+    }
+    
+    // Si tenemos ID de cohorte pero no nombre
+    if (inscripcion.idCohorte.idCohorte) {
+      return `Cohorte #${inscripcion.idCohorte.idCohorte}`;
+    }
+    
+    return `Inscripción #${inscripcion.idInscripcion}`;
+  };
+
+  // REEMPLAZA la función getNombreFormacion actual con esta versión MÁS AGRESIVA:
+  const getNombreFormacion = (inscripcion: Inscripcion): string => {
+  console.log(`🔍 [GET_NOMBRE_FORMACION] Buscando nombre para inscripción ${inscripcion.idInscripcion}`);
+  
+  // 1. Primero intentar con idFormacion_detail (que es lo que viene del backend)
+  if (inscripcion.idFormacion_detail?.nombreFormacion) {
+    const nombre = inscripcion.idFormacion_detail.nombreFormacion;
+    console.log(`✅ [GET_NOMBRE_FORMACION] Encontrado en idFormacion_detail: ${nombre}`);
+    return nombre;
+  }
+  
+  // 2. Luego intentar con la formación dentro de la cohorte (por si acaso)
+  if (inscripcion.idCohorte?.idFormacion?.nombreFormacion) {
+    const nombre = inscripcion.idCohorte.idFormacion.nombreFormacion;
+    console.log(`✅ [GET_NOMBRE_FORMACION] Encontrado en idCohorte.idFormacion: ${nombre}`);
+    return nombre;
+  }
+    
+    // 3. Intentar extraer del nombre de la cohorte
+    const nombreCohorte = getNombreCohorte(inscripcion);
+    if (nombreCohorte && !nombreCohorte.startsWith('Inscripción #') && !nombreCohorte.startsWith('Cohorte #')) {
+      console.log(`🟡 [GET_NOMBRE_FORMACION] Usando nombre de cohorte: ${nombreCohorte}`);
+      return nombreCohorte;
+    }
+    
+    // 4. Último recurso - buscar en datos de la inscripción
+    if (inscripcion.idCohorte?.nombreCohorte) {
+      const nombreCohorteCompleto = inscripcion.idCohorte.nombreCohorte;
+      
+      // Intentar extraer nombre de formación del nombre de cohorte
+      if (nombreCohorteCompleto.includes('Biotecnología')) return 'Biotecnología';
+      if (nombreCohorteCompleto.includes('Ingeniería')) return 'Ingeniería';
+      if (nombreCohorteCompleto.includes('Medicina')) return 'Medicina';
+      if (nombreCohorteCompleto.includes('Derecho')) return 'Derecho';
+      if (nombreCohorteCompleto.includes('Administración')) return 'Administración';
+      
+      console.log(`🟡 [GET_NOMBRE_FORMACION] Usando nombre completo de cohorte: ${nombreCohorteCompleto}`);
+      return nombreCohorteCompleto;
+    }
+    
+    console.log(`🔴 [GET_NOMBRE_FORMACION] No se pudo determinar, usando valor por defecto`);
+    return 'Formación Continua';
+  };
+
+
+    // Función mejorada para obtener información de la cohorte de una nota
+  const getCohorteDeNota = (nota: NotaCobro) => {
+    if (nota.relaciones && nota.relaciones.length > 0) {
+      const primeraRelacion = nota.relaciones[0];
+      if (primeraRelacion.idInscripcion?.idCohorte?.nombreCohorte) {
+        return primeraRelacion.idInscripcion.idCohorte.nombreCohorte;
+      }
+      if (primeraRelacion.idInscripcion?.idInscripcion) {
+        // Buscar la inscripción correspondiente para obtener más datos
+        const inscripcionCorrespondiente = misInscripciones.find(
+          insc => insc.idInscripcion === primeraRelacion.idInscripcion?.idInscripcion
+        );
+        if (inscripcionCorrespondiente) {
+          return getNombreCohorte(inscripcionCorrespondiente);
+        }
+        return `Inscripción #${primeraRelacion.idInscripcion.idInscripcion}`;
+      }
+    }
+    
+    // Si no hay relaciones, usar la descripción mejorada
+    if (nota.descripcion) {
+      const descripcionLimpia = nota.descripcion.replace('Inscripción - ', '');
+      if (descripcionLimpia !== 'Formación Continua') {
+        return descripcionLimpia;
+      }
+    }
+    
+    // Buscar en las inscripciones si esta nota está relacionada
+    const inscripcionRelacionada = misInscripciones.find(
+      insc => insc.idInscripcion === (nota.idNota - 1000) // Por la simulación temporal
+    );
+    if (inscripcionRelacionada) {
+      return getNombreCohorte(inscripcionRelacionada);
+    }
+    
+    return 'Formación Continua';
+  };
+
   // Cargar TODOS los datos en una sola función
   const loadAllData = async () => {
     setLoading(true);
@@ -175,7 +286,6 @@ export default function DashboardScreen() {
     try {
       console.log('🔍 Iniciando carga de datos del dashboard...');
       
-      // 1. Usar el usuario del contexto de autenticación
       if (!user) {
         console.warn('⚠️ No hay usuario en el contexto de autenticación');
         setLoading(false);
@@ -184,9 +294,7 @@ export default function DashboardScreen() {
 
       console.log('✅ Usuario del contexto:', user);
 
-      // 2. Obtener la cédula del usuario
       const personaCedula = user.cedula;
-      
       if (!personaCedula) {
         console.warn('⚠️ No se encontró cédula en user data');
         setLoading(false);
@@ -196,14 +304,10 @@ export default function DashboardScreen() {
       const cedulaUsuarioNormalizada = normalizarCedula(personaCedula);
       console.log('✅ Cédula normalizada a usar:', cedulaUsuarioNormalizada);
 
-      // 3. Cargar datos de forma segura - USANDO LOS ENDPOINTS CORRECTOS
+      // USAR EL ENDPOINT QUE SÍ FUNCIONA
       console.log('🔍 Cargando datos de APIs...');
       
-      const [inscripcionesResult, notasResult, pagosResult] = await Promise.all([
-        safeApiCall('/api/inscripcion/'),
-        safeApiCall('/notas/usuario/autenticado/'), // ← Usa este temporalmente
-        safeApiCall('/api/pagos/')
-      ]);
+      const inscripcionesResult = await safeApiCall('/api/inscripcion/');  // ✅ ESTE ENDPOINT SÍ FUNCIONA
 
       // Extraer datos de forma robusta
       const extractData = (responseData: any, tipo: string) => {
@@ -226,18 +330,15 @@ export default function DashboardScreen() {
       };
 
       const todasInscripciones = extractData(inscripcionesResult.data, 'Inscripciones');
-      const todasNotas = extractData(notasResult.data, 'Notas');
-      console.log('📝 Todas las notas obtenidas:', todasNotas);
-      const todosPagos = extractData(pagosResult.data, 'Pagos');
+      
+      console.log('📊 Todas las inscripciones obtenidas:', todasInscripciones.length);
 
-      console.log('📊 Datos obtenidos - Inscripciones:', todasInscripciones.length, 
-                  'Notas:', todasNotas.length, 
-                  'Pagos:', todosPagos.length);
-
-      // 4. Procesar inscripciones - USAR EL MISMO MÉTODO QUE EN InscripcionesScreen
+      // FILTRAR EN EL FRONTEND (como en el dashboard funcional)
       let misInscripcionesFiltradas: Inscripcion[] = [];
       
-      // En la parte de procesamiento de inscripciones, agrega:
+      if (todasInscripciones.length > 0) {
+        console.log('🔍 Buscando inscripciones del usuario por cédula...');
+        
         misInscripcionesFiltradas = todasInscripciones.filter((insc: any) => {
           const cedulaInscripcion = insc.idPersona_detail?.cedula || insc.idPersona?.cedula;
           if (!cedulaInscripcion) {
@@ -249,104 +350,136 @@ export default function DashboardScreen() {
           const match = cedulaInscNormalizada === cedulaUsuarioNormalizada;
           
           if (match) {
-            console.log('✅ Inscripción encontrada - DETALLES:', {
+            console.log('✅ Inscripción encontrada - DETALLES COMPLETOS:', {
               id: insc.idInscripcion,
               cedulaInsc: cedulaInscripcion,
               cedulaUser: personaCedula,
               estado: insc.estadoPago,
               tieneCohorte: !!insc.idCohorte,
-              cohorte: insc.idCohorte,
-              tieneFormacion: !!insc.idFormacion,
-              formacion: insc.idFormacion
+              cohorteCompleta: insc.idCohorte,
+              nombreCohorte: getNombreCohorte(insc),
+              nombreFormacion: getNombreFormacion(insc)
             });
+            
+            // Debug detallado de la estructura de cohorte
+            if (insc.idCohorte) {
+              console.log('🔍 DEBUG Cohorte:', {
+                idCohorte: insc.idCohorte.idCohorte,
+                nombreCohorte: insc.idCohorte.nombreCohorte,
+                tieneFormacion: !!insc.idCohorte.idFormacion,
+                formacion: insc.idCohorte.idFormacion
+              });
+            }
           }
           
           return match;
         });
+      }
       
+      // SOLUCIÓN MEJORADA: Usar los datos que YA VIENEN en la respuesta
+      console.log('🎯 Procesando datos de formaciones con información disponible...');
+
+      // Verificar qué datos de formación tenemos realmente
+      misInscripcionesFiltradas.forEach((insc, index) => {
+        console.log(`📝 Inscripción ${index + 1} - ANÁLISIS COMPLETO:`, {
+          idInscripcion: insc.idInscripcion,
+          estadoPago: insc.estadoPago,
+          // Análisis de cohorte
+          tieneCohorte: !!insc.idCohorte,
+          cohorte: insc.idCohorte ? {
+            id: insc.idCohorte.idCohorte,
+            nombre: insc.idCohorte.nombreCohorte,
+            // Análisis profundo de formación
+            tieneFormacion: !!insc.idCohorte.idFormacion,
+            formacion: insc.idCohorte.idFormacion ? {
+              id: insc.idCohorte.idFormacion.idFormacion,
+              nombre: insc.idCohorte.idFormacion.nombreFormacion,
+              // Verificar todos los campos disponibles en idFormacion
+              todosLosCampos: Object.keys(insc.idCohorte.idFormacion)
+            } : 'NO HAY DATOS DE FORMACIÓN'
+          } : 'NO HAY COHORTE',
+          // Llamada a las funciones para ver qué devuelven
+          resultadoGetNombreCohorte: getNombreCohorte(insc),
+          resultadoGetNombreFormacion: getNombreFormacion(insc)
+        });
+        
+        // Debug adicional: mostrar la estructura completa de la cohorte
+        if (insc.idCohorte) {
+          console.log(`🔍 ESTRUCTURA COMPLETA de cohorte para inscripción ${insc.idInscripcion}:`, JSON.stringify(insc.idCohorte, null, 2));
+        }
+      });
+
       setMisInscripciones(misInscripcionesFiltradas);
       console.log('✅ Mis inscripciones filtradas:', misInscripcionesFiltradas.length);
 
-      // 5. Procesar notas por pagar - método más tolerante
-      // Filtra notas pendientes de forma más precisa
-        const notasPendientes = todasNotas.filter((nota: any) => {
-          const estado = (nota.estado || '').toUpperCase();
-          const esPendiente = estado === 'PENDIENTE' || 
-                            estado === 'PARCIAL' ||
-                            (!estado && nota.totalNota > 0);
-          
-          if (esPendiente) {
-            console.log('📝 Nota pendiente:', {
-              id: nota.idNota,
-              estado: nota.estado,
-              total: nota.totalNota,
-              descripcion: nota.descripcion
-            });
-          }
-          
-          return esPendiente;
+      // SOLUCIÓN TEMPORAL: Simular notas basadas en inscripciones
+      const notasSimuladas = misInscripcionesFiltradas.map(insc => {
+        const nombreCohorte = getNombreCohorte(insc);
+        const nombreFormacion = getNombreFormacion(insc);
+        
+        console.log(`📋 Creando nota para inscripción ${insc.idInscripcion}:`, {
+          nombreCohorte,
+          nombreFormacion,
+          estadoPago: insc.estadoPago,
+          montoTotal: insc.montoTotal
         });
+        
+        return {
+          idNota: insc.idInscripcion + 1000,
+          totalNota: insc.montoTotal || insc.saldoPendiente || 100,
+          descripcion: `Inscripción - ${nombreFormacion}`,
+          estado: insc.estadoPago === 'PAGADO' ? 'PAGADA' : insc.estadoPago || 'PENDIENTE',
+          fechaEmision: insc.fechaInscripcion,
+          tipoOperacion: 'COBRO',
+          tipoArticulo: 'INSCRIPCION',
+          relaciones: [{
+            idInscripcion: {
+              idInscripcion: insc.idInscripcion,
+              idCohorte: {
+                idCohorte: insc.idCohorte?.idCohorte,
+                nombreCohorte: nombreCohorte
+              }
+            }
+          }]
+        };
+      });
+
+      // Filtrar notas pendientes
+      const notasPendientes = notasSimuladas.filter(nota => 
+        nota.estado === 'PENDIENTE' || nota.estado === 'PARCIAL'
+      );
       
       setNotasPorPagar(notasPendientes);
-      console.log('📝 Notas por pagar:', notasPendientes.length);
+      console.log('📝 Notas por pagar (simuladas):', notasPendientes.length);
 
-      // 6. Procesar pagos - método más robusto
-      let misPagosFiltrados: Pago[] = [];
-      
-      if (todasNotas.length > 0 && todosPagos.length > 0) {
-        const notaIds = todasNotas.map((nota: any) => nota.idNota);
-        misPagosFiltrados = todosPagos.filter((pago: any) => {
-          const perteneceANotaUsuario = pago.idNota && notaIds.includes(pago.idNota);
-          if (perteneceANotaUsuario) {
-            console.log('✅ Pago encontrado para nota del usuario:', pago.idPago);
-          }
-          return perteneceANotaUsuario;
-        });
-      } else {
-        // Intentar buscar pagos directamente por cédula si hay problemas con las notas
-        console.log('🔍 Buscando pagos directamente...');
-        misPagosFiltrados = todosPagos.filter((pago: any) => {
-          // Aquí podrías implementar lógica adicional si es necesario
-          return true; // Por ahora mostrar todos los pagos como fallback
-        });
-      }
-      notasPendientes
-      setMisPagos(misPagosFiltrados);
-      console.log('✅ Mis pagos filtrados:', misPagosFiltrados.length);
+      // SOLUCIÓN TEMPORAL: Pagos vacíos por ahora
+      setMisPagos([]);
 
-      // 7. Calcular estado de pagos basado en las notas
-      const notasPagadas = todasNotas.filter((nota: any) => {
-        if (!nota.estado) return false;
-        const estado = nota.estado.toUpperCase();
-        return estado.includes('PAGADA') || 
-               estado.includes('COMPLETADA') ||
-               estado === 'PAGADO';
-      }).length;
+      // Calcular estado de pagos basado en inscripciones
+      const inscripcionesPagadas = misInscripcionesFiltradas.filter(insc => 
+        insc.estadoPago === 'PAGADO'
+      ).length;
 
-      const notasPendientesCount = notasPendientes.length;
+      const inscripcionesPendientes = misInscripcionesFiltradas.filter(insc => 
+        insc.estadoPago === 'PENDIENTE' || insc.estadoPago === 'PARCIAL'
+      ).length;
 
       setEstadoPago({
-        pagado: notasPagadas,
-        pendiente: notasPendientesCount
+        pagado: inscripcionesPagadas,
+        pendiente: inscripcionesPendientes
       });
 
       console.log('🎯 Estado final:', {
         inscripciones: misInscripcionesFiltradas.length,
-        notasPorPagar: notasPendientesCount,
-        pagos: misPagosFiltrados.length,
-        notasPagadas: notasPagadas,
-        notasPendientes: notasPendientesCount
+        notasPorPagar: notasPendientes.length,
+        pagos: 0,
+        inscripcionesPagadas: inscripcionesPagadas,
+        inscripcionesPendientes: inscripcionesPendientes
       });
 
-      // Verificar si al menos un endpoint funcionó
-      const endpointsFuncionaron = [
-        inscripcionesResult.success,
-        notasResult.success, 
-        pagosResult.success
-      ].some(success => success);
-
-      if (!endpointsFuncionaron) {
-        setError('No se pudieron cargar los datos del servidor. Verifica tu conexión.');
+      // Si no hay inscripciones, mostrar mensaje
+      if (misInscripcionesFiltradas.length === 0) {
+        setError('No se encontraron inscripciones para este usuario');
       }
 
     } catch (err: any) {
@@ -421,19 +554,11 @@ export default function DashboardScreen() {
     return notasPorPagar.reduce((total, nota) => total + (nota.totalNota || 0), 0);
   };
 
-  // Obtener información de la cohorte de una nota
-  const getCohorteDeNota = (nota: NotaCobro) => {
-    if (nota.relaciones && nota.relaciones.length > 0) {
-      const primeraRelacion = nota.relaciones[0];
-      return primeraRelacion.idInscripcion?.idCohorte?.nombreCohorte || 'Inscripción';
-    }
-    return 'Inscripción';
-  };
-
   const ultimaInscripcion = getUltimaInscripcion();
   const ultimoPago = getUltimoPago();
   const montoTotalPorPagar = getMontoTotalPorPagar();
 
+  // Definir stats después de calcular todas las variables necesarias
   const stats = [
     {
       title: 'Mis Inscripciones',
@@ -441,7 +566,7 @@ export default function DashboardScreen() {
       icon: 'book-account',
       color: '#fb6340',
       subtitle: ultimaInscripcion 
-        ? `${ultimaInscripcion.idCohorte?.nombreCohorte || 'Cohorte'} - ${ultimaInscripcion.estadoPago || 'Activa'}`
+        ? `${getNombreCohorte(ultimaInscripcion)} - ${ultimaInscripcion.estadoPago || 'Activa'}`
         : 'No tienes inscripciones',
     },
     {
@@ -459,8 +584,8 @@ export default function DashboardScreen() {
       icon: 'clock-check',
       color: estadoPago.pendiente === 0 ? '#11cdef' : '#f7b731',
       subtitle: estadoPago.pendiente === 0 
-        ? 'Todas las notas pagadas' 
-        : `${estadoPago.pendiente} nota(s) pendiente(s)`,
+        ? 'Todas las inscripciones pagadas' 
+        : `${estadoPago.pendiente} inscripción(es) pendiente(s)`,
     },
     {
       title: 'Notas por Pagar',
@@ -525,13 +650,13 @@ export default function DashboardScreen() {
             Error al cargar datos
           </Text>
           <Text style={{ color: '#666', textAlign: 'center', marginBottom: 20 }}>{error}</Text>
-          <View 
-            style={styles.retryButton}
-            onTouchEnd={handleRetry}
-          >
-            <Icon name="reload" size={20} color="#fff" />
-            <Text style={styles.retryButtonText}>Reintentar</Text>
-          </View>
+          <TouchableOpacity 
+              style={styles.retryButton}
+              onPress={handleRetry}
+            >
+              <Icon name="reload" size={20} color="#fff" />
+              <Text style={styles.retryButtonText}>Reintentar</Text>
+            </TouchableOpacity>
         </View>
       </View>
     );
@@ -571,18 +696,24 @@ export default function DashboardScreen() {
           ))}
         </View>
 
-        {/* Sección de acciones rápidas */}
+        {/* Sección de acciones rápidas - CON CONTENEDOR */}
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionTitle}>Acciones rápidas</Text>
           <View style={styles.actionsRow}>
-            <View style={styles.actionButton} onTouchEnd={() => navigation.navigate('Inscripciones')}>
+            <TouchableOpacity 
+              style={styles.actionButton} 
+              onPress={() => navigation.navigate('Inscripciones')}
+            >
               <Icon name="book-plus" size={22} color="#4f8cff" />
               <Text style={styles.actionButtonText}>Nueva Inscripción</Text>
-            </View>
-            <View style={styles.actionButton} onTouchEnd={() => navigation.navigate('Pago')}>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.actionButton} 
+              onPress={() => navigation.navigate('Pagos')}
+            >
               <Icon name="credit-card-check" size={22} color="#2dce89" />
               <Text style={styles.actionButtonText}>Realizar Pago</Text>
-            </View>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -611,24 +742,30 @@ export default function DashboardScreen() {
         {/* Detalle de inscripciones activas */}
         {misInscripciones.length > 0 && (
           <View style={styles.detailContainer}>
-            <Text style={styles.detailTitle}>Mis Inscripciones</Text>
+            <Text style={styles.detailTitle}>Mis Inscripciones Activas</Text>
             {misInscripciones.map((inscripcion, index) => (
               <View key={inscripcion.idInscripcion} style={styles.inscripcionItem}>
                 <View style={styles.inscripcionHeader}>
                   <Text style={styles.inscripcionNombre}>
-                    {inscripcion.idCohorte?.nombreCohorte || 'Inscripción'}
+                    {getNombreCohorte(inscripcion)}
                   </Text>
                   <Text style={[
                     styles.inscripcionEstado,
-                    { color: inscripcion.estadoPago === 'PAGADO' ? '#2dce89' : '#f7b731' }
+                    { 
+                      color: inscripcion.estadoPago === 'PAGADO' ? '#2dce89' : 
+                            inscripcion.estadoPago === 'PARCIAL' ? '#f7b731' : '#fb6340'
+                    }
                   ]}>
                     {inscripcion.estadoPago || 'PENDIENTE'}
                   </Text>
                 </View>
+                <Text style={styles.inscripcionFormacion}>
+                  {getNombreFormacion(inscripcion)}
+                </Text>
                 <Text style={styles.inscripcionDetalle}>
                   Fecha: {formatDate(inscripcion.fechaInscripcion)} • 
-                  Pagado: ${inscripcion.montoPagado || 0} • 
-                  Saldo: ${inscripcion.saldoPendiente || inscripcion.montoTotal || 0}
+                  {inscripcion.montoPagado ? ` Pagado: $${inscripcion.montoPagado}` : ''} • 
+                  Saldo: ${inscripcion.saldoPendiente || inscripcion.montoTotal || '0.00'}
                 </Text>
               </View>
             ))}
@@ -652,7 +789,6 @@ export default function DashboardScreen() {
   );
 }
 
-// Los estilos se mantienen igual que en tu código anterior...
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -776,6 +912,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     flex: 1,
     marginHorizontal: 4,
+    cursor: 'pointer',
   },
   actionButtonText: {
     color: '#4f8cff',
@@ -790,6 +927,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 8,
+    cursor: 'pointer',
   },
   retryButtonText: {
     color: '#fff',
@@ -888,5 +1026,11 @@ const styles = StyleSheet.create({
   inscripcionDetalle: {
     fontSize: 12,
     color: '#666',
+  },
+  inscripcionFormacion: {
+    fontSize: 12,
+    color: '#4f8cff',
+    fontWeight: '600',
+    marginBottom: 4,
   },
 });

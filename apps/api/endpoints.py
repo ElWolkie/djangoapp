@@ -895,3 +895,52 @@ def notas_por_cedula(request):
             'success': False,
             'message': f'Error interno del servidor: {str(e)}'
         }, status=500)
+
+@api_view(['GET'])
+def diagnosticar_notas(request):
+    """
+    Endpoint simple para diagnosticar problemas con notas
+    """
+    try:
+        print("🔍 [DIAGNOSTICO] Iniciando diagnóstico...")
+        
+        # 1. Verificar si hay personas
+        total_personas = Personas.objects.count()
+        print(f"✅ [DIAGNOSTICO] Total personas: {total_personas}")
+        
+        # 2. Verificar si hay notas
+        total_notas = Nota.objects.count()
+        print(f"✅ [DIAGNOSTICO] Total notas: {total_notas}")
+        
+        # 3. Verificar si hay relaciones
+        total_relaciones = NotaRelacionada.objects.count()
+        print(f"✅ [DIAGNOSTICO] Total relaciones: {total_relaciones}")
+        
+        # 4. Probar con una persona específica
+        persona_test = Personas.objects.filter(cedula__icontains="30895206").first()
+        if persona_test:
+            print(f"✅ [DIAGNOSTICO] Persona test encontrada: {persona_test.idPersona}")
+            notas_persona = Nota.objects.filter(idPersona=persona_test.idPersona).count()
+            print(f"✅ [DIAGNOSTICO] Notas de persona test: {notas_persona}")
+        else:
+            print("❌ [DIAGNOSTICO] No se encontró persona test")
+        
+        return Response({
+            'success': True,
+            'diagnostico': {
+                'total_personas': total_personas,
+                'total_notas': total_notas,
+                'total_relaciones': total_relaciones,
+                'persona_test_encontrada': bool(persona_test),
+                'notas_persona_test': notas_persona if persona_test else 0
+            }
+        })
+        
+    except Exception as e:
+        print(f"❌ [DIAGNOSTICO] Error crítico: {str(e)}")
+        import traceback
+        print(f"📋 [DIAGNOSTICO] Traceback: {traceback.format_exc()}")
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=500)

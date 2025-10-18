@@ -23,6 +23,7 @@ urlpatterns = [
     path('notas/usuario/autenticado/', notas_por_usuario_autenticado, name='notas_autenticado'),
     path('corregir-relaciones/', corregir_relaciones_notas, name='corregir_relaciones'),
     path('notas/por-cedula/', notas_por_cedula, name='notas_por_cedula'),
+    path('diagnosticar-notas/', diagnosticar_notas, name='diagnosticar_notas'),
     
     path('cohorte/', views.CohorteListCreate.as_view(), name='cohorte-list'),
     path('cargo/', views.CargoListCreate.as_view(), name='cargo-list'),
