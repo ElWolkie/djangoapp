@@ -1,5 +1,5 @@
 // src/contexts/AuthContext.tsx
-import React, { createContext, useCallback, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../api/api';
 
@@ -23,7 +23,6 @@ type AuthContextType = {
   loginWithTokens: (access: string, refresh?: string | null, user?: UserPayload | null) => Promise<void>;
   logout: () => Promise<void>;
   setUserFromApi?: (userObj: UserPayload) => void;
-  // Agregar función para obtener datos del usuario basado en cédula
   fetchUserFromCedula: (cedula: string) => Promise<void>;
 };
 
@@ -37,21 +36,19 @@ export const AuthContext = createContext<AuthContextType>({
   fetchUserFromCedula: async () => {},
 });
 
+// Hook personalizado para usar el contexto
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth debe ser usado dentro de un AuthProvider');
+  }
+  return context;
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [user, setUser] = useState<UserPayload | null>(null);
-
-  // Función para obtener tokens del almacenamiento
-  const getTokens = useCallback(async () => {
-    try {
-      const stored = await AsyncStorage.getItem('myapp-tokens');
-      return stored ? JSON.parse(stored) : null;
-    } catch (error) {
-      console.error('Error obteniendo tokens:', error);
-      return null;
-    }
-  }, []);
 
   // Función para guardar tokens
   const storeTokens = useCallback(async (access: string, refresh: string | null, userData: UserPayload | null) => {
@@ -62,8 +59,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user: userData
       };
       await AsyncStorage.setItem('myapp-tokens', JSON.stringify(tokens));
+      console.log('✅ Tokens guardados en AsyncStorage');
     } catch (error) {
-      console.error('Error guardando tokens:', error);
+      console.error('❌ Error guardando tokens:', error);
     }
   }, []);
 
@@ -71,18 +69,69 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const clearTokens = useCallback(async () => {
     try {
       await AsyncStorage.removeItem('myapp-tokens');
+      console.log('✅ Tokens eliminados de AsyncStorage');
     } catch (error) {
-      console.error('Error limpiando tokens:', error);
+      console.error('❌ Error limpiando tokens:', error);
     }
   }, []);
 
-  // Función para obtener información del usuario basado en cédula (usando el endpoint que SÍ existe)
+  // Función para obtener tokens del almacenamiento
+  const getTokens = useCallback(async () => {
+    try {
+      const stored = await AsyncStorage.getItem('myapp-tokens');
+      return stored ? JSON.parse(stored) : null;
+    } catch (error) {
+      console.error('❌ Error obteniendo tokens:', error);
+      return null;
+    }
+  }, []);
+
+  const loginWithTokens = useCallback(async (
+    access: string, 
+    refresh?: string | null, 
+    userObj?: UserPayload | null
+  ) => {
+    try {
+      console.log('🔐 Iniciando loginWithTokens...');
+      
+      // Guardar tokens
+      await storeTokens(access, refresh ?? null, userObj ?? null);
+      setAccessToken(access);
+      api.defaults.headers.common['Authorization'] = `Bearer ${access}`;
+      
+      if (userObj) {
+        setUser(userObj);
+        console.log('👤 Usuario establecido en login:', userObj);
+      } else {
+        console.log('⚠️ Login exitoso pero sin información de usuario');
+      }
+    } catch (e) {
+      console.warn('❌ Error en loginWithTokens:', e);
+      throw e;
+    }
+  }, [storeTokens]);
+
+  const logout = useCallback(async () => {
+    try {
+      await clearTokens();
+      setAccessToken(null);
+      setUser(null);
+      delete api.defaults.headers.common['Authorization'];
+      console.log('👋 Logout completado');
+    } catch (e) {
+      console.warn('❌ Error en logout:', e);
+    }
+  }, [clearTokens]);
+
   const fetchUserFromCedula = useCallback(async (cedula: string) => {
-    if (!accessToken) return;
+    if (!accessToken) {
+      console.warn('⚠️ No hay accessToken para obtener información del usuario');
+      return;
+    }
     
     try {
       console.log('🔍 Obteniendo información del usuario por cédula:', cedula);
-      const response = await api.get(`/api/obtener-persona-login/?cedula=${encodeURIComponent(cedula)}`);
+      const response = await api.get(`/obtener-persona-login/`);
       const userData = response.data;
       
       console.log('📋 Información de usuario recibida:', userData);
@@ -110,8 +159,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [accessToken, getTokens, storeTokens]);
 
-  useEffect(() => {
+  const setUserFromApi = useCallback((userObj: UserPayload) => {
+    console.log('👤 Actualizando usuario desde API:', userObj);
+    setUser(userObj);
     (async () => {
+      try {
+        const tokens = await getTokens();
+        if (tokens) {
+          await storeTokens(tokens.access, tokens.refresh, userObj);
+        }
+      } catch (e) { 
+        console.warn('❌ Error guardando usuario actualizado', e);
+      }
+    })();
+  }, [getTokens, storeTokens]);
+
+  useEffect(() => {
+    const initializeAuth = async () => {
       try {
         const stored = await AsyncStorage.getItem('myapp-tokens');
         console.log('🔐 Tokens almacenados:', stored);
@@ -124,95 +188,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (at) {
             setAccessToken(at);
             api.defaults.headers.common['Authorization'] = `Bearer ${at}`;
+            console.log('✅ Token establecido en headers de API');
           }
           
           if (u) {
             setUser(u);
             console.log('👤 Usuario cargado desde storage:', u);
-            
-            // Si tenemos cédula pero no idPersona, intentar obtener información completa
-            if (u.cedula && !u.idPersona && at) {
-              console.log('🔄 Tenemos cédula pero no idPersona, obteniendo información completa...');
-              await fetchUserFromCedula(u.cedula);
-            }
           }
         }
       } catch (e) {
-        console.warn('AuthProvider load error', e);
+        console.warn('❌ Error inicializando auth:', e);
       } finally {
         setIsLoading(false);
+        console.log('🏁 Inicialización de auth completada');
       }
-    })();
-  }, [fetchUserFromCedula]);
+    };
 
-  // En tu AuthContext, modifica la función loginWithTokens:
-const loginWithTokens = useCallback(async (
-  access: string, 
-  refresh?: string | null, 
-  userObj?: UserPayload | null
-) => {
-  try {
-    // Si no viene userObj, intentar obtenerlo del token decodificado
-    let finalUserObj = userObj;
-    
-    if (!finalUserObj) {
-      console.log('🔄 Intentando obtener usuario del token...');
-      // Decodificar el token JWT para obtener el user_id
-      try {
-        const payload = JSON.parse(atob(access.split('.')[1]));
-        console.log('📋 Payload del token:', payload);
-        
-        // Aquí puedes intentar obtener el usuario usando el user_id del token
-        // O usar cualquier otra estrategia
-      } catch (decodeError) {
-        console.error('❌ Error decodificando token:', decodeError);
-      }
-    }
-
-    // Guardar tokens (aunque userObj sea null)
-    await storeTokens(access, refresh ?? null, finalUserObj ?? null);
-    setAccessToken(access);
-    api.defaults.headers.common['Authorization'] = `Bearer ${access}`;
-    
-    if (finalUserObj) {
-      setUser(finalUserObj);
-      console.log('👤 Usuario establecido en login:', finalUserObj);
-    } else {
-      console.log('⚠️ Login exitoso pero sin información de usuario');
-      // Aquí podrías intentar obtener el usuario más tarde
-    }
-  } catch (e) {
-    console.warn('loginWithTokens error', e);
-    throw e;
-  }
-}, [storeTokens]);
-
-  const logout = useCallback(async () => {
-    try {
-      await clearTokens();
-      setAccessToken(null);
-      setUser(null);
-      delete api.defaults.headers.common['Authorization'];
-      console.log('👋 Logout completado');
-    } catch (e) {
-      console.warn('logout error', e);
-    }
-  }, [clearTokens]);
-
-  const setUserFromApi = useCallback((u: UserPayload) => {
-    console.log('👤 Actualizando usuario desde API:', u);
-    setUser(u);
-    (async () => {
-      try {
-        const tokens = await getTokens();
-        if (tokens) {
-          await storeTokens(tokens.access, tokens.refresh, u);
-        }
-      } catch (e) { 
-        console.warn('Error guardando usuario actualizado', e);
-      }
-    })();
-  }, [getTokens, storeTokens]);
+    initializeAuth();
+  }, []);
 
   return (
     <AuthContext.Provider value={{

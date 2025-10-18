@@ -765,3 +765,133 @@ def corregir_relaciones_notas(request):
             'success': False,
             'message': f'Error: {str(e)}'
         }, status=500)
+
+
+@api_view(['GET'])
+def notas_por_cedula(request):
+    """
+    Obtener notas por cédula (para el dashboard)
+    """
+    try:
+        cedula = request.GET.get('cedula', '').strip()
+        if not cedula:
+            return Response({
+                'success': False,
+                'message': 'Cédula requerida'
+            }, status=400)
+
+        print(f"🔍 [NOTAS] Buscando notas para cédula: {cedula}")
+
+        # Buscar persona por cédula (más flexible)
+        personas = Personas.objects.filter(
+            cedula__icontains=cedula
+        )
+        
+        if not personas.exists():
+            print(f"❌ [NOTAS] No se encontró persona con cédula: {cedula}")
+            return Response({
+                'success': True,
+                'data': [],
+                'total': 0,
+                'message': 'No se encontraron notas'
+            })
+
+        persona = personas.first()
+        print(f"✅ [NOTAS] Persona encontrada: {persona.idPersona} - {persona.cedula}")
+
+        # Obtener TODAS las notas de esta persona
+        notas = Nota.objects.filter(idPersona=persona.idPersona).order_by('-fechaEmision')
+        print(f"📝 [NOTAS] Notas encontradas en BD: {notas.count()}")
+
+        notas_data = []
+        for nota in notas:
+            print(f"📋 [NOTAS] Procesando nota {nota.idNota} - Estado: {nota.estado}")
+            
+            # Obtener información de la formación/cohorte desde las relaciones
+            formacion_info = "Formación no especificada"
+            cohorte_info = "Cohorte no especificada"
+            relacion_data = None
+            
+            try:
+                # Buscar en NotaRelacionada
+                relacion = NotaRelacionada.objects.filter(idNota=nota).first()
+                if relacion:
+                    print(f"🔗 [NOTAS] Relación encontrada para nota {nota.idNota}")
+                    
+                    if relacion.idInscripcion:
+                        inscripcion = relacion.idInscripcion
+                        print(f"📚 [NOTAS] Inscripción relacionada: {inscripcion.idInscripcion}")
+                        
+                        if inscripcion.idCohorte:
+                            cohorte_info = inscripcion.idCohorte.nombreCohorte or "Cohorte"
+                            if inscripcion.idCohorte.idFormacion:
+                                formacion_info = inscripcion.idCohorte.idFormacion.nombreFormacion or "Formación"
+                        
+                        # Construir datos de relación para el frontend
+                        relacion_data = {
+                            'idInscripcion': {
+                                'idInscripcion': inscripcion.idInscripcion,
+                                'idCohorte': {
+                                    'idCohorte': inscripcion.idCohorte.idCohorte if inscripcion.idCohorte else None,
+                                    'nombreCohorte': cohorte_info
+                                } if inscripcion.idCohorte else None
+                            }
+                        }
+                    else:
+                        print(f"⚠️ [NOTAS] Relación sin inscripción para nota {nota.idNota}")
+                else:
+                    print(f"⚠️ [NOTAS] No hay relación para nota {nota.idNota}")
+                    
+            except Exception as e:
+                print(f"❌ [NOTAS] Error obteniendo relación para nota {nota.idNota}: {str(e)}")
+                import traceback
+                print(f"📋 [NOTAS] Traceback: {traceback.format_exc()}")
+
+            # Construir objeto de nota
+            nota_obj = {
+                'idNota': nota.idNota,
+                'numeroNota': nota.numeroNota,
+                'fechaEmision': nota.fechaEmision.isoformat() if nota.fechaEmision else None,
+                'totalNota': float(nota.totalNota) if nota.totalNota else 0.0,
+                'estado': nota.estado or 'PENDIENTE',
+                'tipoOperacion': nota.tipoOperacion or 'COBRO',
+                'tipoArticulo': nota.tipoArticulo or 'INSCRIPCION',
+                'descripcion': f"{nota.tipoArticulo} - {formacion_info}",
+                'formacion': {
+                    'nombreFormacion': formacion_info
+                },
+                'cohorte': cohorte_info,
+                'persona': {
+                    'idPersona': persona.idPersona,
+                    'cedula': persona.cedula,
+                    'nombre': f"{persona.nombres} {persona.apellidos}"
+                }
+            }
+            
+            # Solo agregar relaciones si existen
+            if relacion_data:
+                nota_obj['relaciones'] = [relacion_data]
+            
+            notas_data.append(nota_obj)
+            print(f"✅ [NOTAS] Nota {nota.idNota} procesada")
+
+        print(f"✅ [NOTAS] Total de notas procesadas: {len(notas_data)}")
+        return Response({
+            'success': True,
+            'data': notas_data,
+            'total': len(notas_data),
+            'persona_info': {
+                'idPersona': persona.idPersona,
+                'nombre': f"{persona.nombres} {persona.apellidos}",
+                'cedula': persona.cedula
+            }
+        })
+
+    except Exception as e:
+        print(f"❌ [NOTAS] Error crítico en notas_por_cedula: {str(e)}")
+        import traceback
+        print(f"📋 [NOTAS] Traceback completo: {traceback.format_exc()}")
+        return Response({
+            'success': False,
+            'message': f'Error interno del servidor: {str(e)}'
+        }, status=500)
