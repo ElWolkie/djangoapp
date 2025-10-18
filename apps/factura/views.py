@@ -1627,25 +1627,68 @@ def pago_edit(request, pk):
     Vista para editar un pago existente.
     """
     pago = get_object_or_404(Pago, pk=pk)
-    notas = Nota.objects.all()
+    
+    # Obtener datos necesarios para el contexto
     cuentas_banco = CuentaBanco.objects.filter(estado=True)
-    tasas = Tasa.objects.select_related('idMoneda') \
-        .values('idTasa', 'idMoneda__nombreMoneda', 'montoTasa')
+    tasas = Tasa.objects.select_related('idMoneda').values('idTasa', 'idMoneda__nombreMoneda', 'montoTasa')
     cuentas_plan = PlanCuenta.objects.filter(estadoPlanCuenta=True)
     today_date = datetime.now().strftime('%Y-%m-%d')
 
     if request.method == 'POST':
+        # Usar el formulario pero no permitir cambios en campos críticos
         form = PagoForm(request.POST, instance=pago)
         if form.is_valid():
-            form.save()
-            return redirect('pago_list')
+            try:
+                # Solo permitir actualizar campos editables
+                pago_actualizado = form.save(commit=False)
+                
+                # Mantener los campos críticos sin cambios (por seguridad)
+                pago_actualizado.idNota = pago.idNota
+                pago_actualizado.idTasa = pago.idTasa
+                pago_actualizado.monto = pago.monto
+                pago_actualizado.formaPago = pago.formaPago
+                pago_actualizado.fechaPago = pago.fechaPago
+                
+                # Solo actualizar campos permitidos
+                if pago.formaPago != 'EFECTIVO':
+                    pago_actualizado.idCuentaBanco = form.cleaned_data.get('idCuentaBanco')
+                    # Buscar el plan de cuenta asociado a la cuenta bancaria
+                    if pago_actualizado.idCuentaBanco and pago_actualizado.idCuentaBanco.planCuenta:
+                        pago_actualizado.idPlanCuentaDebe = pago_actualizado.idCuentaBanco.planCuenta
+                    pago_actualizado.referencia = form.cleaned_data.get('referencia', '')
+                else:
+                    pago_actualizado.idCuentaBanco = None
+                    pago_actualizado.idPlanCuentaDebe = None
+                    pago_actualizado.referencia = ''
+                
+                pago_actualizado.observaciones = form.cleaned_data.get('observaciones', '')
+                
+                pago_actualizado.save()
+                
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Pago actualizado exitosamente.',
+                    'redirect_url': reverse('pago_list')
+                })
+                
+            except Exception as e:
+                return JsonResponse({
+                    'success': False,
+                    'message': f'Error al actualizar el pago: {str(e)}'
+                }, status=500)
+        else:
+            return JsonResponse({
+                'success': False,
+                'message': 'Errores en el formulario.',
+                'errors': form.errors
+            }, status=400)
     else:
+        # Inicializar el formulario con los datos existentes
         form = PagoForm(instance=pago)
 
     return render(request, 'factura/pago_edit.html', {
         'form': form,
         'pago': pago,
-        'notas': notas,
         'cuentas_banco': cuentas_banco,
         'tasas': tasas,
         'cuentas_plan': cuentas_plan,

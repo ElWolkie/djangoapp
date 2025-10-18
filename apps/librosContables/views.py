@@ -7,6 +7,25 @@ from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 from django.db.models import Q
 from apps.periodoContable.models import periodoContable
 from apps.saldoContable.models import SaldoContable  # Importar modelo SaldoContable
+from apps.home.models import Configuracion
+
+import os
+import io
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter, landscape
+from reportlab.platypus import Table, TableStyle, SimpleDocTemplate
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import Paragraph, Spacer
+from reportlab.lib.units import inch
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
+from django.http import HttpResponse
+from datetime import datetime
+
+
+
 
 def libro_diario(request):
     """
@@ -548,3 +567,1748 @@ def paginate_cuentas_data(cuentas_data, page_number, items_per_page):
         'page_data': current_page_data,
         'related_records': related_records  # Registros relacionados para el modal
     }
+
+
+
+##Vistas para generar PDF y Excel
+def balance_cuentas_pdf(request):
+    """
+    Vista para generar PDF del Balance de Cuentas con estilos mejorados
+    """
+    # Obtener parámetros de filtro
+    periodo_id = request.GET.get('periodo')
+    search_query = request.GET.get('search', '').strip()
+
+    # Obtener período contable
+    if periodo_id:
+        periodo = get_object_or_404(periodoContable, idPeriodo=periodo_id)
+    else:
+        periodo = periodoContable.objects.filter(estadoPeriodo=True).first()
+        if not periodo:
+            return HttpResponse("No hay períodos contables disponibles.")
+
+    # Obtener el período anterior
+    periodo_anterior = periodoContable.objects.filter(
+        fechaFinPeriodo__lt=periodo.fechaInicioPeriodo
+    ).order_by('-fechaFinPeriodo').first()
+
+    # OBTENER TODOS LOS MOVIMIENTOS DEL PERÍODO ACTUAL
+    movimientos_actual = DetalleAsiento.objects.filter(
+        idAsiento__idPeriodo=periodo
+    ).select_related('idPlanCuenta').values(
+        'idPlanCuenta',
+        'idPlanCuenta__codigoPlanCuenta',
+        'idPlanCuenta__nombrePlanCuenta',
+        'idPlanCuenta__cuentaPadre_id'
+    ).annotate(
+        total_debe=Sum('debe'),
+        total_haber=Sum('haber')
+    )
+
+    # OBTENER MOVIMIENTOS DEL PERÍODO ANTERIOR (SALDO ANTERIOR)
+    movimientos_anterior = {}
+    if periodo_anterior:
+        movimientos_anterior_query = DetalleAsiento.objects.filter(
+            idAsiento__idPeriodo=periodo_anterior
+        ).select_related('idPlanCuenta').values(
+            'idPlanCuenta'
+        ).annotate(
+            total_debe=Sum('debe'),
+            total_haber=Sum('haber')
+        )
+        for mov in movimientos_anterior_query:
+            cuenta_id = mov['idPlanCuenta']
+            saldo_anterior = (mov['total_debe'] or 0) - (mov['total_haber'] or 0)
+            movimientos_anterior[cuenta_id] = saldo_anterior
+
+    # Crear diccionario de saldos por cuenta ID
+    saldos_por_cuenta = {}
+    for mov in movimientos_actual:
+        cuenta_id = mov['idPlanCuenta']
+        saldo_anterior = movimientos_anterior.get(cuenta_id, 0)
+        total_debe = mov['total_debe'] or 0
+        total_haber = mov['total_haber'] or 0
+        saldo_actual = total_debe - total_haber
+        saldo_acumulado = saldo_anterior + saldo_actual
+
+        saldos_por_cuenta[cuenta_id] = {
+            'total_debe': total_debe,
+            'total_haber': total_haber,
+            'saldo_actual': saldo_actual,
+            'saldo_anterior': saldo_anterior,
+            'saldo_acumulado': saldo_acumulado,
+            'codigo': mov['idPlanCuenta__codigoPlanCuenta'],
+            'nombre': mov['idPlanCuenta__nombrePlanCuenta'],
+            'cuentaPadre_id': mov['idPlanCuenta__cuentaPadre_id']
+        }
+
+    # OBTENER TODAS LAS CUENTAS EN ORDEN JERÁRQUICO
+    todas_las_cuentas = PlanCuenta.objects.all().select_related('cuentaPadre').order_by('codigoPlanCuenta')
+
+    if search_query:
+        todas_las_cuentas = todas_las_cuentas.filter(
+            Q(codigoPlanCuenta__icontains=search_query) |
+            Q(nombrePlanCuenta__icontains=search_query)
+        )
+
+    # Crear estructuras para el árbol
+    cuentas_por_id = {cuenta.idPlanCuenta: cuenta for cuenta in todas_las_cuentas}
+    hijos_por_padre = {}
+
+    for cuenta in todas_las_cuentas:
+        padre_id = cuenta.cuentaPadre_id if cuenta.cuentaPadre else None
+        if padre_id not in hijos_por_padre:
+            hijos_por_padre[padre_id] = []
+        hijos_por_padre[padre_id].append(cuenta)
+
+    # FUNCIÓN RECURSIVA OPTIMIZADA CON SALDO ANTERIOR
+    def construir_arbol_cuentas(cuenta_padre_id=None, nivel=0):
+        if cuenta_padre_id not in hijos_por_padre:
+            return []
+
+        resultado = []
+        for cuenta in hijos_por_padre[cuenta_padre_id]:
+            saldo_data = saldos_por_cuenta.get(cuenta.idPlanCuenta, {
+                'total_debe': 0,
+                'total_haber': 0,
+                'saldo_actual': 0,
+                'saldo_anterior': 0,
+                'saldo_acumulado': 0
+            })
+
+            subcuentas = construir_arbol_cuentas(cuenta.idPlanCuenta, nivel + 1)
+
+            # Calcular totales acumulados (incluyendo subcuentas)
+            total_debe_acumulado = saldo_data['total_debe']
+            total_haber_acumulado = saldo_data['total_haber']
+            saldo_anterior_acumulado = saldo_data['saldo_anterior']
+            saldo_actual_acumulado = saldo_data['saldo_actual']
+            saldo_acumulado_total = saldo_data['saldo_acumulado']
+
+            for subcuenta in subcuentas:
+                total_debe_acumulado += subcuenta['total_debe_acumulado']
+                total_haber_acumulado += subcuenta['total_haber_acumulado']
+                saldo_anterior_acumulado += subcuenta['saldo_anterior_acumulado']
+                saldo_actual_acumulado += subcuenta['saldo_actual_acumulado']
+                saldo_acumulado_total += subcuenta['saldo_acumulado_total']
+
+            cuenta_info = {
+                'cuenta': cuenta,
+                'nivel': nivel,
+                'total_debe': saldo_data['total_debe'],
+                'total_haber': saldo_data['total_haber'],
+                'saldo_anterior': saldo_data['saldo_anterior'],
+                'saldo_actual': saldo_data['saldo_actual'],
+                'saldo_acumulado': saldo_data['saldo_acumulado'],
+                'total_debe_acumulado': total_debe_acumulado,
+                'total_haber_acumulado': total_haber_acumulado,
+                'saldo_anterior_acumulado': saldo_anterior_acumulado,
+                'saldo_actual_acumulado': saldo_actual_acumulado,
+                'saldo_acumulado_total': saldo_acumulado_total,
+                'subcuentas': subcuentas,
+                'tiene_subcuentas': len(subcuentas) > 0,
+                'es_cuenta_principal': nivel == 0
+            }
+            resultado.append(cuenta_info)
+
+        return resultado
+
+    # Construir el árbol completo
+    arbol_cuentas = construir_arbol_cuentas(None, 0)
+
+    # Aplanar el árbol para el reporte
+    cuentas_aplanadas = []
+    def aplanar_arbol(arbol, lista_plana):
+        for item in arbol:
+            lista_plana.append(item)
+            aplanar_arbol(item['subcuentas'], lista_plana)
+
+    aplanar_arbol(arbol_cuentas, cuentas_aplanadas)
+
+    # Calcular totales generales
+    total_general_debe = sum(item['total_debe_acumulado'] for item in arbol_cuentas)
+    total_general_haber = sum(item['total_haber_acumulado'] for item in arbol_cuentas)
+    total_general_saldo_anterior = sum(item['saldo_anterior_acumulado'] for item in arbol_cuentas)
+    total_general_saldo_actual = sum(item['saldo_actual_acumulado'] for item in arbol_cuentas)
+    total_general_saldo_acumulado = sum(item['saldo_acumulado_total'] for item in arbol_cuentas)
+
+    # Configuración inicial del PDF
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="balance_cuentas_{periodo.nombrePeriodo}.pdf"'
+    
+    # Usar landscape para mejor visualización de tablas anchas
+    from reportlab.lib.pagesizes import landscape, letter
+    p = canvas.Canvas(response, pagesize=landscape(letter))
+    p.setTitle("Reporte de balance de cuentas.")
+    width, height = landscape(letter)
+    
+    # Configuración de márgenes y estilos basados en reporte_inscripcion_pdf
+    logo_width, logo_height, logo_margin = 80, 80, 15
+    min_margin = 30
+    safe_left = min_margin
+    safe_right = width - min_margin
+    safe_width = safe_right - safe_left
+    safe_center = width / 2
+
+    # Obtener configuración institucional
+    config = Configuracion.objects.order_by('-fechaConfiguracion').first()
+    logo_path = config.logo.path if config and config.logo else None
+    firma_path = config.firma.path if config and config.firma else None
+    nombre_institucion = config.nombreInstitucion if config else "Institución"
+    rif_institucion = config.rif if config else ""
+    direccion1 = "AV. ALBERTO RAVELL CON AV. INTERCOMUNAL JOSE ANTONIO PAEZ"
+    direccion2 = "LOCAL UPTYAB, INDEPENDENCIA – EDO YARACUY"
+
+    def draw_header():
+        # Logo a la derecha
+        if logo_path and os.path.exists(logo_path):
+            p.drawImage(
+                logo_path,
+                width - logo_width - logo_margin,
+                height - logo_height - logo_margin,
+                width=logo_width,
+                height=logo_height,
+                preserveAspectRatio=True,
+                mask='auto'
+            )
+        
+        # Texto institucional a la izquierda
+        text_top = height - logo_margin - 15
+        p.setFont("Helvetica-Bold", 10)
+        p.drawString(min_margin, text_top, nombre_institucion)
+        p.drawString(min_margin, text_top - 15, f"RIF: {rif_institucion}")
+        p.drawString(min_margin, text_top - 30, direccion1)
+        p.drawString(min_margin, text_top - 45, direccion2)
+        
+        # Título centrado
+        p.setFont("Helvetica-Bold", 14)
+        p.drawCentredString(safe_center, text_top - 85, "BALANCE DE CUENTAS")
+        
+        # Información del período
+        p.setFont("Helvetica", 10)
+        periodo_info = f"Período: {periodo.nombrePeriodo} - Del {periodo.fechaInicioPeriodo.strftime('%d/%m/%Y')} al {periodo.fechaFinPeriodo.strftime('%d/%m/%Y')}"
+        p.drawCentredString(safe_center, text_top - 105, periodo_info)
+
+    def draw_footer():
+        # Firma centrada en el pie de página
+        if firma_path and os.path.exists(firma_path):
+           
+            p.setFont("Helvetica-Oblique", 9)
+            p.drawCentredString(width/2, 35, "Firma autorizada")
+        
+        # Fecha de generación
+        p.setFont("Helvetica", 8)
+        fecha_generacion = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        p.drawString(min_margin, 20, f"Generado el: {fecha_generacion}")
+
+    # Preparar datos de la tabla
+    headers = ["Código", "Nombre de Cuenta", "Saldo Anterior", "Total Débe", "Total Haber", "Saldo Actual", "Saldo Acumulado"]
+    data = [headers]
+    
+    for cuenta_data in cuentas_aplanadas:
+        nivel = cuenta_data['nivel']
+        indent = "  " * nivel
+        codigo = f"{indent}{cuenta_data['cuenta'].codigoPlanCuenta}"
+        nombre = f"{indent}{cuenta_data['cuenta'].nombrePlanCuenta}"
+
+        data.append([
+            codigo,
+            nombre,
+            f"${cuenta_data['saldo_anterior_acumulado']:,.2f}",
+            f"${cuenta_data['total_debe_acumulado']:,.2f}",
+            f"${cuenta_data['total_haber_acumulado']:,.2f}",
+            f"${cuenta_data['saldo_actual_acumulado']:,.2f}",
+            f"${cuenta_data['saldo_acumulado_total']:,.2f}"
+        ])
+
+    # Totales generales
+    data.append([
+        'TOTALES GENERALES:',
+        '',
+        f"${total_general_saldo_anterior:,.2f}",
+        f"${total_general_debe:,.2f}",
+        f"${total_general_haber:,.2f}",
+        f"${total_general_saldo_actual:,.2f}",
+        f"${total_general_saldo_acumulado:,.2f}"
+    ])
+
+    # Configuración de la tabla
+    col_widths = [120, 200, 80, 80, 80, 80, 80]
+    table_width = sum(col_widths)
+    
+    # Espaciado vertical
+    header_height = 150
+    footer_height = 100
+    row_height = 22
+    cell_padding = 4
+    
+    # Calcular espacio disponible
+    available_height = height - header_height - footer_height
+    max_rows_per_page = max(1, int(available_height // row_height))
+    total_rows = len(data) - 1
+    page = 0
+
+    # Generar páginas
+    for start_row in range(0, total_rows, max_rows_per_page):
+        end_row = min(start_row + max_rows_per_page, total_rows)
+        page_data = [data[0]] + data[start_row + 1:end_row + 1]
+        
+        if page > 0:
+            p.showPage()
+        
+        draw_header()
+        y_position = height - header_height
+        
+        # Centrar tabla horizontalmente
+        table_x = safe_left + (safe_width - table_width) / 2
+        table = Table(page_data, colWidths=col_widths, rowHeights=[row_height]*len(page_data))
+        
+        # Estilo de la tabla
+        table_style = TableStyle([
+            # Encabezado
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0,0), (-1,0), 8),
+            ('ALIGN', (0,0), (-1,0), 'CENTER'),
+            ('VALIGN', (0,0), (-1,0), 'MIDDLE'),
+            ('BOTTOMPADDING', (0,0), (-1,0), cell_padding),
+            
+            # Cuerpo de la tabla
+            ('FONTSIZE', (0,1), (-1,-2), 7),
+            ('ALIGN', (0,1), (-1,-2), 'RIGHT'),
+            ('ALIGN', (0,1), (1,-2), 'LEFT'),
+            ('VALIGN', (0,1), (-1,-2), 'MIDDLE'),
+            ('BACKGROUND', (0,1), (-1,-2), colors.whitesmoke),
+            
+            # Totales
+            ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor("#366092")),
+            ('TEXTCOLOR', (0,-1), (-1,-1), colors.white),
+            ('FONTNAME', (0,-1), (-1,-1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0,-1), (-1,-1), 8),
+            ('ALIGN', (0,-1), (-1,-1), 'RIGHT'),
+            ('ALIGN', (0,-1), (1,-1), 'LEFT'),
+            
+            # Bordes
+            ('GRID', (0,0), (-1,-1), 0.5, colors.lightgrey),
+            ('BOX', (0,0), (-1,-1), 0.5, colors.black),
+            ('TOPPADDING', (0,1), (-1,-1), cell_padding),
+            ('BOTTOMPADDING', (0,1), (-1,-1), cell_padding),
+        ])
+        
+        table.setStyle(table_style)
+        table.wrapOn(p, width, height)
+        table.drawOn(p, table_x, y_position - row_height * len(page_data) - 10)
+        
+        # Información de paginación
+        p.setFont("Helvetica", 8)
+        pagination_text = f"Página {page + 1} - Registros {start_row + 1} a {end_row} de {total_rows}"
+        p.drawCentredString(
+            safe_center, 
+            y_position - row_height * len(page_data) - 25,
+            pagination_text
+        )
+        
+        draw_footer()
+        page += 1
+
+    p.save()
+    return response
+
+def balance_cuentas_excel(request):
+    """
+    Vista para generar Excel del Balance de Cuentas con estilos mejorados
+    """
+    # Obtener parámetros de filtrado
+    periodo_id = request.GET.get('periodo')
+    search_query = request.GET.get('search', '').strip()
+
+    if periodo_id:
+        periodo = get_object_or_404(periodoContable, idPeriodo=periodo_id)
+    else:
+        periodo = periodoContable.objects.filter(estadoPeriodo=True).first()
+        if not periodo:
+            return HttpResponse("No hay períodos contables disponibles.")
+
+    # Obtener el período anterior
+    periodo_anterior = periodoContable.objects.filter(
+        fechaFinPeriodo__lt=periodo.fechaInicioPeriodo
+    ).order_by('-fechaFinPeriodo').first()
+
+    # OBTENER TODOS LOS MOVIMIENTOS DEL PERÍODO ACTUAL
+    movimientos_actual = DetalleAsiento.objects.filter(
+        idAsiento__idPeriodo=periodo
+    ).select_related('idPlanCuenta').values(
+        'idPlanCuenta',
+        'idPlanCuenta__codigoPlanCuenta',
+        'idPlanCuenta__nombrePlanCuenta',
+        'idPlanCuenta__cuentaPadre_id'
+    ).annotate(
+        total_debe=Sum('debe'),
+        total_haber=Sum('haber')
+    )
+
+    # OBTENER MOVIMIENTOS DEL PERÍODO ANTERIOR (SALDO ANTERIOR)
+    movimientos_anterior = {}
+    if periodo_anterior:
+        movimientos_anterior_query = DetalleAsiento.objects.filter(
+            idAsiento__idPeriodo=periodo_anterior
+        ).select_related('idPlanCuenta').values(
+            'idPlanCuenta'
+        ).annotate(
+            total_debe=Sum('debe'),
+            total_haber=Sum('haber')
+        )
+        for mov in movimientos_anterior_query:
+            cuenta_id = mov['idPlanCuenta']
+            saldo_anterior = (mov['total_debe'] or 0) - (mov['total_haber'] or 0)
+            movimientos_anterior[cuenta_id] = saldo_anterior
+
+    # Crear diccionario de saldos por cuenta ID
+    saldos_por_cuenta = {}
+    for mov in movimientos_actual:
+        cuenta_id = mov['idPlanCuenta']
+        saldo_anterior = movimientos_anterior.get(cuenta_id, 0)
+        total_debe = mov['total_debe'] or 0
+        total_haber = mov['total_haber'] or 0
+        saldo_actual = total_debe - total_haber
+        saldo_acumulado = saldo_anterior + saldo_actual
+
+        saldos_por_cuenta[cuenta_id] = {
+            'total_debe': total_debe,
+            'total_haber': total_haber,
+            'saldo_actual': saldo_actual,
+            'saldo_anterior': saldo_anterior,
+            'saldo_acumulado': saldo_acumulado,
+            'codigo': mov['idPlanCuenta__codigoPlanCuenta'],
+            'nombre': mov['idPlanCuenta__nombrePlanCuenta'],
+            'cuentaPadre_id': mov['idPlanCuenta__cuentaPadre_id']
+        }
+
+    # OBTENER TODAS LAS CUENTAS EN ORDEN JERÁRQUICO
+    todas_las_cuentas = PlanCuenta.objects.all().select_related('cuentaPadre').order_by('codigoPlanCuenta')
+
+    if search_query:
+        todas_las_cuentas = todas_las_cuentas.filter(
+            Q(codigoPlanCuenta__icontains=search_query) |
+            Q(nombrePlanCuenta__icontains=search_query)
+        )
+
+    # Crear estructuras para el árbol
+    cuentas_por_id = {cuenta.idPlanCuenta: cuenta for cuenta in todas_las_cuentas}
+    hijos_por_padre = {}
+
+    for cuenta in todas_las_cuentas:
+        padre_id = cuenta.cuentaPadre_id if cuenta.cuentaPadre else None
+        if padre_id not in hijos_por_padre:
+            hijos_por_padre[padre_id] = []
+        hijos_por_padre[padre_id].append(cuenta)
+
+    # FUNCIÓN RECURSIVA OPTIMIZADA CON SALDO ANTERIOR
+    def construir_arbol_cuentas(cuenta_padre_id=None, nivel=0):
+        if cuenta_padre_id not in hijos_por_padre:
+            return []
+
+        resultado = []
+        for cuenta in hijos_por_padre[cuenta_padre_id]:
+            # Obtener saldos de esta cuenta
+            saldo_data = saldos_por_cuenta.get(cuenta.idPlanCuenta, {
+                'total_debe': 0,
+                'total_haber': 0,
+                'saldo_actual': 0,
+                'saldo_anterior': 0,
+                'saldo_acumulado': 0
+            })
+
+            # Obtener subcuentas recursivamente
+            subcuentas = construir_arbol_cuentas(cuenta.idPlanCuenta, nivel + 1)
+
+            # Calcular totales acumulados (incluyendo subcuentas)
+            total_debe_acumulado = saldo_data['total_debe']
+            total_haber_acumulado = saldo_data['total_haber']
+            saldo_anterior_acumulado = saldo_data['saldo_anterior']
+            saldo_actual_acumulado = saldo_data['saldo_actual']
+            saldo_acumulado_total = saldo_data['saldo_acumulado']
+
+            # Acumular de las subcuentas
+            for subcuenta in subcuentas:
+                total_debe_acumulado += subcuenta['total_debe_acumulado']
+                total_haber_acumulado += subcuenta['total_haber_acumulado']
+                saldo_anterior_acumulado += subcuenta['saldo_anterior_acumulado']
+                saldo_actual_acumulado += subcuenta['saldo_actual_acumulado']
+                saldo_acumulado_total += subcuenta['saldo_acumulado_total']
+
+            cuenta_info = {
+                'cuenta': cuenta,
+                'nivel': nivel,
+                'total_debe': saldo_data['total_debe'],
+                'total_haber': saldo_data['total_haber'],
+                'saldo_anterior': saldo_data['saldo_anterior'],
+                'saldo_actual': saldo_data['saldo_actual'],
+                'saldo_acumulado': saldo_data['saldo_acumulado'],
+                'total_debe_acumulado': total_debe_acumulado,
+                'total_haber_acumulado': total_haber_acumulado,
+                'saldo_anterior_acumulado': saldo_anterior_acumulado,
+                'saldo_actual_acumulado': saldo_actual_acumulado,
+                'saldo_acumulado_total': saldo_acumulado_total,
+                'subcuentas': subcuentas,
+                'tiene_subcuentas': len(subcuentas) > 0,
+                'es_cuenta_principal': nivel == 0
+            }
+            resultado.append(cuenta_info)
+
+        return resultado
+
+    # Construir el árbol completo empezando por las cuentas principales (nivel 0)
+    arbol_cuentas = construir_arbol_cuentas(None, 0)
+
+    # Aplanar el árbol para la exportación
+    cuentas_aplanadas = []
+    def aplanar_arbol(arbol, lista_plana):
+        for item in arbol:
+            lista_plana.append(item)
+            aplanar_arbol(item['subcuentas'], lista_plana)
+
+    aplanar_arbol(arbol_cuentas, cuentas_aplanadas)
+
+    # Calcular totales generales del balance
+    total_general_debe = sum(item['total_debe_acumulado'] for item in arbol_cuentas)
+    total_general_haber = sum(item['total_haber_acumulado'] for item in arbol_cuentas)
+    total_general_saldo_anterior = sum(item['saldo_anterior_acumulado'] for item in arbol_cuentas)
+    total_general_saldo_actual = sum(item['saldo_actual_acumulado'] for item in arbol_cuentas)
+    total_general_saldo_acumulado = sum(item['saldo_acumulado_total'] for item in arbol_cuentas)
+
+    # Crear libro de Excel
+    workbook = Workbook()
+    worksheet = workbook.active
+    worksheet.title = f"Balance Cuentas {periodo.nombrePeriodo}"[:31]  # Máximo 31 caracteres
+
+    # Estilos mejorados basados en reporte_inscripcion_pdf
+    header_font = Font(bold=True, color="FFFFFF", size=12)
+    header_fill = PatternFill(start_color="fe8330", end_color="fe8330", fill_type="solid")  # Naranja como en PDF
+    total_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")  # Azul como en PDF
+    total_font = Font(bold=True, color="FFFFFF")
+    border = Border(left=Side(style='thin'), right=Side(style='thin'), 
+                   top=Side(style='thin'), bottom=Side(style='thin'))
+    
+    # Estilo para cuentas principales
+    cuenta_principal_fill = PatternFill(start_color="FFE699", end_color="FFE699", fill_type="solid")
+    # Estilo para subcuentas según nivel
+    subcuenta_fills = [
+        PatternFill(start_color="E2EFDA", end_color="E2EFDA", fill_type="solid"),  # Nivel 1
+        PatternFill(start_color="DDEBF7", end_color="DDEBF7", fill_type="solid"),  # Nivel 2
+        PatternFill(start_color="FCE4D6", end_color="FCE4D6", fill_type="solid"),  # Nivel 3
+        PatternFill(start_color="EDEDED", end_color="EDEDED", fill_type="solid"),  # Nivel 4+
+    ]
+
+    # Obtener configuración institucional
+    config = Configuracion.objects.order_by('-fechaConfiguracion').first()
+    nombre_institucion = config.nombreInstitucion if config else "Institución"
+    rif_institucion = config.rif if config else ""
+
+    # Título e información del período
+    worksheet.cell(row=1, column=1, value=nombre_institucion).font = Font(bold=True, size=14)
+    worksheet.merge_cells('A1:G1')
+    
+    worksheet.cell(row=2, column=1, value=f"RIF: {rif_institucion}").font = Font(bold=True)
+    worksheet.merge_cells('A2:G2')
+    
+    worksheet.cell(row=3, column=1, value="BALANCE DE CUENTAS").font = Font(bold=True, size=16)
+    worksheet.merge_cells('A3:G3')
+    
+    worksheet.cell(row=4, column=1, value=f"Período: {periodo.nombrePeriodo}").font = Font(bold=True)
+    worksheet.merge_cells('A4:G4')
+    
+    worksheet.cell(row=5, column=1, value=f"Del {periodo.fechaInicioPeriodo.strftime('%d/%m/%Y')} al {periodo.fechaFinPeriodo.strftime('%d/%m/%Y')}")
+    worksheet.merge_cells('A5:G5')
+    
+    if periodo_anterior:
+        worksheet.cell(row=6, column=1, value=f"Período Anterior: {periodo_anterior.nombrePeriodo}")
+        worksheet.merge_cells('A6:G6')
+        row_num = 8  # Empezar después del título y período anterior
+    else:
+        row_num = 7  # Empezar después del título
+
+    # Encabezados
+    headers = ['Código', 'Nombre de Cuenta', 'Saldo Anterior', 'Total Débe', 'Total Haber', 'Saldo Actual', 'Saldo Acumulado']
+    for col_num, header in enumerate(headers, 1):
+        cell = worksheet.cell(row=row_num, column=col_num, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.border = border
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+    
+    row_num += 1
+
+    # Datos
+    for cuenta_data in cuentas_aplanadas:
+        nivel = cuenta_data['nivel']
+        indent = "  " * nivel
+        
+        # Determinar el estilo de relleno según el nivel
+        if nivel == 0:
+            fill_style = cuenta_principal_fill
+        else:
+            fill_index = min(nivel - 1, len(subcuenta_fills) - 1)
+            fill_style = subcuenta_fills[fill_index]
+        
+        # Escribir datos de la cuenta
+        worksheet.cell(row=row_num, column=1, value=f"{indent}{cuenta_data['cuenta'].codigoPlanCuenta}").border = border
+        worksheet.cell(row=row_num, column=2, value=f"{indent}{cuenta_data['cuenta'].nombrePlanCuenta}").border = border
+        worksheet.cell(row=row_num, column=3, value=float(cuenta_data['saldo_anterior_acumulado'])).border = border
+        worksheet.cell(row=row_num, column=4, value=float(cuenta_data['total_debe_acumulado'])).border = border
+        worksheet.cell(row=row_num, column=5, value=float(cuenta_data['total_haber_acumulado'])).border = border
+        worksheet.cell(row=row_num, column=6, value=float(cuenta_data['saldo_actual_acumulado'])).border = border
+        worksheet.cell(row=row_num, column=7, value=float(cuenta_data['saldo_acumulado_total'])).border = border
+        
+        # Aplicar estilo de relleno
+        for col in range(1, 8):
+            worksheet.cell(row=row_num, column=col).fill = fill_style
+        
+        row_num += 1
+
+    # Totales
+    total_row = row_num
+    worksheet.cell(row=total_row, column=1, value="TOTALES GENERALES:").font = total_font
+    worksheet.cell(row=total_row, column=2, value="").font = total_font
+    worksheet.cell(row=total_row, column=3, value=float(total_general_saldo_anterior)).fill = total_fill
+    worksheet.cell(row=total_row, column=4, value=float(total_general_debe)).fill = total_fill
+    worksheet.cell(row=total_row, column=5, value=float(total_general_haber)).fill = total_fill
+    worksheet.cell(row=total_row, column=6, value=float(total_general_saldo_actual)).fill = total_fill
+    worksheet.cell(row=total_row, column=7, value=float(total_general_saldo_acumulado)).fill = total_fill
+    
+    # Aplicar bordes y estilos a las celdas de totales
+    for col in range(1, 8):
+        cell = worksheet.cell(row=total_row, column=col)
+        cell.border = border
+        cell.font = total_font
+        if col >= 3:
+            cell.fill = total_fill
+
+    # Ajustar anchos de columna
+    column_widths = {
+        'A': 15,  # Código
+        'B': 50,  # Nombre de Cuenta
+        'C': 15,  # Saldo Anterior
+        'D': 15,  # Total Débe
+        'E': 15,  # Total Haber
+        'F': 15,  # Saldo Actual
+        'G': 15   # Saldo Acumulado
+    }
+    
+    for col_letter, width in column_widths.items():
+        worksheet.column_dimensions[col_letter].width = width
+
+    # Formato de números para columnas monetarias
+    for row in worksheet.iter_rows(min_row=row_num - len(cuentas_aplanadas), max_row=worksheet.max_row, min_col=3, max_col=7):
+        for cell in row:
+            if isinstance(cell.value, (int, float)):
+                cell.number_format = '#,##0.00'
+
+    # Información adicional al final
+    info_row = total_row + 2
+    worksheet.cell(row=info_row, column=1, value="Notas:").font = Font(bold=True)
+    worksheet.cell(row=info_row + 1, column=1, value="- Saldo Deudor: Positivo")
+    worksheet.cell(row=info_row + 2, column=1, value="- Saldo Acreedor: Negativo")
+    worksheet.cell(row=info_row + 3, column=1, value=f"- Generado el: {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+
+    # Preparar respuesta
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = f'attachment; filename="balance_cuentas_{periodo.nombrePeriodo}.xlsx"'
+    workbook.save(response)
+
+    return response
+
+def libro_diario_pdf(request):
+    """
+    Vista para generar PDF del Libro Diario con estilos mejorados
+    """
+    search_query = request.GET.get('search', '').strip()
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+    periodo_id = request.GET.get('periodo')
+
+    asientos = AsientoContable.objects.prefetch_related('detalles').order_by('fechaAsiento', 'numeroAsiento')
+
+    if search_query:
+        asientos = asientos.filter(
+            Q(numeroAsiento__icontains=search_query) |
+            Q(fechaAsiento__icontains=search_query) |
+            Q(conceptoAsiento__icontains=search_query) |
+            Q(detalles__idPlanCuenta__nombrePlanCuenta__icontains=search_query) |
+            Q(detalles__idPlanCuenta__codigoPlanCuenta__icontains=search_query) |
+            Q(detalles__debe__icontains=search_query) |
+            Q(detalles__haber__icontains=search_query)
+        ).distinct()
+
+    if start_date:
+        asientos = asientos.filter(fechaAsiento__gte=start_date)
+    if end_date:
+        asientos = asientos.filter(fechaAsiento__lte=end_date)
+    if periodo_id:
+        asientos = asientos.filter(idPeriodo__idPeriodo=periodo_id)
+
+    totales = asientos.aggregate(
+        total_debe=Sum('detalles__debe'),
+        total_haber=Sum('detalles__haber')
+    )
+
+    periodo_seleccionado = None
+    if periodo_id:
+        periodo_seleccionado = periodoContable.objects.filter(idPeriodo=periodo_id).first()
+
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'inline; filename="libro_diario.pdf"'
+    
+    from reportlab.lib.pagesizes import landscape, letter
+    p = canvas.Canvas(response, pagesize=landscape(letter))
+    p.setTitle("Reporte de libro diario.")
+    width, height = landscape(letter)
+    
+    logo_width, logo_height, logo_margin = 80, 80, 15
+    min_margin = 30
+    safe_left = min_margin
+    safe_right = width - min_margin
+    safe_width = safe_right - safe_left
+    safe_center = width / 2
+
+    config = Configuracion.objects.order_by('-fechaConfiguracion').first()
+    logo_path = config.logo.path if config and config.logo else None
+    firma_path = config.firma.path if config and config.firma else None
+    nombre_institucion = config.nombreInstitucion if config else "Institución"
+    rif_institucion = config.rif if config else ""
+    direccion1 = "AV. ALBERTO RAVELL CON AV. INTERCOMUNAL JOSE ANTONIO PAEZ"
+    direccion2 = "LOCAL UPTYAB, INDEPENDENCIA – EDO YARACUY"
+
+    def draw_header():
+        if logo_path and os.path.exists(logo_path):
+            p.drawImage(
+                logo_path,
+                width - logo_width - logo_margin,
+                height - logo_height - logo_margin,
+                width=logo_width,
+                height=logo_height,
+                preserveAspectRatio=True,
+                mask='auto'
+            )
+        
+        text_top = height - logo_margin - 15
+        p.setFont("Helvetica-Bold", 10)
+        p.drawString(min_margin, text_top, nombre_institucion)
+        p.drawString(min_margin, text_top - 15, f"RIF: {rif_institucion}")
+        p.drawString(min_margin, text_top - 30, direccion1)
+        p.drawString(min_margin, text_top - 45, direccion2)
+        
+        p.setFont("Helvetica-Bold", 14)
+        p.drawCentredString(safe_center, text_top - 85, "LIBRO DIARIO")
+        
+        p.setFont("Helvetica", 10)
+        if periodo_seleccionado:
+            periodo_info = f"Período: {periodo_seleccionado.nombrePeriodo} - Del {periodo_seleccionado.fechaInicioPeriodo.strftime('%d/%m/%Y')} al {periodo_seleccionado.fechaFinPeriodo.strftime('%d/%m/%Y')}"
+        else:
+            periodo_info = "Período: Todos los movimientos"
+        p.drawCentredString(safe_center, text_top - 105, periodo_info)
+
+    def draw_footer():
+        if firma_path and os.path.exists(firma_path):
+            p.setFont("Helvetica-Oblique", 9)
+            p.drawCentredString(width/2, 35, "Firma autorizada")
+        
+        p.setFont("Helvetica", 8)
+        fecha_generacion = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        p.drawString(min_margin, 20, f"Generado el: {fecha_generacion}")
+
+    headers = ["N° Asiento", "Fecha", "Concepto", "Cuenta", "Debe", "Haber"]
+    data = [headers]
+
+    for asiento in asientos:
+        for detalle in asiento.detalles.all():
+            data.append([
+                asiento.numeroAsiento,
+                asiento.fechaAsiento.strftime("%d/%m/%Y"),
+                asiento.conceptoAsiento[:50] + "..." if len(asiento.conceptoAsiento) > 50 else asiento.conceptoAsiento,
+                f"{detalle.idPlanCuenta.codigoPlanCuenta} - {detalle.idPlanCuenta.nombrePlanCuenta}",
+                f"${detalle.debe:,.2f}" if detalle.debe else "",
+                f"${detalle.haber:,.2f}" if detalle.haber else ""
+            ])
+
+    data.append([
+        'TOTALES:',
+        '',
+        '',
+        '',
+        f"${totales['total_debe'] or 0:,.2f}",
+        f"${totales['total_haber'] or 0:,.2f}"
+    ])
+
+    col_widths = [120, 80, 200, 120, 80, 80]
+    table_width = sum(col_widths)
+    
+    header_height = 150
+    footer_height = 100
+    row_height = 22
+    cell_padding = 4
+    
+    available_height = height - header_height - footer_height
+    max_rows_per_page = max(1, int(available_height // row_height))
+    total_rows = len(data) - 1
+    page = 0
+
+    for start_row in range(0, total_rows, max_rows_per_page):
+        end_row = min(start_row + max_rows_per_page, total_rows)
+        page_data = [data[0]] + data[start_row + 1:end_row + 1]
+        
+        if page > 0:
+            p.showPage()
+        
+        draw_header()
+        y_position = height - header_height
+        
+        table_x = safe_left + (safe_width - table_width) / 2
+        table = Table(page_data, colWidths=col_widths, rowHeights=[row_height]*len(page_data))
+        
+        table_style = TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0,0), (-1,0), 8),
+            ('ALIGN', (0,0), (-1,0), 'CENTER'),
+            ('VALIGN', (0,0), (-1,0), 'MIDDLE'),
+            ('BOTTOMPADDING', (0,0), (-1,0), cell_padding),
+            
+            ('FONTSIZE', (0,1), (-1,-2), 7),
+            ('ALIGN', (0,1), (-1,-2), 'CENTER'),
+            ('ALIGN', (3,1), (3,-2), 'LEFT'),
+            ('VALIGN', (0,1), (-1,-2), 'MIDDLE'),
+            ('BACKGROUND', (0,1), (-1,-2), colors.whitesmoke),
+            
+            ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor("#366092")),
+            ('TEXTCOLOR', (0,-1), (-1,-1), colors.white),
+            ('FONTNAME', (0,-1), (-1,-1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0,-1), (-1,-1), 8),
+            ('ALIGN', (0,-1), (-1,-1), 'RIGHT'),
+            ('ALIGN', (0,-1), (3,-1), 'LEFT'),
+            
+            ('GRID', (0,0), (-1,-1), 0.5, colors.lightgrey),
+            ('BOX', (0,0), (-1,-1), 0.5, colors.black),
+            ('TOPPADDING', (0,1), (-1,-1), cell_padding),
+            ('BOTTOMPADDING', (0,1), (-1,-1), cell_padding),
+        ])
+        
+        table.setStyle(table_style)
+        table.wrapOn(p, width, height)
+        table.drawOn(p, table_x, y_position - row_height * len(page_data) - 10)
+        
+        p.setFont("Helvetica", 8)
+        pagination_text = f"Página {page + 1} - Registros {start_row + 1} a {end_row} de {total_rows}"
+        p.drawCentredString(
+            safe_center, 
+            y_position - row_height * len(page_data) - 25,
+            pagination_text
+        )
+        
+        draw_footer()
+        page += 1
+
+    p.save()
+    return response
+
+def libro_diario_excel(request):
+    """
+    Vista para generar Excel del Libro Diario
+    """
+    # Obtener parámetros de filtrado (misma lógica que libro_diario)
+    search_query = request.GET.get('search', '').strip()
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+    periodo_id = request.GET.get('periodo')
+
+    asientos = AsientoContable.objects.prefetch_related('detalles').order_by('fechaAsiento', 'numeroAsiento')
+
+    # Aplicar filtros
+    if search_query:
+        asientos = asientos.filter(
+            Q(numeroAsiento__icontains=search_query) |
+            Q(fechaAsiento__icontains=search_query) |
+            Q(conceptoAsiento__icontains=search_query) |
+            Q(detalles__idPlanCuenta__nombrePlanCuenta__icontains=search_query) |
+            Q(detalles__idPlanCuenta__codigoPlanCuenta__icontains=search_query) |
+            Q(detalles__debe__icontains=search_query) |
+            Q(detalles__haber__icontains=search_query)
+        ).distinct()
+
+    if start_date:
+        asientos = asientos.filter(fechaAsiento__gte=start_date)
+    if end_date:
+        asientos = asientos.filter(fechaAsiento__lte=end_date)
+    if periodo_id:
+        asientos = asientos.filter(idPeriodo__idPeriodo=periodo_id)
+
+    # Calcular totales
+    totales = asientos.aggregate(
+        total_debe=Sum('detalles__debe'),
+        total_haber=Sum('detalles__haber')
+    )
+
+    # Obtener período seleccionado para el nombre del archivo
+    periodo_seleccionado = None
+    if periodo_id:
+        periodo_seleccionado = periodoContable.objects.filter(idPeriodo=periodo_id).first()
+
+    # Crear libro de Excel
+    workbook = Workbook()
+    worksheet = workbook.active
+    worksheet.title = "Libro Diario"
+
+    # Estilos
+    header_font = Font(bold=True, color="FFFFFF")
+    header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+    total_fill = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")
+    border = Border(left=Side(style='thin'), right=Side(style='thin'), 
+                   top=Side(style='thin'), bottom=Side(style='thin'))
+
+    # Título e información
+    worksheet.cell(row=1, column=1, value="LIBRO DIARIO").font = Font(bold=True, size=16)
+    worksheet.merge_cells('A1:F1')
+    
+    row_num = 2
+    if periodo_seleccionado:
+        worksheet.cell(row=row_num, column=1, value=f"Período: {periodo_seleccionado.nombrePeriodo}")
+        worksheet.merge_cells('A2:F2')
+        row_num += 1
+        worksheet.cell(row=row_num, column=1, value=f"Fecha: {periodo_seleccionado.fechaInicioPeriodo} - {periodo_seleccionado.fechaFinPeriodo}")
+        worksheet.merge_cells('A3:F3')
+        row_num += 1
+    
+    row_num += 1  # Espacio
+
+    # Encabezados de la tabla
+    headers = ['N° Asiento', 'Fecha', 'Concepto', 'Cuenta', 'Debe', 'Haber']
+    for col_num, header in enumerate(headers, 1):
+        cell = worksheet.cell(row=row_num, column=col_num, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.border = border
+        cell.alignment = Alignment(horizontal='center')
+    
+    row_num += 1
+
+    # Datos
+    for asiento in asientos:
+        for detalle in asiento.detalles.all():
+            worksheet.cell(row=row_num, column=1, value=asiento.numeroAsiento).border = border
+            worksheet.cell(row=row_num, column=2, value=asiento.fechaAsiento.strftime("%d/%m/%Y")).border = border
+            worksheet.cell(row=row_num, column=3, value=asiento.conceptoAsiento).border = border
+            worksheet.cell(row=row_num, column=4, value=f"{detalle.idPlanCuenta.codigoPlanCuenta} - {detalle.idPlanCuenta.nombrePlanCuenta}").border = border
+            worksheet.cell(row=row_num, column=5, value=float(detalle.debe) if detalle.debe else 0).border = border
+            worksheet.cell(row=row_num, column=6, value=float(detalle.haber) if detalle.haber else 0).border = border
+            row_num += 1
+
+    # Totales
+    total_row = row_num
+    worksheet.cell(row=total_row, column=3, value="TOTALES:").font = Font(bold=True)
+    worksheet.cell(row=total_row, column=5, value=float(totales['total_debe'] or 0)).fill = total_fill
+    worksheet.cell(row=total_row, column=6, value=float(totales['total_haber'] or 0)).fill = total_fill
+    
+    # Aplicar bordes a las celdas de totales
+    for col in range(1, 7):
+        cell = worksheet.cell(row=total_row, column=col)
+        cell.border = border
+        if col >= 5:
+            cell.fill = total_fill
+
+    # Ajustar anchos de columna
+    column_widths = {
+        'A': 15,  # N° Asiento
+        'B': 12,  # Fecha
+        'C': 50,  # Concepto
+        'D': 40,  # Cuenta
+        'E': 15,  # Debe
+        'F': 15   # Haber
+    }
+    
+    for col_letter, width in column_widths.items():
+        worksheet.column_dimensions[col_letter].width = width
+
+    # Formato de números para columnas monetarias
+    for row in worksheet.iter_rows(min_row=row_num - len(list(asientos)) + 1, max_row=worksheet.max_row, min_col=5, max_col=6):
+        for cell in row:
+            if isinstance(cell.value, (int, float)):
+                cell.number_format = '#,##0.00'
+
+    # Preparar respuesta
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    
+    # Nombre del archivo con período si está disponible
+    if periodo_seleccionado:
+        filename = f"libro_diario_{periodo_seleccionado.nombrePeriodo}.xlsx"
+    else:
+        filename = "libro_diario.xlsx"
+        
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    workbook.save(response)
+
+    return response
+
+
+def libro_mayor_pdf(request):
+    """
+    Vista para generar PDF del Libro Mayor con texto responsive
+    """
+    search_query = request.GET.get('search', '').strip()
+    periodo_id = request.GET.get('periodo')
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+
+    if start_date or end_date:
+        periodo = None
+    else:
+        if not periodo_id:
+            periodo = periodoContable.objects.filter(estadoPeriodo=True).first()
+        else:
+            periodo = periodoContable.objects.filter(idPeriodo=periodo_id).first()
+
+    if not periodo and not (start_date or end_date):
+        return HttpResponse("No hay períodos contables disponibles.")
+
+    cuentas = PlanCuenta.objects.prefetch_related('subcuentas').filter(cuentaPadre__isnull=True).order_by('codigoPlanCuenta')
+
+    global_total_debe = 0
+    global_total_haber = 0
+
+    def calcular_saldos(cuenta, nivel=0):
+        nonlocal global_total_debe, global_total_haber
+
+        movimientos = DetalleAsiento.objects.filter(idPlanCuenta=cuenta)
+
+        if periodo:
+            movimientos = movimientos.filter(idAsiento__idPeriodo=periodo)
+        if start_date:
+            movimientos = movimientos.filter(idAsiento__fechaAsiento__gte=start_date)
+        if end_date:
+            movimientos = movimientos.filter(idAsiento__fechaAsiento__lte=end_date)
+
+        movimientos = movimientos.order_by('idAsiento__fechaAsiento', 'idAsiento__numeroAsiento')
+
+        saldo_inicial = 0
+        saldo_final = saldo_inicial
+        total_debe = 0
+        total_haber = 0
+        detalles = []
+
+        asientos_ids = movimientos.values_list('idAsiento__idAsiento', flat=True)
+        movimientos_relacionados = {}
+
+        if asientos_ids:
+            todos_movimientos_asiento = DetalleAsiento.objects.filter(
+                idAsiento__idAsiento__in=asientos_ids
+            ).select_related('idPlanCuenta', 'idAsiento')
+
+            for mov in todos_movimientos_asiento:
+                if mov.idAsiento.idAsiento not in movimientos_relacionados:
+                    movimientos_relacionados[mov.idAsiento.idAsiento] = []
+                movimientos_relacionados[mov.idAsiento.idAsiento].append(mov)
+
+        for movimiento in movimientos:
+            saldo_anterior = saldo_final
+            saldo_final += movimiento.debe - movimiento.haber
+            total_debe += movimiento.debe
+            total_haber += movimiento.haber
+
+            movimientos_asiento_completo = movimientos_relacionados.get(movimiento.idAsiento.idAsiento, [])
+            
+            movimientos_completos_json = [
+                {
+                    'cuenta': mov_rel.idPlanCuenta.codigoPlanCuenta + ' - ' + mov_rel.idPlanCuenta.nombrePlanCuenta,
+                    'debe': float(mov_rel.debe),
+                    'haber': float(mov_rel.haber)
+                }
+                for mov_rel in movimientos_asiento_completo
+                if mov_rel.idPlanCuenta.codigoPlanCuenta != cuenta.codigoPlanCuenta
+            ]
+
+            beneficiario = None
+            try:
+                from apps.factura.models import Pago
+                pago = Pago.objects.filter(idAsiento=movimiento.idAsiento).first()
+                if pago and pago.idNota:
+                    nota = pago.idNota
+                    if nota.idPersona:
+                        beneficiario = f"{nota.idPersona.cedula} - {nota.idPersona.nombres} {nota.idPersona.apellidos}"
+                    elif nota.idEmpresa:
+                        beneficiario = f"{nota.idEmpresa.rifEmpresa} - {nota.idEmpresa.nombreEmpresa}"
+            except:
+                pass
+
+            detalles.append({
+                'fecha': movimiento.idAsiento.fechaAsiento,
+                'concepto': movimiento.idAsiento.conceptoAsiento,
+                'beneficiario': beneficiario,
+                'debe': movimiento.debe,
+                'haber': movimiento.haber,
+                'saldo': saldo_final,
+                'id_asiento': movimiento.idAsiento.idAsiento,
+                'movimientos_completos': movimientos_completos_json
+            })
+
+        global_total_debe += total_debe
+        global_total_haber += total_haber
+
+        subcuentas = []
+        for subcuenta in cuenta.subcuentas.all():
+            subcuenta_data = calcular_saldos(subcuenta, nivel + 1)
+            subcuentas.append(subcuenta_data)
+
+        return {
+            'cuenta': cuenta,
+            'saldo_inicial': saldo_inicial,
+            'saldo_final': saldo_final,
+            'total_debe': total_debe,
+            'total_haber': total_haber,
+            'detalles': detalles,
+            'subcuentas': subcuentas,
+            'nivel': nivel
+        }
+
+    def buscar_en_cuentas(cuentas_data, search_query):
+        resultados = []
+        for cuenta in cuentas_data:
+            if (search_query.lower() in cuenta['cuenta'].nombrePlanCuenta.lower() or 
+                search_query.lower() in cuenta['cuenta'].codigoPlanCuenta.lower() or
+                any(search_query.lower() in str(detalle.get('debe', '')).lower() or
+                    search_query.lower() in str(detalle.get('haber', '')).lower() or
+                    search_query.lower() in str(detalle.get('saldo', '')).lower() or
+                    search_query.lower() in detalle.get('concepto', '').lower()
+                    for detalle in cuenta['detalles'])):
+                resultados.append(cuenta)
+
+            subcuentas_resultados = buscar_en_cuentas(cuenta.get('subcuentas', []), search_query)
+            resultados.extend(subcuentas_resultados)
+
+        return resultados
+
+    cuentas_data = [calcular_saldos(cuenta) for cuenta in cuentas]
+
+    if search_query:
+        cuentas_data = buscar_en_cuentas(cuentas_data, search_query)
+
+    response = HttpResponse(content_type='application/pdf')
+    
+    if periodo:
+        filename = f"libro_mayor_{periodo.nombrePeriodo}.pdf"
+    else:
+        filename = "libro_mayor.pdf"
+        
+    response['Content-Disposition'] = f'inline; filename="{filename}"'
+
+    from reportlab.lib.pagesizes import landscape, letter
+    p = canvas.Canvas(response, pagesize=landscape(letter))
+    p.setTitle("Reporte de libro mayor.")
+    width, height = landscape(letter)
+    
+    logo_width, logo_height, logo_margin = 80, 80, 15
+    min_margin = 30
+    safe_left = min_margin
+    safe_right = width - min_margin
+    safe_width = safe_right - safe_left
+    safe_center = width / 2
+
+    config = Configuracion.objects.order_by('-fechaConfiguracion').first()
+    logo_path = config.logo.path if config and config.logo else None
+    firma_path = config.firma.path if config and config.firma else None
+    nombre_institucion = config.nombreInstitucion if config else "Institución"
+    rif_institucion = config.rif if config else ""
+    direccion1 = "AV. ALBERTO RAVELL CON AV. INTERCOMUNAL JOSE ANTONIO PAEZ"
+    direccion2 = "LOCAL UPTYAB, INDEPENDENCIA – EDO YARACUY"
+
+    def draw_header():
+        if logo_path and os.path.exists(logo_path):
+            p.drawImage(
+                logo_path,
+                width - logo_width - logo_margin,
+                height - logo_height - logo_margin,
+                width=logo_width,
+                height=logo_height,
+                preserveAspectRatio=True,
+                mask='auto'
+            )
+        
+        text_top = height - logo_margin - 15
+        p.setFont("Helvetica-Bold", 10)
+        p.drawString(min_margin, text_top, nombre_institucion)
+        p.drawString(min_margin, text_top - 15, f"RIF: {rif_institucion}")
+        p.drawString(min_margin, text_top - 30, direccion1)
+        p.drawString(min_margin, text_top - 45, direccion2)
+        
+        p.setFont("Helvetica-Bold", 14)
+        p.drawCentredString(safe_center, text_top - 85, "LIBRO MAYOR")
+        
+        p.setFont("Helvetica", 10)
+        periodo_info = ""
+        if periodo:
+            periodo_info = f"Período: {periodo.nombrePeriodo} - Del {periodo.fechaInicioPeriodo.strftime('%d/%m/%Y')} al {periodo.fechaFinPeriodo.strftime('%d/%m/%Y')}"
+        else:
+            if start_date and end_date:
+                periodo_info = f"Período: Del {start_date} al {end_date}"
+            else:
+                periodo_info = "Período: Todos los movimientos"
+        p.drawCentredString(safe_center, text_top - 105, periodo_info)
+
+    def draw_footer():
+        if firma_path and os.path.exists(firma_path):
+            p.setFont("Helvetica-Oblique", 9)
+            p.drawCentredString(width/2, 35, "Firma autorizada")
+        
+        p.setFont("Helvetica", 8)
+        fecha_generacion = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        p.drawString(min_margin, 20, f"Generado el: {fecha_generacion}")
+
+    # Preparar datos de la tabla con Paragraph para texto responsive
+    from reportlab.platypus import Paragraph
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+
+    styles = getSampleStyleSheet()
+    normal_style = ParagraphStyle(
+        'Normal',
+        parent=styles['Normal'],
+        fontSize=7,
+        leading=8,
+        wordWrap='LTR',
+        alignment=0,
+    )
+    
+    header_style = ParagraphStyle(
+        'Header',
+        parent=styles['Normal'],
+        fontSize=8,
+        leading=9,
+        wordWrap='LTR',
+        textColor=colors.white,
+        alignment=1,
+        fontName='Helvetica-Bold'
+    )
+    
+    center_style = ParagraphStyle(
+        'Center',
+        parent=normal_style,
+        alignment=1,
+    )
+
+    def agregar_datos_cuenta(cuenta_data, data, nivel=0):
+        cuenta = cuenta_data['cuenta']
+        indent = "&nbsp;" * nivel * 2
+        
+        # Fila de la cuenta principal
+        data.append([
+            Paragraph(f"{indent}{cuenta.codigoPlanCuenta}", normal_style),
+            Paragraph(f"{indent}{cuenta.nombrePlanCuenta}", normal_style),
+            Paragraph("", normal_style),
+            Paragraph("", normal_style),
+            Paragraph("", normal_style),
+            Paragraph("", normal_style),
+            Paragraph("", normal_style)
+        ])
+        
+        # Saldo inicial
+        data.append([
+            Paragraph("", normal_style),
+            Paragraph(f"{indent}&nbsp;&nbsp;Saldo Inicial", normal_style),
+            Paragraph("", normal_style),
+            Paragraph("", normal_style),
+            Paragraph("", normal_style),
+            Paragraph("", normal_style),
+            Paragraph(f"${cuenta_data['saldo_inicial']:,.2f}", normal_style)
+        ])
+        
+        # Movimientos/detalles
+        for detalle in cuenta_data['detalles']:
+            concepto = detalle['concepto']
+            beneficiario = detalle['beneficiario'] or ""
+            
+            data.append([
+                Paragraph("", normal_style),
+                Paragraph(f"{indent}&nbsp;&nbsp;{cuenta.nombrePlanCuenta}", normal_style),
+                Paragraph(detalle['fecha'].strftime("%d/%m/%Y"), center_style),
+                Paragraph(concepto, normal_style),
+                Paragraph(f"${detalle['debe']:,.2f}" if detalle['debe'] else "", center_style),
+                Paragraph(f"${detalle['haber']:,.2f}" if detalle['haber'] else "", center_style),
+                Paragraph(f"${detalle['saldo']:,.2f}", normal_style)
+            ])
+        
+        # Saldo final
+        naturaleza = "Deudor" if cuenta_data['saldo_final'] > 0 else "Acreedor" if cuenta_data['saldo_final'] < 0 else "Saldado"
+        data.append([
+            Paragraph("", normal_style),
+            Paragraph(f"{indent}&nbsp;&nbsp;Saldo Final", normal_style),
+            Paragraph("", normal_style),
+            Paragraph("", normal_style),
+            Paragraph("", normal_style),
+            Paragraph("", normal_style),
+            Paragraph(f"${cuenta_data['saldo_final']:,.2f} ({naturaleza})", normal_style)
+        ])
+        
+        # Espacio entre cuentas
+        data.append([
+            Paragraph("", normal_style),
+            Paragraph("", normal_style),
+            Paragraph("", normal_style),
+            Paragraph("", normal_style),
+            Paragraph("", normal_style),
+            Paragraph("", normal_style),
+            Paragraph("", normal_style)
+        ])
+        
+        # Subcuentas
+        for subcuenta in cuenta_data['subcuentas']:
+            agregar_datos_cuenta(subcuenta, data, nivel + 1)
+
+    # Construir datos de la tabla
+    headers = [
+        Paragraph("Código", header_style),
+        Paragraph("Nombre", header_style),
+        Paragraph("Fecha", header_style),
+        Paragraph("Concepto", header_style),
+        Paragraph("Debe", header_style),
+        Paragraph("Haber", header_style),
+        Paragraph("Saldo", header_style)
+    ]
+    data = [headers]
+
+    for cuenta_data in cuentas_data:
+        agregar_datos_cuenta(cuenta_data, data)
+
+    # Totales generales
+    data.append([
+        Paragraph('TOTALES GENERALES:', normal_style),
+        Paragraph('', normal_style),
+        Paragraph('', normal_style),
+        Paragraph('', normal_style),
+        Paragraph(f"${global_total_debe:,.2f}", center_style),
+        Paragraph(f"${global_total_haber:,.2f}", center_style),
+        Paragraph('', normal_style)
+    ])
+
+    # Configuración de la tabla responsive
+    col_widths = [80, 150, 60, 120, 60, 60, 80]
+    table_width = sum(col_widths)
+    
+    if table_width > safe_width:
+        scale_factor = safe_width / table_width
+        col_widths = [int(width * scale_factor) for width in col_widths]
+        table_width = sum(col_widths)
+
+    header_height = 150
+    footer_height = 100
+    cell_padding = 4
+    
+    available_height = height - header_height - footer_height
+    total_rows = len(data) - 1
+    page = 0
+
+    for start_row in range(0, total_rows, 15):  # 15 filas por página (más complejo)
+        end_row = min(start_row + 15, total_rows)
+        page_data = [data[0]] + data[start_row + 1:end_row + 1]
+        
+        if page > 0:
+            p.showPage()
+        
+        draw_header()
+        y_position = height - header_height
+        
+        table_x = safe_left + (safe_width - table_width) / 2
+        table = Table(page_data, colWidths=col_widths)
+        
+        table_style = TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#fe8330")),
+            ('VALIGN', (0,0), (-1,0), 'MIDDLE'),
+            ('BOTTOMPADDING', (0,0), (-1,0), cell_padding),
+            
+            ('BACKGROUND', (0,1), (-1,-2), colors.whitesmoke),
+            ('VALIGN', (0,1), (-1,-1), 'TOP'),
+            
+            ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor("#366092")),
+            ('TEXTCOLOR', (0,-1), (-1,-1), colors.white),
+            
+            ('GRID', (0,0), (-1,-1), 0.5, colors.lightgrey),
+            ('BOX', (0,0), (-1,-1), 0.5, colors.black),
+            ('TOPPADDING', (0,0), (-1,-1), cell_padding),
+            ('BOTTOMPADDING', (0,0), (-1,-1), cell_padding),
+            ('LEFTPADDING', (0,0), (-1,-1), 3),
+            ('RIGHTPADDING', (0,0), (-1,-1), 3),
+        ])
+        
+        table.setStyle(table_style)
+        table.wrapOn(p, width, height)
+        table_height = table._height
+        
+        # Verificar que la tabla no se salga de la página
+        if y_position - table_height - 10 < footer_height:
+            p.showPage()
+            draw_header()
+            y_position = height - header_height
+        
+        table.drawOn(p, table_x, y_position - table_height - 10)
+        
+        p.setFont("Helvetica", 8)
+        pagination_text = f"Página {page + 1} - Registros {start_row + 1} a {end_row} de {total_rows}"
+        p.drawCentredString(
+            safe_center, 
+            y_position - table_height - 25,
+            pagination_text
+        )
+        
+        draw_footer()
+        page += 1
+
+    p.save()
+    return response
+
+def libro_mayor_excel(request):
+    """
+    Vista para generar Excel del Libro Mayor
+    """
+    # Obtener parámetros de filtrado
+    search_query = request.GET.get('search', '').strip()
+    periodo_id = request.GET.get('periodo')
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+
+    # Lógica para obtener el período (igual que en libro_mayor)
+    if start_date or end_date:
+        periodo = None
+    else:
+        if not periodo_id:
+            periodo = periodoContable.objects.filter(estadoPeriodo=True).first()
+        else:
+            periodo = periodoContable.objects.filter(idPeriodo=periodo_id).first()
+
+    if not periodo and not (start_date or end_date):
+        return HttpResponse("No hay períodos contables disponibles.")
+
+    # Obtener cuentas principales
+    cuentas = PlanCuenta.objects.prefetch_related('subcuentas').filter(cuentaPadre__isnull=True).order_by('codigoPlanCuenta')
+
+    # Variables globales para acumular totales
+    global_total_debe = 0
+    global_total_haber = 0
+
+    def calcular_saldos(cuenta, nivel=0):
+        nonlocal global_total_debe, global_total_haber
+
+        movimientos = DetalleAsiento.objects.filter(idPlanCuenta=cuenta)
+
+        # Aplicar filtros
+        if periodo:
+            movimientos = movimientos.filter(idAsiento__idPeriodo=periodo)
+        if start_date:
+            movimientos = movimientos.filter(idAsiento__fechaAsiento__gte=start_date)
+        if end_date:
+            movimientos = movimientos.filter(idAsiento__fechaAsiento__lte=end_date)
+
+        movimientos = movimientos.order_by('idAsiento__fechaAsiento', 'idAsiento__numeroAsiento')
+
+        saldo_inicial = 0
+        saldo_final = saldo_inicial
+        total_debe = 0
+        total_haber = 0
+        detalles = []
+
+        # Obtener movimientos relacionados para contrapartidas
+        asientos_ids = movimientos.values_list('idAsiento__idAsiento', flat=True)
+        movimientos_relacionados = {}
+
+        if asientos_ids:
+            todos_movimientos_asiento = DetalleAsiento.objects.filter(
+                idAsiento__idAsiento__in=asientos_ids
+            ).select_related('idPlanCuenta', 'idAsiento')
+
+            for mov in todos_movimientos_asiento:
+                if mov.idAsiento.idAsiento not in movimientos_relacionados:
+                    movimientos_relacionados[mov.idAsiento.idAsiento] = []
+                movimientos_relacionados[mov.idAsiento.idAsiento].append(mov)
+
+        # Procesar cada movimiento
+        for movimiento in movimientos:
+            saldo_anterior = saldo_final
+            saldo_final += movimiento.debe - movimiento.haber
+            total_debe += movimiento.debe
+            total_haber += movimiento.haber
+
+            # Obtener movimientos completos del asiento para contrapartidas
+            movimientos_asiento_completo = movimientos_relacionados.get(movimiento.idAsiento.idAsiento, [])
+            
+            movimientos_completos_json = [
+                {
+                    'cuenta': mov_rel.idPlanCuenta.codigoPlanCuenta + ' - ' + mov_rel.idPlanCuenta.nombrePlanCuenta,
+                    'debe': float(mov_rel.debe),
+                    'haber': float(mov_rel.haber)
+                }
+                for mov_rel in movimientos_asiento_completo
+                if mov_rel.idPlanCuenta.codigoPlanCuenta != cuenta.codigoPlanCuenta
+            ]
+
+            # Obtener beneficiario
+            beneficiario = None
+            try:
+                from apps.factura.models import Pago
+                pago = Pago.objects.filter(idAsiento=movimiento.idAsiento).first()
+                if pago and pago.idNota:
+                    nota = pago.idNota
+                    if nota.idPersona:
+                        beneficiario = f"{nota.idPersona.cedula} - {nota.idPersona.nombres} {nota.idPersona.apellidos}"
+                    elif nota.idEmpresa:
+                        beneficiario = f"{nota.idEmpresa.rifEmpresa} - {nota.idEmpresa.nombreEmpresa}"
+            except:
+                pass
+
+            detalles.append({
+                'fecha': movimiento.idAsiento.fechaAsiento,
+                'concepto': movimiento.idAsiento.conceptoAsiento,
+                'beneficiario': beneficiario,
+                'debe': movimiento.debe,
+                'haber': movimiento.haber,
+                'saldo': saldo_final,
+                'id_asiento': movimiento.idAsiento.idAsiento,
+                'movimientos_completos': movimientos_completos_json
+            })
+
+        # Sumar al total global
+        global_total_debe += total_debe
+        global_total_haber += total_haber
+
+        # Procesar subcuentas recursivamente
+        subcuentas = []
+        for subcuenta in cuenta.subcuentas.all():
+            subcuenta_data = calcular_saldos(subcuenta, nivel + 1)
+            subcuentas.append(subcuenta_data)
+
+        return {
+            'cuenta': cuenta,
+            'saldo_inicial': saldo_inicial,
+            'saldo_final': saldo_final,
+            'total_debe': total_debe,
+            'total_haber': total_haber,
+            'detalles': detalles,
+            'subcuentas': subcuentas,
+            'nivel': nivel
+        }
+
+    def buscar_en_cuentas(cuentas_data, search_query):
+        """Función recursiva para buscar en cuentas y subcuentas"""
+        resultados = []
+        for cuenta in cuentas_data:
+            if (search_query.lower() in cuenta['cuenta'].nombrePlanCuenta.lower() or 
+                search_query.lower() in cuenta['cuenta'].codigoPlanCuenta.lower() or
+                any(search_query.lower() in str(detalle.get('debe', '')).lower() or
+                    search_query.lower() in str(detalle.get('haber', '')).lower() or
+                    search_query.lower() in str(detalle.get('saldo', '')).lower() or
+                    search_query.lower() in detalle.get('concepto', '').lower()
+                    for detalle in cuenta['detalles'])):
+                resultados.append(cuenta)
+
+            # Buscar en subcuentas
+            subcuentas_resultados = buscar_en_cuentas(cuenta.get('subcuentas', []), search_query)
+            resultados.extend(subcuentas_resultados)
+
+        return resultados
+
+    # Calcular saldos para todas las cuentas principales
+    cuentas_data = [calcular_saldos(cuenta) for cuenta in cuentas]
+
+    # Aplicar búsqueda si existe
+    if search_query:
+        cuentas_data = buscar_en_cuentas(cuentas_data, search_query)
+
+    # Crear libro de Excel
+    workbook = Workbook()
+    worksheet = workbook.active
+    worksheet.title = "Libro Mayor"
+
+    # Estilos
+    header_font = Font(bold=True, color="FFFFFF")
+    header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+    total_fill = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")
+    border = Border(left=Side(style='thin'), right=Side(style='thin'), 
+                   top=Side(style='thin'), bottom=Side(style='thin'))
+    
+    # Estilo para cuentas principales
+    cuenta_principal_fill = PatternFill(start_color="FFE699", end_color="FFE699", fill_type="solid")
+    # Estilo para subcuentas
+    subcuenta_fill = PatternFill(start_color="E2EFDA", end_color="E2EFDA", fill_type="solid")
+
+    # Encabezados
+    headers = ['Código', 'Nombre', 'Fecha', 'Concepto', 'Beneficiario', 'Debe', 'Haber', 'Saldo', 'Naturaleza']
+    for col_num, header in enumerate(headers, 1):
+        cell = worksheet.cell(row=1, column=col_num, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.border = border
+        cell.alignment = Alignment(horizontal='center')
+
+    # Función recursiva para escribir datos en Excel
+    def escribir_cuenta_excel(worksheet, cuenta_data, row_num):
+        nivel = cuenta_data['nivel']
+        cuenta = cuenta_data['cuenta']
+        
+        # Escribir información de la cuenta
+        indent = "  " * nivel
+        worksheet.cell(row=row_num, column=1, value=cuenta.codigoPlanCuenta)
+        worksheet.cell(row=row_num, column=2, value=f"{indent}{cuenta.nombrePlanCuenta}")
+        
+        # Aplicar estilo según el nivel
+        if nivel == 0:
+            fill_style = cuenta_principal_fill
+        else:
+            fill_style = subcuenta_fill
+            
+        for col in range(1, 10):
+            worksheet.cell(row=row_num, column=col).fill = fill_style
+            worksheet.cell(row=row_num, column=col).border = border
+        
+        row_num += 1
+
+        # Escribir saldos inicial y final como filas especiales
+        # Saldo inicial
+        worksheet.cell(row=row_num, column=2, value=f"{indent}  Saldo Inicial")
+        worksheet.cell(row=row_num, column=8, value=cuenta_data['saldo_inicial'])
+        naturaleza_inicial = "Deudor" if cuenta_data['saldo_inicial'] > 0 else "Acreedor" if cuenta_data['saldo_inicial'] < 0 else "Saldado"
+        worksheet.cell(row=row_num, column=9, value=naturaleza_inicial)
+        
+        for col in range(1, 10):
+            worksheet.cell(row=row_num, column=col).border = border
+            worksheet.cell(row=row_num, column=col).fill = subcuenta_fill
+            
+        row_num += 1
+
+        # Escribir movimientos/detalles
+        for detalle in cuenta_data['detalles']:
+            worksheet.cell(row=row_num, column=1, value=cuenta.codigoPlanCuenta)
+            worksheet.cell(row=row_num, column=2, value=f"{indent}  {cuenta.nombrePlanCuenta}")
+            worksheet.cell(row=row_num, column=3, value=detalle['fecha'].strftime("%d/%m/%Y"))
+            worksheet.cell(row=row_num, column=4, value=detalle['concepto'])
+            worksheet.cell(row=row_num, column=5, value=detalle['beneficiario'] or '')
+            worksheet.cell(row=row_num, column=6, value=float(detalle['debe']) if detalle['debe'] else 0)
+            worksheet.cell(row=row_num, column=7, value=float(detalle['haber']) if detalle['haber'] else 0)
+            worksheet.cell(row=row_num, column=8, value=float(detalle['saldo']))
+            naturaleza = "Deudor" if detalle['saldo'] > 0 else "Acreedor" if detalle['saldo'] < 0 else "Saldado"
+            worksheet.cell(row=row_num, column=9, value=naturaleza)
+            
+            for col in range(1, 10):
+                worksheet.cell(row=row_num, column=col).border = border
+                
+            row_num += 1
+
+        # Escribir saldo final
+        worksheet.cell(row=row_num, column=2, value=f"{indent}  Saldo Final")
+        worksheet.cell(row=row_num, column=8, value=cuenta_data['saldo_final'])
+        naturaleza_final = "Deudor" if cuenta_data['saldo_final'] > 0 else "Acreedor" if cuenta_data['saldo_final'] < 0 else "Saldado"
+        worksheet.cell(row=row_num, column=9, value=naturaleza_final)
+        
+        for col in range(1, 10):
+            worksheet.cell(row=row_num, column=col).border = border
+            worksheet.cell(row=row_num, column=col).fill = subcuenta_fill
+            
+        row_num += 1
+
+        # Espacio entre cuentas
+        row_num += 1
+
+        # Procesar subcuentas recursivamente
+        for subcuenta in cuenta_data['subcuentas']:
+            row_num = escribir_cuenta_excel(worksheet, subcuenta, row_num)
+
+        return row_num
+
+    # Escribir datos en Excel
+    row_num = 2
+    for cuenta_data in cuentas_data:
+        row_num = escribir_cuenta_excel(worksheet, cuenta_data, row_num)
+
+    # Escribir totales generales
+    worksheet.cell(row=row_num, column=2, value="TOTALES GENERALES:").font = Font(bold=True)
+    worksheet.cell(row=row_num, column=6, value=float(global_total_debe)).fill = total_fill
+    worksheet.cell(row=row_num, column=7, value=float(global_total_haber)).fill = total_fill
+    
+    for col in range(1, 10):
+        worksheet.cell(row=row_num, column=col).border = border
+
+    # Ajustar anchos de columna
+    column_widths = {
+        'A': 15,  # Código
+        'B': 40,  # Nombre
+        'C': 12,  # Fecha
+        'D': 30,  # Concepto
+        'E': 25,  # Beneficiario
+        'F': 15,  # Debe
+        'G': 15,  # Haber
+        'H': 15,  # Saldo
+        'I': 12   # Naturaleza
+    }
+    
+    for col_letter, width in column_widths.items():
+        worksheet.column_dimensions[col_letter].width = width
+
+    # Formato de números para columnas monetarias
+    for row in worksheet.iter_rows(min_row=2, max_row=worksheet.max_row, min_col=6, max_col=8):
+        for cell in row:
+            if isinstance(cell.value, (int, float)):
+                cell.number_format = '#,##0.00'
+
+    # Preparar respuesta
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    
+    # Nombre del archivo con período si está disponible
+    if periodo:
+        filename = f"libro_mayor_{periodo.nombrePeriodo}.xlsx"
+    else:
+        filename = "libro_mayor.xlsx"
+        
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    workbook.save(response)
+
+    return response
+
+def get_filtros_periodo(request):
+    """Obtiene y valida los parámetros de filtro de período"""
+    periodo_id = request.GET.get('periodo')
+    search_query = request.GET.get('search', '').strip()
+    
+    # Obtener período
+    if periodo_id:
+        periodo = get_object_or_404(periodoContable, idPeriodo=periodo_id)
+    else:
+        periodo = periodoContable.objects.filter(estadoPeriodo=True).first()
+    
+    return {
+        'periodo': periodo,
+        'search_query': search_query,
+        'periodo_id': periodo_id
+    }
+
+def aplicar_filtros_asientos(asientos, request):
+    """Aplica filtros comunes a los asientos contables"""
+    search_query = request.GET.get('search', '').strip()
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+    periodo_id = request.GET.get('periodo')
+
+    # Aplicar filtros
+    if search_query:
+        asientos = asientos.filter(
+            Q(numeroAsiento__icontains=search_query) |
+            Q(fechaAsiento__icontains=search_query) |
+            Q(conceptoAsiento__icontains=search_query) |
+            Q(detalles__idPlanCuenta__nombrePlanCuenta__icontains=search_query) |
+            Q(detalles__idPlanCuenta__codigoPlanCuenta__icontains=search_query) |
+            Q(detalles__debe__icontains=search_query) |
+            Q(detalles__haber__icontains=search_query)
+        ).distinct()
+
+    if start_date:
+        asientos = asientos.filter(fechaAsiento__gte=start_date)
+    if end_date:
+        asientos = asientos.filter(fechaAsiento__lte=end_date)
+    if periodo_id:
+        asientos = asientos.filter(idPeriodo__idPeriodo=periodo_id)
+
+    return asientos
