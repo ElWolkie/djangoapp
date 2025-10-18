@@ -165,15 +165,33 @@ class Materia(models.Model):
 class Cohorte(models.Model):  
     idCohorte = models.AutoField(primary_key=True)
     nombreCohorte = models.CharField(max_length=100, unique=True)
+    lapsoInscripcion = models.PositiveSmallIntegerField(verbose_name="Lapso de inscripción")
+    fechaInicio = models.DateField()
+    fechaFin = models.DateField()
     estadoCohorte = models.CharField(max_length=10, db_index=True)
     fechaCohorte = models.DateField(auto_now_add=True, db_index=True)
 
     def clean(self):
+        # Nombre único (ignora el propio registro al actualizar)
         qs = Cohorte.objects.filter(nombreCohorte__iexact=self.nombreCohorte)
         if self.pk:
             qs = qs.exclude(pk=self.pk)
         if qs.exists():
             raise ValidationError("El nombre de la Cohorte ya existe.")
+
+        # Fecha inicio debe ser <= fecha fin
+        if self.fechaInicio and self.fechaFin and self.fechaInicio > self.fechaFin:
+            raise ValidationError("La fecha de inicio debe ser anterior o igual a la fecha de fin.")
+
+        # No permitir cohortes con fechas solapadas o iguales
+        overlapping = Cohorte.objects.filter(
+            fechaInicio__lte=self.fechaFin,
+            fechaFin__gte=self.fechaInicio
+        )
+        if self.pk:
+            overlapping = overlapping.exclude(pk=self.pk)
+        if overlapping.exists():
+            raise ValidationError("Ya existe una cohorte con fechas solapadas o iguales.")
 
     class Meta:  
         verbose_name = "Cohorte"  
