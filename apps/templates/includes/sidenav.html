@@ -381,7 +381,7 @@
                     </li>
                     {% endif %}
                     
-                    {# Opcional: Mostrar gestión de grupos solo para superusuarios #}
+                    <!-- {# Opcional: Mostrar gestión de grupos solo para superusuarios #}
                     {% if user.is_superuser %}
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'admin:auth_group_changelist' %}" style="padding-left: 15px;">
@@ -389,12 +389,12 @@
                             <span class="nav-link-text">Administrar Grupos</span>
                         </a>
                     </li>
-                    {% endif %}
+                    {% endif %} -->
                     <!-- Divider -->
                     <hr class="my-1">
                     <!-- Heading -->
 
-                    {# --- GESTIONAR PERSONA-USUARIO (Visible para todos los autenticados) --- #}
+                    <!-- {# --- GESTIONAR PERSONA-USUARIO (Visible para todos los autenticados) --- #}
                       {% if user.is_superuser or perms.persona.view_personas or perms.persona.add_personas %}
                         <li class="nav-item">
                             <a class="nav-link menu1-1" href="#" id="persona1Dropdown" data-toggle="collapse" data-target="#menu1-1" aria-expanded="false" aria-controls="menu1-1" style="padding-left: 15px;">
@@ -422,7 +422,7 @@
                             </ul>
                           </div>
                         </li>
-                      {% endif %}
+                      {% endif %} -->
                 </ul>
             </div>
         </li>
