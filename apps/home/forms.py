@@ -198,7 +198,7 @@ class CohorteForm(forms.ModelForm):
 
     class Meta:  
         model = Cohorte  
-        fields = ['idCohorte', 'nombreCohorte', 'fechaInicio', 'fechaFin', 'lapsoInscripcion', 'estadoCohorte']
+        fields = ['idCohorte', 'idFormacion', 'nombreCohorte', 'lapsoInscripcion', 'fechaInicio', 'fechaFin' ,'estadoCohorte']
 
 class CargoForm(forms.ModelForm):  
     estadoCargo = forms.CharField(widget=forms.HiddenInput(), initial='ACTIVO')  

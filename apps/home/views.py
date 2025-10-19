@@ -2017,26 +2017,24 @@ def reporte_materias_pdf(request):
 @login_required(login_url='login')
 @permission_required("home.add_cohorte", raise_exception=True)
 def cohorte_modal(request):
+    # Consulta a formaciones ACTIVAS para usar en el modal/plantilla
+    formaciones = Formacion.objects.filter(estadoFormacion='ACTIVO').order_by('-fechaFormacion')
+
     if request.method == 'POST':
         form = CohorteForm(request.POST)
         if form.is_valid():
-            try:
-                with transaction.atomic():
-                    # Inactivar cualquier cohorte actualmente ACTIVO
-                    Cohorte.objects.filter(estadoCohorte='ACTIVO').update(estadoCohorte='INACTIVO')
-                    # Guardar la nueva cohorte como la única ACTIVA
-                    cohorte = form.save(commit=False)
-                    cohorte.estadoCohorte = 'ACTIVO'
-                    cohorte.save()
-                return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
-            except Exception as e:
-                return JsonResponse({'success': False, 'message': f'Error al guardar: {e}'}, status=500)
+            form.save()
+            return JsonResponse({
+                'success': True,
+                'message': 'Registro exitoso.',
+                'redirect_url': reverse('tabla_cohortes')  # Agregamos la URL de redirección
+            })
         else:
             errors = {field: error for field, error in form.errors.items()}
-            return JsonResponse({'success': False, 'errors': errors}, status=400)
+            return JsonResponse({'success': False, 'errors': errors, 'redirect_url': reverse('tabla_cohortes')})
     else:
         form = CohorteForm()
-    return render(request, 'home/cohorte.html', {'form': form})
+    return render(request, 'home/cohorte.html', {'form': form, 'formaciones': formaciones})
 
 @login_required
 @permission_required('home.change_cohorte', raise_exception=True)
@@ -2074,22 +2072,17 @@ def desactivar_cohorte(request, pk):
         messages.success(request, f'Cohorte {cohortes.nombreCohorte} desactivada')
         return redirect(request.POST.get('next', 'tabla_cohortes'))
     return redirect('tabla_cohortes')
+
 @login_required
 @permission_required('home.change_cohorte', raise_exception=True)
 def reactivate_cohorte(request, pk):
-    cohorte = get_object_or_404(Cohorte, pk=pk)
+    cohortes = get_object_or_404(Cohorte, pk=pk)
     if request.method == 'POST':
-        try:
-            with transaction.atomic():
-                # Inactivar otras cohortes activas
-                Cohorte.objects.filter(estadoCohorte='ACTIVO').exclude(pk=cohorte.pk).update(estadoCohorte='INACTIVO')
-                # Activar la cohorte seleccionada
-                cohorte.estadoCohorte = "ACTIVO"
-                cohorte.save(update_fields=['estadoCohorte'])
-            messages.success(request, f'Cohorte {cohorte.nombreCohorte} activada')
-        except Exception as e:
-            messages.error(request, f'Error al activar la cohorte: {e}')
-    return redirect(request.POST.get('next', 'tabla_cohortes'))
+        cohortes.estadoCohorte = "ACTIVO"
+        cohortes.save()
+        messages.success(request, f'Cohorte {cohortes.nombreCohorte} activada')
+        return redirect(request.POST.get('next', 'tabla_cohortes'))
+    return redirect('tabla_cohortes')
 
 @login_required(login_url='login')
 @permission_required("home.view_cohorte", raise_exception=True)
