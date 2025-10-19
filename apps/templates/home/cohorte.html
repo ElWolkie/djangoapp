@@ -1,3 +1,5 @@
+{% extends 'layouts/base.html' %}
+
 {% load static %}
 
 {% block stylesheets %}
@@ -10,7 +12,7 @@
     box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.1);
     padding: 2rem;
     margin: 2rem auto;
-    max-width: 600px;
+    max-width: 1000px;
   }
   .simple-header {
     text-align: center;
@@ -94,7 +96,26 @@
   <form id="cohorteForm" method="POST" action="{% url 'cohorte_modal' %}" class="needs-validation" novalidate autocomplete="off">
     {% csrf_token %}
 
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1rem;align-items:start;">
+<div class="row">
+  <div class="col-12">
+    <div class="form-group">
+        <label for="formacion" class="form-label">
+          <i class="fas fa-graduation-cap"></i> Formación
+        </label>
+        <div class="input-group">
+          <i class="fas fa-search input-icon"></i>
+          <input type="text" id="formacion" class="form-control input-with-icon" placeholder="Seleccione una formación" readonly required />
+          <button type="button" id="buscarFormacion" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#formacionModal">
+            <i class="fas fa-search"></i>
+          </button>  
+          <div class="invalid-feedback">
+            Por favor seleccione una formación válida.
+          </div>
+        </div>
+        <input type="hidden" id="formacionId" name="idFormacion" />
+      </div>
+      </div>
+    <div class="col-6">
       <div class="form-group">
         <label for="nombreCohorte" class="form-label">
           <i class="fas fa-hashtag"></i> Nombre (Romano)
@@ -107,10 +128,11 @@
           <div class="invalid-feedback" id="roman-error">Formato inválido: Ej.: I, VIII, XIX, MMXXIII.</div>
         </div>
       </div>
-
+      </div>
+    <div class="col-6">
       <div class="form-group">
         <label for="lapsoInscripcion" class="form-label">
-          <i class="fas fa-hourglass-half"></i> Lapso de inscripción (días)
+          <i class="fas fa-hourglass-half"></i> Lapso de Inscripción (Días)
         </label>
         <div class="input-group">
           <i class="fas fa-clock input-icon"></i>
@@ -120,10 +142,11 @@
           <div class="invalid-feedback">Indica el número de días del lapso de inscripción (mín. 1).</div>
         </div>
       </div>
-
+      </div>
+    <div class="col-6">
       <div class="form-group">
         <label for="fechaInicio" class="form-label">
-          <i class="fas fa-calendar-alt"></i> Fecha de inicio
+          <i class="fas fa-calendar-alt"></i> Fecha de Inicio
         </label>
         <div class="input-group">
           <i class="fas fa-calendar input-icon"></i>
@@ -132,10 +155,11 @@
           <div class="invalid-feedback">Por favor ingresa la fecha de inicio.</div>
         </div>
       </div>
-
+      </div>
+    <div class="col-6">
       <div class="form-group">
         <label for="fechaFin" class="form-label">
-          <i class="fas fa-calendar-check"></i> Fecha de fin
+          <i class="fas fa-calendar-check"></i> Fecha de Fin
         </label>
         <div class="input-group">
           <i class="fas fa-calendar input-icon"></i>
@@ -144,6 +168,8 @@
           <div class="invalid-feedback">Por favor ingresa la fecha de fin.</div>
         </div>
       </div>
+    </div>
+    
     </div>
 
     <input type="hidden" id="estadoCohorte" name="estadoCohorte" value="ACTIVO">
@@ -155,9 +181,73 @@
     </div>
   </form>
 </div>
+
+<!-- Modal para buscar formación -->
+<div class="modal fade" id="formacionModal" tabindex="-1" role="dialog" aria-labelledby="formacionModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title text-white" id="formacionModalLabel">
+          <i class="fas fa-search mr-2"></i> Seleccionar Formación
+        </h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="input-group mb-3">
+          <div class="input-group-prepend">
+            <span class="input-group-text bg-light">
+              <i class="fas fa-search text-warning"></i>
+            </span>
+          </div>
+          <input class="form-control" id="searchFormacionInput" type="text" placeholder="Buscar formación...">
+        </div>
+        <div class="table-responsive">
+          <table class="table table-sm table-striped table-hover" id="tablaFormaciones">
+            <thead class="bg-light">
+              <tr>
+                <th style="width: 15%;">ID</th>
+                <th style="width: 60%;">Tipo</th>
+                <th style="width: 60%;">Nombre</th>
+                <th style="width: 15%;">Seleccionar</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for formacion in formaciones %}
+                <tr data-id="{{ formacion.idFormacion }}" data-nombre="{{  formacion.idTF.nombreTipoFormacion }} - {{ formacion.nombreFormacion }}">
+                  <td>{{ formacion.idFormacion }}</td>
+                  <td>{{ formacion.idTF.nombreTipoFormacion }}</td>
+                  <td>{{ formacion.nombreFormacion }}</td>
+                  <td>
+                    <button class="btn btn-sm btn-warning btn-select">
+                      <i class="fas fa-check"></i> Elegir
+                    </button>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <!-- Contenedor para la paginación -->
+        <div class="pagination-container d-flex justify-content-center mt-3"></div>
+        <p id="mensajeSinRegistros" class="text-center text-muted my-4" style="display: none;">
+          <i class="fas fa-info-circle mr-2"></i> No se encontraron registros
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock content %}
 
 {% block javascripts %}
+<script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
+<script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
+<script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
+
 <script>
   // Validación de romano y mayúsculas
   document.getElementById("nombreCohorte").addEventListener("input", function() {
@@ -178,5 +268,194 @@
       }, false);
     });
   })();
+
+  // Script para el modal de formación
+  document.addEventListener('DOMContentLoaded', function() {
+    var table = document.getElementById('tablaFormaciones');
+    var searchInput = document.getElementById('searchFormacionInput');
+    var mensajeSinRegistros = document.getElementById('mensajeSinRegistros');
+
+    // Filtrar formaciones en la tabla
+    searchInput.addEventListener('input', function() {
+      var filter = this.value.toLowerCase();
+      var rows = table.querySelectorAll('tbody tr');
+      var hasResults = false;
+
+      rows.forEach(function(row) {
+        var text = row.textContent.toLowerCase();
+        var isMatch = text.includes(filter);
+        row.style.display = isMatch ? '' : 'none';
+        if (isMatch) hasResults = true;
+      });
+
+      // Mostrar/ocultar mensaje de sin registros
+      mensajeSinRegistros.style.display = hasResults ? 'none' : '';
+    });
+
+    // Paginación para la tabla del modal de formaciones
+    const paginationContainer = document.querySelector('.pagination-container');
+    const rowsPerPage = 10; // Número de filas por página
+    let currentPage = 1;
+
+    function displayRows() {
+      const rows = table.getElementsByTagName('tr');
+      const start = (currentPage - 1) * rowsPerPage;
+      const end = start + rowsPerPage;
+      for (let i = 0; i < rows.length; i++) {
+        rows[i].style.display = i >= start && i < end ? '' : 'none';
+      }
+    }
+
+    function setupPagination() {
+      const rows = table.getElementsByTagName('tr');
+      const totalPages = Math.ceil(rows.length / rowsPerPage);
+      paginationContainer.innerHTML = '';
+
+      const prevLi = document.createElement('li');
+      prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+      prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Anterior">&laquo;</a>`;
+      prevLi.addEventListener('click', e => {
+        e.preventDefault();
+        if (currentPage > 1) currentPage--;
+        displayRows();
+        setupPagination();
+      });
+      paginationContainer.appendChild(prevLi);
+
+      for (let i = 1; i <= totalPages; i++) {
+        const li = document.createElement('li');
+        li.className = `page-item ${i === currentPage ? 'active' : ''}`;
+        li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+        li.addEventListener('click', e => {
+          e.preventDefault();
+          currentPage = i;
+          displayRows();
+          setupPagination();
+        });
+        paginationContainer.appendChild(li);
+      }
+
+      const nextLi = document.createElement('li');
+      nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+      nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Siguiente">&raquo;</a>`;
+      nextLi.addEventListener('click', e => {
+        e.preventDefault();
+        if (currentPage < totalPages) currentPage++;
+        displayRows();
+        setupPagination();
+      });
+      paginationContainer.appendChild(nextLi);
+    }
+
+    // Seleccionar formación y cerrar modal
+    table.addEventListener('click', function(e) {
+      if (e.target.closest('.btn-select')) {
+        var row = e.target.closest('tr');
+        var id = row.getAttribute('data-id');
+        var nombre = row.getAttribute('data-nombre');
+
+        document.getElementById('formacion').value = nombre;
+        document.getElementById('formacionId').value = id;
+
+        var modal = bootstrap.Modal.getInstance(document.getElementById('formacionModal'));
+        modal.hide();
+      }
+    });
+
+    displayRows();
+    setupPagination();
+  });
+
+  document.addEventListener('DOMContentLoaded', function () {
+    const cohorteForm = document.getElementById('cohorteForm');
+
+    cohorteForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+
+      let valid = true;
+      const fields = [
+        { id: 'formacionId', msg: 'Por favor seleccione una formación válida.' },
+        { id: 'nombreCohorte', msg: 'Por favor ingrese un nombre válido.' },
+        { id: 'lapsoInscripcion', msg: 'Por favor ingrese un lapso de inscripción válido.' },
+        { id: 'fechaInicio', msg: 'Por favor ingrese una fecha de inicio válida.' },
+        { id: 'fechaFin', msg: 'Por favor ingrese una fecha de fin válida.' }
+      ];
+
+      fields.forEach(field => {
+        const input = document.getElementById(field.id);
+        if (!input.value.trim()) {
+          input.classList.add('is-invalid');
+          const feedback = input.nextElementSibling;
+          if (feedback) feedback.textContent = field.msg;
+          valid = false;
+        } else {
+          input.classList.remove('is-invalid');
+          input.classList.add('is-valid');
+        }
+      });
+
+      if (!valid) return;
+
+      const formData = new FormData(cohorteForm);
+      const submitBtn = cohorteForm.querySelector('button[type="submit"]');
+      const originalBtnContent = submitBtn.innerHTML;
+      submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Guardando...';
+      submitBtn.disabled = true;
+
+      fetch(cohorteForm.action, {
+        method: 'POST',
+        body: formData,
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            Swal.fire({
+              icon: 'success',
+              title: 'Éxito',
+              text: 'La cohorte ha sido registrada correctamente.',
+              showCancelButton: true,
+              confirmButtonText: 'Aceptar',
+              cancelButtonText: 'Registrar Otra Cohorte',
+              customClass: {
+                confirmButton: 'btn btn-warning',
+                cancelButton: 'btn btn-secondary'
+              }
+            }).then((result) => {
+              if (result.isConfirmed) {
+                window.location.href = data.redirect_url;
+              } else if (result.dismiss === Swal.DismissReason.cancel) {
+                window.location.reload();
+              }
+            });
+          } else {
+            let errorMessage = '';
+            if (data.errors) {
+              errorMessage = Object.values(data.errors).flat().join('\n');
+            } else {
+              errorMessage = data.message || 'Ocurrió un error al registrar la cohorte.';
+            }
+            Swal.fire({
+              icon: 'error',
+              title: 'Error',
+              text: errorMessage,
+              confirmButtonText: 'Aceptar'
+            });
+          }
+        })
+        .catch(error => {
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Ocurrió un error inesperado.',
+            confirmButtonText: 'Aceptar'
+          });
+        })
+        .finally(() => {
+          submitBtn.innerHTML = originalBtnContent;
+          submitBtn.disabled = false;
+        });
+    });
+  });
 </script>
 {% endblock javascripts %}

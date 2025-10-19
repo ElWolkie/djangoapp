@@ -50,11 +50,20 @@
     background-color: #fb6340;
     border-color: #fb6340;
 }
+
+  .container-balance {
+    max-width: 1500px;
+    margin: 2rem auto;
+    padding: 2rem;
+    background: rgb(246, 246, 246);
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  }
 </style>
 {% endblock stylesheets %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="container-balance mt-4">
   <h2 class="text-center mb-4">Lista de Cohortes</h2>
 
   <div class="row mb-3">
@@ -66,9 +75,9 @@
     </div>
     <div class="col-md-4 text-center">
       {% if perms.home.add_cohorte %}
-        <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#cohorteModal">
-          <i class="fas fa-plus-circle me-1"></i> Registrar Cohorte
-        </button>
+      <a href="{% url 'cohorte_modal' %}" class="btn btn-warning px-3" title="Registrar Cohorte">
+        <i class="fas fa-plus-circle me-1"></i> Registrar
+      </a>
       {% endif %}
     </div>
     <div class="col-md-4 text-end">
@@ -107,8 +116,11 @@
       <table class="table table-striped table-hover align-middle text-gray-dark" id="cohortesTable">
         <thead class="table-light">
           <tr>
-            <th>ID</th>
+            <th>ID</th>  
             <th>Nombre</th>
+            <th>Inicio</th>
+            <th>Fin</th>
+            <th>Formación</th>
             <th>Fecha</th>
             <th>Estado</th>
             <th class="actions-column">Acciones</th>
@@ -119,6 +131,10 @@
           <tr>
             <td class="text-center">{{ cohorte.idCohorte }}</td>
             <td class="text-center">{{ cohorte.nombreCohorte }}</td>
+            <td class="text-center">{{ cohorte.fechaInicio|date:"d/m/Y" }}</td>
+            <td class="text-center">{{ cohorte.fechaFin|date:"d/m/Y" }}</td>
+            <td class="text-center">{{ cohorte.idFormacion.nombreFormacion }}</td>
+
             <td class="text-center">{{ cohorte.fechaCohorte|date:"d/m/Y" }}</td>
             <td>
               {% if cohorte.estadoCohorte|upper == "ACTIVO" %}
