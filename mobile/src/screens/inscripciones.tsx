@@ -79,13 +79,122 @@ const InscripcionesScreen = () => {
   const [fechaInscripcion, setFechaInscripcion] = useState<string>('');
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
+  // cache detalles de formaciones (por id) para no pedir repetidamente
+  const [formacionDetailsMap, setFormacionDetailsMap] = useState<Record<number, any>>({});
+
   // Responsive helpers
   const { width, height } = useWindowDimensions();
   const isSmallScreen = width <= 620;
   const isTablet = width > 420 && width < 1024;
   const isLargeScreen = width >= 900;
 
-  // FETCH INSCRIPCIONES (filtrando por cédula del user)
+  // ---------- HELPERS ----------
+  const safeParseJson = (val: any) => {
+    if (!val && val !== 0) return null;
+    if (Array.isArray(val)) return val;
+    if (typeof val === 'object') return val;
+    if (typeof val === 'string') {
+      try {
+        return JSON.parse(val);
+      } catch {
+        // intenta limpiar comillas simples u otros formatos
+        try {
+          const replaced = val.replace(/'/g, '"');
+          return JSON.parse(replaced);
+        } catch {
+          return null;
+        }
+      }
+    }
+    return null;
+  };
+
+  const normalizeCuotas = (raw: any): Cuota[] => {
+    // Queremos devolver [{ nombreCuota: string, valorCuota: number }, ...]
+    const out: Cuota[] = [];
+    const parsed = safeParseJson(raw);
+    if (!parsed) return out;
+
+    if (Array.isArray(parsed)) {
+      parsed.forEach((c: any) => {
+        if (typeof c === 'number') {
+          out.push({ nombreCuota: 'Cuota', valorCuota: Number(c) });
+        } else if (typeof c === 'string') {
+          const n = Number(c);
+          out.push({ nombreCuota: 'Cuota', valorCuota: isFinite(n) ? n : 0 });
+        } else if (typeof c === 'object') {
+          // keys posibles: nombre, nombreCuota, valor, valorCuota, monto
+          const nombre = c.nombreCuota || c.nombre || c.descripcion || c.label || 'Cuota';
+          const valor = Number(c.valorCuota ?? c.valor ?? c.monto ?? c.amount ?? 0) || 0;
+          out.push({ nombreCuota: String(nombre), valorCuota: valor });
+        }
+      });
+    } else if (typeof parsed === 'object') {
+      // objeto con claves: { "CUOTA I": 15, "CUOTA II": 10 } o { nombre:..., valor:... }
+      // primero intentar clave->valor
+      const keys = Object.keys(parsed);
+      const isKeyValue = keys.every(k => typeof parsed[k] === 'number' || !isNaN(Number(parsed[k])));
+      if (isKeyValue) {
+        keys.forEach(k => {
+          out.push({ nombreCuota: k, valorCuota: Number(parsed[k]) || 0 });
+        });
+      } else {
+        // tratarlo como un único objeto cuota
+        const nombre = parsed.nombreCuota || parsed.nombre || 'Cuota';
+        const valor = Number(parsed.valorCuota ?? parsed.valor ?? parsed.monto ?? 0) || 0;
+        out.push({ nombreCuota: String(nombre), valorCuota: valor });
+      }
+    }
+    return out;
+  };
+
+  // Extrae cuotas desde un objeto 'formacion' (busca propiedades comunes)
+  const cuotasFromFormacionObj = (f: any): Cuota[] => {
+    if (!f) return [];
+    // Si ya viene en la propiedad 'cuotas' como array
+    if (f.cuotas && Array.isArray(f.cuotas)) return normalizeCuotas(f.cuotas);
+    // Si viene 'cuotas_json' u otras variantes
+        const candidate = (f.cuotas_json ?? f.cuotasData ?? f.cuotas_list ?? f.cuotasJson ?? f.cuotas) || null;
+        if (candidate) return normalizeCuotas(candidate);
+        // si viene como inscripcioncuota_set (Django naming) -> array
+        if (f.inscripcioncuota_set && Array.isArray(f.inscripcioncuota_set)) return normalizeCuotas(f.inscripcioncuota_set);
+    return [];
+  };
+
+  // obtiene las cuotas reales de /api/formaciones/{id}/cuotas/
+  const fetchCuotasForFormacion = async (idFormacion: number): Promise<Cuota[]> => {
+    if (!idFormacion) return [];
+    try {
+      const res = await api.get(`/api/formaciones/${idFormacion}/cuotas/`);
+      // Respuesta esperada: array de objetos CuotaFormacion
+      const data = Array.isArray(res.data) ? res.data : (res.data.results ?? []);
+      // Mapeamos al tipo Cuota esperado en frontend
+      return data.map((c: any) => ({
+        nombreCuota: c.nombreCuota ?? c.nombre ?? `Cuota ${c.idCuota ?? ''}`,
+        valorCuota: Number(c.valorCuota ?? c.valor ?? 0),
+      }));
+    } catch (err) {
+      console.warn('Error cargando cuotas de formacion', idFormacion, err);
+      return [];
+    }
+  };
+
+  const getFormacionDetails = async (idFormacion: number) => {
+    if (!idFormacion) return null;
+    if (formacionDetailsMap[idFormacion]) return formacionDetailsMap[idFormacion];
+    try {
+      const res = await api.get(`/api/formaciones/${idFormacion}/`);
+      const data = res.data;
+      setFormacionDetailsMap(prev => ({ ...prev, [idFormacion]: data }));
+      return data;
+    } catch (e) {
+      // no romper la app si falla; devolvemos null
+      console.warn(`No se pudo obtener detalle de formacion ${idFormacion}`, e);
+      return null;
+    }
+  };
+
+  // ---------- FETCH INSCRIPCIONES ----------
   const fetchInscripciones = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -115,22 +224,41 @@ const InscripcionesScreen = () => {
     }
   }, [user?.cedula]);
 
-  // Load tipos formacion, formaciones & cohortes
+  // ---------- Load tipos formacion, formaciones & cohortes (with allSettled) ----------
   const fetchDatosFormulario = useCallback(async () => {
     try {
-      const [r1, r2, r3] = await Promise.all([
-        api.get('/api/tipo-formaciones/').catch(() => ({ data: [] })),
-        api.get('/api/formaciones/').catch(() => ({ data: [] })),
-        api.get('/api/cohorte/').catch(() => ({ data: [] })),
-      ]);
+      const requests = [
+        api.get('/api/tipo-formaciones/'),
+        api.get('/api/formaciones/'),
+        api.get('/api/cohorte/'),
+      ];
+
+      const results = await Promise.allSettled(requests);
+
+      const r1 = results[0];
+      const r2 = results[1];
+      const r3 = results[2];
+
+      if (r1.status === 'rejected' || r2.status === 'rejected' || r3.status === 'rejected') {
+        // Avisamos cuáles fallaron (no bloqueamos totalmente la UI)
+        const msgs = [];
+        if (r1.status === 'rejected') msgs.push('tipos de formación');
+        if (r2.status === 'rejected') msgs.push('formaciones');
+        if (r3.status === 'rejected') msgs.push('cohortes');
+        Alert.alert('Advertencia', `No se pudieron cargar: ${msgs.join(', ')}. Algunas funcionalidades pueden no estar disponibles.`);
+      }
 
       const extractData = (responseData: any, tipo: string) => {
         let dataArray: any[] = [];
+        if (!responseData) return [];
         if (Array.isArray(responseData)) dataArray = responseData;
         else if (responseData && Array.isArray(responseData.results)) dataArray = responseData.results;
         else if (responseData && responseData.data && Array.isArray(responseData.data)) dataArray = responseData.data;
-        else if (responseData && typeof responseData === 'object') dataArray = [responseData];
-        else dataArray = [];
+        else if (responseData && typeof responseData === 'object') {
+          // si recibimos un solo objeto lo convertimos a array
+          if (Object.keys(responseData).length === 0) dataArray = [];
+          else dataArray = [responseData];
+        } else dataArray = [];
 
         const mapped = dataArray.map((item: any) => {
           if (tipo === 'tipos') {
@@ -142,15 +270,18 @@ const InscripcionesScreen = () => {
           if (tipo === 'formaciones') {
             const rawIdTF = item.idTF || item.tipo_formacion || item.tipoFormacion || item.tipo_formacion_id || item.idTF_id || 0;
             const idTF = Number(rawIdTF);
+            // parsear cuotas si vienen en distintos formatos
+            const cuotasParsed = cuotasFromFormacionObj(item);
             return {
               idFormacion: Number(item.idFormacion || item.id || 0),
               nombreFormacion: item.nombreFormacion || item.nombre || 'Sin nombre',
               idTF,
-              valorInscripcion: Number(item.valorInscripcion || item.precio || item.costo || 0),
-              tieneCuotas: Boolean(item.tieneCuotas || item.cuotas || false),
-              cuotas_activas: Boolean(item.cuotas_activas || item.cuotas_activas || false),
-              cantidad_cuotas: Number(item.cantidad_cuotas || item.cuotas_count || 0),
-              cuotas_json: item.cuotas_json || item.cuotas || '[]'
+              valorInscripcion: Number(item.valorInscripcion ?? item.precio ?? item.costo ?? 0),
+              tieneCuotas: Boolean(item.tieneCuotas ?? item.cuotas ?? false),
+              cuotas_activas: Boolean(item.cuotas_activas ?? item.cuotas_activas ?? false),
+              cantidad_cuotas: Number(item.cantidad_cuotas ?? item.cuotas_count ?? cuotasParsed.length ?? 0),
+              cuotas: cuotasParsed,
+              raw: item
             };
           }
           if (tipo === 'cohortes') {
@@ -170,9 +301,13 @@ const InscripcionesScreen = () => {
         return mapped;
       };
 
-      setTiposFormacion(extractData(r1.data, 'tipos'));
-      setFormaciones(extractData(r2.data, 'formaciones'));
-      setCohortes(extractData(r3.data, 'cohortes'));
+      const tiposData = r1.status === 'fulfilled' ? r1.value.data : [];
+      const formacionesData = r2.status === 'fulfilled' ? r2.value.data : [];
+      const cohortesData = r3.status === 'fulfilled' ? r3.value.data : [];
+
+      setTiposFormacion(extractData(tiposData, 'tipos'));
+      setFormaciones(extractData(formacionesData, 'formaciones'));
+      setCohortes(extractData(cohortesData, 'cohortes'));
     } catch (e) {
       Alert.alert('Error', 'No se pudieron cargar los datos del formulario');
     }
@@ -182,8 +317,7 @@ const InscripcionesScreen = () => {
   const establecerFechaActual = () => {
     const ahora = new Date();
     const fecha = ahora.toISOString().split('T')[0];
-    const hora = ahora.toTimeString().split(' ')[0];
-    setFechaInscripcion(`${fecha} ${hora}`);
+    setFechaInscripcion(fecha);
   };
 
   useEffect(() => {
@@ -201,38 +335,85 @@ const InscripcionesScreen = () => {
   useEffect(() => {
     if (selectedTipoFormacion !== undefined && formaciones.length > 0) {
       const selectedTipoNum = Number(selectedTipoFormacion);
-      const filtradas = formaciones.filter(f => Number(f.idTF) === selectedTipoNum);
+      const filtradas = formaciones.filter(f => Number((f as any).idTF) === selectedTipoNum);
       setFormacionesFiltradas(filtradas);
       setSelectedFormacion(undefined);
-      if (filtradas.length === 1) setSelectedFormacion(filtradas[0].idFormacion);
+      if (filtradas.length === 1) setSelectedFormacion((filtradas[0] as any).idFormacion);
     } else {
       setFormacionesFiltradas(formaciones);
     }
   }, [selectedTipoFormacion, formaciones]);
 
-  // calcular costos
+  // calcular costos usando cuotas reales desde backend
   useEffect(() => {
-    if (selectedFormacion !== undefined) {
-      const formacion = formaciones.find(f => f.idFormacion === selectedFormacion);
-      if (formacion) {
-        const valorMatricula = Number(formacion.valorInscripcion) || 0;
-        setValorInscripcion(valorMatricula);
-        let cuotasData: Cuota[] = [];
-        if (formacion.idFormacion === 3 && formacion.nombreFormacion.includes('BIOTECNOLOGIA')) {
-          cuotasData = [
-            { nombreCuota: 'CUOTA I', valorCuota: 15 },
-            { nombreCuota: 'CUOTA II', valorCuota: 10 },
-            { nombreCuota: 'CUOTA III', valorCuota: 20 }
-          ];
-        }
-        const totalCtas = cuotasData.reduce((sum, c) => sum + c.valorCuota, 0);
-        const totalFinal = valorMatricula + totalCtas;
-        setCuotas(cuotasData);
-        setTotalCuotas(totalCtas);
-        setMontoTotal(totalFinal);
+    let mounted = true;
+    const compute = async () => {
+      if (selectedFormacion === undefined) {
+        if (!mounted) return;
+        setValorInscripcion(0);
+        setCuotas([]);
+        setTotalCuotas(0);
+        setMontoTotal(0);
+        return;
       }
-    }
+
+      // buscamos la formación en el listado (puede tener valorInscripcion allí)
+      const formacionLocal = formaciones.find(f => f.idFormacion === selectedFormacion) as any;
+      let valorMatricula = Number(formacionLocal?.valorInscripcion ?? 0);
+
+      // si el objeto local no tiene cuotas, pedimos cuotas reales
+      const cuotasData = await fetchCuotasForFormacion(Number(selectedFormacion));
+
+      // si no encontramos valor en la lista, tratamos de pedir detalle (si existe endpoint /api/formaciones/{id}/)
+      if ((!valorMatricula || valorMatricula === 0) && selectedFormacion) {
+        try {
+          const detalle = await api.get(`/api/formaciones/${selectedFormacion}/`);
+          const det = detalle.data;
+          if (det) {
+            valorMatricula = Number(det.valorInscripcion ?? det.precio ?? valorMatricula ?? 0);
+            // si el detalle incluye cuotas, mezclar/usar esas
+            if (!cuotasData.length) {
+              const cuotasFromDetail = det.cuotas ?? det.cuotas_json ?? det.inscripcioncuota_set ?? null;
+              if (cuotasFromDetail) {
+                // intentar normalizar
+                const parsed = safeParseJson(cuotasFromDetail);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                  const mapped = parsed.map((c: any) => ({
+                    nombreCuota: c.nombreCuota ?? c.nombre ?? `Cuota`,
+                    valorCuota: Number(c.valorCuota ?? c.valor ?? c.monto ?? 0),
+                  }));
+                  if (mapped.length) {
+                    if (mounted) setCuotas(mapped);
+                    const totalC = mapped.reduce((s: number, x: any) => s + (Number(x.valorCuota) || 0), 0);
+                    if (mounted) {
+                      setTotalCuotas(totalC);
+                      setMontoTotal(valorMatricula + totalC);
+                    }
+                    if (mounted) setValorInscripcion(valorMatricula);
+                    return;
+                  }
+                }
+              }
+            }
+          }
+        } catch (e) {
+          // no romper si no existe endpoint detalle
+        }
+      }
+
+      const totalCtas = cuotasData.reduce((sum, c) => sum + (Number(c.valorCuota) || 0), 0);
+      const totalFinal = Number(valorMatricula) + totalCtas;
+      if (!mounted) return;
+      setValorInscripcion(Number(valorMatricula || 0));
+      setCuotas(cuotasData);
+      setTotalCuotas(totalCtas);
+      setMontoTotal(totalFinal);
+    };
+
+    compute();
+    return () => { mounted = false; };
   }, [selectedFormacion, formaciones]);
+
 
   // buscar
   useEffect(() => {
@@ -250,10 +431,47 @@ const InscripcionesScreen = () => {
     }));
   }, [searchText, items]);
 
-  const openDetail = (item: any) => {
-    setSelected(item);
+  const openDetail = async (item: any) => {
+    let merged = { ...item };
+
+    try {
+      const idForm = Number(item.idFormacion ?? item.idFormacion_detail?.idFormacion ?? item.idFormacion_detail?.id);
+      if (idForm) {
+        // Pedimos cuotas del endpoint
+        const cuotasRealtime = await fetchCuotasForFormacion(idForm);
+        if (cuotasRealtime && cuotasRealtime.length > 0) {
+          merged = {
+            ...merged,
+            idFormacion_detail: {
+              ...(merged.idFormacion_detail || {}),
+              cuotas: cuotasRealtime,
+              valorInscripcion: merged.idFormacion_detail?.valorInscripcion ?? merged.montoTotal ?? 0
+            }
+          };
+        } else {
+          // intentar traer detalle completo de formacion (si existe)
+          try {
+            const d = await api.get(`/api/formaciones/${idForm}/`);
+            if (d?.data) {
+              merged = {
+                ...merged,
+                idFormacion_detail: {
+                  ...(merged.idFormacion_detail || {}),
+                  ...d.data
+                }
+              };
+            }
+          } catch (e) { /* ignore */ }
+        }
+      }
+    } catch (e) {
+      console.warn('openDetail: error obteniendo cuotas', e);
+    }
+
+    setSelected(merged);
     setDetailModalVisible(true);
   };
+
 
   const validateCreateForm = () => {
     const errs: Record<string, string> = {};
@@ -425,7 +643,7 @@ const InscripcionesScreen = () => {
                   <Text style={[styles.cardTitle, isSmallScreen && styles.cardTitleSmall]} numberOfLines={2}>
                     {item.idFormacion_detail?.nombreFormacion ?? '—'}
                   </Text>
-                  <View style={[styles.badge, statusColor(status), isSmallScreen && styles.badgeSmall]}>
+                   <View style={[styles.badge, statusColor(status), isSmallScreen && styles.badgeSmall]}>
                     <Text style={[styles.badgeText, isSmallScreen && styles.badgeTextSmall]}>{status}</Text>
                   </View>
                 </View>
@@ -436,28 +654,24 @@ const InscripcionesScreen = () => {
                   <View style={styles.detailItem}>
                     <Icon name="domain" size={isSmallScreen ? 12 : 14} color="#666" />
                     <Text style={[styles.detailText, isSmallScreen && styles.detailTextSmall]}>
-                      {item.idCohorte_detail?.nombreCohorte ?? '—'}
+                      Cohorte: {item.idCohorte_detail?.nombreCohorte ?? '—'}
                     </Text>
                   </View>
                   <View style={styles.detailItem}>
                     <Icon name="calendar" size={isSmallScreen ? 12 : 14} color="#666" />
+                    {/* SOLO FECHA (sin hora) */}
                     <Text style={[styles.detailText, isSmallScreen && styles.detailTextSmall]}>
-                      {item.fechaInscripcion ? new Date(item.fechaInscripcion).toLocaleDateString() : '—'}
+                      Fecha de Inscripción: {item.fechaInscripcion ? new Date(item.fechaInscripcion).toLocaleDateString() : '—'}
                     </Text>
                   </View>
                 </View>
 
+                {/* ahora mostramos el VALOR de la formación */}
                 <View style={[styles.detailRow, isSmallScreen && styles.detailRowSmall]}>
-                  <View style={styles.detailItem}>
+                  <View style={[styles.detailItem, { flex: 1 }]}>
                     <Icon name="cash" size={isSmallScreen ? 12 : 14} color="#666" />
                     <Text style={[styles.detailText, isSmallScreen && styles.detailTextSmall]}>
-                      Total: {fmtMoney(item.montoTotal)}
-                    </Text>
-                  </View>
-                  <View style={styles.detailItem}>
-                    <Icon name="cash-check" size={isSmallScreen ? 12 : 14} color="#666" />
-                    <Text style={[styles.detailText, isSmallScreen && styles.detailTextSmall]}>
-                      Pagado: {fmtMoney(item.montoPagado)}
+                      Valor de Inscripción: {fmtMoney(item.idFormacion_detail?.valorInscripcion ?? item.montoTotal ?? 0)}
                     </Text>
                   </View>
                 </View>
@@ -492,7 +706,7 @@ const InscripcionesScreen = () => {
         }
       />
 
-      {/* DETAIL MODAL */}
+      {/* DETAIL MODAL (actualizado: fecha sin hora, cuotas reales en detalle de formación) */}
       <Modal
         isVisible={detailModalVisible}
         onBackdropPress={() => setDetailModalVisible(false)}
@@ -502,7 +716,7 @@ const InscripcionesScreen = () => {
         <View style={[
           styles.modalContent,
           isSmallScreen && styles.modalContentSmall,
-          { maxHeight: Math.min(height * 0.85, 720), width: isLargeScreen ? '150%' : undefined }
+          { maxHeight: Math.min(height * 0.85, 720), width: isLargeScreen ? '80%' : undefined }
         ]}>
           <View style={[styles.modalHeader, isSmallScreen && styles.modalHeaderSmall]}>
             <Text style={[styles.modalTitle, isSmallScreen && styles.modalTitleSmall]}>
@@ -521,21 +735,75 @@ const InscripcionesScreen = () => {
             contentContainerStyle={{ paddingBottom: 12 }}
             showsVerticalScrollIndicator
           >
-            {selected && [
-              ['Formación', selected.idFormacion_detail?.nombreFormacion ?? '—'],
-              ['Cohorte', selected.idCohorte_detail?.nombreCohorte ?? '—'],
-              ['Cédula', selected.idPersona_detail?.cedula ?? '—'],
-              ['Estado pago', deriveStatus(selected)],
-              ['Monto total', fmtMoney(selected.montoTotal)],
-              ['Monto pagado', fmtMoney(selected.montoPagado)],
-              ['Saldo pendiente', fmtMoney(selected.saldoPendiente)],
-              ['Fecha inscripción', selected.fechaInscripcion ? new Date(selected.fechaInscripcion).toLocaleString() : '—'],
-            ].map(([lbl, val]) => (
-              <View key={String(lbl)} style={[styles.detailRowModal, isSmallScreen && styles.detailRowModalSmall]}>
-                <Text style={[styles.detailLabel, isSmallScreen && styles.detailLabelSmall]}>{lbl}:</Text>
-                <Text style={[styles.detailValue, isSmallScreen && styles.detailValueSmall]}>{val}</Text>
+            {selected ? (
+              <View style={[styles.detailGrid, isSmallScreen && styles.detailGridSmall]}>
+                {/* Formación */}
+                <View style={[styles.detailCell, isSmallScreen ? styles.detailCellFull : styles.detailCellHalf]}>
+                  <Text style={[styles.detailLabel, isSmallScreen && styles.detailLabelSmall]}>Formación</Text>
+                  <Text style={[styles.detailValue, isSmallScreen && styles.detailValueSmall]}>
+                    {selected.idFormacion_detail?.nombreFormacion ?? '—'}
+                  </Text>
+                </View>
+
+                {/* Cohorte */}
+                <View style={[styles.detailCell, isSmallScreen ? styles.detailCellFull : styles.detailCellHalf]}>
+                  <Text style={[styles.detailLabel, isSmallScreen && styles.detailLabelSmall]}>Cohorte</Text>
+                  <Text style={[styles.detailValue, isSmallScreen && styles.detailValueSmall]}>
+                    {selected.idCohorte_detail?.nombreCohorte ?? '—'}
+                  </Text>
+                </View>
+
+                {/* Valor inscripción (desde el modelo Formacion) */}
+                <View style={[styles.detailCell, isSmallScreen ? styles.detailCellFull : styles.detailCellHalf]}>
+                  <Text style={[styles.detailLabel, isSmallScreen && styles.detailLabelSmall]}>Valor inscripción</Text>
+                  <Text style={[styles.detailValue, isSmallScreen && styles.detailValueSmall]}>
+                    {fmtMoney(selected.idFormacion_detail?.valorInscripcion ?? selected.montoTotal ?? 0)}
+                  </Text>
+                </View>
+
+                {/* Estado pago */}
+                <View style={[styles.detailCell, isSmallScreen ? styles.detailCellFull : styles.detailCellHalf]}>
+                  <Text style={[styles.detailLabel, isSmallScreen && styles.detailLabelSmall]}>Estado pago</Text>
+                  <Text style={[styles.detailValue, isSmallScreen && styles.detailValueSmall]}>
+                    {deriveStatus(selected)}
+                  </Text>
+                </View>
+
+                {/* Monto total */}
+                <View style={[styles.detailCell, isSmallScreen ? styles.detailCellFull : styles.detailCellHalf]}>
+                  <Text style={[styles.detailLabel, isSmallScreen && styles.detailLabelSmall]}>Monto total</Text>
+                  <Text style={[styles.detailValue, isSmallScreen && styles.detailValueSmall]}>
+                    {fmtMoney(selected.montoTotal)}
+                  </Text>
+                </View>
+
+                {/* Fecha (solo fecha, sin hora) */}
+                <View style={[styles.detailCell, isSmallScreen ? styles.detailCellFull : styles.detailCellHalf]}>
+                  <Text style={[styles.detailLabel, isSmallScreen && styles.detailLabelSmall]}>Fecha inscripción</Text>
+                  <Text style={[styles.detailValue, isSmallScreen && styles.detailValueSmall]}>
+                    {selected.fechaInscripcion ? new Date(selected.fechaInscripcion).toLocaleDateString() : '—'}
+                  </Text>
+                </View>
+
+                {/* Si la formación tiene cuotas, listarlas (obtenidas de idFormacion_detail o del cache) */}
+                {(() => {
+                  const f = selected.idFormacion_detail ?? null;
+                  const cuotasDetalle = cuotasFromFormacionObj(f);
+                  if (!cuotasDetalle || cuotasDetalle.length === 0) return null;
+                  return (
+                    <View style={[styles.detailCell, { width: '100%' }]}>
+                      <Text style={[styles.detailLabel, isSmallScreen && styles.detailLabelSmall]}>Cuotas</Text>
+                      {cuotasDetalle.map((c: Cuota, idx: number) => (
+                        <View key={idx} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 }}>
+                          <Text style={[styles.detailValueSmall, { color: '#4a5568', fontWeight: '600' }]}>{c.nombreCuota}</Text>
+                          <Text style={[styles.detailValueSmall, { color: '#1a365d', fontWeight: '700' }]}>{fmtMoney(c.valorCuota)}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  );
+                })()}
               </View>
-            ))}
+            ) : null}
           </ScrollView>
 
           <View style={[styles.modalFooter, isSmallScreen && styles.modalFooterSmall]}>
@@ -549,7 +817,7 @@ const InscripcionesScreen = () => {
         </View>
       </Modal>
 
-      {/* FORM MODAL */}
+      {/* FORM MODAL (sin cambios importantes en diseño, pero usa cuotas reales para el resumen) */}
       <Modal
         isVisible={formModalVisible}
         onBackdropPress={() => !creating && setFormModalVisible(false)}
@@ -645,8 +913,8 @@ const InscripcionesScreen = () => {
                       mode="dropdown"
                     >
                       <Picker.Item label={formacionesFiltradas.length === 0 ? "Seleccione tipo primero" : "Seleccione formación..."} value={undefined} />
-                      {formacionesFiltradas.map(f => (
-                        <Picker.Item key={f.idFormacion} label={`${f.nombreFormacion} - $${f.valorInscripcion}`} value={f.idFormacion} />
+                      {formacionesFiltradas.map((f: any) => (
+                        <Picker.Item key={f.idFormacion} label={`${f.nombreFormacion} - ${fmtMoney(f.valorInscripcion)}`} value={f.idFormacion} />
                       ))}
                     </Picker>
                   </View>
@@ -723,7 +991,7 @@ const InscripcionesScreen = () => {
                   <View style={[styles.fechaContainer, isSmallScreen && styles.fechaContainerSmall]}>
                     <Text style={[styles.fechaText, isSmallScreen && styles.fechaTextSmall]}>{fechaInscripcion}</Text>
                   </View>
-                  <Text style={[styles.helpText, isSmallScreen && styles.helpTextSmall]}>Fecha y hora automáticas</Text>
+                  <Text style={[styles.helpText, isSmallScreen && styles.helpTextSmall]}>Fecha (automática)</Text>
                 </View>
               </View>
             </ScrollView>
@@ -759,7 +1027,8 @@ const InscripcionesScreen = () => {
   );
 };
 
-// ESTILOS COMPLETOS
+
+// ESTILOS COMPLETOS (añadidos los estilos detailGrid/detailCell)
 const styles = StyleSheet.create({
   center: {
     flex: 1,
@@ -1157,6 +1426,50 @@ const styles = StyleSheet.create({
     padding: 14,
     paddingTop: 10,
   },
+
+  // DETAIL GRID (nuevo)
+  detailGrid: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  detailGridSmall: {
+    paddingHorizontal: 10,
+  },
+  detailCell: {
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#f1f3f4',
+    marginBottom: 10,
+  },
+  detailCellHalf: {
+    width: '48%',
+  },
+  detailCellFull: {
+    width: '100%',
+  },
+  detailLabel: {
+    fontWeight: '700',
+    fontSize: 13,
+    color: '#4a5568',
+    marginBottom: 6,
+  },
+  detailLabelSmall: {
+    fontSize: 12,
+  },
+  detailValue: {
+    fontSize: 15,
+    color: '#1a365d',
+    fontWeight: '600',
+  },
+  detailValueSmall: {
+    fontSize: 14,
+  },
+
   detailRowModal: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1172,23 +1485,23 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     gap: 2,
   },
-  detailLabel: {
+  detailLabelUnused: {
     fontWeight: '600',
     fontSize: 14,
     color: '#4a5568',
     flex: 1,
   },
-  detailLabelSmall: {
+  detailLabelSmallUnused: {
     fontSize: 13,
   },
-  detailValue: {
+  detailValueUnused: {
     flex: 1,
     fontSize: 14,
     color: '#2d3748',
     textAlign: 'right',
     fontWeight: '500',
   },
-  detailValueSmall: {
+  detailValueSmallUnused: {
     fontSize: 13,
     textAlign: 'left',
   },

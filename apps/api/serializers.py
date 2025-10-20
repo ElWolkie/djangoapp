@@ -2,7 +2,7 @@ from decimal import Decimal
 import re
 import uuid
 from rest_framework import serializers
-from apps.home.models import Configuracion, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Moneda, Tasa, Formacion, TipoFormacion, Usuarios
+from apps.home.models import Configuracion, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Moneda, Tasa, Formacion, CuotaFormacion, TipoFormacion, Usuarios
 from apps.persona.models import Personas, PersonaTP, TipoPersona
 from apps.honorario.models import Honorario
 from apps.inscripcion.models import Inscripcion
@@ -183,6 +183,20 @@ class InscripcionSerializer(serializers.ModelSerializer):
         
         print("✅ Instancia creada en serializer:", inscripcion.idInscripcion)
         return inscripcion
+
+class CuotaFormacionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CuotaFormacion
+        fields = [
+            'idCuota',
+            'idFormacion',   # vendrá como PK del Formacion
+            'nombreCuota',
+            'tipoCuota',
+            'valorCuota',
+            'orden',
+            'fechaCuota',
+            'is_active',
+        ]
 
 class NotaSerializer(serializers.ModelSerializer):
     class Meta:

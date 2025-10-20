@@ -5,8 +5,8 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.permissions import AllowAny
 from django.db.models import Sum
-from apps.home.models import Personas, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Moneda, Tasa, Formacion, TipoFormacion, Usuarios
-from .serializers import PagoSerializer, PersonaSerializer, CedulaTokenObtainSerializer, TipoPersonaSerializer, PersonaTPSerializer, FormacionSerializer, TPFormacionSerializer, MateriaSerializer, CohorteSerializer, CargoSerializer, HonorarioSerializer, InscripcionSerializer, RequisitoSerializer, ServicioSerializer, TramiteSerializer, SolicitudSerializer, MonedaSerializer, TasaSerializer, UsuarioSerializer, AsientoContableSerializer, PlanCuentaSerializer, PeriodoContableSerializer  # Importa ambos serializadores
+from apps.home.models import Personas, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Moneda, Tasa, Formacion, TipoFormacion, Usuarios, CuotaFormacion
+from .serializers import PagoSerializer, PersonaSerializer, CedulaTokenObtainSerializer, TipoPersonaSerializer, PersonaTPSerializer, FormacionSerializer, TPFormacionSerializer, MateriaSerializer, CohorteSerializer, CargoSerializer, HonorarioSerializer, InscripcionSerializer, RequisitoSerializer, ServicioSerializer, TramiteSerializer, SolicitudSerializer, MonedaSerializer, TasaSerializer, UsuarioSerializer, AsientoContableSerializer, PlanCuentaSerializer, PeriodoContableSerializer, CuotaFormacionSerializer  # Importa ambos serializadores
 from apps.persona.models import PersonaTP, TipoPersona
 from apps.honorario.models import Honorario
 from apps.inscripcion.models import Inscripcion
@@ -51,10 +51,6 @@ class TPFormacionListCreate(generics.ListCreateAPIView):
     queryset = TipoFormacion.objects.all()  # Usa el modelo Formacion
     serializer_class = TPFormacionSerializer  # Usa el serializador Formacion
 
-# Vista para Formacion
-class FormacionListCreate(generics.ListCreateAPIView):
-    queryset = Formacion.objects.all()  # Usa el modelo Formacion
-    serializer_class = FormacionSerializer  # Usa el serializador Formacion
 
 class MateriaListCreate(generics.ListCreateAPIView):
     queryset = Materia.objects.all()  # Usa el modelo Materia
@@ -71,6 +67,11 @@ class CargoListCreate(generics.ListCreateAPIView):
 class HonorarioListCreate(generics.ListCreateAPIView):
     queryset = Honorario.objects.all()  # Usa el modelo Honorario
     serializer_class = HonorarioSerializer  # Usa el serializador HonorarioSerializer
+
+# Vista para Formacion
+class FormacionListCreate(generics.ListCreateAPIView):
+    queryset = Formacion.objects.all()  # Usa el modelo Formacion
+    serializer_class = FormacionSerializer  # Usa el serializador Formacion
 
 class InscripcionListCreate(generics.ListCreateAPIView):
     queryset = Inscripcion.objects.select_related('idPersona','idFormacion','idCohorte').all().prefetch_related('inscripcioncuota_set')
@@ -243,6 +244,20 @@ class PagoCreateAPIView(APIView):
                 'success': False,
                 'message': f'Error procesando pago: {str(e)}'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+# Lista cuotas de una formación concreta
+class CuotasPorFormacionList(generics.ListAPIView):
+    serializer_class = CuotaFormacionSerializer
+
+    def get_queryset(self):
+        pk = self.kwargs.get('pk')
+        return CuotaFormacion.objects.filter(idFormacion_id=pk, is_active=True).order_by('orden')
+
+# Si no tienes detalle de Formacion, añade este retrieve
+class FormacionRetrieve(generics.RetrieveAPIView):
+    queryset = Formacion.objects.all()
+    serializer_class = FormacionSerializer
+    # El modelo usa idFormacion como PK, DRF lo respeta al usar 'pk' en la URL
 
 class RequisitoListCreate(generics.ListCreateAPIView):
     queryset = Requisito.objects.all()  # Usa el modelo Requisito
