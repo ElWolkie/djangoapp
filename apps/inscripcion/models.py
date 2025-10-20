@@ -17,8 +17,6 @@ class Inscripcion(models.Model):
     idInscripcion = models.AutoField(primary_key=True)
     idPersona = models.ForeignKey(Personas, on_delete=models.CASCADE)
     idCohorte = models.ForeignKey(Cohorte, on_delete=models.CASCADE)
-    idTF = models.ForeignKey(TipoFormacion, on_delete=models.CASCADE)
-    idFormacion = models.ForeignKey(Formacion, on_delete=models.CASCADE)
     cuotas = models.ManyToManyField(CuotaFormacion, through='InscripcionCuota', related_name='inscripciones')
     is_active = models.BooleanField(default=True)
     fechaInscripcion = models.DateField(auto_now_add=True)
