@@ -676,7 +676,7 @@
                   <td>{{ cuota.idInscripcion.idInscripcion }}</td>
                   <td>{{ cuota.idCuota.nombreCuota }}</td>
                   <td>{{ cuota.idCuota.valorCuota }}</td>
-                  <td>{{ cuota.idInscripcion.idFormacion.nombreFormacion }}</td>
+                  <td>{{ cuota.idInscripcion.idCohorte.idFormacion.nombreFormacion }}</td>
                   <td>
                     <button class="btn btn-sm btn-warning btn-select">
                       <i class="fas fa-check"></i> Elegir
@@ -737,12 +737,12 @@
             </thead>
             <tbody>
               {% for inscripcion in inscripciones %}
-                <tr data-id="{{ inscripcion.idInscripcion }}" data-valor="{{ inscripcion.idFormacion.valorInscripcion }}" data-nombre="{{ inscripcion.idTF.nombreTipoFormacion }} {{ inscripcion.idFormacion.nombreFormacion }}" data-persona-id="{{ inscripcion.idPersona.idPersona }}">
+                <tr data-id="{{ inscripcion.idInscripcion }}" data-valor="{{ inscripcion.idCohorte.idFormacion.valorInscripcion }}" data-nombre="{{ inscripcion.idTF.nombreTipoFormacion }} {{ inscripcion.idCohorte.idFormacion.nombreFormacion }}" data-persona-id="{{ inscripcion.idPersona.idPersona }}">
                   <td>{{ inscripcion.idInscripcion }}</td>
                   <td>{{ inscripcion.idPersona.idPersona }}</td>
                   <td>{{ inscripcion.idTF.nombreTipoFormacion }}</td>
-                  <td>{{ inscripcion.idFormacion.nombreFormacion }}</td>
-                  <td>{{ inscripcion.idFormacion.valorInscripcion }}</td>
+                  <td>{{ inscripcion.idCohorte.idFormacion.nombreFormacion }}</td>
+                  <td>{{ inscripcion.idCohorte.idFormacion.valorInscripcion }}</td>
                   <td>{{ inscripcion.idCohorte.nombreCohorte }}</td>
                   <td>
                     <button class="btn btn-sm btn-warning btn-select">

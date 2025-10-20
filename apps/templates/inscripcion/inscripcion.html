@@ -178,6 +178,84 @@
       font-weight: 600;
       z-index: 1;
   }
+   .form-group {
+    margin-bottom: 1.5rem;
+    position: relative;
+  }
+  
+  .form-label {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+  }
+  
+  .form-label i {
+    margin-right: 8px;
+    color: #fd7e14;
+  }
+  
+  .form-control {
+    border-radius: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    border: 1px solid #ced4da;
+    background-color: #fff;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.075);
+    transition: all 0.3s;
+  }
+  
+  .form-control:focus {
+    border-color: #ffc107;
+    box-shadow: 0 0 0 0.25rem rgba(255,193,7,0.25);
+  }
+  
+  .input-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6c757d;
+    z-index: 2;
+  }
+  
+  .input-with-icon {
+    padding-left: 40px;
+  }
+  
+  .btn-submit {
+    background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+    border: none;
+    color: #fff;
+    font-weight: 600;
+    padding: 0.75rem 2rem;
+    border-radius: 0.5rem;
+    transition: all 0.3s;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+    width: 200px;
+  }
+  
+  .btn-submit:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    background: linear-gradient(135deg, #fd7e14 0%, #ffc107 100%);
+  }
+  
+  .btn-submit i {
+    margin-right: 8px;
+  }
+  
+  .input-group-btn .btn {
+    border-radius: 0 0.5rem 0.5rem 0;
+    background: #ffc107;
+    color: #343a40;
+    border: 1px solid #ced4da;
+    border-left: none;
+  }
 
   /* Responsive: asegurar que en móviles los selects ocupen 100% */
   @media (max-width: 767px) {
@@ -222,8 +300,6 @@
         <div class="input-group">
           <select id="tipo_cedula" class="form-select cedula-select" style="padding: 5px;">
             <option value="V" selected>Venezolano</option>
-            <option value="J">Jurídico</option>
-            <option value="G">Gubernamental</option>
             <option value="E">Extranjero</option>
             <option value="P">Pasaporte</option>
           </select>
@@ -240,25 +316,7 @@
 
       <div class="form-divider">
         <span><i class="fas fa-book me-2"></i> Información Académica</span>
-      </div>
-      
-      <div class="form-group mb-4">
-        <label for="nombreCohorte" class="form-label">
-          <i class="fas fa-users me-2"></i> Cohorte
-        </label>
-        <div class="input-group">
-          <input type="text" id="nombreCohorte" name="nombreCohorte" class="form-control" 
-                 oninput="checkCohorte()" placeholder="Nombre de cohorte">
-
-          <div class="check-icon" id="check-cohorte-icon"></div>
-
-        </div>
-
-        <div class="invalid-feedback">Por favor, ingrese una cohorte válida.</div>
-        <input type="hidden" id="idCohorte" name="idCohorte" />
-        <input type="hidden" id="estadoContrato" name="estadoContrato" value="ACTIVO" />
-      </div>
-        
+      </div>   
       <div class="row">
         <!-- Ambos selects ahora son iguales: col-md-6 / col-md-6 -->
         <div class="col-md-6 form-group">
@@ -281,21 +339,16 @@
             <label for="idFormacion" class="form-label">
               <i class="fas fa-book me-2"></i> Formación Académica
             </label>
-            <select id="idFormacion" name="idFormacion" class="form-select styled-select">
-              <option value="" disabled selected>Seleccione...</option>
-              {% for formacion in formaciones %}
-              <option value="{{ formacion.idFormacion }}" 
-                      data-tf="{{ formacion.idTF.idTF }}"
-                      data-valorInscripcion="{{ formacion.valorInscripcion }}" 
-                      data-tieneCuotas="{{ formacion.tieneCuotas }}" 
-                      data-cuotasActivas="{{ formacion.cuotas_activas }}" 
-                      data-cantidadCuotas="{{ formacion.cantidad_cuotas }}" 
-                      data-cuotas="{{ formacion.cuotas_json }}">
-                {{ formacion.nombreFormacion }}
-              </option>
-              {% endfor %}
-            </select>
-              <div class="invalid-feedback">Por favor, seleccione una formación académica.</div>
+            <div class="input-group">
+              <i class="fas fa-search input-icon"></i>
+              <input type="text" id="formacionInput" class="form-control input-with-icon" placeholder="Seleccione una formación académica" readonly required />
+              <button type="button" id="buscarFormacion" class="btn btn-warning btn-sm" data-bs-toggle="modal" data-bs-target="#formacionModal">
+                <i class="fas fa-search text-white "></i>
+              </button>
+              
+              <div class="invalid-feedback">Por favor, seleccione una formación académmica válida.</div>
+            </div>
+            <input type="hidden" id="idCohorte" name="idCohorte" />
           </div>
         </div>
       </div>
@@ -315,15 +368,15 @@
             </thead>
             <tbody id="resumenCostosBody">
               <tr>
-                <td><strong>Valor de Inscripción</strong></td>
+                <td><strong>VALOR INSCRIPCIÓN</strong></td>
                 <td id="valorInscripcion">-</td>
               </tr>
               <tr>
-                <td><strong>Total Cuotas</strong></td>
+                <td><strong>TOTAL EN CUOTAS</strong></td>
                 <td id="valorCuotas">-</td>
               </tr>
               <tr>
-                <td><strong>Total</strong></td>
+                <td><strong>TOTAL GLOBAL</strong></td>
                 <td id="valorTotal">-</td>
               </tr>
             </tbody>
@@ -336,25 +389,83 @@
     </form>
   </div>
 </div>
+
+<!-- Modal para buscar formación académica -->
+<div class="modal fade" id="formacionModal" tabindex="-1" role="dialog" aria-labelledby="formacionModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title text-white" id="formacionModalLabel">
+          <i class="fas fa-search mr-2"></i> Seleccionar Formación Académica
+        </h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="input-group mb-3">
+          <div class="input-group-prepend">
+            <span class="input-group-text bg-light">
+              <i class="fas fa-search text-warning"></i>
+            </span>
+          </div>
+          <input class="form-control" id="searchFormacionInput" type="text" placeholder="Buscar formación...">
+        </div>
+        <div class="table-responsive">
+          <table class="table table-sm table-striped table-hover" id="tablaFormaciones">
+            <thead class="bg-light">
+              <tr>
+                <th style="width: 15%;">Código</th>
+                <th style="width: 60%;">Nombre</th>
+                <th style="width: 15%;">Cohorte</th>
+                <th style="width: 10%;">Seleccionar</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for formacion in formaciones %}
+                <tr data-id="{{ formacion.idFormacion }}" data-nombre="{{ formacion.nombreFormacion }} - Cohorte {{ formacion.cohorte.nombreCohorte }}"   data-tf="{{ formacion.idTF.idTF }}"
+                      data-valorInscripcion="{{ formacion.valorInscripcion }}" 
+                      data-tieneCuotas="{{ formacion.tieneCuotas }}" 
+                      data-cuotasActivas="{{ formacion.cuotas_activas }}" 
+                      data-cantidadCuotas="{{ formacion.cantidad_cuotas }}" 
+                      data-cuotas="{{ formacion.cuotas_json }}"
+                      data-idCohorte="{{ formacion.cohorte.idCohorte }}">
+                  <td>{{ formacion.idFormacion }}</td>
+                  <td>{{ formacion.nombreFormacion }}</td>
+                  <td>{{ formacion.cohorte.nombreCohorte }}</td>
+                  <td>
+                    <button class="btn btn-sm btn-warning btn-select">
+                      <i class="fas fa-check"></i> Elegir
+                    </button>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <p id="mensajeSinRegistros" class="text-center text-muted my-4" style="display: none;">
+          <i class="fas fa-info-circle mr-2"></i> No se encontraron registros
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock content %}
 
 {% block javascripts %}
-<script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
+  <script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
+  <script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
+  <script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
 <script>
-    document.addEventListener('input', e => {
-    if (e.target.id === 'nombreCohorte') {
-      e.target.value = e.target.value.toUpperCase().replace(/[^A-Z\s]/g, '').slice(0,20);
-    }
-  });
+
 document.addEventListener("DOMContentLoaded", function () {
   // ============================
   // 1) Definición de datos de contexto
   // ============================
-  const cohortes = [
-    {% for cohorte in cohortes %}
-      { idCohorte: "{{ cohorte.idCohorte|escapejs }}", nombreCohorte: "{{ cohorte.nombreCohorte|escapejs }}" },
-    {% endfor %}
-  ];
+
 
   const personas = [
     {% for persona in personas %}
@@ -413,44 +524,24 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   // ============================
-  // 5) Validar cohorte por nombre
-  // ============================
-  function checkCohorte() {
-    const nombreCohorte = document.getElementById("nombreCohorte").value.trim();
-    const icon = document.getElementById("check-cohorte-icon");
-    const hid = document.getElementById("idCohorte");
-
-    const cohorte = cohortes.find((c) => c.nombreCohorte === nombreCohorte);
-    if (cohorte) {
-      icon.innerHTML = "✔️";
-      icon.style.color = "green";
-      hid.value = cohorte.idCohorte;
-    } else {
-      icon.innerHTML = "❌";
-      icon.style.color = "red";
-      hid.value = "";
-    }
-  }
-
-  // ============================
-  // 6) Filtrar formaciones por tipo de formación
+  // 6) Filtrar formaciones por tipo de formación adaptado al modal
   // ============================
   function filterFormaciones() {
     const selectedTipoFormacion = document.getElementById("idTF").value;
-    const formacionSelect = document.getElementById("idFormacion");
+    const rows = document.querySelectorAll("#tablaFormaciones tbody tr");
 
-    Array.from(formacionSelect.options).forEach((option) => {
-      if (option.dataset.tf === selectedTipoFormacion || option.value === "") {
-        option.style.display = "block";
-        option.disabled = false;
+    rows.forEach((row) => {
+      const tipoFormacion = row.dataset.tf;
+      if (tipoFormacion === selectedTipoFormacion || !selectedTipoFormacion) {
+        row.style.display = "";
       } else {
-        option.style.display = "none";
-        option.disabled = true;
+        row.style.display = "none";
       }
     });
 
     // Reiniciar el valor seleccionado en el campo de formación
-    formacionSelect.value = "";
+    document.getElementById("formacionInput").value = "";
+    document.getElementById("idFormacion").value = "";
   }
 
   // ============================
@@ -469,15 +560,15 @@ document.addEventListener("DOMContentLoaded", function () {
     // Limpiar las filas existentes de cuotas
     resumenCostosBody.innerHTML = `
       <tr>
-        <td><strong>Valor de Inscripción</strong></td>
+        <td><strong>VALOR INSCRIPCIÓN</strong></td>
         <td id="valorInscripcion" style="background-color: #cce5ff;"><strong>-</strong></td>
       </tr>
       <tr>
-        <td><strong>Total Cuotas</strong></td>
+        <td><strong>TOTAL EN CUOTAS</strong></td>
         <td id="valorCuotas" style="background-color: #e2d4f0;"><strong>-</strong></td>
       </tr>
       <tr style="background-color: #d4edda;">
-        <td><strong>Total</strong></td>
+        <td><strong>TOTAL GLOBAL</strong></td>
         <td id="valorTotal"><strong>-</strong></td>
       </tr>
     `;
@@ -514,7 +605,7 @@ document.addEventListener("DOMContentLoaded", function () {
       Swal.fire({
         icon: "warning",
         title: "Campos requeridos",
-        text: "Por favor seleccione un tipo de formación y una formación académica",
+        text: "Por favor seleccione un tipo de formación y una formación académmica",
         confirmButtonText: "OK",
         customClass: { confirmButton: "btn btn-warning" },
         buttonsStyling: false,
@@ -569,7 +660,6 @@ document.addEventListener("DOMContentLoaded", function () {
   // ============================
   document.getElementById("tipo_cedula").addEventListener("change", checkPersona);
   document.getElementById("numero_cedula").addEventListener("input", checkPersona);
-  document.getElementById("nombreCohorte").addEventListener("input", checkCohorte);
   document.getElementById("idTF").addEventListener("change", filterFormaciones);
   document.getElementById("idFormacion").addEventListener("change", updateResumenCostos);
   document.getElementById("inscripcionForm").addEventListener("submit", submitForm);
@@ -587,6 +677,192 @@ document.addEventListener("DOMContentLoaded", function () {
       setTimeout(() => checkPersona(), 300);
     }
   }
+
+  // ============================
+  // 11) Actualizar idCohorte cuando la formación se selecciona desde la tabla/modal
+  function updateIdCohorte() {
+    const idFormacionEl = document.getElementById("idFormacion");
+    const idCohorteEl = document.getElementById("idCohorte");
+    if (!idFormacionEl || !idCohorteEl) return;
+
+    const idFormacionVal = idFormacionEl.value || "";
+    let idCohorte = "";
+
+    if (idFormacionVal) {
+      // Buscar fila en la tabla (modal) con ese id
+      const row = document.querySelector(`#tablaFormaciones tbody tr[data-id="${idFormacionVal}"]`);
+      if (row) {
+        // dataset normaliza nombres, usar ida en minúsculas
+        idCohorte = row.dataset.idcohorte || row.dataset.idCohorte || "";
+      } else {
+        // Si idFormacion proviene de un <select> con options, intentar desde el option seleccionado
+        if (idFormacionEl.tagName.toLowerCase() === "select" && idFormacionEl.selectedIndex >= 0) {
+          const opt = idFormacionEl.options[idFormacionEl.selectedIndex];
+          idCohorte = opt ? (opt.dataset.idcohorte || opt.dataset.idCohorte || "") : "";
+        }
+      }
+    }
+
+    idCohorteEl.value = idCohorte;
+  }
+
+  // Inicializar
+  updateIdCohorte();
+
+  // Escuchar cambios en idFormacion (por si cambia programáticamente o es un select)
+  const idFormacionEl = document.getElementById("idFormacion");
+  if (idFormacionEl) {
+    idFormacionEl.addEventListener("change", updateIdCohorte);
+  }
+
+  // Asegurar que al seleccionar desde la tabla también se actualice idCohorte
+  const tabla = document.getElementById("tablaFormaciones");
+  if (tabla) {
+    tabla.addEventListener("click", function (e) {
+      if (e.target.classList.contains("btn-select")) {
+        const row = e.target.closest("tr");
+        if (!row) return;
+
+        const idFormacion = row.dataset.id;
+        const idCohorte = row.dataset.idcohorte || row.dataset.idCohorte || "";
+
+        // Actualizar campos (coincide con lo que hace el handler principal del modal)
+        const formacionInput = document.getElementById("formacionInput");
+        const idFormacionInput = document.getElementById("idFormacion");
+        if (formacionInput) formacionInput.value = row.dataset.nombre || formacionInput.value;
+        if (idFormacionInput) idFormacionInput.value = idFormacion;
+
+        // Asignar cohorte directamente desde la fila
+        const idCohorteEl = document.getElementById("idCohorte");
+        if (idCohorteEl) idCohorteEl.value = idCohorte;
+
+        // Ejecutar otras actualizaciones dependientes
+        updateResumenCostos();
+
+        // Dejar que cualquier otro handler (ej. cierre del modal) se ejecute
+        setTimeout(updateIdCohorte, 0);
+      }
+    });
+  }
+
+  // Enlazar el evento de cambio al select de formación
+  document.getElementById("idFormacion").addEventListener("change", updateIdCohorte);
+
+  // ============================
+  // 12) Ejecutar filterFormaciones al cargar la página
+  // ============================
+  filterFormaciones();
+
+  // ============================
+  // 13) Lógica del modal de formación académica
+  // ============================
+  const tablaFormaciones = document.getElementById("tablaFormaciones");
+  const searchFormacionInput = document.getElementById("searchFormacionInput");
+  const formacionInput = document.getElementById("formacionInput");
+  const idFormacionInput = document.getElementById("idFormacion");
+
+  // Filtrar formaciones en la tabla según la búsqueda
+  searchFormacionInput.addEventListener("input", function () {
+    const searchTerm = this.value.toLowerCase();
+    const rows = tablaFormaciones.querySelectorAll("tbody tr");
+
+    let hasResults = false;
+
+    rows.forEach((row) => {
+      const nombre = row.dataset.nombre.toLowerCase();
+      if (nombre.includes(searchTerm)) {
+        row.style.display = "";
+        hasResults = true;
+      } else {
+        row.style.display = "none";
+      }
+    });
+
+    // Mostrar/ocultar mensaje de sin registros
+    document.getElementById("mensajeSinRegistros").style.display = hasResults ? "none" : "block";
+  });
+
+  // Seleccionar una formación al hacer clic en "Elegir"
+  tablaFormaciones.addEventListener("click", function (e) {
+    if (e.target.classList.contains("btn-select")) {
+      const row = e.target.closest("tr");
+      const idFormacion = row.dataset.id;
+      const nombreFormacion = row.dataset.nombre;
+
+      // Actualizar el campo de entrada con el nombre de la formación seleccionada
+      formacionInput.value = nombreFormacion;
+
+      // Actualizar el valor del campo oculto idFormacion
+      idFormacionInput.value = idFormacion;
+
+      // Cerrar el modal
+      const modal = bootstrap.Modal.getInstance(document.getElementById("formacionModal"));
+      modal.hide();
+
+      // Actualizar el resumen de costos
+      updateResumenCostos();
+    }
+  });
+
+  // ============================
+  // 7) Actualizar resumen de costos adaptado al modal
+  // ============================
+  function updateResumenCostos() {
+    const selectedId = idFormacionInput.value;
+    const selectedRow = Array.from(tablaFormaciones.querySelectorAll("tbody tr")).find(
+      (row) => row.dataset.id === selectedId
+    );
+
+    if (!selectedRow) return;
+
+    const valorInscripcion = parseFloat(selectedRow.dataset.valorinscripcion) || 0;
+    const tieneCuotas = selectedRow.dataset.tienecuotas === "True";
+    const cuotasActivas = selectedRow.dataset.cuotasactivas === "True";
+    const cuotas = JSON.parse(selectedRow.dataset.cuotas || "[]");
+
+    let valorCuotas = 0;
+    const resumenCostosBody = document.getElementById("resumenCostosBody");
+
+    // Limpiar las filas existentes de cuotas
+    resumenCostosBody.innerHTML = `
+      <tr>
+        <td><strong>VALOR INSCRIPCIÓN</strong></td>
+        <td id="valorInscripcion" style="background-color: #cce5ff;"><strong>-</strong></td>
+      </tr>
+      <tr>
+        <td><strong>TOTAL EN CUOTAS</strong></td>
+        <td id="valorCuotas" style="background-color: #e2d4f0;"><strong>-</strong></td>
+      </tr>
+      <tr style="background-color: #d4edda;">
+        <td><strong>TOTAL GLOBAL</strong></td>
+        <td id="valorTotal"><strong>-</strong></td>
+      </tr>
+    `;
+
+    if (tieneCuotas && cuotasActivas && cuotas.length > 0) {
+      cuotas.forEach((cuota) => {
+        valorCuotas += parseFloat(cuota.valorCuota);
+        const fila = document.createElement("tr");
+        fila.innerHTML = `
+          <td><strong>${cuota.nombreCuota || "Cuota"}</strong></td>
+          <td>$${parseFloat(cuota.valorCuota).toFixed(2)}</td>
+        `;
+        resumenCostosBody.insertBefore(fila, resumenCostosBody.querySelector("#valorCuotas").parentElement);
+      });
+    }
+
+    const valorTotal = valorInscripcion + valorCuotas;
+
+    document.getElementById("valorInscripcion").textContent = `$${valorInscripcion.toFixed(2)}`;
+    document.getElementById("valorCuotas").textContent = `$${valorCuotas.toFixed(2)}`;
+    document.getElementById("valorTotal").textContent = `$${valorTotal.toFixed(2)}`;
+  }
+
+  // Debug: Print cuotas to console
+  tablaFormaciones.querySelectorAll("tbody tr").forEach((row) => {
+    const cuotas = row.dataset.cuotas;
+    console.log(`Formación ID: ${row.dataset.id}, Cuotas: ${cuotas}`);
+  });
 });
   </script>
 {% endblock javascripts %}

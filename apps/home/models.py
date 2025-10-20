@@ -196,6 +196,48 @@ class Cohorte(models.Model):
             if overlapping.exists():
                 raise ValidationError("Ya existe una cohorte para esta formación con fechas solapadas o iguales.")
 
+    @classmethod
+    def deactivate_expired_cohortes(cls):
+        """
+        Actualiza el estado de cohortes según fechas:
+
+        - Marca como 'INACTIVO' todas las cohortes con estado 'ACTIVO' cuya fechaFin
+        sea anterior a la fecha de hoy.
+        - Marca como 'INACTIVO' también las cohortes con estado 'ACTIVO' cuya fechaInicio
+        sea después de la fecha de hoy (cohortes que aún no deben iniciarse).
+        - Marca como 'ACTIVO' todas las cohortes con estado 'INACTIVO' cuya fechaInicio
+        sea igual o anterior a la fecha de hoy y cuya fechaFin no haya pasado.
+
+        Devuelve un dict con los conteos de registros actualizados para cada caso.
+        """
+        today = timezone.localdate()
+
+        # Cohortes activas que ya terminaron -> inactivar
+        expired_by_end_qs = cls.objects.filter(estadoCohorte__iexact='ACTIVO', fechaFin__lt=today)
+        expired_by_end_count = expired_by_end_qs.update(estadoCohorte='INACTIVO')
+
+        # Cohortes activas cuya fechaInicio es en el futuro -> inactivar (aún no comienzan)
+        future_start_active_qs = cls.objects.filter(estadoCohorte__iexact='ACTIVO', fechaInicio__gt=today)
+        future_start_active_count = future_start_active_qs.update(estadoCohorte='INACTIVO')
+
+        # Cohortes inactivas cuya fechaInicio es hoy o anterior y fechaFin no ha pasado -> activar
+        activate_by_start_qs = cls.objects.filter(
+            estadoCohorte__iexact='INACTIVO',
+            fechaInicio__lte=today,
+            fechaFin__gte=today  # Asegurarse de que la cohorte no haya terminado
+        )
+        activated_count = activate_by_start_qs.update(estadoCohorte='ACTIVO')
+        print(f"Inactivated by end: {expired_by_end_count}")
+        print(f"Inactivated by future start: {future_start_active_count}")
+        print(f"Activated by start: {activated_count}")
+        total = expired_by_end_count + future_start_active_count + activated_count
+        print(f"Total updated: {total}")
+        return {
+            'inactivated_by_end': expired_by_end_count,
+            'inactivated_by_future_start': future_start_active_count,
+            'activated_by_start': activated_count,
+            'total_updated': expired_by_end_count + future_start_active_count + activated_count
+        }
     class Meta:  
         verbose_name = "Cohorte"  
         verbose_name_plural = "Cohortes"
