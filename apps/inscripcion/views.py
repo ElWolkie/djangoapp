@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from django.http import JsonResponse, HttpResponse, HttpResponseRedirect
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required, permission_required
@@ -34,11 +34,10 @@ def inscripcion_modal(request):
             inscripcion.save()
 
             # Obtener el valor de la formación seleccionada
-            formacion = inscripcion.idFormacion
+            formacion = inscripcion.idCohorte.idFormacion
             valor_inscripcion = getattr(formacion, 'valorInscripcion', 0)  # Obtener valor de inscripción
           
-
-            cuotas = inscripcion.idFormacion.cuotas.filter(is_active=True)
+            cuotas = inscripcion.idCohorte.idFormacion.cuotas.filter(is_active=True)
             print(cuotas)  # Verifica las cuotas activas asociadas
             for cuota in cuotas:
                 InscripcionCuota.objects.create(
@@ -66,20 +65,24 @@ def inscripcion_modal(request):
             )
         ),
         cantidad_cuotas=Count('cuotas', filter=models.Q(cuotas__is_active=True))  # Contar cuotas activas
-    ).prefetch_related('cuotas')  # Prefetch cuotas activas
+    ).prefetch_related('cuotas')
 
-    # Generar datos para el template
+    # Filter formations based on inscription period
+    available_formaciones = []
+    today = datetime.now().date()
     for formacion in formaciones:
-        if formacion.cuotas_activas:  # Solo generar cuotas si están activas
-            formacion.cuotas_json = json.dumps([
-                {
-                    'nombreCuota': cuota.nombreCuota,  # Agregar el nombre de la cuota
-                    'valorCuota': float(cuota.valorCuota)  # Convertir Decimal a float
-                }
-                for cuota in formacion.cuotas.filter(is_active=True)
-            ])
-        else:
-            formacion.cuotas_json = json.dumps([])  # Si no hay cuotas activas, pasar un array vacío
+        cohortes = Cohorte.objects.filter(idFormacion=formacion, estadoCohorte='ACTIVO')
+        for cohorte in cohortes:
+            if cohorte.fechaInicio <= today <= (cohorte.fechaInicio + timedelta(days=cohorte.lapsoInscripcion)):
+                formacion.cohorte = cohorte  # Attach the cohort to the formation
+                available_formaciones.append(formacion)
+                break
+
+    # Debug: imprimir las cuotas que se están enviando al template
+    print(f"[DEBUG] Enviando {len(available_formaciones)} formaciones disponibles al template")
+    for f in available_formaciones:
+        cuotas_list = list(f.cuotas.filter(is_active=True).values('idCuota', 'nombreCuota', 'valorCuota', 'orden'))
+        print(f"[DEBUG] Formacion pk={getattr(f, 'pk', None)} nombre={getattr(f, 'nombreFormacion', None)} cuotas={cuotas_list}")
 
     tipos_formacion = TipoFormacion.objects.filter(estadoTipoFormacion='ACTIVO')
     cohortes = Cohorte.objects.filter(estadoCohorte='ACTIVO')
@@ -89,12 +92,25 @@ def inscripcion_modal(request):
         estadoPersona='ACTIVO'  # Estado activo
     ).distinct()
 
+    # Serializar cuotas a JSON correctamente
+    for formacion in available_formaciones:
+        formacion.cuotas_json = json.dumps([
+            {
+                'idCuota': cuota.idCuota,
+                'nombreCuota': cuota.nombreCuota,
+                'valorCuota': float(cuota.valorCuota),
+                'orden': cuota.orden
+            }
+            for cuota in formacion.cuotas.filter(is_active=True)
+        ])
+    
     return render(request, 'inscripcion/inscripcion.html', {
-        'formaciones': formaciones,
+        'formaciones': available_formaciones,
         'tipos_formacion': tipos_formacion,
         'cohortes': cohortes,
         'materias': materias,
         'personas': personas,
+        
     })
 @login_required(login_url='login')
 @permission_required("inscripcion.change_inscripcion", raise_exception=True)
@@ -134,9 +150,15 @@ def edit_inscripcion(request, pk):
     )
     
     # Generar datos para las cuotas
+    # Serializar cuotas a JSON correctamente
     for formacion in formaciones:
         formacion.cuotas_json = json.dumps([
-            {'nombreCuota': cuota.nombreCuota, 'valorCuota': float(cuota.valorCuota)}
+            {
+                'idCuota': cuota.idCuota,
+                'nombreCuota': cuota.nombreCuota,
+                'valorCuota': float(cuota.valorCuota),
+                'orden': cuota.orden
+            }
             for cuota in formacion.cuotas.filter(is_active=True)
         ])
     
