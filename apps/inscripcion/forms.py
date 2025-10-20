@@ -6,23 +6,21 @@ from django.core.exceptions import ValidationError
 class InscripcionForm(forms.ModelForm):
     class Meta:
         model = Inscripcion
-        fields = ['idInscripcion', 'idPersona', 'idCohorte', 'idTF', 'idFormacion']
+        fields = ['idInscripcion', 'idPersona', 'idCohorte']
 
     def clean(self):
         cleaned_data = super().clean()  # Siempre llamar al clean() padre primero
         idPersona = cleaned_data.get('idPersona')
         idCohorte = cleaned_data.get('idCohorte')
-        idTF = cleaned_data.get('idTF')
-        idFormacion = cleaned_data.get('idFormacion')
+      
 
-        if not all([idPersona, idCohorte, idTF, idFormacion]):
+        if not all([idPersona, idCohorte]):
             return  # Si falta algún campo, no validar duplicados
 
         qs = Inscripcion.objects.filter(
             idPersona=idPersona,
             idCohorte=idCohorte,
-            idTF=idTF,
-            idFormacion=idFormacion,
+            idFormacion= idCohorte.idFormacion,
         )
 
         if self.instance.pk:  # Si es una edición, excluir la instancia actual
@@ -32,6 +30,8 @@ class InscripcionForm(forms.ModelForm):
             raise ValidationError('Esta combinación Persona/Cohorte/Formación ya existe')
 
         # Validar que la formación tenga cuotas activas si se requiere
+        idFormacion= idCohorte.idFormacion,
+
         if idFormacion.tieneCuotas:
             cuotas_activas = CuotaFormacion.objects.filter(idFormacion=idFormacion, is_active=True)
             if not cuotas_activas.exists():
