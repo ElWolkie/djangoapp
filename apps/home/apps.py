@@ -5,4 +5,4 @@ class HomeConfig(AppConfig):
     name = 'apps.home'
 
     def ready(self):
-        import apps.home.signals
+        import apps.home.signals  # Importa las señales para que se registren
