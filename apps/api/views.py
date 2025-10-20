@@ -81,6 +81,12 @@ class CuotasPorFormacionList(generics.ListAPIView):
         pk = self.kwargs.get('pk')
         return CuotaFormacion.objects.filter(idFormacion_id=pk, is_active=True).order_by('orden')
 
+# Si no tienes detalle de Formacion, añade este retrieve
+class FormacionRetrieve(generics.RetrieveAPIView):
+    queryset = Formacion.objects.all()
+    serializer_class = FormacionSerializer
+    # El modelo usa idFormacion como PK, DRF lo respeta al usar 'pk' en la URL
+
 class InscripcionListCreate(generics.ListCreateAPIView):
     queryset = Inscripcion.objects.select_related('idPersona','idFormacion','idCohorte').all().prefetch_related('inscripcioncuota_set')
     serializer_class = InscripcionSerializer
