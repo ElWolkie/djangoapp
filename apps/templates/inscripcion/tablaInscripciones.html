@@ -204,8 +204,8 @@
                           data-nombres="{{ inscripcion.idPersona.nombres }}"
                           data-apellidos="{{ inscripcion.idPersona.apellidos }}"
                           data-cohorte="{{ inscripcion.idCohorte.nombreCohorte }}"
-                          data-tipo-formacion="{{ inscripcion.idTF.nombreTipoFormacion }}"
-                          data-formacion="{{ inscripcion.idFormacion.nombreFormacion }}"
+                          data-tipo-formacion="{{ inscripcion.idCohorte.idFormacion.idTF.nombreTipoFormacion }}"
+                          data-formacion="{{ inscripcion.idCohorte.idFormacion.nombreFormacion }}"
                           data-estado="{% if inscripcion.is_active %}Activo{% else %}Inactivo{% endif %}"
                           data-fecha="{{ inscripcion.fechaInscripcion|date:'d/m/Y' }}"
                           title="Ver más">
