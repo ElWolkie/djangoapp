@@ -172,7 +172,7 @@
           <tr>
             <td class="text-center">{{ inscripcion.idInscripcion }}</td>
             <td class="text-center">{{ inscripcion.idPersona.cedula }}</td>
-            <td class="text-center">{{ inscripcion.idFormacion.nombreFormacion }}</td>
+            <td class="text-center">{{ inscripcion.idCohorte.idFormacion.nombreFormacion }}</td>
             <td class="text-center">{{ inscripcion.idCohorte.nombreCohorte }}</td>
             <td>
               {% if inscripcion.estadoPago == "PAGADO" %}
