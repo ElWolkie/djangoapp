@@ -1,12 +1,12 @@
 # [Django App Fundación UPTYAB]
 
 # [Django App Administrativo]
-![Administrativo](https://github.com/ElWolkie/djangoapp/blob/mobile/react-native/media/sacfu_inicio_administrativo.png)
+![Administrativo](https://raw.githubusercontent.com/ElWolkie/djangoapp/refs/heads/mobile/react-native/media/sacfu_inicio_administrativo.PNG)
 
 <br />
 
 # [Django App Contable]
-![Contable](https://github.com/ElWolkie/djangoapp/blob/mobile/react-native/media/sacfu_inicio_contable.png)
+![Contable](https://raw.githubusercontent.com/ElWolkie/djangoapp/refs/heads/mobile/react-native/media/sacfu_inicio_contable.PNG)
 
 <br />
 
