@@ -73,6 +73,14 @@ class FormacionListCreate(generics.ListCreateAPIView):
     queryset = Formacion.objects.all()  # Usa el modelo Formacion
     serializer_class = FormacionSerializer  # Usa el serializador Formacion
 
+# Lista cuotas de una formación concreta
+class CuotasPorFormacionList(generics.ListAPIView):
+    serializer_class = CuotaFormacionSerializer
+
+    def get_queryset(self):
+        pk = self.kwargs.get('pk')
+        return CuotaFormacion.objects.filter(idFormacion_id=pk, is_active=True).order_by('orden')
+
 class InscripcionListCreate(generics.ListCreateAPIView):
     queryset = Inscripcion.objects.select_related('idPersona','idFormacion','idCohorte').all().prefetch_related('inscripcioncuota_set')
     serializer_class = InscripcionSerializer
@@ -244,20 +252,6 @@ class PagoCreateAPIView(APIView):
                 'success': False,
                 'message': f'Error procesando pago: {str(e)}'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-# Lista cuotas de una formación concreta
-class CuotasPorFormacionList(generics.ListAPIView):
-    serializer_class = CuotaFormacionSerializer
-
-    def get_queryset(self):
-        pk = self.kwargs.get('pk')
-        return CuotaFormacion.objects.filter(idFormacion_id=pk, is_active=True).order_by('orden')
-
-# Si no tienes detalle de Formacion, añade este retrieve
-class FormacionRetrieve(generics.RetrieveAPIView):
-    queryset = Formacion.objects.all()
-    serializer_class = FormacionSerializer
-    # El modelo usa idFormacion como PK, DRF lo respeta al usar 'pk' en la URL
 
 class RequisitoListCreate(generics.ListCreateAPIView):
     queryset = Requisito.objects.all()  # Usa el modelo Requisito

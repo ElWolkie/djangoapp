@@ -112,6 +112,11 @@ class HonorarioSerializer(serializers.ModelSerializer):
         model = Honorario
         fields = ['idHonorario','idPersona','idCargo','idCohorte','idMateria','horas','estadoHonorario','fechaHonorario','monto']
 
+class CuotaFormacionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CuotaFormacion
+        fields = ['idCuota', 'nombreCuota', 'tipoCuota', 'valorCuota', 'orden', 'fechaCuota', 'is_active']
+
 class InscripcionSerializer(serializers.ModelSerializer):
     # Campos para LECTURA (serializadores anidados)
     idPersona_detail = PersonaSerializer(source='idPersona', read_only=True)
@@ -183,20 +188,6 @@ class InscripcionSerializer(serializers.ModelSerializer):
         
         print("✅ Instancia creada en serializer:", inscripcion.idInscripcion)
         return inscripcion
-
-class CuotaFormacionSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = CuotaFormacion
-        fields = [
-            'idCuota',
-            'idFormacion',   # vendrá como PK del Formacion
-            'nombreCuota',
-            'tipoCuota',
-            'valorCuota',
-            'orden',
-            'fechaCuota',
-            'is_active',
-        ]
 
 class NotaSerializer(serializers.ModelSerializer):
     class Meta:

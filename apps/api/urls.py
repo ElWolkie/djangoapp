@@ -10,7 +10,6 @@ urlpatterns = [
     path('tipo-personas/', views.TipoPersonaListCreate.as_view(), name='tipo-persona-list'),
     path('personastp/', views.PersonaTPListCreate.as_view(), name='personatp-list'),
     path('tipo-formaciones/', views.TPFormacionListCreate.as_view(), name='tipo-formaciones-list'),
-    path('formaciones/', views.FormacionListCreate.as_view(), name='formaciones-list'),
     path('materias/', views.MateriaListCreate.as_view(), name='materia-list'),
 
     path('verificar-cedula/', verificar_cedula, name='verificar-cedula'),
@@ -31,6 +30,7 @@ urlpatterns = [
     path('inscripcion/', views.InscripcionListCreate.as_view(), name='inscripcion-list'),
     path('formaciones/<int:pk>/cuotas/', views.CuotasPorFormacionList.as_view(), name='formacion-cuotas'),
     path('formaciones/<int:pk>/', views.FormacionRetrieve.as_view(), name='formacion-detail'),  # opcional si no existe
+    path('formaciones/', views.FormacionListCreate.as_view(), name='formaciones-list'),
     path('requisito/', views.RequisitoListCreate.as_view(), name='requisito-list'),
     path('servicio/', views.ServicioListCreate.as_view(), name='servicio-list'),
     path('tramite/', views.TramiteListCreate.as_view(), name='tramite-list'),
