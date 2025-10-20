@@ -83,18 +83,16 @@ class MateriaSerializer(serializers.ModelSerializer):
         fields = ['idMateria', 'idFormacion', 'nombreMateria', 'estadoMateria', 'fechaMateria']
 
 class CohorteSerializer(serializers.ModelSerializer):
-    # AGREGAR esta línea para incluir la formación dentro de la cohorte
     idFormacion = FormacionSerializer(read_only=True)
     
     class Meta:
         model = Cohorte
         fields = [
             'idCohorte',
-            'nombreCohorte', 
-            'idFormacion',  # Esto ahora incluirá el objeto completo de formación
-            'fechaInicio',
-            'fechaFin',
-            'is_active'
+            'nombreCohorte',
+            'estadoCohorte',
+            'fechaCohorte',
+            'idFormacion'
         ]
 
 class CargoSerializer(serializers.ModelSerializer):
