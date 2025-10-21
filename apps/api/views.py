@@ -26,6 +26,10 @@ from .serializers import PagoCreateSerializer
 
 from apps.api import serializers
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 # Vista para Personas
 class PersonaListCreate(generics.ListCreateAPIView):
     queryset = Personas.objects.all()  # Usa el modelo Personas
@@ -86,91 +90,35 @@ class FormacionRetrieve(generics.RetrieveAPIView):
     queryset = Formacion.objects.all()
     serializer_class = FormacionSerializer
     # El modelo usa idFormacion como PK, DRF lo respeta al usar 'pk' en la URL
-
 class InscripcionListCreate(generics.ListCreateAPIView):
     queryset = Inscripcion.objects.select_related(
         'idPersona',
-        'idFormacion',
         'idCohorte',
-        'idCohorte__idFormacion'   # <- importante para que CohorteSerializer.idFormacion no haga consultas extra
+        'idCohorte__idFormacion'
     ).all().prefetch_related('inscripcioncuota_set')
+
     serializer_class = InscripcionSerializer
 
-    def create(self, request, *args, **kwargs):
+    def list(self, request, *args, **kwargs):
         try:
-            print("=" * 50)
-            print("📥 INICIANDO CREACIÓN DE INSCRIPCIÓN")
-            print("📥 Datos recibidos:", request.data)
-            
-            data = request.data.copy()
-            
-            # Asegurarnos de que los IDs sean enteros - USAR LOS NOMBRES DIRECTOS
-            for field in ['idPersona', 'idTF', 'idFormacion', 'idCohorte']:
-                if field in data:
-                    try:
-                        data[field] = int(data[field])
-                        print(f"✅ Campo {field} convertido a entero: {data[field]}")
-                    except (ValueError, TypeError) as conv_error:
-                        print(f"❌ Error convirtiendo {field}: {conv_error}")
-                        return Response(
-                            {"error": f"El campo {field} debe ser un número entero válido"},
-                            status=status.HTTP_400_BAD_REQUEST
-                        )
-            
-            # Si idPersona no viene, usar el del usuario autenticado
-            if 'idPersona' not in data and hasattr(request.user, 'idPersona'):
-                data['idPersona'] = request.user.idPersona.idPersona
-            
-            # Validar que existan las referencias - USAR LOS NOMBRES DIRECTOS
-            try:
-                if 'idPersona' in data:
-                    Personas.objects.get(idPersona=data['idPersona'])
-                if 'idTF' in data:
-                    TipoFormacion.objects.get(idTF=data['idTF'])
-                if 'idFormacion' in data:
-                    Formacion.objects.get(idFormacion=data['idFormacion'])
-                if 'idCohorte' in data:
-                    Cohorte.objects.get(idCohorte=data['idCohorte'])
-            except (Personas.DoesNotExist, TipoFormacion.DoesNotExist, 
-                    Formacion.DoesNotExist, Cohorte.DoesNotExist) as e:
-                print(f"❌ Referencia no encontrada: {str(e)}")
-                return Response(
-                    {"error": f"Referencia no encontrada: {str(e)}"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            
-            print("🔍 Creando serializer...")
-            serializer = self.get_serializer(data=data)
-            
-            print("🔍 Validando serializer...")
-            if not serializer.is_valid():
-                print("❌ ERRORES DE VALIDACIÓN DEL SERIALIZER:")
-                for field, errors in serializer.errors.items():
-                    print(f"   {field}: {errors}")
-                return Response(
-                    {"error": "Error de validación", "details": serializer.errors},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            
-            print("🔍 Ejecutando perform_create...")
-            self.perform_create(serializer)
-            
-            print("✅ Inscripción creada exitosamente:", serializer.data)
-            headers = self.get_success_headers(serializer.data)
-            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
-            
+            # obtener queryset filtrado por filtros/permits y serializar
+            queryset = self.filter_queryset(self.get_queryset())
+            page = self.paginate_queryset(queryset)
+            if page is not None:
+                serializer = self.get_serializer(page, many=True)
+                return self.get_paginated_response(serializer.data)
+
+            serializer = self.get_serializer(queryset, many=True)
+            return Response(serializer.data)
         except Exception as e:
-            print("❌ ERROR NO CONTROLADO al crear inscripción:")
-            print(f"   Tipo: {type(e).__name__}")
-            print(f"   Mensaje: {str(e)}")
-            import traceback
-            print(f"   Traceback: {traceback.format_exc()}")
-            print("📋 Datos que causaron el error:", request.data)
-            return Response(
-                {"error": str(e), "details": "Error interno del servidor"}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-        
+            # log completo con stacktrace en los logs del servidor
+            logger.exception("❌ ERROR NO CONTROLADO en LIST Inscripcion")
+            # devolver respuesta controlada al frontend para evitar HTML 500
+            return Response({
+                "error": "Error interno al listar inscripciones",
+                "details": str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 class PagoCreateAPIView(APIView):
     @transaction.atomic
     def post(self, request):

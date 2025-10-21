@@ -1,6 +1,7 @@
 from decimal import Decimal
 import re
 import uuid
+import decimal
 from rest_framework import serializers
 from apps.home.models import Configuracion, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Moneda, Tasa, Formacion, CuotaFormacion, TipoFormacion, Usuarios
 from apps.persona.models import Personas, PersonaTP, TipoPersona
@@ -56,10 +57,15 @@ class TPFormacionSerializer(serializers.ModelSerializer):
         model = TipoFormacion  # Usa el modelo de home
         fields = ['idTF', 'nombreTipoFormacion', 'estadoTipoFormacion', 'fechaTipoFormacion']
 
+class MateriaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Materia  # Usa el modelo de home
+        fields = ['idMateria', 'idFormacion', 'nombreMateria', 'estadoMateria', 'fechaMateria']
+
 class FormacionSerializer(serializers.ModelSerializer):
-    # Campo para mostrar cuotas en las respuestas (opcional)
     cuotas_count = serializers.SerializerMethodField()
-    
+    valorInscripcion = serializers.SerializerMethodField()
+
     class Meta:
         model = Formacion
         fields = [
@@ -71,16 +77,42 @@ class FormacionSerializer(serializers.ModelSerializer):
             'duracion',
             'estadoFormacion',
             'fechaFormacion',
-            'cuotas_count'  # Número de cuotas activas
+            'cuotas_count',
         ]
-    
-    def get_cuotas_count(self, obj):
-        return obj.cuotas.filter(is_active=True).count()
 
-class MateriaSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Materia  # Usa el modelo de home
-        fields = ['idMateria', 'idFormacion', 'nombreMateria', 'estadoMateria', 'fechaMateria']
+    def get_valorInscripcion(self, obj):
+        try:
+            # convierte Decimal a float de forma segura
+            v = getattr(obj, 'valorInscripcion', None)
+            if v is None:
+                return 0.0
+            if isinstance(v, decimal.Decimal):
+                return float(v)
+            return float(v)
+        except Exception:
+            return 0.0
+
+    def get_cuotas_count(self, obj):
+        try:
+            # intentos por nombres habituales de relación inversa
+            candidates = ['cuotas', 'cuotaformacion_set', 'inscripcioncuota_set', 'cuotas_set']
+            for name in candidates:
+                rel = getattr(obj, name, None)
+                if rel is None:
+                    continue
+                try:
+                    # si es queryset, filtrar por is_active si aplica
+                    return rel.filter(is_active=True).count()
+                except Exception:
+                    try:
+                        return rel.count()
+                    except Exception:
+                        continue
+            # fallback seguro
+            return 0
+        except Exception:
+            return 0
+
 
 class CohorteSerializer(serializers.ModelSerializer):
     # incluir formación anidada - ya existe FormacionSerializer en tu archivo
@@ -115,23 +147,35 @@ class HonorarioSerializer(serializers.ModelSerializer):
         fields = ['idHonorario','idPersona','idCargo','idCohorte','idMateria','horas','estadoHonorario','fechaHonorario','monto']
 
 class CuotaFormacionSerializer(serializers.ModelSerializer):
+    valorCuota = serializers.SerializerMethodField()
+
     class Meta:
         model = CuotaFormacion
         fields = ['idCuota', 'nombreCuota', 'tipoCuota', 'valorCuota', 'orden', 'fechaCuota', 'is_active']
 
+    def get_valorCuota(self, obj):
+        try:
+            v = getattr(obj, 'valorCuota', None)
+            if v is None:
+                return 0.0
+            if isinstance(v, decimal.Decimal):
+                return float(v)
+            return float(v)
+        except Exception:
+            return 0.0
+
 class InscripcionSerializer(serializers.ModelSerializer):
     # Campos para LECTURA (serializadores anidados)
     idPersona_detail = PersonaSerializer(source='idPersona', read_only=True)
-    idFormacion_detail = FormacionSerializer(source='idFormacion', read_only=True)
+    # ahora obtenemos la formacion atraves de la cohorte
+    idFormacion_detail = FormacionSerializer(source='idCohorte.idFormacion', read_only=True)
     idCohorte_detail = CohorteSerializer(source='idCohorte', read_only=True)
 
     # Campos para ESCRITURA (IDs enteros)
     idPersona = serializers.IntegerField(write_only=True)
-    idFormacion = serializers.IntegerField(write_only=True)
     idCohorte = serializers.IntegerField(write_only=True)
-    idTF = serializers.IntegerField(write_only=True)
+    # Eliminados: idFormacion, idTF (no existen en el modelo Inscripcion)
 
-    # exponemos montoTotal y saldoPendiente basados en las properties del modelo
     montoTotal = serializers.SerializerMethodField()
     saldoPendiente = serializers.SerializerMethodField()
 
@@ -139,16 +183,11 @@ class InscripcionSerializer(serializers.ModelSerializer):
         model = Inscripcion
         fields = [
             'idInscripcion',
-            # Campos de lectura (detalles completos)
             'idPersona_detail',
-            'idFormacion_detail', 
+            'idFormacion_detail',
             'idCohorte_detail',
-            # Campos de escritura (solo IDs)
             'idPersona',
-            'idFormacion',
             'idCohorte',
-            'idTF',
-            # Otros campos
             'fechaInscripcion',
             'estadoPago',
             'montoPagado',
@@ -170,26 +209,20 @@ class InscripcionSerializer(serializers.ModelSerializer):
             return 0.0
 
     def create(self, validated_data):
-        print("🔄 Serializer.create() llamado")
-        print("🔄 validated_data:", validated_data)
-        
-        # Extraer los campos de relación
-        id_persona = validated_data.pop('idPersona')
-        id_formacion = validated_data.pop('idFormacion')
-        id_cohorte = validated_data.pop('idCohorte')
-        id_tf = validated_data.pop('idTF')
-        
-        # Crear la instancia
+        # validated_data ahora sólo incluye idPersona e idCohorte (entre otros)
+        id_persona = validated_data.pop('idPersona', None)
+        id_cohorte = validated_data.pop('idCohorte', None)
+
+        if not id_persona or not id_cohorte:
+            raise serializers.ValidationError("idPersona e idCohorte son obligatorios para crear una inscripción")
+
         inscripcion = Inscripcion.objects.create(
             idPersona_id=id_persona,
-            idFormacion_id=id_formacion,
             idCohorte_id=id_cohorte,
-            idTF_id=id_tf,
             **validated_data
         )
-        
-        print("✅ Instancia creada en serializer:", inscripcion.idInscripcion)
         return inscripcion
+
 
 class NotaSerializer(serializers.ModelSerializer):
     class Meta:

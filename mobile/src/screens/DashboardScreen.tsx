@@ -262,18 +262,57 @@ export default function DashboardScreen() {
         return;
       }
       const cedulaUsuarioNormalizada = normalizarCedula(personaCedula);
-
       const inscripcionesResult = await safeApiCall('/api/inscripcion/');
 
-      const extractData = (responseData: any) => {
-        if (Array.isArray(responseData)) return responseData;
-        if (responseData && Array.isArray(responseData.results)) return responseData.results;
-        if (responseData && responseData.data && Array.isArray(responseData.data)) return responseData.data;
-        if (responseData && typeof responseData === 'object') return [responseData];
+      if (!inscripcionesResult.success) {
+        console.warn('API inscripcion falló:', inscripcionesResult.error);
+        setError(typeof inscripcionesResult.error === 'string' ? inscripcionesResult.error : 'Error al obtener inscripciones (500)');
+        setMisInscripciones([]);
+        setNotasPorPagar([]);
+        setMisPagos([]);
+        setEstadoPago({ pagado: 0, pendiente: 0 });
+        setLoading(false);
+        return;
+      }
+
+      function extractData(data: any): any[] {
+        try {
+          if (data == null) return [];
+
+          // Si ya es un array, devolver tal cual
+          if (Array.isArray(data)) return data;
+
+          // Si es un objeto, buscar claves comunes que contienen arrays
+          if (typeof data === 'object') {
+            const commonKeys = ['results', 'data', 'rows', 'items', 'list', 'inscripciones', 'results_list'];
+            for (const k of commonKeys) {
+              if (Array.isArray(data[k])) return data[k];
+            }
+
+            // Algunos endpoints devuelven { data: { results: [...] } } u otras anidaciones
+            if (data.data && Array.isArray(data.data.results)) return data.data.results;
+            if (data.pagination && Array.isArray(data.pagination.results)) return data.pagination.results;
+
+            // Si hay exactamente una propiedad que es array, devolverla
+            const arrayProps = Object.values(data).filter(v => Array.isArray(v));
+            if (arrayProps.length === 1) return arrayProps[0];
+
+            // Si el objeto parece ser un solo registro (tiene id o idInscripcion), envolverlo en array
+            if (data.idInscripcion || data.id || data.id_inscripcion || data.idPersona) return [data];
+
+            // Como último recurso intentar aplanar arrays encontrados en las propiedades
+            const flattened = ([] as any[]).concat(...Object.values(data).filter(Array.isArray));
+            if (flattened.length) return flattened;
+          }
+        } catch (e) {
+          // Silencioso: devolver array vacío en caso de error de parsing
+        }
+
         return [];
-      };
+}
 
       const todasInscripciones = extractData(inscripcionesResult.data);
+
       console.log('📊 Todas las inscripciones obtenidas:', todasInscripciones.length);
 
       let misInscripcionesFiltradas: Inscripcion[] = [];
