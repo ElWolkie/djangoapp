@@ -40,19 +40,24 @@ type RootStackParamList = {
 interface Formacion {
   idFormacion?: number;
   nombreFormacion?: string;
+  valorInscripcion?: number | string;
 }
 
 interface Cohorte {
   idCohorte?: number;
   nombreCohorte?: string;
-  idFormacion?: Formacion;
+  lapsoInscripcion?: number;
+  fechaInicio?: string;
+  fechaFin?: string;
+  estadoCohorte?: string;
+  idFormacion?: Formacion; // anidado
 }
 
 interface Inscripcion {
   idInscripcion: number;
-  estadoPago: string;
-  fechaInscripcion: string;
-  idPersona: number;
+  estadoPago?: string;
+  fechaInscripcion?: string;
+  idPersona?: number;
   idPersona_detail?: {
     cedula?: string;
   };
@@ -60,6 +65,7 @@ interface Inscripcion {
   idFormacion_detail?: {
     idFormacion?: number;
     nombreFormacion?: string;
+    valorInscripcion?: number | string;
   };
   montoPagado?: number;
   montoTotal?: number;
@@ -71,7 +77,7 @@ interface NotaCobro {
   totalNota: number;
   descripcion?: string;
   estado: string;
-  fechaEmision: string;
+  fechaEmision?: string;
   tipoOperacion: string;
   tipoArticulo: string;
   idPersona?: number;
@@ -110,7 +116,7 @@ export default function DashboardScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Nuevos datos personalizados
+  // Datos
   const [misInscripciones, setMisInscripciones] = useState<Inscripcion[]>([]);
   const [misPagos, setMisPagos] = useState<Pago[]>([]);
   const [notasPorPagar, setNotasPorPagar] = useState<NotaCobro[]>([]);
@@ -126,7 +132,7 @@ export default function DashboardScreen() {
     else setGreeting({ title: '¡Buenas noches!', emoji: '🌙' });
   }, []);
 
-  // Helper para formatear fecha
+  // Helpers
   const formatDate = (dateString?: string) => {
     if (!dateString) return '—';
     try {
@@ -140,7 +146,12 @@ export default function DashboardScreen() {
     }
   };
 
-  // Función para normalizar cédula (igual que en InscripcionesScreen)
+  const fmtMoney = (v: any) => {
+    const n = Number(v);
+    if (!isFinite(n)) return '$0.00';
+    return `$${n.toFixed(2)}`;
+  };
+
   const normalizarCedula = (cedula: string): string => {
     if (!cedula) return '';
     let normalizada = cedula.toString().toUpperCase().replace(/[\.\-\s]/g, '');
@@ -150,149 +161,99 @@ export default function DashboardScreen() {
     return normalizada;
   };
 
-  // Función segura para hacer peticiones
-    const safeApiCall = async (endpoint: string, options = {}) => {
-      try {
-        console.log(`🔍 Haciendo request a: ${endpoint}`);
-        const response = await api.get(endpoint, options);
-        console.log(`✅ Respuesta de ${endpoint}:`, typeof response.data, response.data);
-        return { success: true, data: response.data };
-      } catch (error: any) {
-        console.warn(`❌ Error en ${endpoint}:`, error?.response?.status, error?.response?.data);
-        
-        if (error?.response?.status === 500) {
-          console.error('💥 ERROR 500 - Detalles:', {
-            url: error.config?.url,
-            method: error.config?.method,
-            data: error.response?.data
-          });
-        }
-        
-        return { 
-          success: false, 
-          error: error?.response?.data || error.message, 
-          data: [] 
-        };
+  const safeApiCall = async (endpoint: string, options = {}) => {
+    try {
+      console.log(`🔍 Haciendo request a: ${endpoint}`);
+      const response = await api.get(endpoint, options);
+      console.log(`✅ Respuesta de ${endpoint}:`, typeof response.data, response.data);
+      return { success: true, data: response.data };
+    } catch (error: any) {
+      console.warn(`❌ Error en ${endpoint}:`, error?.response?.status, error?.response?.data);
+      if (error?.response?.status === 500) {
+        console.error('💥 ERROR 500 - Detalles:', {
+          url: error.config?.url,
+          method: error.config?.method,
+          data: error.response?.data
+        });
       }
-    };
+      return { success: false, error: error?.response?.data || error.message, data: [] };
+    }
+  };
 
-  // Función MEJORADA para obtener nombre de cohorte
+  // Cohorte -> mostrar nombre + rango si hay fechas
   const getNombreCohorte = (inscripcion: Inscripcion): string => {
-    if (!inscripcion.idCohorte) {
-      return `Inscripción #${inscripcion.idInscripcion}`;
+    const coh = inscripcion.idCohorte;
+    if (!coh) return `Inscripción #${inscripcion.idInscripcion}`;
+
+    if (coh.nombreCohorte) {
+      const inicio = formatDate((coh as any).fechaInicio);
+      const fin = formatDate((coh as any).fechaFin);
+      if (inicio !== '—' && fin !== '—') {
+        return `${coh.nombreCohorte} (${inicio} - ${fin})`;
+      }
+      return coh.nombreCohorte;
     }
-    
-    // Si tenemos nombre de cohorte específico
-    if (inscripcion.idCohorte.nombreCohorte) {
-      return inscripcion.idCohorte.nombreCohorte;
-    }
-    
-    // Si tenemos ID de cohorte pero no nombre
-    if (inscripcion.idCohorte.idCohorte) {
-      return `Cohorte #${inscripcion.idCohorte.idCohorte}`;
-    }
-    
+
+    if (coh.idCohorte) return `Cohorte #${coh.idCohorte}`;
     return `Inscripción #${inscripcion.idInscripcion}`;
   };
 
-  // REEMPLAZA la función getNombreFormacion actual con esta versión MÁS AGRESIVA:
+  // Obtener nombre de la formación (varias fuentes)
   const getNombreFormacion = (inscripcion: Inscripcion): string => {
-  console.log(`🔍 [GET_NOMBRE_FORMACION] Buscando nombre para inscripción ${inscripcion.idInscripcion}`);
-  
-  // 1. Primero intentar con idFormacion_detail (que es lo que viene del backend)
-  if (inscripcion.idFormacion_detail?.nombreFormacion) {
-    const nombre = inscripcion.idFormacion_detail.nombreFormacion;
-    console.log(`✅ [GET_NOMBRE_FORMACION] Encontrado en idFormacion_detail: ${nombre}`);
-    return nombre;
-  }
-  
-  // 2. Luego intentar con la formación dentro de la cohorte (por si acaso)
-  if (inscripcion.idCohorte?.idFormacion?.nombreFormacion) {
-    const nombre = inscripcion.idCohorte.idFormacion.nombreFormacion;
-    console.log(`✅ [GET_NOMBRE_FORMACION] Encontrado en idCohorte.idFormacion: ${nombre}`);
-    return nombre;
-  }
-    
-    // 3. Intentar extraer del nombre de la cohorte
-    const nombreCohorte = getNombreCohorte(inscripcion);
-    if (nombreCohorte && !nombreCohorte.startsWith('Inscripción #') && !nombreCohorte.startsWith('Cohorte #')) {
-      console.log(`🟡 [GET_NOMBRE_FORMACION] Usando nombre de cohorte: ${nombreCohorte}`);
+    // 1) idFormacion_detail (directo)
+    if (inscripcion.idFormacion_detail?.nombreFormacion) {
+      return inscripcion.idFormacion_detail.nombreFormacion;
+    }
+    // 2) cohorte.idFormacion (nested)
+    if (inscripcion.idCohorte?.idFormacion?.nombreFormacion) {
+      return inscripcion.idCohorte.idFormacion.nombreFormacion!;
+    }
+    // 3) extraer del nombre de la cohorte (fallback)
+    const nombreCohorte = inscripcion.idCohorte?.nombreCohorte;
+    if (nombreCohorte) {
+      if (nombreCohorte.includes('Biotecnología')) return 'Biotecnología';
+      if (nombreCohorte.includes('Ingeniería')) return 'Ingeniería';
+      if (nombreCohorte.includes('Medicina')) return 'Medicina';
+      if (nombreCohorte.includes('Derecho')) return 'Derecho';
+      if (nombreCohorte.includes('Administración')) return 'Administración';
+      // si no coincide, devolver el nombre de la cohorte
       return nombreCohorte;
     }
-    
-    // 4. Último recurso - buscar en datos de la inscripción
-    if (inscripcion.idCohorte?.nombreCohorte) {
-      const nombreCohorteCompleto = inscripcion.idCohorte.nombreCohorte;
-      
-      // Intentar extraer nombre de formación del nombre de cohorte
-      if (nombreCohorteCompleto.includes('Biotecnología')) return 'Biotecnología';
-      if (nombreCohorteCompleto.includes('Ingeniería')) return 'Ingeniería';
-      if (nombreCohorteCompleto.includes('Medicina')) return 'Medicina';
-      if (nombreCohorteCompleto.includes('Derecho')) return 'Derecho';
-      if (nombreCohorteCompleto.includes('Administración')) return 'Administración';
-      
-      console.log(`🟡 [GET_NOMBRE_FORMACION] Usando nombre completo de cohorte: ${nombreCohorteCompleto}`);
-      return nombreCohorteCompleto;
-    }
-    
-    console.log(`🔴 [GET_NOMBRE_FORMACION] No se pudo determinar, usando valor por defecto`);
+
     return 'Formación Continua';
   };
 
-
-    // Función mejorada para obtener información de la cohorte de una nota
-  const getCohorteDeNota = (nota: NotaCobro) => {
-    if (nota.relaciones && nota.relaciones.length > 0) {
-      const primeraRelacion = nota.relaciones[0];
-      if (primeraRelacion.idInscripcion?.idCohorte?.nombreCohorte) {
-        return primeraRelacion.idInscripcion.idCohorte.nombreCohorte;
-      }
-      if (primeraRelacion.idInscripcion?.idInscripcion) {
-        // Buscar la inscripción correspondiente para obtener más datos
-        const inscripcionCorrespondiente = misInscripciones.find(
-          insc => insc.idInscripcion === primeraRelacion.idInscripcion?.idInscripcion
-        );
-        if (inscripcionCorrespondiente) {
-          return getNombreCohorte(inscripcionCorrespondiente);
-        }
-        return `Inscripción #${primeraRelacion.idInscripcion.idInscripcion}`;
-      }
+  // Obtener valor de inscripción con fallbacks
+  const getValorInscripcion = (inscripcion: Inscripcion): number => {
+    const v1 = inscripcion.idFormacion_detail?.valorInscripcion;
+    if (v1 !== undefined && v1 !== null) {
+      const n = Number(v1);
+      if (isFinite(n)) return n;
     }
-    
-    // Si no hay relaciones, usar la descripción mejorada
-    if (nota.descripcion) {
-      const descripcionLimpia = nota.descripcion.replace('Inscripción - ', '');
-      if (descripcionLimpia !== 'Formación Continua') {
-        return descripcionLimpia;
-      }
+    const v2 = inscripcion.idCohorte?.idFormacion?.valorInscripcion;
+    if (v2 !== undefined && v2 !== null) {
+      const n = Number(v2);
+      if (isFinite(n)) return n;
     }
-    
-    // Buscar en las inscripciones si esta nota está relacionada
-    const inscripcionRelacionada = misInscripciones.find(
-      insc => insc.idInscripcion === (nota.idNota - 1000) // Por la simulación temporal
-    );
-    if (inscripcionRelacionada) {
-      return getNombreCohorte(inscripcionRelacionada);
+    if (inscripcion.montoTotal !== undefined && inscripcion.montoTotal !== null) {
+      const n = Number(inscripcion.montoTotal);
+      if (isFinite(n)) return n;
     }
-    
-    return 'Formación Continua';
+    return 0;
   };
 
   // Cargar TODOS los datos en una sola función
   const loadAllData = async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
       console.log('🔍 Iniciando carga de datos del dashboard...');
-      
       if (!user) {
         console.warn('⚠️ No hay usuario en el contexto de autenticación');
         setLoading(false);
         return;
       }
-
-      console.log('✅ Usuario del contexto:', user);
 
       const personaCedula = user.cedula;
       if (!personaCedula) {
@@ -300,188 +261,83 @@ export default function DashboardScreen() {
         setLoading(false);
         return;
       }
-
       const cedulaUsuarioNormalizada = normalizarCedula(personaCedula);
-      console.log('✅ Cédula normalizada a usar:', cedulaUsuarioNormalizada);
 
-      // USAR EL ENDPOINT QUE SÍ FUNCIONA
-      console.log('🔍 Cargando datos de APIs...');
-      
-      const inscripcionesResult = await safeApiCall('/api/inscripcion/');  // ✅ ESTE ENDPOINT SÍ FUNCIONA
+      const inscripcionesResult = await safeApiCall('/api/inscripcion/');
 
-      // Extraer datos de forma robusta
-      const extractData = (responseData: any, tipo: string) => {
-        let dataArray: any[] = [];
-        
-        if (Array.isArray(responseData)) {
-          dataArray = responseData;
-        } else if (responseData && Array.isArray(responseData.results)) {
-          dataArray = responseData.results;
-        } else if (responseData && responseData.data && Array.isArray(responseData.data)) {
-          dataArray = responseData.data;
-        } else if (responseData && typeof responseData === 'object') {
-          dataArray = [responseData];
-        } else {
-          dataArray = [];
-        }
-        
-        console.log(`📋 ${tipo} - Datos extraídos:`, dataArray.length);
-        return dataArray;
+      const extractData = (responseData: any) => {
+        if (Array.isArray(responseData)) return responseData;
+        if (responseData && Array.isArray(responseData.results)) return responseData.results;
+        if (responseData && responseData.data && Array.isArray(responseData.data)) return responseData.data;
+        if (responseData && typeof responseData === 'object') return [responseData];
+        return [];
       };
 
-      const todasInscripciones = extractData(inscripcionesResult.data, 'Inscripciones');
-      
+      const todasInscripciones = extractData(inscripcionesResult.data);
       console.log('📊 Todas las inscripciones obtenidas:', todasInscripciones.length);
 
-      // FILTRAR EN EL FRONTEND (como en el dashboard funcional)
       let misInscripcionesFiltradas: Inscripcion[] = [];
-      
+
       if (todasInscripciones.length > 0) {
-        console.log('🔍 Buscando inscripciones del usuario por cédula...');
-        
         misInscripcionesFiltradas = todasInscripciones.filter((insc: any) => {
           const cedulaInscripcion = insc.idPersona_detail?.cedula || insc.idPersona?.cedula;
-          if (!cedulaInscripcion) {
-            console.log('❌ Inscripción sin cédula:', insc.idInscripcion);
-            return false;
-          }
-          
+          if (!cedulaInscripcion) return false;
           const cedulaInscNormalizada = normalizarCedula(cedulaInscripcion);
-          const match = cedulaInscNormalizada === cedulaUsuarioNormalizada;
-          
-          if (match) {
-            console.log('✅ Inscripción encontrada - DETALLES COMPLETOS:', {
-              id: insc.idInscripcion,
-              cedulaInsc: cedulaInscripcion,
-              cedulaUser: personaCedula,
-              estado: insc.estadoPago,
-              tieneCohorte: !!insc.idCohorte,
-              cohorteCompleta: insc.idCohorte,
-              nombreCohorte: getNombreCohorte(insc),
-              nombreFormacion: getNombreFormacion(insc)
-            });
-            
-            // Debug detallado de la estructura de cohorte
-            if (insc.idCohorte) {
-              console.log('🔍 DEBUG Cohorte:', {
-                idCohorte: insc.idCohorte.idCohorte,
-                nombreCohorte: insc.idCohorte.nombreCohorte,
-                tieneFormacion: !!insc.idCohorte.idFormacion,
-                formacion: insc.idCohorte.idFormacion
-              });
-            }
-          }
-          
-          return match;
+          return cedulaInscNormalizada === cedulaUsuarioNormalizada;
+        }).map((insc: any) => {
+          // Normalizar estructura mínima que usamos en UI
+          return {
+            ...insc,
+            // asegurar fechas y valores en tipos esperados
+            fechaInscripcion: insc.fechaInscripcion || insc.fechaInscripcionString || null,
+          } as Inscripcion;
         });
       }
-      
-      // SOLUCIÓN MEJORADA: Usar los datos que YA VIENEN en la respuesta
-      console.log('🎯 Procesando datos de formaciones con información disponible...');
 
-      // Verificar qué datos de formación tenemos realmente
-      misInscripcionesFiltradas.forEach((insc, index) => {
-        console.log(`📝 Inscripción ${index + 1} - ANÁLISIS COMPLETO:`, {
-          idInscripcion: insc.idInscripcion,
-          estadoPago: insc.estadoPago,
-          // Análisis de cohorte
-          tieneCohorte: !!insc.idCohorte,
-          cohorte: insc.idCohorte ? {
-            id: insc.idCohorte.idCohorte,
-            nombre: insc.idCohorte.nombreCohorte,
-            // Análisis profundo de formación
-            tieneFormacion: !!insc.idCohorte.idFormacion,
-            formacion: insc.idCohorte.idFormacion ? {
-              id: insc.idCohorte.idFormacion.idFormacion,
-              nombre: insc.idCohorte.idFormacion.nombreFormacion,
-              // Verificar todos los campos disponibles en idFormacion
-              todosLosCampos: Object.keys(insc.idCohorte.idFormacion)
-            } : 'NO HAY DATOS DE FORMACIÓN'
-          } : 'NO HAY COHORTE',
-          // Llamada a las funciones para ver qué devuelven
-          resultadoGetNombreCohorte: getNombreCohorte(insc),
-          resultadoGetNombreFormacion: getNombreFormacion(insc)
+      // Debug
+      misInscripcionesFiltradas.forEach((insc) => {
+        console.log('🔍 Insc debug:', {
+          id: insc.idInscripcion,
+          cohorte: insc.idCohorte,
+          formacion_detail: insc.idFormacion_detail,
         });
-        
-        // Debug adicional: mostrar la estructura completa de la cohorte
-        if (insc.idCohorte) {
-          console.log(`🔍 ESTRUCTURA COMPLETA de cohorte para inscripción ${insc.idInscripcion}:`, JSON.stringify(insc.idCohorte, null, 2));
-        }
       });
 
       setMisInscripciones(misInscripcionesFiltradas);
-      console.log('✅ Mis inscripciones filtradas:', misInscripcionesFiltradas.length);
 
-      // SOLUCIÓN TEMPORAL: Simular notas basadas en inscripciones
-      const notasSimuladas = misInscripcionesFiltradas.map(insc => {
-        const nombreCohorte = getNombreCohorte(insc);
-        const nombreFormacion = getNombreFormacion(insc);
-        
-        console.log(`📋 Creando nota para inscripción ${insc.idInscripcion}:`, {
-          nombreCohorte,
-          nombreFormacion,
-          estadoPago: insc.estadoPago,
-          montoTotal: insc.montoTotal
-        });
-        
-        return {
-          idNota: insc.idInscripcion + 1000,
-          totalNota: insc.montoTotal || insc.saldoPendiente || 100,
-          descripcion: `Inscripción - ${nombreFormacion}`,
-          estado: insc.estadoPago === 'PAGADO' ? 'PAGADA' : insc.estadoPago || 'PENDIENTE',
-          fechaEmision: insc.fechaInscripcion,
-          tipoOperacion: 'COBRO',
-          tipoArticulo: 'INSCRIPCION',
-          relaciones: [{
-            idInscripcion: {
-              idInscripcion: insc.idInscripcion,
-              idCohorte: {
-                idCohorte: insc.idCohorte?.idCohorte,
-                nombreCohorte: nombreCohorte
-              }
+      // Simular notas por pagar (temporal)
+      const notasSimuladas = misInscripcionesFiltradas.map(insc => ({
+        idNota: insc.idInscripcion + 1000,
+        totalNota: insc.montoTotal ?? getValorInscripcion(insc) ?? 0,
+        descripcion: `Inscripción - ${getNombreFormacion(insc)}`,
+        estado: insc.estadoPago === 'PAGADO' ? 'PAGADA' : insc.estadoPago ?? 'PENDIENTE',
+        fechaEmision: insc.fechaInscripcion,
+        tipoOperacion: 'COBRO',
+        tipoArticulo: 'INSCRIPCION',
+        relaciones: [{
+          idInscripcion: {
+            idInscripcion: insc.idInscripcion,
+            idCohorte: {
+              idCohorte: insc.idCohorte?.idCohorte,
+              nombreCohorte: getNombreCohorte(insc)
             }
-          }]
-        };
-      });
+          }
+        }]
+      }));
 
-      // Filtrar notas pendientes
-      const notasPendientes = notasSimuladas.filter(nota => 
-        nota.estado === 'PENDIENTE' || nota.estado === 'PARCIAL'
-      );
-      
+      const notasPendientes = notasSimuladas.filter(n => n.estado === 'PENDIENTE' || n.estado === 'PARCIAL');
       setNotasPorPagar(notasPendientes);
-      console.log('📝 Notas por pagar (simuladas):', notasPendientes.length);
 
-      // SOLUCIÓN TEMPORAL: Pagos vacíos por ahora
-      setMisPagos([]);
+      setMisPagos([]); // temporal
 
-      // Calcular estado de pagos basado en inscripciones
-      const inscripcionesPagadas = misInscripcionesFiltradas.filter(insc => 
-        insc.estadoPago === 'PAGADO'
-      ).length;
+      const inscripcionesPagadas = misInscripcionesFiltradas.filter(i => i.estadoPago === 'PAGADO').length;
+      const inscripcionesPendientes = misInscripcionesFiltradas.filter(i => i.estadoPago === 'PENDIENTE' || i.estadoPago === 'PARCIAL').length;
 
-      const inscripcionesPendientes = misInscripcionesFiltradas.filter(insc => 
-        insc.estadoPago === 'PENDIENTE' || insc.estadoPago === 'PARCIAL'
-      ).length;
+      setEstadoPago({ pagado: inscripcionesPagadas, pendiente: inscripcionesPendientes });
 
-      setEstadoPago({
-        pagado: inscripcionesPagadas,
-        pendiente: inscripcionesPendientes
-      });
-
-      console.log('🎯 Estado final:', {
-        inscripciones: misInscripcionesFiltradas.length,
-        notasPorPagar: notasPendientes.length,
-        pagos: 0,
-        inscripcionesPagadas: inscripcionesPagadas,
-        inscripcionesPendientes: inscripcionesPendientes
-      });
-
-      // Si no hay inscripciones, mostrar mensaje
       if (misInscripcionesFiltradas.length === 0) {
         setError('No se encontraron inscripciones para este usuario');
       }
-
     } catch (err: any) {
       console.error('❌ Error crítico en loadAllData:', err);
       setError('Error inesperado al cargar los datos');
@@ -492,11 +348,9 @@ export default function DashboardScreen() {
   };
 
   useEffect(() => {
-    // entrada animada suave
     Animated.stagger(90, cardsAnim.map(a => Animated.spring(a, { toValue: 1, useNativeDriver: true }))).start();
   }, []);
 
-  // Cargar datos cuando el usuario esté disponible en el contexto
   useEffect(() => {
     if (user) {
       console.log('👤 Usuario disponible en contexto, cargando datos...');
@@ -507,103 +361,44 @@ export default function DashboardScreen() {
     }
   }, [user]);
 
-  // Obtener la última inscripción
-  const getUltimaInscripcion = () => {
-    if (misInscripciones.length === 0) return null;
-    
-    const inscripcionesConFecha = misInscripciones.filter(insc => 
-      insc.fechaInscripcion && insc.fechaInscripcion !== 'null'
-    );
-    
-    if (inscripcionesConFecha.length === 0) return misInscripciones[0];
-    
-    return inscripcionesConFecha.reduce((latest, current) => {
-      try {
-        const latestDate = new Date(latest.fechaInscripcion);
-        const currentDate = new Date(current.fechaInscripcion);
-        return currentDate > latestDate ? current : latest;
-      } catch {
-        return latest;
-      }
-    });
-  };
+  // Stats
+  const ultimaInscripcion = misInscripciones.length ? misInscripciones[0] : null;
+  const montoTotalPorPagar = notasPorPagar.reduce((t, n) => t + (n.totalNota || 0), 0);
 
-  // Obtener el último pago
-  const getUltimoPago = () => {
-    if (misPagos.length === 0) return null;
-    
-    const pagosConFecha = misPagos.filter(pago => 
-      pago.fechaPago && pago.fechaPago !== 'null'
-    );
-    
-    if (pagosConFecha.length === 0) return misPagos[0];
-    
-    return pagosConFecha.reduce((latest, current) => {
-      try {
-        const latestDate = new Date(latest.fechaPago);
-        const currentDate = new Date(current.fechaPago);
-        return currentDate > latestDate ? current : latest;
-      } catch {
-        return latest;
-      }
-    });
-  };
-
-  // Calcular monto total de notas por pagar
-  const getMontoTotalPorPagar = () => {
-    return notasPorPagar.reduce((total, nota) => total + (nota.totalNota || 0), 0);
-  };
-
-  const ultimaInscripcion = getUltimaInscripcion();
-  const ultimoPago = getUltimoPago();
-  const montoTotalPorPagar = getMontoTotalPorPagar();
-
-  // Definir stats después de calcular todas las variables necesarias
   const stats = [
     {
       title: 'Mis Inscripciones',
       value: misInscripciones.length.toString(),
       icon: 'book-account',
       color: '#fb6340',
-      subtitle: ultimaInscripcion 
-        ? `${getNombreCohorte(ultimaInscripcion)} - ${ultimaInscripcion.estadoPago || 'Activa'}`
-        : 'No tienes inscripciones',
+      subtitle: ultimaInscripcion ? `${getNombreCohorte(ultimaInscripcion)} - ${ultimaInscripcion.estadoPago ?? 'Activa'}` : 'No tienes inscripciones',
     },
     {
       title: 'Mis Pagos',
       value: misPagos.length.toString(),
       icon: 'currency-usd',
       color: '#2dce89',
-      subtitle: ultimoPago 
-        ? `Último: ${formatDate(ultimoPago.fechaPago)} - $${ultimoPago.monto || 0}`
-        : 'No hay pagos registrados',
+      subtitle: misPagos.length ? `Último: ${formatDate(misPagos[0].fechaPago)} - $${misPagos[0].monto}` : 'No hay pagos registrados',
     },
     {
       title: 'Estado de Pagos',
       value: estadoPago.pendiente === 0 ? 'Al día' : 'Pendiente',
       icon: 'clock-check',
       color: estadoPago.pendiente === 0 ? '#11cdef' : '#f7b731',
-      subtitle: estadoPago.pendiente === 0 
-        ? 'Todas las inscripciones pagadas' 
-        : `${estadoPago.pendiente} inscripción(es) pendiente(s)`,
+      subtitle: estadoPago.pendiente === 0 ? 'Todas las inscripciones pagadas' : `${estadoPago.pendiente} inscripción(es) pendiente(s)`,
     },
     {
       title: 'Notas por Pagar',
       value: notasPorPagar.length.toString(),
       icon: 'note-alert',
       color: '#f5365c',
-      subtitle: montoTotalPorPagar > 0 
-        ? `Total: $${montoTotalPorPagar.toFixed(2)}` 
-        : 'No hay notas pendientes',
+      subtitle: montoTotalPorPagar > 0 ? `Total: ${fmtMoney(montoTotalPorPagar)}` : 'No hay notas pendientes',
     },
   ];
 
-  // Función para recargar datos
-  const handleRetry = () => {
-    loadAllData();
-  };
+  const handleRetry = () => loadAllData();
 
-  // Mostrar loading mientras no hay usuario
+  // Renders (loading / error handled)
   if (!user && loading) {
     return (
       <View style={styles.container}>
@@ -650,16 +445,17 @@ export default function DashboardScreen() {
             Error al cargar datos
           </Text>
           <Text style={{ color: '#666', textAlign: 'center', marginBottom: 20 }}>{error}</Text>
-          <TouchableOpacity 
-              style={styles.retryButton}
-              onPress={handleRetry}
-            >
-              <Icon name="reload" size={20} color="#fff" />
-              <Text style={styles.retryButtonText}>Reintentar</Text>
-            </TouchableOpacity>
+          <TouchableOpacity style={styles.retryButton} onPress={handleRetry}>
+            <Icon name="reload" size={20} color="#fff" />
+            <Text style={styles.retryButtonText}>Reintentar</Text>
+          </TouchableOpacity>
         </View>
       </View>
     );
+  }
+
+  function getCohorteDeNota(nota: NotaCobro): React.ReactNode {
+    throw new Error('Function not implemented.');
   }
 
   return (
@@ -696,91 +492,68 @@ export default function DashboardScreen() {
           ))}
         </View>
 
-        {/* Sección de acciones rápidas - CON CONTENEDOR */}
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionTitle}>Acciones rápidas</Text>
           <View style={styles.actionsRow}>
-            <TouchableOpacity 
-              style={styles.actionButton} 
-              onPress={() => navigation.navigate('Inscripciones')}
-            >
+            <TouchableOpacity style={styles.actionButton} onPress={() => navigation.navigate('Inscripciones')}>
               <Icon name="book-plus" size={22} color="#4f8cff" />
               <Text style={styles.actionButtonText}>Nueva Inscripción</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
-              style={styles.actionButton} 
-              onPress={() => navigation.navigate('Pagos')}
-            >
+            <TouchableOpacity style={styles.actionButton} onPress={() => navigation.navigate('Pagos')}>
               <Icon name="credit-card-check" size={22} color="#2dce89" />
               <Text style={styles.actionButtonText}>Realizar Pago</Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Detalle de notas por pagar */}
         {notasPorPagar.length > 0 && (
           <View style={styles.detailContainer}>
             <Text style={styles.detailTitle}>Notas por Pagar</Text>
-            {notasPorPagar.map((nota, index) => (
+            {notasPorPagar.map((nota) => (
               <View key={nota.idNota} style={styles.notaItem}>
                 <View style={styles.notaHeader}>
-                  <Text style={styles.notaDescripcion}>
-                    {nota.descripcion || `Nota ${nota.idNota}`}
-                  </Text>
-                  <Text style={styles.notaMonto}>${nota.totalNota?.toFixed(2) || '0.00'}</Text>
+                  <Text style={styles.notaDescripcion}>{nota.descripcion || `Nota ${nota.idNota}`}</Text>
+                  <Text style={styles.notaMonto}>{fmtMoney(nota.totalNota)}</Text>
                 </View>
                 <Text style={styles.notaDetalle}>
-                  {getCohorteDeNota(nota)} • 
-                  Emitida: {formatDate(nota.fechaEmision)} • 
-                  Tipo: {nota.tipoArticulo || 'Cobro'}
+                  {getCohorteDeNota(nota)} • Emitida: {formatDate(nota.fechaEmision)} • Tipo: {nota.tipoArticulo || 'Cobro'}
                 </Text>
               </View>
             ))}
           </View>
         )}
 
-        {/* Detalle de inscripciones activas */}
         {misInscripciones.length > 0 && (
           <View style={styles.detailContainer}>
             <Text style={styles.detailTitle}>Mis Inscripciones Activas</Text>
-            {misInscripciones.map((inscripcion, index) => (
+            {misInscripciones.map((inscripcion) => (
               <View key={inscripcion.idInscripcion} style={styles.inscripcionItem}>
                 <View style={styles.inscripcionHeader}>
-                  <Text style={styles.inscripcionNombre}>
-                    {getNombreCohorte(inscripcion)}
-                  </Text>
+                  <Text style={styles.inscripcionNombre}>{getNombreCohorte(inscripcion)}</Text>
                   <Text style={[
-                    styles.inscripcionEstado,
-                    { 
-                      color: inscripcion.estadoPago === 'PAGADO' ? '#2dce89' : 
-                            inscripcion.estadoPago === 'PARCIAL' ? '#f7b731' : '#fb6340'
-                    }
-                  ]}>
-                    {inscripcion.estadoPago || 'PENDIENTE'}
+                      styles.inscripcionEstado,
+                      { color: inscripcion.estadoPago === 'PAGADO' ? '#2dce89' : inscripcion.estadoPago === 'PARCIAL' ? '#f7b731' : '#fb6340' }
+                    ]}>
+                    {inscripcion.estadoPago ?? 'PENDIENTE'}
                   </Text>
                 </View>
-                <Text style={styles.inscripcionFormacion}>
-                  {getNombreFormacion(inscripcion)}
-                </Text>
+
+                <Text style={styles.inscripcionFormacion}>{getNombreFormacion(inscripcion)}</Text>
+
                 <Text style={styles.inscripcionDetalle}>
-                  Fecha: {formatDate(inscripcion.fechaInscripcion)} • 
-                  {inscripcion.montoPagado ? ` Pagado: $${inscripcion.montoPagado}` : ''} • 
-                  Saldo: ${inscripcion.saldoPendiente || inscripcion.montoTotal || '0.00'}
+                  Valor: {fmtMoney(getValorInscripcion(inscripcion))} • Fecha: {formatDate(inscripcion.fechaInscripcion)}
                 </Text>
               </View>
             ))}
           </View>
         )}
 
-        {/* Información adicional si no hay datos */}
         {(misInscripciones.length === 0 && misPagos.length === 0 && notasPorPagar.length === 0) && (
           <View style={styles.infoContainer}>
             <Icon name="information" size={32} color="#4f8cff" />
             <Text style={styles.infoTitle}>Bienvenido al sistema</Text>
             <Text style={styles.infoText}>
-              {user?.displayName ? `${user.displayName}, ` : ''} 
-              aún no tienes inscripciones, pagos ni notas registradas. 
-              Puedes comenzar realizando una nueva inscripción.
+              {user?.displayName ? `${user.displayName}, ` : ''} aún no tienes inscripciones, pagos ni notas registradas. Puedes comenzar realizando una nueva inscripción.
             </Text>
           </View>
         )}
