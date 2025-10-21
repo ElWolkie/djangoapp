@@ -493,9 +493,33 @@ export default function DashboardScreen() {
     );
   }
 
-  function getCohorteDeNota(nota: NotaCobro): React.ReactNode {
-    throw new Error('Function not implemented.');
-  }
+      function getCohorteDeNota(nota: NotaCobro): React.ReactNode {
+      try {
+        // Estructuras posibles: nota.relaciones -> [ { idInscripcion: { idCohorte: { nombreCohorte } } } ]
+        const relaciones = nota?.relaciones;
+        if (Array.isArray(relaciones) && relaciones.length > 0) {
+          const r0 = relaciones[0];
+          const nombre = r0?.idInscripcion?.idCohorte?.nombreCohorte
+          if (nombre) return String(nombre);
+        }
+
+        // Si la nota trae idInscripcion a nivel superior (otras APIs)
+        const insc = (nota as any).idInscripcion;
+        if (insc) {
+          const nn = insc?.idCohorte?.nombreCohorte || insc?.idCohorte?.nombre;
+          if (nn) return String(nn);
+        }
+
+        // Fallbacks: usar descripción de la nota o un guion
+        if (nota.descripcion) return nota.descripcion;
+        return '—';
+      } catch (e) {
+        // no romper la UI por un dato mal formado
+        console.warn('getCohorteDeNota error:', e);
+        return '—';
+      }
+    }
+
 
   return (
     <View style={styles.container}>

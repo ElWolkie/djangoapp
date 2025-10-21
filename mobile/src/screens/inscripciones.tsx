@@ -125,6 +125,11 @@ const InscripcionesScreen = () => {
   const navigation = useNavigation<any>();
   const { user } = useContext(AuthContext);
 
+  // <-- LLAMADA A HOOKS: useWindowDimensions SOLO AQUÍ (una vez)
+  const { width, height } = useWindowDimensions();
+  const isSmallScreen = width <= 620;
+  const isLargeScreen = width >= 900;
+
   const [items, setItems] = useState<Inscripcion[]>([]);
   const [mostradas, setMostradas] = useState<Inscripcion[]>([]);
   const [loading, setLoading] = useState(true);
@@ -156,10 +161,6 @@ const InscripcionesScreen = () => {
   const [fechaInscripcion, setFechaInscripcion] = useState<string>('');
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [formacionDetailsMap, setFormacionDetailsMap] = useState<Record<number, any>>({});
-
-  const { width } = useWindowDimensions();
-  const isSmallScreen = width <= 620;
-  const isLargeScreen = width >= 900;
 
   // ---------- API helpers ----------
   const fetchCuotasForFormacion = async (idFormacion: number): Promise<Cuota[]> => {
@@ -209,13 +210,47 @@ const InscripcionesScreen = () => {
         if (!cedulaInscripcion) return false;
         return normalizarCedula(cedulaInscripcion) === cedulaUsuarioNormalizada;
       }).map((ins: any) => {
-        // homogeneizar keys (idCohorte_detail / idCohorte)
+        // NORMALIZAR idFormacion_detail e idCohorte_detail (soportar varias formas)
+        const rawForm = ins.idFormacion_detail ?? ins.idFormacion ?? ins.formacion ?? null;
+        const formNormalized = rawForm
+          ? {
+              idFormacion: Number(rawForm.idFormacion ?? rawForm.id ?? rawForm.pk ?? 0),
+              nombreFormacion: rawForm.nombreFormacion ?? rawForm.nombre ?? rawForm.title ?? rawForm.name ?? null,
+              valorInscripcion: Number(rawForm.valorInscripcion ?? rawForm.precio ?? rawForm.costo ?? rawForm.valor ?? 0),
+              cuotas: rawForm.cuotas ?? rawForm.cuotas_json ?? rawForm.inscripcioncuota_set ?? []
+            }
+          : null;
+
+        const rawCoh = ins.idCohorte ?? ins.idCohorte_detail ?? ins.cohorte ?? null;
+        const cohNormalized = rawCoh
+          ? {
+              idCohorte: Number(rawCoh.idCohorte ?? rawCoh.id ?? 0),
+              nombreCohorte: rawCoh.nombreCohorte ?? rawCoh.nombre ?? rawCoh.title ?? null,
+              idFormacion: (typeof rawCoh.idFormacion === 'object' && rawCoh.idFormacion !== null)
+                ? {
+                    idFormacion: Number(rawCoh.idFormacion.idFormacion ?? rawCoh.idFormacion.id ?? 0),
+                    nombreFormacion: rawCoh.idFormacion.nombreFormacion ?? rawCoh.idFormacion.nombre ?? null,
+                    valorInscripcion: Number(rawCoh.idFormacion.valorInscripcion ?? 0)
+                  }
+                : (rawCoh.idFormacion ? { idFormacion: Number(rawCoh.idFormacion) } : null)
+            }
+          : null;
+
+        // Asegurar fecha y montos por compatibilidad
+        const fecha = ins.fechaInscripcion ?? ins.fecha ?? ins.created_at ?? null;
+        const montoTot = Number(ins.montoTotal ?? ins.total ?? ins.monto ?? ins.valor ?? 0);
+        const montoPag = Number(ins.montoPagado ?? ins.pagado ?? 0);
+
         return {
           ...ins,
-          idCohorte_detail: ins.idCohorte ?? ins.idCohorte_detail ?? null,
-          idFormacion_detail: ins.idFormacion_detail ?? ins.idFormacion ?? null,
+          fechaInscripcion: fecha,
+          montoTotal: montoTot,
+          montoPagado: montoPag,
+          idCohorte_detail: cohNormalized,
+          idFormacion_detail: formNormalized,
         } as Inscripcion;
       });
+
       setItems(inscripcionesUsuario);
       setMostradas(inscripcionesUsuario);
     } catch (e: any) {
@@ -271,7 +306,6 @@ const InscripcionesScreen = () => {
             };
           }
           if (tipo === 'cohortes') {
-            // soportar idFormacion como pk o como objeto anidado
             const idFormRaw = item.idFormacion ?? item.idFormacion_detail ?? item.formacion ?? item.id_formacion ?? null;
             const idFormacionObj = (typeof idFormRaw === 'object' && idFormRaw !== null) ? {
               idFormacion: Number(idFormRaw.idFormacion ?? idFormRaw.id ?? idFormRaw.pk ?? 0),
@@ -339,28 +373,24 @@ const InscripcionesScreen = () => {
   }, [selectedTipoFormacion, formaciones]);
 
   // ---------- Cuando cambia cohorte -> autoseleccionar formacion si está anidada ----------
-    useEffect(() => {
-      if (!selectedCohorte) return;
-      const coh = cohortes.find(c => Number(c.idCohorte) === Number(selectedCohorte));
-      if (!coh) return;
-      // Si la cohorte trae idFormacion como objeto con idFormacion, usarlo
-      const idFormObj = coh.idFormacion;
-      if (idFormObj && typeof idFormObj === 'object' && 'idFormacion' in (idFormObj as any)) {
-        const idEncontrado = Number((idFormObj as any).idFormacion);
-        setSelectedFormacion(idEncontrado);
-        // si el objeto trae valorInscripcion, establecerlo inmediatamente para la UI
-        if (isFinite(Number((idFormObj as any).valorInscripcion))) {
-          setValorInscripcion(Number((idFormObj as any).valorInscripcion));
-          setCuotas([]); // aún no pedimos cuotas, fetch effect de selectedFormacion lo hará
-          setTotalCuotas(0);
-          setMontoTotal(Number((idFormObj as any).valorInscripcion) || 0);
-        }
-      } else if (coh.idFormacion && typeof coh.idFormacion === 'number') {
-        setSelectedFormacion(Number(coh.idFormacion));
-      } else {
-        // si la cohorte no trae idFormacion, no hacemos nada
+  useEffect(() => {
+    if (!selectedCohorte) return;
+    const coh = cohortes.find(c => Number(c.idCohorte) === Number(selectedCohorte));
+    if (!coh) return;
+    const idFormObj = coh.idFormacion;
+    if (idFormObj && typeof idFormObj === 'object' && 'idFormacion' in (idFormObj as any)) {
+      const idEncontrado = Number((idFormObj as any).idFormacion);
+      setSelectedFormacion(idEncontrado);
+      if (isFinite(Number((idFormObj as any).valorInscripcion))) {
+        setValorInscripcion(Number((idFormObj as any).valorInscripcion));
+        setCuotas([]);
+        setTotalCuotas(0);
+        setMontoTotal(Number((idFormObj as any).valorInscripcion) || 0);
       }
-    }, [selectedCohorte, cohortes]);
+    } else if (coh.idFormacion && typeof coh.idFormacion === 'number') {
+      setSelectedFormacion(Number(coh.idFormacion));
+    }
+  }, [selectedCohorte, cohortes]);
 
   // ---------- Calcular costos cuando cambia selectedFormacion ----------
   useEffect(() => {
@@ -436,7 +466,7 @@ const InscripcionesScreen = () => {
     }
     setMostradas(items.filter(i => {
       const ced = (i.idPersona_detail?.cedula ?? '').toString().toLowerCase();
-      const form = (i.idFormacion_detail?.nombreFormacion ?? '').toString().toLowerCase();
+      const form = (i.idFormacion_detail?.nombreFormacion ?? i.idFormacion_detail?.nombre ?? '').toString().toLowerCase();
       const coh = (i.idCohorte_detail?.nombreCohorte ?? '').toString().toLowerCase();
       const estado = (i.estadoPago ?? '').toString().toLowerCase();
       return ced.includes(q) || form.includes(q) || coh.includes(q) || estado.includes(q);
@@ -456,18 +486,23 @@ const InscripcionesScreen = () => {
             idFormacion_detail: {
               ...(merged.idFormacion_detail || {}),
               cuotas: cuotasRealtime,
-              valorInscripcion: merged.idFormacion_detail?.valorInscripcion ?? merged.montoTotal ?? 0
+              valorInscripcion: merged.idFormacion_detail?.valorInscripcion ?? merged.montoTotal ?? 0,
+              nombreFormacion: merged.idFormacion_detail?.nombreFormacion ?? merged.idFormacion_detail?.nombre ?? merged.idFormacion_detail?.title ?? null
             }
           };
         } else {
           try {
             const d = await api.get(`/api/formaciones/${idForm}/`);
             if (d?.data) {
+              const det = d.data;
               merged = {
                 ...merged,
                 idFormacion_detail: {
                   ...(merged.idFormacion_detail || {}),
-                  ...d.data
+                  idFormacion: Number(det.idFormacion ?? det.id ?? idForm),
+                  nombreFormacion: det.nombreFormacion ?? det.nombre ?? det.title ?? det.name ?? merged.idFormacion_detail?.nombreFormacion,
+                  valorInscripcion: Number(det.valorInscripcion ?? det.precio ?? det.costo ?? merged.idFormacion_detail?.valorInscripcion ?? 0),
+                  cuotas: det.cuotas ?? det.inscripcioncuota_set ?? merged.idFormacion_detail?.cuotas ?? []
                 }
               };
             }
@@ -497,14 +532,26 @@ const InscripcionesScreen = () => {
       Alert.alert('Formulario inválido', 'Corrige los errores antes de continuar.');
       return;
     }
-    if (!user?.idPersona) {
+    // identificar idPersona como número
+    let idPersonaEnviar: number | null = null;
+    if (!user) {
       Alert.alert('Error', 'No se pudo identificar su usuario. Por favor, cierre sesión y vuelva a ingresar.');
       return;
     }
+    if (typeof user.idPersona === 'object' && user.idPersona !== null) {
+      idPersonaEnviar = Number((user.idPersona as any).idPersona ?? (user.idPersona as any).id ?? null);
+    } else {
+      idPersonaEnviar = Number(user.idPersona ?? null);
+    }
+    if (!idPersonaEnviar) {
+      Alert.alert('Error', 'No se pudo obtener el idPersona del usuario.');
+      return;
+    }
+
     setCreating(true);
     try {
       const payload = {
-        idPersona: user.idPersona,
+        idPersona: idPersonaEnviar,
         idTF: selectedTipoFormacion,
         idFormacion: selectedFormacion,
         idCohorte: selectedCohorte,
@@ -513,6 +560,7 @@ const InscripcionesScreen = () => {
         estadoPago: 'PENDIENTE',
         fechaInscripcion: new Date().toISOString().slice(0, 19).replace('T', ' ')
       };
+
       const res = await api.post('/api/inscripcion/', payload);
       if (res.status === 201 || res.status === 200) {
         try {
@@ -571,7 +619,7 @@ const InscripcionesScreen = () => {
   const deriveStatus = (item: any) => {
     if (String(item.estadoPago ?? '').toUpperCase() === 'PAGADO') return 'PAGADO';
     const paid = Number(item.montoPagado ?? 0) || 0;
-    const total = Number(item.montoTotal ?? 0) || 0;
+    const total = Number(item.montoTotal ?? item.montoTotal ?? 0) || 0;
     if (total > 0 && paid >= total) return 'PAGADO';
     if (paid > 0 && paid < total) return 'PARCIAL';
     return (item.estadoPago ?? 'PENDIENTE') as string;
@@ -635,9 +683,14 @@ const InscripcionesScreen = () => {
       {/* LIST */}
       <FlatList
         data={mostradas}
-        keyExtractor={(i) => String(i.idInscripcion ?? i.id ?? Math.random())}
+        keyExtractor={(i) => String(i.idInscripcion ?? (i as any).id ?? Math.random())}
         renderItem={({ item }) => {
           const status = deriveStatus(item);
+          const nombreFormacionDisplay = item.idFormacion_detail?.nombreFormacion ?? item.idFormacion_detail?.nombre ?? '—';
+          const valorDisplay = item.idFormacion_detail?.valorInscripcion ?? item.idFormacion_detail?.valor ?? item.montoTotal ?? 0;
+          const cohorteDisplay = item.idCohorte_detail?.nombreCohorte ?? item.idCohorte?.nombreCohorte ?? '—';
+          const fechaDisplay = item.fechaInscripcion ? new Date(item.fechaInscripcion).toLocaleDateString() : '—';
+
           return (
             <TouchableOpacity
               style={[styles.card, isSmallScreen && styles.cardSmall]}
@@ -646,7 +699,7 @@ const InscripcionesScreen = () => {
               <View style={styles.cardHeader}>
                 <View style={[styles.cardTitleContainer, isSmallScreen && styles.cardTitleContainerSmall]}>
                   <Text style={[styles.cardTitle, isSmallScreen && styles.cardTitleSmall]} numberOfLines={2}>
-                    {item.idFormacion_detail?.nombreFormacion ?? '—'}
+                    {nombreFormacionDisplay}
                   </Text>
                   <View style={[styles.badge, statusColor(status), isSmallScreen && styles.badgeSmall]}>
                     <Text style={[styles.badgeText, isSmallScreen && styles.badgeTextSmall]}>{status}</Text>
@@ -659,13 +712,13 @@ const InscripcionesScreen = () => {
                   <View style={styles.detailItem}>
                     <Icon name="domain" size={isSmallScreen ? 12 : 14} color="#666" />
                     <Text style={[styles.detailText, isSmallScreen && styles.detailTextSmall]}>
-                      Cohorte: {item.idCohorte_detail?.nombreCohorte ?? '—'}
+                      Cohorte: {cohorteDisplay}
                     </Text>
                   </View>
                   <View style={styles.detailItem}>
                     <Icon name="calendar" size={isSmallScreen ? 12 : 14} color="#666" />
                     <Text style={[styles.detailText, isSmallScreen && styles.detailTextSmall]}>
-                      Fecha de Inscripción: {item.fechaInscripcion ? new Date(item.fechaInscripcion).toLocaleDateString() : '—'}
+                      Fecha de Inscripción: {fechaDisplay}
                     </Text>
                   </View>
                 </View>
@@ -674,7 +727,7 @@ const InscripcionesScreen = () => {
                   <View style={[styles.detailItem, { flex: 1 }]}>
                     <Icon name="cash" size={isSmallScreen ? 12 : 14} color="#666" />
                     <Text style={[styles.detailText, isSmallScreen && styles.detailTextSmall]}>
-                      Valor de Inscripción: {fmtMoney(item.idFormacion_detail?.valorInscripcion ?? item.montoTotal ?? 0)}
+                      Valor de Inscripción: {fmtMoney(valorDisplay)}
                     </Text>
                   </View>
                 </View>
@@ -715,7 +768,8 @@ const InscripcionesScreen = () => {
         <View style={[
           styles.modalContent,
           isSmallScreen && styles.modalContentSmall,
-          { maxHeight: Math.min(useWindowDimensions().height * 0.85, 720), width: isLargeScreen ? '80%' : undefined }
+          // <-- usar 'height' calculado arriba, NO useWindowDimensions() aquí
+          { maxHeight: Math.min(height * 0.85, 720), width: isLargeScreen ? '80%' : undefined }
         ]}>
           <View style={[styles.modalHeader, isSmallScreen && styles.modalHeaderSmall]}>
             <Text style={[styles.modalTitle, isSmallScreen && styles.modalTitleSmall]}>Detalles de Inscripción</Text>
@@ -730,7 +784,7 @@ const InscripcionesScreen = () => {
                 <View style={[styles.detailCell, isSmallScreen ? styles.detailCellFull : styles.detailCellHalf]}>
                   <Text style={[styles.detailLabel, isSmallScreen && styles.detailLabelSmall]}>Formación</Text>
                   <Text style={[styles.detailValue, isSmallScreen && styles.detailValueSmall]}>
-                    {selected.idFormacion_detail?.nombreFormacion ?? '—'}
+                    {selected.idFormacion_detail?.nombreFormacion ?? selected.idFormacion_detail?.nombre ?? '—'}
                   </Text>
                 </View>
 
@@ -804,8 +858,8 @@ const InscripcionesScreen = () => {
         style={[styles.modal, styles.formModal, isSmallScreen && styles.modalSmall]}
         avoidKeyboard
       >
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[styles.keyboardAvoid, { minHeight: Math.min(useWindowDimensions().height * 0.9, 900) }]}>
-          <View style={[styles.formModalContent, isSmallScreen ? styles.formModalContentSmall : {}, { maxHeight: Math.min(useWindowDimensions().height * 0.95, 1000), width: isLargeScreen ? Math.min(720, useWindowDimensions().width * 0.8) : undefined }]}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[styles.keyboardAvoid, { minHeight: Math.min(height * 0.9, 900) }]}>
+          <View style={[styles.formModalContent, isSmallScreen ? styles.formModalContentSmall : {}, { maxHeight: Math.min(height * 0.95, 1000), width: isLargeScreen ? Math.min(720, width * 0.8) : undefined }]}>
             <View style={[styles.modalHeader, isSmallScreen && styles.modalHeaderSmall]}>
               <Text style={[styles.modalTitle, isSmallScreen && styles.modalTitleSmall]}>Nueva Inscripción</Text>
               <TouchableOpacity style={[styles.closeButton, isSmallScreen && styles.closeButtonSmall]} onPress={() => !creating && setFormModalVisible(false)} disabled={creating}>
