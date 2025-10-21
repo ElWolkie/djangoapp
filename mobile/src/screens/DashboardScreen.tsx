@@ -40,19 +40,24 @@ type RootStackParamList = {
 interface Formacion {
   idFormacion?: number;
   nombreFormacion?: string;
+  valorInscripcion?: number | string;
 }
 
 interface Cohorte {
   idCohorte?: number;
   nombreCohorte?: string;
-  idFormacion?: Formacion;
+  lapsoInscripcion?: number;
+  fechaInicio?: string;
+  fechaFin?: string;
+  estadoCohorte?: string;
+  idFormacion?: Formacion; // anidado
 }
 
 interface Inscripcion {
   idInscripcion: number;
-  estadoPago: string;
-  fechaInscripcion: string;
-  idPersona: number;
+  estadoPago?: string;
+  fechaInscripcion?: string;
+  idPersona?: number;
   idPersona_detail?: {
     cedula?: string;
   };
@@ -72,7 +77,7 @@ interface NotaCobro {
   totalNota: number;
   descripcion?: string;
   estado: string;
-  fechaEmision: string;
+  fechaEmision?: string;
   tipoOperacion: string;
   tipoArticulo: string;
   idPersona?: number;
@@ -111,7 +116,7 @@ export default function DashboardScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Nuevos datos personalizados
+  // Datos
   const [misInscripciones, setMisInscripciones] = useState<Inscripcion[]>([]);
   const [misPagos, setMisPagos] = useState<Pago[]>([]);
   const [notasPorPagar, setNotasPorPagar] = useState<NotaCobro[]>([]);
@@ -127,7 +132,7 @@ export default function DashboardScreen() {
     else setGreeting({ title: '¡Buenas noches!', emoji: '🌙' });
   }, []);
 
-  // Helper para formatear fecha
+  // Helpers
   const formatDate = (dateString?: string) => {
     if (!dateString) return '—';
     try {
@@ -141,14 +146,12 @@ export default function DashboardScreen() {
     }
   };
 
-  // Formateador de dinero simple
   const fmtMoney = (v: any) => {
     const n = Number(v);
     if (!isFinite(n)) return '$0.00';
     return `$${n.toFixed(2)}`;
   };
 
-  // Función para normalizar cédula (igual que en InscripcionesScreen)
   const normalizarCedula = (cedula: string): string => {
     if (!cedula) return '';
     let normalizada = cedula.toString().toUpperCase().replace(/[\.\-\s]/g, '');
@@ -158,7 +161,6 @@ export default function DashboardScreen() {
     return normalizada;
   };
 
-  // Función segura para hacer peticiones
   const safeApiCall = async (endpoint: string, options = {}) => {
     try {
       console.log(`🔍 Haciendo request a: ${endpoint}`);
@@ -167,7 +169,6 @@ export default function DashboardScreen() {
       return { success: true, data: response.data };
     } catch (error: any) {
       console.warn(`❌ Error en ${endpoint}:`, error?.response?.status, error?.response?.data);
-      
       if (error?.response?.status === 500) {
         console.error('💥 ERROR 500 - Detalles:', {
           url: error.config?.url,
@@ -175,95 +176,79 @@ export default function DashboardScreen() {
           data: error.response?.data
         });
       }
-      
-      return { 
-        success: false, 
-        error: error?.response?.data || error.message, 
-        data: [] 
-      };
+      return { success: false, error: error?.response?.data || error.message, data: [] };
     }
   };
 
-  // Función MEJORADA para obtener nombre de cohorte
+  // Cohorte -> mostrar nombre + rango si hay fechas
   const getNombreCohorte = (inscripcion: Inscripcion): string => {
-    if (!inscripcion.idCohorte) {
-      return `Inscripción #${inscripcion.idInscripcion}`;
+    const coh = inscripcion.idCohorte;
+    if (!coh) return `Inscripción #${inscripcion.idInscripcion}`;
+
+    if (coh.nombreCohorte) {
+      const inicio = formatDate((coh as any).fechaInicio);
+      const fin = formatDate((coh as any).fechaFin);
+      if (inicio !== '—' && fin !== '—') {
+        return `${coh.nombreCohorte} (${inicio} - ${fin})`;
+      }
+      return coh.nombreCohorte;
     }
-    
-    if (inscripcion.idCohorte.nombreCohorte) {
-      return inscripcion.idCohorte.nombreCohorte;
-    }
-    
-    if (inscripcion.idCohorte.idCohorte) {
-      return `Cohorte #${inscripcion.idCohorte.idCohorte}`;
-    }
-    
+
+    if (coh.idCohorte) return `Cohorte #${coh.idCohorte}`;
     return `Inscripción #${inscripcion.idInscripcion}`;
   };
 
-  // Funcion mejorada para obtener nombre de formacion (sin cambios)
+  // Obtener nombre de la formación (varias fuentes)
   const getNombreFormacion = (inscripcion: Inscripcion): string => {
+    // 1) idFormacion_detail (directo)
     if (inscripcion.idFormacion_detail?.nombreFormacion) {
       return inscripcion.idFormacion_detail.nombreFormacion;
     }
+    // 2) cohorte.idFormacion (nested)
     if (inscripcion.idCohorte?.idFormacion?.nombreFormacion) {
-      return inscripcion.idCohorte.idFormacion.nombreFormacion;
+      return inscripcion.idCohorte.idFormacion.nombreFormacion!;
     }
-    const nombreCohorte = getNombreCohorte(inscripcion);
-    if (nombreCohorte && !nombreCohorte.startsWith('Inscripción #') && !nombreCohorte.startsWith('Cohorte #')) {
+    // 3) extraer del nombre de la cohorte (fallback)
+    const nombreCohorte = inscripcion.idCohorte?.nombreCohorte;
+    if (nombreCohorte) {
+      if (nombreCohorte.includes('Biotecnología')) return 'Biotecnología';
+      if (nombreCohorte.includes('Ingeniería')) return 'Ingeniería';
+      if (nombreCohorte.includes('Medicina')) return 'Medicina';
+      if (nombreCohorte.includes('Derecho')) return 'Derecho';
+      if (nombreCohorte.includes('Administración')) return 'Administración';
+      // si no coincide, devolver el nombre de la cohorte
       return nombreCohorte;
     }
-    if (inscripcion.idCohorte?.nombreCohorte) {
-      const nombreCohorteCompleto = inscripcion.idCohorte.nombreCohorte;
-      if (nombreCohorteCompleto.includes('Biotecnología')) return 'Biotecnología';
-      if (nombreCohorteCompleto.includes('Ingeniería')) return 'Ingeniería';
-      if (nombreCohorteCompleto.includes('Medicina')) return 'Medicina';
-      if (nombreCohorteCompleto.includes('Derecho')) return 'Derecho';
-      if (nombreCohorteCompleto.includes('Administración')) return 'Administración';
-      return nombreCohorteCompleto;
-    }
+
     return 'Formación Continua';
   };
 
-  const getCohorteDeNota = (nota: NotaCobro) => {
-    if (nota.relaciones && nota.relaciones.length > 0) {
-      const primeraRelacion = nota.relaciones[0];
-      if (primeraRelacion.idInscripcion?.idCohorte?.nombreCohorte) {
-        return primeraRelacion.idInscripcion.idCohorte.nombreCohorte;
-      }
-      if (primeraRelacion.idInscripcion?.idInscripcion) {
-        const inscripcionCorrespondiente = misInscripciones.find(
-          insc => insc.idInscripcion === primeraRelacion.idInscripcion?.idInscripcion
-        );
-        if (inscripcionCorrespondiente) {
-          return getNombreCohorte(inscripcionCorrespondiente);
-        }
-        return `Inscripción #${primeraRelacion.idInscripcion.idInscripcion}`;
-      }
+  // Obtener valor de inscripción con fallbacks
+  const getValorInscripcion = (inscripcion: Inscripcion): number => {
+    const v1 = inscripcion.idFormacion_detail?.valorInscripcion;
+    if (v1 !== undefined && v1 !== null) {
+      const n = Number(v1);
+      if (isFinite(n)) return n;
     }
-    if (nota.descripcion) {
-      const descripcionLimpia = nota.descripcion.replace('Inscripción - ', '');
-      if (descripcionLimpia !== 'Formación Continua') {
-        return descripcionLimpia;
-      }
+    const v2 = inscripcion.idCohorte?.idFormacion?.valorInscripcion;
+    if (v2 !== undefined && v2 !== null) {
+      const n = Number(v2);
+      if (isFinite(n)) return n;
     }
-    const inscripcionRelacionada = misInscripciones.find(
-      insc => insc.idInscripcion === (nota.idNota - 1000)
-    );
-    if (inscripcionRelacionada) {
-      return getNombreCohorte(inscripcionRelacionada);
+    if (inscripcion.montoTotal !== undefined && inscripcion.montoTotal !== null) {
+      const n = Number(inscripcion.montoTotal);
+      if (isFinite(n)) return n;
     }
-    return 'Formación Continua';
+    return 0;
   };
 
   // Cargar TODOS los datos en una sola función
   const loadAllData = async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
       console.log('🔍 Iniciando carga de datos del dashboard...');
-      
       if (!user) {
         console.warn('⚠️ No hay usuario en el contexto de autenticación');
         setLoading(false);
@@ -276,48 +261,56 @@ export default function DashboardScreen() {
         setLoading(false);
         return;
       }
-
       const cedulaUsuarioNormalizada = normalizarCedula(personaCedula);
-      console.log('✅ Cédula normalizada a usar:', cedulaUsuarioNormalizada);
 
-      // USAR EL ENDPOINT QUE SÍ FUNCIONA
-      console.log('🔍 Cargando datos de APIs...');
-      
       const inscripcionesResult = await safeApiCall('/api/inscripcion/');
 
       const extractData = (responseData: any) => {
-        let dataArray: any[] = [];
-        if (Array.isArray(responseData)) dataArray = responseData;
-        else if (responseData && Array.isArray(responseData.results)) dataArray = responseData.results;
-        else if (responseData && responseData.data && Array.isArray(responseData.data)) dataArray = responseData.data;
-        else if (responseData && typeof responseData === 'object') dataArray = [responseData];
-        else dataArray = [];
-        return dataArray;
+        if (Array.isArray(responseData)) return responseData;
+        if (responseData && Array.isArray(responseData.results)) return responseData.results;
+        if (responseData && responseData.data && Array.isArray(responseData.data)) return responseData.data;
+        if (responseData && typeof responseData === 'object') return [responseData];
+        return [];
       };
 
       const todasInscripciones = extractData(inscripcionesResult.data);
       console.log('📊 Todas las inscripciones obtenidas:', todasInscripciones.length);
 
       let misInscripcionesFiltradas: Inscripcion[] = [];
-      
+
       if (todasInscripciones.length > 0) {
         misInscripcionesFiltradas = todasInscripciones.filter((insc: any) => {
           const cedulaInscripcion = insc.idPersona_detail?.cedula || insc.idPersona?.cedula;
           if (!cedulaInscripcion) return false;
           const cedulaInscNormalizada = normalizarCedula(cedulaInscripcion);
           return cedulaInscNormalizada === cedulaUsuarioNormalizada;
+        }).map((insc: any) => {
+          // Normalizar estructura mínima que usamos en UI
+          return {
+            ...insc,
+            // asegurar fechas y valores en tipos esperados
+            fechaInscripcion: insc.fechaInscripcion || insc.fechaInscripcionString || null,
+          } as Inscripcion;
         });
       }
 
-      // debug log (opcional)
-      console.log('✅ Mis inscripciones filtradas:', misInscripcionesFiltradas.length);
+      // Debug
+      misInscripcionesFiltradas.forEach((insc) => {
+        console.log('🔍 Insc debug:', {
+          id: insc.idInscripcion,
+          cohorte: insc.idCohorte,
+          formacion_detail: insc.idFormacion_detail,
+        });
+      });
 
-      // Simular notas basadas en inscripciones (igual que antes)
+      setMisInscripciones(misInscripcionesFiltradas);
+
+      // Simular notas por pagar (temporal)
       const notasSimuladas = misInscripcionesFiltradas.map(insc => ({
         idNota: insc.idInscripcion + 1000,
-        totalNota: insc.montoTotal || insc.saldoPendiente || 100,
+        totalNota: insc.montoTotal ?? getValorInscripcion(insc) ?? 0,
         descripcion: `Inscripción - ${getNombreFormacion(insc)}`,
-        estado: insc.estadoPago === 'PAGADO' ? 'PAGADA' : insc.estadoPago || 'PENDIENTE',
+        estado: insc.estadoPago === 'PAGADO' ? 'PAGADA' : insc.estadoPago ?? 'PENDIENTE',
         fechaEmision: insc.fechaInscripcion,
         tipoOperacion: 'COBRO',
         tipoArticulo: 'INSCRIPCION',
@@ -332,14 +325,13 @@ export default function DashboardScreen() {
         }]
       }));
 
-      const notasPendientes = notasSimuladas.filter(nota => nota.estado === 'PENDIENTE' || nota.estado === 'PARCIAL');
-
+      const notasPendientes = notasSimuladas.filter(n => n.estado === 'PENDIENTE' || n.estado === 'PARCIAL');
       setNotasPorPagar(notasPendientes);
-      setMisInscripciones(misInscripcionesFiltradas);
-      setMisPagos([]);
-      
-      const inscripcionesPagadas = misInscripcionesFiltradas.filter(insc => insc.estadoPago === 'PAGADO').length;
-      const inscripcionesPendientes = misInscripcionesFiltradas.filter(insc => insc.estadoPago === 'PENDIENTE' || insc.estadoPago === 'PARCIAL').length;
+
+      setMisPagos([]); // temporal
+
+      const inscripcionesPagadas = misInscripcionesFiltradas.filter(i => i.estadoPago === 'PAGADO').length;
+      const inscripcionesPendientes = misInscripcionesFiltradas.filter(i => i.estadoPago === 'PENDIENTE' || i.estadoPago === 'PARCIAL').length;
 
       setEstadoPago({ pagado: inscripcionesPagadas, pendiente: inscripcionesPendientes });
 
@@ -369,43 +361,9 @@ export default function DashboardScreen() {
     }
   }, [user]);
 
-  const getUltimaInscripcion = () => {
-    if (misInscripciones.length === 0) return null;
-    const inscripcionesConFecha = misInscripciones.filter(insc => insc.fechaInscripcion && insc.fechaInscripcion !== 'null');
-    if (inscripcionesConFecha.length === 0) return misInscripciones[0];
-    return inscripcionesConFecha.reduce((latest, current) => {
-      try {
-        const latestDate = new Date(latest.fechaInscripcion);
-        const currentDate = new Date(current.fechaInscripcion);
-        return currentDate > latestDate ? current : latest;
-      } catch {
-        return latest;
-      }
-    });
-  };
-
-  const getUltimoPago = () => {
-    if (misPagos.length === 0) return null;
-    const pagosConFecha = misPagos.filter(pago => pago.fechaPago && pago.fechaPago !== 'null');
-    if (pagosConFecha.length === 0) return misPagos[0];
-    return pagosConFecha.reduce((latest, current) => {
-      try {
-        const latestDate = new Date(latest.fechaPago);
-        const currentDate = new Date(current.fechaPago);
-        return currentDate > latestDate ? current : latest;
-      } catch {
-        return latest;
-      }
-    });
-  };
-
-  const getMontoTotalPorPagar = () => {
-    return notasPorPagar.reduce((total, nota) => total + (nota.totalNota || 0), 0);
-  };
-
-  const ultimaInscripcion = getUltimaInscripcion();
-  const ultimoPago = getUltimoPago();
-  const montoTotalPorPagar = getMontoTotalPorPagar();
+  // Stats
+  const ultimaInscripcion = misInscripciones.length ? misInscripciones[0] : null;
+  const montoTotalPorPagar = notasPorPagar.reduce((t, n) => t + (n.totalNota || 0), 0);
 
   const stats = [
     {
@@ -413,44 +371,34 @@ export default function DashboardScreen() {
       value: misInscripciones.length.toString(),
       icon: 'book-account',
       color: '#fb6340',
-      subtitle: ultimaInscripcion 
-        ? `${getNombreCohorte(ultimaInscripcion)} - ${ultimaInscripcion.estadoPago || 'Activa'}`
-        : 'No tienes inscripciones',
+      subtitle: ultimaInscripcion ? `${getNombreCohorte(ultimaInscripcion)} - ${ultimaInscripcion.estadoPago ?? 'Activa'}` : 'No tienes inscripciones',
     },
     {
       title: 'Mis Pagos',
       value: misPagos.length.toString(),
       icon: 'currency-usd',
       color: '#2dce89',
-      subtitle: ultimoPago 
-        ? `Último: ${formatDate(ultimoPago.fechaPago)} - $${ultimoPago.monto || 0}`
-        : 'No hay pagos registrados',
+      subtitle: misPagos.length ? `Último: ${formatDate(misPagos[0].fechaPago)} - $${misPagos[0].monto}` : 'No hay pagos registrados',
     },
     {
       title: 'Estado de Pagos',
       value: estadoPago.pendiente === 0 ? 'Al día' : 'Pendiente',
       icon: 'clock-check',
       color: estadoPago.pendiente === 0 ? '#11cdef' : '#f7b731',
-      subtitle: estadoPago.pendiente === 0 
-        ? 'Todas las inscripciones pagadas' 
-        : `${estadoPago.pendiente} inscripción(es) pendiente(s)`,
+      subtitle: estadoPago.pendiente === 0 ? 'Todas las inscripciones pagadas' : `${estadoPago.pendiente} inscripción(es) pendiente(s)`,
     },
     {
       title: 'Notas por Pagar',
       value: notasPorPagar.length.toString(),
       icon: 'note-alert',
       color: '#f5365c',
-      subtitle: montoTotalPorPagar > 0 
-        ? `Total: $${montoTotalPorPagar.toFixed(2)}` 
-        : 'No hay notas pendientes',
+      subtitle: montoTotalPorPagar > 0 ? `Total: ${fmtMoney(montoTotalPorPagar)}` : 'No hay notas pendientes',
     },
   ];
 
-  const handleRetry = () => {
-    loadAllData();
-  };
+  const handleRetry = () => loadAllData();
 
-  // Mostrar loading / error / UI
+  // Renders (loading / error handled)
   if (!user && loading) {
     return (
       <View style={styles.container}>
@@ -497,16 +445,17 @@ export default function DashboardScreen() {
             Error al cargar datos
           </Text>
           <Text style={{ color: '#666', textAlign: 'center', marginBottom: 20 }}>{error}</Text>
-          <TouchableOpacity 
-              style={styles.retryButton}
-              onPress={handleRetry}
-            >
-              <Icon name="reload" size={20} color="#fff" />
-              <Text style={styles.retryButtonText}>Reintentar</Text>
-            </TouchableOpacity>
+          <TouchableOpacity style={styles.retryButton} onPress={handleRetry}>
+            <Icon name="reload" size={20} color="#fff" />
+            <Text style={styles.retryButtonText}>Reintentar</Text>
+          </TouchableOpacity>
         </View>
       </View>
     );
+  }
+
+  function getCohorteDeNota(nota: NotaCobro): React.ReactNode {
+    throw new Error('Function not implemented.');
   }
 
   return (
@@ -546,17 +495,11 @@ export default function DashboardScreen() {
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionTitle}>Acciones rápidas</Text>
           <View style={styles.actionsRow}>
-            <TouchableOpacity 
-              style={styles.actionButton} 
-              onPress={() => navigation.navigate('Inscripciones')}
-            >
+            <TouchableOpacity style={styles.actionButton} onPress={() => navigation.navigate('Inscripciones')}>
               <Icon name="book-plus" size={22} color="#4f8cff" />
               <Text style={styles.actionButtonText}>Nueva Inscripción</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
-              style={styles.actionButton} 
-              onPress={() => navigation.navigate('Pagos')}
-            >
+            <TouchableOpacity style={styles.actionButton} onPress={() => navigation.navigate('Pagos')}>
               <Icon name="credit-card-check" size={22} color="#2dce89" />
               <Text style={styles.actionButtonText}>Realizar Pago</Text>
             </TouchableOpacity>
@@ -569,15 +512,11 @@ export default function DashboardScreen() {
             {notasPorPagar.map((nota) => (
               <View key={nota.idNota} style={styles.notaItem}>
                 <View style={styles.notaHeader}>
-                  <Text style={styles.notaDescripcion}>
-                    {nota.descripcion || `Nota ${nota.idNota}`}
-                  </Text>
-                  <Text style={styles.notaMonto}>${nota.totalNota?.toFixed(2) || '0.00'}</Text>
+                  <Text style={styles.notaDescripcion}>{nota.descripcion || `Nota ${nota.idNota}`}</Text>
+                  <Text style={styles.notaMonto}>{fmtMoney(nota.totalNota)}</Text>
                 </View>
                 <Text style={styles.notaDetalle}>
-                  {getCohorteDeNota(nota)} • 
-                  Emitida: {formatDate(nota.fechaEmision)} • 
-                  Tipo: {nota.tipoArticulo || 'Cobro'}
+                  {getCohorteDeNota(nota)} • Emitida: {formatDate(nota.fechaEmision)} • Tipo: {nota.tipoArticulo || 'Cobro'}
                 </Text>
               </View>
             ))}
@@ -590,27 +529,19 @@ export default function DashboardScreen() {
             {misInscripciones.map((inscripcion) => (
               <View key={inscripcion.idInscripcion} style={styles.inscripcionItem}>
                 <View style={styles.inscripcionHeader}>
-                  <Text style={styles.inscripcionNombre}>
-                    {getNombreCohorte(inscripcion)}
-                  </Text>
+                  <Text style={styles.inscripcionNombre}>{getNombreCohorte(inscripcion)}</Text>
                   <Text style={[
-                    styles.inscripcionEstado,
-                    { 
-                      color: inscripcion.estadoPago === 'PAGADO' ? '#2dce89' : 
-                            inscripcion.estadoPago === 'PARCIAL' ? '#f7b731' : '#fb6340'
-                    }
-                  ]}>
-                    {inscripcion.estadoPago || 'PENDIENTE'}
+                      styles.inscripcionEstado,
+                      { color: inscripcion.estadoPago === 'PAGADO' ? '#2dce89' : inscripcion.estadoPago === 'PARCIAL' ? '#f7b731' : '#fb6340' }
+                    ]}>
+                    {inscripcion.estadoPago ?? 'PENDIENTE'}
                   </Text>
                 </View>
 
-                <Text style={styles.inscripcionFormacion}>
-                  {getNombreFormacion(inscripcion)}
-                </Text>
+                <Text style={styles.inscripcionFormacion}>{getNombreFormacion(inscripcion)}</Text>
 
-                {/* Aquí mostramos solo valor de inscripción y fecha, como pediste */}
                 <Text style={styles.inscripcionDetalle}>
-                  Valor: {fmtMoney(inscripcion.idFormacion_detail?.valorInscripcion ?? inscripcion.montoTotal ?? 0)} • Fecha: {formatDate(inscripcion.fechaInscripcion)}
+                  Valor: {fmtMoney(getValorInscripcion(inscripcion))} • Fecha: {formatDate(inscripcion.fechaInscripcion)}
                 </Text>
               </View>
             ))}
@@ -622,9 +553,7 @@ export default function DashboardScreen() {
             <Icon name="information" size={32} color="#4f8cff" />
             <Text style={styles.infoTitle}>Bienvenido al sistema</Text>
             <Text style={styles.infoText}>
-              {user?.displayName ? `${user.displayName}, ` : ''} 
-              aún no tienes inscripciones, pagos ni notas registradas. 
-              Puedes comenzar realizando una nueva inscripción.
+              {user?.displayName ? `${user.displayName}, ` : ''} aún no tienes inscripciones, pagos ni notas registradas. Puedes comenzar realizando una nueva inscripción.
             </Text>
           </View>
         )}

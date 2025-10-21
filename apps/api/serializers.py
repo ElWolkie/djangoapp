@@ -83,16 +83,20 @@ class MateriaSerializer(serializers.ModelSerializer):
         fields = ['idMateria', 'idFormacion', 'nombreMateria', 'estadoMateria', 'fechaMateria']
 
 class CohorteSerializer(serializers.ModelSerializer):
+    # incluir formación anidada - ya existe FormacionSerializer en tu archivo
     idFormacion = FormacionSerializer(read_only=True)
-    
+
     class Meta:
         model = Cohorte
         fields = [
             'idCohorte',
             'nombreCohorte',
+            'lapsoInscripcion',
+            'fechaInicio',
+            'fechaFin',
             'estadoCohorte',
             'fechaCohorte',
-            'idFormacion'
+            'idFormacion',
         ]
 
 class CargoSerializer(serializers.ModelSerializer):

@@ -24,6 +24,9 @@ export interface Cuota {
 }
 
 export interface Cohorte {
+  fechaInicio: any;
+  fechaFin: any;
+  idFormacion: number;
   idCohorte: number;
   nombreCohorte: string;
 }

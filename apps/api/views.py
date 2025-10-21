@@ -88,7 +88,12 @@ class FormacionRetrieve(generics.RetrieveAPIView):
     # El modelo usa idFormacion como PK, DRF lo respeta al usar 'pk' en la URL
 
 class InscripcionListCreate(generics.ListCreateAPIView):
-    queryset = Inscripcion.objects.select_related('idPersona','idFormacion','idCohorte').all().prefetch_related('inscripcioncuota_set')
+    queryset = Inscripcion.objects.select_related(
+        'idPersona',
+        'idFormacion',
+        'idCohorte',
+        'idCohorte__idFormacion'   # <- importante para que CohorteSerializer.idFormacion no haga consultas extra
+    ).all().prefetch_related('inscripcioncuota_set')
     serializer_class = InscripcionSerializer
 
     def create(self, request, *args, **kwargs):

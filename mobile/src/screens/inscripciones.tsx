@@ -28,13 +28,13 @@ import {
   Cuota
 } from '../types/inscripciones';
 
+// ---------- HELPERS LOCALES ----------
 const fmtMoney = (v: any) => {
   const n = Number(v);
   if (!isFinite(n)) return '—';
   return `$${n.toFixed(2)}`;
 };
 
-// Normalizar cédula
 const normalizarCedula = (cedula: string): string => {
   if (!cedula) return '';
   let normalizada = cedula.toString().toUpperCase().replace(/[\.\-\s]/g, '');
@@ -44,6 +44,83 @@ const normalizarCedula = (cedula: string): string => {
   return normalizada;
 };
 
+const safeParseJson = (val: any) => {
+  if (!val && val !== 0) return null;
+  if (Array.isArray(val)) return val;
+  if (typeof val === 'object') return val;
+  if (typeof val === 'string') {
+    try {
+      return JSON.parse(val);
+    } catch {
+      try {
+        const replaced = val.replace(/'/g, '"');
+        return JSON.parse(replaced);
+      } catch {
+        return null;
+      }
+    }
+  }
+  return null;
+};
+
+const normalizeCuotas = (raw: any): Cuota[] => {
+  const out: Cuota[] = [];
+  const parsed = safeParseJson(raw);
+  if (!parsed) return out;
+
+  if (Array.isArray(parsed)) {
+    parsed.forEach((c: any) => {
+      if (typeof c === 'number') {
+        out.push({ nombreCuota: 'Cuota', valorCuota: Number(c) });
+      } else if (typeof c === 'string') {
+        const n = Number(c);
+        out.push({ nombreCuota: 'Cuota', valorCuota: isFinite(n) ? n : 0 });
+      } else if (typeof c === 'object') {
+        const nombre = c.nombreCuota || c.nombre || c.descripcion || c.label || 'Cuota';
+        const valor = Number(c.valorCuota ?? c.valor ?? c.monto ?? c.amount ?? 0) || 0;
+        out.push({ nombreCuota: String(nombre), valorCuota: valor });
+      }
+    });
+  } else if (typeof parsed === 'object') {
+    const keys = Object.keys(parsed);
+    const isKeyValue = keys.every(k => typeof parsed[k] === 'number' || !isNaN(Number(parsed[k])));
+    if (isKeyValue) {
+      keys.forEach(k => {
+        out.push({ nombreCuota: k, valorCuota: Number(parsed[k]) || 0 });
+      });
+    } else {
+      const nombre = parsed.nombreCuota || parsed.nombre || 'Cuota';
+      const valor = Number(parsed.valorCuota ?? parsed.valor ?? parsed.monto ?? 0) || 0;
+      out.push({ nombreCuota: String(nombre), valorCuota: valor });
+    }
+  }
+  return out;
+};
+
+const cuotasFromFormacionObj = (f: any): Cuota[] => {
+  if (!f) return [];
+  if (f.cuotas && Array.isArray(f.cuotas)) return normalizeCuotas(f.cuotas);
+  const candidate = (f.cuotas_json ?? f.cuotasData ?? f.cuotas_list ?? f.cuotasJson ?? f.cuotas) || null;
+  if (candidate) return normalizeCuotas(candidate);
+  if (f.inscripcioncuota_set && Array.isArray(f.inscripcioncuota_set)) return normalizeCuotas(f.inscripcioncuota_set);
+  return [];
+};
+
+const formatDateShort = (dateString?: string | null) => {
+  if (!dateString) return '—';
+  try {
+    const d = new Date(dateString);
+    if (Number.isNaN(d.getTime())) return '—';
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+  } catch {
+    return '—';
+  }
+};
+
+// ---------- COMPONENT ----------
 const InscripcionesScreen = () => {
   const navigation = useNavigation<any>();
   const { user } = useContext(AuthContext);
@@ -56,7 +133,7 @@ const InscripcionesScreen = () => {
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selected, setSelected] = useState<Inscripcion | null>(null);
 
-  // Create form modal
+  // Form modal
   const [formModalVisible, setFormModalVisible] = useState(false);
   const [creating, setCreating] = useState(false);
 
@@ -70,7 +147,7 @@ const InscripcionesScreen = () => {
   const [selectedFormacion, setSelectedFormacion] = useState<number | undefined>(undefined);
   const [selectedCohorte, setSelectedCohorte] = useState<number | undefined>(undefined);
 
-  // Resumen de costos
+  // Cost summary
   const [valorInscripcion, setValorInscripcion] = useState(0);
   const [cuotas, setCuotas] = useState<Cuota[]>([]);
   const [totalCuotas, setTotalCuotas] = useState(0);
@@ -78,100 +155,21 @@ const InscripcionesScreen = () => {
 
   const [fechaInscripcion, setFechaInscripcion] = useState<string>('');
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-
-  // cache detalles de formaciones (por id) para no pedir repetidamente
   const [formacionDetailsMap, setFormacionDetailsMap] = useState<Record<number, any>>({});
 
-  // Responsive helpers
-  const { width, height } = useWindowDimensions();
+  const { width } = useWindowDimensions();
   const isSmallScreen = width <= 620;
-  const isTablet = width > 420 && width < 1024;
   const isLargeScreen = width >= 900;
 
-  // ---------- HELPERS ----------
-  const safeParseJson = (val: any) => {
-    if (!val && val !== 0) return null;
-    if (Array.isArray(val)) return val;
-    if (typeof val === 'object') return val;
-    if (typeof val === 'string') {
-      try {
-        return JSON.parse(val);
-      } catch {
-        // intenta limpiar comillas simples u otros formatos
-        try {
-          const replaced = val.replace(/'/g, '"');
-          return JSON.parse(replaced);
-        } catch {
-          return null;
-        }
-      }
-    }
-    return null;
-  };
-
-  const normalizeCuotas = (raw: any): Cuota[] => {
-    // Queremos devolver [{ nombreCuota: string, valorCuota: number }, ...]
-    const out: Cuota[] = [];
-    const parsed = safeParseJson(raw);
-    if (!parsed) return out;
-
-    if (Array.isArray(parsed)) {
-      parsed.forEach((c: any) => {
-        if (typeof c === 'number') {
-          out.push({ nombreCuota: 'Cuota', valorCuota: Number(c) });
-        } else if (typeof c === 'string') {
-          const n = Number(c);
-          out.push({ nombreCuota: 'Cuota', valorCuota: isFinite(n) ? n : 0 });
-        } else if (typeof c === 'object') {
-          // keys posibles: nombre, nombreCuota, valor, valorCuota, monto
-          const nombre = c.nombreCuota || c.nombre || c.descripcion || c.label || 'Cuota';
-          const valor = Number(c.valorCuota ?? c.valor ?? c.monto ?? c.amount ?? 0) || 0;
-          out.push({ nombreCuota: String(nombre), valorCuota: valor });
-        }
-      });
-    } else if (typeof parsed === 'object') {
-      // objeto con claves: { "CUOTA I": 15, "CUOTA II": 10 } o { nombre:..., valor:... }
-      // primero intentar clave->valor
-      const keys = Object.keys(parsed);
-      const isKeyValue = keys.every(k => typeof parsed[k] === 'number' || !isNaN(Number(parsed[k])));
-      if (isKeyValue) {
-        keys.forEach(k => {
-          out.push({ nombreCuota: k, valorCuota: Number(parsed[k]) || 0 });
-        });
-      } else {
-        // tratarlo como un único objeto cuota
-        const nombre = parsed.nombreCuota || parsed.nombre || 'Cuota';
-        const valor = Number(parsed.valorCuota ?? parsed.valor ?? parsed.monto ?? 0) || 0;
-        out.push({ nombreCuota: String(nombre), valorCuota: valor });
-      }
-    }
-    return out;
-  };
-
-  // Extrae cuotas desde un objeto 'formacion' (busca propiedades comunes)
-  const cuotasFromFormacionObj = (f: any): Cuota[] => {
-    if (!f) return [];
-    // Si ya viene en la propiedad 'cuotas' como array
-    if (f.cuotas && Array.isArray(f.cuotas)) return normalizeCuotas(f.cuotas);
-    // Si viene 'cuotas_json' u otras variantes
-        const candidate = (f.cuotas_json ?? f.cuotasData ?? f.cuotas_list ?? f.cuotasJson ?? f.cuotas) || null;
-        if (candidate) return normalizeCuotas(candidate);
-        // si viene como inscripcioncuota_set (Django naming) -> array
-        if (f.inscripcioncuota_set && Array.isArray(f.inscripcioncuota_set)) return normalizeCuotas(f.inscripcioncuota_set);
-    return [];
-  };
-
-  // obtiene las cuotas reales de /api/formaciones/{id}/cuotas/
+  // ---------- API helpers ----------
   const fetchCuotasForFormacion = async (idFormacion: number): Promise<Cuota[]> => {
     if (!idFormacion) return [];
     try {
       const res = await api.get(`/api/formaciones/${idFormacion}/cuotas/`);
-      // Respuesta esperada: array de objetos CuotaFormacion
       const data = Array.isArray(res.data) ? res.data : (res.data.results ?? []);
-      // Mapeamos al tipo Cuota esperado en frontend
       return data.map((c: any) => ({
-        nombreCuota: c.nombreCuota ?? c.nombre ?? `Cuota ${c.idCuota ?? ''}`,
-        valorCuota: Number(c.valorCuota ?? c.valor ?? 0),
+        nombreCuota: c.nombreCuota ?? c.nombre ?? `Cuota ${c.id ?? ''}`,
+        valorCuota: Number(c.valorCuota ?? c.valor ?? c.monto ?? 0),
       }));
     } catch (err) {
       console.warn('Error cargando cuotas de formacion', idFormacion, err);
@@ -184,17 +182,15 @@ const InscripcionesScreen = () => {
     if (formacionDetailsMap[idFormacion]) return formacionDetailsMap[idFormacion];
     try {
       const res = await api.get(`/api/formaciones/${idFormacion}/`);
-      const data = res.data;
-      setFormacionDetailsMap(prev => ({ ...prev, [idFormacion]: data }));
-      return data;
+      setFormacionDetailsMap(prev => ({ ...prev, [idFormacion]: res.data }));
+      return res.data;
     } catch (e) {
-      // no romper la app si falla; devolvemos null
       console.warn(`No se pudo obtener detalle de formacion ${idFormacion}`, e);
       return null;
     }
   };
 
-  // ---------- FETCH INSCRIPCIONES ----------
+  // ---------- Inscripciones ----------
   const fetchInscripciones = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -202,18 +198,23 @@ const InscripcionesScreen = () => {
       if (!user?.cedula) {
         setItems([]);
         setMostradas([]);
+        setLoading(false);
         return;
       }
       const cedulaUsuarioNormalizada = normalizarCedula(user.cedula);
       const res = await api.get('/api/inscripcion/');
-      let todasLasInscripciones = Array.isArray(res.data) ? res.data : (res.data.results ?? []);
-      const inscripcionesUsuario = todasLasInscripciones.filter((inscripcion: Inscripcion) => {
-        const cedulaInscripcion =
-          inscripcion.idPersona_detail?.cedula ||
-          inscripcion.idPersona?.cedula;
+      const todas = Array.isArray(res.data) ? res.data : (res.data.results ?? []);
+      const inscripcionesUsuario = todas.filter((ins: any) => {
+        const cedulaInscripcion = ins.idPersona_detail?.cedula || ins.idPersona?.cedula;
         if (!cedulaInscripcion) return false;
-        const cedulaInscNormalizada = normalizarCedula(cedulaInscripcion);
-        return cedulaInscNormalizada === cedulaUsuarioNormalizada;
+        return normalizarCedula(cedulaInscripcion) === cedulaUsuarioNormalizada;
+      }).map((ins: any) => {
+        // homogeneizar keys (idCohorte_detail / idCohorte)
+        return {
+          ...ins,
+          idCohorte_detail: ins.idCohorte ?? ins.idCohorte_detail ?? null,
+          idFormacion_detail: ins.idFormacion_detail ?? ins.idFormacion ?? null,
+        } as Inscripcion;
       });
       setItems(inscripcionesUsuario);
       setMostradas(inscripcionesUsuario);
@@ -224,7 +225,7 @@ const InscripcionesScreen = () => {
     }
   }, [user?.cedula]);
 
-  // ---------- Load tipos formacion, formaciones & cohortes (with allSettled) ----------
+  // ---------- Fetch tipos/formaciones/cohortes ----------
   const fetchDatosFormulario = useCallback(async () => {
     try {
       const requests = [
@@ -232,35 +233,24 @@ const InscripcionesScreen = () => {
         api.get('/api/formaciones/'),
         api.get('/api/cohorte/'),
       ];
-
       const results = await Promise.allSettled(requests);
 
-      const r1 = results[0];
-      const r2 = results[1];
-      const r3 = results[2];
+      const tiposData = results[0].status === 'fulfilled' ? results[0].value.data : [];
+      const formacionesData = results[1].status === 'fulfilled' ? results[1].value.data : [];
+      const cohortesData = results[2].status === 'fulfilled' ? results[2].value.data : [];
 
-      if (r1.status === 'rejected' || r2.status === 'rejected' || r3.status === 'rejected') {
-        // Avisamos cuáles fallaron (no bloqueamos totalmente la UI)
-        const msgs = [];
-        if (r1.status === 'rejected') msgs.push('tipos de formación');
-        if (r2.status === 'rejected') msgs.push('formaciones');
-        if (r3.status === 'rejected') msgs.push('cohortes');
-        Alert.alert('Advertencia', `No se pudieron cargar: ${msgs.join(', ')}. Algunas funcionalidades pueden no estar disponibles.`);
-      }
-
-      const extractData = (responseData: any, tipo: string) => {
-        let dataArray: any[] = [];
+      const extract = (responseData: any, tipo: string) => {
+        let arr: any[] = [];
         if (!responseData) return [];
-        if (Array.isArray(responseData)) dataArray = responseData;
-        else if (responseData && Array.isArray(responseData.results)) dataArray = responseData.results;
-        else if (responseData && responseData.data && Array.isArray(responseData.data)) dataArray = responseData.data;
+        if (Array.isArray(responseData)) arr = responseData;
+        else if (responseData && Array.isArray(responseData.results)) arr = responseData.results;
+        else if (responseData && responseData.data && Array.isArray(responseData.data)) arr = responseData.data;
         else if (responseData && typeof responseData === 'object') {
-          // si recibimos un solo objeto lo convertimos a array
-          if (Object.keys(responseData).length === 0) dataArray = [];
-          else dataArray = [responseData];
-        } else dataArray = [];
+          if (Object.keys(responseData).length === 0) arr = [];
+          else arr = [responseData];
+        } else arr = [];
 
-        const mapped = dataArray.map((item: any) => {
+        return arr.map((item: any) => {
           if (tipo === 'tipos') {
             return {
               idTF: Number(item.idTF || item.id || item.tipo_id || 0),
@@ -268,26 +258,36 @@ const InscripcionesScreen = () => {
             };
           }
           if (tipo === 'formaciones') {
-            const rawIdTF = item.idTF || item.tipo_formacion || item.tipoFormacion || item.tipo_formacion_id || item.idTF_id || 0;
-            const idTF = Number(rawIdTF);
-            // parsear cuotas si vienen en distintos formatos
             const cuotasParsed = cuotasFromFormacionObj(item);
             return {
               idFormacion: Number(item.idFormacion || item.id || 0),
               nombreFormacion: item.nombreFormacion || item.nombre || 'Sin nombre',
-              idTF,
+              idTF: Number(item.idTF ?? item.tipo_formacion ?? item.tipoFormacion ?? 0),
               valorInscripcion: Number(item.valorInscripcion ?? item.precio ?? item.costo ?? 0),
               tieneCuotas: Boolean(item.tieneCuotas ?? item.cuotas ?? false),
-              cuotas_activas: Boolean(item.cuotas_activas ?? item.cuotas_activas ?? false),
               cantidad_cuotas: Number(item.cantidad_cuotas ?? item.cuotas_count ?? cuotasParsed.length ?? 0),
               cuotas: cuotasParsed,
               raw: item
             };
           }
           if (tipo === 'cohortes') {
+            // soportar idFormacion como pk o como objeto anidado
+            const idFormRaw = item.idFormacion ?? item.idFormacion_detail ?? item.formacion ?? item.id_formacion ?? null;
+            const idFormacionObj = (typeof idFormRaw === 'object' && idFormRaw !== null) ? {
+              idFormacion: Number(idFormRaw.idFormacion ?? idFormRaw.id ?? idFormRaw.pk ?? 0),
+              nombreFormacion: idFormRaw.nombreFormacion ?? idFormRaw.nombre ?? idFormRaw.title ?? null,
+              valorInscripcion: Number(idFormRaw.valorInscripcion ?? idFormRaw.precio ?? idFormRaw.costo ?? 0)
+            } : (idFormRaw ? { idFormacion: Number(idFormRaw) } : null);
+
             return {
               idCohorte: Number(item.idCohorte || item.id || 0),
-              nombreCohorte: item.nombreCohorte || item.nombre || 'Sin nombre'
+              nombreCohorte: item.nombreCohorte || item.nombre || 'Sin nombre',
+              lapsoInscripcion: Number(item.lapsoInscripcion ?? item.lapso ?? 0),
+              fechaInicio: item.fechaInicio ?? item.start_date ?? item.startDate ?? null,
+              fechaFin: item.fechaFin ?? item.end_date ?? item.endDate ?? null,
+              estadoCohorte: item.estadoCohorte ?? item.estado ?? 'INACTIVO',
+              idFormacion: idFormacionObj,
+              raw: item
             };
           }
           return item;
@@ -297,23 +297,17 @@ const InscripcionesScreen = () => {
           if (tipo === 'cohortes') return it.idCohorte > 0;
           return true;
         });
-
-        return mapped;
       };
 
-      const tiposData = r1.status === 'fulfilled' ? r1.value.data : [];
-      const formacionesData = r2.status === 'fulfilled' ? r2.value.data : [];
-      const cohortesData = r3.status === 'fulfilled' ? r3.value.data : [];
-
-      setTiposFormacion(extractData(tiposData, 'tipos'));
-      setFormaciones(extractData(formacionesData, 'formaciones'));
-      setCohortes(extractData(cohortesData, 'cohortes'));
+      setTiposFormacion(extract(tiposData, 'tipos'));
+      setFormaciones(extract(formacionesData, 'formaciones'));
+      setCohortes(extract(cohortesData, 'cohortes'));
     } catch (e) {
       Alert.alert('Error', 'No se pudieron cargar los datos del formulario');
     }
   }, []);
 
-  // Fecha
+  // ---------- Fecha por defecto ----------
   const establecerFechaActual = () => {
     const ahora = new Date();
     const fecha = ahora.toISOString().split('T')[0];
@@ -331,7 +325,7 @@ const InscripcionesScreen = () => {
     fetchInscripciones();
   }, [fetchInscripciones]);
 
-  // Filtrar formaciones al seleccionar tipo
+  // ---------- Filtrado formaciones por tipo ----------
   useEffect(() => {
     if (selectedTipoFormacion !== undefined && formaciones.length > 0) {
       const selectedTipoNum = Number(selectedTipoFormacion);
@@ -344,7 +338,31 @@ const InscripcionesScreen = () => {
     }
   }, [selectedTipoFormacion, formaciones]);
 
-  // calcular costos usando cuotas reales desde backend
+  // ---------- Cuando cambia cohorte -> autoseleccionar formacion si está anidada ----------
+    useEffect(() => {
+      if (!selectedCohorte) return;
+      const coh = cohortes.find(c => Number(c.idCohorte) === Number(selectedCohorte));
+      if (!coh) return;
+      // Si la cohorte trae idFormacion como objeto con idFormacion, usarlo
+      const idFormObj = coh.idFormacion;
+      if (idFormObj && typeof idFormObj === 'object' && 'idFormacion' in (idFormObj as any)) {
+        const idEncontrado = Number((idFormObj as any).idFormacion);
+        setSelectedFormacion(idEncontrado);
+        // si el objeto trae valorInscripcion, establecerlo inmediatamente para la UI
+        if (isFinite(Number((idFormObj as any).valorInscripcion))) {
+          setValorInscripcion(Number((idFormObj as any).valorInscripcion));
+          setCuotas([]); // aún no pedimos cuotas, fetch effect de selectedFormacion lo hará
+          setTotalCuotas(0);
+          setMontoTotal(Number((idFormObj as any).valorInscripcion) || 0);
+        }
+      } else if (coh.idFormacion && typeof coh.idFormacion === 'number') {
+        setSelectedFormacion(Number(coh.idFormacion));
+      } else {
+        // si la cohorte no trae idFormacion, no hacemos nada
+      }
+    }, [selectedCohorte, cohortes]);
+
+  // ---------- Calcular costos cuando cambia selectedFormacion ----------
   useEffect(() => {
     let mounted = true;
     const compute = async () => {
@@ -357,47 +375,42 @@ const InscripcionesScreen = () => {
         return;
       }
 
-      // buscamos la formación en el listado (puede tener valorInscripcion allí)
       const formacionLocal = formaciones.find(f => f.idFormacion === selectedFormacion) as any;
       let valorMatricula = Number(formacionLocal?.valorInscripcion ?? 0);
 
-      // si el objeto local no tiene cuotas, pedimos cuotas reales
+      // primero intentar obtener cuotas por endpoint
       const cuotasData = await fetchCuotasForFormacion(Number(selectedFormacion));
 
-      // si no encontramos valor en la lista, tratamos de pedir detalle (si existe endpoint /api/formaciones/{id}/)
+      // si no hay valor en la lista, pedir detalle
       if ((!valorMatricula || valorMatricula === 0) && selectedFormacion) {
         try {
           const detalle = await api.get(`/api/formaciones/${selectedFormacion}/`);
           const det = detalle.data;
           if (det) {
             valorMatricula = Number(det.valorInscripcion ?? det.precio ?? valorMatricula ?? 0);
-            // si el detalle incluye cuotas, mezclar/usar esas
             if (!cuotasData.length) {
               const cuotasFromDetail = det.cuotas ?? det.cuotas_json ?? det.inscripcioncuota_set ?? null;
               if (cuotasFromDetail) {
-                // intentar normalizar
                 const parsed = safeParseJson(cuotasFromDetail);
                 if (Array.isArray(parsed) && parsed.length > 0) {
                   const mapped = parsed.map((c: any) => ({
                     nombreCuota: c.nombreCuota ?? c.nombre ?? `Cuota`,
                     valorCuota: Number(c.valorCuota ?? c.valor ?? c.monto ?? 0),
                   }));
-                  if (mapped.length) {
-                    if (mounted) setCuotas(mapped);
-                    const totalC = mapped.reduce((s: number, x: any) => s + (Number(x.valorCuota) || 0), 0);
-                    if (mounted) {
-                      setTotalCuotas(totalC);
-                      setMontoTotal(valorMatricula + totalC);
-                    }
-                    if (mounted) setValorInscripcion(valorMatricula);
-                    return;
+                  if (mounted) setCuotas(mapped);
+                  const totalC = mapped.reduce((s: number, x: any) => s + (Number(x.valorCuota) || 0), 0);
+                  if (mounted) {
+                    setTotalCuotas(totalC);
+                    setMontoTotal(Number(valorMatricula) + totalC);
+                    setValorInscripcion(Number(valorMatricula));
                   }
+                  return;
                 }
               }
             }
           }
         } catch (e) {
-          // no romper si no existe endpoint detalle
+          // ignore
         }
       }
 
@@ -414,8 +427,7 @@ const InscripcionesScreen = () => {
     return () => { mounted = false; };
   }, [selectedFormacion, formaciones]);
 
-
-  // buscar
+  // ---------- Buscador simple ----------
   useEffect(() => {
     const q = searchText.trim().toLowerCase();
     if (!q) {
@@ -431,13 +443,12 @@ const InscripcionesScreen = () => {
     }));
   }, [searchText, items]);
 
+  // ---------- Detalle ----------
   const openDetail = async (item: any) => {
     let merged = { ...item };
-
     try {
       const idForm = Number(item.idFormacion ?? item.idFormacion_detail?.idFormacion ?? item.idFormacion_detail?.id);
       if (idForm) {
-        // Pedimos cuotas del endpoint
         const cuotasRealtime = await fetchCuotasForFormacion(idForm);
         if (cuotasRealtime && cuotasRealtime.length > 0) {
           merged = {
@@ -449,7 +460,6 @@ const InscripcionesScreen = () => {
             }
           };
         } else {
-          // intentar traer detalle completo de formacion (si existe)
           try {
             const d = await api.get(`/api/formaciones/${idForm}/`);
             if (d?.data) {
@@ -467,12 +477,11 @@ const InscripcionesScreen = () => {
     } catch (e) {
       console.warn('openDetail: error obteniendo cuotas', e);
     }
-
     setSelected(merged);
     setDetailModalVisible(true);
   };
 
-
+  // ---------- Validación y creación ----------
   const validateCreateForm = () => {
     const errs: Record<string, string> = {};
     if (selectedTipoFormacion === undefined) errs.tipoFormacion = 'Seleccione un tipo de formación';
@@ -499,7 +508,7 @@ const InscripcionesScreen = () => {
         idTF: selectedTipoFormacion,
         idFormacion: selectedFormacion,
         idCohorte: selectedCohorte,
-        montoTotal,
+        montoTotal: montoTotal,
         montoPagado: 0,
         estadoPago: 'PENDIENTE',
         fechaInscripcion: new Date().toISOString().slice(0, 19).replace('T', ' ')
@@ -507,9 +516,7 @@ const InscripcionesScreen = () => {
       const res = await api.post('/api/inscripcion/', payload);
       if (res.status === 201 || res.status === 200) {
         try {
-          const notaResponse = await api.post('/api/nota-cobro/create/', {
-            idInscripcion: res.data.idInscripcion
-          });
+          const notaResponse = await api.post('/api/nota-cobro/create/', { idInscripcion: res.data.idInscripcion });
           if (notaResponse.data.success) {
             navigation.navigate('pago', {
               notaData: notaResponse.data.data,
@@ -586,9 +593,7 @@ const InscripcionesScreen = () => {
         <View style={styles.headerTitleContainer}>
           <Text style={[styles.title, isSmallScreen && styles.titleSmall]}>Mis Inscripciones</Text>
           {user?.cedula && (
-            <Text style={[styles.userCedula, isSmallScreen && styles.userCedulaSmall]}>
-              Cédula: {user.cedula}
-            </Text>
+            <Text style={[styles.userCedula, isSmallScreen && styles.userCedulaSmall]}>Cédula: {user.cedula}</Text>
           )}
         </View>
         <TouchableOpacity
@@ -643,7 +648,7 @@ const InscripcionesScreen = () => {
                   <Text style={[styles.cardTitle, isSmallScreen && styles.cardTitleSmall]} numberOfLines={2}>
                     {item.idFormacion_detail?.nombreFormacion ?? '—'}
                   </Text>
-                   <View style={[styles.badge, statusColor(status), isSmallScreen && styles.badgeSmall]}>
+                  <View style={[styles.badge, statusColor(status), isSmallScreen && styles.badgeSmall]}>
                     <Text style={[styles.badgeText, isSmallScreen && styles.badgeTextSmall]}>{status}</Text>
                   </View>
                 </View>
@@ -659,14 +664,12 @@ const InscripcionesScreen = () => {
                   </View>
                   <View style={styles.detailItem}>
                     <Icon name="calendar" size={isSmallScreen ? 12 : 14} color="#666" />
-                    {/* SOLO FECHA (sin hora) */}
                     <Text style={[styles.detailText, isSmallScreen && styles.detailTextSmall]}>
                       Fecha de Inscripción: {item.fechaInscripcion ? new Date(item.fechaInscripcion).toLocaleDateString() : '—'}
                     </Text>
                   </View>
                 </View>
 
-                {/* ahora mostramos el VALOR de la formación */}
                 <View style={[styles.detailRow, isSmallScreen && styles.detailRowSmall]}>
                   <View style={[styles.detailItem, { flex: 1 }]}>
                     <Icon name="cash" size={isSmallScreen ? 12 : 14} color="#666" />
@@ -678,9 +681,7 @@ const InscripcionesScreen = () => {
               </View>
 
               <View style={[styles.cardFooter, isSmallScreen && styles.cardFooterSmall]}>
-                <Text style={[styles.cardButtonText, isSmallScreen && styles.cardButtonTextSmall]}>
-                  Tocar para ver detalles
-                </Text>
+                <Text style={[styles.cardButtonText, isSmallScreen && styles.cardButtonTextSmall]}>Tocar para ver detalles</Text>
                 <Icon name="chevron-right" size={isSmallScreen ? 16 : 18} color="#4f8cff" />
               </View>
             </TouchableOpacity>
@@ -698,15 +699,13 @@ const InscripcionesScreen = () => {
               onPress={() => setFormModalVisible(true)}
             >
               <Icon name="plus" size={isSmallScreen ? 16 : 18} color="#fff" />
-              <Text style={[styles.addButtonText, isSmallScreen && styles.addButtonTextSmall]}>
-                Crear primera inscripción
-              </Text>
+              <Text style={[styles.addButtonText, isSmallScreen && styles.addButtonTextSmall]}>Crear primera inscripción</Text>
             </TouchableOpacity>
           </View>
         }
       />
 
-      {/* DETAIL MODAL (actualizado: fecha sin hora, cuotas reales en detalle de formación) */}
+      {/* DETAIL MODAL */}
       <Modal
         isVisible={detailModalVisible}
         onBackdropPress={() => setDetailModalVisible(false)}
@@ -716,28 +715,18 @@ const InscripcionesScreen = () => {
         <View style={[
           styles.modalContent,
           isSmallScreen && styles.modalContentSmall,
-          { maxHeight: Math.min(height * 0.85, 720), width: isLargeScreen ? '80%' : undefined }
+          { maxHeight: Math.min(useWindowDimensions().height * 0.85, 720), width: isLargeScreen ? '80%' : undefined }
         ]}>
           <View style={[styles.modalHeader, isSmallScreen && styles.modalHeaderSmall]}>
-            <Text style={[styles.modalTitle, isSmallScreen && styles.modalTitleSmall]}>
-              Detalles de Inscripción
-            </Text>
-            <TouchableOpacity
-              style={[styles.closeButton, isSmallScreen && styles.closeButtonSmall]}
-              onPress={() => setDetailModalVisible(false)}
-            >
+            <Text style={[styles.modalTitle, isSmallScreen && styles.modalTitleSmall]}>Detalles de Inscripción</Text>
+            <TouchableOpacity style={[styles.closeButton, isSmallScreen && styles.closeButtonSmall]} onPress={() => setDetailModalVisible(false)}>
               <Icon name="close" size={isSmallScreen ? 20 : 22} color="#666" />
             </TouchableOpacity>
           </View>
 
-          <ScrollView
-            style={styles.modalBody}
-            contentContainerStyle={{ paddingBottom: 12 }}
-            showsVerticalScrollIndicator
-          >
+          <ScrollView style={styles.modalBody} contentContainerStyle={{ paddingBottom: 12 }}>
             {selected ? (
               <View style={[styles.detailGrid, isSmallScreen && styles.detailGridSmall]}>
-                {/* Formación */}
                 <View style={[styles.detailCell, isSmallScreen ? styles.detailCellFull : styles.detailCellHalf]}>
                   <Text style={[styles.detailLabel, isSmallScreen && styles.detailLabelSmall]}>Formación</Text>
                   <Text style={[styles.detailValue, isSmallScreen && styles.detailValueSmall]}>
@@ -745,7 +734,6 @@ const InscripcionesScreen = () => {
                   </Text>
                 </View>
 
-                {/* Cohorte */}
                 <View style={[styles.detailCell, isSmallScreen ? styles.detailCellFull : styles.detailCellHalf]}>
                   <Text style={[styles.detailLabel, isSmallScreen && styles.detailLabelSmall]}>Cohorte</Text>
                   <Text style={[styles.detailValue, isSmallScreen && styles.detailValueSmall]}>
@@ -753,7 +741,6 @@ const InscripcionesScreen = () => {
                   </Text>
                 </View>
 
-                {/* Valor inscripción (desde el modelo Formacion) */}
                 <View style={[styles.detailCell, isSmallScreen ? styles.detailCellFull : styles.detailCellHalf]}>
                   <Text style={[styles.detailLabel, isSmallScreen && styles.detailLabelSmall]}>Valor inscripción</Text>
                   <Text style={[styles.detailValue, isSmallScreen && styles.detailValueSmall]}>
@@ -761,7 +748,6 @@ const InscripcionesScreen = () => {
                   </Text>
                 </View>
 
-                {/* Estado pago */}
                 <View style={[styles.detailCell, isSmallScreen ? styles.detailCellFull : styles.detailCellHalf]}>
                   <Text style={[styles.detailLabel, isSmallScreen && styles.detailLabelSmall]}>Estado pago</Text>
                   <Text style={[styles.detailValue, isSmallScreen && styles.detailValueSmall]}>
@@ -769,7 +755,6 @@ const InscripcionesScreen = () => {
                   </Text>
                 </View>
 
-                {/* Monto total */}
                 <View style={[styles.detailCell, isSmallScreen ? styles.detailCellFull : styles.detailCellHalf]}>
                   <Text style={[styles.detailLabel, isSmallScreen && styles.detailLabelSmall]}>Monto total</Text>
                   <Text style={[styles.detailValue, isSmallScreen && styles.detailValueSmall]}>
@@ -777,7 +762,6 @@ const InscripcionesScreen = () => {
                   </Text>
                 </View>
 
-                {/* Fecha (solo fecha, sin hora) */}
                 <View style={[styles.detailCell, isSmallScreen ? styles.detailCellFull : styles.detailCellHalf]}>
                   <Text style={[styles.detailLabel, isSmallScreen && styles.detailLabelSmall]}>Fecha inscripción</Text>
                   <Text style={[styles.detailValue, isSmallScreen && styles.detailValueSmall]}>
@@ -785,7 +769,6 @@ const InscripcionesScreen = () => {
                   </Text>
                 </View>
 
-                {/* Si la formación tiene cuotas, listarlas (obtenidas de idFormacion_detail o del cache) */}
                 {(() => {
                   const f = selected.idFormacion_detail ?? null;
                   const cuotasDetalle = cuotasFromFormacionObj(f);
@@ -807,54 +790,30 @@ const InscripcionesScreen = () => {
           </ScrollView>
 
           <View style={[styles.modalFooter, isSmallScreen && styles.modalFooterSmall]}>
-            <TouchableOpacity
-              style={[styles.modalButton, isSmallScreen && styles.modalButtonSmall]}
-              onPress={() => setDetailModalVisible(false)}
-            >
+            <TouchableOpacity style={[styles.modalButton, isSmallScreen && styles.modalButtonSmall]} onPress={() => setDetailModalVisible(false)}>
               <Text style={[styles.modalButtonText, isSmallScreen && styles.modalButtonTextSmall]}>Cerrar</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
 
-      {/* FORM MODAL (sin cambios importantes en diseño, pero usa cuotas reales para el resumen) */}
+      {/* FORM MODAL */}
       <Modal
         isVisible={formModalVisible}
         onBackdropPress={() => !creating && setFormModalVisible(false)}
         style={[styles.modal, styles.formModal, isSmallScreen && styles.modalSmall]}
         avoidKeyboard
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={[styles.keyboardAvoid, { minHeight: Math.min(height * 0.9, 900) }]}
-        >
-          <View style={[
-            styles.formModalContent,
-            isSmallScreen ? styles.formModalContentSmall : {},
-            {
-              maxHeight: Math.min(height * 0.95, 1000),
-              width: isLargeScreen ? Math.min(720, width * 0.8) : undefined,
-            }
-          ]}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[styles.keyboardAvoid, { minHeight: Math.min(useWindowDimensions().height * 0.9, 900) }]}>
+          <View style={[styles.formModalContent, isSmallScreen ? styles.formModalContentSmall : {}, { maxHeight: Math.min(useWindowDimensions().height * 0.95, 1000), width: isLargeScreen ? Math.min(720, useWindowDimensions().width * 0.8) : undefined }]}>
             <View style={[styles.modalHeader, isSmallScreen && styles.modalHeaderSmall]}>
-              <Text style={[styles.modalTitle, isSmallScreen && styles.modalTitleSmall]}>
-                Nueva Inscripción
-              </Text>
-              <TouchableOpacity
-                style={[styles.closeButton, isSmallScreen && styles.closeButtonSmall]}
-                onPress={() => !creating && setFormModalVisible(false)}
-                disabled={creating}
-              >
+              <Text style={[styles.modalTitle, isSmallScreen && styles.modalTitleSmall]}>Nueva Inscripción</Text>
+              <TouchableOpacity style={[styles.closeButton, isSmallScreen && styles.closeButtonSmall]} onPress={() => !creating && setFormModalVisible(false)} disabled={creating}>
                 <Icon name="close" size={isSmallScreen ? 20 : 22} color="#666" />
               </TouchableOpacity>
             </View>
 
-            <ScrollView
-              style={styles.formBody}
-              showsVerticalScrollIndicator
-              keyboardShouldPersistTaps="handled"
-              contentContainerStyle={[styles.formContent, isSmallScreen && styles.formContentSmall, { paddingBottom: 24 }]}
-            >
+            <ScrollView style={styles.formBody} showsVerticalScrollIndicator keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.formContent, isSmallScreen && styles.formContentSmall, { paddingBottom: 24 }]}>
               {/* Información Personal */}
               <View style={styles.formSection}>
                 <View style={styles.sectionHeader}>
@@ -865,13 +824,9 @@ const InscripcionesScreen = () => {
                 <View style={[styles.fieldContainer, isSmallScreen && styles.fieldContainerSmall]}>
                   <Text style={[styles.label, isSmallScreen && styles.labelSmall]}>Cédula</Text>
                   <View style={[styles.cedulaFijaContainer, isSmallScreen && styles.cedulaFijaContainerSmall]}>
-                    <Text style={[styles.cedulaFijaText, isSmallScreen && styles.cedulaFijaTextSmall]}>
-                      {user?.cedula || 'No disponible'}
-                    </Text>
+                    <Text style={[styles.cedulaFijaText, isSmallScreen && styles.cedulaFijaTextSmall]}>{user?.cedula || 'No disponible'}</Text>
                   </View>
-                  <Text style={[styles.helpText, isSmallScreen && styles.helpTextSmall]}>
-                    {user?.nombres && user?.apellidos ? `${user.nombres} ${user.apellidos}` : 'Usuario actual'}
-                  </Text>
+                  <Text style={[styles.helpText, isSmallScreen && styles.helpTextSmall]}>{user?.nombres && user?.apellidos ? `${user.nombres} ${user.apellidos}` : 'Usuario actual'}</Text>
                 </View>
               </View>
 
@@ -885,17 +840,9 @@ const InscripcionesScreen = () => {
                 <View style={[styles.fieldContainer, isSmallScreen && styles.fieldContainerSmall]}>
                   <Text style={[styles.label, isSmallScreen && styles.labelSmall]}>Tipo de Formación *</Text>
                   <View style={[styles.pickerContainer, isSmallScreen && styles.pickerContainerSmall]}>
-                    <Picker
-                      selectedValue={selectedTipoFormacion}
-                      onValueChange={(itemValue) => setSelectedTipoFormacion(itemValue)}
-                      style={[styles.picker, isSmallScreen && styles.pickerSmall, { width: '100%' }]}
-                      dropdownIconColor="#666"
-                      mode="dropdown"
-                    >
+                    <Picker selectedValue={selectedTipoFormacion} onValueChange={(v) => setSelectedTipoFormacion(v)} style={[styles.picker, isSmallScreen && styles.pickerSmall, { width: '100%' }]} dropdownIconColor="#666" mode="dropdown">
                       <Picker.Item label="Seleccione tipo..." value={undefined} />
-                      {tiposFormacion.map(tf => (
-                        <Picker.Item key={tf.idTF} label={tf.nombreTipoFormacion} value={tf.idTF} />
-                      ))}
+                      {tiposFormacion.map(tf => <Picker.Item key={tf.idTF} label={tf.nombreTipoFormacion} value={tf.idTF} />)}
                     </Picker>
                   </View>
                   {formErrors.tipoFormacion && <Text style={[styles.errorText, isSmallScreen && styles.errorTextSmall]}>{formErrors.tipoFormacion}</Text>}
@@ -904,14 +851,7 @@ const InscripcionesScreen = () => {
                 <View style={[styles.fieldContainer, isSmallScreen && styles.fieldContainerSmall]}>
                   <Text style={[styles.label, isSmallScreen && styles.labelSmall]}>Formación *</Text>
                   <View style={[styles.pickerContainer, isSmallScreen && styles.pickerContainerSmall]}>
-                    <Picker
-                      selectedValue={selectedFormacion}
-                      onValueChange={(itemValue) => setSelectedFormacion(itemValue)}
-                      style={[styles.picker, isSmallScreen && styles.pickerSmall, { width: '100%' }]}
-                      enabled={formacionesFiltradas.length > 0}
-                      dropdownIconColor="#666"
-                      mode="dropdown"
-                    >
+                    <Picker selectedValue={selectedFormacion} onValueChange={(v) => setSelectedFormacion(v)} style={[styles.picker, isSmallScreen && styles.pickerSmall, { width: '100%' }]} enabled={formacionesFiltradas.length > 0} dropdownIconColor="#666" mode="dropdown">
                       <Picker.Item label={formacionesFiltradas.length === 0 ? "Seleccione tipo primero" : "Seleccione formación..."} value={undefined} />
                       {formacionesFiltradas.map((f: any) => (
                         <Picker.Item key={f.idFormacion} label={`${f.nombreFormacion} - ${fmtMoney(f.valorInscripcion)}`} value={f.idFormacion} />
@@ -924,16 +864,14 @@ const InscripcionesScreen = () => {
                 <View style={[styles.fieldContainer, isSmallScreen && styles.fieldContainerSmall]}>
                   <Text style={[styles.label, isSmallScreen && styles.labelSmall]}>Cohorte *</Text>
                   <View style={[styles.pickerContainer, isSmallScreen && styles.pickerContainerSmall]}>
-                    <Picker
-                      selectedValue={selectedCohorte}
-                      onValueChange={(itemValue) => setSelectedCohorte(itemValue)}
-                      style={[styles.picker, isSmallScreen && styles.pickerSmall, { width: '100%' }]}
-                      dropdownIconColor="#666"
-                      mode="dropdown"
-                    >
+                    <Picker selectedValue={selectedCohorte} onValueChange={(v) => setSelectedCohorte(v)} style={[styles.picker, isSmallScreen && styles.pickerSmall, { width: '100%' }]} dropdownIconColor="#666" mode="dropdown">
                       <Picker.Item label="Seleccione cohorte..." value={undefined} />
                       {cohortes.map(c => (
-                        <Picker.Item key={c.idCohorte} label={c.nombreCohorte} value={c.idCohorte} />
+                        <Picker.Item
+                            key={c.idCohorte}
+                            label={`${c.nombreCohorte} ${c.fechaInicio ? `(${formatDateShort(String(c.fechaInicio))} - ${formatDateShort(String(c.fechaFin))})` : ''}`}
+                            value={c.idCohorte}
+                          />
                       ))}
                     </Picker>
                   </View>
@@ -980,7 +918,7 @@ const InscripcionesScreen = () => {
                 </View>
               </View>
 
-              {/* Fecha */}
+              {/* Fecha (automática) */}
               <View style={styles.formSection}>
                 <View style={styles.sectionHeader}>
                   <Icon name="calendar-clock" size={isSmallScreen ? 18 : 20} color="#4f8cff" />
@@ -997,27 +935,15 @@ const InscripcionesScreen = () => {
             </ScrollView>
 
             <View style={[styles.formFooter, isSmallScreen && styles.formFooterSmall]}>
-              <TouchableOpacity
-                style={[styles.formButton, styles.cancelButton, isSmallScreen && styles.formButtonSmall]}
-                onPress={() => setFormModalVisible(false)}
-                disabled={creating}
-              >
+              <TouchableOpacity style={[styles.formButton, styles.cancelButton, isSmallScreen && styles.formButtonSmall]} onPress={() => setFormModalVisible(false)} disabled={creating}>
                 <Text style={[styles.cancelButtonText, isSmallScreen && styles.cancelButtonTextSmall]}>Cancelar</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[styles.formButton, styles.submitButton, isSmallScreen && styles.formButtonSmall]}
-                onPress={handleCreateInscripcion}
-                disabled={creating}
-              >
-                {creating ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <>
-                    <Icon name="check" size={isSmallScreen ? 16 : 18} color="#fff" />
-                    <Text style={[styles.submitButtonText, isSmallScreen && styles.submitButtonTextSmall]}>Crear Inscripción</Text>
-                  </>
-                )}
+              <TouchableOpacity style={[styles.formButton, styles.submitButton, isSmallScreen && styles.formButtonSmall]} onPress={handleCreateInscripcion} disabled={creating}>
+                {creating ? <ActivityIndicator color="#fff" size="small" /> : <>
+                  <Icon name="check" size={isSmallScreen ? 16 : 18} color="#fff" />
+                  <Text style={[styles.submitButtonText, isSmallScreen && styles.submitButtonTextSmall]}>Crear Inscripción</Text>
+                </>}
               </TouchableOpacity>
             </View>
           </View>
@@ -1026,7 +952,6 @@ const InscripcionesScreen = () => {
     </View>
   );
 };
-
 
 // ESTILOS COMPLETOS (añadidos los estilos detailGrid/detailCell)
 const styles = StyleSheet.create({
