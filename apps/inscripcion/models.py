@@ -33,10 +33,24 @@ class Inscripcion(models.Model):
     @property
     def montoTotal(self):
         """Calcula el monto total a pagar (inscripción + todas las cuotas)"""
-        total = self.idFormacion.valorInscripcion
-        if self.idFormacion.tieneCuotas:
-            total += sum(cuota.valorCuota for cuota in self.idFormacion.cuotas.filter(is_active=True))
-        return total
+        total = 0
+        try:
+            # La formación está ligada a la cohorte: idCohorte.idFormacion
+            formacion = getattr(self.idCohorte, 'idFormacion', None)
+            if not formacion:
+                return 0
+            total = getattr(formacion, 'valorInscripcion', 0) or 0
+            if getattr(formacion, 'tieneCuotas', False):
+                # si la relación de cuotas en Formacion se llama distinto, usar try/except
+                try:
+                    cuotas_qs = formacion.cuotas.filter(is_active=True)
+                except Exception:
+                    # fallback: intentar nombres alternativos
+                    cuotas_qs = getattr(formacion, 'cuotaformacion_set', formacion.cuotas.all() if hasattr(formacion,'cuotas') else [])
+                total += sum(getattr(cuota, 'valorCuota', 0) or 0 for cuota in cuotas_qs)
+            return total
+        except Exception:
+            return 0
     
     @property
     def saldoPendiente(self):
