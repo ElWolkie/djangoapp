@@ -87,7 +87,8 @@
     </div>
   </div>
 
-  <div class="mb-3">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
     <a href="?mostrar_inactivos={% if mostrar_inactivos %}false{% else %}true{% endif %}"
        class="btn btn-outline-secondary btn-sm">
       {% if mostrar_inactivos %}
@@ -97,6 +98,11 @@
       {% endif %}
     </a>
   </div>
+  <div class="small text-muted">
+    <p class="mb-0"><small>Valores romanos: I (1), V (5), X (10), L (50), C (100), D (500) y M (1000)</small></p>
+  </div>
+</div>
+
 
   <div id="globalMessages">
     {% if messages %}
@@ -211,7 +217,7 @@
 
 <!-- Modal: Editar Cohorte -->
 <div class="modal fade" id="editCohorteModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-md">
+  <div class="modal-dialog modal-lg">
     <div class="modal-content">
       <div class="modal-header bg-primary text-white">
         <h5 class="modal-title text-white"><i class="fas fa-edit me-2"></i> Editar Cohorte</h5>

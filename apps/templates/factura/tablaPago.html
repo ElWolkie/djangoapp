@@ -187,16 +187,7 @@
                     <i class="fas fa-edit"></i>
                   </a>
                 {% endif %}
-                {% if perms.factura.delete_pago %}
-                  <button class="btn btn-outline-danger btn-sm"
-                          data-bs-toggle="modal"
-                          data-bs-target="#deletePagoModal"
-                          data-url="{% url 'pago_delete' pago.idPago %}"
-                          title="Eliminar">
-                    <i class="fas fa-trash"></i>
-                  </button>
-
-                {% endif %}
+                
                   <a href="{% url 'pago_pdf' pago.idPago %}" class="btn btn-danger btn-sm" title="Descargar PDF" target="_blank">
                     <i class="fas fa-file-pdf"></i>
                   </a>

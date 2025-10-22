@@ -1,117 +1,384 @@
+
 {% load static %}
 
 {% block stylesheets %}
 <link rel="stylesheet" href="/static/assets/css/styleForms.css" />
 <link rel="stylesheet" href="/static/assets/css/argon.css" />
 <style>
-/* mismo estilo base */
-.persona-container { background: linear-gradient(135deg,#f8fafc 0%,#eef2f6 100%); border-radius:1rem; box-shadow:0 0.5rem 1.5rem rgba(0,0,0,0.1); padding:1.5rem; margin:0.5rem auto; max-width:95%; width:100%; }
-.persona-header { text-align:center; margin-bottom:1.5rem; position:relative; padding-bottom:1rem; }
-.persona-header h2 { color:#343a40; font-weight:700; font-size:1.3rem; margin-bottom:.5rem; }
-.form-group { margin-bottom:1.2rem; position:relative; }
-.form-label { font-weight:700; color:#495057; margin-bottom:.5rem; display:flex; align-items:center; font-size:.95rem; }
-.form-label i { margin-right:8px; color:#fd7e14; font-size:.95rem; }
-.form-control { border-radius:.5rem; padding:.75rem 1.25rem; border:1px solid #ced4da; background:#fff; height:48px; font-size:.95rem; }
-.input-icon { position:absolute; left:12px; top:50%; transform:translateY(-50%); color:#6c757d; z-index:2; font-size:.9rem; }
-.input-with-icon { padding-left:40px; }
-.btn-submit { background:linear-gradient(135deg,#ffc107 0%,#fd7e14 100%); border:none; color:#fff; font-weight:600; padding:.75rem 2rem; border-radius:.5rem; box-shadow:0 4px 6px rgba(0,0,0,.1); font-size:1rem; }
-.modal-body { padding:.75rem; }
-#modalMessages .alert { margin-bottom:.5rem; }
+  .simple-container {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 1rem;
+    box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.1);
+    padding: 2rem;
+    margin: 2rem auto;
+    max-width: 1000px;
+  }
+  .simple-header {
+    text-align: center;
+    margin-bottom: 2rem;
+    position: relative;
+    padding-bottom: 1rem;
+  }
+  .simple-header h2 {
+    color: #343a40;
+    font-weight: 700;
+  }
+  .simple-header::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 50%;
+    transform: translateX(-50%);
+    width: 80px; height: 4px;
+    background: linear-gradient(90deg, #ffc107, #fd7e14);
+    border-radius: 2px;
+  }
+  .form-group {
+    position: relative;
+    margin-bottom: 1.5rem;
+  }
+  .form-label {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: .5rem;
+    display: flex;
+    align-items: center;
+  }
+  .form-label i {
+    margin-right: .5rem;
+    color: #fd7e14;
+  }
+  .form-control {
+    border-radius: .5rem;
+    padding: .75rem 1.25rem;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.075);
+    transition: all .3s;
+  }
+  .form-control:focus {
+    border-color: #ffc107;
+    box-shadow: 0 0 0 .25rem rgba(255,193,7,0.25);
+  }
+  .input-icon {
+    position: absolute; left: 12px; top: 50%;
+    transform: translateY(-50%);
+    color: #6c757d; z-index: 2;
+  }
+  .input-with-icon { padding-left: 40px; }
+  .btn-submit {
+    background: linear-gradient(135deg,#ffc107 0%,#fd7e14 100%);
+    border: none; color: #fff; font-weight:600;
+    padding: .75rem 2rem; border-radius:.5rem;
+    transition: all .3s; box-shadow:0 4px 6px rgba(0,0,0,0.1);
+  }
+  .btn-submit:hover {
+    transform: translateY(-2px);
+    box-shadow:0 6px 12px rgba(0,0,0,0.15);
+    background: linear-gradient(135deg,#fd7e14 0%,#ffc107 100%);
+  }
+  /* Mantener el padding izquierdo para inputs con iconos durante validación */
+.form-control.is-invalid.input-with-icon,
+.form-control.is-valid.input-with-icon {
+    padding-left: 40px;
+    background-position: left calc(.375em + .1875rem) center;
+}
+
+/* Asegurar que el icono se mantenga sobre el borde de validación */
+.input-icon {
+    z-index: 3; /* Mayor que el z-index del borde de validación */
+}
 </style>
 {% endblock stylesheets %}
 
 {% block content %}
-<div class="persona-container">
-  <div class="persona-header">
-    <h2><i class="fas fa-layer-group text-warning"></i> Editar Cohorte</h2>
-    <p class="text-muted">Actualiza el nombre del cohorte</p>
-  </div>
+{% if messages %}
+  {% for message in messages %}
+    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+      <i class="fas {% if message.tags == 'success' %}fa-check-circle{% else %}fa-exclamation-circle{% endif %} me-2"></i>
+      {{ message }}
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+  {% endfor %}
+{% endif %}
 
+<div class="simple-container">
+  <div class="simple-header">
+    <h2><i class="fas fa-edit text-warning"></i> Editar Cohorte</h2>
+  </div>
+  
   <div id="modalMessages"></div>
 
-  <form id="editCohorteForm" method="post" action="{% url 'edit_cohorte' cohorte.idCohorte %}" class="needs-validation" novalidate autocomplete="off">
+  <form id="editCohorteForm" method="POST" action="{% url 'edit_cohorte' cohorte.idCohorte %}" class="needs-validation" novalidate autocomplete="off">
     {% csrf_token %}
+    
     <div class="row">
-      <div class="col-md-12">
-        <div class="form-group position-relative">
-          <label class="form-label" for="nombreCohorte"><i class="fas fa-scroll"></i> Nombre Cohorte</label>
-          <div style="position:relative;">
-            <i class="fas fa-scroll input-icon"></i>
-            <input id="nombreCohorte" name="nombreCohorte" type="text" class="form-control input-with-icon" value="{{ cohorte.nombreCohorte }}" maxlength="20" required />
+      <!-- Formación (solo lectura) -->
+      <div class="col-12">
+        <div class="form-group">
+          <label for="formacion" class="form-label">
+            <i class="fas fa-graduation-cap"></i> Formación
+          </label>
+          <div class="input-group">
+            <i class="fas fa-graduation-cap input-icon"></i>
+            <input type="text" id="formacion" class="form-control input-with-icon" 
+                   value="{{ cohorte.idFormacion.idTF.nombreTipoFormacion }} - {{ cohorte.idFormacion.nombreFormacion }}" 
+                   readonly />
           </div>
-          <div class="invalid-feedback" id="nombreCohorteFeedback">Formato inválido. Ej: VIII, XIX, MMXXIII</div>
+          <input type="hidden" id="formacionId" name="idFormacion" value="{{ cohorte.idFormacion.idFormacion }}" />
         </div>
       </div>
 
-      <input type="hidden" name="estadoCohorte" value="{{ cohorte.estadoCohorte }}" />
+      <!-- Nombre Cohorte -->
+      <div class="col-6">
+        <div class="form-group">
+          <label for="nombreCohorte" class="form-label">
+            <i class="fas fa-hashtag"></i> Nombre (Romano)
+          </label>
+          <div class="input-group">
+            <i class="fas fa-roman-numerals input-icon"></i>
+            <input type="text" id="nombreCohorte" name="nombreCohorte"
+                   class="form-control input-with-icon" placeholder="VIII, XIX, MMXXV"
+                   value="{{ cohorte.nombreCohorte }}" maxlength="10" required>
+            <div class="invalid-feedback" id="roman-error">Formato inválido: Ej.: I, VIII, XIX, MMXXIII.</div>
+            <div class="invalid-feedback">Ingresa un formato de cohorte válido.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lapso de Inscripción -->
+      <div class="col-6">
+        <div class="form-group">
+          <label for="lapsoInscripcion" class="form-label">
+            <i class="fas fa-hourglass-half"></i> Lapso de Inscripción (Días)
+          </label>
+          <div class="input-group">
+            <i class="fas fa-clock input-icon" style="flex-direction: column; align-items: stretch;" ></i>
+            <input type="number" id="lapsoInscripcion" name="lapsoInscripcion"
+                   class="form-control input-with-icon" placeholder="Ej. 30"
+                   value="{{ cohorte.lapsoInscripcion }}" min="{{ cohorte.lapsoInscripcion }}" required>
+            <div class="invalid-feedback" id="lapsoInscripcionFeedback">El lapso de inscripción no puede ser menor al valor actual.</div>
+            <div class="invalid-feedback">Debes ingresar un lapso de tiempo válido.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Fecha de Inicio (solo lectura) -->
+      <div class="col-6">
+        <div class="form-group">
+          <label for="fechaInicio" class="form-label">
+            <i class="fas fa-calendar-alt"></i> Fecha de Inicio
+          </label>
+          <div class="input-group">
+            <i class="fas fa-calendar input-icon"></i>
+            <input type="date" id="fechaInicio" name="fechaInicio"
+                   class="form-control input-with-icon" 
+                   value="{{ cohorte.fechaInicio|date:'Y-m-d' }}" readonly>
+          </div>
+        </div>
+      </div>
+
+      <!-- Fecha de Fin -->
+      <div class="col-6">
+        <div class="form-group">
+          <label for="fechaFin" class="form-label">
+            <i class="fas fa-calendar-check"></i> Fecha de Fin
+          </label>
+          <div class="input-group">
+            <i class="fas fa-calendar input-icon"></i>
+            <input type="date" id="fechaFin" name="fechaFin"
+                   class="form-control input-with-icon" 
+                   value="{{ cohorte.fechaFin|date:'Y-m-d' }}" required>
+            <div class="invalid-feedback" id="fechaFinFeedback">La fecha de fin debe ser posterior a la fecha de inicio.</div>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <div class="text-center mt-2">
-      <button type="submit" class="btn-submit"><i class="fas fa-save me-2"></i> Guardar</button>
+    <input type="hidden" id="estadoCohorte" name="estadoCohorte" value="{{ cohorte.estadoCohorte }}">
+
+    <div class="text-center" style="margin-top:1.25rem;">
+      <button type="submit" class="btn-submit">
+        <i class="fas fa-save me-2"></i> Guardar Cambios
+      </button>
     </div>
   </form>
 </div>
 {% endblock content %}
 
 {% block javascripts %}
+<script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
+<script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
 <script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
+
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-  const form = document.getElementById('editCohorteForm');
-  const nombre = document.getElementById('nombreCohorte');
-  const modalMessages = document.getElementById('modalMessages');
-
-  // uppercase y filtrar caracteres romanos permitidos
-  nombre && nombre.addEventListener('input', e => {
-    e.target.value = e.target.value.toUpperCase().replace(/[^MDCLXVI]/g,'').slice(0,20);
+  // Validación de romano y mayúsculas
+  document.getElementById("nombreCohorte").addEventListener("input", function() {
+    this.value = this.value.toUpperCase().replace(/[^MDCLXVI]/g, '');
+    var valid = /^M{0,3}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})$/.test(this.value);
+    this.classList.toggle("is-invalid", this.value && !valid);
+    document.getElementById("roman-error").textContent = valid ? "" : "Ej.: VIII, XIX, MMXXIII";
   });
-
-  function isRoman(str) {
-    if (!str) return false;
-    return /^M{0,3}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})$/.test(str);
-  }
-
-  form.addEventListener('submit', function(e){
-    if (!form.checkValidity()) { e.preventDefault(); e.stopPropagation(); form.classList.add('was-validated'); return; }
-
-    if (!isRoman(nombre.value)) {
-      e.preventDefault(); e.stopPropagation();
-      nombre.classList.add('is-invalid');
-      document.getElementById('nombreCohorteFeedback').textContent = 'Formato inválido. Ej: VIII, XIX, MMXXIII';
-      nombre.focus();
-      return;
-    } else {
-      nombre.classList.remove('is-invalid');
+  // Bootstrap validation
+  (function(){'use strict';
+    var forms = document.querySelectorAll('.needs-validation');
+    Array.prototype.slice.call(forms).forEach(f=>{
+      f.addEventListener('submit', e=>{
+        if (!f.checkValidity()) {
+          e.preventDefault(); e.stopPropagation();
+        }
+        f.classList.add('was-validated');
+      }, false);
+    });
+  })();
+ 
+  // Función para calcular días entre dos fechas
+    function calcularDiasEntreFechas(fecha1, fecha2) {
+      const unDia = 1000 * 60 * 60 * 24;
+      const tiempo1 = fecha1.getTime();
+      const tiempo2 = fecha2.getTime();
+      return Math.ceil(Math.abs(tiempo2 - tiempo1) / unDia);
     }
+    
+    // Validación de fechas y lapso de inscripción
+    function validarFechasYLapso() {
+      let isValid = true;
+      
+      // Limpiar estados previos
+      fechaFin.classList.remove('is-invalid');
+      lapsoInscripcion.classList.remove('is-invalid');
+      document.getElementById('fechaFinFeedback').style.display = 'none';
+      document.getElementById('lapsoInscripcionFeedback').style.display = 'none';
 
-    e.preventDefault();
-    modalMessages.innerHTML = '';
-    const btn = form.querySelector('button[type="submit"]'); btn.disabled = true;
-
-    $.ajax({
-      url: form.action,
-      method: 'POST',
-      data: $(form).serialize(),
-      dataType: 'json',
-      headers: { 'X-Requested-With': 'XMLHttpRequest' }
-    }).done(function(resp){
-      if (resp.success) {
-        Swal.fire({ icon: 'success', title: 'Cohorte actualizado', text: resp.message || 'Cambios guardados', confirmButtonColor: '#ffc107' })
-        .then(()=> window.location.reload());
-      } else {
-        if (resp.errors) {
-          Object.entries(resp.errors).forEach(([f, msgs]) => {
-            const el = form.querySelector('[name="'+f+'"]');
-            if (el) { el.classList.add('is-invalid'); const fb = el.nextElementSibling; if (fb && fb.classList.contains('invalid-feedback')) fb.textContent = msgs.join(', '); }
-            else modalMessages.insertAdjacentHTML('beforeend', '<div class="alert alert-danger">'+ msgs.join(', ') +'</div>');
-          });
-        } else if (resp.message) {
-          modalMessages.innerHTML = '<div class="alert alert-danger">'+ resp.message +'</div>';
+      // Validar que fecha fin sea posterior a fecha inicio
+      if (fechaInicio.value && fechaFin.value) {
+        const inicio = new Date(fechaInicio.value);
+        const fin = new Date(fechaFin.value);
+        
+        if (fin <= inicio) {
+          fechaFin.classList.add('is-invalid');
+          document.getElementById('fechaFinFeedback').textContent = 'La fecha de fin debe ser posterior a la fecha de inicio.';
+          document.getElementById('fechaFinFeedback').style.display = 'block';
+          isValid = false;
+        } else {
+          // Validar que el lapso de inscripción no exceda el 40% de la duración total
+          const duracionTotal = calcularDiasEntreFechas(inicio, fin);
+          const maxLapsoInscripcion = Math.floor(duracionTotal * 0.4);
+          const lapsoActual = parseInt(lapsoInscripcion.value);
+          
+          if (lapsoActual > maxLapsoInscripcion) {
+            lapsoInscripcion.classList.add('is-invalid');
+            document.getElementById('lapsoInscripcionFeedback').textContent = 
+              `El lapso de inscripción no puede exceder el 40% de la duración total (${duracionTotal} días). Máximo permitido: ${maxLapsoInscripcion} días.`;
+            document.getElementById('lapsoInscripcionFeedback').style.display = 'block';
+            isValid = false;
+          }
+          
+          // Validar que el lapso no sea menor al valor actual
+          if (lapsoActual < {{ cohorte.lapsoInscripcion }}) {
+            lapsoInscripcion.classList.add('is-invalid');
+            document.getElementById('lapsoInscripcionFeedback').textContent = 
+              `El lapso de inscripción no puede ser menor al valor actual ({{ cohorte.lapsoInscripcion }} días).`;
+            document.getElementById('lapsoInscripcionFeedback').style.display = 'block';
+            isValid = false;
+          }
         }
       }
-    }).fail(function(){ modalMessages.innerHTML = '<div class="alert alert-danger">Error en servidor.</div>'; })
-      .always(function(){ btn.disabled = false; });
-  }, false);
-});
+      
+      return isValid;
+    }
+
+    // Event listeners para validación en tiempo real
+    fechaFin.addEventListener('change', validarFechasYLapso);
+    lapsoInscripcion.addEventListener('input', validarFechasYLapso);
+
+  document.addEventListener('DOMContentLoaded', function () {
+    const editCohorteForm = document.getElementById('editCohorteForm');
+
+    editCohorteForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+
+      let valid = true;
+      const fields = [
+        { id: 'formacionId', msg: 'Por favor seleccione una formación válida.' },
+        { id: 'nombreCohorte', msg: 'Por favor ingrese un nombre válido.' },
+        { id: 'lapsoInscripcion', msg: 'Por favor ingrese un lapso de inscripción válido.' },
+        { id: 'fechaInicio', msg: 'Por favor ingrese una fecha de inicio válida.' },
+        { id: 'fechaFin', msg: 'Por favor ingrese una fecha de fin válida.' }
+      ];
+
+      fields.forEach(field => {
+        const input = document.getElementById(field.id);
+        if (!input.value.trim()) {
+          input.classList.add('is-invalid');
+          const feedback = input.nextElementSibling;
+          if (feedback) feedback.textContent = field.msg;
+          valid = false;
+        } else {
+          input.classList.remove('is-invalid');
+          input.classList.add('is-valid');
+        }
+      });
+
+      if (!valid) return;
+
+      const formData = new FormData(editCohorteForm);
+      const submitBtn = editCohorteForm.querySelector('button[type="submit"]');
+      const originalBtnContent = submitBtn.innerHTML;
+      submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Guardando...';
+      submitBtn.disabled = true;
+
+      fetch(editCohorteForm.action, {
+        method: 'POST',
+        body: formData,
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            Swal.fire({
+              icon: 'success',
+              title: 'Éxito',
+              text: 'La cohorte ha sido registrada correctamente.',
+              showCancelButton: true,
+              confirmButtonText: 'Aceptar',
+              cancelButtonText: 'Registrar Otra Cohorte',
+              customClass: {
+                confirmButton: 'btn btn-warning',
+                cancelButton: 'btn btn-secondary'
+              }
+            }).then((result) => {
+              if (result.isConfirmed) {
+                window.location.href = data.redirect_url;
+              } else if (result.dismiss === Swal.DismissReason.cancel) {
+                window.location.reload();
+              }
+            });
+          } else {
+            let errorMessage = '';
+            if (data.errors) {
+              errorMessage = Object.values(data.errors).flat().join('\n');
+            } else {
+              errorMessage = data.message || 'Ocurrió un error al registrar la cohorte.';
+            }
+            Swal.fire({
+              icon: 'error',
+              title: 'Error',
+              text: errorMessage,
+              confirmButtonText: 'Aceptar'
+            });
+          }
+        })
+        .catch(error => {
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Ocurrió un error inesperado.',
+            confirmButtonText: 'Aceptar'
+          });
+        })
+        .finally(() => {
+          submitBtn.innerHTML = originalBtnContent;
+          submitBtn.disabled = false;
+        });
+    });
+  });
 </script>
 {% endblock javascripts %}
