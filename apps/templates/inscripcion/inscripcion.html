@@ -349,6 +349,7 @@
               <div class="invalid-feedback">Por favor, seleccione una formación académmica válida.</div>
             </div>
             <input type="hidden" id="idCohorte" name="idCohorte" />
+            <input type="hidden" id="idFormacion" name="idFormacion" />
           </div>
         </div>
       </div>
@@ -661,8 +662,10 @@ document.addEventListener("DOMContentLoaded", function () {
   document.getElementById("tipo_cedula").addEventListener("change", checkPersona);
   document.getElementById("numero_cedula").addEventListener("input", checkPersona);
   document.getElementById("idTF").addEventListener("change", filterFormaciones);
-  document.getElementById("idFormacion").addEventListener("change", updateResumenCostos);
-  document.getElementById("inscripcionForm").addEventListener("submit", submitForm);
+  if (document.getElementById("idFormacion")) {
+    document.getElementById("idFormacion").addEventListener("change", updateResumenCostos);
+  }
+   document.getElementById("inscripcionForm").addEventListener("submit", submitForm);
 
   // ============================
   // 10) Inicializar valores si vienen por GET
@@ -719,8 +722,9 @@ document.addEventListener("DOMContentLoaded", function () {
   const tabla = document.getElementById("tablaFormaciones");
   if (tabla) {
     tabla.addEventListener("click", function (e) {
-      if (e.target.classList.contains("btn-select")) {
-        const row = e.target.closest("tr");
+      const btn = e.target.closest('.btn-select');
+      if (btn) {
+        const row = btn.closest("tr");
         if (!row) return;
 
         const idFormacion = row.dataset.id;
@@ -746,7 +750,9 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   // Enlazar el evento de cambio al select de formación
-  document.getElementById("idFormacion").addEventListener("change", updateIdCohorte);
+  if (document.getElementById("idFormacion")) {
+    document.getElementById("idFormacion").addEventListener("change", updateIdCohorte);
+  }
 
   // ============================
   // 12) Ejecutar filterFormaciones al cargar la página
@@ -784,8 +790,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Seleccionar una formación al hacer clic en "Elegir"
   tablaFormaciones.addEventListener("click", function (e) {
-    if (e.target.classList.contains("btn-select")) {
-      const row = e.target.closest("tr");
+    const btn = e.target.closest('.btn-select');
+    if (btn) {
+      const row = btn.closest("tr");
       const idFormacion = row.dataset.id;
       const nombreFormacion = row.dataset.nombre;
 
