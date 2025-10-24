@@ -1,3 +1,4 @@
+import re
 import traceback
 from rest_framework import generics, status
 from rest_framework.response import Response
@@ -90,6 +91,7 @@ class FormacionRetrieve(generics.RetrieveAPIView):
     queryset = Formacion.objects.all()
     serializer_class = FormacionSerializer
     # El modelo usa idFormacion como PK, DRF lo respeta al usar 'pk' en la URL
+
 class InscripcionListCreate(generics.ListCreateAPIView):
     queryset = Inscripcion.objects.select_related(
         'idPersona',
@@ -118,6 +120,53 @@ class InscripcionListCreate(generics.ListCreateAPIView):
                 "error": "Error interno al listar inscripciones",
                 "details": str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class InscripcionUsuarioList(generics.ListAPIView):
+    """
+    Devuelve las inscripciones del usuario autenticado (o si se pasa ?cedula=) con las cuotas
+    incluidas (campo 'cuotas' que devuelve la serializer).
+    """
+    serializer_class = InscripcionSerializer
+    permission_classes = [AllowAny]  # si prefieres exigir token usa IsAuthenticated
+
+    def get_queryset(self):
+        qs = Inscripcion.objects.select_related(
+            'idPersona', 'idCohorte', 'idCohorte__idFormacion'
+        ).all()
+
+        # Si pasan ?cedula=V-12345678 filtramos por esa cédula
+        cedula_q = self.request.query_params.get('cedula')
+        if cedula_q:
+            ced = re.sub(r'\D', '', cedula_q)
+            persona = Personas.objects.filter(cedula__iregex=rf"{ced}$").first()
+            if persona:
+                return qs.filter(idPersona_id=persona.idPersona)
+            return qs.none()
+
+        # Intenta deducir persona asociado a request.user via modelo Usuarios (ajusta si tu relación es distinta)
+        user = getattr(self.request, 'user', None)
+        if user and not getattr(user, 'is_anonymous', False):
+            # Intenta buscar en tabla Usuarios que referencie persona
+            try:
+                usuario_rel = Usuarios.objects.filter(user_id=getattr(user, 'id', None)).first()
+                if usuario_rel and getattr(usuario_rel, 'idPersona', None):
+                    persona_id = usuario_rel.idPersona.idPersona if hasattr(usuario_rel.idPersona, 'idPersona') else usuario_rel.idPersona
+                    return qs.filter(idPersona_id=persona_id)
+            except Exception:
+                pass
+
+            # fallback: buscar persona por username / campo cedula en user
+            try:
+                ced_user = re.sub(r'\D', '', str(getattr(user, 'username', '') or ''))
+                if ced_user:
+                    persona = Personas.objects.filter(cedula__iregex=rf"{ced_user}$").first()
+                    if persona:
+                        return qs.filter(idPersona_id=persona.idPersona)
+            except Exception:
+                pass
+
+        # por defecto no exponemos todas las inscripciones
+        return qs.none()
 
 class PagoCreateAPIView(APIView):
     @transaction.atomic

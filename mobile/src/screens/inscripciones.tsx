@@ -120,12 +120,53 @@ const formatDateShort = (dateString?: string | null) => {
   }
 };
 
+// Determina si una cohorte está "activa" para inscripción en la fecha actual.
+// Regla aplicada: la cohorte debe tener fechaInicio, y la fecha actual debe estar dentro
+// del intervalo [fechaInicio, fechaInicio + lapsoInscripcion] o respetando fechaFin si existe.
+const isCohorteActiva = (coh: any) => {
+  if (!coh) return false;
+  const fechaInicioRaw = coh.fechaInicio ?? coh.start_date ?? coh.startDate ?? null;
+  if (!fechaInicioRaw) return false;
+  const start = new Date(String(fechaInicioRaw));
+  if (Number.isNaN(start.getTime())) return false;
+
+  // Si existe fechaFin usamos esa como límite (si es válida)
+  let end: Date | null = null;
+  const fechaFinRaw = coh.fechaFin ?? coh.end_date ?? coh.endDate ?? null;
+  if (fechaFinRaw) {
+    const d = new Date(String(fechaFinRaw));
+    if (!Number.isNaN(d.getTime())) end = d;
+  }
+
+  // Si no hay fechaFin, usar lapsoInscripcion (en días) sumado a fechaInicio
+  if (!end) {
+    const lapso = Number(coh.lapsoInscripcion ?? coh.lapso ?? coh.lap ?? 0);
+    if (lapso > 0) {
+      const tmp = new Date(start);
+      // sumamos lapso días (siendo inclusivo, si lapso = 5 y start = 20 => end = 20 + 5 días)
+      tmp.setDate(tmp.getDate() + lapso);
+      end = tmp;
+    } else {
+      // si no hay lapso ni fechaFin entonces consideramos que la cohorte no está abierta
+      // (no tiene ventana de inscripción definida).
+      return false;
+    }
+  }
+
+  const now = new Date();
+  // Normalizar horas a 00:00 para comparar fechas solamente (opcional)
+  // Pero preferimos comparación exacta:
+  return now >= start && now <= end && String(coh.estadoCohorte ?? '').toUpperCase() !== 'INACTIVO';
+};
+
 // ---------- COMPONENT ----------
 const InscripcionesScreen = () => {
   const navigation = useNavigation<any>();
   const { user } = useContext(AuthContext);
 
-  // <-- LLAMADA A HOOKS: useWindowDimensions SOLO AQUÍ (una vez)
+  // ----------------------------------------
+  // Llamado a hooks (siempre en el topo, sin condiciones)
+  // ----------------------------------------
   const { width, height } = useWindowDimensions();
   const isSmallScreen = width <= 620;
   const isLargeScreen = width >= 900;
@@ -142,10 +183,11 @@ const InscripcionesScreen = () => {
   const [formModalVisible, setFormModalVisible] = useState(false);
   const [creating, setCreating] = useState(false);
 
-  // Form fields
+  // Datos del formulario
   const [tiposFormacion, setTiposFormacion] = useState<TipoFormacion[]>([]);
-  const [formaciones, setFormaciones] = useState<Formacion[]>([]);
-  const [formacionesFiltradas, setFormacionesFiltradas] = useState<Formacion[]>([]);
+  const [formaciones, setFormaciones] = useState<Formacion[]>([]); // todas las formaciones traídas
+  const [availableFormaciones, setAvailableFormaciones] = useState<Formacion[]>([]); // solo las que tienen cohorte activa
+  const [formacionesFiltradas, setFormacionesFiltradas] = useState<Formacion[]>([]); // disponibles + filtradas por tipo
   const [cohortes, setCohortes] = useState<Cohorte[]>([]);
 
   const [selectedTipoFormacion, setSelectedTipoFormacion] = useState<number | undefined>(undefined);
@@ -359,40 +401,79 @@ const InscripcionesScreen = () => {
     fetchInscripciones();
   }, [fetchInscripciones]);
 
-  // ---------- Filtrado formaciones por tipo ----------
+  // ---------- Calcular formaciones disponibles (solo las que tengan cohorte activa) ----------
   useEffect(() => {
-    if (selectedTipoFormacion !== undefined && formaciones.length > 0) {
+    // Construir mapa formacionId -> cohorte activa (puede haber >1, tomamos la que esté abierta hoy)
+    const activeCohortesByFormacion: Record<number, Cohorte[]> = {};
+    cohortes.forEach((coh: any) => {
+      // Compatibilidad: coh.idFormacion puede ser objeto o número
+      let idFormacion = null;
+      if (coh.idFormacion && typeof coh.idFormacion === 'object') {
+        idFormacion = Number(coh.idFormacion.idFormacion ?? coh.idFormacion.id ?? 0);
+      } else if (coh.idFormacion) {
+        idFormacion = Number(coh.idFormacion);
+      } else if (coh.raw && coh.raw.formacion) {
+        // intento de fallback
+        idFormacion = Number(coh.raw.formacion.idFormacion ?? coh.raw.formacion.id ?? 0);
+      }
+      if (!idFormacion) return;
+      if (isCohorteActiva(coh)) {
+        if (!activeCohortesByFormacion[idFormacion]) activeCohortesByFormacion[idFormacion] = [];
+        activeCohortesByFormacion[idFormacion].push(coh);
+      }
+    });
+
+    // Filtrar formaciones que tengan al menos una cohorte activa
+    const available = formaciones.filter(f => {
+      return Boolean(activeCohortesByFormacion[Number((f as any).idFormacion)]);
+    });
+
+    setAvailableFormaciones(available);
+  }, [formaciones, cohortes]);
+
+  // ---------- Filtrado formaciones por tipo (ahora usa availableFormaciones) ----------
+  useEffect(() => {
+    if (selectedTipoFormacion !== undefined && availableFormaciones.length > 0) {
       const selectedTipoNum = Number(selectedTipoFormacion);
-      const filtradas = formaciones.filter(f => Number((f as any).idTF) === selectedTipoNum);
+      const filtradas = availableFormaciones.filter(f => Number((f as any).idTF) === selectedTipoNum);
       setFormacionesFiltradas(filtradas);
       setSelectedFormacion(undefined);
-      if (filtradas.length === 1) setSelectedFormacion((filtradas[0] as any).idFormacion);
-    } else {
-      setFormacionesFiltradas(formaciones);
-    }
-  }, [selectedTipoFormacion, formaciones]);
-
-  // ---------- Cuando cambia cohorte -> autoseleccionar formacion si está anidada ----------
-  useEffect(() => {
-    if (!selectedCohorte) return;
-    const coh = cohortes.find(c => Number(c.idCohorte) === Number(selectedCohorte));
-    if (!coh) return;
-    const idFormObj = coh.idFormacion;
-    if (idFormObj && typeof idFormObj === 'object' && 'idFormacion' in (idFormObj as any)) {
-      const idEncontrado = Number((idFormObj as any).idFormacion);
-      setSelectedFormacion(idEncontrado);
-      if (isFinite(Number((idFormObj as any).valorInscripcion))) {
-        setValorInscripcion(Number((idFormObj as any).valorInscripcion));
-        setCuotas([]);
-        setTotalCuotas(0);
-        setMontoTotal(Number((idFormObj as any).valorInscripcion) || 0);
+      // Si queda exactamente una formación, la autoseleccionamos (y con ella la cohorte)
+      if (filtradas.length === 1) {
+        const autoId = (filtradas[0] as any).idFormacion;
+        setSelectedFormacion(autoId);
+        // seleccionar cohorte activa asociada
+        const coh = findActiveCohorteForFormacion(autoId);
+        if (coh) setSelectedCohorte(Number(coh.idCohorte));
       }
-    } else if (coh.idFormacion && typeof coh.idFormacion === 'number') {
-      setSelectedFormacion(Number(coh.idFormacion));
+    } else {
+      setFormacionesFiltradas(availableFormaciones);
     }
-  }, [selectedCohorte, cohortes]);
+  }, [selectedTipoFormacion, availableFormaciones]);
 
-  // ---------- Calcular costos cuando cambia selectedFormacion ----------
+  // Helper: encontrar cohorte activa (si hay varias devuelve la "mejor" — la primera con inicio <= now)
+  const findActiveCohorteForFormacion = (idFormacion: number | undefined | null) => {
+    if (!idFormacion) return null;
+    // buscar en cohortes la que esté activa y pertenezca a idFormacion
+    const matches = cohortes
+      .filter((c: any) => {
+        let idF = null;
+        if (c.idFormacion && typeof c.idFormacion === 'object') idF = Number(c.idFormacion.idFormacion ?? c.idFormacion.id ?? 0);
+        else if (c.idFormacion) idF = Number(c.idFormacion);
+        else if (c.raw && c.raw.idFormacion) idF = Number(c.raw.idFormacion);
+        return idF === Number(idFormacion) && isCohorteActiva(c);
+      })
+      // ordenar por fechaInicio ascendente para elegir la que comienza antes o que está en curso
+      .sort((a: any, b: any) => {
+        const da = new Date(String(a.fechaInicio ?? a.start_date ?? a.startDate ?? 0)).getTime();
+        const db = new Date(String(b.fechaInicio ?? b.start_date ?? b.startDate ?? 0)).getTime();
+        return da - db;
+      });
+
+    return matches.length ? matches[0] : null;
+  };
+
+  // ---------- Cuando cambia selectedFormacion -> autoseleccionar cohorte asociada y calcular costos ----------
   useEffect(() => {
     let mounted = true;
     const compute = async () => {
@@ -402,7 +483,22 @@ const InscripcionesScreen = () => {
         setCuotas([]);
         setTotalCuotas(0);
         setMontoTotal(0);
+        setSelectedCohorte(undefined);
         return;
+      }
+
+      // autoseleccionar cohorte activa para esta formacion (si existe)
+      const coh = findActiveCohorteForFormacion(selectedFormacion);
+      if (coh) {
+        setSelectedCohorte(Number(coh.idCohorte));
+        // si la cohorte trae valorInscripcion nos ayuda a mostrar valor rápidamente
+        const idFormObj = (coh.idFormacion && typeof coh.idFormacion === 'object') ? (coh.idFormacion as any) : null;
+        const valorFromCohForm = Number(idFormObj?.valorInscripcion ?? 0);
+        if (isFinite(Number(valorFromCohForm)) && Number(valorFromCohForm) > 0) {
+          setValorInscripcion(Number(valorFromCohForm));
+        }
+      } else {
+        setSelectedCohorte(undefined);
       }
 
       const formacionLocal = formaciones.find(f => f.idFormacion === selectedFormacion) as any;
@@ -521,7 +617,8 @@ const InscripcionesScreen = () => {
     const errs: Record<string, string> = {};
     if (selectedTipoFormacion === undefined) errs.tipoFormacion = 'Seleccione un tipo de formación';
     if (selectedFormacion === undefined) errs.formacion = 'Seleccione una formación';
-    if (selectedCohorte === undefined) errs.cohorte = 'Seleccione una cohorte';
+    // ahora la cohorte se autoselecciona al elegir formación, pero sigue siendo obligatoria
+    if (selectedCohorte === undefined) errs.cohorte = 'No se encontró una cohorte activa para la formación seleccionada';
     if (!user) errs.usuario = 'No se pudo obtener la información del usuario. Por favor, cierre sesión y vuelva a ingresar.';
     setFormErrors(errs);
     return Object.keys(errs).length === 0;
@@ -552,8 +649,7 @@ const InscripcionesScreen = () => {
     try {
       const payload = {
         idPersona: idPersonaEnviar,
-        idTF: selectedTipoFormacion,
-        idFormacion: selectedFormacion,
+        // nota: el backend espera idCohorte (y el serializer ya no usa idFormacion para escritura)
         idCohorte: selectedCohorte,
         montoTotal: montoTotal,
         montoPagado: 0,
@@ -633,6 +729,14 @@ const InscripcionesScreen = () => {
 
   if (loading) return <View style={styles.center}><ActivityIndicator size="large" color="#4f8cff" /></View>;
   if (error) return <View style={styles.center}><Text style={styles.errorText}>{error}</Text></View>;
+
+  // Handler para selección de formación: autoselecciona cohorte activa asociada
+  const handleSelectFormacion = (v: any) => {
+    setSelectedFormacion(v);
+    const coh = findActiveCohorteForFormacion(v);
+    if (coh) setSelectedCohorte(Number(coh.idCohorte));
+    else setSelectedCohorte(undefined);
+  };
 
   return (
     <View style={styles.container}>
@@ -768,7 +872,6 @@ const InscripcionesScreen = () => {
         <View style={[
           styles.modalContent,
           isSmallScreen && styles.modalContentSmall,
-          // <-- usar 'height' calculado arriba, NO useWindowDimensions() aquí
           { maxHeight: Math.min(height * 0.85, 720), width: isLargeScreen ? '80%' : undefined }
         ]}>
           <View style={[styles.modalHeader, isSmallScreen && styles.modalHeaderSmall]}>
@@ -905,32 +1008,21 @@ const InscripcionesScreen = () => {
                 <View style={[styles.fieldContainer, isSmallScreen && styles.fieldContainerSmall]}>
                   <Text style={[styles.label, isSmallScreen && styles.labelSmall]}>Formación *</Text>
                   <View style={[styles.pickerContainer, isSmallScreen && styles.pickerContainerSmall]}>
-                    <Picker selectedValue={selectedFormacion} onValueChange={(v) => setSelectedFormacion(v)} style={[styles.picker, isSmallScreen && styles.pickerSmall, { width: '100%' }]} enabled={formacionesFiltradas.length > 0} dropdownIconColor="#666" mode="dropdown">
-                      <Picker.Item label={formacionesFiltradas.length === 0 ? "Seleccione tipo primero" : "Seleccione formación..."} value={undefined} />
+                    <Picker selectedValue={selectedFormacion} onValueChange={(v) => handleSelectFormacion(v)} style={[styles.picker, isSmallScreen && styles.pickerSmall, { width: '100%' }]} enabled={formacionesFiltradas.length > 0} dropdownIconColor="#666" mode="dropdown">
+                      <Picker.Item label={formacionesFiltradas.length === 0 ? "No hay formaciones disponibles" : "Seleccione formación..."} value={undefined} />
                       {formacionesFiltradas.map((f: any) => (
                         <Picker.Item key={f.idFormacion} label={`${f.nombreFormacion} - ${fmtMoney(f.valorInscripcion)}`} value={f.idFormacion} />
                       ))}
                     </Picker>
                   </View>
                   {formErrors.formacion && <Text style={[styles.errorText, isSmallScreen && styles.errorTextSmall]}>{formErrors.formacion}</Text>}
+                  {formErrors.cohorte && <Text style={[styles.errorText, isSmallScreen && styles.errorTextSmall]}>{formErrors.cohorte}</Text>}
+                  <Text style={[styles.helpText, isSmallScreen && styles.helpTextSmall]}>
+                    Nota: solo se muestran formaciones con cohorte de inscripción abierta. Al seleccionar una formación la cohorte se asigna automáticamente.
+                  </Text>
                 </View>
 
-                <View style={[styles.fieldContainer, isSmallScreen && styles.fieldContainerSmall]}>
-                  <Text style={[styles.label, isSmallScreen && styles.labelSmall]}>Cohorte *</Text>
-                  <View style={[styles.pickerContainer, isSmallScreen && styles.pickerContainerSmall]}>
-                    <Picker selectedValue={selectedCohorte} onValueChange={(v) => setSelectedCohorte(v)} style={[styles.picker, isSmallScreen && styles.pickerSmall, { width: '100%' }]} dropdownIconColor="#666" mode="dropdown">
-                      <Picker.Item label="Seleccione cohorte..." value={undefined} />
-                      {cohortes.map(c => (
-                        <Picker.Item
-                            key={c.idCohorte}
-                            label={`${c.nombreCohorte} ${c.fechaInicio ? `(${formatDateShort(String(c.fechaInicio))} - ${formatDateShort(String(c.fechaFin))})` : ''}`}
-                            value={c.idCohorte}
-                          />
-                      ))}
-                    </Picker>
-                  </View>
-                  {formErrors.cohorte && <Text style={[styles.errorText, isSmallScreen && styles.errorTextSmall]}>{formErrors.cohorte}</Text>}
-                </View>
+                {/* Ya no mostramos un picker de cohorte: la cohorte se deduce de la formación seleccionada */}
               </View>
 
               {/* Resumen de costos */}
@@ -1007,7 +1099,7 @@ const InscripcionesScreen = () => {
   );
 };
 
-// ESTILOS COMPLETOS (añadidos los estilos detailGrid/detailCell)
+// ESTILOS (los mismos que tenías; no los modifiqué funcionalmente)
 const styles = StyleSheet.create({
   center: {
     flex: 1,

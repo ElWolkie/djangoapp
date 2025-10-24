@@ -1,3 +1,4 @@
+from datetime import timedelta
 from decimal import Decimal
 import re
 import uuid
@@ -114,9 +115,10 @@ class FormacionSerializer(serializers.ModelSerializer):
             return 0
 
 
+
 class CohorteSerializer(serializers.ModelSerializer):
-    # incluir formación anidada - ya existe FormacionSerializer en tu archivo
     idFormacion = FormacionSerializer(read_only=True)
+    inscripcionAbierta = serializers.SerializerMethodField()
 
     class Meta:
         model = Cohorte
@@ -129,7 +131,22 @@ class CohorteSerializer(serializers.ModelSerializer):
             'estadoCohorte',
             'fechaCohorte',
             'idFormacion',
+            'inscripcionAbierta',
         ]
+
+    def get_inscripcionAbierta(self, obj):
+        try:
+            # si no hay fechaInicio no está abierta
+            if not obj.fechaInicio:
+                return False
+            lapso = int(obj.lapsoInscripcion or 0)
+            inicio_date = obj.fechaInicio if hasattr(obj.fechaInicio, 'date') else obj.fechaInicio
+            hoy = now().date()
+            fecha_fin_lapso = inicio_date + timedelta(days=lapso)
+            # está abierta si hoy está entre inicio_date y fecha_fin_lapso (inclusive)
+            return inicio_date <= hoy <= fecha_fin_lapso
+        except Exception:
+            return False
 
 class CargoSerializer(serializers.ModelSerializer):
     class Meta:
@@ -145,6 +162,7 @@ class HonorarioSerializer(serializers.ModelSerializer):
     class Meta:
         model = Honorario
         fields = ['idHonorario','idPersona','idCargo','idCohorte','idMateria','horas','estadoHonorario','fechaHonorario','monto']
+
 
 class CuotaFormacionSerializer(serializers.ModelSerializer):
     valorCuota = serializers.SerializerMethodField()
@@ -164,17 +182,19 @@ class CuotaFormacionSerializer(serializers.ModelSerializer):
         except Exception:
             return 0.0
 
+
 class InscripcionSerializer(serializers.ModelSerializer):
-    # Campos para LECTURA (serializadores anidados)
+    # Lectura anidada
     idPersona_detail = PersonaSerializer(source='idPersona', read_only=True)
-    # ahora obtenemos la formacion atraves de la cohorte
     idFormacion_detail = FormacionSerializer(source='idCohorte.idFormacion', read_only=True)
     idCohorte_detail = CohorteSerializer(source='idCohorte', read_only=True)
 
-    # Campos para ESCRITURA (IDs enteros)
+    # Exponer cuotas relacionadas (obtenidas desde Cohorte -> Formacion -> CuotaFormacion)
+    cuotas = serializers.SerializerMethodField()
+
+    # Escritura
     idPersona = serializers.IntegerField(write_only=True)
     idCohorte = serializers.IntegerField(write_only=True)
-    # Eliminados: idFormacion, idTF (no existen en el modelo Inscripcion)
 
     montoTotal = serializers.SerializerMethodField()
     saldoPendiente = serializers.SerializerMethodField()
@@ -194,6 +214,7 @@ class InscripcionSerializer(serializers.ModelSerializer):
             'montoTotal',
             'saldoPendiente',
             'is_active',
+            'cuotas',
         ]
 
     def get_montoTotal(self, obj):
@@ -208,8 +229,48 @@ class InscripcionSerializer(serializers.ModelSerializer):
         except Exception:
             return 0.0
 
+    def get_cuotas(self, obj):
+        """
+        Intentamos resolver las cuotas asociadas a la inscripción:
+        - Preferimos buscar a través de la cohorte -> formacion -> CuotaFormacion
+        - Retornamos una lista serializada y ordenada por 'orden'
+        """
+        try:
+            coh = getattr(obj, 'idCohorte', None)
+            # Si vienen como data anidada (read_only) coh puede ser dict-like (idCohorte_detail)
+            if not coh and getattr(obj, 'idCohorte_detail', None):
+                coh = obj.idCohorte_detail
+
+            # obtener formacion desde coh
+            formacion = None
+            if hasattr(coh, 'idFormacion'):
+                formacion = getattr(coh, 'idFormacion', None)
+            elif isinstance(coh, dict):
+                formacion = coh.get('idFormacion')  # puede ser dict anidado
+
+            # intentar obtener cuotas desde modelo CuotaFormacion si tenemos id de formacion
+            if formacion:
+                formacion_id = getattr(formacion, 'idFormacion', None) or formacion.get('idFormacion') if isinstance(formacion, dict) else None
+                if formacion_id:
+                    qs = CuotaFormacion.objects.filter(idFormacion_id=formacion_id, is_active=True).order_by('orden')
+                    return CuotaFormacionSerializer(qs, many=True, context=self.context).data
+
+            # fallback: si en la instancia Inscripcion existe alguna relación inscripcioncuota_set ya creada, retornarla
+            try:
+                if hasattr(obj, 'inscripcioncuota_set'):
+                    ins_cuotas = getattr(obj, 'inscripcioncuota_set').all()
+                    # mapear atributos similares si es necesario
+                    # si el modelo InscripcionCuota tiene fields equivalentes, habría que crear serializer distinto.
+                    # Aquí devolvemos vacio para evitar errores si no aplica
+                    return []
+            except Exception:
+                pass
+
+            return []
+        except Exception:
+            return []
+
     def create(self, validated_data):
-        # validated_data ahora sólo incluye idPersona e idCohorte (entre otros)
         id_persona = validated_data.pop('idPersona', None)
         id_cohorte = validated_data.pop('idCohorte', None)
 
@@ -222,7 +283,6 @@ class InscripcionSerializer(serializers.ModelSerializer):
             **validated_data
         )
         return inscripcion
-
 
 class NotaSerializer(serializers.ModelSerializer):
     class Meta:

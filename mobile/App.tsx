@@ -24,6 +24,7 @@ import PantallaMonedas from './src/screens/monedas';
 import PantallaTasas from './src/screens/tasas';
 import PagoScreen from './src/screens/pago';
 import PagoMovilFicticioScreen from './src/screens/PagoMovilFicticioScreen';
+import cuotasPorPagar from './src/screens/cuotasPorPagar';
 import { AuthProvider } from './src/contexts/AuthContext';
 import { ReloadProvider } from './src/contexts/ReloadContext';
 
@@ -52,7 +53,8 @@ export type RootStackParamList = {
     notaData: any;
     inscripcionId: number;
   };
-  PagoMovilFicticio: undefined; // 🆕 AGREGAR ESTA LÍNEA
+  PagoMovilFicticio: undefined;
+  cuotasPorPagar: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -96,6 +98,7 @@ export default function App() {
             <Stack.Screen name="Tasas" component={PantallaTasas} options={{ title: 'Tasas' }} />
             <Stack.Screen name="pago" component={PagoScreen} options={{ title: 'Procesar Pago' }} />
             <Stack.Screen name="PagoMovilFicticio" component={PagoMovilFicticioScreen} options={{ title: 'Pago Móvil', headerShown: true }} />
+            <Stack.Screen name="cuotasPorPagar" component={cuotasPorPagar} options={{ title: 'Cuotas por Pagar' }} />
           </Stack.Navigator>
         </NavigationContainer>
       </ReloadProvider>
