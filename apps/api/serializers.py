@@ -114,8 +114,6 @@ class FormacionSerializer(serializers.ModelSerializer):
         except Exception:
             return 0
 
-
-
 class CohorteSerializer(serializers.ModelSerializer):
     idFormacion = FormacionSerializer(read_only=True)
     inscripcionAbierta = serializers.SerializerMethodField()
@@ -182,17 +180,17 @@ class CuotaFormacionSerializer(serializers.ModelSerializer):
         except Exception:
             return 0.0
 
-
 class InscripcionSerializer(serializers.ModelSerializer):
-    # Lectura anidada
+    # Campos para LECTURA (serializadores anidados)
     idPersona_detail = PersonaSerializer(source='idPersona', read_only=True)
+    # ahora obtenemos la formacion atraves de la cohorte
     idFormacion_detail = FormacionSerializer(source='idCohorte.idFormacion', read_only=True)
     idCohorte_detail = CohorteSerializer(source='idCohorte', read_only=True)
 
-    # Exponer cuotas relacionadas (obtenidas desde Cohorte -> Formacion -> CuotaFormacion)
-    cuotas = serializers.SerializerMethodField()
+    # Inyectamos aquí las cuotas de la formación asociada (si existen)
+    cuotas = serializers.SerializerMethodField(read_only=True)
 
-    # Escritura
+    # Campos para ESCRITURA (IDs enteros)
     idPersona = serializers.IntegerField(write_only=True)
     idCohorte = serializers.IntegerField(write_only=True)
 
@@ -214,58 +212,50 @@ class InscripcionSerializer(serializers.ModelSerializer):
             'montoTotal',
             'saldoPendiente',
             'is_active',
-            'cuotas',
+            'cuotas',  # <-- incluimos aquí las cuotas
         ]
-
-    def get_montoTotal(self, obj):
-        try:
-            return float(obj.montoTotal or 0.0)
-        except Exception:
-            return 0.0
-
-    def get_saldoPendiente(self, obj):
-        try:
-            return float(obj.saldoPendiente or 0.0)
-        except Exception:
-            return 0.0
 
     def get_cuotas(self, obj):
         """
-        Intentamos resolver las cuotas asociadas a la inscripción:
-        - Preferimos buscar a través de la cohorte -> formacion -> CuotaFormacion
-        - Retornamos una lista serializada y ordenada por 'orden'
+        Intentamos resolver las cuotas así (ordenadas):
+        1) Si la cohorte->formacion tiene una relación reverse (p ej. cuotaformacion_set), usamos eso.
+        2) Fallback: devolvemos lista vacía.
         """
         try:
-            coh = getattr(obj, 'idCohorte', None)
-            # Si vienen como data anidada (read_only) coh puede ser dict-like (idCohorte_detail)
-            if not coh and getattr(obj, 'idCohorte_detail', None):
-                coh = obj.idCohorte_detail
+            form = getattr(obj, 'idCohorte', None)
+            if not form:
+                # If the serializer used source 'idCohorte', but .idCohorte might be None
+                # try via relation on the instance:
+                coh = getattr(obj, 'idCohorte', None)
+            else:
+                coh = obj.idCohorte
 
-            # obtener formacion desde coh
-            formacion = None
-            if hasattr(coh, 'idFormacion'):
-                formacion = getattr(coh, 'idFormacion', None)
-            elif isinstance(coh, dict):
-                formacion = coh.get('idFormacion')  # puede ser dict anidado
-
-            # intentar obtener cuotas desde modelo CuotaFormacion si tenemos id de formacion
-            if formacion:
-                formacion_id = getattr(formacion, 'idFormacion', None) or formacion.get('idFormacion') if isinstance(formacion, dict) else None
-                if formacion_id:
-                    qs = CuotaFormacion.objects.filter(idFormacion_id=formacion_id, is_active=True).order_by('orden')
-                    return CuotaFormacionSerializer(qs, many=True, context=self.context).data
-
-            # fallback: si en la instancia Inscripcion existe alguna relación inscripcioncuota_set ya creada, retornarla
-            try:
-                if hasattr(obj, 'inscripcioncuota_set'):
-                    ins_cuotas = getattr(obj, 'inscripcioncuota_set').all()
-                    # mapear atributos similares si es necesario
-                    # si el modelo InscripcionCuota tiene fields equivalentes, habría que crear serializer distinto.
-                    # Aquí devolvemos vacio para evitar errores si no aplica
-                    return []
-            except Exception:
-                pass
-
+            # coh may be a Cohorte instance if select_related was used
+            if coh and getattr(coh, 'idFormacion', None):
+                formacion = coh.idFormacion
+                # posibles nombres de relación inversa
+                candidates = [
+                    getattr(formacion, 'cuotaformacion_set', None),
+                    getattr(formacion, 'cuotas', None),
+                    getattr(formacion, 'cuotas_set', None)
+                ]
+                for rel in candidates:
+                    if rel is None:
+                        continue
+                    try:
+                        qs = rel.filter(is_active=True).order_by('orden')
+                    except Exception:
+                        try:
+                            qs = rel.order_by('orden')
+                        except Exception:
+                            try:
+                                qs = rel.filter(is_active=True)
+                            except Exception:
+                                qs = rel
+                    # si tenemos queryset/iterable
+                    if qs:
+                        return CuotaFormacionSerializer(qs, many=True).data
+            # fallback: vacío
             return []
         except Exception:
             return []
