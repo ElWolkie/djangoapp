@@ -1,5 +1,6 @@
 import re
 import traceback
+from django.db.models import Prefetch
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -97,6 +98,12 @@ class InscripcionListCreate(generics.ListCreateAPIView):
         'idPersona',
         'idCohorte',
         'idCohorte__idFormacion'
+    ).prefetch_related(
+        Prefetch(
+            'idCohorte__idFormacion__cuotaformacion_set',
+            queryset=CuotaFormacion.objects.filter(is_active=True).order_by('orden'),
+            to_attr='prefetched_cuotas'  # opcional: nombre de atributo en instancia
+        )
     ).all().prefetch_related('inscripcioncuota_set')
 
     serializer_class = InscripcionSerializer
