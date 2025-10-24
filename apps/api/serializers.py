@@ -215,55 +215,35 @@ class InscripcionSerializer(serializers.ModelSerializer):
             'cuotas',
         ]
 
-    def get_cuotas(self, obj):
-        """
-        Devuelve lista serializada de CuotaFormacion asociadas a la Formación
-        relacionada con la cohorte de esta inscripción.
-        """
-        try:
-            coh = getattr(obj, 'idCohorte', None)
-            # si no está cargada por alguna razón, intentar fuente alternativa
-            if not coh:
+        def get_cuotas(self, obj):
+            """
+            Devuelve las cuotas (CuotaFormacion) asociadas a la Formacion de la cohorte
+            relacionada con esta inscripción. Consulta directa a CuotaFormacion para
+            evitar depender del nombre de la relación inversa.
+            """
+            try:
                 coh = getattr(obj, 'idCohorte', None)
+                if not coh:
+                    return []
 
-            if not coh:
+                formacion = getattr(coh, 'idFormacion', None)
+                if not formacion:
+                    return []
+
+                # Asegurarse de usar el campo PK correcto. Tu Formacion usa idFormacion.
+                formacion_id = getattr(formacion, 'idFormacion', None) or getattr(formacion, 'id', None)
+                if not formacion_id:
+                    return []
+
+                # Consulta directa y ordenada
+                qs = CuotaFormacion.objects.filter(idFormacion_id=formacion_id, is_active=True).order_by('orden')
+                if not qs.exists():
+                    return []
+                return CuotaFormacionSerializer(qs, many=True).data
+            except Exception:
+                # en caso de error devolvemos lista vacía para no romper el endpoint
                 return []
 
-            formacion = getattr(coh, 'idFormacion', None)
-            if not formacion:
-                return []
-
-            # intentamos varias formas de acceder a la relación inversa
-            rel_candidates = [
-                getattr(formacion, 'cuotaformacion_set', None),
-                getattr(formacion, 'cuotas', None),
-                getattr(formacion, 'cuotas_set', None),
-            ]
-            for rel in rel_candidates:
-                if rel is None:
-                    continue
-                # rel puede ser un RelatedManager o una lista
-                try:
-                    qs = rel.filter(is_active=True).order_by('orden')
-                except Exception:
-                    try:
-                        qs = rel.order_by('orden')
-                    except Exception:
-                        qs = rel
-
-                # si es iterable y no vacío, serializamos
-                try:
-                    # convertir a lista si es queryset
-                    items = list(qs)
-                    if len(items) > 0:
-                        return CuotaFormacionSerializer(items, many=True).data
-                except Exception:
-                    # si no se puede iterar, saltar
-                    continue
-
-            return []
-        except Exception:
-            return []
 
     def get_montoTotal(self, obj):
         """Retorna montoTotal como float seguro."""
