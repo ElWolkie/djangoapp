@@ -100,9 +100,9 @@ class InscripcionListCreate(generics.ListCreateAPIView):
         'idCohorte__idFormacion'
     ).prefetch_related(
         Prefetch(
-            'idCohorte__idFormacion__cuotaformacion_set',
+            'idCohorte__idFormacion__cuotas',
             queryset=CuotaFormacion.objects.filter(is_active=True).order_by('orden'),
-            to_attr='prefetched_cuotas'  # opcional: nombre de atributo en instancia
+            to_attr='prefetched_cuotas'
         )
     ).all().prefetch_related('inscripcioncuota_set')
 

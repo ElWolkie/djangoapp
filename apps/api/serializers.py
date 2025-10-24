@@ -181,16 +181,11 @@ class CuotaFormacionSerializer(serializers.ModelSerializer):
             return 0.0
 
 class InscripcionSerializer(serializers.ModelSerializer):
-    # Campos para LECTURA (serializadores anidados)
     idPersona_detail = PersonaSerializer(source='idPersona', read_only=True)
-    # obtenemos la formacion a través de la cohorte
     idFormacion_detail = FormacionSerializer(source='idCohorte.idFormacion', read_only=True)
     idCohorte_detail = CohorteSerializer(source='idCohorte', read_only=True)
-
-    # Inyectamos aquí las cuotas de la formación asociada (si existen)
     cuotas = serializers.SerializerMethodField(read_only=True)
 
-    # Campos para ESCRITURA (IDs enteros)
     idPersona = serializers.IntegerField(write_only=True)
     idCohorte = serializers.IntegerField(write_only=True)
 
@@ -215,34 +210,36 @@ class InscripcionSerializer(serializers.ModelSerializer):
             'cuotas',
         ]
 
-        def get_cuotas(self, obj):
-            """
-            Devuelve las cuotas (CuotaFormacion) asociadas a la Formacion de la cohorte
-            relacionada con esta inscripción. Consulta directa a CuotaFormacion para
-            evitar depender del nombre de la relación inversa.
-            """
-            try:
-                coh = getattr(obj, 'idCohorte', None)
-                if not coh:
-                    return []
-
-                formacion = getattr(coh, 'idFormacion', None)
-                if not formacion:
-                    return []
-
-                # Asegurarse de usar el campo PK correcto. Tu Formacion usa idFormacion.
-                formacion_id = getattr(formacion, 'idFormacion', None) or getattr(formacion, 'id', None)
-                if not formacion_id:
-                    return []
-
-                # Consulta directa y ordenada
-                qs = CuotaFormacion.objects.filter(idFormacion_id=formacion_id, is_active=True).order_by('orden')
-                if not qs.exists():
-                    return []
-                return CuotaFormacionSerializer(qs, many=True).data
-            except Exception:
-                # en caso de error devolvemos lista vacía para no romper el endpoint
+    def get_cuotas(self, obj):
+        """
+        Devuelve cuotas asociadas a la Formacion de la cohorte.
+        Primero intenta usar datos prefetchados (formacion.prefetched_cuotas),
+        si no, hace una consulta directa a CuotaFormacion.
+        """
+        try:
+            coh = getattr(obj, 'idCohorte', None)
+            if not coh:
                 return []
+
+            formacion = getattr(coh, 'idFormacion', None)
+            if not formacion:
+                return []
+
+            # Si prefetch_related llenó 'prefetched_cuotas' en la Formacion:
+            pref = getattr(formacion, 'prefetched_cuotas', None)
+            if pref is not None:
+                return CuotaFormacionSerializer(pref, many=True).data
+
+            # fallback: consulta directa
+            formacion_id = getattr(formacion, 'idFormacion', None) or getattr(formacion, 'id', None)
+            if not formacion_id:
+                return []
+
+            qs = CuotaFormacion.objects.filter(idFormacion_id=formacion_id, is_active=True).order_by('orden')
+            return CuotaFormacionSerializer(qs, many=True).data
+        except Exception:
+            return []
+
 
 
     def get_montoTotal(self, obj):
