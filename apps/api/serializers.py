@@ -183,7 +183,7 @@ class CuotaFormacionSerializer(serializers.ModelSerializer):
 class InscripcionSerializer(serializers.ModelSerializer):
     # Campos para LECTURA (serializadores anidados)
     idPersona_detail = PersonaSerializer(source='idPersona', read_only=True)
-    # ahora obtenemos la formacion atraves de la cohorte
+    # obtenemos la formacion a través de la cohorte
     idFormacion_detail = FormacionSerializer(source='idCohorte.idFormacion', read_only=True)
     idCohorte_detail = CohorteSerializer(source='idCohorte', read_only=True)
 
@@ -212,53 +212,82 @@ class InscripcionSerializer(serializers.ModelSerializer):
             'montoTotal',
             'saldoPendiente',
             'is_active',
-            'cuotas',  # <-- incluimos aquí las cuotas
+            'cuotas',
         ]
 
     def get_cuotas(self, obj):
         """
-        Intentamos resolver las cuotas así (ordenadas):
-        1) Si la cohorte->formacion tiene una relación reverse (p ej. cuotaformacion_set), usamos eso.
-        2) Fallback: devolvemos lista vacía.
+        Devuelve lista serializada de CuotaFormacion asociadas a la Formación
+        relacionada con la cohorte de esta inscripción.
         """
         try:
-            form = getattr(obj, 'idCohorte', None)
-            if not form:
-                # If the serializer used source 'idCohorte', but .idCohorte might be None
-                # try via relation on the instance:
+            coh = getattr(obj, 'idCohorte', None)
+            # si no está cargada por alguna razón, intentar fuente alternativa
+            if not coh:
                 coh = getattr(obj, 'idCohorte', None)
-            else:
-                coh = obj.idCohorte
 
-            # coh may be a Cohorte instance if select_related was used
-            if coh and getattr(coh, 'idFormacion', None):
-                formacion = coh.idFormacion
-                # posibles nombres de relación inversa
-                candidates = [
-                    getattr(formacion, 'cuotaformacion_set', None),
-                    getattr(formacion, 'cuotas', None),
-                    getattr(formacion, 'cuotas_set', None)
-                ]
-                for rel in candidates:
-                    if rel is None:
-                        continue
+            if not coh:
+                return []
+
+            formacion = getattr(coh, 'idFormacion', None)
+            if not formacion:
+                return []
+
+            # intentamos varias formas de acceder a la relación inversa
+            rel_candidates = [
+                getattr(formacion, 'cuotaformacion_set', None),
+                getattr(formacion, 'cuotas', None),
+                getattr(formacion, 'cuotas_set', None),
+            ]
+            for rel in rel_candidates:
+                if rel is None:
+                    continue
+                # rel puede ser un RelatedManager o una lista
+                try:
+                    qs = rel.filter(is_active=True).order_by('orden')
+                except Exception:
                     try:
-                        qs = rel.filter(is_active=True).order_by('orden')
+                        qs = rel.order_by('orden')
                     except Exception:
-                        try:
-                            qs = rel.order_by('orden')
-                        except Exception:
-                            try:
-                                qs = rel.filter(is_active=True)
-                            except Exception:
-                                qs = rel
-                    # si tenemos queryset/iterable
-                    if qs:
-                        return CuotaFormacionSerializer(qs, many=True).data
-            # fallback: vacío
+                        qs = rel
+
+                # si es iterable y no vacío, serializamos
+                try:
+                    # convertir a lista si es queryset
+                    items = list(qs)
+                    if len(items) > 0:
+                        return CuotaFormacionSerializer(items, many=True).data
+                except Exception:
+                    # si no se puede iterar, saltar
+                    continue
+
             return []
         except Exception:
             return []
+
+    def get_montoTotal(self, obj):
+        """Retorna montoTotal como float seguro."""
+        try:
+            v = getattr(obj, 'montoTotal', None)
+            if v is None:
+                # algunos modelos usan total o monto
+                v = getattr(obj, 'total', None) or getattr(obj, 'monto', None) or 0.0
+            return float(v or 0.0)
+        except Exception:
+            return 0.0
+
+    def get_saldoPendiente(self, obj):
+        """Retorna saldoPendiente como float seguro."""
+        try:
+            v = getattr(obj, 'saldoPendiente', None)
+            if v is None:
+                # fallback: calcular como montoTotal - montoPagado si ambos existen
+                monto_total = getattr(obj, 'montoTotal', None) or getattr(obj, 'total', None) or 0.0
+                monto_pagado = getattr(obj, 'montoPagado', None) or getattr(obj, 'pagado', None) or 0.0
+                return float((monto_total or 0.0) - (monto_pagado or 0.0))
+            return float(v or 0.0)
+        except Exception:
+            return 0.0
 
     def create(self, validated_data):
         id_persona = validated_data.pop('idPersona', None)
@@ -273,6 +302,7 @@ class InscripcionSerializer(serializers.ModelSerializer):
             **validated_data
         )
         return inscripcion
+
 
 class NotaSerializer(serializers.ModelSerializer):
     class Meta:
