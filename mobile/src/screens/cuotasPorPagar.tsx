@@ -19,17 +19,6 @@ import { AuthContext } from '../contexts/AuthContext';
 import api from '../api/api';
 import { useNavigation } from '@react-navigation/native';
 
-/**
- * CuotasPorPagarScreen
- *
- * - Lista inscripciones del usuario autenticado
- * - Muestra las cuotas de cada inscripción (obtenidas desde idFormacion_detail o endpoint)
- * - Solo permite pagar la primera cuota pendiente (las siguientes están deshabilitadas)
- * - Modal para solicitar pago (referencia + captura textual temporal)
- *
- * Ajusta endpoint POST '/api/cuota-pagos/solicitar/' según tu API real.
- */
-
 type InscripcionLite = any;
 type CuotaLite = { nombreCuota: string; valorCuota: number; [k: string]: any };
 type ModalPayload = { inscripcion?: InscripcionLite; cuota?: CuotaLite; cuotaIndex?: number } | null;
@@ -90,6 +79,9 @@ const fetchCuotasForFormacion = async (idFormacion: number) => {
   }
 };
 
+// FIX: normalizeCedula ahora quita TODO lo que no sean dígitos
+const normalizeCedula = (ced: any) => String(ced ?? '').replace(/\D/g, '');
+
 const CuotasPorPagarScreen = () => {
   const navigation = useNavigation<any>();
   const { user } = useContext(AuthContext);
@@ -110,20 +102,33 @@ const CuotasPorPagarScreen = () => {
     setLoading(true);
     try {
       if (!user) {
+        console.log('[Cuotas] user no disponible todavía');
         setInscripciones([]);
         return;
       }
-      const res = await api.get('/api/inscripcion/');
-      const todas = Array.isArray(res.data) ? res.data : res.data?.results ?? [];
 
-      const userCed = (user.cedula ?? '').toString().replace(/[\.\-\s]/g, '').toUpperCase();
+      const userCedRaw = user.cedula ?? user.username ?? '';
+      const userCed = normalizeCedula(userCedRaw);
+
+      let endpoint = '/api/inscripcion/';
+      if (userCed) {
+        endpoint = `/api/inscripcion/usuario/?cedula=${encodeURIComponent(user.cedula ?? userCedRaw)}`;
+      } else {
+        console.warn('[Cuotas] user sin cédula: consultando /api/inscripcion/ y filtrando localmente');
+      }
+
+      console.log('[Cuotas] GET', endpoint);
+      const res = await api.get(endpoint);
+      console.log('[Cuotas] respuesta cruda:', res.data);
+
+      const todas = Array.isArray(res.data) ? res.data : res.data?.results ?? [];
 
       const filtered = todas
         .filter((ins: any) => {
           const ced = ins.idPersona_detail?.cedula ?? ins.idPersona?.cedula;
           if (!ced) return false;
-          const cedNorm = ced.toString().replace(/[\.\-\s]/g, '').toUpperCase();
-          return userCed === cedNorm;
+          const cedNorm = normalizeCedula(ced);
+          return userCed ? (userCed === cedNorm) : true;
         })
         .map((ins: any) => {
           const rawForm = ins.idFormacion_detail ?? ins.idFormacion ?? ins.formacion ?? null;
@@ -138,7 +143,6 @@ const CuotasPorPagarScreen = () => {
           };
         });
 
-      // Enriquecer con cuotas si no vienen embebidas
       const enriched = await Promise.all(
         filtered.map(async (ins: any) => {
           let cuotas: CuotaLite[] = [];
@@ -158,17 +162,20 @@ const CuotasPorPagarScreen = () => {
               if (candidate) cuotas = normalizeCuotas(candidate);
             }
           }
+
           if ((!cuotas || cuotas.length === 0) && ins.idFormacionResolved) {
             const remote = await fetchCuotasForFormacion(Number(ins.idFormacionResolved));
             cuotas = remote;
           }
+
           return { ...ins, cuotas: cuotas || [] };
         }),
       );
 
+      console.log('[Cuotas] inscripciones enriquecidas:', enriched);
       setInscripciones(enriched);
     } catch (e: any) {
-      console.error('Error cargando inscripciones en CuotasPorPagar', e);
+      console.error('Error cargando inscripciones en CuotasPorPagar', e, e?.response?.data ?? null);
       Alert.alert('Error', e?.response?.data?.detail ?? 'No se pudieron cargar las inscripciones');
       setInscripciones([]);
     } finally {
@@ -181,7 +188,6 @@ const CuotasPorPagarScreen = () => {
     loadInscripciones();
   }, [loadInscripciones]);
 
-  // calcula estado de cuotas en base a montoPagado
   const computeCuotasWithStatus = (ins: InscripcionLite) => {
     const cuotas: CuotaLite[] = ins.cuotas ?? [];
     const paidTotal = Number(ins.montoPagado ?? 0);
@@ -351,7 +357,8 @@ const CuotasPorPagarScreen = () => {
         <View style={styles.center}><ActivityIndicator size="large" color="#4f8cff" /></View>
       ) : inscripciones.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Icon name="file-document-box-multiple-outline" size={80} color="#e9ecef" />
+          {/* ICON FIX: use 'file-multiple' which exists in material-community */}
+          <Icon name="file-multiple" size={80} color="#e9ecef" />
           <Text style={styles.emptyTitle}>No tienes inscripciones</Text>
           <Text style={styles.emptySubtitle}>Realiza una inscripción para que se generen las cuotas</Text>
         </View>
@@ -434,6 +441,7 @@ const CuotasPorPagarScreen = () => {
 
 export default CuotasPorPagarScreen;
 
+// styles (igual que antes)
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8f9fa' },
   header: { padding: 16, borderBottomWidth: 1, borderBottomColor: '#e9ecef' },
@@ -454,7 +462,7 @@ const styles = StyleSheet.create({
 
   cuotaRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f4f6f8' },
   cuotaNombre: { fontWeight: '600', color: '#2d3748' },
-  cuotaPaidText: { color: '#6c757d', textDecorationLine: 'line-through' }, // agregado
+  cuotaPaidText: { color: '#6c757d', textDecorationLine: 'line-through' },
   cuotaSub: { fontSize: 13, color: '#6c757d', marginTop: 4 },
 
   cuotaActions: { minWidth: 110, alignItems: 'flex-end' },
@@ -476,10 +484,9 @@ const styles = StyleSheet.create({
   smallNote: { fontSize: 12, color: '#6c757d', fontStyle: 'italic' },
 
   emptyContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: '#495057', marginTop: 12 }, // agregado
-  emptySubtitle: { fontSize: 14, color: '#6c757d', marginTop: 6, textAlign: 'center' }, // agregado
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: '#495057', marginTop: 12 },
+  emptySubtitle: { fontSize: 14, color: '#6c757d', marginTop: 6, textAlign: 'center' },
 
-  // Modal
   modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.45)' },
   modalCard: { width: '92%', maxHeight: '85%', backgroundColor: '#fff', borderRadius: 12, overflow: 'hidden' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: '#eef2f6' },

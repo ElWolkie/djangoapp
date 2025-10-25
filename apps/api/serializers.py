@@ -282,12 +282,66 @@ class InscripcionSerializer(serializers.ModelSerializer):
 
 
 class NotaSerializer(serializers.ModelSerializer):
+    # campos nuevos que ayudan al frontend a conocer la inscripción/formación
+    idInscripcion = serializers.SerializerMethodField(read_only=True)
+    formacion = serializers.SerializerMethodField(read_only=True)
+
     class Meta:
         model = Nota
         fields = [
-            'idNota', 'numeroNota', 'fechaEmision', 'totalNota', 
-            'estado', 'tipoArticulo', 'formaPago'
+            'idNota',
+            'numeroNota',
+            'fechaEmision',
+            'totalNota',
+            'estado',
+            'tipoArticulo',
+            'formaPago',
+            'idInscripcion',
+            'formacion',
         ]
+
+    def get_idInscripcion(self, obj):
+        """
+        Devuelve el id (pk) de la Inscripcion vinculada a la nota si existe,
+        usando el modelo NotaRelacionada.
+        """
+        try:
+            rel = NotaRelacionada.objects.filter(idNota=obj).first()
+            if rel and getattr(rel, 'idInscripcion', None):
+                ins = rel.idInscripcion
+                # tu modelo usa idInscripcion como PK, si no, fallback a pk
+                return getattr(ins, 'idInscripcion', getattr(ins, 'pk', None))
+        except Exception:
+            pass
+        return None
+
+    def get_formacion(self, obj):
+        """
+        Devuelve un dict sencillo con { idFormacion, nombreFormacion } si puede resolverse,
+        o None en caso contrario.
+        """
+        try:
+            rel = NotaRelacionada.objects.filter(idNota=obj).first()
+            if not rel or not getattr(rel, 'idInscripcion', None):
+                return None
+
+            ins = rel.idInscripcion
+            # ins.idCohorte puede ser un FK o un id
+            coh = getattr(ins, 'idCohorte', None)
+            if not coh:
+                return None
+
+            # coh.idFormacion puede ser FK o id
+            form = getattr(coh, 'idFormacion', None)
+            if not form:
+                return None
+
+            return {
+                'idFormacion': getattr(form, 'idFormacion', getattr(form, 'pk', None)),
+                'nombreFormacion': getattr(form, 'nombreFormacion', getattr(form, 'nombre', None))
+            }
+        except Exception:
+            return None
 
 class PagoSerializer(serializers.ModelSerializer):
     idNota = NotaSerializer(read_only=True)
