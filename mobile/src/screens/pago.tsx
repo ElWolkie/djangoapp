@@ -228,7 +228,7 @@ const PagoScreen = () => {
         </View>
 
         <Text style={styles.notaFormacion} numberOfLines={2}>
-          {formacionName}
+          {getFormacionName(item)}
         </Text>
 
         <View style={styles.notaFooter}>
