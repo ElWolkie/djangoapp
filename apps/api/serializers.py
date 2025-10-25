@@ -302,9 +302,6 @@ class NotaSerializer(serializers.ModelSerializer):
         ]
 
     def _get_relacion(self, obj):
-        """
-        Retorna la instancia NotaRelacionada (o None).
-        """
         try:
             return NotaRelacionada.objects.filter(idNota=obj).first()
         except Exception:
@@ -312,52 +309,48 @@ class NotaSerializer(serializers.ModelSerializer):
 
     def _resolve_inscripcion_obj(self, rel):
         """
-        Dado un NotaRelacionada, intenta devolver instancia Inscripcion.
-        Maneja si rel.idInscripcion es instancia, PK (int) o similar.
+        Devuelve instancia Inscripcion (o None). Maneja:
+         - rel.idInscripcion ya siendo instancia
+         - rel.idInscripcion siendo int/str pk
+         - rel.idInscripcion siendo dict-like con idInscripcion
         """
         try:
             if not rel:
                 return None
-            ins_ref = getattr(rel, 'idInscripcion', None)
-            if not ins_ref:
-                return None
 
-            # Caso: ya es instancia de Inscripcion
+            ins_ref = getattr(rel, 'idInscripcion', None)
+            # debug simple (para logs)
+            # print(f"[DEBUG] rel.idInscripcion raw type: {type(ins_ref)} - value: {repr(ins_ref)}")
+
+            # Caso instancia ya resuelta
             if isinstance(ins_ref, Inscripcion):
                 return ins_ref
 
-            # Si es entero (pk) o tiene atributos de pk
+            # Si es entero o string numérico -> buscar por pk
             ins_pk = None
-            try:
-                # si es int
-                if isinstance(ins_ref, int):
-                    ins_pk = ins_ref
-                else:
-                    # intentar extraer atributos habituales
+            if isinstance(ins_ref, int):
+                ins_pk = ins_ref
+            elif isinstance(ins_ref, str) and ins_ref.isdigit():
+                ins_pk = int(ins_ref)
+            else:
+                # si es objeto con atributos comunes
+                try:
                     ins_pk = getattr(ins_ref, 'idInscripcion', getattr(ins_ref, 'pk', None))
-                    # si sigue sin pk, quizás nos pasaron la PK como string
-                    if not ins_pk and isinstance(ins_ref, str) and ins_ref.isdigit():
-                        ins_pk = int(ins_ref)
-            except Exception:
-                ins_pk = None
+                    if not ins_pk and hasattr(ins_ref, 'get'):
+                        # dict-like
+                        ins_pk = ins_ref.get('idInscripcion') or ins_ref.get('pk') or ins_ref.get('id')
+                except Exception:
+                    ins_pk = None
 
             if ins_pk:
-                # traer con select_related para poder acceder a cohorte/formacion/persona
+                # traer con select_related para tener cohorte/formacion/persona si existen
                 return Inscripcion.objects.select_related('idCohorte__idFormacion', 'idPersona').filter(idInscripcion=ins_pk).first()
 
-            # fallback: intentar si ins_ref tiene attrs directos (e.g. dict-like)
-            try:
-                # por ejemplo si rel.idInscripcion viene como dict {'idInscripcion': 12}
-                ins_pk = ins_ref.get('idInscripcion') if hasattr(ins_ref, 'get') else None
-                if ins_pk:
-                    return Inscripcion.objects.select_related('idCohorte__idFormacion', 'idPersona').filter(idInscripcion=ins_pk).first()
-            except Exception:
-                pass
-
+            # última opción: si ins_ref tiene campos mínimos de cohorte/formacion embebidos (rare)
+            return None
         except Exception:
-            # log por si necesitas depuración
             traceback.print_exc()
-        return None
+            return None
 
     def get_idInscripcion(self, obj):
         try:
@@ -365,11 +358,10 @@ class NotaSerializer(serializers.ModelSerializer):
             ins_obj = self._resolve_inscripcion_obj(rel)
             if ins_obj:
                 return getattr(ins_obj, 'idInscripcion', getattr(ins_obj, 'pk', None))
-            # si no pudimos resolver pero la relación existe y contiene pk, devolver el valor crudo
+            # fallback: devolver el valor crudo si es pk
             if rel:
                 raw = getattr(rel, 'idInscripcion', None)
                 try:
-                    # si es int o str numérica devolver como int
                     if isinstance(raw, int):
                         return raw
                     if isinstance(raw, str) and raw.isdigit():
@@ -382,9 +374,11 @@ class NotaSerializer(serializers.ModelSerializer):
 
     def get_formacion(self, obj):
         """
-        Intenta resolver la formación asociada a la nota:
-        1) obtiene NotaRelacionada -> Inscripcion
-        2) desde la inscripción accede a idCohorte.idFormacion y devuelve id+nombre
+        Intentos (ordenados):
+        1) Inscripcion tiene idFormacion directo -> usarlo
+        2) Inscripcion.idCohorte es instancia -> usar idCohorte.idFormacion
+        3) Si idCohorte es solo pk -> consultar Cohorte.select_related('idFormacion')
+        4) Si nada -> None
         """
         try:
             rel = self._get_relacion(obj)
@@ -392,27 +386,60 @@ class NotaSerializer(serializers.ModelSerializer):
             if not ins_obj:
                 return None
 
+            # 1) Caso: Inscripcion tiene FK directo a Formacion (nombre de campo distinto según tu modelo)
+            if hasattr(ins_obj, 'idFormacion') and getattr(ins_obj, 'idFormacion', None):
+                form = getattr(ins_obj, 'idFormacion')
+                # si es pk, intentar consultar
+                if isinstance(form, int):
+                    form = Formacion.objects.filter(idFormacion=form).first()
+                if form:
+                    return {
+                        'idFormacion': getattr(form, 'idFormacion', getattr(form, 'pk', None)),
+                        'nombreFormacion': getattr(form, 'nombreFormacion', getattr(form, 'nombre', None))
+                    }
+
+            # 2) Caso: Inscripcion -> Cohorte -> Formacion
             coh = getattr(ins_obj, 'idCohorte', None)
-            if not coh:
-                return None
+            # si coh es instancia con idFormacion
+            if coh and hasattr(coh, 'idFormacion') and getattr(coh, 'idFormacion', None):
+                form = getattr(coh, 'idFormacion')
+                if isinstance(form, int):
+                    form = Formacion.objects.filter(idFormacion=form).first()
+                if form:
+                    return {
+                        'idFormacion': getattr(form, 'idFormacion', getattr(form, 'pk', None)),
+                        'nombreFormacion': getattr(form, 'nombreFormacion', getattr(form, 'nombre', None))
+                    }
 
-            form = getattr(coh, 'idFormacion', None)
-            if not form:
-                return None
+            # 3) Si coh es pk o no tenemos instancias, intentar resolver por PKs
+            # mirar atributos de Inscripcion que puedan contener pk: idCohorte_id, idCohorte, etc.
+            coh_pk = None
+            try:
+                # atributo Django standard: idCohorte_id
+                coh_pk = getattr(ins_obj, 'idCohorte_id', None) or getattr(ins_obj, 'idCohorte', None)
+                # si es instancia, ya la tratamos; si es int o str numérico:
+                if isinstance(coh_pk, str) and coh_pk.isdigit():
+                    coh_pk = int(coh_pk)
+            except Exception:
+                coh_pk = None
 
-            return {
-                'idFormacion': getattr(form, 'idFormacion', getattr(form, 'pk', None)),
-                'nombreFormacion': getattr(form, 'nombreFormacion', getattr(form, 'nombre', None))
-            }
-        except Exception:
+            if coh_pk:
+                coh_obj = Cohorte.objects.select_related('idFormacion').filter(idCohorte=coh_pk).first()
+                if coh_obj and getattr(coh_obj, 'idFormacion', None):
+                    form = coh_obj.idFormacion
+                    return {
+                        'idFormacion': getattr(form, 'idFormacion', getattr(form, 'pk', None)),
+                        'nombreFormacion': getattr(form, 'nombreFormacion', getattr(form, 'nombre', None))
+                    }
+
+            return None
+        except Exception as e:
+            # imprime traza para debugging en render logs
             traceback.print_exc()
+            print(f"⚠️ Error obteniendo formación para nota {getattr(obj, 'idNota', '?')}: {str(e)}")
             return None
 
     def get_persona(self, obj):
-        """
-        Devuelve un pequeño resumen de la persona asociada a la nota (vía inscripción),
-        con nombre y cédula, para mostrar en el frontend sin requests extra.
-        """
         try:
             rel = self._get_relacion(obj)
             ins_obj = self._resolve_inscripcion_obj(rel)
@@ -420,21 +447,26 @@ class NotaSerializer(serializers.ModelSerializer):
                 return None
 
             persona = getattr(ins_obj, 'idPersona', None)
-            # persona puede ser instancia Personas o solo pk/dict
             if not persona:
+                # intentar idPersona_id
+                pid = getattr(ins_obj, 'idPersona_id', None)
+                if pid:
+                    persona_obj = Personas.objects.filter(idPersona=pid).first()
+                    if persona_obj:
+                        nombres = getattr(persona_obj, 'nombres', '') or getattr(persona_obj, 'nombre', '')
+                        apellidos = getattr(persona_obj, 'apellidos', '') or ''
+                        return {'nombre': (nombres + ' ' + apellidos).strip(), 'cedula': getattr(persona_obj, 'cedula', None)}
                 return None
 
-            # si es instancia Personas
-            if hasattr(persona, 'nombres') or hasattr(persona, 'cedula') or hasattr(persona, 'apellidos'):
+            if hasattr(persona, 'cedula') or hasattr(persona, 'nombres'):
                 nombres = getattr(persona, 'nombres', '') or getattr(persona, 'nombre', '')
                 apellidos = getattr(persona, 'apellidos', '') or ''
-                ced = getattr(persona, 'cedula', None)
-                full_name = (nombres + ' ' + apellidos).strip() or nombres or apellidos or None
-                return {'nombre': full_name, 'cedula': ced}
+                return {'nombre': (nombres + ' ' + apellidos).strip(), 'cedula': getattr(persona, 'cedula', None)}
 
-            # si es pk -> intentar traer la persona
+            # si persona es pk/dict
             try:
-                persona_obj = Personas.objects.filter(idPersona=getattr(persona, 'idPersona', persona)).first()
+                pid = getattr(persona, 'idPersona', persona) if persona else None
+                persona_obj = Personas.objects.filter(idPersona=pid).first()
                 if persona_obj:
                     nombres = getattr(persona_obj, 'nombres', '') or getattr(persona_obj, 'nombre', '')
                     apellidos = getattr(persona_obj, 'apellidos', '') or ''
