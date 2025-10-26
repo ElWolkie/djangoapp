@@ -634,17 +634,7 @@ class AsientoContableSerializer(serializers.ModelSerializer):
         fields = ['idAsiento', 'numeroAsiento', 'fechaAsiento', 'conceptoAsiento', 'idPeriodo', 'fechaAsientoDigital', 'detalles']
 
 
-<<<<<<< HEAD
 ######## Nuevo Serializer para PagoTemporal##################### 
-=======
-
-
-
-
-######## Nuevo Serializer para PagoTemporal#####################
-from rest_framework import serializers
-from apps.factura.models import PagoTemporal
->>>>>>> 65864a61 (Tabla pagos app, conexion entre minisacfu y sacfu papasito, la tabla no tiene sweet aletta)
 
 class PagoTemporalSerializer(serializers.ModelSerializer):
     class Meta:

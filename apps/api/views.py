@@ -506,11 +506,6 @@ class EgresosAPIView(APIView):
 
 ##########################API DE PAGO TEMPORAL APP ############################
 
-<<<<<<< HEAD
-=======
-from rest_framework import status
-from apps.factura.models import PagoTemporal
->>>>>>> 65864a61 (Tabla pagos app, conexion entre minisacfu y sacfu papasito, la tabla no tiene sweet aletta)
 from .serializers import PagoTemporalSerializer 
 class PagoTemporalCreateAPIView(APIView):
     """
