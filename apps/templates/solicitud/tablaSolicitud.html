@@ -182,68 +182,82 @@
               <span class="badge bg-danger text-white"><i class="fas fa-times-circle me-1"></i>Inactivo</span>
               {% endif %}
             </td>
-            <td>
-              <div class="d-flex gap-2">
-                <!-- Botón Ver más -->
-                {% if perms.solicitud.view_solicitud %}
-                  <button class="btn btn-info btn-sm view-details-btn"
+                <td>
+          <div class="d-flex gap-2">
+              <!-- Botón Ver más (siempre visible) -->
+              {% if perms.solicitud.view_solicitud %}
+              <button class="btn btn-info btn-sm view-details-btn"
+                      data-bs-toggle="modal"
+                      data-bs-target="#detailsModal"
+                      data-id="{{ solicitud.idSoli }}"
+                      data-nombres="{{ solicitud.idPersona.nombres }}"
+                      data-apellidos="{{ solicitud.idPersona.apellidos }}"
+                      data-cedula="{{ solicitud.idPersona.cedula }}"
+                      data-tramite="{{ solicitud.idTramite.nombreTramite }}"
+                      data-servicio="{{ solicitud.idServicio.nombreServicio }}"
+                      data-monto="{{ solicitud.montoTotal }}"
+                      data-estado="{{ solicitud.estadoSolicitud }}"
+                      data-entrega="{{ solicitud.fechaEntrega|date:'d/m/Y' }}"
+                      data-solicitud="{{ solicitud.fechaSolicitud|date:'d/m/Y' }}"
+                      title="Ver más">
+                  <i class="fas fa-eye"></i>
+              </button>
+              {% endif %}
+              
+              <!-- Verificar si la solicitud tiene nota -->
+              {% if solicitud.idSoli in solicitudes_con_nota %}
+                  <!-- SI TIENE NOTA: Mostrar botón de factura y ocultar edición/desactivación -->
+                  <a href="{% url 'redirigir_factura_solicitud' solicitud.idSoli %}" 
+                    class="btn btn-success btn-sm" 
+                    title="Ver Factura" 
+                    target="_blank">
+                      <i class="fas fa-file-invoice"></i> Factura
+                  </a>
+              {% else %}
+                  <!-- NO TIENE NOTA: Mostrar botones normales de edición -->
+                  {% if perms.solicitud.change_solicitud %}
+                  <button class="btn btn-primary btn-sm"
                           data-bs-toggle="modal"
-                          data-bs-target="#detailsModal"
-                          data-id="{{ solicitud.idSoli }}"
-                          data-nombres="{{ solicitud.idPersona.nombres }}"
-                          data-apellidos="{{ solicitud.idPersona.apellidos }}"
-                          data-cedula="{{ solicitud.idPersona.cedula }}"
-                          data-tramite="{{ solicitud.idTramite.nombreTramite }}"
-                          data-servicio="{{ solicitud.idServicio.nombreServicio }}"
-                          data-monto="{{ solicitud.montoTotal }}"
-                          data-estado="{{ solicitud.estadoSolicitud }}"
-                          data-entrega="{{ solicitud.fechaEntrega|date:'d/m/Y' }}"
-                          data-solicitud="{{ solicitud.fechaSolicitud|date:'d/m/Y' }}"
-                          title="Ver más">
-                    <i class="fas fa-eye"></i>
+                          data-bs-target="#editSolicitudModal"
+                          data-url="{% url 'edit_solicitud' solicitud.idSoli %}"
+                          title="Editar">
+                      <i class="fas fa-edit"></i>
                   </button>
-                {% endif %}
-                
-                {% if perms.solicitud.change_solicitud %}
-                <button class="btn btn-primary btn-sm"
-                        data-bs-toggle="modal"
-                        data-bs-target="#editSolicitudModal"
-                        data-url="{% url 'edit_solicitud' solicitud.idSoli %}"
-                        title="Editar">
-                  <i class="fas fa-edit"></i>
-                </button>
-                {% endif %}
+                  {% endif %}
 
-                {% if solicitud.estadoSolicitud|upper == "ACTIVO" and perms.solicitud.change_solicitud %}
-                <button class="btn btn-outline-warning btn-sm"
-                        data-bs-toggle="modal"
-                        data-bs-target="#deleteSolicitudModal"
-                        data-url="{% url 'desactivar_solicitud' solicitud.idSoli %}"
-                        title="Inhabilitar">
-                  <i class="fas fa-user-slash"></i>
-                </button>
-                {% endif %}
-
-                {% if solicitud.estadoSolicitud|upper == "INACTIVO" and perms.solicitud.change_solicitud %}
-                <button class="btn btn-success btn-sm"
-                        data-bs-toggle="modal"
-                        data-bs-target="#reactivateSolicitudModal"
-                        data-url="{% url 'reactivate_solicitud' solicitud.idSoli %}"
-                        title="Reactivar">
-                  <i class="fas fa-redo"></i>
-                </button>
-                {% endif %}
-
-                {% if perms.solicitud.view_solicitud or perms.solicitud.change_solicitud %}
-                  <button class="btn btn-light btn-sm"
+                  {% if solicitud.estadoSolicitud|upper == "ACTIVO" and perms.solicitud.change_solicitud %}
+                  <button class="btn btn-outline-warning btn-sm"
                           data-bs-toggle="modal"
-                          data-bs-target="#requisitosSolicitudModal"
-                          data-url="{% url 'guardar_requisitos_solicitud' solicitud.idSoli %}">
+                          data-bs-target="#deleteSolicitudModal"
+                          data-url="{% url 'desactivar_solicitud' solicitud.idSoli %}"
+                          title="Inhabilitar">
+                      <i class="fas fa-user-slash"></i>
+                  </button>
+                  {% endif %}
+
+                  {% if solicitud.estadoSolicitud|upper == "INACTIVO" and perms.solicitud.change_solicitud %}
+                  <button class="btn btn-success btn-sm"
+                          data-bs-toggle="modal"
+                          data-bs-target="#reactivateSolicitudModal"
+                          data-url="{% url 'reactivate_solicitud' solicitud.idSoli %}"
+                          title="Reactivar">
+                      <i class="fas fa-redo"></i>
+                  </button>
+                  {% endif %}
+              {% endif %}
+
+              <!-- Botón Requisitos (siempre visible) -->
+              {% if perms.solicitud.view_solicitud or perms.solicitud.change_solicitud %}
+              <button class="btn btn-light btn-sm"
+                      data-bs-toggle="modal"
+                      data-bs-target="#requisitosSolicitudModal"
+                      data-url="{% url 'guardar_requisitos_solicitud' solicitud.idSoli %}"
+                      title="Ver Requisitos">
                   <i class="fas fa-clipboard-check text-dark"></i>
-                  </button>
-                {% endif %}
-              </div>
-            </td>
+              </button>
+              {% endif %}
+          </div>
+      </td>
           </tr>
           {% empty %}
           <tr><td colspan="6" class="text-center py-4">No hay solicitudes registradas.</td></tr>

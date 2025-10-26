@@ -13,6 +13,7 @@ from apps.home.models import Configuracion
 from apps.solicitud.models import Solicitud  # Usamos Solicitud en vez de Honorario
 from apps.requisitoCliente.models import RequisitoCliente 
 from apps.home.models import Requisito
+from apps.factura.models import NotaRelacionada, Factura #Usada para la redireccion y obtencion de estados
 #Libreria para generar PDF
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter, landscape
@@ -129,6 +130,14 @@ def tabla_solicitud(request):
     if not mostrar:
         qs = qs.filter(estadoSolicitud='ACTIVO')
 
+    # Obtener IDs de solicitudes que tienen notas
+    solicitudes_con_nota = NotaRelacionada.objects.filter(
+        idSolicitud__in=qs
+    ).values_list('idSolicitud_id', flat=True)
+    
+    # Convertir a set para búsqueda más eficiente
+    solicitudes_con_nota_set = set(solicitudes_con_nota)
+
     # Mensajes informativos
     if mostrar:
         hay_inactivos = qs.exclude(estadoSolicitud='ACTIVO').exists()
@@ -141,6 +150,7 @@ def tabla_solicitud(request):
     return render(request, 'solicitud/tablaSolicitud.html', {
         'solicitudes': qs,
         'mostrar_inactivos': mostrar,
+        'solicitudes_con_nota': solicitudes_con_nota_set,  # Nuevo contexto
     })
 
 @login_required(login_url='login')
@@ -474,3 +484,32 @@ def pages(request):
         messages.error(request, f'Error inesperado: {e}')
         html_template = loader.get_template("home/page-500.html")
         return HttpResponse(html_template.render(context, request))
+
+@login_required(login_url='login')
+def redirigir_a_factura_solicitud(request, pk):
+    """
+    Redirige a la factura específica de una solicitud
+    """
+    
+    try:
+        # Buscar la nota relacionada con esta solicitud
+        nota_relacionada = NotaRelacionada.objects.filter(idSolicitud_id=pk).first()
+        
+        if nota_relacionada and nota_relacionada.idNota:
+            nota = nota_relacionada.idNota
+            
+            # Buscar si existe factura para esta nota
+            try:
+                factura = Factura.objects.get(nota=nota)
+                return HttpResponseRedirect(reverse('factura_generar_pdf', args=[factura.pk]))
+            except Factura.DoesNotExist:
+                # Si no hay factura, redirigir al listado de facturas con mensaje
+                messages.warning(request, 'No se encontró factura para esta solicitud.')
+                return HttpResponseRedirect(reverse('factura_list'))
+        else:
+            messages.error(request, 'No se encontró nota de pago para esta solicitud.')
+            return HttpResponseRedirect(reverse('tabla_solicitud'))
+            
+    except Exception as e:
+        messages.error(request, f'Error al buscar la factura: {str(e)}')
+        return HttpResponseRedirect(reverse('tabla_solicitud'))

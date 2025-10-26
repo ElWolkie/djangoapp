@@ -179,56 +179,71 @@
               {% endif %}
             </td>
             <td class="actions-column">
-              <div class="d-flex gap-2">
-                <!-- Botón Ver más -->
+            <div class="d-flex gap-2">
+                <!-- Botón Ver más (siempre visible) -->
                 {% if perms.honorario.view_honorario %}
-                  <button class="btn btn-info btn-sm view-details-btn"
-                          data-bs-toggle="modal"
-                          data-bs-target="#detailsModal"
-                          data-id="{{ honorario.idHonorario }}"
-                          data-cargo="{{ honorario.idCargo.nombreCargo }}"
-                          data-cedula="{{ honorario.idPersona.cedula }}"
-                          data-nombres="{{ honorario.idPersona.nombres }}"
-                          data-apellidos="{{ honorario.idPersona.apellidos }}"
-                          data-materia="{{ honorario.idMateria.nombreMateria }}"
-                          data-horas="{{ honorario.horas }}"
-                          data-monto="{{ honorario.monto }}"
-                          data-cohorte="{{ honorario.idCohorte.nombreCohorte }}"
-                          data-estado="{{ honorario.estadoHonorario }}"
-                          data-fecha="{{ honorario.fechaHonorario|date:'d/m/Y' }}"
-                          title="Ver más">
+                <button class="btn btn-info btn-sm view-details-btn"
+                        data-bs-toggle="modal"
+                        data-bs-target="#detailsModal"
+                        data-id="{{ honorario.idHonorario }}"
+                        data-cargo="{{ honorario.idCargo.nombreCargo }}"
+                        data-cedula="{{ honorario.idPersona.cedula }}"
+                        data-nombres="{{ honorario.idPersona.nombres }}"
+                        data-apellidos="{{ honorario.idPersona.apellidos }}"
+                        data-materia="{{ honorario.idMateria.nombreMateria }}"
+                        data-horas="{{ honorario.horas }}"
+                        data-monto="{{ honorario.monto }}"
+                        data-cohorte="{{ honorario.idCohorte.nombreCohorte }}"
+                        data-estado="{{ honorario.estadoHonorario }}"
+                        data-fecha="{{ honorario.fechaHonorario|date:'d/m/Y' }}"
+                        title="Ver más">
                     <i class="fas fa-eye"></i>
-                  </button>
+                </button>
                 {% endif %}
                 
-                {% if perms.honorario.change_honorario %}
-                  <button class="btn btn-primary btn-sm"
-                          data-bs-toggle="modal"
-                          data-bs-target="#editHonorarioModal"
-                          data-url="{% url 'edit_honorario' honorario.idHonorario %}">
-                    <i class="fas fa-edit"></i>
-                  </button>
+                <!-- Verificar si el honorario tiene nota -->
+                {% if honorario.idHonorario in honorarios_con_nota %}
+                    <!-- SI TIENE NOTA: Mostrar botón de factura y ocultar edición/desactivación -->
+                    <a href="{% url 'redirigir_factura_honorario' honorario.idHonorario %}" 
+                      class="btn btn-success btn-sm" 
+                      title="Ver Factura" 
+                      target="_blank">
+                        <i class="fas fa-file-invoice"></i> Factura
+                    </a>
+                {% else %}
+                    <!-- NO TIENE NOTA: Mostrar botones normales de edición -->
+                    {% if perms.honorario.change_honorario %}
+                    <button class="btn btn-primary btn-sm"
+                            data-bs-toggle="modal"
+                            data-bs-target="#editHonorarioModal"
+                            data-url="{% url 'edit_honorario' honorario.idHonorario %}"
+                            title="Editar">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    {% endif %}
+                    
+                    {% if honorario.estadoHonorario == "ACTIVO" and perms.honorario.change_honorario %}
+                    <button class="btn btn-outline-warning btn-sm"
+                            data-bs-toggle="modal"
+                            data-bs-target="#deleteHonorarioModal"
+                            data-url="{% url 'desactivar_honorario' honorario.idHonorario %}"
+                            title="Desactivar">
+                        <i class="fas fa-user-slash"></i>
+                    </button>
+                    {% endif %}
+                    
+                    {% if honorario.estadoHonorario == "INACTIVO" and perms.honorario.change_honorario %}
+                    <button class="btn btn-success btn-sm"
+                            data-bs-toggle="modal"
+                            data-bs-target="#reactivateHonorarioModal"
+                            data-url="{% url 'reactivate_honorario' honorario.idHonorario %}"
+                            title="Reactivar">
+                        <i class="fas fa-redo"></i>
+                    </button>
+                    {% endif %}
                 {% endif %}
-                
-                {% if honorario.estadoHonorario == "ACTIVO" and perms.honorario.change_honorario %}
-                  <button class="btn btn-outline-warning btn-sm"
-                          data-bs-toggle="modal"
-                          data-bs-target="#deleteHonorarioModal"
-                          data-url="{% url 'desactivar_honorario' honorario.idHonorario %}">
-                    <i class="fas fa-user-slash"></i>
-                  </button>
-                {% endif %}
-                
-                {% if honorario.estadoHonorario == "INACTIVO" and perms.honorario.change_honorario %}
-                  <button class="btn btn-success btn-sm"
-                          data-bs-toggle="modal"
-                          data-bs-target="#reactivateHonorarioModal"
-                          data-url="{% url 'reactivate_honorario' honorario.idHonorario %}">
-                    <i class="fas fa-redo"></i>
-                  </button>
-                {% endif %}
-              </div>
-            </td>
+            </div>
+        </td>
           </tr>
           {% empty %}
           <tr>

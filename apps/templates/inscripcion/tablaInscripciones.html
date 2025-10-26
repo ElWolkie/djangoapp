@@ -193,80 +193,100 @@
             </td>
 
             <td class="actions-column">
-              <div class="d-flex gap-2">
-                <!-- Botón Ver más -->
+            <div class="d-flex gap-2">
+                <!-- Botón Ver más (siempre visible) -->
                 {% if perms.inscripcion.view_inscripcion %}
-                  <button class="btn btn-info btn-sm view-details-btn"
-                          data-bs-toggle="modal"
-                          data-bs-target="#detailsModal"
-                          data-id="{{ inscripcion.idInscripcion }}"
-                          data-cedula="{{ inscripcion.idPersona.cedula }}"
-                          data-nombres="{{ inscripcion.idPersona.nombres }}"
-                          data-apellidos="{{ inscripcion.idPersona.apellidos }}"
-                          data-cohorte="{{ inscripcion.idCohorte.nombreCohorte }}"
-                          data-tipo-formacion="{{ inscripcion.idTF.nombreTipoFormacion }}"
-                          data-formacion="{{ inscripcion.idFormacion.nombreFormacion }}"
-                          data-estado="{% if inscripcion.is_active %}Activo{% else %}Inactivo{% endif %}"
-                          data-fecha="{{ inscripcion.fechaInscripcion|date:'d/m/Y' }}"
-                          title="Ver más">
+                <button class="btn btn-info btn-sm view-details-btn"
+                        data-bs-toggle="modal"
+                        data-bs-target="#detailsModal"
+                        data-id="{{ inscripcion.idInscripcion }}"
+                        data-cedula="{{ inscripcion.idPersona.cedula }}"
+                        data-nombres="{{ inscripcion.idPersona.nombres }}"
+                        data-apellidos="{{ inscripcion.idPersona.apellidos }}"
+                        data-cohorte="{{ inscripcion.idCohorte.nombreCohorte }}"
+                        data-tipo-formacion="{{ inscripcion.idTF.nombreTipoFormacion }}"
+                        data-formacion="{{ inscripcion.idFormacion.nombreFormacion }}"
+                        data-estado="{% if inscripcion.is_active %}Activo{% else %}Inactivo{% endif %}"
+                        data-fecha="{{ inscripcion.fechaInscripcion|date:'d/m/Y' }}"
+                        title="Ver más">
                     <i class="fas fa-eye"></i>
-                  </button>
-                {% endif %}
-                
-                {% if perms.inscripcion.change_inscripcion %}
-                <button class="btn btn-primary btn-sm"
-                        data-bs-toggle="modal"
-                        data-bs-target="#editInscripcionModal"
-                        data-url="{% url 'edit_inscripcion' inscripcion.idInscripcion %}"
-                        title="Editar">
-                  <i class="fas fa-edit"></i>
                 </button>
                 {% endif %}
                 
-                {% if inscripcion.is_active and perms.inscripcion.change_inscripcion %}
-                <button class="btn btn-outline-warning btn-sm"
-                        data-bs-toggle="modal"
-                        data-bs-target="#deleteInscripcionModal"
-                        data-url="{% url 'desactivar_inscripcion' inscripcion.idInscripcion %}"
-                        title="Desactivar">
-                  <i class="fas fa-user-slash"></i>
-                </button>
+                <!-- Verificar si la inscripción tiene nota -->
+                {% if inscripcion.idInscripcion in inscripciones_con_nota %}
+                    <!-- SI TIENE NOTA: Mostrar botón de factura y ocultar edición/desactivación -->
+                    <a href="{% url 'redirigir_factura_inscripcion' inscripcion.idInscripcion %}" 
+                      class="btn btn-success btn-sm" 
+                      title="Ver Factura" 
+                      target="_blank">
+                        <i class="fas fa-file-invoice"></i>
+                    </a>
+                {% else %}
+                    <!-- NO TIENE NOTA: Mostrar botones normales de edición -->
+                    {% if perms.inscripcion.change_inscripcion %}
+                    <button class="btn btn-primary btn-sm"
+                            data-bs-toggle="modal"
+                            data-bs-target="#editInscripcionModal"
+                            data-url="{% url 'edit_inscripcion' inscripcion.idInscripcion %}"
+                            title="Editar">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    {% endif %}
+                    
+                    {% if inscripcion.is_active and perms.inscripcion.change_inscripcion %}
+                    <button class="btn btn-outline-warning btn-sm"
+                            data-bs-toggle="modal"
+                            data-bs-target="#deleteInscripcionModal"
+                            data-url="{% url 'desactivar_inscripcion' inscripcion.idInscripcion %}"
+                            title="Desactivar">
+                        <i class="fas fa-user-slash"></i>
+                    </button>
+                    {% endif %}
+                    
+                    {% if not inscripcion.is_active and perms.inscripcion.change_inscripcion %}
+                    <button class="btn btn-success btn-sm"
+                            data-bs-toggle="modal"
+                            data-bs-target="#reactivateInscripcionModal"
+                            data-url="{% url 'reactivate_inscripcion' inscripcion.idInscripcion %}"
+                            title="Reactivar">
+                        <i class="fas fa-redo"></i>
+                    </button>
+                    {% endif %}
+                    
+                    <!-- Botón Pagar (solo si está pendiente y no tiene nota) -->
+                    {% if inscripcion.estadoPago == 'PENDIENTE' %}
+                    <a href="{% url 'nota_create' %}?inscripcion={{ inscripcion.idFormacion.valorInscripcion }}&idP={{ inscripcion.idPersona.idPersona }}&id={{ inscripcion.idInscripcion }}" 
+                      title="Pagar" 
+                      class="btn btn-warning btn-sm">
+                        <i class="fas fa-money-bill-wave"></i>
+                    </a>
+                    {% endif %}
                 {% endif %}
                 
-                {% if not inscripcion.is_active and perms.inscripcion.change_inscripcion %}
-                <button class="btn btn-success btn-sm"
-                        data-bs-toggle="modal"
-                        data-bs-target="#reactivateInscripcionModal"
-                        data-url="{% url 'reactivate_inscripcion' inscripcion.idInscripcion %}"
-                        title="Reactivar">
-                  <i class="fas fa-redo"></i>
-                </button>
-                {% endif %}
-                
+                <!-- Botones que siempre se muestran (independiente de si tiene nota) -->
                 {% if inscripcion.idInscripcion %}
-                  {% if perms.inscripcion.change_inscripcion or perms.inscripcion.view_inscripcion %}
+                    {% if perms.inscripcion.change_inscripcion or perms.inscripcion.view_inscripcion %}
                     <button class="btn btn-light btn-sm"
                             data-bs-toggle="modal"
                             data-bs-target="#requisitosInscripcionModal"
                             data-url="{% url 'guardar_requisitos_inscripcion' inscripcion.idInscripcion %}"
                             title="Ver Requisitos">
-                      <i class="fas fa-clipboard-check text-dark"></i>
+                        <i class="fas fa-clipboard-check text-dark"></i>
                     </button>
-                  {% endif %}
+                    {% endif %}
                 {% endif %}
                 
-                <!-- Botón Cuotas -->
-                <button class="btn btn-purple btn-sm" data-bs-toggle="modal" data-bs-target="#cuotasModal" onclick="cargarCuotas('{{ inscripcion.idInscripcion }}')" title="Ver Cuotas">
-                   <i class="fas fa-coins"></i>
+                <!-- Botón Cuotas (siempre visible) -->
+                <button class="btn btn-purple btn-sm" 
+                        data-bs-toggle="modal" 
+                        data-bs-target="#cuotasModal" 
+                        onclick="cargarCuotas('{{ inscripcion.idInscripcion }}')" 
+                        title="Ver Cuotas">
+                    <i class="fas fa-coins"></i>
                 </button>
-               
-                {% if inscripcion.estadoPago == 'PENDIENTE' %}
-                  <a href="{% url 'nota_create' %}?inscripcion={{ inscripcion.idFormacion.valorInscripcion }}&idP={{ inscripcion.idPersona.idPersona }}&id={{ inscripcion.idInscripcion }}" title="Pagar" class="btn btn-warning btn-sm">
-                  <i class="fas fa-money-bill-wave"></i>
-                  </a>
-                {% endif %}
-              </div>
-            </td>
+            </div>
+        </td>
           </tr>
         {% empty %}
           <tr>

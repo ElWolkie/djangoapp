@@ -22,6 +22,9 @@ urlpatterns = [
     # Nueva ruta para ver cuotas de inscripción
     path('verCuotasInscripcion/<int:pk>/', views.ver_cuotas_inscripcion, name='ver_cuotas_inscripcion'),
 
+    #Ruta para la redireccion a la factura de la inscripcion espeficifica
+    path('inscripcion/factura/<int:pk>/', views.redirigir_a_factura_inscripcion, name='redirigir_factura_inscripcion'),
+
     # Coincide con cualquier archivo HTML (no mover de lugar)
     re_path(r'^.*\.*', views.pages, name='pages'),
 ]
