@@ -1,7 +1,9 @@
-from django.db import models
+from django.db import models, IntegrityError
 from django.db.models import Max
 from apps.home.models import Moneda
 from apps.planCuenta.models import PlanCuenta
+from django.core.exceptions import ValidationError
+import re
 
 class Banco(models.Model):
     """
@@ -53,11 +55,78 @@ class Banco(models.Model):
     def __str__(self):
         return self.nombreBanco
 
+    def clean(self):
+        """
+        Validaciones en español para los campos del modelo Banco.
+        Se lanzan ValidationError con mensajes en español.
+        """
+        errores = {}
+
+        # nombreBanco: no vacío
+        if not self.nombreBanco or not self.nombreBanco.strip():
+            errores['nombreBanco'] = 'El nombre del banco no puede estar vacío.'
+
+        # codSwiftBanco: obligatorio y formato SWIFT (8 u 11 caracteres alfanuméricos)
+        if not self.codSwiftBanco or not self.codSwiftBanco.strip():
+            errores['codSwiftBanco'] = 'El código SWIFT es obligatorio.'
+        else:
+            valor_swift = self.codSwiftBanco.strip().upper()
+            if not re.fullmatch(r'^[A-Z0-9]{8}([A-Z0-9]{3})?$', valor_swift):
+                errores['codSwiftBanco'] = 'El código SWIFT debe tener 8 u 11 caracteres alfanuméricos (A-Z, 0-9).'
+            else:
+                # Normalizar a mayúsculas
+                self.codSwiftBanco = valor_swift
+
+        # cuentaPadre: obligatoria
+        if not self.cuentaPadre_id:
+            errores['cuentaPadre'] = 'La cuenta contable padre es obligatoria.'
+        else:
+            # Comprobar que la cuenta padre tenga un nivel válido (ejemplo: no nivel negativo)
+            try:
+                nivel_padre = self.cuentaPadre.nivelPlanCuenta
+                if nivel_padre is None:
+                    errores['cuentaPadre'] = 'La cuenta padre debe tener definido el nivel.'
+                elif nivel_padre < 0:
+                    errores['cuentaPadre'] = 'Nivel de la cuenta padre inválido.'
+            except Exception:
+                # Si por alguna razón no se puede leer, dejar que sea validado en la base
+                pass
+
+        # Si ya hay una cuenta contable asociada, validar que su cuenta padre coincida con cuentaPadre
+        if self.codigoPlanCuenta_id and self.cuentaPadre_id:
+            try:
+                if getattr(self.codigoPlanCuenta, 'cuentaPadre_id', None) != self.cuentaPadre_id:
+                    errores['codigoPlanCuenta'] = 'La cuenta contable asociada debe ser hija de la cuenta padre seleccionada.'
+            except Exception:
+                # Evitar fallos si el objeto relacionado no está cargado; en ese caso, no validar aquí.
+                pass
+
+        # Validaciones de unicidad para mensajes en español (evitar errores de BD por duplicados)
+        if self.codLocalBanco:
+            qs_local = self.__class__.objects.filter(codLocalBanco__iexact=self.codLocalBanco)
+            if self.pk:
+                qs_local = qs_local.exclude(pk=self.pk)
+            if qs_local.exists():
+                errores['codLocalBanco'] = 'Ya existe un banco con ese código local.'
+
+        if self.codSwiftBanco:
+            qs_swift = self.__class__.objects.filter(codSwiftBanco__iexact=self.codSwiftBanco)
+            if self.pk:
+                qs_swift = qs_swift.exclude(pk=self.pk)
+            if qs_swift.exists():
+                errores['codSwiftBanco'] = 'Ya existe un banco con ese código SWIFT/BIC.'
+
+        if errores:
+            raise ValidationError(errores)
+
     def save(self, *args, **kwargs):
         """
         Genera automáticamente la cuenta contable asociada al banco si no existe.
-        El tipo de cuenta se hereda automáticamente de la cuenta padre.
+        Ejecuta validaciones (mensajes en español) antes de guardar.
         """
+        # Ejecutar validaciones explícitas para asegurar mensajes en español y normalizaciones
+        self.full_clean()
+
         # Asignar automáticamente el tipo de cuenta basado en la cuenta padre
         tipo_cuenta_padre = self.cuentaPadre.tipoPlanCuenta
         naturaleza_cuenta_padre = self.cuentaPadre.naturalezaPlanCuenta
@@ -65,30 +134,57 @@ class Banco(models.Model):
         if not self.codigoPlanCuenta:
             # Crear subcuenta para este banco específico
             new_code = self._generate_bank_account_code(self.cuentaPadre)
-            
-            plan_cuenta = PlanCuenta.objects.create(
-                codigoPlanCuenta=new_code,
-                nombrePlanCuenta=f"{self.nombreBanco} ({tipo_cuenta_padre})",
-                tipoPlanCuenta=tipo_cuenta_padre,
-                naturalezaPlanCuenta=naturaleza_cuenta_padre,
-                nivelPlanCuenta=self.cuentaPadre.nivelPlanCuenta + 1,
-                cuentaPadre=self.cuentaPadre
-            )
+            try:
+                plan_cuenta = PlanCuenta.objects.create(
+                    codigoPlanCuenta=new_code,
+                    nombrePlanCuenta=f"{self.nombreBanco} ({tipo_cuenta_padre})",
+                    tipoPlanCuenta=tipo_cuenta_padre,
+                    naturalezaPlanCuenta=naturaleza_cuenta_padre,
+                    nivelPlanCuenta=self.cuentaPadre.nivelPlanCuenta + 1,
+                    cuentaPadre=self.cuentaPadre
+                )
+            except IntegrityError as e:
+                # Convertir error de BD por duplicado en ValidationError con mensaje en español
+                raise ValidationError({'codigoPlanCuenta': 'No se pudo crear la cuenta contable asociada (código duplicado en la base de datos).'})
             self.codigoPlanCuenta = plan_cuenta
-        
-        super().save(*args, **kwargs)
+
+        try:
+            super().save(*args, **kwargs)
+        except IntegrityError as e:
+            # Mensaje genérico en español para duplicados en campos únicos
+            raise ValidationError({'__all__': 'Error al guardar Banco: posible duplicado en un campo único.'})
 
     def _generate_bank_account_code(self, cuenta_padre):
-        """Genera el código para la cuenta específica del banco"""
+        """Genera el código para la cuenta específica del banco respetando la jerarquía del plan contable"""
         last_account = PlanCuenta.objects.filter(
             cuentaPadre=cuenta_padre
         ).aggregate(Max('codigoPlanCuenta'))
-        
-        if last_account['codigoPlanCuenta__max']:
-            last_num = int(last_account['codigoPlanCuenta__max'][-2:])
-            return f"{cuenta_padre.codigoPlanCuenta}{last_num + 1:02d}"
-        return f"{cuenta_padre.codigoPlanCuenta}01"
 
+        max_code = last_account.get('codigoPlanCuenta__max')
+        if max_code:
+            # Extraer la parte correspondiente al nivel actual
+            base_code = cuenta_padre.codigoPlanCuenta
+            suffix_length = len(max_code) - len(base_code)
+            if suffix_length > 0:
+                last_suffix = int(max_code[-suffix_length:])
+                next_suffix = f"{last_suffix + 1:0{suffix_length}d}"
+                new_code = f"{base_code}{next_suffix}"
+            else:
+                new_code = f"{base_code}01"
+        else:
+            new_code = f"{cuenta_padre.codigoPlanCuenta}01"
+
+        # Validar unicidad del código generado
+        while PlanCuenta.objects.filter(codigoPlanCuenta=new_code).exists():
+            match = re.search(r'(\\d+)$', new_code)
+            if match:
+                num = int(match.group(1)) + 1
+                width = len(match.group(1))
+                new_code = f"{cuenta_padre.codigoPlanCuenta}{num:0{width}d}"
+            else:
+                new_code = f"{cuenta_padre.codigoPlanCuenta}01"
+
+        return new_code
 
 class CuentaBanco(models.Model):
     """
@@ -181,19 +277,34 @@ class CuentaBanco(models.Model):
         super().save(*args, **kwargs)
 
     def _generate_account_code(self, cuenta_padre):
-        """Genera código para la cuenta bancaria específica, hija directa del banco"""
+        """Genera código para la cuenta bancaria específica respetando la jerarquía del plan contable"""
         try:
             last_account = PlanCuenta.objects.filter(
                 cuentaPadre=cuenta_padre
             ).aggregate(Max('codigoPlanCuenta'))
-            
+
             if last_account['codigoPlanCuenta__max']:
-                last_num = int(last_account['codigoPlanCuenta__max'][-2:])
-                new_code = f"{cuenta_padre.codigoPlanCuenta}{last_num + 1:02d}"
+                base_code = cuenta_padre.codigoPlanCuenta
+                suffix_length = len(last_account['codigoPlanCuenta__max']) - len(base_code)
+                if suffix_length > 0:
+                    last_suffix = int(last_account['codigoPlanCuenta__max'][-suffix_length:])
+                    next_suffix = f"{last_suffix + 1:0{suffix_length}d}"
+                    new_code = f"{base_code}{next_suffix}"
+                else:
+                    new_code = f"{base_code}01"
             else:
                 new_code = f"{cuenta_padre.codigoPlanCuenta}01"
-            
-            print(f"[DEBUG] Código de cuenta bancaria generado correctamente: {new_code}")
+
+            # Validar unicidad del código generado
+            while PlanCuenta.objects.filter(codigoPlanCuenta=new_code).exists():
+                match = re.search(r'(\\d+)$', new_code)
+                if match:
+                    num = int(match.group(1)) + 1
+                    width = len(match.group(1))
+                    new_code = f"{cuenta_padre.codigoPlanCuenta}{num:0{width}d}"
+                else:
+                    new_code = f"{cuenta_padre.codigoPlanCuenta}01"
+
             return new_code
         except Exception as e:
             print(f"[ERROR] Error al generar el código de cuenta bancaria: {e}")

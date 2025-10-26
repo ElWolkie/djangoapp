@@ -224,7 +224,7 @@
 
 <!-- Modal para buscar cuenta contable -->
 <div class="modal fade" id="cuentaPadreModal" tabindex="-1" role="dialog" aria-labelledby="cuentaPadreModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+  <div class="modal-dialog modal-dialog-centered modal-xl mx-auto" role="document">
     <div class="modal-content">
       <div class="modal-header bg-primary text-white">
         <h5 class="modal-title text-white" id="cuentaPadreModalLabel">
@@ -297,8 +297,8 @@
 
       // Manejar clic en botón de selección
       tablaCuentas.addEventListener('click', function (event) {
-        if (event.target.classList.contains('btn-select')) {
-          const fila = event.target.closest('tr');
+        const fila = event.target.closest('tr');
+        if (fila && fila.dataset.id) {
           const cuentaId = fila.getAttribute('data-id');
           const cuentaNombre = fila.getAttribute('data-nombre');
           
@@ -476,10 +476,11 @@
               window.location.reload();
             });
           } else {
+            const errorMessage = data.errors ? Object.values(data.errors).join(' ') : (data.message || 'Ocurrió un error al registrar el banco.');
             Swal.fire({
               icon: 'error',
               title: 'Error',
-              text: data.message || 'Ocurrió un error al registrar el banco.',
+              text: errorMessage,
               confirmButtonText: 'Aceptar'
             });
           }

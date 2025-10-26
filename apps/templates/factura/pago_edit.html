@@ -395,7 +395,7 @@ select.input-with-icon.form-select {
                    value="{% if pago.idCuentaBanco %}{{ pago.idCuentaBanco.idCuentaBanco }}{% endif %}" />
             <input type="hidden" id="idPlanCuentaDebe" name="idPlanCuentaDebe" 
                    value="{% if pago.idCuentaBanco and pago.idCuentaBanco.planCuenta %}{{ pago.idCuentaBanco.planCuenta.idPlanCuenta }}{% endif %}" />
-            <button type="button" id="buscarCuentaBanco" class="btn btn-outline-warning" 
+            <button type="button" id="buscarCuentaBanco" class="btn btn-warning" 
                     data-toggle="modal" data-target="#cuentaBancoModal" aria-label="Buscar cuenta bancaria"
                     {% if pago.formaPago == 'EFECTIVO' %}style="display: none;"{% endif %}>
               <i class="fas fa-search"></i>
