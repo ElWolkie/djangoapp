@@ -1,0 +1,198 @@
+{% extends 'layouts/base.html' %}
+{% load static %}
+
+{% block title %}Listado de Pagos Temporales{% endblock title %}
+
+{% block stylesheets %}
+  <link rel="stylesheet" href="{% static 'assets/css/styleForms.css' %}" />
+  <link rel="stylesheet" href="{% static 'assets/css/argon.css' %}" />
+  <style>
+    .btn-purple {
+      background-color: #6f42c1 !important;
+      color: white !important;
+      border-color: #6f42c1 !important;
+    }
+    .btn-purple:hover {
+      background-color: #5a32a3 !important;
+      border-color: #5a32a3 !important;
+    }
+    .actions-column .btn-sm {
+      padding: 0.25rem 0.5rem;
+      font-size: 0.875rem;
+      transition: all 0.3s ease;
+    }
+    .badge {
+      font-size: 0.85em;
+      padding: 0.5em 0.75em;
+    }
+    .modal-dialog { max-width: 600px; }
+    .modal.fade.show {
+      display: block !important;
+      background-color: rgba(0,0,0,0.5);
+    }
+    .table-responsive {
+      scrollbar-width: thin;
+      scrollbar-color: rgb(107, 143, 250) #f1f1f1;
+    }
+    .table-responsive::-webkit-scrollbar { height: 8px; }
+    .table-responsive::-webkit-scrollbar-track { background: #f1f1f1; }
+    .table-responsive::-webkit-scrollbar-thumb {
+      background-color: rgb(81, 141, 245);
+      border-radius: 4px;
+      border: 2px solid #f1f1f1;
+    }
+    .compact-table th, .compact-table td { padding: 0.5rem 0.75rem; font-size: 0.875rem; }
+    .compact-table th, .compact-table td { text-align: left; }
+    .table-actions .btn { padding: 0.25rem 0.5rem; font-size: 0.75rem; }
+  </style>
+{% endblock stylesheets %}
+
+{% block content %}
+<div class="container mt-4">
+  <h2 class="text-center mb-4">Lista de Pagos App </h2>
+
+  <div class="row mb-3">
+    <div class="col-md-4">
+      <div class="input-group">
+        <form onsubmit="updateSearchParam(event)" class="d-flex w-100">
+          <span class="input-group-text"><i class="fas fa-search"></i></span>
+          <input type="text" id="searchInput" name="search" class="form-control" placeholder="Buscar..." value="{{ search_query|default:'' }}">
+          <button type="submit" style="display:none" tabindex="-1" aria-hidden="true"></button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mensajes -->
+  <div id="globalMessages">
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+      {% endfor %}
+    {% endif %}
+  </div>
+
+  <!-- Tabla compacta -->
+  <div class="card shadow-sm">
+    <div class="table-responsive">
+      <table class="table table-sm table-striped table-hover align-middle text-gray-dark compact-table" id="pagosTemporalesTable">
+        <thead class="table-light">
+          <tr>
+            <th>ID</th>
+            <th>Nota</th>
+            <th>Monto</th>
+            <th>Referencia</th>
+            <th>Estado</th>
+            <th class="actions-column">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for pago in pagos_temporales %}
+          <tr>
+            <td>{{ pago.idPagoTemporal }}</td>
+            <td>{{ pago.idNota.numeroNota }}</td>
+            <td>{{ pago.monto }}</td>
+            <td>{{ pago.referencia }}</td>
+            <td>
+              {% if pago.confirmado %}
+                <span class="badge bg-success text-white">Confirmado</span>
+              {% else %}
+                <span class="badge bg-danger text-white">Sin Confirmar</span>
+              {% endif %}
+            </td>
+            <td class="actions-column">
+              <div class="d-flex gap-2">
+                {% if not pago.confirmado %}
+                <form method="post" action="{% url 'pago_confirmar' pago.idPagoTemporal %}">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-success btn-sm" title="Confirmar Pago">
+                    <i class="fas fa-check"></i>
+                  </button>
+                </form>
+                <form method="post" action="{% url 'pago_cancelar' pago.idPagoTemporal %}">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-danger btn-sm" title="Cancelar Pago">
+                    <i class="fas fa-times"></i>
+                  </button>
+                </form>
+                {% endif %}
+                 {% if  pago.confirmado == 1 %}
+                  <button class="btn btn-secondary btn-sm" disabled>
+                    <i class="fas fa-check-circle"></i>
+                  </button>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="6" class="text-center py-4">No hay pagos de la App encontrados.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Paginación -->
+  <div class="pagination-container text-center mt-4">
+    <nav aria-label="Page navigation">
+      <ul class="pagination justify-content-center">
+        {% if pagos_temporales.has_previous %}
+          <li class="page-item">
+            <a class="page-link" href="javascript:void(0);" onclick="updatePageParam({{ pagos_temporales.previous_page_number }})" aria-label="Anterior">
+              <span aria-hidden="true">&laquo;</span>
+            </a>
+          </li>
+        {% endif %}
+
+        {% for num in pagos_temporales.paginator.page_range %}
+          {% if num == 1 or num == pagos_temporales.paginator.num_pages or num >= pagos_temporales.number|add:"-2" and num <= pagos_temporales.number|add:"2" %}
+            <li class="page-item {% if pagos_temporales.number == num %}active{% endif %}">
+              <a class="page-link" href="javascript:void(0);" onclick="updatePageParam({{ num }})">{{ num }}</a>
+            </li>
+          {% elif num == pagos_temporales.number|add:"-3" or num == pagos_temporales.number|add:"3" %}
+            <li class="page-item disabled"><span class="page-link">...</span></li>
+          {% endif %}
+        {% endfor %}
+
+        {% if pagos_temporales.has_next %}
+          <li class="page-item">
+            <a class="page-link" href="javascript:void(0);" onclick="updatePageParam({{ pagos_temporales.next_page_number }})" aria-label="Siguiente">
+              <span aria-hidden="true">&raquo;</span>
+            </a>
+          </li>
+        {% endif %}
+      </ul>
+    </nav>
+  </div>
+</div>
+{% endblock content %}
+
+{% block javascripts %}
+  <script>
+    function updatePageParam(pageNumber) {
+      const url = new URL(window.location.href);
+      url.searchParams.set('page', pageNumber);
+      window.location.href = url.toString();
+    }
+
+    function updateSearchParam(event) {
+      event.preventDefault();
+      const searchInput = document.getElementById('searchInput').value.trim();
+      const url = new URL(window.location.href);
+      if (searchInput) {
+        url.searchParams.set('search', searchInput);
+      } else {
+        url.searchParams.delete('search');
+      }
+      url.searchParams.delete('page');
+      window.location.href = url.toString();
+    }
+  </script>
+{% endblock javascripts %}

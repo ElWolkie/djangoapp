@@ -39,4 +39,10 @@ urlpatterns = [
     path('balance-cuentas/', views.BalanceCuentasAPIView.as_view(), name='balance-cuentas'),
     path('ingresos/', views.IngresosAPIView.as_view(), name='ingresos'),
     path('egresos/', views.EgresosAPIView.as_view(), name='egresos'),
+
+
+    ############### API DE PAGO TEMPORAL APP ############################
+    path('pago-temporal/', views.PagoTemporalCreateAPIView.as_view(), name='pago-temporal-create'),
+
+
 ]

@@ -144,3 +144,29 @@ class EgresosAPIView(APIView):
         ).order_by('codigoPlanCuenta')
         serializer = PlanCuentaSerializer(egresos, many=True)
         return Response(serializer.data)
+
+
+
+##########################API DE PAGO TEMPORAL APP ############################
+
+from rest_framework import status
+from apps.factura.models import PagoTemporal
+from .serializers import PagoTemporalSerializer 
+class PagoTemporalCreateAPIView(APIView):
+    """
+    API para registrar un nuevo PagoTemporal.
+    """
+    def post(self, request, *args, **kwargs):
+        serializer = PagoTemporalSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                'success': True,
+                'message': 'Pago temporal registrado exitosamente.',
+                'data': serializer.data
+            }, status=status.HTTP_201_CREATED)
+        return Response({
+            'success': False,
+            'message': 'Error al registrar el pago temporal.',
+            'errors': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)

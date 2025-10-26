@@ -44,6 +44,10 @@ urlpatterns = [
     path('pagos/nuevo/<int:pk>/', views.pago_create, name='pago_create'),
     path('pagos/editar/<int:pk>/', views.pago_edit, name='pago_edit'),
     path('pagos/eliminar/<int:pk>/', views.pago_delete, name='pago_delete'),
+    path('pagos/confirmar/<int:pk>/', views.pago_confirmar, name='pago_confirmar'),
+    path('pagos/cancelar/<int:pk>/', views.pago_cancelar, name='pago_cancelar'),
+    path('pagosApp/', views.pagoApp_list, name='pago_App_list'),
+
 
     # Parámetros Tributarios
     path('parametros/', views.parametro_tributario_list, name='parametro_tributario_list'),

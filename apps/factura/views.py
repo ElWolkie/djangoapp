@@ -1,5 +1,6 @@
 import json
 import os
+from pyexpat.errors import messages
 import re
 import uuid
 import random
@@ -32,12 +33,14 @@ from apps.empresa.models import empresa
 from apps.planCuenta.models import PlanCuenta
 from apps.asientoContable.models import AsientoContable, DetalleAsiento
 from .templatetags.decimal_filters import to_decimal
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from django.db.models import Q
 
 from .models import (
-    TIPOS_ARTICULO, Factura, FacturaDetalle, NotaRelacionada, Pago, ParametroTributario, Nota, PlanArticulo
+    TIPOS_ARTICULO, Factura, FacturaDetalle, NotaRelacionada, Pago, ParametroTributario, Nota, PlanArticulo, PagoTemporal
 )
 from .forms import (
-    FacturaForm, FacturaDetalleForm, PagoForm, ParametroTributarioForm, NotaForm, PlanArticuloForm
+    FacturaForm, FacturaDetalleForm, PagoForm, ParametroTributarioForm, NotaForm, PlanArticuloForm, 
 )
 from .templatetags.decimal_filters import to_decimal
 
@@ -1704,6 +1707,137 @@ def pago_delete(request, pk):
     pago.delete()
     return redirect('pago_list')
 
+########PAGOS POR CONFIRMAR DE LA APP###########################
+
+
+def pagoApp_list(request):
+    """
+    Lista todos los pagos temporales con buscador y paginación.
+    Agrega mensajes de depuración para mostrar qué recibe, cómo se purifica/compara y dónde se encontró la coincidencia.
+    """
+    query = request.GET.get('search', '')  # Obtener el término de búsqueda desde los parámetros GET
+
+    # Mensaje de purificación: limpiar caracteres no deseados y mostrar ambos valores
+    q_raw = query or ""
+    q_clean = re.sub(r'[^\w\s\-\.,]', '', q_raw).strip()  # Purificar la entrada (permite letras, números, espacios, guión, punto y coma)
+    q_clean_lower = q_clean.lower()
+    print(f"[pagoApp_list] query_raw='{q_raw}' | query_clean='{q_clean}'")
+
+    pagos_temporales_list = PagoTemporal.objects.all().order_by('-fechaPago')  # Consulta base
+
+    # Aplicar filtros de búsqueda si hay un término
+    if q_clean:
+        print("[pagoApp_list] Aplicando filtro Q() sobre campos: idPagoTemporal, idNota.numeroNota, monto, referencia, observaciones, idCuentaBanco.nombreCuenta")
+        pagos_temporales_list = pagos_temporales_list.filter(
+            Q(idPagoTemporal__icontains=q_clean) |
+            Q(idNota__numeroNota__icontains=q_clean) |
+            Q(monto__icontains=q_clean) |
+            Q(referencia__icontains=q_clean) |
+            Q(observaciones__icontains=q_clean)
+        )
+    else:
+        print("[pagoApp_list] No se aplicó filtro: término de búsqueda vacío tras purificación.")
+
+    # Construir información de coincidencias por registro para depuración detallada
+    matches_info = []
+    if q_clean:
+        for pago in pagos_temporales_list:
+            matched_fields = []
+            # Campos a comparar (obtenidos de forma segura)
+            checks = [
+                ('idPagoTemporal', getattr(pago, 'idPagoTemporal', getattr(pago, 'pk', None))),
+                ('idNota.numeroNota', getattr(getattr(pago, 'idNota', None), 'numeroNota', None)),
+                ('monto', getattr(pago, 'monto', None)),
+                ('referencia', getattr(pago, 'referencia', None)),
+                ('observaciones', getattr(pago, 'observaciones', None)),
+                ('idCuentaBanco.nombreCuenta', getattr(getattr(pago, 'idCuentaBanco', None), 'nombreCuenta', None)),
+            ]
+            for fname, fval in checks:
+                if fval is None:
+                    continue
+                s = str(fval)
+                # comparar en minúsculas para simular icontains
+                if q_clean_lower in s.lower():
+                    matched_fields.append({'field': fname, 'value': s})
+                    print(f"[pagoApp_list] Coincidencia encontrada -> Pago id={getattr(pago, 'idPagoTemporal', getattr(pago, 'pk', None))}: campo='{fname}' valor='{s}' contiene '{q_clean}'")
+            if matched_fields:
+                matches_info.append({
+                    'pago_id': getattr(pago, 'idPagoTemporal', getattr(pago, 'pk', None)),
+                    'matches': matched_fields
+                })
+
+        print(f"[pagoApp_list] Total registros que cumplen filtro: {pagos_temporales_list.count()}; detalles de coincidencias recopilados: {len(matches_info)}")
+    else:
+        print("[pagoApp_list] No hay término de búsqueda purificado; no se generaron detalles de coincidencias.")
+
+    # Paginación
+    page = request.GET.get('page', 1)  # Obtener el número de página desde los parámetros GET
+    paginator = Paginator(pagos_temporales_list, 10)  # Mostrar 10 registros por página
+
+    try:
+        pagos_temporales = paginator.page(page)
+    except PageNotAnInteger:
+        pagos_temporales = paginator.page(1)  # Si el parámetro `page` no es un entero, mostrar la primera página
+    except EmptyPage:
+        pagos_temporales = paginator.page(paginator.num_pages)  # Si el número de página está fuera de rango, mostrar la última página
+
+    return render(request, 'factura/tablaPagosApp.html', {
+        'pagos_temporales': pagos_temporales,
+        'query': query,  # Pasar el término de búsqueda al contexto para mantenerlo en el formulario
+        'matches_info': matches_info  # Información de coincidencias para depuración en frontend si se desea mostrar
+    })
+
+@transaction.atomic
+def pago_confirmar(request, pk):
+    """
+    Confirma un pago temporal y lo mueve a la tabla principal de pagos.
+    Responde siempre en JSON.
+    """
+    pago_temporal = get_object_or_404(PagoTemporal, pk=pk)
+
+    if pago_temporal.confirmado:
+        return JsonResponse({
+            'success': False,
+            'message': "El pago ya ha sido confirmado."
+        }, status=400)
+
+    try:
+        pago_temporal.confirmar_pago()
+        return JsonResponse({
+            'success': True,
+            'message': "El pago ha sido confirmado exitosamente.",
+            'redirect_url': reverse('pago_App_list')
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f"Error al confirmar el pago: {str(e)}"
+        }, status=500)
+
+@transaction.atomic
+def pago_cancelar(request, pk):
+    """
+    Cancela (elimina) un pago temporal y responde en JSON.
+    """
+    pago_temporal = get_object_or_404(PagoTemporal, pk=pk)
+    if pago_temporal.confirmado:
+        return JsonResponse({
+            'success': False,
+            'message': "No se puede cancelar un pago ya confirmado."
+        }, status=400)
+
+    try:
+        pago_temporal.delete()
+        return JsonResponse({
+            'success': True,
+            'message': "El pago temporal ha sido cancelado exitosamente.",
+            'redirect_url': reverse('pago_App_list')
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f"Error al cancelar el pago temporal: {str(e)}"
+        }, status=500)
 
 # Parametros Tributarios
 
