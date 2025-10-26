@@ -5,12 +5,13 @@ from apps.inscripcion.models import Inscripcion, InscripcionCuota
 from apps.persona.models import Personas
 from apps.empresa.models import empresa
 from apps.periodoContable.models import periodoContable
-from apps.asientoContable.models import AsientoContable
+from apps.asientoContable.models import AsientoContable, DetalleAsiento
 from apps.home.models import CuotaFormacion, Moneda, Tasa
 from apps.cuentaBanco.models import CuentaBanco
 from apps.solicitud.models import Solicitud
 from django.utils.timezone import now
 from apps.planCuenta.models import PlanCuenta
+from django.db import transaction
 
 
 
@@ -198,6 +199,92 @@ class Pago(models.Model):
     def __str__(self):
         return f"Pago {self.idPago} de Nota {self.idNota.numeroNota}"
     
+
+class PagoTemporal(models.Model):
+    idPagoTemporal = models.AutoField(primary_key=True)
+    idNota = models.ForeignKey(Nota, on_delete=models.CASCADE, related_name='pagos_temporales')
+    idCuentaBanco = models.ForeignKey(CuentaBanco, on_delete=models.CASCADE, null=True, blank=True)
+    monto = models.DecimalField(max_digits=60, decimal_places=4)
+    referencia = models.CharField(max_length=100, blank=True, null=True)
+    idTasa = models.ForeignKey(Tasa, on_delete=models.CASCADE)
+    observaciones = models.TextField(blank=True, null=True)
+    fechaPago = models.DateTimeField(auto_now_add=True)
+    confirmado = models.BooleanField(default=False, help_text="Indica si el pago ha sido confirmado")
+
+    @transaction.atomic
+    def confirmar_pago(self):
+        """
+        Confirma el pago temporal, lo mueve a la tabla principal `Pago` y realiza los registros dependientes.
+        """
+        if self.confirmado:
+            raise ValueError("El pago ya ha sido confirmado.")
+
+        # Verificar si hay un periodo contable activo
+        periodo_activo = periodoContable.objects.filter(estadoPeriodo=True).first()
+        if not periodo_activo:
+            raise ValueError("No hay ningún periodo contable registrado o activo en el sistema.")
+
+        # Crear el asiento contable para el pago
+        numero_asiento_pago = f"PAGO-{self.idNota.numeroNota}"
+        asiento_pago = AsientoContable.objects.create(
+            numeroAsiento=numero_asiento_pago,
+            fechaAsiento=self.fechaPago,
+            conceptoAsiento=f"Pago de {self.idNota.numeroNota}",
+            idPeriodo=periodo_activo
+        )
+
+        # Obtener la cuenta del Plan de Cuenta usada en el Debe del asiento principal de la nota
+        asiento_principal = self.idNota.idAsiento
+        detalle_debe = DetalleAsiento.objects.filter(idAsiento=asiento_principal, debe__gt=0).first()
+        if not detalle_debe:
+            raise ValueError("No se encontró la cuenta por cobrar en el asiento principal de la nota.")
+        plan_cuenta_haber = detalle_debe.idPlanCuenta
+
+        # Obtener el plan de cuenta para el Debe (Caja/Banco) según la cuenta bancaria
+        if not self.idCuentaBanco or not self.idCuentaBanco.planCuenta:
+            raise ValueError("No se encontró el plan de cuenta asociado a la cuenta bancaria seleccionada.")
+        plan_cuenta_debe = self.idCuentaBanco.planCuenta
+
+        # Crear los detalles del asiento contable
+        DetalleAsiento.objects.create(
+            idAsiento=asiento_pago,
+            idPlanCuenta=plan_cuenta_debe,
+            debe=float(self.monto),
+            haber=0.00
+        )
+        DetalleAsiento.objects.create(
+            idAsiento=asiento_pago,
+            idPlanCuenta=plan_cuenta_haber,
+            debe=0.00,
+            haber=float(self.monto)
+        )
+
+        # Crear el registro en la tabla principal `Pago`
+        pago = Pago.objects.create(
+            idNota=self.idNota,
+            idAsiento=asiento_pago,  # Asignar el asiento contable creado
+            idCuentaBanco=self.idCuentaBanco,
+            monto=self.monto,
+            fechaPago=self.fechaPago,
+            formaPago="TRANSFERENCIA",  # Siempre será transferencia
+            referencia=self.referencia,
+            idTasa=self.idTasa,
+            observaciones=self.observaciones
+        )
+
+        # Actualizar el estado de la nota
+        self.idNota.estado = 'PAGADO'
+        self.idNota.save()
+
+        # Marcar el pago temporal como confirmado
+        self.confirmado = True
+        self.save()
+
+        return pago
+
+    def __str__(self):
+        return f"Pago Temporal {self.idPagoTemporal} - {'Confirmado' if self.confirmado else 'Pendiente'}"
+      
 class ParametroTributario(models.Model):
     # Opciones para tipos de factura (consistentes con tu formulario)
     TIPOS_APLICABLES = [

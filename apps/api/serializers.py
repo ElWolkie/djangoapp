@@ -788,3 +788,28 @@ class AsientoContableSerializer(serializers.ModelSerializer):
     class Meta:
         model = AsientoContable
         fields = ['idAsiento', 'numeroAsiento', 'fechaAsiento', 'conceptoAsiento', 'idPeriodo', 'fechaAsientoDigital', 'detalles']
+
+
+
+
+
+
+######## Nuevo Serializer para PagoTemporal#####################
+from rest_framework import serializers
+from apps.factura.models import PagoTemporal
+
+class PagoTemporalSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PagoTemporal
+        fields = [
+            'idPagoTemporal',
+            'idNota',
+            'idCuentaBanco',
+            'monto',
+            'fechaPago',
+            'referencia',
+            'idTasa',
+            'observaciones',
+            'confirmado'
+        ]
+        read_only_fields = ['idPagoTemporal', 'confirmado']
