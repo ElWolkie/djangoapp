@@ -394,12 +394,33 @@ def reporte_solicitudes_pdf(request):
 @login_required
 def requisitos_solicitud_modal(request, pk):
     solicitud = get_object_or_404(Solicitud, pk=pk)
-    requisitos = Requisito.objects.all()
-    entregados = RequisitoCliente.objects.filter(idSolicitud=solicitud, entregado=True).values_list('idRequisito_id', flat=True)
+    # Requisitos ya entregados para esta solicitud
+    entregados_qs = RequisitoCliente.objects.filter(idSolicitud=solicitud, entregado=True)
+    entregados = list(entregados_qs.values_list('idRequisito_id', flat=True))
+
+    # Intentar detectar el nombre del campo que indica estado/activo en el modelo Requisito
+    field_names = [f.name for f in Requisito._meta.get_fields()]
+    candidates = ['estadoRequisito', 'estado', 'activo', 'estado_requisito', 'is_active']
+    active_field = next((c for c in candidates if c in field_names), None)
+
+    if active_field:
+        # Determinar tipo interno del campo para usar el valor apropiado al filtrar
+        field_type = Requisito._meta.get_field(active_field).get_internal_type()
+        if field_type in ('BooleanField', 'NullBooleanField'):
+            # Mostrar requisitos activos o aquellos inactivos que ya fueron entregados
+            requisitos = Requisito.objects.filter(**{active_field: True}) | Requisito.objects.filter(pk__in=entregados)
+        else:
+            # Asumir que el campo es string y que el valor activo es 'ACTIVO'
+            requisitos = Requisito.objects.filter(**{active_field: 'ACTIVO'}) | Requisito.objects.filter(pk__in=entregados)
+        requisitos = requisitos.distinct()
+    else:
+        # Si no se detecta un campo de estado, no filtrar (fallback seguro)
+        requisitos = Requisito.objects.all()
+
     context = {
         'solicitud': solicitud,
         'requisitos': requisitos,
-        'requisitos_entregados': list(entregados),
+        'requisitos_entregados': entregados,
     }
     return render(request, 'requisitoCliente/requisitoCliente.html', context)
 
