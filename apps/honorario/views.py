@@ -12,6 +12,7 @@ from .forms import HonorarioForm
 from .models import Honorario
 from apps.persona.models import Personas
 from apps.home.models import Cargo, Cohorte, Materia, Configuracion
+from apps.factura.models import NotaRelacionada, Factura #Usada para la redireccion y obtencion de estados
 #Libreria para generar PDF
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
@@ -260,6 +261,14 @@ def tabla_honorarios(request):
     else:
         honorarios = Honorario.objects.filter(estadoHonorario='ACTIVO')
 
+    # Obtener IDs de honorarios que tienen notas
+    honorarios_con_nota = NotaRelacionada.objects.filter(
+        idHonorario__in=honorarios
+    ).values_list('idHonorario_id', flat=True)
+    
+    # Convertir a set para búsqueda más eficiente
+    honorarios_con_nota_set = set(honorarios_con_nota)
+
     # Filtrar por el término de búsqueda si existe BUSCADOR
     if search_query:
         honorarios = honorarios.filter(
@@ -286,7 +295,7 @@ def tabla_honorarios(request):
             messages.info(request, 'No hay honorarios activos para mostrar.')
 
     # Paginación 
-    paginator = Paginator(honorarios, 2)  # 10 cuotas por página
+    paginator = Paginator(honorarios, 10)  # Cambié de 2 a 10 por página
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
@@ -294,8 +303,8 @@ def tabla_honorarios(request):
         'honorarios': page_obj,
         'mostrar_inactivos': mostrar,
         'search_query': search_query,  # Pasar el término de búsqueda al template
+        'honorarios_con_nota': honorarios_con_nota_set,  # Nuevo contexto
     })
-
 @login_required(login_url='login')
 def reporte_honorarios_pdf(request):
     # Manejo de parámetros de paginación
@@ -485,7 +494,33 @@ def reporte_honorarios_pdf(request):
 
     p.save()
     return response
+
+@login_required(login_url='login')
+def redirigir_a_factura_honorario(request, pk):
+    # Redirige a la factura específica de un honorario
+    
+    try:
+        # Buscar la nota relacionada con este honorario
+        nota_relacionada = NotaRelacionada.objects.filter(idHonorario_id=pk).first()
         
+        if nota_relacionada and nota_relacionada.idNota:
+            nota = nota_relacionada.idNota
+            
+            # Buscar si existe factura para esta nota
+            try:
+                factura = Factura.objects.get(nota=nota)
+                return HttpResponseRedirect(reverse('factura_generar_pdf', args=[factura.pk]))
+            except Factura.DoesNotExist:
+                # Si no hay factura, redirigir al listado de facturas con mensaje
+                messages.warning(request, 'No se encontró factura para este honorario.')
+                return HttpResponseRedirect(reverse('factura_list'))
+        else:
+            messages.error(request, 'No se encontró nota de pago para este honorario.')
+            return HttpResponseRedirect(reverse('tabla_honorarios'))
+            
+    except Exception as e:
+        messages.error(request, f'Error al buscar la factura: {str(e)}')
+        return HttpResponseRedirect(reverse('tabla_honorarios'))
 
 @login_required(login_url="/login/")
 def pages(request):

@@ -7,6 +7,7 @@ from django.db.models import Exists, OuterRef
 from django.db.models import Count
 from django.db import models
 from django.db.models import OuterRef, Count, Q
+from django.core.exceptions import FieldError
 from django.urls import reverse
 from django.contrib import messages
 from .forms import InscripcionForm
@@ -15,6 +16,7 @@ from apps.persona.models import Personas
 from apps.home.models import Cargo, Cohorte, Materia, TipoFormacion, Formacion, Configuracion
 from apps.requisitoCliente.models import RequisitoCliente
 from apps.requisitoCliente.models import Requisito
+from apps.factura.models import NotaRelacionada, Factura
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import Table, TableStyle
@@ -208,9 +210,9 @@ def reactivate_inscripcion(request, pk):
 @permission_required("inscripcion.view_inscripcion", raise_exception=True)
 def tabla_inscripciones(request):
     mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
-    search_query = request.GET.get('search', '').strip()  # Obtener el término de búsqueda
+    search_query = request.GET.get('search', '').strip()
 
-    # Filtrar inscripciones según estado (mantenemos tu prefetch y estructura)
+    # Filtrar inscripciones según estado
     if mostrar:
         inscripciones = Inscripcion.objects.prefetch_related(
             'requisitocliente_set__idRequisito'
@@ -220,7 +222,15 @@ def tabla_inscripciones(request):
             'requisitocliente_set__idRequisito'
         )
     
-    # Preparar diccionario de requisitos entregados (mismo lugar que tenías)
+    # Obtener IDs de inscripciones que tienen notas
+    inscripciones_con_nota = NotaRelacionada.objects.filter(
+        idInscripcion__in=inscripciones
+    ).values_list('idInscripcion_id', flat=True)
+    
+    # Convertir a set para búsqueda más eficiente
+    inscripciones_con_nota_set = set(inscripciones_con_nota)
+
+    # Preparar diccionario de requisitos entregados
     requisitos_entregados_dict = {}
     for inscripcion in inscripciones:
         requisitos = [
@@ -230,7 +240,7 @@ def tabla_inscripciones(request):
         ]
         requisitos_entregados_dict[inscripcion.idInscripcion] = requisitos
 
-    # Filtrar por el término de búsqueda si existe BUSCADOR
+    # Filtrar por el término de búsqueda si existe
     if search_query:
         inscripciones = inscripciones.filter(
             Q(idInscripcion__icontains=search_query) |
@@ -255,17 +265,46 @@ def tabla_inscripciones(request):
             messages.info(request, 'No hay inscripciones activas para mostrar.')
 
     # Paginación 
-    paginator = Paginator(inscripciones, 10)  # 10 por página
+    paginator = Paginator(inscripciones, 10)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
     return render(request, 'inscripcion/tablaInscripciones.html', {
         'requisitos_entregados_dict': requisitos_entregados_dict,
         'mostrar_inactivos': mostrar,
-        'inscripciones': page_obj,  # Pasar el objeto de la página al template
-        'search_query': search_query,  # Pasar el término de búsqueda al template
+        'inscripciones': page_obj,
+        'search_query': search_query,
+        'inscripciones_con_nota': inscripciones_con_nota_set,  # Nuevo contexto
     })
 
+@login_required(login_url='login')
+def redirigir_a_factura_inscripcion(request, pk):
+    """
+    Redirige a la factura específica de una inscripción
+    """
+    
+    try:
+        # Buscar la nota relacionada con esta inscripción
+        nota_relacionada = NotaRelacionada.objects.filter(idInscripcion_id=pk).first()
+        
+        if nota_relacionada and nota_relacionada.idNota:
+            nota = nota_relacionada.idNota
+            
+            # Buscar si existe factura para esta nota
+            try:
+                factura = Factura.objects.get(nota=nota)
+                return HttpResponseRedirect(reverse('factura_generar_pdf', args=[factura.pk]))
+            except Factura.DoesNotExist:
+                # Si no hay factura, redirigir al listado de facturas con mensaje
+                messages.warning(request, 'No se encontró factura para esta inscripción.')
+                return HttpResponseRedirect(reverse('factura_list'))
+        else:
+            messages.error(request, 'No se encontró nota de pago para esta inscripción.')
+            return HttpResponseRedirect(reverse('tabla_inscripciones'))
+            
+    except Exception as e:
+        messages.error(request, f'Error al buscar la factura: {str(e)}')
+        return HttpResponseRedirect(reverse('tabla_inscripciones'))
 
 # @login_required(login_url='login')
 # @permission_required("inscripcion.add_pagocuota", raise_exception=True)
