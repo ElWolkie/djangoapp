@@ -193,12 +193,20 @@
         </div>
       </div>
     </div>
+    {% if servicio.idServicio == 0 %}
+      <div class="alert alert-warning alert-dismissible fade show" role="alert">
+      <i class="fas fa-exclamation-triangle me-2"></i>
+      Este servicio es el servicio base para los cálculos. Por defecto sus valores están configurados en 0 para no afectar los cálculos independientes de los precios de los trámites ni sus días de entrega. Si introduces un valor mayor que 0 en alguno de los campos numéricos, al seleccionar este servicio en un trámite se establecerán esos días de entrega y ese valor, sin importar la formación seleccionada. Modifícalo únicamente si deseas desactivar los cálculos individuales de entrega y precio y aplicar los mismos valores a todas las solicitudes.
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+      </div>
+    {% endif %}
     <div class="text-center mt-4">
       <button type="submit" class="btn-submit">
         <i class="fas fa-save me-2"></i> Guardar
       </button>
     </div>
   </form>
+
 </div>
 {% endblock content %}
 

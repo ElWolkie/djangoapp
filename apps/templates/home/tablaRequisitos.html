@@ -168,7 +168,7 @@
           </tr>
           {% empty %}
           <tr>
-            <td colspan="5" class="text-center py-4">No hay requisitos registrados.</td>
+            <td colspan="5" class="text-center py-4">No hay requisitos para mostrar.</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -227,6 +227,10 @@
       </div>
       <div class="modal-body">
         <p>¿Estás seguro de inhabilitar este requisito?</p>
+        <div class="alert alert-warning" role="alert">
+          <i class="fas fa-exclamation-triangle me-2"></i>
+          Al inhabilitar un requisito, éste dejará de aparecer como opción seleccionable en los requisitos por entregar; sin embargo, seguirá visible en los requisitos ya entregados.
+        </div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
