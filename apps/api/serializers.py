@@ -19,6 +19,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
 from django.utils.timezone import now
 
+import logging
 from apps.factura.models import Nota, NotaRelacionada, Pago, PlanArticulo
 
 class TipoPersonaSerializer(serializers.ModelSerializer):
@@ -280,11 +281,12 @@ class InscripcionSerializer(serializers.ModelSerializer):
             **validated_data
         )
         return inscripcion
+    
+logger = logging.getLogger(__name__)
 
 class NotaSerializer(serializers.ModelSerializer):
     idInscripcion = serializers.SerializerMethodField(read_only=True)
     formacion = serializers.SerializerMethodField(read_only=True)
-    persona = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Nota
@@ -298,7 +300,6 @@ class NotaSerializer(serializers.ModelSerializer):
             'formaPago',
             'idInscripcion',
             'formacion',
-            'persona',
         ]
 
     def _get_relacion(self, obj):
@@ -354,110 +355,95 @@ class NotaSerializer(serializers.ModelSerializer):
 
     def get_idInscripcion(self, obj):
         try:
-            rel = self._get_relacion(obj)
-            ins_obj = self._resolve_inscripcion_obj(rel)
-            if ins_obj:
-                return getattr(ins_obj, 'idInscripcion', getattr(ins_obj, 'pk', None))
-            # fallback: devolver el valor crudo si es pk
-            if rel:
-                raw = getattr(rel, 'idInscripcion', None)
-                try:
-                    if isinstance(raw, int):
-                        return raw
-                    if isinstance(raw, str) and raw.isdigit():
-                        return int(raw)
-                except Exception:
-                    pass
-            return None
+            rel = NotaRelacionada.objects.filter(idNota=obj).first()
+            if not rel:
+                return None
+            ins_ref = getattr(rel, 'idInscripcion', None)
+            # si es instancia de modelo
+            if hasattr(ins_ref, 'idInscripcion'):
+                return getattr(ins_ref, 'idInscripcion', getattr(ins_ref, 'pk', None))
+            # si es FK int
+            if isinstance(ins_ref, int):
+                return ins_ref
+            # si es dict-like
+            if isinstance(ins_ref, dict):
+                return ins_ref.get('idInscripcion') or ins_ref.get('id') or None
+            # fallback: intentar extraer atributo pk
+            return getattr(ins_ref, 'pk', None)
         except Exception:
+            logger.exception("Error obteniendo idInscripcion para nota %s", getattr(obj, 'idNota', None))
             return None
 
     def get_formacion(self, obj):
         """
-        Devuelve un dict con { idFormacion, nombreFormacion } intentando varios caminos:
-         - Inscripcion.idFormacion_id (campo FK directo)
-         - Inscripcion.idCohorte_id -> Cohorte.idFormacion (consulta select_related)
-         - Si falla, imprime debug para ver la forma real de la Inscripcion relacionada.
+        Devuelve {'idFormacion':..., 'nombreFormacion': ...} o None.
+        Resuelve robustamente a partir de NotaRelacionada -> Inscripcion -> Cohorte -> Formacion.
         """
         try:
-            rel = self._get_relacion(obj)
-            ins_obj = self._resolve_inscripcion_obj(rel)
-            if not ins_obj:
-                # nada que resolver
-                print(f"[DEBUG-Nota] nota={getattr(obj, 'idNota', '?')} -> no hay inscripcion relacionada")
+            rel = NotaRelacionada.objects.filter(idNota=obj).first()
+            if not rel:
                 return None
 
-            # 1) intentar FK directo en Inscripcion: idFormacion_id
-            form_pk = getattr(ins_obj, 'idFormacion_id', None)
-            if form_pk:
-                form = Formacion.objects.filter(idFormacion=form_pk).first()
-                if form:
-                    return {
-                        'idFormacion': getattr(form, 'idFormacion', getattr(form, 'pk', None)),
-                        'nombreFormacion': getattr(form, 'nombreFormacion', getattr(form, 'nombre', None))
-                    }
+            ins_ref = getattr(rel, 'idInscripcion', None)
+            ins_obj = None
 
-            # 2) intentar via cohorte: primero por idCohorte_id
-            coh_pk = getattr(ins_obj, 'idCohorte_id', None)
-            # si no existe idCohorte_id, tal vez idCohorte es instancia; intentar extraer su pk
-            if not coh_pk:
-                coh_candidate = getattr(ins_obj, 'idCohorte', None)
-                # si coh_candidate es instancia de Cohorte, extraer su pk
-                if coh_candidate and hasattr(coh_candidate, 'idCohorte'):
-                    coh_pk = getattr(coh_candidate, 'idCohorte', None)
+            # 1) si es entero: buscar Inscripcion por pk
+            if isinstance(ins_ref, int):
+                ins_obj = Inscripcion.objects.select_related('idCohorte__idFormacion').filter(idInscripcion=ins_ref).first()
+            else:
+                # 2) si es instancia de Inscripcion
+                if hasattr(ins_ref, '__class__') and ins_ref.__class__.__name__ == 'Inscripcion':
+                    # asegurar que tenemos cohorte+formacion en memoria
+                    ins_obj = Inscripcion.objects.select_related('idCohorte__idFormacion').filter(idInscripcion=getattr(ins_ref, 'idInscripcion', getattr(ins_ref, 'pk', None))).first()
+                else:
+                    # 3) si es dict-like con id
+                    if isinstance(ins_ref, dict):
+                        pk = ins_ref.get('idInscripcion') or ins_ref.get('id') or ins_ref.get('pk')
+                        if pk:
+                            ins_obj = Inscripcion.objects.select_related('idCohorte__idFormacion').filter(idInscripcion=pk).first()
+                    else:
+                        # 4) si rel.idInscripcion es un objeto relacionado pero no instancia (rare), intentar extraer idCohorte_id
+                        try:
+                            pk = getattr(ins_ref, 'idInscripcion_id', None) or getattr(ins_ref, 'pk', None)
+                            if pk:
+                                ins_obj = Inscripcion.objects.select_related('idCohorte__idFormacion').filter(idInscripcion=pk).first()
+                        except Exception:
+                            ins_obj = None
 
-            if coh_pk:
-                coh = Cohorte.objects.select_related('idFormacion').filter(idCohorte=coh_pk).first()
-                if coh and getattr(coh, 'idFormacion', None):
-                    form = coh.idFormacion
-                    return {
-                        'idFormacion': getattr(form, 'idFormacion', getattr(form, 'pk', None)),
-                        'nombreFormacion': getattr(form, 'nombreFormacion', getattr(form, 'nombre', None))
-                    }
+            if not ins_obj:
+                # no pudimos resolver la inscripcion; log para depuración
+                logger.debug("Nota %s: no se pudo resolver Inscripcion a partir de NotaRelacionada.idInscripcion: %r", getattr(obj, 'idNota', None), ins_ref)
+                return None
 
-            # 3) última opción: intentar leer ins_obj.idCohorte (puede ser dict-like)
-            try:
-                coh_raw = getattr(ins_obj, 'idCohorte', None)
-                if coh_raw and not isinstance(coh_raw, (int, str)):
-                    # si es objeto/dict que contiene idFormacion embebido:
-                    form_embebido = None
-                    # si coh_raw tiene atributo idFormacion
-                    if hasattr(coh_raw, 'idFormacion'):
-                        f = getattr(coh_raw, 'idFormacion')
-                        if f and (hasattr(f, 'nombreFormacion') or isinstance(f, dict)):
-                            # si es instancia
-                            if hasattr(f, 'nombreFormacion'):
-                                return {'idFormacion': getattr(f, 'idFormacion', getattr(f, 'pk', None)), 'nombreFormacion': getattr(f, 'nombreFormacion', getattr(f, 'nombre', None))}
-                            # si es dict-like
-                            if isinstance(f, dict):
-                                return {'idFormacion': f.get('idFormacion') or f.get('id'), 'nombreFormacion': f.get('nombreFormacion') or f.get('nombre')}
-                    # si coh_raw es dict con idFormacion anidado:
-                    if isinstance(coh_raw, dict):
-                        form_d = coh_raw.get('idFormacion') or coh_raw.get('idFormacion_detail') or coh_raw.get('formacion')
-                        if isinstance(form_d, dict) and (form_d.get('nombreFormacion') or form_d.get('nombre')):
-                            return {'idFormacion': form_d.get('idFormacion') or form_d.get('id'), 'nombreFormacion': form_d.get('nombreFormacion') or form_d.get('nombre')}
-            except Exception:
-                pass
+            # ahora tenemos ins_obj; intentar extraer cohorte -> formacion
+            coh = getattr(ins_obj, 'idCohorte', None)
+            if not coh:
+                # intentar idCohorte_id
+                coh_pk = getattr(ins_obj, 'idCohorte_id', None)
+                if coh_pk:
+                    coh = Cohorte.objects.select_related('idFormacion').filter(idCohorte=coh_pk).first()
 
-            # Si llegamos aquí no pudimos resolver, dejar trace para debug
-            print(f"[DEBUG-Nota] nota={getattr(obj, 'idNota', '?')} - ins_obj repr: {repr(ins_obj)}")
-            try:
-                # tratar de imprimir campos útiles (si es modelo)
-                attrs = {}
-                for a in ('idInscripcion','idCohorte','idCohorte_id','idFormacion','idFormacion_id','idPersona','idPersona_id'):
-                    try:
-                        attrs[a] = getattr(ins_obj, a, None)
-                    except Exception as ee:
-                        attrs[a] = f"<err {str(ee)}>"
-                print(f"[DEBUG-Nota] campos ins_obj: {attrs}")
-            except Exception:
-                pass
+            if not coh:
+                logger.debug("Nota %s - Inscripcion %s: cohorte no encontrada en ins_obj", getattr(obj, 'idNota', None), getattr(ins_obj, 'idInscripcion', getattr(ins_obj, 'pk', None)))
+                return None
 
-            return None
+            form = getattr(coh, 'idFormacion', None)
+            if not form:
+                # intentar idFormacion_id
+                form_pk = getattr(coh, 'idFormacion_id', None)
+                if form_pk:
+                    form = Formacion.objects.filter(idFormacion=form_pk).first()
+
+            if not form:
+                logger.debug("Nota %s - Cohorte %s: formacion no encontrada", getattr(obj, 'idNota', None), getattr(coh, 'idCohorte', getattr(coh, 'pk', None)))
+                return None
+
+            return {
+                'idFormacion': getattr(form, 'idFormacion', getattr(form, 'pk', None)),
+                'nombreFormacion': getattr(form, 'nombreFormacion', getattr(form, 'nombre', None)),
+            }
         except Exception as e:
-            import traceback
-            traceback.print_exc()
-            print(f"⚠️ Error obteniendo formación para nota {getattr(obj, 'idNota', '?')}: {str(e)}")
+            logger.exception("⚠️ Error obteniendo formación para nota %s: %s", getattr(obj, 'idNota', None), str(e))
             return None
 
 
