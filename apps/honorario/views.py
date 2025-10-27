@@ -126,7 +126,7 @@ def honorario_modal(request):
     ).distinct()
     cargos    = Cargo.objects.filter(estadoCargo='ACTIVO')
     materias  = Materia.objects.filter(estadoMateria='ACTIVO')
-    cohortes  = Cohorte.objects.filter(estadoCohorte='ACTIVO')
+    cohortes  = Cohorte.objects.filter()
     form      = HonorarioForm()
 
     return render(request, 'honorario/honorario2.html', {
