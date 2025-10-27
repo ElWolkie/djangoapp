@@ -24,6 +24,7 @@ urlpatterns = [
     path('notas/por-cedula/', notas_por_cedula, name='notas_por_cedula'),
     path('diagnosticar-notas/', diagnosticar_notas, name='diagnosticar_notas'),
     path('inscripcion/usuario/', views.InscripcionUsuarioList.as_view(), name='inscripcion-usuario'),
+    path('notas/usuario/autenticado/', views.NotasUsuarioAutenticadoView.as_view(), name='notas-usuario-autenticado'),
     
     path('cohorte/', views.CohorteListCreate.as_view(), name='cohorte-list'),
     path('cargo/', views.CargoListCreate.as_view(), name='cargo-list'),

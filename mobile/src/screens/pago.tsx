@@ -1,5 +1,5 @@
-// src/screens/pago.tsx - VERSIÓN CORREGIDA Y RESPONSIVE
-import React, { useState, useEffect, useContext } from 'react';
+// src/screens/pago.tsx - VERSIÓN CORREGIDA (resolución robusta de formación)
+import React, { useState, useEffect, useContext, useCallback } from 'react';
 import {
   View,
   Text,
@@ -25,10 +25,12 @@ interface NotaItem {
   fechaEmision?: string;
   totalNota?: number;
   estado?: string;
-  // formacion puede venir en distintos shapes
   formacion?: any;
-  idFormacion_detail?: any;
+  idInscripcion?: number | null;
+  idInscripcion_detail?: any;
   persona?: { nombre?: string; cedula?: string } | any;
+  // campo de ayuda local
+  _resolvedFormacionName?: string | null;
   [k: string]: any;
 }
 
@@ -50,28 +52,152 @@ const PagoScreen = () => {
     fechaPago: new Date().toISOString().split('T')[0],
   });
 
-  const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [errors, setErrors] = useState<{ [k: string]: string }>({});
   const [modoDirecto, setModoDirecto] = useState(!notaData);
   const [notasUsuario, setNotasUsuario] = useState<NotaItem[]>([]);
   const [cargandoNotas, setCargandoNotas] = useState(false);
   const [notaSeleccionada, setNotaSeleccionada] = useState<NotaItem | null>(notaData ?? null);
 
-  useEffect(() => {
-    if (modoDirecto && user) {
-      cargarNotasUsuario();
-    }
-    // si notaData cambia, sincronizamos selección
-    if (notaData) {
-      setNotaSeleccionada(notaData);
-      setFormData(prev => ({ ...prev, idNota: String(notaData.idNota ?? ''), monto: String(notaData.totalNota ?? '') }));
-    }
-  }, [modoDirecto, user, notaData]);
+  // Helpers ----------------------------------------------------------------
+  const placeholderNames = new Set(['Formación no especificada', 'Información no disponible', '—', null, undefined, '']);
 
-  const cargarNotasUsuario = async () => {
+  const isValidFormacionName = (name?: string | null) => {
+    if (!name) return false;
+    const s = String(name).trim();
+    if (!s) return false;
+    if (placeholderNames.has(s)) return false;
+    return true;
+  };
+
+  const getFormacionNameFromNota = (nota: NotaItem) => {
+    if (!nota) return 'Formación no especificada';
+    if (nota._resolvedFormacionName && isValidFormacionName(nota._resolvedFormacionName)) return nota._resolvedFormacionName;
+    if (nota.formacion && (nota.formacion.nombreFormacion || nota.formacion.nombre)) {
+      const nm = nota.formacion.nombreFormacion ?? nota.formacion.nombre;
+      if (isValidFormacionName(nm)) return nm;
+    }
+    if (nota.idFormacion_detail && (nota.idFormacion_detail.nombreFormacion || nota.idFormacion_detail.nombre)) {
+      const nm = nota.idFormacion_detail.nombreFormacion ?? nota.idFormacion_detail.nombre;
+      if (isValidFormacionName(nm)) return nm;
+    }
+    if (nota.formacionNombre) return nota.formacionNombre;
+    if (nota.nombreFormacion) return nota.nombreFormacion;
+    // fallback
+    return 'Formación no especificada';
+  };
+
+  // Resuelve formacion a partir de una inscripcion obtenida por API
+  const extractFormacionFromInscripcion = (ins: any): { idFormacion?: number; nombreFormacion?: string } | null => {
+    if (!ins) return null;
+    // campo idFormacion_detail directo
+    const f = ins.idFormacion_detail ?? ins.idFormacion ?? null;
+    if (f) {
+      const name = f.nombreFormacion ?? f.nombre ?? (f.title ?? null);
+      const id = Number(f.idFormacion ?? f.id ?? f.pk ?? 0) || undefined;
+      return { idFormacion: id, nombreFormacion: name ?? undefined };
+    }
+    // intentar vía cohorte
+    const coh = ins.idCohorte_detail ?? ins.idCohorte ?? ins.cohorte ?? null;
+    if (coh) {
+      const ff = coh.idFormacion ?? coh.idFormacion_detail ?? coh.formacion ?? null;
+      if (ff) {
+        const name = ff.nombreFormacion ?? ff.nombre ?? (ff.title ?? null);
+        const id = Number(ff.idFormacion ?? ff.id ?? ff.pk ?? 0) || undefined;
+        return { idFormacion: id, nombreFormacion: name ?? undefined };
+      }
+      // a veces coh contiene solo idFormacion numérico
+      const idf = Number(coh.idFormacion ?? coh.id_formacion ?? 0) || undefined;
+      if (idf) return { idFormacion: idf, nombreFormacion: undefined };
+    }
+    return null;
+  };
+
+  // Llama la API para obtener una inscripcion por id (si existe)
+  const fetchInscripcionById = async (idInscripcion?: number | null) => {
+    if (!idInscripcion) return null;
+    try {
+      const res = await api.get(`/api/inscripcion/${idInscripcion}/`);
+      // si el endpoint no existe, intenta fallback a /api/inscripcion/ y filtrar
+      if (res?.data) return res.data;
+    } catch (e: any) {
+      // fallback: traer lista y buscar
+      try {
+        const list = await api.get('/api/inscripcion/');
+        const arr = Array.isArray(list.data) ? list.data : list.data?.results ?? [];
+        const found = arr.find((it: any) => (Number(it.idInscripcion ?? it.id ?? it.pk ?? -1) === Number(idInscripcion)));
+        return found ?? null;
+      } catch (err) {
+        return null;
+      }
+    }
+    return null;
+  };
+
+  // Enriquecer una nota consultando su inscripcion si hace falta
+  const enrichNotaWithFormacion = useCallback(async (nota: NotaItem): Promise<NotaItem> => {
+    try {
+      // si ya tiene nombre de formación válido devolvemos tal cual
+      const existing = getFormacionNameFromNota(nota);
+      if (isValidFormacionName(existing) && existing !== 'Formación no especificada') {
+        return { ...nota, _resolvedFormacionName: existing };
+      }
+
+      // 1) si nota trae idInscripcion (campo agregado por serializer), pedir inscripcion
+      const idIns = nota.idInscripcion ?? nota.idInscripcion_detail?.idInscripcion ?? nota.inscripcion_id ?? null;
+      if (idIns) {
+        const ins = await fetchInscripcionById(Number(idIns));
+        if (ins) {
+          const ff = extractFormacionFromInscripcion(ins);
+          if (ff?.nombreFormacion && isValidFormacionName(ff.nombreFormacion)) {
+            return { ...nota, _resolvedFormacionName: ff.nombreFormacion };
+          }
+          // si solo encontramos idFormacion, intentar obtener detalle formacion
+          if (ff?.idFormacion) {
+            try {
+              const fdet = await api.get(`/api/formaciones/${ff.idFormacion}/`);
+              const fdata = fdet?.data;
+              if (fdata && (fdata.nombreFormacion || fdata.nombre)) {
+                return { ...nota, _resolvedFormacionName: fdata.nombreFormacion ?? fdata.nombre };
+              }
+            } catch (err) {
+              // ignore
+            }
+          }
+        }
+      }
+
+      // 2) si nota tiene idInscripcion_detail embebido, usarlo
+      if (nota.idInscripcion_detail) {
+        const ff = extractFormacionFromInscripcion(nota.idInscripcion_detail);
+        if (ff?.nombreFormacion && isValidFormacionName(ff.nombreFormacion)) {
+          return { ...nota, _resolvedFormacionName: ff.nombreFormacion };
+        }
+      }
+
+      // 3) si en params nos pasaron inscripcionId (creada justo ahora), intentar resolver con ese id
+      if (inscripcionId) {
+        const ins = await fetchInscripcionById(Number(inscripcionId));
+        if (ins) {
+          const ff = extractFormacionFromInscripcion(ins);
+          if (ff?.nombreFormacion && isValidFormacionName(ff.nombreFormacion)) {
+            return { ...nota, _resolvedFormacionName: ff.nombreFormacion };
+          }
+        }
+      }
+
+      // no se pudo resolver -> marcar como no especificada
+      return { ...nota, _resolvedFormacionName: 'Formación no especificada' };
+    } catch (e) {
+      // en error, devolver nota original para no romper la lista
+      return { ...nota, _resolvedFormacionName: nota._resolvedFormacionName ?? nota.formacion?.nombreFormacion ?? 'Formación no especificada' };
+    }
+  }, [inscripcionId]);
+
+  // Cargar notas del usuario y enriquecer las que lo necesiten
+  const cargarNotasUsuario = useCallback(async () => {
     setCargandoNotas(true);
     try {
       const response = await api.get('/api/notas/usuario/autenticado/');
-      // la API puede devolver { success: true, data: [...] } o directamente [...]
       const payload = response.data ?? {};
       let items: any[] = [];
 
@@ -80,13 +206,40 @@ const PagoScreen = () => {
       } else if (Array.isArray(response.data)) {
         items = response.data;
       } else {
-        // si devuelve success:false con message
         if (payload.success === false) {
           throw new Error(payload.message || 'No se pudieron cargar las notas');
         }
+        // si el shape es otro (ej: { success: true, data: {...}}), intentar forzar
+        if (payload && payload.data && !Array.isArray(payload.data)) {
+          // si devolvió un objeto con lista en payload.data.items
+          const maybe = payload.data.items ?? payload.data.results ?? [];
+          if (Array.isArray(maybe)) items = maybe;
+        }
       }
 
-      setNotasUsuario(items);
+      // enriquecer solo las notas que no tienen formacion válida
+      const enrichedPromises = items.map(async (n: NotaItem) => {
+        try {
+          // normalizar campos comunes: idInscripcion puede venir en form diferente
+          const normalized: NotaItem = {
+            ...n,
+            idInscripcion: n.idInscripcion ?? n.idInscripcion_detail?.idInscripcion ?? n.inscripcion_id ?? n.idInscripcionId ?? n.idInscripcionPk ?? n.inscripcion ?? n.idInscripcion,
+          };
+          // if already has a valid formacion string, just set helper
+          const maybeName = getFormacionNameFromNota(normalized);
+          if (isValidFormacionName(maybeName)) {
+            return { ...normalized, _resolvedFormacionName: maybeName };
+          }
+          // otherwise try to enrich
+          const enriched = await enrichNotaWithFormacion(normalized);
+          return enriched;
+        } catch (err) {
+          return n;
+        }
+      });
+
+      const enrichedItems = await Promise.all(enrichedPromises);
+      setNotasUsuario(enrichedItems);
     } catch (error: any) {
       console.error('Error cargando notas:', error?.response ?? error);
       if (error.response?.status === 401) {
@@ -99,7 +252,21 @@ const PagoScreen = () => {
     } finally {
       setCargandoNotas(false);
     }
-  };
+  }, [enrichNotaWithFormacion]);
+
+  useEffect(() => {
+    if (modoDirecto && user) {
+      cargarNotasUsuario();
+    }
+    // sincronizar notaData si viene por params
+    if (notaData) {
+      (async () => {
+        const resolved = await enrichNotaWithFormacion(notaData);
+        setNotaSeleccionada(resolved);
+        setFormData(prev => ({ ...prev, idNota: String(resolved.idNota ?? ''), monto: String(resolved.totalNota ?? '') }));
+      })();
+    }
+  }, [modoDirecto, user, notaData, cargarNotasUsuario, enrichNotaWithFormacion]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -107,57 +274,33 @@ const PagoScreen = () => {
     setRefreshing(false);
   };
 
-  // Normalizador robusto para obtener el nombre de la formación desde distintas estructuras
-    const getFormacionName = (nota: any): string => {
-      if (!nota) return 'Formación no especificada';
-
-      // 1) campo propuesto: nota.formacion = { idFormacion, nombreFormacion }
-      if (nota.formacion && (nota.formacion.nombreFormacion || nota.formacion.nombre)) {
-        return nota.formacion.nombreFormacion ?? nota.formacion.nombre;
-      }
-
-      // 2) formato antiguo o variaciones
-      if (nota.idFormacion_detail && (nota.idFormacion_detail.nombreFormacion || nota.idFormacion_detail.nombre)) {
-        return nota.idFormacion_detail.nombreFormacion ?? nota.idFormacion_detail.nombre;
-      }
-      if (nota.formacionNombre) return nota.formacionNombre;
-      if (nota.nombreFormacion) return nota.nombreFormacion;
-
-      // 3) si la nota contiene la inscripción embebida (idInscripcion_detail)
-      if (nota.idInscripcion_detail) {
-        const coh = nota.idInscripcion_detail.idCohorte ?? nota.idInscripcion_detail.idCohorte_detail;
-        if (coh && coh.idFormacion && (coh.idFormacion.nombreFormacion || coh.idFormacion.nombre)) {
-          return coh.idFormacion.nombreFormacion ?? coh.idFormacion.nombre;
-        }
-      }
-
-      // 4) fallback por idInscripcion: no lo hacemos automáticamente aquí (evita many requests)
-      return 'Formación no especificada';
-    };
-
-
-  const seleccionarNota = (nota: NotaItem) => {
+  // Selección de nota por el usuario
+  const seleccionarNota = async (nota: NotaItem) => {
+    // si la nota no tiene nombre resuelto intentar enriquecer justo ahora (mejor UX)
+    if (!nota._resolvedFormacionName || !isValidFormacionName(nota._resolvedFormacionName)) {
+      const enriched = await enrichNotaWithFormacion(nota);
+      // actualizar lista por si queremos usarla luego
+      setNotasUsuario(prev => prev.map(p => (p.idNota === enriched.idNota ? enriched : p)));
+      setNotaSeleccionada(enriched);
+      setFormData(prev => ({ ...prev, idNota: String(enriched.idNota ?? ''), monto: String(enriched.totalNota ?? '') }));
+      setErrors({});
+      return;
+    }
     setNotaSeleccionada(nota);
-    setFormData(prev => ({
-      ...prev,
-      idNota: String(nota.idNota ?? ''),
-      monto: String(nota.totalNota ?? ''),
-    }));
+    setFormData(prev => ({ ...prev, idNota: String(nota.idNota ?? ''), monto: String(nota.totalNota ?? '') }));
     setErrors({});
   };
 
+  // Validaciones / submit
   const validateForm = (): boolean => {
     const newErrors: { [key: string]: string } = {};
-
     if (!formData.idNota) newErrors.idNota = 'Debe seleccionar una nota';
     if (!formData.formaPago) newErrors.formaPago = 'Seleccione forma de pago';
     if (!formData.monto || parseFloat(String(formData.monto)) <= 0) newErrors.monto = 'Monto debe ser mayor a 0';
     else if (notaSeleccionada && parseFloat(String(formData.monto)) > Number(notaSeleccionada.totalNota ?? 0))
       newErrors.monto = `El monto no puede ser mayor a $${formatCurrency(Number(notaSeleccionada.totalNota ?? 0))}`;
-
     if (!formData.referencia.trim()) newErrors.referencia = 'Número de referencia es requerido';
     if (!formData.fechaPago) newErrors.fechaPago = 'Fecha de pago es requerida';
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -172,7 +315,6 @@ const PagoScreen = () => {
       Alert.alert('Error', 'Por favor complete todos los campos requeridos');
       return;
     }
-
     const pagoParams = {
       monto: parseFloat(String(formData.monto)),
       referencia: formData.referencia,
@@ -186,7 +328,6 @@ const PagoScreen = () => {
           }
         : undefined,
     };
-
     navigation.navigate('PagoMovilFicticio', pagoParams);
   };
 
@@ -194,7 +335,6 @@ const PagoScreen = () => {
     try {
       return new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
     } catch {
-      // fallback sencillo
       return Number(amount || 0).toFixed(2);
     }
   };
@@ -206,10 +346,10 @@ const PagoScreen = () => {
     return d.toLocaleDateString('es-VE');
   };
 
+  // Render --------------------------------------------------------------------------------
   const renderNotaItem = ({ item }: { item: NotaItem }) => {
     const estado = (item.estado ?? '').toUpperCase();
-    const formacionName = getFormacionName(item);
-
+    const formacionName = getFormacionNameFromNota(item);
     return (
       <TouchableOpacity
         style={[styles.notaItem, notaSeleccionada?.idNota === item.idNota && styles.notaItemSeleccionada]}
@@ -217,18 +357,18 @@ const PagoScreen = () => {
       >
         <View style={styles.notaHeader}>
           <Text style={styles.notaNumero}>{item.numeroNota ?? '—'}</Text>
-          <View
-            style={[
-              styles.estadoBadge,
-              estado === 'PAGADA' ? styles.estadoPagada : estado === 'PARCIAL' ? styles.estadoParcial : styles.estadoPendiente,
-            ]}
-          >
-            <Text style={styles.estadoText}>{estado === 'PAGADA' ? 'Pagada' : estado === 'PARCIAL' ? 'Parcial' : 'Pendiente'}</Text>
+          <View style={[
+            styles.estadoBadge,
+            estado === 'PAGADA' ? styles.estadoPagada : estado === 'PARCIAL' ? styles.estadoParcial : styles.estadoPendiente
+          ]}>
+            <Text style={styles.estadoText}>
+              {estado === 'PAGADA' ? 'Pagada' : estado === 'PARCIAL' ? 'Parcial' : 'Pendiente'}
+            </Text>
           </View>
         </View>
 
         <Text style={styles.notaFormacion} numberOfLines={2}>
-          {getFormacionName(item)}
+          {formacionName}
         </Text>
 
         <View style={styles.notaFooter}>
@@ -246,10 +386,9 @@ const PagoScreen = () => {
     );
   };
 
-  // Layout responsive: calculamos ancho máximo para el formulario modal/card
-  const modalMaxWidth = Math.min(Math.max(320, width - 48), 900); // entre 320 y 900, con padding
+  const modalMaxWidth = Math.min(Math.max(320, width - 48), 900);
 
-  // Modo directo (lista + modal flotante)
+  // UI: modoDirecto (lista + modal)
   if (modoDirecto) {
     return (
       <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -265,9 +404,7 @@ const PagoScreen = () => {
 
         <View style={styles.listaContainer}>
           {cargandoNotas ? (
-            <View style={styles.loadingContainer}>
-              <Text style={styles.loadingText}>Cargando notas...</Text>
-            </View>
+            <View style={styles.loadingContainer}><Text style={styles.loadingText}>Cargando notas...</Text></View>
           ) : notasUsuario.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Icon name="file-alert" size={70} color="#dee2e6" />
@@ -314,7 +451,7 @@ const PagoScreen = () => {
                     <View style={styles.infoItem}>
                       <Text style={styles.infoLabel}>Formación:</Text>
                       <Text style={styles.infoValue} numberOfLines={2}>
-                        {getFormacionName(notaSeleccionada)}
+                        {getFormacionNameFromNota(notaSeleccionada)}
                       </Text>
                     </View>
                     <View style={styles.infoItem}>
@@ -324,90 +461,55 @@ const PagoScreen = () => {
                   </View>
                 </View>
 
-                {/* Forma de pago */}
+                {/* Forma, monto, referencia, etc. (idéntico a tu UI anterior) */}
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>Forma de Pago *</Text>
                   <View style={styles.radioGroup}>
                     {['TRANSFERENCIA', 'PAGO_MOVIL'].map(tipo => (
-                      <TouchableOpacity
-                        key={tipo}
-                        style={[styles.radioOption, formData.formaPago === tipo && styles.radioOptionSelected]}
-                        onPress={() => handleInputChange('formaPago', tipo)}
-                      >
+                      <TouchableOpacity key={tipo} style={[styles.radioOption, formData.formaPago === tipo && styles.radioOptionSelected]} onPress={() => handleInputChange('formaPago', tipo)}>
                         <View style={styles.radioContent}>
                           <View style={styles.radioCircle}>{formData.formaPago === tipo && <View style={styles.radioSelected} />}</View>
-                          <Text style={[styles.radioLabel, formData.formaPago === tipo && styles.radioLabelSelected]}>
-                            {tipo === 'TRANSFERENCIA' ? 'Transferencia Bancaria' : 'Pago Móvil'}
-                          </Text>
+                          <Text style={[styles.radioLabel, formData.formaPago === tipo && styles.radioLabelSelected]}>{tipo === 'TRANSFERENCIA' ? 'Transferencia Bancaria' : 'Pago Móvil'}</Text>
                         </View>
                         <Icon name={tipo === 'TRANSFERENCIA' ? 'bank-transfer' : 'cellphone'} size={20} color={formData.formaPago === tipo ? '#4f8cff' : '#6c757d'} />
                       </TouchableOpacity>
                     ))}
                   </View>
-                  {errors.formaPago && (
-                    <View style={styles.errorContainer}>
-                      <Icon name="alert-circle" size={16} color="#dc3545" />
-                      <Text style={styles.errorText}>{errors.formaPago}</Text>
-                    </View>
-                  )}
+                  {errors.formaPago && <View style={styles.errorContainer}><Icon name="alert-circle" size={16} color="#dc3545" /><Text style={styles.errorText}>{errors.formaPago}</Text></View>}
                 </View>
 
-                {/* Monto */}
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>Monto a Pagar *</Text>
                   <View style={styles.inputContainer}>
                     <Text style={styles.currencySymbol}>$</Text>
                     <TextInput style={[styles.input, errors.monto && styles.inputError]} value={formData.monto} onChangeText={(v) => handleInputChange('monto', v)} placeholder="0.00" keyboardType="numeric" placeholderTextColor="#6c757d" />
                   </View>
-                  <Text style={styles.helperText}>
-                    Máximo permitido: <Text style={styles.helperTextBold}>${formatCurrency(Number(notaSeleccionada.totalNota ?? 0))}</Text>
-                  </Text>
-                  {errors.monto && (
-                    <View style={styles.errorContainer}>
-                      <Icon name="alert-circle" size={16} color="#dc3545" />
-                      <Text style={styles.errorText}>{errors.monto}</Text>
-                    </View>
-                  )}
+                  <Text style={styles.helperText}>Máximo permitido: <Text style={styles.helperTextBold}>${formatCurrency(Number(notaSeleccionada.totalNota ?? 0))}</Text></Text>
+                  {errors.monto && <View style={styles.errorContainer}><Icon name="alert-circle" size={16} color="#dc3545" /><Text style={styles.errorText}>{errors.monto}</Text></View>}
                 </View>
 
-                {/* Referencia */}
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>Número de Referencia *</Text>
                   <TextInput style={[styles.input, errors.referencia && styles.inputError]} value={formData.referencia} onChangeText={(v) => handleInputChange('referencia', v)} placeholder="Ej: 123456789" maxLength={40} placeholderTextColor="#6c757d" />
-                  {errors.referencia && (
-                    <View style={styles.errorContainer}>
-                      <Icon name="alert-circle" size={16} color="#dc3545" />
-                      <Text style={styles.errorText}>{errors.referencia}</Text>
-                    </View>
-                  )}
+                  {errors.referencia && <View style={styles.errorContainer}><Icon name="alert-circle" size={16} color="#dc3545" /><Text style={styles.errorText}>{errors.referencia}</Text></View>}
                 </View>
 
-                {/* Fecha */}
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>Fecha de Pago *</Text>
                   <View style={styles.inputContainer}>
                     <Icon name="calendar" size={20} color="#6c757d" style={styles.inputIcon} />
                     <TextInput style={[styles.input, errors.fechaPago && styles.inputError]} value={formData.fechaPago} onChangeText={(v) => handleInputChange('fechaPago', v)} placeholder="AAAA-MM-DD" placeholderTextColor="#6c757d" />
                   </View>
-                  {errors.fechaPago && (
-                    <View style={styles.errorContainer}>
-                      <Icon name="alert-circle" size={16} color="#dc3545" />
-                      <Text style={styles.errorText}>{errors.fechaPago}</Text>
-                    </View>
-                  )}
+                  {errors.fechaPago && <View style={styles.errorContainer}><Icon name="alert-circle" size={16} color="#dc3545" /><Text style={styles.errorText}>{errors.fechaPago}</Text></View>}
                 </View>
 
-                {/* Observaciones */}
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>Observaciones</Text>
                   <TextInput style={[styles.input, styles.textArea]} value={formData.observaciones} onChangeText={(v) => handleInputChange('observaciones', v)} placeholder="Observaciones adicionales..." multiline numberOfLines={3} textAlignVertical="top" placeholderTextColor="#6c757d" />
                 </View>
 
                 <TouchableOpacity style={styles.submitButton} onPress={handleProcesarPago}>
-                  <View style={styles.submitButtonContent}>
-                    <Icon name="arrow-right" size={20} color="#fff" />
-                    <Text style={styles.submitButtonText}>Continuar al Pago</Text>
-                  </View>
+                  <View style={styles.submitButtonContent}><Icon name="arrow-right" size={20} color="#fff" /><Text style={styles.submitButtonText}>Continuar al Pago</Text></View>
                 </TouchableOpacity>
               </View>
             </ScrollView>
@@ -417,7 +519,7 @@ const PagoScreen = () => {
     );
   }
 
-  // Modo automático (desde ruta con notaData)
+  // modo automático (notaData proporcionada por params)
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
@@ -426,60 +528,33 @@ const PagoScreen = () => {
             <Text style={styles.title}>Procesar Pago</Text>
             <Text style={styles.subtitle}>Complete los datos para registrar el pago</Text>
           </View>
-          <View style={styles.headerIcon}>
-            <Icon name="credit-card-scan" size={28} color="#4f8cff" />
-          </View>
+          <View style={styles.headerIcon}><Icon name="credit-card-scan" size={28} color="#4f8cff" /></View>
         </View>
 
         {notaData && (
           <View style={[styles.infoCard, { maxWidth: Math.min(920, width - 48), alignSelf: 'center' }]}>
-            <View style={styles.infoHeader}>
-              <Icon name="file-document" size={18} color="#495057" />
-              <Text style={styles.infoTitle}>Información de la Nota</Text>
-            </View>
+            <View style={styles.infoHeader}><Icon name="file-document" size={18} color="#495057" /><Text style={styles.infoTitle}>Información de la Nota</Text></View>
             <View style={styles.infoGrid}>
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>Número:</Text>
-                <Text style={styles.infoValue}>{notaData.numeroNota ?? '—'}</Text>
-              </View>
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>Formación:</Text>
-                <Text style={styles.infoValue}>{getFormacionName(notaData)}</Text>
-              </View>
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>Estudiante:</Text>
-                <Text style={styles.infoValue}>{notaData.persona?.nombre ?? notaData.persona ?? '—'}</Text>
-              </View>
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>Cédula:</Text>
-                <Text style={styles.infoValue}>{notaData.persona?.cedula ?? '—'}</Text>
-              </View>
-              <View style={[styles.infoItem, styles.totalItem]}>
-                <Text style={styles.totalLabel}>Total a Pagar:</Text>
-                <Text style={styles.totalValue}>${formatCurrency(Number(notaData.totalNota ?? 0))}</Text>
-              </View>
+              <View style={styles.infoItem}><Text style={styles.infoLabel}>Número:</Text><Text style={styles.infoValue}>{notaData.numeroNota ?? '—'}</Text></View>
+              <View style={styles.infoItem}><Text style={styles.infoLabel}>Formación:</Text><Text style={styles.infoValue}>{getFormacionNameFromNota(notaSeleccionada ?? notaData)}</Text></View>
+              <View style={styles.infoItem}><Text style={styles.infoLabel}>Estudiante:</Text><Text style={styles.infoValue}>{notaData.persona?.nombre ?? notaData.persona ?? '—'}</Text></View>
+              <View style={styles.infoItem}><Text style={styles.infoLabel}>Cédula:</Text><Text style={styles.infoValue}>{notaData.persona?.cedula ?? '—'}</Text></View>
+              <View style={[styles.infoItem, styles.totalItem]}><Text style={styles.totalLabel}>Total a Pagar:</Text><Text style={styles.totalValue}>${formatCurrency(Number(notaData.totalNota ?? 0))}</Text></View>
             </View>
           </View>
         )}
 
         <View style={[styles.formCard, { maxWidth: Math.min(920, width - 48), alignSelf: 'center' }]}>
-          <View style={styles.formTitleContainer}>
-            <Icon name="credit-card-outline" size={24} color="#495057" />
-            <Text style={styles.formTitle}>Datos del Pago</Text>
-          </View>
+          {/* ... mismo formulario que en modo directo (omito por brevedad, ya está arriba) */}
+          <View style={styles.formTitleContainer}><Icon name="credit-card-outline" size={24} color="#495057" /><Text style={styles.formTitle}>Datos del Pago</Text></View>
 
-          {/* Forma de pago, monto, etc. (mismo markup que arriba) */}
+          {/* Forma de pago */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Forma de Pago *</Text>
             <View style={styles.radioGroup}>
               {['TRANSFERENCIA', 'PAGO_MOVIL'].map(tipo => (
                 <TouchableOpacity key={tipo} style={[styles.radioOption, formData.formaPago === tipo && styles.radioOptionSelected]} onPress={() => handleInputChange('formaPago', tipo)}>
-                  <View style={styles.radioContent}>
-                    <View style={styles.radioCircle}>{formData.formaPago === tipo && <View style={styles.radioSelected} />}</View>
-                    <Text style={[styles.radioLabel, formData.formaPago === tipo && styles.radioLabelSelected]}>
-                      {tipo === 'TRANSFERENCIA' ? 'Transferencia Bancaria' : 'Pago Móvil'}
-                    </Text>
-                  </View>
+                  <View style={styles.radioContent}><View style={styles.radioCircle}>{formData.formaPago === tipo && <View style={styles.radioSelected} />}</View><Text style={[styles.radioLabel, formData.formaPago === tipo && styles.radioLabelSelected]}>{tipo === 'TRANSFERENCIA' ? 'Transferencia Bancaria' : 'Pago Móvil'}</Text></View>
                   <Icon name={tipo === 'TRANSFERENCIA' ? 'bank-transfer' : 'cellphone'} size={20} color={formData.formaPago === tipo ? '#4f8cff' : '#6c757d'} />
                 </TouchableOpacity>
               ))}
@@ -487,12 +562,10 @@ const PagoScreen = () => {
             {errors.formaPago && <View style={styles.errorContainer}><Icon name="alert-circle" size={16} color="#dc3545" /><Text style={styles.errorText}>{errors.formaPago}</Text></View>}
           </View>
 
+          {/* monto, referencia, fecha, observaciones... (igual que arriba) */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Monto a Pagar *</Text>
-            <View style={styles.inputContainer}>
-              <Text style={styles.currencySymbol}>$</Text>
-              <TextInput style={[styles.input, errors.monto && styles.inputError]} value={formData.monto} onChangeText={(v) => handleInputChange('monto', v)} placeholder="0.00" keyboardType="numeric" placeholderTextColor="#6c757d" />
-            </View>
+            <View style={styles.inputContainer}><Text style={styles.currencySymbol}>$</Text><TextInput style={[styles.input, errors.monto && styles.inputError]} value={formData.monto} onChangeText={(v) => handleInputChange('monto', v)} placeholder="0.00" keyboardType="numeric" placeholderTextColor="#6c757d" /></View>
             <Text style={styles.helperText}>Máximo permitido: <Text style={styles.helperTextBold}>${formatCurrency(Number(notaData?.totalNota ?? 0))}</Text></Text>
             {errors.monto && <View style={styles.errorContainer}><Icon name="alert-circle" size={16} color="#dc3545" /><Text style={styles.errorText}>{errors.monto}</Text></View>}
           </View>
@@ -505,10 +578,7 @@ const PagoScreen = () => {
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Fecha de Pago *</Text>
-            <View style={styles.inputContainer}>
-              <Icon name="calendar" size={20} color="#6c757d" style={styles.inputIcon} />
-              <TextInput style={[styles.input, errors.fechaPago && styles.inputError]} value={formData.fechaPago} onChangeText={(v) => handleInputChange('fechaPago', v)} placeholder="AAAA-MM-DD" placeholderTextColor="#6c757d" />
-            </View>
+            <View style={styles.inputContainer}><Icon name="calendar" size={20} color="#6c757d" style={styles.inputIcon} /><TextInput style={[styles.input, errors.fechaPago && styles.inputError]} value={formData.fechaPago} onChangeText={(v) => handleInputChange('fechaPago', v)} placeholder="AAAA-MM-DD" placeholderTextColor="#6c757d" /></View>
             {errors.fechaPago && <View style={styles.errorContainer}><Icon name="alert-circle" size={16} color="#dc3545" /><Text style={styles.errorText}>{errors.fechaPago}</Text></View>}
           </View>
 
@@ -526,7 +596,7 @@ const PagoScreen = () => {
   );
 };
 
-// Estilos (igual que antes, con adaptaciones)
+// --- estilos (copié los tuyos anteriores; ajústalos si quieres) ---
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8f9fa' },
   scrollView: { flex: 1 },
