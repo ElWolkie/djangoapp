@@ -316,44 +316,72 @@ class NotaSerializer(serializers.ModelSerializer):
         return None
 
     def get_formacion(self, obj):
+        """
+        Resuelve la formación asociada a una nota intentando varios caminos:
+        - Busca NotaRelacionada para la nota y hace select_related('idInscripcion__idCohorte__idFormacion')
+        - Si idInscripcion viene como id, carga la Inscripcion con select_related
+        - Extrae nombreFormacion de forma segura (soporta dicts/instancias)
+        - Devuelve dict { idFormacion, nombreFormacion } o None
+        """
         try:
-            # 1) Si la view hizo prefetch y dejó relaciones en obj.prefetched_notarelacionadas
-            pref = getattr(obj, 'prefetched_notarelacionadas', None)
-            if pref and len(pref) > 0:
-                rel = pref[0]
+            # Intentar obtener la relación ya con join para reducir queries
+            rel = (NotaRelacionada.objects
+                .filter(idNota=obj)
+                .select_related('idInscripcion__idCohorte__idFormacion')
+                .first())
+            if not rel:
+                return None
+
+            ins = rel.idInscripcion  # puede ser instancia o id (según cómo se haya construido)
+            # si es int/str -> buscar la Inscripcion real con select_related
+            from apps.inscripcion.models import Inscripcion as InscripcionModel  # importar localmente para evitar ciclos
+            coh = None
+            form = None
+
+            if isinstance(ins, (int, str)):
+                try:
+                    ins_obj = (InscripcionModel.objects
+                            .select_related('idCohorte__idFormacion')
+                            .filter(pk=int(ins)).first())
+                except Exception:
+                    ins_obj = None
             else:
-                rel = NotaRelacionada.objects.filter(idNota=obj).first()
+                # ins ya es instancia (posible si DRF la prefetched), usarla
+                ins_obj = ins
 
-            if rel and getattr(rel, 'idInscripcion', None):
-                ins = rel.idInscripcion
-                # La formación está en ins.idCohorte.idFormacion
-                coh = getattr(ins, 'idCohorte', None)
-                if coh:
-                    form = getattr(coh, 'idFormacion', None)
-                    if form:
-                        return {
-                            'idFormacion': getattr(form, 'idFormacion', getattr(form, 'pk', None)),
-                            'nombreFormacion': getattr(form, 'nombreFormacion', getattr(form, 'nombre', None))
-                        }
+            if not ins_obj:
+                return None
 
-            # 2) Intentar inferir desde campos embebidos (si la nota ya trae detalles en el payload)
-            if hasattr(obj, 'idInscripcion_detail') and obj.idInscripcion_detail:
-                maybe = obj.idInscripcion_detail
-                coh = maybe.get('idCohorte') or maybe.get('idCohorte_detail')
-                if coh:
-                    form = coh.get('idFormacion') or coh.get('idFormacion_detail') or coh.get('formacion')
-                    if form and (form.get('nombreFormacion') or form.get('nombre')):
-                        return {
-                            'idFormacion': form.get('idFormacion') or form.get('id'),
-                            'nombreFormacion': form.get('nombreFormacion') or form.get('nombre')
-                        }
+            # cohorte puede estar en idCohorte o idCohorte_id; preferir la instancia
+            coh = getattr(ins_obj, 'idCohorte', None)
+            if not coh:
+                coh_pk = getattr(ins_obj, 'idCohorte_id', None)
+                if coh_pk:
+                    coh = Cohorte.objects.select_related('idFormacion').filter(idCohorte=coh_pk).first()
 
-            # 3) Si no se resuelve, devolver None (frontend hará fallback)
-            return None
+            if not coh:
+                return None
 
+            # ahora intentar obtener formacion desde coh
+            form = getattr(coh, 'idFormacion', None)
+            if not form:
+                # intentar por id stored en la cohorte
+                form_pk = getattr(coh, 'idFormacion_id', None)
+                if form_pk:
+                    form = Formacion.objects.filter(idFormacion=form_pk).first()
+
+            if not form:
+                return None
+
+            return {
+                'idFormacion': getattr(form, 'idFormacion', getattr(form, 'pk', None)),
+                'nombreFormacion': getattr(form, 'nombreFormacion', getattr(form, 'nombre', None))
+            }
         except Exception as e:
-            # log simple para depuración en server console
-            print(f"⚠️ Error obteniendo formación para nota {getattr(obj,'idNota',obj)}: {e}")
+            # loggear (usa logger en vez de print en producción)
+            import traceback
+            traceback.print_exc()
+            print(f"⚠️ Error obteniendo formación para nota {getattr(obj, 'idNota', '?')}: {e}")
             return None
 
 class PagoSerializer(serializers.ModelSerializer):
