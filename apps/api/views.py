@@ -4,11 +4,13 @@ from django.db.models import Prefetch
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
+
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.permissions import AllowAny
 from django.db.models import Sum
 from apps.home.models import Personas, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Moneda, Tasa, Formacion, TipoFormacion, Usuarios, CuotaFormacion
-from .serializers import PagoSerializer, PersonaSerializer, CedulaTokenObtainSerializer, TipoPersonaSerializer, PersonaTPSerializer, FormacionSerializer, TPFormacionSerializer, MateriaSerializer, CohorteSerializer, CargoSerializer, HonorarioSerializer, InscripcionSerializer, RequisitoSerializer, ServicioSerializer, TramiteSerializer, SolicitudSerializer, MonedaSerializer, TasaSerializer, UsuarioSerializer, AsientoContableSerializer, PlanCuentaSerializer, PeriodoContableSerializer, CuotaFormacionSerializer  # Importa ambos serializadores
+from .serializers import PagoSerializer, PersonaSerializer, CedulaTokenObtainSerializer, TipoPersonaSerializer, PersonaTPSerializer, FormacionSerializer, TPFormacionSerializer, MateriaSerializer, CohorteSerializer, CargoSerializer, HonorarioSerializer, InscripcionSerializer, RequisitoSerializer, ServicioSerializer, TramiteSerializer, SolicitudSerializer, MonedaSerializer, TasaSerializer, UsuarioSerializer, AsientoContableSerializer, PlanCuentaSerializer, PeriodoContableSerializer, CuotaFormacionSerializer, NotaSerializer  # Importa ambos serializadores
 from apps.persona.models import PersonaTP, TipoPersona
 from apps.honorario.models import Honorario
 from apps.inscripcion.models import Inscripcion
@@ -16,7 +18,6 @@ from apps.solicitud.models import Solicitud
 from apps.asientoContable.models import AsientoContable, DetalleAsiento
 from apps.planCuenta.models import PlanCuenta
 from apps.periodoContable.models import periodoContable
-
 from django.db import transaction
 from django.utils.timezone import now
 from decimal import Decimal
@@ -174,6 +175,47 @@ class InscripcionUsuarioList(generics.ListAPIView):
 
         # por defecto no exponemos todas las inscripciones
         return qs.none()
+
+class NotasUsuarioAutenticadoView(generics.ListAPIView):
+    serializer_class = NotaSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_persona_id(self):
+        # 1) buscar via tabla Usuarios si existe (ajusta según tu modelo Usuarios)
+        user = getattr(self.request, 'user', None)
+        try:
+            from apps.home.models import Usuarios
+            urel = Usuarios.objects.filter(user_id=getattr(user, 'id', None)).first()
+            if urel and getattr(urel, 'idPersona', None):
+                return getattr(urel.idPersona, 'idPersona', urel.idPersona)
+        except Exception:
+            pass
+
+        # 2) permitir ?cedula=... como fallback
+        cedula_q = self.request.query_params.get('cedula')
+        if cedula_q:
+            ced = re.sub(r'\D', '', cedula_q)
+            p = Personas.objects.filter(cedula__iregex=rf"{ced}$").first()
+            if p:
+                return p.idPersona
+
+        return None
+
+    def get_queryset(self):
+        persona_id = self.get_persona_id()
+        if not persona_id:
+            return Nota.objects.none()
+
+        # Query que trae notas relacionadas a inscripciones de esa persona
+        # Prefetch notaRelacionada + select_related dentro del Prefetch para traer Inscripcion -> Cohorte -> Formacion
+        prefetch_rel = Prefetch(
+            'notarelacionada_set',
+            queryset=NotaRelacionada.objects.select_related('idInscripcion__idCohorte__idFormacion'),
+            to_attr='prefetched_notarelacionadas'
+        )
+
+        qs = Nota.objects.filter(notarelacionada__idInscripcion__idPersona_id=persona_id).prefetch_related(prefetch_rel).distinct()
+        return qs
 
 class PagoCreateAPIView(APIView):
     @transaction.atomic
