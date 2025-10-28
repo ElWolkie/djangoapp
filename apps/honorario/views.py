@@ -12,7 +12,7 @@ from .forms import HonorarioForm
 from .models import Honorario
 from apps.persona.models import Personas
 from apps.home.models import Cargo, Cohorte, Materia, Configuracion
-from apps.factura.models import NotaRelacionada, Factura #Usada para la redireccion y obtencion de estados
+from apps.factura.models import NotaRelacionada, Factura, Nota #Usada para la redireccion y obtencion de estados
 #Libreria para generar PDF
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
@@ -254,22 +254,29 @@ def reactivate_honorario(request, pk):
 def tabla_honorarios(request):
     honorarios = Honorario.objects.all().order_by('-idHonorario')
     mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
-    search_query = request.GET.get('search', '').strip()  # Obtener el término de búsqueda
+    search_query = request.GET.get('search', '').strip()
 
     if mostrar:
         honorarios = Honorario.objects.all()
     else:
         honorarios = Honorario.objects.filter(estadoHonorario='ACTIVO')
-
-    # Obtener IDs de honorarios que tienen notas
+    
+    # Obtener todos los honorarios con notas
     honorarios_con_nota = NotaRelacionada.objects.filter(
         idHonorario__in=honorarios
     ).values_list('idHonorario_id', flat=True)
     
-    # Convertir a set para búsqueda más eficiente
+    # Obtener honorarios que tienen factura (nota con factura)
+    notas_con_factura = NotaRelacionada.objects.filter(
+        idHonorario__in=honorarios,
+        idNota__factura__isnull=False
+    ).values_list('idHonorario_id', flat=True)
+    
+    # Convertir a sets para búsqueda más eficiente
     honorarios_con_nota_set = set(honorarios_con_nota)
+    honorarios_con_factura_set = set(notas_con_factura)
 
-    # Filtrar por el término de búsqueda si existe BUSCADOR
+    # Filtrar por el término de búsqueda si existe
     if search_query:
         honorarios = honorarios.filter(
             Q(idHonorario__icontains=search_query) |
@@ -285,7 +292,7 @@ def tabla_honorarios(request):
             Q(fechaHonorario__icontains=search_query)
         )
 
-    # Mensajes informativos (mismo patrón: pedir inactivos pero no hay -> info; si no mostrar y no hay activos -> info)
+    # Mensajes informativos
     if mostrar:
         hay_inactivos = honorarios.exclude(estadoHonorario='ACTIVO').exists()
         if not hay_inactivos:
@@ -295,15 +302,16 @@ def tabla_honorarios(request):
             messages.info(request, 'No hay honorarios activos para mostrar.')
 
     # Paginación 
-    paginator = Paginator(honorarios, 10)  # Cambié de 2 a 10 por página
+    paginator = Paginator(honorarios, 10)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
     return render(request, 'honorario/tablaHonorarios.html', {
         'honorarios': page_obj,
         'mostrar_inactivos': mostrar,
-        'search_query': search_query,  # Pasar el término de búsqueda al template
-        'honorarios_con_nota': honorarios_con_nota_set,  # Nuevo contexto
+        'search_query': search_query,
+        'honorarios_con_nota': honorarios_con_nota_set,  # Honorarios con nota (puede o no tener factura)
+        'honorarios_con_factura': honorarios_con_factura_set,  # Honorarios con factura (y por tanto con nota)
     })
 @login_required(login_url='login')
 def reporte_honorarios_pdf(request):
@@ -496,6 +504,53 @@ def reporte_honorarios_pdf(request):
     return response
 
 @login_required(login_url='login')
+def redirigir_a_nota_honorario(request, pk):    
+    try:
+        # Buscar la nota relacionada con este honorario
+        nota_relacionada = NotaRelacionada.objects.filter(idHonorario_id=pk).first()
+        
+        if nota_relacionada and nota_relacionada.idNota:
+            nota = nota_relacionada.idNota
+            # Redirigir a la vista de detalle de la nota
+            # Ajusta esta URL según tu estructura de URLs para notas
+            return HttpResponseRedirect(reverse('nota_detail', args=[nota.pk]))
+        else:
+            messages.error(request, 'No se encontró nota para este honorario.')
+            return HttpResponseRedirect(reverse('tabla_honorarios'))
+            
+    except Exception as e:
+        messages.error(request, f'Error al buscar la nota: {str(e)}')
+        return HttpResponseRedirect(reverse('tabla_honorarios'))
+
+@login_required(login_url='login')
+def redirigir_a_nota_honorario(request, pk):
+    """
+    Redirige a la nota específica de un honorario (cuando tiene nota pero no factura)
+    """
+    
+    try:
+        # Buscar la nota relacionada con este honorario
+        nota_relacionada = NotaRelacionada.objects.filter(idHonorario_id=pk).first()
+        
+        if nota_relacionada and nota_relacionada.idNota:
+            nota = nota_relacionada.idNota
+            # Redirigir a la vista de lista de notas o crear una específica
+            # Opción 1: Redirigir a la lista de notas (si no tienes vista de detalle)
+            messages.info(request, f'Nota {nota.numeroNota} encontrada. Revisa la lista de notas.')
+            return HttpResponseRedirect(reverse('nota_list'))
+            
+            # Opción 2: Si tienes una vista de edición, podrías usar:
+            # return HttpResponseRedirect(reverse('nota_edit', args=[nota.pk]))
+        else:
+            messages.error(request, 'No se encontró nota para este honorario.')
+            return HttpResponseRedirect(reverse('tabla_honorarios'))
+            
+    except Exception as e:
+        messages.error(request, f'Error al buscar la nota: {str(e)}')
+        return HttpResponseRedirect(reverse('tabla_honorarios'))
+
+
+@login_required(login_url='login')
 def redirigir_a_factura_honorario(request, pk):
     # Redirige a la factura específica de un honorario
     
@@ -521,6 +576,13 @@ def redirigir_a_factura_honorario(request, pk):
     except Exception as e:
         messages.error(request, f'Error al buscar la factura: {str(e)}')
         return HttpResponseRedirect(reverse('tabla_honorarios'))
+
+@login_required(login_url='login')
+def nota_detail(request, pk):
+    
+    nota = get_object_or_404(Nota, pk=pk)
+    return render(request, 'nota/nota_detail.html', {'nota': nota})
+
 
 @login_required(login_url="/login/")
 def pages(request):

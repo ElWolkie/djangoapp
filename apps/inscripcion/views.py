@@ -222,13 +222,20 @@ def tabla_inscripciones(request):
             'requisitocliente_set__idRequisito'
         )
     
-    # Obtener IDs de inscripciones que tienen notas
+    # Obtener todas las inscripciones con notas
     inscripciones_con_nota = NotaRelacionada.objects.filter(
         idInscripcion__in=inscripciones
     ).values_list('idInscripcion_id', flat=True)
     
-    # Convertir a set para búsqueda más eficiente
+    # Obtener inscripciones que tienen factura (nota con factura)
+    inscripciones_con_factura = NotaRelacionada.objects.filter(
+        idInscripcion__in=inscripciones,
+        idNota__factura__isnull=False
+    ).values_list('idInscripcion_id', flat=True)
+    
+    # Convertir a sets para búsqueda más eficiente
     inscripciones_con_nota_set = set(inscripciones_con_nota)
+    inscripciones_con_factura_set = set(inscripciones_con_factura)
 
     # Preparar diccionario de requisitos entregados
     requisitos_entregados_dict = {}
@@ -274,13 +281,37 @@ def tabla_inscripciones(request):
         'mostrar_inactivos': mostrar,
         'inscripciones': page_obj,
         'search_query': search_query,
-        'inscripciones_con_nota': inscripciones_con_nota_set,  # Nuevo contexto
+        'inscripciones_con_nota': inscripciones_con_nota_set,
+        'inscripciones_con_factura': inscripciones_con_factura_set,
     })
+
+@login_required(login_url='login')
+def redirigir_a_nota_inscripcion(request, pk):
+    """
+    Redirige a la nota específica de una inscripción (cuando tiene nota pero no factura)
+    """
+    
+    try:
+        # Buscar la nota relacionada con esta inscripción
+        nota_relacionada = NotaRelacionada.objects.filter(idInscripcion_id=pk).first()
+        
+        if nota_relacionada and nota_relacionada.idNota:
+            nota = nota_relacionada.idNota
+            # Redirigir a la lista de notas (ajusta según tu estructura)
+            messages.info(request, f'Inscripción tiene nota asociada: {nota.numeroNota}')
+            return HttpResponseRedirect(reverse('nota_list'))
+        else:
+            messages.error(request, 'No se encontró nota para esta inscripción.')
+            return HttpResponseRedirect(reverse('tabla_inscripciones'))
+            
+    except Exception as e:
+        messages.error(request, f'Error al buscar la nota: {str(e)}')
+        return HttpResponseRedirect(reverse('tabla_inscripciones'))
 
 @login_required(login_url='login')
 def redirigir_a_factura_inscripcion(request, pk):
     """
-    Redirige a la factura específica de una inscripción
+    Redirige a la factura específica de una inscripción (cuando tiene nota Y factura)
     """
     
     try:
@@ -295,17 +326,16 @@ def redirigir_a_factura_inscripcion(request, pk):
                 factura = Factura.objects.get(nota=nota)
                 return HttpResponseRedirect(reverse('factura_generar_pdf', args=[factura.pk]))
             except Factura.DoesNotExist:
-                # Si no hay factura, redirigir al listado de facturas con mensaje
-                messages.warning(request, 'No se encontró factura para esta inscripción.')
-                return HttpResponseRedirect(reverse('factura_list'))
+                # Si no hay factura, redirigir a la nota
+                messages.info(request, 'Esta inscripción tiene nota pero no factura. Redirigiendo a la nota.')
+                return HttpResponseRedirect(reverse('redirigir_nota_inscripcion', args=[pk]))
         else:
-            messages.error(request, 'No se encontró nota de pago para esta inscripción.')
+            messages.error(request, 'No se encontró nota para esta inscripción.')
             return HttpResponseRedirect(reverse('tabla_inscripciones'))
             
     except Exception as e:
         messages.error(request, f'Error al buscar la factura: {str(e)}')
         return HttpResponseRedirect(reverse('tabla_inscripciones'))
-
 # @login_required(login_url='login')
 # @permission_required("inscripcion.add_pagocuota", raise_exception=True)
 # def registrar_pago_cuota(request, pk):

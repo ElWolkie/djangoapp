@@ -201,17 +201,27 @@
                 </button>
                 {% endif %}
                 
-                <!-- Verificar si el honorario tiene nota -->
+                <!-- Lógica de dos etapas: Nota → Factura -->
                 {% if honorario.idHonorario in honorarios_con_nota %}
-                    <!-- SI TIENE NOTA: Mostrar botón de factura y ocultar edición/desactivación -->
-                    <a href="{% url 'redirigir_factura_honorario' honorario.idHonorario %}" 
-                      class="btn btn-success btn-sm" 
-                      title="Ver Factura" 
-                      target="_blank">
-                        <i class="fas fa-file-invoice"></i> Factura
-                    </a>
+                    <!-- Tiene nota -->
+                    {% if honorario.idHonorario in honorarios_con_factura %}
+                        <!-- Etapa 2: Tiene nota Y factura → Mostrar botón de factura -->
+                        <a href="{% url 'redirigir_factura_honorario' honorario.idHonorario %}" 
+                          class="btn btn-success btn-sm" 
+                          title="Ver Factura" 
+                          target="_blank">
+                            <i class="fas fa-file-invoice"></i> Factura
+                        </a>
+                    {% else %}
+                        <!-- Etapa 1: Tiene nota pero NO tiene factura → Mostrar botón de nota -->
+                        <a href="{% url 'redirigir_nota_honorario' honorario.idHonorario %}" 
+                          class="btn btn-warning btn-sm" 
+                          title="Ver Nota">
+                            <i class="fas fa-sticky-note"></i> Nota
+                        </a>
+                    {% endif %}
                 {% else %}
-                    <!-- NO TIENE NOTA: Mostrar botones normales de edición -->
+                    <!-- No tiene nota: Mostrar botones normales de edición -->
                     {% if perms.honorario.change_honorario %}
                     <button class="btn btn-primary btn-sm"
                             data-bs-toggle="modal"
@@ -243,7 +253,7 @@
                     {% endif %}
                 {% endif %}
             </div>
-        </td>
+          </td>
           </tr>
           {% empty %}
           <tr>

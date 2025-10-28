@@ -774,15 +774,22 @@ def factura_create_notas(request, nota_id=None):
     """
     Vista para crear una factura basada en las notas relacionadas.
     """
+    # Verificar si es una solicitud AJAX
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+    
     try:
         # Filtrar las notas según el ID proporcionado o estado 'PAGADO'
         notas = Nota.objects.filter(idNota=nota_id) if nota_id else Nota.objects.filter(estado='PAGADO')
 
         if not notas.exists():
-            return JsonResponse({
-                'success': False,
-                'message': 'No se encontraron notas para generar la factura.'
-            }, status=400)
+            if is_ajax:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'No se encontraron notas para generar la factura.'
+                }, status=400)
+            else:
+                messages.error(request, 'No se encontraron notas para generar la factura.')
+                return redirect('nota_list')
 
         # Procesar según tipo de factura
         facturas_creadas = []
@@ -821,25 +828,43 @@ def factura_create_notas(request, nota_id=None):
 
                 facturas_creadas.append(factura)
 
+        # Si es AJAX, retornar JSON
+        if is_ajax:
+            return JsonResponse({
+                'success': True,
+                'message': f'Factura(s) generada(s) exitosamente. Total: {len(facturas_creadas)}',
+                'facturas': [factura.numeroFactura for factura in facturas_creadas],
+                'redirect_url': reverse('factura_cargando', args=[facturas_creadas[0].id]) if facturas_creadas else None
+            })
+        
         # Redirigir a la página de carga para la primera factura creada
         if facturas_creadas:
             return redirect('factura_cargando', pk=facturas_creadas[0].id)
         
         # Si no se crearon facturas (todas ya existían)
-        return JsonResponse({
-            'success': False,
-            'message': 'No se crearon nuevas facturas. Todas las notas ya tienen facturas asociadas.'
-        }, status=400)
+        if is_ajax:
+            return JsonResponse({
+                'success': False,
+                'message': 'No se crearon nuevas facturas. Todas las notas ya tienen facturas asociadas.'
+            }, status=400)
+        else:
+            messages.warning(request, 'No se crearon nuevas facturas. Todas las notas ya tienen facturas asociadas.')
+            return redirect('nota_list')
 
     except Exception as e:
         import traceback
         print(f"Error inesperado: {e}")
         print(traceback.format_exc())
-        return JsonResponse({
-            'success': False,
-            'message': f'Ocurrió un error inesperado: {str(e)}. '
-                       'Por favor, contacte al administrador del sistema si el problema persiste.'
-        }, status=500)
+        
+        if is_ajax:
+            return JsonResponse({
+                'success': False,
+                'message': f'Ocurrió un error inesperado: {str(e)}. '
+                           'Por favor, contacte al administrador del sistema si el problema persiste.'
+            }, status=500)
+        else:
+            messages.error(request, f'Ocurrió un error inesperado: {str(e)}')
+            return redirect('nota_list')
     
 @transaction.atomic
 def factura_detalle_create(request, factura_id):
