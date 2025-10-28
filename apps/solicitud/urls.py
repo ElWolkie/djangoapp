@@ -21,7 +21,8 @@ urlpatterns = [
 
     # Nueva URL para redirigir a factura de solicitud
     path('solicitud/factura/<int:pk>/', views.redirigir_a_factura_solicitud, name='redirigir_factura_solicitud'),
-
+    path('solicitud/nota/<int:pk>/', views.redirigir_a_nota_solicitud, name='redirigir_nota_solicitud'),
+   
     # Coincide con cualquier archivo HTML (no mover de lugar)
     re_path(r'^.*\.*', views.pages, name='pages'),
 

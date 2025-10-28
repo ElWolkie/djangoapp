@@ -130,13 +130,22 @@ def tabla_solicitud(request):
     if not mostrar:
         qs = qs.filter(estadoSolicitud='ACTIVO')
 
-    # Obtener IDs de solicitudes que tienen notas
+    # Obtener IDs de solicitudes que tienen notas y facturas
+    
+    # Obtener todas las solicitudes con notas
     solicitudes_con_nota = NotaRelacionada.objects.filter(
         idSolicitud__in=qs
     ).values_list('idSolicitud_id', flat=True)
     
-    # Convertir a set para búsqueda más eficiente
+    # Obtener solicitudes que tienen factura (nota con factura)
+    solicitudes_con_factura = NotaRelacionada.objects.filter(
+        idSolicitud__in=qs,
+        idNota__factura__isnull=False
+    ).values_list('idSolicitud_id', flat=True)
+    
+    # Convertir a sets para búsqueda más eficiente
     solicitudes_con_nota_set = set(solicitudes_con_nota)
+    solicitudes_con_factura_set = set(solicitudes_con_factura)
 
     # Mensajes informativos
     if mostrar:
@@ -150,7 +159,8 @@ def tabla_solicitud(request):
     return render(request, 'solicitud/tablaSolicitud.html', {
         'solicitudes': qs,
         'mostrar_inactivos': mostrar,
-        'solicitudes_con_nota': solicitudes_con_nota_set,  # Nuevo contexto
+        'solicitudes_con_nota': solicitudes_con_nota_set,
+        'solicitudes_con_factura': solicitudes_con_factura_set,
     })
 
 @login_required(login_url='login')
@@ -486,9 +496,32 @@ def pages(request):
         return HttpResponse(html_template.render(context, request))
 
 @login_required(login_url='login')
+def redirigir_a_nota_solicitud(request, pk):
+    """
+    Redirige a la nota específica de una solicitud (cuando tiene nota pero no factura)
+    """
+  
+    try:
+        # Buscar la nota relacionada con esta solicitud
+        nota_relacionada = NotaRelacionada.objects.filter(idSolicitud_id=pk).first()
+        
+        if nota_relacionada and nota_relacionada.idNota:
+            nota = nota_relacionada.idNota
+            # Redirigir a la lista de notas (ajusta según tu estructura)
+            messages.info(request, f'Solicitud tiene nota asociada: {nota.numeroNota}')
+            return HttpResponseRedirect(reverse('nota_list'))
+        else:
+            messages.error(request, 'No se encontró nota para esta solicitud.')
+            return HttpResponseRedirect(reverse('tabla_solicitud'))
+            
+    except Exception as e:
+        messages.error(request, f'Error al buscar la nota: {str(e)}')
+        return HttpResponseRedirect(reverse('tabla_solicitud'))
+
+@login_required(login_url='login')
 def redirigir_a_factura_solicitud(request, pk):
     """
-    Redirige a la factura específica de una solicitud
+    Redirige a la factura específica de una solicitud (cuando tiene nota Y factura)
     """
     
     try:
@@ -503,11 +536,11 @@ def redirigir_a_factura_solicitud(request, pk):
                 factura = Factura.objects.get(nota=nota)
                 return HttpResponseRedirect(reverse('factura_generar_pdf', args=[factura.pk]))
             except Factura.DoesNotExist:
-                # Si no hay factura, redirigir al listado de facturas con mensaje
-                messages.warning(request, 'No se encontró factura para esta solicitud.')
-                return HttpResponseRedirect(reverse('factura_list'))
+                # Si no hay factura, redirigir a la nota
+                messages.info(request, 'Esta solicitud tiene nota pero no factura. Redirigiendo a la nota.')
+                return HttpResponseRedirect(reverse('redirigir_nota_solicitud', args=[pk]))
         else:
-            messages.error(request, 'No se encontró nota de pago para esta solicitud.')
+            messages.error(request, 'No se encontró nota para esta solicitud.')
             return HttpResponseRedirect(reverse('tabla_solicitud'))
             
     except Exception as e:

@@ -256,6 +256,7 @@ $(document).ready(function() {
     event.preventDefault();
 
     const url = $(this).data('url'); // Obtener la URL del botón
+    const $button = $(this); // Guardar referencia al botón
 
     Swal.fire({
       icon: 'question',
@@ -271,60 +272,80 @@ $(document).ready(function() {
       allowEnterKey: false
     }).then((result) => {
       if (result.isConfirmed) {
+        // Mostrar loading
+        Swal.fire({
+          title: 'Generando factura...',
+          text: 'Por favor espere',
+          allowOutsideClick: false,
+          allowEscapeKey: false,
+          didOpen: () => {
+            Swal.showLoading();
+          }
+        });
+
         // Realizar la solicitud AJAX para generar la factura
         fetch(url, {
           method: 'POST',
           headers: {
             'X-Requested-With': 'XMLHttpRequest',
             'Content-Type': 'application/json',
-            'X-CSRFToken': getCSRFToken(), // Obtener el token CSRF
+            'X-CSRFToken': getCSRFToken(),
           },
         })
-          .then((response) => {
-            if (!response.ok) {
-              return response.json().then((errorData) => {
-                throw new Error(errorData.message || 'Error al generar la factura');
-              });
+        .then(async (response) => {
+          // Primero intentar parsear como JSON
+          const contentType = response.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            return response.json().then(data => ({
+              data: data,
+              ok: response.ok
+            }));
+          } else {
+            // Si no es JSON, obtener el texto para debugging
+            const text = await response.text();
+            throw new Error(`Respuesta inesperada del servidor: ${text.substring(0, 100)}...`);
+          }
+        })
+        .then(({data, ok}) => {
+          if (!ok) {
+            throw new Error(data.message || 'Error al generar la factura');
+          }
+          return data;
+        })
+        .then((facturaData) => {
+          // Cerrar loading
+          Swal.close();
+          
+          // Mostrar el modal con el mensaje de éxito
+          Swal.fire({
+            icon: 'success',
+            title: 'Factura creada exitosamente',
+            html: `
+              <p><strong>Número de Factura:</strong> ${facturaData.facturas.join(', ')}</p>
+              <p><strong>Mensaje:</strong> ${facturaData.message}</p>
+            `,
+            confirmButtonText: 'Aceptar',
+            confirmButtonColor: '#28a745',
+          }).then((result) => {
+            if (result.isConfirmed && facturaData.redirect_url) {
+              // Redirigir a la página de carga del PDF
+              window.location.href = facturaData.redirect_url;
+            } else {
+              // Recargar la página para actualizar la tabla
+              actualizarTablaNotas();
             }
-            return response.json();
-          })
-          .then((facturaData) => {
-            // Mostrar el modal con el mensaje de éxito
-            Swal.fire({
-              icon: 'success',
-              title: 'Factura creada exitosamente',
-              html: `
-                <p><strong>Número de Factura:</strong> ${facturaData.facturas.join(', ')}</p>
-                <p><strong>Mensaje:</strong> ${facturaData.message}</p>
-              `,
-              confirmButtonText: 'Aceptar',
-              confirmButtonColor: '#28a745',
-            });
-          })
-          .catch((error) => {
-            console.error('Error:', error);
-            Swal.fire({
-              icon: 'error',
-              title: 'Error al generar la factura',
-              text: error.message || 'Ocurrió un error inesperado.',
-              showCancelButton: true,
-              confirmButtonText: 'Intentar de nuevo',
-              cancelButtonText: 'Ir a la lista de facturas',
-              confirmButtonColor: '#28a745',
-              cancelButtonColor: '#dc3545',
-              allowOutsideClick: false,
-              allowEscapeKey: false,
-              allowEnterKey: false
-            }).then((result) => {
-              if (result.isConfirmed) {
-                // Intentar nuevamente
-                $('.btn-warning[data-url]').trigger('click');
-              } else if (result.dismiss === Swal.DismissReason.cancel) {
-                // Redirigir a la lista de facturas
-                window.location.href = '/factura/list';
-              }
-            });
           });
+        })
+        .catch((error) => {
+          console.error('Error:', error);
+          Swal.fire({
+            icon: 'error',
+            title: 'Error al generar la factura',
+            text: error.message || 'Ocurrió un error inesperado.',
+            confirmButtonText: 'Aceptar',
+            confirmButtonColor: '#dc3545',
+          });
+        });
       }
     });
   });

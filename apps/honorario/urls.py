@@ -14,6 +14,7 @@ urlpatterns = [
     path('reporteHonorarios/', views.reporte_honorarios_pdf, name='reporte_honorarios_pdf'),
     # Nueva URL para redirigir a factura de honorario
     path('honorario/factura/<int:pk>/', views.redirigir_a_factura_honorario, name='redirigir_factura_honorario'),
+    path('honorario/nota/<int:pk>/', views.redirigir_a_nota_honorario, name='redirigir_nota_honorario'),
     # Coincide con cualquier archivo HTML (no mover de lugar)
     re_path(r'^.*\.*', views.pages, name='pages'),
 

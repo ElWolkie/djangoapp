@@ -24,6 +24,7 @@ urlpatterns = [
 
     #Ruta para la redireccion a la factura de la inscripcion espeficifica
     path('inscripcion/factura/<int:pk>/', views.redirigir_a_factura_inscripcion, name='redirigir_factura_inscripcion'),
+    path('inscripcion/nota/<int:pk>/', views.redirigir_a_nota_inscripcion, name='redirigir_nota_inscripcion'),
 
     # Coincide con cualquier archivo HTML (no mover de lugar)
     re_path(r'^.*\.*', views.pages, name='pages'),
