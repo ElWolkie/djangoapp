@@ -1,4 +1,4 @@
-// src/screens/pago.tsx - VERSIÓN CORREGIDA (resolución robusta de formación)
+// src/screens/pago.tsx - VERSIÓN LIMPIA (fetch inscripciones y map local sin manual)
 import React, { useState, useEffect, useContext, useCallback } from 'react';
 import {
   View,
@@ -34,6 +34,26 @@ interface NotaItem {
   [k: string]: any;
 }
 
+interface Inscripcion {
+  idInscripcion: number;
+  estadoPago?: string;
+  fechaInscripcion?: string;
+  idPersona?: number;
+  idPersona_detail?: {
+    cedula?: string;
+  };
+  idCohorte?: any;  // Cohorte
+  idFormacion_detail?: {
+    idFormacion?: number;
+    nombreFormacion?: string;
+    nombre?: string;
+    valorInscripcion?: number | string;
+  };
+  montoPagado?: number;
+  montoTotal?: number;
+  saldoPendiente?: number;
+}
+
 const PagoScreen = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
@@ -58,6 +78,10 @@ const PagoScreen = () => {
   const [cargandoNotas, setCargandoNotas] = useState(false);
   const [notaSeleccionada, setNotaSeleccionada] = useState<NotaItem | null>(notaData ?? null);
 
+  // Estados para inscripciones
+  const [inscripcionesUsuario, setInscripcionesUsuario] = useState<Inscripcion[]>([]);
+  const [cargandoInscripciones, setCargandoInscripciones] = useState(false);
+
   // Helpers ----------------------------------------------------------------
   const placeholderNames = new Set(['Formación no especificada', 'Información no disponible', '—', null, undefined, '']);
 
@@ -69,178 +93,143 @@ const PagoScreen = () => {
     return true;
   };
 
+  // Lógica limpia para extraer nombre de formación (solo de datos reales, sin manual)
+  const getNombreFormacion = (inscripcion: Inscripcion): string => {
+    // 1) idFormacion_detail (directo)
+    const name1 = inscripcion.idFormacion_detail?.nombreFormacion || inscripcion.idFormacion_detail?.nombre;
+    if (name1 && isValidFormacionName(name1)) return name1;
+
+    // 2) cohorte.idFormacion (nested)
+    const name2 = inscripcion.idCohorte?.idFormacion?.nombreFormacion || inscripcion.idCohorte?.idFormacion?.nombre;
+    if (name2 && isValidFormacionName(name2)) return name2;
+
+    // 3) Otros fields si existen (e.g., inscripcion.nombreFormacion si agregas)
+    const name3 = (inscripcion as any).nombreFormacion;
+    if (name3 && isValidFormacionName(name3)) return name3;
+
+    return 'Formación no especificada';
+  };
+
+  // Función para mapear nota a su inscripción (mejorada)
+  const findInscripcionForNota = (nota: NotaItem): Inscripcion | null => {
+    console.log(`🔍 Buscando inscripción para nota ${nota.idNota}: fecha=${nota.fechaEmision}, monto=${nota.totalNota}, idIns=${nota.idInscripcion}`);
+
+    // Prioridad 1: Por ID de inscripción
+    const idIns = nota.idInscripcion ?? nota.idInscripcion_detail?.idInscripcion ?? nota.inscripcion_id ?? null;
+    if (idIns) {
+      const match = inscripcionesUsuario.find((ins) => ins.idInscripcion === Number(idIns));
+      if (match) {
+        console.log(`✅ Match por ID: ${match.idInscripcion}`);
+        return match;
+      }
+    }
+
+    // Prioridad 2: Por fecha cercana (+/- 1 día)
+    if (nota.fechaEmision) {
+      const notaDate = new Date(nota.fechaEmision).getTime();
+      const match = inscripcionesUsuario.find((ins) => {
+        if (ins.fechaInscripcion) {
+          const insDate = new Date(ins.fechaInscripcion).getTime();
+          const diff = Math.abs(notaDate - insDate);
+          return diff < 86400000;  // 1 día
+        }
+        return false;
+      });
+      if (match) {
+        console.log(`✅ Match por fecha: nota ${nota.fechaEmision} ~ ins ${match.fechaInscripcion}`);
+        return match;
+      }
+    }
+
+    // Prioridad 3: Por monto exacto (si unique)
+    if (nota.totalNota) {
+      const matches = inscripcionesUsuario.filter((ins) => Number(ins.montoTotal) === Number(nota.totalNota));
+      if (matches.length === 1) {
+        console.log(`✅ Match por monto unique: ${nota.totalNota}`);
+        return matches[0];
+      } else if (matches.length > 1) {
+        console.warn(`⚠️ Múltiples matches por monto ${nota.totalNota}, usando primero`);
+        return matches[0];
+      }
+    }
+
+    // Fallback: Primera inscripción con estado pendiente o parcial
+    const fallback = inscripcionesUsuario.find((ins) => ins.estadoPago !== 'PAGADO');
+    if (fallback) {
+      console.log(`📌 Fallback a primera pendiente: ${fallback.idInscripcion}`);
+      return fallback;
+    }
+
+    console.warn(`⚠️ No match para nota ${nota.idNota}`);
+    return null;
+  };
+
+  // getFormacionNameFromNota: Usa el mapper
   const getFormacionNameFromNota = (nota: NotaItem) => {
     if (!nota) return 'Formación no especificada';
     if (nota._resolvedFormacionName && isValidFormacionName(nota._resolvedFormacionName)) return nota._resolvedFormacionName;
 
-    // Prioridad 1: campo formacion del serializer
+    // Buscar inscripción matching y extraer nombre
+    const ins = findInscripcionForNota(nota);
+    if (ins) {
+      const name = getNombreFormacion(ins);
+      if (isValidFormacionName(name)) {
+        nota._resolvedFormacionName = name;  // Cache
+        return name;
+      }
+    }
+
+    // Fallback si backend envió algo usable
     if (nota.formacion && (nota.formacion.nombreFormacion || nota.formacion.nombre)) {
       const nm = nota.formacion.nombreFormacion ?? nota.formacion.nombre;
       if (isValidFormacionName(nm)) return nm;
     }
 
-    // Prioridad 2: otros campos posibles en nota
-    if (nota.idFormacion_detail && (nota.idFormacion_detail.nombreFormacion || nota.idFormacion_detail.nombre)) {
-      const nm = nota.idFormacion_detail.nombreFormacion ?? nota.idFormacion_detail.nombre;
-      if (isValidFormacionName(nm)) return nm;
-    }
-    if (nota.formacionNombre) return nota.formacionNombre;
-    if (nota.nombreFormacion) return nota.nombreFormacion;
-
-    // NEW: Fallbacks como en dashboard (si nota tiene estructuras anidadas)
-    if (nota.idInscripcion_detail) {
-      const ins = nota.idInscripcion_detail;
-      if (ins.idFormacion_detail?.nombreFormacion) return ins.idFormacion_detail.nombreFormacion;
-      if (ins.idCohorte?.idFormacion?.nombreFormacion) return ins.idCohorte.idFormacion.nombreFormacion;
-      const nombreCoh = ins.idCohorte?.nombreCohorte;
-      if (nombreCoh) {
-        if (nombreCoh.includes('Biotecnología')) return 'Biotecnología';
-        // ... agrega tus matchers como en dashboard
-      }
-    }
-
     return 'Formación no especificada';
   };
 
-  const extractFormacionFromInscripcion = (ins: any): { idFormacion?: number; nombreFormacion?: string } | null => {
-    console.log('📂 Extracting formacion from inscripcion:', JSON.stringify(ins));
-    if (!ins) return null;
-
-    // Prioridad 1: idFormacion_detail
-    const f = ins.idFormacion_detail ?? ins.idFormacion ?? null;
-    if (f) {
-      const name = f.nombreFormacion ?? f.nombre ?? f.title ?? null;
-      const id = Number(f.idFormacion ?? f.id ?? f.pk ?? 0) || undefined;
-      return { idFormacion: id, nombreFormacion: name ?? undefined };
-    }
-
-    // Prioridad 2: vía cohorte
-    const coh = ins.idCohorte_detail ?? ins.idCohorte ?? ins.cohorte ?? null;
-    if (coh) {
-      const ff = coh.idFormacion ?? coh.idFormacion_detail ?? coh.formacion ?? null;
-      if (ff) {
-        const name = ff.nombreFormacion ?? ff.nombre ?? ff.title ?? null;
-        const id = Number(ff.idFormacion ?? ff.id ?? ff.pk ?? 0) || undefined;
-        return { idFormacion: id, nombreFormacion: name ?? undefined };
-      }
-      const idf = Number(coh.idFormacion ?? coh.id_formacion ?? 0) || undefined;
-      if (idf) return { idFormacion: idf, nombreFormacion: undefined };
-    }
-
-    // NEW: Fallbacks como en dashboard si no hay structure
-    const nombreCohorte = ins.idCohorte?.nombreCohorte ?? ins.nombreCohorte ?? null;
-    if (nombreCohorte) {
-      if (nombreCohorte.includes('Biotecnología')) return { idFormacion: undefined, nombreFormacion: 'Biotecnología' };
-      // agrega más matchers si necesitas
-    }
-
-    return null;
-  };
-
-  // Llama la API para obtener una inscripcion por id (si existe)
-  const fetchInscripcionById = async (idInscripcion?: number | null) => {
-    if (!idInscripcion) return null;
-    console.log(`🚀 Fetching inscripcion by ID: ${idInscripcion}`);  // NEW LOG
+  // Cargar inscripciones del usuario
+  const cargarInscripcionesUsuario = useCallback(async () => {
+    setCargandoInscripciones(true);
     try {
-      const res = await api.get(`/api/inscripcion/${idInscripcion}/`);
-      console.log(`✅ Inscripcion response data:`, res.data);  // NEW LOG: Ver el JSON devuelto
-      if (res?.data) return res.data;
-    } catch (e: any) {
-      console.error(`❌ Error fetching single inscripcion ${idInscripcion}:`, e.response?.status, e.message);  // NEW LOG: Ver status (e.g., 404)
-      // fallback: traer lista y buscar
-      try {
-        const list = await api.get('/api/inscripcion/');
-        console.log(`🔄 Fallback to list:`, list.data);  // NEW LOG: Ver la lista
-        const arr = Array.isArray(list.data) ? list.data : list.data?.results ?? [];
-        const found = arr.find((it: any) => (Number(it.idInscripcion ?? it.id ?? it.pk ?? -1) === Number(idInscripcion)));
-        console.log(`📍 Found in list?`, found ? 'Yes' : 'No', found);  // NEW LOG: Si encontró
-        return found ?? null;
-      } catch (err) {
-        console.error(`❌ Error in fallback list:`, err);  // NEW LOG
-        return null;
+      const response = await api.get('/api/inscripcion/');
+      const data = response.data;
+      let items: Inscripcion[] = [];
+
+      if (Array.isArray(data)) {
+        items = data;
+      } else if (data.results && Array.isArray(data.results)) {
+        items = data.results;
+      } else if (data.data && Array.isArray(data.data)) {
+        items = data.data;
       }
+
+      const cedulaUsuario = user?.cedula ? normalizarCedula(user.cedula) : null;
+      if (cedulaUsuario) {
+        items = items.filter((ins: Inscripcion) => {
+          const cedIns = ins.idPersona_detail?.cedula ?? (ins.idPersona != null ? String(ins.idPersona) : '');
+          return normalizarCedula(cedIns) === cedulaUsuario;
+        });
+      }
+
+      setInscripcionesUsuario(items);
+      console.log('📚 Inscripciones cargadas:', items.map(i => ({ id: i.idInscripcion, fecha: i.fechaInscripcion, monto: i.montoTotal, formacion: getNombreFormacion(i) })));
+    } catch (error: any) {
+      console.error('Error cargando inscripciones:', error);
+      Alert.alert('Error', 'No se pudieron cargar las inscripciones.');
+    } finally {
+      setCargandoInscripciones(false);
     }
-    return null;
-  };
+  }, [user]);
 
-  // Enriquecer una nota consultando su inscripcion si hace falta
-  const enrichNotaWithFormacion = useCallback(async (nota: NotaItem): Promise<NotaItem> => {
-    console.log(`🔍 Enriqueciendo nota ${nota.idNota}: existing name = ${getFormacionNameFromNota(nota)} | raw formacion = ${JSON.stringify(nota.formacion)}`);  // UPDATED LOG: Agrega raw formacion
-    try {
-      // si ya tiene nombre de formación válido devolvemos tal cual
-      const existing = getFormacionNameFromNota(nota);
-      if (isValidFormacionName(existing) && existing !== 'Formación no especificada') {
-        console.log(`✅ Ya resuelta: ${existing}`);  // NEW LOG
-        return { ...nota, _resolvedFormacionName: existing };
-      }
-
-      // 1) si nota trae idInscripcion (campo agregado por serializer), pedir inscripcion
-      const idIns = nota.idInscripcion ?? nota.idInscripcion_detail?.idInscripcion ?? nota.inscripcion_id ?? null;
-      if (idIns) {
-        const ins = await fetchInscripcionById(Number(idIns));
-        if (ins) {
-          const ff = extractFormacionFromInscripcion(ins);
-          if (ff?.nombreFormacion && isValidFormacionName(ff.nombreFormacion)) {
-            console.log(`🎉 Resuelta vía inscripcion: ${ff.nombreFormacion}`);  // NEW LOG
-            return { ...nota, _resolvedFormacionName: ff.nombreFormacion };
-          }
-          // si solo encontramos idFormacion, intentar obtener detalle formacion
-          if (ff?.idFormacion) {
-            try {
-              const fdet = await api.get(`/api/formaciones/${ff.idFormacion}/`);
-              const fdata = fdet?.data;
-              console.log(`📥 Formacion detail:`, fdata);  // NEW LOG
-              if (fdata && (fdata.nombreFormacion || fdata.nombre)) {
-                const resolvedName = fdata.nombreFormacion ?? fdata.nombre;
-                console.log(`🎉 Resuelta vía formacion detail: ${resolvedName}`);  // NEW LOG
-                return { ...nota, _resolvedFormacionName: resolvedName };
-              }
-            } catch (err) {
-              console.error(`❌ Error fetching formacion ${ff.idFormacion}:`, err);
-            }
-          }
-        }
-      }
-
-      // 2) si nota tiene idInscripcion_detail embebido, usarlo
-      if (nota.idInscripcion_detail) {
-        const ff = extractFormacionFromInscripcion(nota.idInscripcion_detail);
-        if (ff?.nombreFormacion && isValidFormacionName(ff.nombreFormacion)) {
-          console.log(`🎉 Resuelta vía detail embebido: ${ff.nombreFormacion}`);  // NEW LOG
-          return { ...nota, _resolvedFormacionName: ff.nombreFormacion };
-        }
-      }
-
-      // 3) si en params nos pasaron inscripcionId (creada justo ahora), intentar resolver con ese id
-      if (inscripcionId) {
-        const ins = await fetchInscripcionById(Number(inscripcionId));
-        if (ins) {
-          const ff = extractFormacionFromInscripcion(ins);
-          if (ff?.nombreFormacion && isValidFormacionName(ff.nombreFormacion)) {
-            console.log(`🎉 Resuelta vía param inscripcionId: ${ff.nombreFormacion}`);  // NEW LOG
-            return { ...nota, _resolvedFormacionName: ff.nombreFormacion };
-          }
-        }
-      }
-
-      // no se pudo resolver -> marcar como no especificada
-      console.warn(`⚠️ No se pudo resolver formación para nota ${nota.idNota}`);  // NEW LOG
-      return { ...nota, _resolvedFormacionName: 'Formación no especificada' };
-    } catch (e) {
-      console.error(`💥 Error enriqueciendo nota ${nota.idNota}:`, e);
-      // en error, devolver nota original para no romper la lista
-      return { ...nota, _resolvedFormacionName: nota._resolvedFormacionName ?? nota.formacion?.nombreFormacion ?? 'Formación no especificada' };
-    }
-  }, [inscripcionId]);
-
-  // Cargar notas del usuario y enriquecer las que lo necesiten
+  // Cargar notas del usuario
   const cargarNotasUsuario = useCallback(async () => {
     setCargandoNotas(true);
     try {
       const response = await api.get('/api/notas/usuario/autenticado/');
-      console.log('📡 Raw notas response:', response.data);  // NEW LOG: Ver el JSON crudo de la API
+      console.log('📡 Raw notas response:', response.data);
       const payload = response.data ?? {};
-      let items: any[] = [];
+      let items: NotaItem[] = [];
 
       if (payload && typeof payload === 'object' && Array.isArray(payload.data)) {
         items = payload.data;
@@ -250,41 +239,15 @@ const PagoScreen = () => {
         if (payload.success === false) {
           throw new Error(payload.message || 'No se pudieron cargar las notas');
         }
-        // si el shape es otro (ej: { success: true, data: {...}}), intentar forzar
         if (payload && payload.data && !Array.isArray(payload.data)) {
-          // si devolvió un objeto con lista en payload.data.items
           const maybe = payload.data.items ?? payload.data.results ?? [];
           if (Array.isArray(maybe)) items = maybe;
         }
       }
 
-      console.log('🗂️ Items extraídos antes de enrich:', items);  // NEW LOG: Ver notas sin enriquecer
+      console.log('🗂️ Items extraídos:', items.map(n => ({ id: n.idNota, fecha: n.fechaEmision, monto: n.totalNota })));
 
-      // enriquecer solo las notas que no tienen formacion válida
-      const enrichedPromises = items.map(async (n: NotaItem) => {
-        try {
-          // normalizar campos comunes: idInscripcion puede venir en form diferente
-          const normalized: NotaItem = {
-            ...n,
-            idInscripcion: n.idInscripcion ?? n.idInscripcion_detail?.idInscripcion ?? n.inscripcion_id ?? n.idInscripcionId ?? n.idInscripcionPk ?? n.inscripcion ?? n.idInscripcion,
-          };
-          // if already has a valid formacion string, just set helper
-          const maybeName = getFormacionNameFromNota(normalized);
-          if (isValidFormacionName(maybeName)) {
-            return { ...normalized, _resolvedFormacionName: maybeName };
-          }
-          // otherwise try to enrich
-          const enriched = await enrichNotaWithFormacion(normalized);
-          return enriched;
-        } catch (err) {
-          console.error('❌ Error enriqueciendo individual:', err);
-          return n;
-        }
-      });
-
-      const enrichedItems = await Promise.all(enrichedPromises);
-      console.log('🎊 Notas enriquecidas finales:', enrichedItems);  // NEW LOG: Ver después de enrich
-      setNotasUsuario(enrichedItems);
+      setNotasUsuario(items);
     } catch (error: any) {
       console.error('Error cargando notas:', error?.response ?? error);
       if (error.response?.status === 401) {
@@ -297,40 +260,27 @@ const PagoScreen = () => {
     } finally {
       setCargandoNotas(false);
     }
-  }, [enrichNotaWithFormacion]);
+  }, []);
 
   useEffect(() => {
     if (modoDirecto && user) {
+      cargarInscripcionesUsuario();
       cargarNotasUsuario();
     }
-    // sincronizar notaData si viene por params
     if (notaData) {
-      (async () => {
-        const resolved = await enrichNotaWithFormacion(notaData);
-        setNotaSeleccionada(resolved);
-        setFormData(prev => ({ ...prev, idNota: String(resolved.idNota ?? ''), monto: String(resolved.totalNota ?? '') }));
-      })();
+      setNotaSeleccionada(notaData);
+      setFormData(prev => ({ ...prev, idNota: String(notaData.idNota ?? ''), monto: String(notaData.totalNota ?? '') }));
     }
-  }, [modoDirecto, user, notaData, cargarNotasUsuario, enrichNotaWithFormacion]);
+  }, [modoDirecto, user, notaData, cargarNotasUsuario, cargarInscripcionesUsuario]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await cargarNotasUsuario();
+    await Promise.all([cargarInscripcionesUsuario(), cargarNotasUsuario()]);
     setRefreshing(false);
   };
 
   // Selección de nota por el usuario
   const seleccionarNota = async (nota: NotaItem) => {
-    // si la nota no tiene nombre resuelto intentar enriquecer justo ahora (mejor UX)
-    if (!nota._resolvedFormacionName || !isValidFormacionName(nota._resolvedFormacionName)) {
-      const enriched = await enrichNotaWithFormacion(nota);
-      // actualizar lista por si queremos usarla luego
-      setNotasUsuario(prev => prev.map(p => (p.idNota === enriched.idNota ? enriched : p)));
-      setNotaSeleccionada(enriched);
-      setFormData(prev => ({ ...prev, idNota: String(enriched.idNota ?? ''), monto: String(enriched.totalNota ?? '') }));
-      setErrors({});
-      return;
-    }
     setNotaSeleccionada(nota);
     setFormData(prev => ({ ...prev, idNota: String(nota.idNota ?? ''), monto: String(nota.totalNota ?? '') }));
     setErrors({});
@@ -448,7 +398,7 @@ const PagoScreen = () => {
         </View>
 
         <View style={styles.listaContainer}>
-          {cargandoNotas ? (
+          {cargandoNotas || cargandoInscripciones ? (
             <View style={styles.loadingContainer}><Text style={styles.loadingText}>Cargando notas...</Text></View>
           ) : notasUsuario.length === 0 ? (
             <View style={styles.emptyContainer}>
@@ -590,10 +540,8 @@ const PagoScreen = () => {
         )}
 
         <View style={[styles.formCard, { maxWidth: Math.min(920, width - 48), alignSelf: 'center' }]}>
-          {/* ... mismo formulario que en modo directo (omito por brevedad, ya está arriba) */}
           <View style={styles.formTitleContainer}><Icon name="credit-card-outline" size={24} color="#495057" /><Text style={styles.formTitle}>Datos del Pago</Text></View>
 
-          {/* Forma de pago */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Forma de Pago *</Text>
             <View style={styles.radioGroup}>
@@ -607,7 +555,6 @@ const PagoScreen = () => {
             {errors.formaPago && <View style={styles.errorContainer}><Icon name="alert-circle" size={16} color="#dc3545" /><Text style={styles.errorText}>{errors.formaPago}</Text></View>}
           </View>
 
-          {/* monto, referencia, fecha, observaciones... (igual que arriba) */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Monto a Pagar *</Text>
             <View style={styles.inputContainer}><Text style={styles.currencySymbol}>$</Text><TextInput style={[styles.input, errors.monto && styles.inputError]} value={formData.monto} onChangeText={(v) => handleInputChange('monto', v)} placeholder="0.00" keyboardType="numeric" placeholderTextColor="#6c757d" /></View>
@@ -623,7 +570,8 @@ const PagoScreen = () => {
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Fecha de Pago *</Text>
-            <View style={styles.inputContainer}><Icon name="calendar" size={20} color="#6c757d" style={styles.inputIcon} /><TextInput style={[styles.input, errors.fechaPago && styles.inputError]} value={formData.fechaPago} onChangeText={(v) => handleInputChange('fechaPago', v)} placeholder="AAAA-MM-DD" placeholderTextColor="#6c757d" /></View>
+            <View style={styles.inputContainer}><Icon name="calendar" size={20} color="#6c757d" style={styles.inputIcon} /><TextInput style={[styles.input, errors.fechaPago && styles.inputError]} value={formData.fechaPago} onChangeText={(v) => handleInputChange('fechaPago', v)} placeholder="AAAA-MM-DD" placeholderTextColor="#6c757d" />
+            </View>
             {errors.fechaPago && <View style={styles.errorContainer}><Icon name="alert-circle" size={16} color="#dc3545" /><Text style={styles.errorText}>{errors.fechaPago}</Text></View>}
           </View>
 
@@ -641,7 +589,16 @@ const PagoScreen = () => {
   );
 };
 
-// --- estilos (copié los tuyos anteriores; ajústalos si quieres) ---
+function normalizarCedula(cedula: string): string {
+  if (!cedula) return '';
+  let normalizada = cedula.toString().toUpperCase().replace(/[\.\-\s]/g, '');
+  if (/^[VEJG]/.test(normalizada)) {
+    normalizada = normalizada.substring(1);
+  }
+  return normalizada;
+}
+
+// Estilos aquí al final
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8f9fa' },
   scrollView: { flex: 1 },

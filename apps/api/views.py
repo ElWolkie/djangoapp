@@ -1,3 +1,4 @@
+from datetime import timedelta
 import re
 import traceback
 from django.db.models import Prefetch
@@ -109,25 +110,95 @@ class InscripcionListCreate(generics.ListCreateAPIView):
 
     serializer_class = InscripcionSerializer
 
-    def list(self, request, *args, **kwargs):
+    @transaction.atomic
+    def perform_create(self, serializer):
+        # Crea la inscripción
+        inscripcion = serializer.save()
+        
         try:
-            # obtener queryset filtrado por filtros/permits y serializar
-            queryset = self.filter_queryset(self.get_queryset())
-            page = self.paginate_queryset(queryset)
-            if page is not None:
-                serializer = self.get_serializer(page, many=True)
-                return self.get_paginated_response(serializer.data)
+            # 🔥 Crea la nota automáticamente (lógica de tu NotaCobroCreateAPIView)
+            configuracion = Configuracion.objects.first()
+            if not configuracion:
+                raise ValueError('Configuración del sistema no encontrada')
 
-            serializer = self.get_serializer(queryset, many=True)
-            return Response(serializer.data)
+            moneda_configuracion = configuracion.moneda
+            tasa = Tasa.objects.filter(idMoneda=moneda_configuracion).order_by('-idTasa').first()
+            if not tasa:
+                raise ValueError(f'No se encontró tasa para la moneda {moneda_configuracion.nombreMoneda}')
+
+            # Valor de inscripción desde formacion (ajusta si viene en payload)
+            valor_inscripcion = inscripcion.idCohorte.idFormacion.valorInscripcion  # O de payload si envías
+
+            # Periodo activo
+            periodo_activo = periodoContable.objects.filter(estadoPeriodo=True).first()
+            if not periodo_activo:
+                periodo_activo = periodoContable.objects.order_by('-idPeriodo').first()
+            if not periodo_activo:
+                raise ValueError('No hay periodo contable activo')
+
+            # Asiento contable
+            numero_asiento = f"ASIENTO-{now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
+            asiento = AsientoContable.objects.create(
+                numeroAsiento=numero_asiento,
+                fechaAsiento=now().date(),
+                conceptoAsiento=f"Asiento para inscripción {inscripcion.idInscripcion}",
+                idPeriodo=periodo_activo
+            )
+
+            # Nota
+            numero_nota = f"NOTA-{now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
+            nota = Nota.objects.create(
+                idAsiento=asiento,
+                idPersona=inscripcion.idPersona,
+                numeroNota=numero_nota,
+                tipoOperacion='COBRO',
+                tipoArticulo='INSCRIPCION',
+                fechaEmision=now().date(),
+                fechaVencimiento=now().date() + timedelta(days=1),
+                formaPago='CONTADO',
+                subtotalExento=Decimal('0.00'),  # Ajusta cálculos
+                subtotalGravado=valor_inscripcion,
+                iva=Decimal('0.00'),  # Ajusta
+                descuento=Decimal('0.00'),  # Ajusta si descuento
+                totalNota=valor_inscripcion,  # Ajusta
+                idTasa=tasa,
+                estado='PENDIENTE',
+                observaciones='NOTA AUTOMÁTICA POR INSCRIPCIÓN'
+            )
+
+            # Relación
+            NotaRelacionada.objects.create(
+                idNota=nota,
+                idInscripcion=inscripcion
+            )
+
+            # Detalles asiento (ajusta planes)
+            plan_debe = PlanArticulo.objects.filter(tipoArticulo='INSCRIPCION', tipo=1).order_by('-fecha').first()
+            plan_haber = PlanArticulo.objects.filter(tipoArticulo='INSCRIPCION', tipo=0).order_by('-fecha').first()
+            if plan_debe and plan_haber:
+                DetalleAsiento.objects.create(idAsiento=asiento, idPlanCuenta=plan_debe.idPlanCuenta, debe=nota.totalNota, haber=Decimal('0.00'))
+                DetalleAsiento.objects.create(idAsiento=asiento, idPlanCuenta=plan_haber.idPlanCuenta, debe=Decimal('0.00'), haber=nota.totalNota)
+            else:
+                raise ValueError('No cuentas contables para INSCRIPCION')
+
+            # Actualiza inscripción
+            inscripcion.estadoPago = 'PENDIENTE'
+            inscripcion.save()
+
+            # Agrega nota a serializer data para response
+            self.nota_creada = nota
         except Exception as e:
-            # log completo con stacktrace en los logs del servidor
-            logger.exception("❌ ERROR NO CONTROLADO en LIST Inscripcion")
-            # devolver respuesta controlada al frontend para evitar HTML 500
-            return Response({
-                "error": "Error interno al listar inscripciones",
-                "details": str(e)
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            logger.error(f"Error creando nota para inscripción {inscripcion.idInscripcion}: {str(e)}")
+            raise  # Rollback
+
+    def post(self, request, *args, **kwargs):
+        try:
+            response = super().post(request, *args, **kwargs)
+            if hasattr(self, 'nota_creada'):
+                response.data['nota'] = NotaSerializer(self.nota_creada).data
+            return response
+        except Exception as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 class InscripcionUsuarioList(generics.ListAPIView):
     """
