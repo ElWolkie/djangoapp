@@ -303,28 +303,10 @@ class NotaSerializer(serializers.ModelSerializer):
 
     def get_idInscripcion(self, obj):
         try:
-            # Intentar primero usar prefetch (prefetched attr) si existe
-            pref = getattr(obj, 'prefetched_notarelacionadas', None)
-            if pref and len(pref) > 0:
-                rel = pref[0]
-            else:
-                rel = NotaRelacionada.objects.filter(idNota=obj).first()
-            if rel and getattr(rel, 'idInscripcion', None):
-                ins = rel.idInscripcion
-                return getattr(ins, 'idInscripcion', getattr(ins, 'pk', None))
-        except Exception as e:
-            print(f"⚠️ get_idInscripcion error nota {getattr(obj,'idNota',obj)}: {e}")
-        return None
-
-    def get_formacion(self, obj):
-        """
-        Resuelve la formación asociada a una nota intentando varios caminos.
-        """
-        try:
             # Usar prefetch si existe
             rel_qs = getattr(obj, 'prefetched_notarelacionadas', None)
             if not rel_qs:
-                rel_qs = NotaRelacionada.objects.filter(idNota=obj).select_related('idInscripcion__idCohorte__idFormacion')
+                rel_qs = NotaRelacionada.objects.filter(idNota=obj)
 
             rel = rel_qs.first() if rel_qs else None
             if not rel:
@@ -336,52 +318,83 @@ class NotaSerializer(serializers.ModelSerializer):
                 logger.warning(f"⚠️ NotaRelacionada {rel.idNotaRelacionada} sin Inscripcion para nota {obj.idNota}")
                 return None
 
+            # Si ins es ID, fetch it
+            if isinstance(ins, (int, str)):
+                ins = Inscripcion.objects.filter(pk=ins).first()
+                if not ins:
+                    logger.warning(f"⚠️ Inscripcion ID {rel.idInscripcion} no encontrada para nota {obj.idNota}")
+                    return None
+
+            # Extraer pk con fallbacks (maneja si pk es 'idInscripcion', 'id', o 'pk')
+            pk = getattr(ins, 'idInscripcion', None) or getattr(ins, 'id', None) or getattr(ins, 'pk', None)
+            if pk is None:
+                logger.warning(f"⚠️ No se pudo extraer pk de Inscripcion para nota {obj.idNota}")
+            return pk
+        except Exception as e:
+            logger.error(f"💥 Error en get_idInscripcion para nota {obj.idNota}: {str(e)}\n{traceback.format_exc()}")
+            return None
+
+    def get_formacion(self, obj):
+        try:
+            # Usar prefetch si existe
+            rel_qs = getattr(obj, 'prefetched_notarelacionadas', None)
+            if not rel_qs:
+                rel_qs = NotaRelacionada.objects.filter(idNota=obj).select_related('idInscripcion__idCohorte__idFormacion')
+
+            rel = rel_qs.first() if rel_qs else None
+            if not rel:
+                logger.warning(f"⚠️ No se encontró NotaRelacionada para nota {obj.idNota}")
+                return {'nombreFormacion': 'Formación no especificada'}  # Placeholder si quieres, o None
+
+            ins = rel.idInscripcion
+            if not ins:
+                logger.warning(f"⚠️ NotaRelacionada {rel.idNotaRelacionada} sin Inscripcion para nota {obj.idNota}")
+                return {'nombreFormacion': 'Formación no especificada'}
+
             # Si ins es ID, fetch con select_related
             if isinstance(ins, (int, str)):
                 ins = Inscripcion.objects.select_related('idCohorte__idFormacion').filter(pk=ins).first()
                 if not ins:
                     logger.warning(f"⚠️ Inscripcion ID {rel.idInscripcion} no encontrada para nota {obj.idNota}")
-                    return None
+                    return {'nombreFormacion': 'Formación no especificada'}
 
-            # Obtener Cohorte
+            # Obtener Cohorte con fallbacks
             coh = getattr(ins, 'idCohorte', None)
             if not coh:
-                coh_pk = getattr(ins, 'idCohorte_id', None)
+                coh_pk = getattr(ins, 'idCohorte_id', None) or getattr(ins, 'cohorte_id', None)  # Extra fallback
                 if coh_pk:
                     coh = Cohorte.objects.select_related('idFormacion').filter(pk=coh_pk).first()
 
             if not coh:
                 logger.warning(f"⚠️ Cohorte no encontrada para Inscripcion {ins.idInscripcion} en nota {obj.idNota}")
-                return None
+                return {'nombreFormacion': 'Formación no especificada'}
 
-            # Check para evitar el error: si coh no es Cohorte, algo malo pasó
+            # Verificar tipo de coh para evitar errores
             if not isinstance(coh, Cohorte):
-                logger.error(f"💥 coh no es instancia de Cohorte para nota {obj.idNota}: tipo={type(coh)}")
-                return None
+                logger.error(f"💥 coh no es Cohorte para nota {obj.idNota}: tipo={type(coh)}, valor={coh}")
+                return {'nombreFormacion': 'Formación no especificada'}
 
-            # Obtener Formacion (aquí usa coh, no ins!)
+            # Obtener Formacion con fallbacks
             form = getattr(coh, 'idFormacion', None)
             if not form:
-                form_pk = getattr(coh, 'idFormacion_id', None)
+                form_pk = getattr(coh, 'idFormacion_id', None) or getattr(coh, 'formacion_id', None)  # Extra fallback
                 if form_pk:
-                    form = Formacion.objects.get(pk=form_pk)
+                    form = Formacion.objects.filter(pk=form_pk).first()
 
             if not form:
                 logger.warning(f"⚠️ Formacion no encontrada para Cohorte {coh.idCohorte} en nota {obj.idNota}")
-                return None
+                return {'nombreFormacion': 'Formación no especificada'}
 
-            nombre = getattr(form, 'nombreFormacion', None) or getattr(form, 'nombre', None)
-            if not nombre:
-                logger.warning(f"⚠️ Formacion {form.idFormacion} sin nombre para nota {obj.idNota}")
-                return None
+            nombre = getattr(form, 'nombreFormacion', None) or getattr(form, 'nombre', None) or 'Formación no especificada'
+            id_form = getattr(form, 'idFormacion', None) or getattr(form, 'id', None) or getattr(form, 'pk', None)
 
             return {
-                'idFormacion': getattr(form, 'idFormacion', getattr(form, 'pk', None)),
+                'idFormacion': id_form,
                 'nombreFormacion': nombre
             }
         except Exception as e:
-            logger.error(f"💥 Error crítico obteniendo formación para nota {obj.idNota}: {str(e)}\n{traceback.format_exc()}")
-            return None
+            logger.error(f"💥 Error crítico en get_formacion para nota {obj.idNota}: {str(e)}\n{traceback.format_exc()}")
+            return {'nombreFormacion': 'Información no disponible'}
 
 class PagoSerializer(serializers.ModelSerializer):
     idNota = NotaSerializer(read_only=True)
