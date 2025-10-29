@@ -298,47 +298,51 @@ class NotaSerializer(serializers.ModelSerializer):
 
     def _get_first_relation(self, obj):
         """
-        Función helper para obtener la relación de inscripción
-        (ya sea prefetcheada o con un fallback).
+        Función helper para obtener la primera relación de inscripción
+        (que ya fue pre-cargada por la vista).
         """
         try:
             # 1. Intenta usar los datos prefetcheados por la vista (rápido)
-            prefetched_list = getattr(obj, 'prefetched_relaciones_inscripcion', None)
+            #    Buscamos el atributo 'prefetched_relaciones_con_inscripcion' que definimos en la vista.
+            prefetched_list = getattr(obj, 'prefetched_relaciones_con_inscripcion', None)
             if prefetched_list:
                 return prefetched_list[0] if prefetched_list else None
-
-            # 2. Fallback si la prefetch no se ejecutó (lento: N+1)
-            logger.warning(f"[N+1 Query] Fallback para Nota {getattr(obj, 'idNota', 'unknown')}")
+            
+            # 2. Fallback (Lento: N+1) - Si la prefetch falló o no se usó.
+            logger.warning(f"[Consulta N+1] Ejecutando fallback lento para Nota {obj.idNota}")
             return NotaRelacionada.objects.filter(
-                idNota=obj,
+                idNota=obj, 
                 idInscripcion__isnull=False
             ).select_related('idInscripcion__idCohorte__idFormacion').first()
-
+        
         except Exception as e:
-            logger.error(f"Error en _get_first_relation para nota {getattr(obj, 'idNota', 'unknown')}: {e}")
+            logger.error(f"Error en _get_first_relation para nota {obj.idNota}: {e}")
             return None
 
     def get_idInscripcion(self, obj):
         rel = self._get_first_relation(obj)
-        if rel and getattr(rel, 'idInscripcion', None):
-            return getattr(rel.idInscripcion, 'idInscripcion', None)
+        if rel and rel.idInscripcion:
+            return rel.idInscripcion.idInscripcion
         return None
 
     def get_formacion(self, obj):
+        # Obtenemos la relación (debería ser instantáneo gracias al prefetch)
         rel = self._get_first_relation(obj)
-
+        
         try:
-            # Simplemente sigue la cadena de relaciones.
-            # Si la prefetch funcionó, esto es instantáneo.
+            # Simplemente seguimos la cadena de relaciones que ya está en memoria.
+            # rel -> idInscripcion -> idCohorte -> idFormacion
             formacion = rel.idInscripcion.idCohorte.idFormacion
+            
+            # Si llegamos aquí, encontramos la formación.
             return {
-                'idFormacion': getattr(formacion, 'idFormacion', None),
-                'nombreFormacion': getattr(formacion, 'nombreFormacion', 'Formación no disponible')
+                'idFormacion': formacion.idFormacion,
+                'nombreFormacion': formacion.nombreFormacion
             }
-        except Exception as e:
-            # Si algo en la cadena es Nulo (p.ej., Cohorte no encontrada),
-            # o si `rel` es None, se captura aquí.
-            logger.warning(f"No se pudo resolver la formación para la nota {getattr(obj, 'idNota', 'unknown')}. Rel: {rel}. Error: {e}")
+        except (AttributeError, TypeError, Exception) as e:
+            # Si algo en la cadena es Nulo (ej, rel=None, idInscripcion=None, etc.)
+            # el código entrará aquí.
+            logger.warning(f"No se pudo resolver la formación para la nota {obj.idNota}. Rel: {rel}. Error: {e}")
             return {'nombreFormacion': 'Formación no disponible'}
 
 class PagoSerializer(serializers.ModelSerializer):

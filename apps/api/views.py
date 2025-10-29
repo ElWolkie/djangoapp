@@ -265,6 +265,10 @@ class InscripcionDetail(generics.RetrieveAPIView):  # Cambié a Detail para clar
 logger = logging.getLogger(__name__)
 
 class NotasUsuarioAutenticadoView(generics.ListAPIView):
+    """
+    Devuelve las notas de cobro asociadas al usuario autenticado.
+    Optimizado con prefetch para incluir la información de la formación.
+    """
     serializer_class = NotaSerializer
     permission_classes = [IsAuthenticated]
 
@@ -273,9 +277,15 @@ class NotasUsuarioAutenticadoView(generics.ListAPIView):
         Obtiene el objeto Personas del usuario autenticado.
         Asume que tu modelo de Usuario (request.user) tiene un campo OneToOne 'idPersona'.
         """
-        try:    
-            # Acceso directo a la relación. request.user ES el objeto Usuarios.
-            return self.request.user.idPersona
+        try:
+            # Acceso directo a la relación. 
+            # request.user ES el objeto de tu modelo Usuarios (definido en AUTH_USER_MODEL)
+            # y ese modelo tiene una relación 'idPersona'
+            if hasattr(self.request.user, 'idPersona') and self.request.user.idPersona:
+                return self.request.user.idPersona
+            
+            logger.warning(f"El usuario {self.request.user} no tiene 'idPersona' asociado.")
+            return None
         except Exception as e:
             logger.error(f"Error crítico al obtener 'idPersona' del usuario {self.request.user}: {e}")
             return None
@@ -285,20 +295,24 @@ class NotasUsuarioAutenticadoView(generics.ListAPIView):
         if not persona:
             return Nota.objects.none() # No hay persona, no hay notas.
 
-        # --- CORRECCIÓN CLAVE #1: Usar 'relaciones' ---
-        # Pre-cargamos la ruta completa desde NotaRelacionada hasta Formacion
+        # --- CORRECCIÓN CLAVE ---
+        # 1. Definimos el Prefetch usando el related_name CORRECTO ('relaciones')
+        #    y le decimos que pre-cargue la ruta completa hasta la Formacion.
         prefetch_relacion = Prefetch(
-            'relaciones', # El related_name CORRECTO
+            'relaciones', # El related_name de NotaRelacionada -> Nota
             queryset=NotaRelacionada.objects.select_related(
-            'idInscripcion__idCohorte__idFormacion'
+                'idInscripcion__idCohorte__idFormacion'
             ).filter(idInscripcion__isnull=False), # Solo nos importan las relaciones con inscripciones
-            to_attr='prefetched_relaciones_inscripcion' # Un nombre de atributo claro
+            to_attr='prefetched_relaciones_con_inscripcion' # Guardamos el resultado en un atributo claro
         )
 
-        # --- CORRECCIÓN CLAVE #2: Usar 'relaciones' en el filtro ---
+        # 2. Filtramos las Notas usando el related_name CORRECTO ('relaciones')
+        #    Buscamos notas donde exista una relación a una inscripción de esta persona.
         qs = Nota.objects.filter(
-        relaciones__idInscripcion__idPersona=persona
-        ).prefetch_related(prefetch_relacion).distinct()
+            relaciones__idInscripcion__idPersona=persona
+        ).prefetch_related(
+            prefetch_relacion
+        ).distinct() # distinct() es crucial cuando se filtra a través de relaciones M2M
         
         return qs
 
