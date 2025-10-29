@@ -177,8 +177,19 @@ class InscripcionUsuarioList(generics.ListAPIView):
         return qs.none()
 
 class InscripcionRetrieve(generics.RetrieveAPIView):
-    queryset = Inscripcion.objects.all()
+    queryset = Inscripcion.objects.select_related(
+        'idPersona',
+        'idCohorte',
+        'idCohorte__idFormacion'
+    ).prefetch_related(
+        Prefetch(
+            'idCohorte__idFormacion__cuotas',
+            queryset=CuotaFormacion.objects.filter(is_active=True).order_by('orden'),
+            to_attr='prefetched_cuotas'
+        )
+    )
     serializer_class = InscripcionSerializer
+    permission_classes = [IsAuthenticated]  # Para seguridad, ya que es datos de usuario
 
 class NotasUsuarioAutenticadoView(generics.ListAPIView):
     serializer_class = NotaSerializer

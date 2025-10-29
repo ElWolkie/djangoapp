@@ -88,6 +88,7 @@ const PagoScreen = () => {
 
   // Resuelve formacion a partir de una inscripcion obtenida por API
   const extractFormacionFromInscripcion = (ins: any): { idFormacion?: number; nombreFormacion?: string } | null => {
+    console.log('📂 Extracting formacion from inscripcion:', JSON.stringify(ins));  // NEW LOG: Ver estructura de ins
     if (!ins) return null;
     // campo idFormacion_detail directo
     const f = ins.idFormacion_detail ?? ins.idFormacion ?? null;
@@ -115,18 +116,23 @@ const PagoScreen = () => {
   // Llama la API para obtener una inscripcion por id (si existe)
   const fetchInscripcionById = async (idInscripcion?: number | null) => {
     if (!idInscripcion) return null;
+    console.log(`🚀 Fetching inscripcion by ID: ${idInscripcion}`);  // NEW LOG
     try {
       const res = await api.get(`/api/inscripcion/${idInscripcion}/`);
-      // si el endpoint no existe, intenta fallback a /api/inscripcion/ y filtrar
+      console.log(`✅ Inscripcion response data:`, res.data);  // NEW LOG: Ver el JSON devuelto
       if (res?.data) return res.data;
     } catch (e: any) {
+      console.error(`❌ Error fetching single inscripcion ${idInscripcion}:`, e.response?.status, e.message);  // NEW LOG: Ver status (e.g., 404)
       // fallback: traer lista y buscar
       try {
         const list = await api.get('/api/inscripcion/');
+        console.log(`🔄 Fallback to list:`, list.data);  // NEW LOG: Ver la lista
         const arr = Array.isArray(list.data) ? list.data : list.data?.results ?? [];
         const found = arr.find((it: any) => (Number(it.idInscripcion ?? it.id ?? it.pk ?? -1) === Number(idInscripcion)));
+        console.log(`📍 Found in list?`, found ? 'Yes' : 'No', found);  // NEW LOG: Si encontró
         return found ?? null;
       } catch (err) {
+        console.error(`❌ Error in fallback list:`, err);  // NEW LOG
         return null;
       }
     }
@@ -135,10 +141,12 @@ const PagoScreen = () => {
 
   // Enriquecer una nota consultando su inscripcion si hace falta
   const enrichNotaWithFormacion = useCallback(async (nota: NotaItem): Promise<NotaItem> => {
+    console.log(`🔍 Enriqueciendo nota ${nota.idNota}: existing name = ${getFormacionNameFromNota(nota)} | raw formacion = ${JSON.stringify(nota.formacion)}`);  // UPDATED LOG: Agrega raw formacion
     try {
       // si ya tiene nombre de formación válido devolvemos tal cual
       const existing = getFormacionNameFromNota(nota);
       if (isValidFormacionName(existing) && existing !== 'Formación no especificada') {
+        console.log(`✅ Ya resuelta: ${existing}`);  // NEW LOG
         return { ...nota, _resolvedFormacionName: existing };
       }
 
@@ -149,6 +157,7 @@ const PagoScreen = () => {
         if (ins) {
           const ff = extractFormacionFromInscripcion(ins);
           if (ff?.nombreFormacion && isValidFormacionName(ff.nombreFormacion)) {
+            console.log(`🎉 Resuelta vía inscripcion: ${ff.nombreFormacion}`);  // NEW LOG
             return { ...nota, _resolvedFormacionName: ff.nombreFormacion };
           }
           // si solo encontramos idFormacion, intentar obtener detalle formacion
@@ -156,11 +165,14 @@ const PagoScreen = () => {
             try {
               const fdet = await api.get(`/api/formaciones/${ff.idFormacion}/`);
               const fdata = fdet?.data;
+              console.log(`📥 Formacion detail:`, fdata);  // NEW LOG
               if (fdata && (fdata.nombreFormacion || fdata.nombre)) {
-                return { ...nota, _resolvedFormacionName: fdata.nombreFormacion ?? fdata.nombre };
+                const resolvedName = fdata.nombreFormacion ?? fdata.nombre;
+                console.log(`🎉 Resuelta vía formacion detail: ${resolvedName}`);  // NEW LOG
+                return { ...nota, _resolvedFormacionName: resolvedName };
               }
             } catch (err) {
-              // ignore
+              console.error(`❌ Error fetching formacion ${ff.idFormacion}:`, err);
             }
           }
         }
@@ -170,6 +182,7 @@ const PagoScreen = () => {
       if (nota.idInscripcion_detail) {
         const ff = extractFormacionFromInscripcion(nota.idInscripcion_detail);
         if (ff?.nombreFormacion && isValidFormacionName(ff.nombreFormacion)) {
+          console.log(`🎉 Resuelta vía detail embebido: ${ff.nombreFormacion}`);  // NEW LOG
           return { ...nota, _resolvedFormacionName: ff.nombreFormacion };
         }
       }
@@ -180,14 +193,17 @@ const PagoScreen = () => {
         if (ins) {
           const ff = extractFormacionFromInscripcion(ins);
           if (ff?.nombreFormacion && isValidFormacionName(ff.nombreFormacion)) {
+            console.log(`🎉 Resuelta vía param inscripcionId: ${ff.nombreFormacion}`);  // NEW LOG
             return { ...nota, _resolvedFormacionName: ff.nombreFormacion };
           }
         }
       }
 
       // no se pudo resolver -> marcar como no especificada
+      console.warn(`⚠️ No se pudo resolver formación para nota ${nota.idNota}`);  // NEW LOG
       return { ...nota, _resolvedFormacionName: 'Formación no especificada' };
     } catch (e) {
+      console.error(`💥 Error enriqueciendo nota ${nota.idNota}:`, e);
       // en error, devolver nota original para no romper la lista
       return { ...nota, _resolvedFormacionName: nota._resolvedFormacionName ?? nota.formacion?.nombreFormacion ?? 'Formación no especificada' };
     }
@@ -198,6 +214,7 @@ const PagoScreen = () => {
     setCargandoNotas(true);
     try {
       const response = await api.get('/api/notas/usuario/autenticado/');
+      console.log('📡 Raw notas response:', response.data);  // NEW LOG: Ver el JSON crudo de la API
       const payload = response.data ?? {};
       let items: any[] = [];
 
@@ -217,6 +234,8 @@ const PagoScreen = () => {
         }
       }
 
+      console.log('🗂️ Items extraídos antes de enrich:', items);  // NEW LOG: Ver notas sin enriquecer
+
       // enriquecer solo las notas que no tienen formacion válida
       const enrichedPromises = items.map(async (n: NotaItem) => {
         try {
@@ -234,11 +253,13 @@ const PagoScreen = () => {
           const enriched = await enrichNotaWithFormacion(normalized);
           return enriched;
         } catch (err) {
+          console.error('❌ Error enriqueciendo individual:', err);
           return n;
         }
       });
 
       const enrichedItems = await Promise.all(enrichedPromises);
+      console.log('🎊 Notas enriquecidas finales:', enrichedItems);  // NEW LOG: Ver después de enrich
       setNotasUsuario(enrichedItems);
     } catch (error: any) {
       console.error('Error cargando notas:', error?.response ?? error);
