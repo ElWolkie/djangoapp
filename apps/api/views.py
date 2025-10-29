@@ -176,6 +176,10 @@ class InscripcionUsuarioList(generics.ListAPIView):
         # por defecto no exponemos todas las inscripciones
         return qs.none()
 
+class InscripcionRetrieve(generics.RetrieveAPIView):
+    queryset = Inscripcion.objects.all()
+    serializer_class = InscripcionSerializer
+
 class NotasUsuarioAutenticadoView(generics.ListAPIView):
     serializer_class = NotaSerializer
     permission_classes = [IsAuthenticated]
@@ -206,15 +210,19 @@ class NotasUsuarioAutenticadoView(generics.ListAPIView):
         if not persona_id:
             return Nota.objects.none()
 
-        # Query que trae notas relacionadas a inscripciones de esa persona
-        # Prefetch notaRelacionada + select_related dentro del Prefetch para traer Inscripcion -> Cohorte -> Formacion
         prefetch_rel = Prefetch(
             'notarelacionada_set',
             queryset=NotaRelacionada.objects.select_related('idInscripcion__idCohorte__idFormacion'),
             to_attr='prefetched_notarelacionadas'
         )
 
-        qs = Nota.objects.filter(notarelacionada__idInscripcion__idPersona_id=persona_id).prefetch_related(prefetch_rel).distinct()
+        qs = Nota.objects.filter(
+            notarelacionada__idInscripcion__idPersona_id=persona_id
+        ).prefetch_related(prefetch_rel).distinct()
+
+        # Opcional: filtrar solo notas con formacion resuelta (para debug)
+        # qs = qs.filter(notarelacionada__idInscripcion__idCohorte__idFormacion__isnull=False)
+
         return qs
 
 class PagoCreateAPIView(APIView):

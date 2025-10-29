@@ -4,6 +4,7 @@ import re
 import uuid
 import decimal
 import traceback
+from venv import logger
 from rest_framework import serializers
 from apps.home.models import Configuracion, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Moneda, Tasa, Formacion, CuotaFormacion, TipoFormacion, Usuarios
 from apps.persona.models import Personas, PersonaTP, TipoPersona
@@ -317,71 +318,58 @@ class NotaSerializer(serializers.ModelSerializer):
 
     def get_formacion(self, obj):
         """
-        Resuelve la formación asociada a una nota intentando varios caminos:
-        - Busca NotaRelacionada para la nota y hace select_related('idInscripcion__idCohorte__idFormacion')
-        - Si idInscripcion viene como id, carga la Inscripcion con select_related
-        - Extrae nombreFormacion de forma segura (soporta dicts/instancias)
-        - Devuelve dict { idFormacion, nombreFormacion } o None
+        Resuelve la formación asociada a una nota intentando varios caminos.
         """
         try:
-            # Intentar obtener la relación ya con join para reducir queries
-            rel = (NotaRelacionada.objects
-                .filter(idNota=obj)
-                .select_related('idInscripcion__idCohorte__idFormacion')
-                .first())
+            # Usar prefetch si existe
+            rel_qs = getattr(obj, 'prefetched_notarelacionadas', None)
+            if not rel_qs:
+                rel_qs = NotaRelacionada.objects.filter(idNota=obj).select_related('idInscripcion__idCohorte__idFormacion')
+
+            rel = rel_qs.first() if rel_qs else None
             if not rel:
+                logger.warning(f"⚠️ No se encontró NotaRelacionada para nota {obj.idNota}")
                 return None
 
-            ins = rel.idInscripcion  # puede ser instancia o id (según cómo se haya construido)
-            # si es int/str -> buscar la Inscripcion real con select_related
-            from apps.inscripcion.models import Inscripcion as InscripcionModel  # importar localmente para evitar ciclos
-            coh = None
-            form = None
+            ins = rel.idInscripcion
+            if not ins:
+                logger.warning(f"⚠️ NotaRelacionada {rel.idNotaRelacionada} sin Inscripcion para nota {obj.idNota}")
+                return None
 
+            # Si ins es ID, fetch con select_related
             if isinstance(ins, (int, str)):
-                try:
-                    ins_obj = (InscripcionModel.objects
-                            .select_related('idCohorte__idFormacion')
-                            .filter(pk=int(ins)).first())
-                except Exception:
-                    ins_obj = None
-            else:
-                # ins ya es instancia (posible si DRF la prefetched), usarla
-                ins_obj = ins
+                ins = Inscripcion.objects.select_related('idCohorte__idFormacion').filter(pk=ins).first()
+                if not ins:
+                    logger.warning(f"⚠️ Inscripcion ID {rel.idInscripcion} no encontrada para nota {obj.idNota}")
+                    return None
 
-            if not ins_obj:
+            # Obtener Cohorte
+            coh = getattr(ins, 'idCohorte', None) or getattr(ins, 'idCohorte_id', None)
+            if isinstance(coh, int):
+                coh = Cohorte.objects.select_related('idFormacion').get(pk=coh)
+            if not coh:
+                logger.warning(f"⚠️ Cohorte no encontrada para Inscripcion {ins.idInscripcion} en nota {obj.idNota}")
                 return None
 
-            # cohorte puede estar en idCohorte o idCohorte_id; preferir la instancia
-            coh = getattr(ins_obj, 'idCohorte', None)
-            if not coh:
-                coh_pk = getattr(ins_obj, 'idCohorte_id', None)
-                if coh_pk:
-                    coh = Cohorte.objects.select_related('idFormacion').filter(idCohorte=coh_pk).first()
-
-            if not coh:
+            # Obtener Formacion
+            form = getattr(coh, 'idFormacion', None) or getattr(coh, 'idFormacion_id', None)
+            if isinstance(form, int):
+                form = Formacion.objects.get(pk=form)
+            if not form:
+                logger.warning(f"⚠️ Formacion no encontrada para Cohorte {coh.idCohorte} en nota {obj.idNota}")
                 return None
 
-            # ahora intentar obtener formacion desde coh
-            form = getattr(coh, 'idFormacion', None)
-            if not form:
-                # intentar por id stored en la cohorte
-                form_pk = getattr(coh, 'idFormacion_id', None)
-                if form_pk:
-                    form = Formacion.objects.filter(idFormacion=form_pk).first()
-
-            if not form:
+            nombre = getattr(form, 'nombreFormacion', None) or getattr(form, 'nombre', None)
+            if not nombre:
+                logger.warning(f"⚠️ Formacion {form.idFormacion} sin nombre para nota {obj.idNota}")
                 return None
 
             return {
-                'idFormacion': getattr(form, 'idFormacion', getattr(form, 'pk', None)),
-                'nombreFormacion': getattr(form, 'nombreFormacion', getattr(form, 'nombre', None))
+                'idFormacion': getattr(form, 'idFormacion', None),
+                'nombreFormacion': nombre
             }
         except Exception as e:
-            # loggear (usa logger en vez de print en producción)
-            import traceback
-            traceback.print_exc()
-            print(f"⚠️ Error obteniendo formación para nota {getattr(obj, 'idNota', '?')}: {e}")
+            logger.error(f"💥 Error crítico obteniendo formación para nota {obj.idNota}: {str(e)}\n{traceback.format_exc()}")
             return None
 
 class PagoSerializer(serializers.ModelSerializer):
