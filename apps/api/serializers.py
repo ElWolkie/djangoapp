@@ -344,17 +344,28 @@ class NotaSerializer(serializers.ModelSerializer):
                     return None
 
             # Obtener Cohorte
-            coh = getattr(ins, 'idCohorte', None) or getattr(ins, 'idCohorte_id', None)
-            if isinstance(coh, int):
-                coh = Cohorte.objects.select_related('idFormacion').get(pk=coh)
+            coh = getattr(ins, 'idCohorte', None)
+            if not coh:
+                coh_pk = getattr(ins, 'idCohorte_id', None)
+                if coh_pk:
+                    coh = Cohorte.objects.select_related('idFormacion').filter(pk=coh_pk).first()
+
             if not coh:
                 logger.warning(f"⚠️ Cohorte no encontrada para Inscripcion {ins.idInscripcion} en nota {obj.idNota}")
                 return None
 
-            # Obtener Formacion
-            form = getattr(coh, 'idFormacion', None) or getattr(coh, 'idFormacion_id', None)
-            if isinstance(form, int):
-                form = Formacion.objects.get(pk=form)
+            # Check para evitar el error: si coh no es Cohorte, algo malo pasó
+            if not isinstance(coh, Cohorte):
+                logger.error(f"💥 coh no es instancia de Cohorte para nota {obj.idNota}: tipo={type(coh)}")
+                return None
+
+            # Obtener Formacion (aquí usa coh, no ins!)
+            form = getattr(coh, 'idFormacion', None)
+            if not form:
+                form_pk = getattr(coh, 'idFormacion_id', None)
+                if form_pk:
+                    form = Formacion.objects.get(pk=form_pk)
+
             if not form:
                 logger.warning(f"⚠️ Formacion no encontrada para Cohorte {coh.idCohorte} en nota {obj.idNota}")
                 return None
@@ -365,7 +376,7 @@ class NotaSerializer(serializers.ModelSerializer):
                 return None
 
             return {
-                'idFormacion': getattr(form, 'idFormacion', None),
+                'idFormacion': getattr(form, 'idFormacion', getattr(form, 'pk', None)),
                 'nombreFormacion': nombre
             }
         except Exception as e:

@@ -72,44 +72,68 @@ const PagoScreen = () => {
   const getFormacionNameFromNota = (nota: NotaItem) => {
     if (!nota) return 'Formación no especificada';
     if (nota._resolvedFormacionName && isValidFormacionName(nota._resolvedFormacionName)) return nota._resolvedFormacionName;
+
+    // Prioridad 1: campo formacion del serializer
     if (nota.formacion && (nota.formacion.nombreFormacion || nota.formacion.nombre)) {
       const nm = nota.formacion.nombreFormacion ?? nota.formacion.nombre;
       if (isValidFormacionName(nm)) return nm;
     }
+
+    // Prioridad 2: otros campos posibles en nota
     if (nota.idFormacion_detail && (nota.idFormacion_detail.nombreFormacion || nota.idFormacion_detail.nombre)) {
       const nm = nota.idFormacion_detail.nombreFormacion ?? nota.idFormacion_detail.nombre;
       if (isValidFormacionName(nm)) return nm;
     }
     if (nota.formacionNombre) return nota.formacionNombre;
     if (nota.nombreFormacion) return nota.nombreFormacion;
-    // fallback
+
+    // NEW: Fallbacks como en dashboard (si nota tiene estructuras anidadas)
+    if (nota.idInscripcion_detail) {
+      const ins = nota.idInscripcion_detail;
+      if (ins.idFormacion_detail?.nombreFormacion) return ins.idFormacion_detail.nombreFormacion;
+      if (ins.idCohorte?.idFormacion?.nombreFormacion) return ins.idCohorte.idFormacion.nombreFormacion;
+      const nombreCoh = ins.idCohorte?.nombreCohorte;
+      if (nombreCoh) {
+        if (nombreCoh.includes('Biotecnología')) return 'Biotecnología';
+        // ... agrega tus matchers como en dashboard
+      }
+    }
+
     return 'Formación no especificada';
   };
 
-  // Resuelve formacion a partir de una inscripcion obtenida por API
   const extractFormacionFromInscripcion = (ins: any): { idFormacion?: number; nombreFormacion?: string } | null => {
-    console.log('📂 Extracting formacion from inscripcion:', JSON.stringify(ins));  // NEW LOG: Ver estructura de ins
+    console.log('📂 Extracting formacion from inscripcion:', JSON.stringify(ins));
     if (!ins) return null;
-    // campo idFormacion_detail directo
+
+    // Prioridad 1: idFormacion_detail
     const f = ins.idFormacion_detail ?? ins.idFormacion ?? null;
     if (f) {
-      const name = f.nombreFormacion ?? f.nombre ?? (f.title ?? null);
+      const name = f.nombreFormacion ?? f.nombre ?? f.title ?? null;
       const id = Number(f.idFormacion ?? f.id ?? f.pk ?? 0) || undefined;
       return { idFormacion: id, nombreFormacion: name ?? undefined };
     }
-    // intentar vía cohorte
+
+    // Prioridad 2: vía cohorte
     const coh = ins.idCohorte_detail ?? ins.idCohorte ?? ins.cohorte ?? null;
     if (coh) {
       const ff = coh.idFormacion ?? coh.idFormacion_detail ?? coh.formacion ?? null;
       if (ff) {
-        const name = ff.nombreFormacion ?? ff.nombre ?? (ff.title ?? null);
+        const name = ff.nombreFormacion ?? ff.nombre ?? ff.title ?? null;
         const id = Number(ff.idFormacion ?? ff.id ?? ff.pk ?? 0) || undefined;
         return { idFormacion: id, nombreFormacion: name ?? undefined };
       }
-      // a veces coh contiene solo idFormacion numérico
       const idf = Number(coh.idFormacion ?? coh.id_formacion ?? 0) || undefined;
       if (idf) return { idFormacion: idf, nombreFormacion: undefined };
     }
+
+    // NEW: Fallbacks como en dashboard si no hay structure
+    const nombreCohorte = ins.idCohorte?.nombreCohorte ?? ins.nombreCohorte ?? null;
+    if (nombreCohorte) {
+      if (nombreCohorte.includes('Biotecnología')) return { idFormacion: undefined, nombreFormacion: 'Biotecnología' };
+      // agrega más matchers si necesitas
+    }
+
     return null;
   };
 

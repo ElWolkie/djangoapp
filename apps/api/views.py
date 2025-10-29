@@ -176,7 +176,7 @@ class InscripcionUsuarioList(generics.ListAPIView):
         # por defecto no exponemos todas las inscripciones
         return qs.none()
 
-class InscripcionRetrieve(generics.RetrieveAPIView):
+class InscripcionDetail(generics.RetrieveAPIView):  # Cambié a Detail para claridad
     queryset = Inscripcion.objects.select_related(
         'idPersona',
         'idCohorte',
@@ -189,7 +189,7 @@ class InscripcionRetrieve(generics.RetrieveAPIView):
         )
     )
     serializer_class = InscripcionSerializer
-    permission_classes = [IsAuthenticated]  # Para seguridad, ya que es datos de usuario
+    permission_classes = [IsAuthenticated]  # Seguridad
 
 class NotasUsuarioAutenticadoView(generics.ListAPIView):
     serializer_class = NotaSerializer
