@@ -283,6 +283,8 @@ class InscripcionSerializer(serializers.ModelSerializer):
         )
         return inscripcion
     
+logger = logging.getLogger(__name__)
+
 class NotaSerializer(serializers.ModelSerializer):
     idInscripcion = serializers.SerializerMethodField(read_only=True)
     formacion = serializers.SerializerMethodField(read_only=True)
@@ -290,111 +292,54 @@ class NotaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Nota
         fields = [
-            'idNota',
-            'numeroNota',
-            'fechaEmision',
-            'totalNota',
-            'estado',
-            'tipoArticulo',
-            'formaPago',
-            'idInscripcion',
-            'formacion',
+            'idNota', 'numeroNota', 'fechaEmision', 'totalNota', 'estado',
+            'tipoArticulo', 'formaPago', 'idInscripcion', 'formacion',
         ]
 
-    def get_idInscripcion(self, obj):
+    def _get_first_relation(self, obj):
+        """
+        Función helper para obtener la relación de inscripción
+        (ya sea prefetcheada o con un fallback).
+        """
         try:
-            # Usar prefetch si existe
-            rel_qs = getattr(obj, 'prefetched_notarelacionadas', None)
-            if not rel_qs:
-                rel_qs = NotaRelacionada.objects.filter(idNota=obj)
+            # 1. Intenta usar los datos prefetcheados por la vista (rápido)
+            prefetched_list = getattr(obj, 'prefetched_relaciones_inscripcion', None)
+            if prefetched_list:
+                return prefetched_list[0] if prefetched_list else None
 
-            rel = rel_qs.first() if rel_qs else None
-            if not rel:
-                logger.warning(f"⚠️ No se encontró NotaRelacionada para nota {obj.idNota}")
-                return None
+            # 2. Fallback si la prefetch no se ejecutó (lento: N+1)
+            logger.warning(f"[N+1 Query] Fallback para Nota {getattr(obj, 'idNota', 'unknown')}")
+            return NotaRelacionada.objects.filter(
+                idNota=obj,
+                idInscripcion__isnull=False
+            ).select_related('idInscripcion__idCohorte__idFormacion').first()
 
-            ins = rel.idInscripcion
-            if not ins:
-                logger.warning(f"⚠️ NotaRelacionada {rel.idNotaRelacionada} sin Inscripcion para nota {obj.idNota}")
-                return None
-
-            # Si ins es ID, fetch it
-            if isinstance(ins, (int, str)):
-                ins = Inscripcion.objects.filter(pk=ins).first()
-                if not ins:
-                    logger.warning(f"⚠️ Inscripcion ID {rel.idInscripcion} no encontrada para nota {obj.idNota}")
-                    return None
-
-            # Extraer pk con fallbacks (maneja si pk es 'idInscripcion', 'id', o 'pk')
-            pk = getattr(ins, 'idInscripcion', None) or getattr(ins, 'id', None) or getattr(ins, 'pk', None)
-            if pk is None:
-                logger.warning(f"⚠️ No se pudo extraer pk de Inscripcion para nota {obj.idNota}")
-            return pk
         except Exception as e:
-            logger.error(f"💥 Error en get_idInscripcion para nota {obj.idNota}: {str(e)}\n{traceback.format_exc()}")
+            logger.error(f"Error en _get_first_relation para nota {getattr(obj, 'idNota', 'unknown')}: {e}")
             return None
 
+    def get_idInscripcion(self, obj):
+        rel = self._get_first_relation(obj)
+        if rel and getattr(rel, 'idInscripcion', None):
+            return getattr(rel.idInscripcion, 'idInscripcion', None)
+        return None
+
     def get_formacion(self, obj):
+        rel = self._get_first_relation(obj)
+
         try:
-            # Usar prefetch si existe
-            rel_qs = getattr(obj, 'prefetched_notarelacionadas', None)
-            if not rel_qs:
-                rel_qs = NotaRelacionada.objects.filter(idNota=obj).select_related('idInscripcion__idCohorte__idFormacion')
-
-            rel = rel_qs.first() if rel_qs else None
-            if not rel:
-                logger.warning(f"⚠️ No se encontró NotaRelacionada para nota {obj.idNota}")
-                return {'nombreFormacion': 'Formación no especificada'}  # Placeholder si quieres, o None
-
-            ins = rel.idInscripcion
-            if not ins:
-                logger.warning(f"⚠️ NotaRelacionada {rel.idNotaRelacionada} sin Inscripcion para nota {obj.idNota}")
-                return {'nombreFormacion': 'Formación no especificada'}
-
-            # Si ins es ID, fetch con select_related
-            if isinstance(ins, (int, str)):
-                ins = Inscripcion.objects.select_related('idCohorte__idFormacion').filter(pk=ins).first()
-                if not ins:
-                    logger.warning(f"⚠️ Inscripcion ID {rel.idInscripcion} no encontrada para nota {obj.idNota}")
-                    return {'nombreFormacion': 'Formación no especificada'}
-
-            # Obtener Cohorte con fallbacks
-            coh = getattr(ins, 'idCohorte', None)
-            if not coh:
-                coh_pk = getattr(ins, 'idCohorte_id', None) or getattr(ins, 'cohorte_id', None)  # Extra fallback
-                if coh_pk:
-                    coh = Cohorte.objects.select_related('idFormacion').filter(pk=coh_pk).first()
-
-            if not coh:
-                logger.warning(f"⚠️ Cohorte no encontrada para Inscripcion {ins.idInscripcion} en nota {obj.idNota}")
-                return {'nombreFormacion': 'Formación no especificada'}
-
-            # Verificar tipo de coh para evitar errores
-            if not isinstance(coh, Cohorte):
-                logger.error(f"💥 coh no es Cohorte para nota {obj.idNota}: tipo={type(coh)}, valor={coh}")
-                return {'nombreFormacion': 'Formación no especificada'}
-
-            # Obtener Formacion con fallbacks
-            form = getattr(coh, 'idFormacion', None)
-            if not form:
-                form_pk = getattr(coh, 'idFormacion_id', None) or getattr(coh, 'formacion_id', None)  # Extra fallback
-                if form_pk:
-                    form = Formacion.objects.filter(pk=form_pk).first()
-
-            if not form:
-                logger.warning(f"⚠️ Formacion no encontrada para Cohorte {coh.idCohorte} en nota {obj.idNota}")
-                return {'nombreFormacion': 'Formación no especificada'}
-
-            nombre = getattr(form, 'nombreFormacion', None) or getattr(form, 'nombre', None) or 'Formación no especificada'
-            id_form = getattr(form, 'idFormacion', None) or getattr(form, 'id', None) or getattr(form, 'pk', None)
-
+            # Simplemente sigue la cadena de relaciones.
+            # Si la prefetch funcionó, esto es instantáneo.
+            formacion = rel.idInscripcion.idCohorte.idFormacion
             return {
-                'idFormacion': id_form,
-                'nombreFormacion': nombre
+                'idFormacion': getattr(formacion, 'idFormacion', None),
+                'nombreFormacion': getattr(formacion, 'nombreFormacion', 'Formación no disponible')
             }
         except Exception as e:
-            logger.error(f"💥 Error crítico en get_formacion para nota {obj.idNota}: {str(e)}\n{traceback.format_exc()}")
-            return {'nombreFormacion': 'Información no disponible'}
+            # Si algo en la cadena es Nulo (p.ej., Cohorte no encontrada),
+            # o si `rel` es None, se captura aquí.
+            logger.warning(f"No se pudo resolver la formación para la nota {getattr(obj, 'idNota', 'unknown')}. Rel: {rel}. Error: {e}")
+            return {'nombreFormacion': 'Formación no disponible'}
 
 class PagoSerializer(serializers.ModelSerializer):
     idNota = NotaSerializer(read_only=True)

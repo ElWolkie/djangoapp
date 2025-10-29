@@ -262,49 +262,44 @@ class InscripcionDetail(generics.RetrieveAPIView):  # Cambié a Detail para clar
     serializer_class = InscripcionSerializer
     permission_classes = [IsAuthenticated]  # Seguridad
 
+logger = logging.getLogger(__name__)
+
 class NotasUsuarioAutenticadoView(generics.ListAPIView):
     serializer_class = NotaSerializer
     permission_classes = [IsAuthenticated]
 
-    def get_persona_id(self):
-        # 1) buscar via tabla Usuarios si existe (ajusta según tu modelo Usuarios)
-        user = getattr(self.request, 'user', None)
-        try:
-            from apps.home.models import Usuarios
-            urel = Usuarios.objects.filter(user_id=getattr(user, 'id', None)).first()
-            if urel and getattr(urel, 'idPersona', None):
-                return getattr(urel.idPersona, 'idPersona', urel.idPersona)
-        except Exception:
-            pass
-
-        # 2) permitir ?cedula=... como fallback
-        cedula_q = self.request.query_params.get('cedula')
-        if cedula_q:
-            ced = re.sub(r'\D', '', cedula_q)
-            p = Personas.objects.filter(cedula__iregex=rf"{ced}$").first()
-            if p:
-                return p.idPersona
-
-        return None
+    def get_persona(self):
+        """
+        Obtiene el objeto Personas del usuario autenticado.
+        Asume que tu modelo de Usuario (request.user) tiene un campo OneToOne 'idPersona'.
+        """
+        try:    
+            # Acceso directo a la relación. request.user ES el objeto Usuarios.
+            return self.request.user.idPersona
+        except Exception as e:
+            logger.error(f"Error crítico al obtener 'idPersona' del usuario {self.request.user}: {e}")
+            return None
 
     def get_queryset(self):
-        persona_id = self.get_persona_id()
-        if not persona_id:
-            return Nota.objects.none()
+        persona = self.get_persona()
+        if not persona:
+            return Nota.objects.none() # No hay persona, no hay notas.
 
-        prefetch_rel = Prefetch(
-            'notarelacionada_set',
-            queryset=NotaRelacionada.objects.select_related('idInscripcion__idCohorte__idFormacion'),
-            to_attr='prefetched_notarelacionadas'
+        # --- CORRECCIÓN CLAVE #1: Usar 'relaciones' ---
+        # Pre-cargamos la ruta completa desde NotaRelacionada hasta Formacion
+        prefetch_relacion = Prefetch(
+            'relaciones', # El related_name CORRECTO
+            queryset=NotaRelacionada.objects.select_related(
+            'idInscripcion__idCohorte__idFormacion'
+            ).filter(idInscripcion__isnull=False), # Solo nos importan las relaciones con inscripciones
+            to_attr='prefetched_relaciones_inscripcion' # Un nombre de atributo claro
         )
 
+        # --- CORRECCIÓN CLAVE #2: Usar 'relaciones' en el filtro ---
         qs = Nota.objects.filter(
-            notarelacionada__idInscripcion__idPersona_id=persona_id
-        ).prefetch_related(prefetch_rel).distinct()
-
-        # Opcional: filtrar solo notas con formacion resuelta (para debug)
-        # qs = qs.filter(notarelacionada__idInscripcion__idCohorte__idFormacion__isnull=False)
-
+        relaciones__idInscripcion__idPersona=persona
+        ).prefetch_related(prefetch_relacion).distinct()
+        
         return qs
 
 class PagoCreateAPIView(APIView):

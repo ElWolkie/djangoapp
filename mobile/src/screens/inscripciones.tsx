@@ -647,38 +647,55 @@ const InscripcionesScreen = () => {
 
     setCreating(true);
     try {
-      // Construir payload a enviar al backend a partir del estado del formulario
       const payload = {
         idPersona: idPersonaEnviar,
-        idFormacion: selectedFormacion !== undefined ? Number(selectedFormacion) : null,
-        idCohorte: selectedCohorte !== undefined ? Number(selectedCohorte) : null,
-        fechaInscripcion: fechaInscripcion || null,
-        montoTotal: Number(montoTotal || 0),
-        valorInscripcion: Number(valorInscripcion || 0),
-        cuotas: (cuotas || []).map((c: any) => ({
-          nombreCuota: c.nombreCuota ?? c.nombre ?? 'Cuota',
-          valorCuota: Number(c.valorCuota ?? c.valor ?? c.monto ?? 0),
-        })),
+        // nota: el backend espera idCohorte (y el serializer ya no usa idFormacion para escritura)
+        idCohorte: selectedCohorte,
+        montoTotal: montoTotal,
+        montoPagado: 0,
+        estadoPago: 'PENDIENTE',
+        fechaInscripcion: new Date().toISOString().slice(0, 19).replace('T', ' ')
       };
 
       const res = await api.post('/api/inscripcion/', payload);
       if (res.status === 201 || res.status === 200) {
-        const notaData = res.data.nota;  // Ahora del backend
-        if (notaData) {
-          navigation.navigate('pago', {
-            notaData,
-            inscripcionId: res.data.idInscripcion
-          });
-          Alert.alert('Éxito', 'Inscripción y nota creadas. Proceda al pago.');
-        } else {
-          throw new Error('No se generó nota');
+        try {
+          const notaResponse = await api.post('/api/nota-cobro/create/', { idInscripcion: res.data.idInscripcion });
+          if (notaResponse.data.success) {
+            navigation.navigate('pago', {
+              notaData: notaResponse.data.data,
+              inscripcionId: res.data.idInscripcion
+            });
+            Alert.alert('Éxito', 'Inscripción y nota de cobro creadas correctamente. Proceda al pago.');
+          } else {
+            throw new Error(notaResponse.data.message);
+          }
+        } catch (notaError) {
+          Alert.alert('Atención', 'Inscripción creada pero hubo un error al generar la nota de cobro. Contacte al administrador.');
         }
         setFormModalVisible(false);
         resetForm();
         await fetchInscripciones();
       }
     } catch (err: any) {
-      Alert.alert('Error', err.response?.data?.detail ?? err.message ?? 'Error al crear');
+      if (err.response?.status === 400) {
+        let errorMessage = 'Errores de validación:\n';
+        if (err.response.data && typeof err.response.data === 'object') {
+          Object.keys(err.response.data).forEach(key => {
+            if (Array.isArray(err.response.data[key])) {
+              errorMessage += `• ${key}: ${err.response.data[key].join(', ')}\n`;
+            } else {
+              errorMessage += `• ${key}: ${err.response.data[key]}\n`;
+            }
+          });
+        } else {
+          errorMessage = err.response.data?.detail || JSON.stringify(err.response.data);
+        }
+        Alert.alert('Error de Validación', errorMessage);
+        setCreating(false);
+        return;
+      }
+      Alert.alert('Error', err.response?.data?.detail ?? err.message ?? 'Error desconocido al crear inscripción');
     } finally {
       setCreating(false);
     }

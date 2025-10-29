@@ -110,14 +110,14 @@ const PagoScreen = () => {
     return 'Formación no especificada';
   };
 
-  // Función para mapear nota a su inscripción (mejorada)
-  const findInscripcionForNota = (nota: NotaItem): Inscripcion | null => {
+  // Función para mapear nota a su inscripción (mejorada con orden por fecha)
+  const findInscripcionForNota = (nota: NotaItem, sortedInscripciones: Inscripcion[], sortedNotas: NotaItem[], index: number): Inscripcion | null => {
     console.log(`🔍 Buscando inscripción para nota ${nota.idNota}: fecha=${nota.fechaEmision}, monto=${nota.totalNota}, idIns=${nota.idInscripcion}`);
 
     // Prioridad 1: Por ID de inscripción
     const idIns = nota.idInscripcion ?? nota.idInscripcion_detail?.idInscripcion ?? nota.inscripcion_id ?? null;
     if (idIns) {
-      const match = inscripcionesUsuario.find((ins) => ins.idInscripcion === Number(idIns));
+      const match = sortedInscripciones.find((ins) => ins.idInscripcion === Number(idIns));
       if (match) {
         console.log(`✅ Match por ID: ${match.idInscripcion}`);
         return match;
@@ -127,36 +127,40 @@ const PagoScreen = () => {
     // Prioridad 2: Por fecha cercana (+/- 1 día)
     if (nota.fechaEmision) {
       const notaDate = new Date(nota.fechaEmision).getTime();
-      const match = inscripcionesUsuario.find((ins) => {
-        if (ins.fechaInscripcion) {
-          const insDate = new Date(ins.fechaInscripcion).getTime();
-          const diff = Math.abs(notaDate - insDate);
-          return diff < 86400000;  // 1 día
-        }
-        return false;
+      const closest = sortedInscripciones.reduce((prev, curr) => {
+        const currDiff = Math.abs(notaDate - new Date(curr.fechaInscripcion || '').getTime());
+        const prevDiff = Math.abs(notaDate - new Date(prev.fechaInscripcion || '').getTime());
+        return currDiff < prevDiff ? curr : prev;
       });
-      if (match) {
-        console.log(`✅ Match por fecha: nota ${nota.fechaEmision} ~ ins ${match.fechaInscripcion}`);
-        return match;
+      const diff = Math.abs(notaDate - new Date(closest.fechaInscripcion || '').getTime());
+      if (diff < 86400000) {  // 1 día
+        console.log(`✅ Match por fecha cercana: nota ${nota.fechaEmision} ~ ins ${closest.fechaInscripcion}`);
+        return closest;
       }
     }
 
     // Prioridad 3: Por monto exacto (si unique)
     if (nota.totalNota) {
-      const matches = inscripcionesUsuario.filter((ins) => Number(ins.montoTotal) === Number(nota.totalNota));
+      const matches = sortedInscripciones.filter((ins) => Number(ins.montoTotal) === Number(nota.totalNota));
       if (matches.length === 1) {
         console.log(`✅ Match por monto unique: ${nota.totalNota}`);
         return matches[0];
       } else if (matches.length > 1) {
-        console.warn(`⚠️ Múltiples matches por monto ${nota.totalNota}, usando primero`);
-        return matches[0];
+        // Si multiple, usa closest date o index
+        console.warn(`⚠️ Múltiples matches por monto ${nota.totalNota}, usando closest date`);
+        const notaDate = new Date(nota.fechaEmision || '').getTime();
+        return matches.reduce((prev, curr) => {
+          const currDiff = Math.abs(notaDate - new Date(curr.fechaInscripcion || '').getTime());
+          const prevDiff = Math.abs(notaDate - new Date(prev.fechaInscripcion || '').getTime());
+          return currDiff < prevDiff ? curr : prev;
+        });
       }
     }
 
-    // Fallback: Primera inscripción con estado pendiente o parcial
-    const fallback = inscripcionesUsuario.find((ins) => ins.estadoPago !== 'PAGADO');
-    if (fallback) {
-      console.log(`📌 Fallback a primera pendiente: ${fallback.idInscripcion}`);
+    // Fallback: Por orden cronológico (asumiendo listas ordenadas desc)
+    if (index < sortedInscripciones.length) {
+      const fallback = sortedInscripciones[index];
+      console.log(`📌 Fallback por index ${index}: ins ${fallback.idInscripcion}`);
       return fallback;
     }
 
@@ -169,8 +173,17 @@ const PagoScreen = () => {
     if (!nota) return 'Formación no especificada';
     if (nota._resolvedFormacionName && isValidFormacionName(nota._resolvedFormacionName)) return nota._resolvedFormacionName;
 
+    // Ordena inscripciones y notas por fecha desc para match secuencial
+    const sortedInscripciones = [...inscripcionesUsuario].sort((a, b) => {
+      return new Date(b.fechaInscripcion || '').getTime() - new Date(a.fechaInscripcion || '').getTime();
+    });
+    const sortedNotas = [...notasUsuario].sort((a, b) => {
+      return new Date(b.fechaEmision || '').getTime() - new Date(a.fechaEmision || '').getTime();
+    });
+    const index = sortedNotas.findIndex(n => n.idNota === nota.idNota);
+
     // Buscar inscripción matching y extraer nombre
-    const ins = findInscripcionForNota(nota);
+    const ins = findInscripcionForNota(nota, sortedInscripciones, sortedNotas, index);
     if (ins) {
       const name = getNombreFormacion(ins);
       if (isValidFormacionName(name)) {
