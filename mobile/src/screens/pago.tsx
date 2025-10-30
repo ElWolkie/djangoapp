@@ -1,4 +1,4 @@
-// src/screens/pago.tsx - VERSIÓN LIMPIA (fetch inscripciones y map local sin manual)
+// src/screens/pago.tsx - VERSIÓN AJUSTADA (montos read-only, sin bancos/teléfono/foto)
 import React, { useState, useEffect, useContext, useCallback } from 'react';
 import {
   View,
@@ -18,6 +18,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import api from '../api/api';
 import { AuthContext } from '../contexts/AuthContext';
+import { ActivityIndicator } from 'react-native';
 
 interface NotaItem {
   idNota?: number;
@@ -46,7 +47,6 @@ interface Inscripcion {
   idFormacion_detail?: {
     idFormacion?: number;
     nombreFormacion?: string;
-    nombre?: string;
     valorInscripcion?: number | string;
   };
   montoPagado?: number;
@@ -77,6 +77,7 @@ const PagoScreen = () => {
   const [notasUsuario, setNotasUsuario] = useState<NotaItem[]>([]);
   const [cargandoNotas, setCargandoNotas] = useState(false);
   const [notaSeleccionada, setNotaSeleccionada] = useState<NotaItem | null>(notaData ?? null);
+  const [submitting, setSubmitting] = useState(false);
 
   // Estados para inscripciones
   const [inscripcionesUsuario, setInscripcionesUsuario] = useState<Inscripcion[]>([]);
@@ -96,7 +97,7 @@ const PagoScreen = () => {
   // Lógica limpia para extraer nombre de formación (solo de datos reales, sin manual)
   const getNombreFormacion = (inscripcion: Inscripcion): string => {
     // 1) idFormacion_detail (directo)
-    const name1 = inscripcion.idFormacion_detail?.nombreFormacion || inscripcion.idFormacion_detail?.nombre;
+    const name1 = inscripcion.idFormacion_detail?.nombreFormacion;
     if (name1 && isValidFormacionName(name1)) return name1;
 
     // 2) cohorte.idFormacion (nested)
@@ -110,14 +111,14 @@ const PagoScreen = () => {
     return 'Formación no especificada';
   };
 
-  // Función para mapear nota a su inscripción (mejorada con orden por fecha)
-  const findInscripcionForNota = (nota: NotaItem, sortedInscripciones: Inscripcion[], sortedNotas: NotaItem[], index: number): Inscripcion | null => {
+  // Función para mapear nota a su inscripción (mejorada)
+  const findInscripcionForNota = (nota: NotaItem): Inscripcion | null => {
     console.log(`🔍 Buscando inscripción para nota ${nota.idNota}: fecha=${nota.fechaEmision}, monto=${nota.totalNota}, idIns=${nota.idInscripcion}`);
 
     // Prioridad 1: Por ID de inscripción
     const idIns = nota.idInscripcion ?? nota.idInscripcion_detail?.idInscripcion ?? nota.inscripcion_id ?? null;
     if (idIns) {
-      const match = sortedInscripciones.find((ins) => ins.idInscripcion === Number(idIns));
+      const match = inscripcionesUsuario.find((ins) => ins.idInscripcion === Number(idIns));
       if (match) {
         console.log(`✅ Match por ID: ${match.idInscripcion}`);
         return match;
@@ -127,40 +128,36 @@ const PagoScreen = () => {
     // Prioridad 2: Por fecha cercana (+/- 1 día)
     if (nota.fechaEmision) {
       const notaDate = new Date(nota.fechaEmision).getTime();
-      const closest = sortedInscripciones.reduce((prev, curr) => {
-        const currDiff = Math.abs(notaDate - new Date(curr.fechaInscripcion || '').getTime());
-        const prevDiff = Math.abs(notaDate - new Date(prev.fechaInscripcion || '').getTime());
-        return currDiff < prevDiff ? curr : prev;
+      const match = inscripcionesUsuario.find((ins) => {
+        if (ins.fechaInscripcion) {
+          const insDate = new Date(ins.fechaInscripcion).getTime();
+          const diff = Math.abs(notaDate - insDate);
+          return diff < 86400000;  // 1 día
+        }
+        return false;
       });
-      const diff = Math.abs(notaDate - new Date(closest.fechaInscripcion || '').getTime());
-      if (diff < 86400000) {  // 1 día
-        console.log(`✅ Match por fecha cercana: nota ${nota.fechaEmision} ~ ins ${closest.fechaInscripcion}`);
-        return closest;
+      if (match) {
+        console.log(`✅ Match por fecha: nota ${nota.fechaEmision} ~ ins ${match.fechaInscripcion}`);
+        return match;
       }
     }
 
     // Prioridad 3: Por monto exacto (si unique)
     if (nota.totalNota) {
-      const matches = sortedInscripciones.filter((ins) => Number(ins.montoTotal) === Number(nota.totalNota));
+      const matches = inscripcionesUsuario.filter((ins) => Number(ins.montoTotal) === Number(nota.totalNota));
       if (matches.length === 1) {
         console.log(`✅ Match por monto unique: ${nota.totalNota}`);
         return matches[0];
       } else if (matches.length > 1) {
-        // Si multiple, usa closest date o index
-        console.warn(`⚠️ Múltiples matches por monto ${nota.totalNota}, usando closest date`);
-        const notaDate = new Date(nota.fechaEmision || '').getTime();
-        return matches.reduce((prev, curr) => {
-          const currDiff = Math.abs(notaDate - new Date(curr.fechaInscripcion || '').getTime());
-          const prevDiff = Math.abs(notaDate - new Date(prev.fechaInscripcion || '').getTime());
-          return currDiff < prevDiff ? curr : prev;
-        });
+        console.warn(`⚠️ Múltiples matches por monto ${nota.totalNota}, usando primero`);
+        return matches[0];
       }
     }
 
-    // Fallback: Por orden cronológico (asumiendo listas ordenadas desc)
-    if (index < sortedInscripciones.length) {
-      const fallback = sortedInscripciones[index];
-      console.log(`📌 Fallback por index ${index}: ins ${fallback.idInscripcion}`);
+    // Fallback: Primera inscripción con estado pendiente o parcial
+    const fallback = inscripcionesUsuario.find((ins) => ins.estadoPago !== 'PAGADO');
+    if (fallback) {
+      console.log(`📌 Fallback a primera pendiente: ${fallback.idInscripcion}`);
       return fallback;
     }
 
@@ -173,17 +170,8 @@ const PagoScreen = () => {
     if (!nota) return 'Formación no especificada';
     if (nota._resolvedFormacionName && isValidFormacionName(nota._resolvedFormacionName)) return nota._resolvedFormacionName;
 
-    // Ordena inscripciones y notas por fecha desc para match secuencial
-    const sortedInscripciones = [...inscripcionesUsuario].sort((a, b) => {
-      return new Date(b.fechaInscripcion || '').getTime() - new Date(a.fechaInscripcion || '').getTime();
-    });
-    const sortedNotas = [...notasUsuario].sort((a, b) => {
-      return new Date(b.fechaEmision || '').getTime() - new Date(a.fechaEmision || '').getTime();
-    });
-    const index = sortedNotas.findIndex(n => n.idNota === nota.idNota);
-
     // Buscar inscripción matching y extraer nombre
-    const ins = findInscripcionForNota(nota, sortedInscripciones, sortedNotas, index);
+    const ins = findInscripcionForNota(nota);
     if (ins) {
       const name = getNombreFormacion(ins);
       if (isValidFormacionName(name)) {
@@ -318,25 +306,27 @@ const PagoScreen = () => {
     if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }));
   };
 
-  const handleProcesarPago = () => {
+  const handleProcesarPago = async () => {
     if (!validateForm()) {
       Alert.alert('Error', 'Por favor complete todos los campos requeridos');
       return;
     }
-    const pagoParams = {
-      monto: parseFloat(String(formData.monto)),
-      referencia: formData.referencia,
-      formaPago: formData.formaPago,
-      notaData: notaSeleccionada ?? notaData,
-      userData: user
-        ? {
-            nombre: user.nombre ?? user.nombres ?? '',
-            cedula: user.cedula ?? '',
-            telefono: user.telefono ?? '',
-          }
-        : undefined,
-    };
-    navigation.navigate('PagoMovilFicticio', pagoParams);
+
+    setSubmitting(true);
+    try {
+      const response = await api.post('/api/pagos/create/', formData);
+      if (response.data.success) {
+        Alert.alert('Éxito', response.data.message || 'Pago registrado correctamente.');
+        setNotaSeleccionada(null);  // Cierra modal
+        onRefresh();  // Recarga lista
+      } else {
+        Alert.alert('Error', response.data.message || 'Error al procesar pago');
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error.response?.data?.message || 'Error en la conexión');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const formatCurrency = (amount: number): string => {
@@ -487,13 +477,15 @@ const PagoScreen = () => {
                 </View>
 
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Monto a Pagar *</Text>
+                  <Text style={styles.label}>Monto a Pagar</Text>
                   <View style={styles.inputContainer}>
                     <Text style={styles.currencySymbol}>$</Text>
-                    <TextInput style={[styles.input, errors.monto && styles.inputError]} value={formData.monto} onChangeText={(v) => handleInputChange('monto', v)} placeholder="0.00" keyboardType="numeric" placeholderTextColor="#6c757d" />
+                    <TextInput
+                      style={[styles.input, { color: '#495057' }]}
+                      value={formatCurrency(Number(notaSeleccionada.totalNota ?? 0))}
+                      editable={false}
+                    />
                   </View>
-                  <Text style={styles.helperText}>Máximo permitido: <Text style={styles.helperTextBold}>${formatCurrency(Number(notaSeleccionada.totalNota ?? 0))}</Text></Text>
-                  {errors.monto && <View style={styles.errorContainer}><Icon name="alert-circle" size={16} color="#dc3545" /><Text style={styles.errorText}>{errors.monto}</Text></View>}
                 </View>
 
                 <View style={styles.inputGroup}>
@@ -516,8 +508,11 @@ const PagoScreen = () => {
                   <TextInput style={[styles.input, styles.textArea]} value={formData.observaciones} onChangeText={(v) => handleInputChange('observaciones', v)} placeholder="Observaciones adicionales..." multiline numberOfLines={3} textAlignVertical="top" placeholderTextColor="#6c757d" />
                 </View>
 
-                <TouchableOpacity style={styles.submitButton} onPress={handleProcesarPago}>
-                  <View style={styles.submitButtonContent}><Icon name="arrow-right" size={20} color="#fff" /><Text style={styles.submitButtonText}>Continuar al Pago</Text></View>
+                <TouchableOpacity style={styles.submitButton} onPress={handleProcesarPago} disabled={submitting}>
+                  <View style={styles.submitButtonContent}>
+                    {submitting ? <ActivityIndicator color="#fff" /> : <Icon name="arrow-right" size={20} color="#fff" />}
+                    <Text style={styles.submitButtonText}>{submitting ? 'Procesando...' : 'Continuar al Pago'}</Text>
+                  </View>
                 </TouchableOpacity>
               </View>
             </ScrollView>
@@ -569,10 +564,15 @@ const PagoScreen = () => {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Monto a Pagar *</Text>
-            <View style={styles.inputContainer}><Text style={styles.currencySymbol}>$</Text><TextInput style={[styles.input, errors.monto && styles.inputError]} value={formData.monto} onChangeText={(v) => handleInputChange('monto', v)} placeholder="0.00" keyboardType="numeric" placeholderTextColor="#6c757d" /></View>
-            <Text style={styles.helperText}>Máximo permitido: <Text style={styles.helperTextBold}>${formatCurrency(Number(notaData?.totalNota ?? 0))}</Text></Text>
-            {errors.monto && <View style={styles.errorContainer}><Icon name="alert-circle" size={16} color="#dc3545" /><Text style={styles.errorText}>{errors.monto}</Text></View>}
+            <Text style={styles.label}>Monto a Pagar</Text>
+            <View style={styles.inputContainer}>
+              <Text style={styles.currencySymbol}>$</Text>
+              <TextInput
+                style={[styles.input, styles.readOnlyInput]}
+                value={formatCurrency(Number(notaSeleccionada?.totalNota ?? 0))}
+                editable={false}
+              />
+            </View>
           </View>
 
           <View style={styles.inputGroup}>
@@ -583,7 +583,9 @@ const PagoScreen = () => {
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Fecha de Pago *</Text>
-            <View style={styles.inputContainer}><Icon name="calendar" size={20} color="#6c757d" style={styles.inputIcon} /><TextInput style={[styles.input, errors.fechaPago && styles.inputError]} value={formData.fechaPago} onChangeText={(v) => handleInputChange('fechaPago', v)} placeholder="AAAA-MM-DD" placeholderTextColor="#6c757d" />
+            <View style={styles.inputContainer}>
+              <Icon name="calendar" size={20} color="#6c757d" style={styles.inputIcon} />
+              <TextInput style={[styles.input, errors.fechaPago && styles.inputError]} value={formData.fechaPago} onChangeText={(v) => handleInputChange('fechaPago', v)} placeholder="AAAA-MM-DD" placeholderTextColor="#6c757d" />
             </View>
             {errors.fechaPago && <View style={styles.errorContainer}><Icon name="alert-circle" size={16} color="#dc3545" /><Text style={styles.errorText}>{errors.fechaPago}</Text></View>}
           </View>
@@ -593,8 +595,11 @@ const PagoScreen = () => {
             <TextInput style={[styles.input, styles.textArea]} value={formData.observaciones} onChangeText={(v) => handleInputChange('observaciones', v)} placeholder="Observaciones adicionales..." multiline numberOfLines={3} textAlignVertical="top" placeholderTextColor="#6c757d" />
           </View>
 
-          <TouchableOpacity style={styles.submitButton} onPress={handleProcesarPago}>
-            <View style={styles.submitButtonContent}><Icon name="arrow-right" size={20} color="#fff" /><Text style={styles.submitButtonText}>Continuar al Pago</Text></View>
+          <TouchableOpacity style={styles.submitButton} onPress={handleProcesarPago} disabled={submitting}>
+            <View style={styles.submitButtonContent}>
+              {submitting ? <ActivityIndicator color="#fff" /> : <Icon name="arrow-right" size={20} color="#fff" />}
+              <Text style={styles.submitButtonText}>{submitting ? 'Procesando...' : 'Procesar Pago'}</Text>
+            </View>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -621,7 +626,8 @@ const styles = StyleSheet.create({
   headerIcon: { padding: 8, backgroundColor: '#f8f9fa', borderRadius: 12 },
   title: { fontSize: 26, fontWeight: 'bold', color: '#343a40', marginBottom: 4 },
   subtitle: { fontSize: 16, color: '#6c757d', fontWeight: '500' },
-
+  readOnlyInput: { color: '#495057', backgroundColor: '#f8f9fa' },
+  
   listaContainer: { flex: 1, padding: 16 },
   listaContent: { paddingBottom: 20 },
 

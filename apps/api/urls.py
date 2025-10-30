@@ -38,6 +38,7 @@ urlpatterns = [
     path('servicio/', views.ServicioListCreate.as_view(), name='servicio-list'),
     path('tramite/', views.TramiteListCreate.as_view(), name='tramite-list'),
     path('solicitud/', views.SolicitudListCreate.as_view(), name='solicitud-list'),
+    path('banco/', views.BancoListCreate.as_view(), name='banco-list'),
     path('moneda/', views.MonedaListCreate.as_view(), name='moneda-list'),
     path('tasa/', views.TasaListCreate.as_view(), name='tasa-list'),
     path('usuario/', views.UsuarioListCreate.as_view(), name='usuario-list'),

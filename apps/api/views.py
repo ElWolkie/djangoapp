@@ -11,11 +11,12 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.permissions import AllowAny
 from django.db.models import Sum
 from apps.home.models import Personas, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Moneda, Tasa, Formacion, TipoFormacion, Usuarios, CuotaFormacion
-from .serializers import PagoSerializer, PersonaSerializer, CedulaTokenObtainSerializer, TipoPersonaSerializer, PersonaTPSerializer, FormacionSerializer, TPFormacionSerializer, MateriaSerializer, CohorteSerializer, CargoSerializer, HonorarioSerializer, InscripcionSerializer, RequisitoSerializer, ServicioSerializer, TramiteSerializer, SolicitudSerializer, MonedaSerializer, TasaSerializer, UsuarioSerializer, AsientoContableSerializer, PlanCuentaSerializer, PeriodoContableSerializer, CuotaFormacionSerializer, NotaSerializer  # Importa ambos serializadores
+from .serializers import PagoSerializer, PersonaSerializer, CedulaTokenObtainSerializer, TipoPersonaSerializer, PersonaTPSerializer, FormacionSerializer, TPFormacionSerializer, MateriaSerializer, CohorteSerializer, CargoSerializer, HonorarioSerializer, InscripcionSerializer, RequisitoSerializer, ServicioSerializer, TramiteSerializer, SolicitudSerializer, BancoSerializer, MonedaSerializer, TasaSerializer, UsuarioSerializer, AsientoContableSerializer, PlanCuentaSerializer, PeriodoContableSerializer, CuotaFormacionSerializer, NotaSerializer  # Importa ambos serializadores
 from apps.persona.models import PersonaTP, TipoPersona
 from apps.honorario.models import Honorario
 from apps.inscripcion.models import Inscripcion
 from apps.solicitud.models import Solicitud
+from apps.cuentaBanco.models import Banco
 from apps.asientoContable.models import AsientoContable, DetalleAsiento
 from apps.planCuenta.models import PlanCuenta
 from apps.periodoContable.models import periodoContable
@@ -58,7 +59,6 @@ class PersonaRetrieveUpdateDestroy(generics.RetrieveUpdateDestroyAPIView):
 class TPFormacionListCreate(generics.ListCreateAPIView):
     queryset = TipoFormacion.objects.all()  # Usa el modelo Formacion
     serializer_class = TPFormacionSerializer  # Usa el serializador Formacion
-
 
 class MateriaListCreate(generics.ListCreateAPIView):
     queryset = Materia.objects.all()  # Usa el modelo Materia
@@ -425,6 +425,10 @@ class SolicitudListCreate(generics.ListCreateAPIView):
     queryset = Solicitud.objects.all()  # Usa el modelo TramSolicitudite
     serializer_class = SolicitudSerializer  # Usa el serializador SolicitudSerializer
 
+class BancoListCreate(generics.ListCreateAPIView):
+    queryset = Banco.objects.all()  # Usa el modelo Banco
+    serializer_class = BancoSerializer  # Usa el serializador BancoSerializer
+
 class MonedaListCreate(generics.ListCreateAPIView):
     queryset = Moneda.objects.all()  # Usa el modelo Moneda
     serializer_class = MonedaSerializer  # Usa el serializador MonedaSerializer
@@ -502,8 +506,6 @@ class EgresosAPIView(APIView):
 
 ##########################API DE PAGO TEMPORAL APP ############################
 
-from rest_framework import status
-from apps.factura.models import PagoTemporal
 from .serializers import PagoTemporalSerializer 
 class PagoTemporalCreateAPIView(APIView):
     """

@@ -21,7 +21,7 @@ from django.contrib.auth import get_user_model
 from django.utils.timezone import now
 
 import logging
-from apps.factura.models import Nota, NotaRelacionada, Pago, PlanArticulo
+from apps.factura.models import Nota, NotaRelacionada, Pago, PlanArticulo, PagoTemporal
 
 class TipoPersonaSerializer(serializers.ModelSerializer):
     class Meta:
@@ -634,13 +634,7 @@ class AsientoContableSerializer(serializers.ModelSerializer):
         fields = ['idAsiento', 'numeroAsiento', 'fechaAsiento', 'conceptoAsiento', 'idPeriodo', 'fechaAsientoDigital', 'detalles']
 
 
-
-
-
-
-######## Nuevo Serializer para PagoTemporal#####################
-from rest_framework import serializers
-from apps.factura.models import PagoTemporal
+######## Nuevo Serializer para PagoTemporal##################### 
 
 class PagoTemporalSerializer(serializers.ModelSerializer):
     class Meta:
