@@ -171,6 +171,7 @@ const InscripcionesScreen = () => {
   const isSmallScreen = width <= 620;
   const isLargeScreen = width >= 900;
 
+  const [formDataLoading, setFormDataLoading] = useState(false);
   const [items, setItems] = useState<Inscripcion[]>([]);
   const [mostradas, setMostradas] = useState<Inscripcion[]>([]);
   const [loading, setLoading] = useState(true);
@@ -304,6 +305,7 @@ const InscripcionesScreen = () => {
 
   // ---------- Fetch tipos/formaciones/cohortes ----------
   const fetchDatosFormulario = useCallback(async () => {
+    setFormDataLoading(true);
     try {
       const requests = [
         api.get('/api/tipo-formaciones/'),
@@ -316,72 +318,96 @@ const InscripcionesScreen = () => {
       const formacionesData = results[1].status === 'fulfilled' ? results[1].value.data : [];
       const cohortesData = results[2].status === 'fulfilled' ? results[2].value.data : [];
 
-      const extract = (responseData: any, tipo: string) => {
-        let arr: any[] = [];
-        if (!responseData) return [];
-        if (Array.isArray(responseData)) arr = responseData;
-        else if (responseData && Array.isArray(responseData.results)) arr = responseData.results;
-        else if (responseData && responseData.data && Array.isArray(responseData.data)) arr = responseData.data;
-        else if (responseData && typeof responseData === 'object') {
-          if (Object.keys(responseData).length === 0) arr = [];
-          else arr = [responseData];
-        } else arr = [];
-
-        return arr.map((item: any) => {
-          if (tipo === 'tipos') {
-            return {
-              idTF: Number(item.idTF || item.id || item.tipo_id || 0),
-              nombreTipoFormacion: item.nombreTipoFormacion || item.nombre || item.descripcion || 'Sin nombre'
-            };
-          }
-          if (tipo === 'formaciones') {
-            const cuotasParsed = cuotasFromFormacionObj(item);
-            return {
-              idFormacion: Number(item.idFormacion || item.id || 0),
-              nombreFormacion: item.nombreFormacion || item.nombre || 'Sin nombre',
-              idTF: Number(item.idTF ?? item.tipo_formacion ?? item.tipoFormacion ?? 0),
-              valorInscripcion: Number(item.valorInscripcion ?? item.precio ?? item.costo ?? 0),
-              tieneCuotas: Boolean(item.tieneCuotas ?? item.cuotas ?? false),
-              cantidad_cuotas: Number(item.cantidad_cuotas ?? item.cuotas_count ?? cuotasParsed.length ?? 0),
-              cuotas: cuotasParsed,
-              raw: item
-            };
-          }
-          if (tipo === 'cohortes') {
-            const idFormRaw = item.idFormacion ?? item.idFormacion_detail ?? item.formacion ?? item.id_formacion ?? null;
-            const idFormacionObj = (typeof idFormRaw === 'object' && idFormRaw !== null) ? {
-              idFormacion: Number(idFormRaw.idFormacion ?? idFormRaw.id ?? idFormRaw.pk ?? 0),
-              nombreFormacion: idFormRaw.nombreFormacion ?? idFormRaw.nombre ?? idFormRaw.title ?? null,
-              valorInscripcion: Number(idFormRaw.valorInscripcion ?? idFormRaw.precio ?? idFormRaw.costo ?? 0)
-            } : (idFormRaw ? { idFormacion: Number(idFormRaw) } : null);
-
-            return {
-              idCohorte: Number(item.idCohorte || item.id || 0),
-              nombreCohorte: item.nombreCohorte || item.nombre || 'Sin nombre',
-              lapsoInscripcion: Number(item.lapsoInscripcion ?? item.lapso ?? 0),
-              fechaInicio: item.fechaInicio ?? item.start_date ?? item.startDate ?? null,
-              fechaFin: item.fechaFin ?? item.end_date ?? item.endDate ?? null,
-              estadoCohorte: item.estadoCohorte ?? item.estado ?? 'INACTIVO',
-              idFormacion: idFormacionObj,
-              raw: item
-            };
-          }
-          return item;
-        }).filter((it: any) => {
-          if (tipo === 'tipos') return it.idTF > 0;
-          if (tipo === 'formaciones') return it.idFormacion > 0;
-          if (tipo === 'cohortes') return it.idCohorte > 0;
-          return true;
-        });
+      // helper robusto para extraer arrays
+      const toArray = (resp: any) => {
+        if (!resp) return [];
+        if (Array.isArray(resp)) return resp;
+        if (resp.results && Array.isArray(resp.results)) return resp.results;
+        if (resp.data && Array.isArray(resp.data)) return resp.data;
+        return Array.isArray(resp) ? resp : (typeof resp === 'object' ? [resp] : []);
       };
 
-      setTiposFormacion(extract(tiposData, 'tipos'));
-      setFormaciones(extract(formacionesData, 'formaciones'));
-      setCohortes(extract(cohortesData, 'cohortes'));
+      const tiposArr = toArray(tiposData);
+      const formsArr = toArray(formacionesData);
+      const cohortesArr = toArray(cohortesData);
+
+      console.log('[fetchDatosFormulario] counts -> tipos:', tiposArr.length, 'formaciones:', formsArr.length, 'cohortes:', cohortesArr.length);
+
+      const extract = (items: any[], tipo: string) => items.map((item: any) => {
+        if (tipo === 'tipos') {
+          const idTF = Number(item.idTF ?? item.id ?? item.tipo_id ?? item.id_tipo ?? 0);
+          return { idTF, nombreTipoFormacion: item.nombreTipoFormacion ?? item.nombre ?? item.descripcion ?? 'Sin nombre' };
+        }
+
+        if (tipo === 'formaciones') {
+          // detectar idTF en múltiples lugares
+          const idTF = Number(
+            item.idTF ??
+            item.tipo_formacion ??
+            item.tipoFormacion?.idTF ??
+            item.tipo?.id ??
+            item.tipo_id ??
+            item.tipoId ??
+            item.id_tipo ??
+            0
+          );
+
+          const idFormacion = Number(item.idFormacion ?? item.id ?? item.pk ?? 0);
+          const cuotasParsed = cuotasFromFormacionObj(item);
+
+          return {
+            idFormacion,
+            nombreFormacion: item.nombreFormacion ?? item.nombre ?? item.title ?? 'Sin nombre',
+            idTF,
+            valorInscripcion: Number(item.valorInscripcion ?? item.precio ?? item.costo ?? item.valor ?? 0),
+            tieneCuotas: Boolean((item.cuotas && item.cuotas.length) || cuotasParsed.length),
+            cantidad_cuotas: Number(item.cantidad_cuotas ?? cuotasParsed.length ?? 0),
+            cuotas: cuotasParsed,
+            raw: item
+          };
+        }
+
+        if (tipo === 'cohortes') {
+          // extraer idFormacion robusto
+          const idFormRaw = item.idFormacion ?? item.idFormacion_detail ?? item.formacion ?? item.id_formacion ?? null;
+          const idFormacionObj = (typeof idFormRaw === 'object' && idFormRaw !== null)
+            ? { idFormacion: Number(idFormRaw.idFormacion ?? idFormRaw.id ?? idFormRaw.pk ?? 0), nombreFormacion: idFormRaw.nombreFormacion ?? idFormRaw.nombre ?? null, valorInscripcion: Number(idFormRaw.valorInscripcion ?? idFormRaw.precio ?? 0) }
+            : (idFormRaw ? { idFormacion: Number(idFormRaw) } : null);
+
+          return {
+            idCohorte: Number(item.idCohorte ?? item.id ?? item.pk ?? 0),
+            nombreCohorte: item.nombreCohorte ?? item.nombre ?? item.title ?? 'Sin nombre',
+            lapsoInscripcion: Number(item.lapsoInscripcion ?? item.lapso ?? 0),
+            fechaInicio: item.fechaInicio ?? item.start_date ?? item.startDate ?? null,
+            fechaFin: item.fechaFin ?? item.end_date ?? item.endDate ?? null,
+            estadoCohorte: item.estadoCohorte ?? item.estado ?? 'INACTIVO',
+            idFormacion: idFormacionObj,
+            raw: item
+          };
+        }
+        return item;
+      });
+
+      const tipos = extract(tiposArr, 'tipos');
+      const forms = extract(formsArr, 'formaciones');
+      const cohorts = extract(cohortesArr, 'cohortes');
+
+      // logs para debug
+      console.log('[fetchDatosFormulario] tipos sample:', tipos.slice(0,3));
+      console.log('[fetchDatosFormulario] forms sample:', forms.slice(0,3));
+      console.log('[fetchDatosFormulario] cohorts sample:', cohorts.slice(0,3));
+
+      setTiposFormacion(tipos);
+      setFormaciones(forms);
+      setCohortes(cohorts);
     } catch (e) {
+      console.warn('Error fetchDatosFormulario', e);
       Alert.alert('Error', 'No se pudieron cargar los datos del formulario');
+    } finally {
+      setFormDataLoading(false);
     }
   }, []);
+
 
   // ---------- Fecha por defecto ----------
   const establecerFechaActual = () => {
@@ -433,23 +459,32 @@ const InscripcionesScreen = () => {
 
   // ---------- Filtrado formaciones por tipo (ahora usa availableFormaciones) ----------
   useEffect(() => {
-    if (selectedTipoFormacion !== undefined && availableFormaciones.length > 0) {
+    // si aún no cargaron availableFormaciones no hacemos nada
+    if (!availableFormaciones || availableFormaciones.length === 0) {
+      setFormacionesFiltradas([]);
+      return;
+    }
+
+    if (selectedTipoFormacion !== undefined && selectedTipoFormacion !== null) {
       const selectedTipoNum = Number(selectedTipoFormacion);
-      const filtradas = availableFormaciones.filter(f => Number((f as any).idTF) === selectedTipoNum);
+      console.log('[filter] selectedTipoFormacion =>', selectedTipoNum);
+      const filtradas = availableFormaciones.filter(f => Number(f.idTF) === selectedTipoNum);
+      console.log('[filter] formaciones filtradas count:', filtradas.length);
       setFormacionesFiltradas(filtradas);
       setSelectedFormacion(undefined);
-      // Si queda exactamente una formación, la autoseleccionamos (y con ella la cohorte)
+
       if (filtradas.length === 1) {
-        const autoId = (filtradas[0] as any).idFormacion;
+        const autoId = Number(filtradas[0].idFormacion);
         setSelectedFormacion(autoId);
-        // seleccionar cohorte activa asociada
         const coh = findActiveCohorteForFormacion(autoId);
         if (coh) setSelectedCohorte(Number(coh.idCohorte));
       }
     } else {
+      // mostrar todas las disponibles
       setFormacionesFiltradas(availableFormaciones);
     }
   }, [selectedTipoFormacion, availableFormaciones]);
+
 
   // Helper: encontrar cohorte activa (si hay varias devuelve la "mejor" — la primera con inicio <= now)
   const findActiveCohorteForFormacion = (idFormacion: number | undefined | null) => {
@@ -732,11 +767,14 @@ const InscripcionesScreen = () => {
 
   // Handler para selección de formación: autoselecciona cohorte activa asociada
   const handleSelectFormacion = (v: any) => {
-    setSelectedFormacion(v);
-    const coh = findActiveCohorteForFormacion(v);
+    const id = (v === undefined || v === null) ? undefined : Number(v);
+    setSelectedFormacion(id);
+    console.log('handleSelectFormacion -> selectedFormacion:', id);
+    const coh = findActiveCohorteForFormacion(id);
     if (coh) setSelectedCohorte(Number(coh.idCohorte));
     else setSelectedCohorte(undefined);
   };
+
 
   return (
     <View style={styles.container}>
@@ -969,8 +1007,13 @@ const InscripcionesScreen = () => {
                 <Icon name="close" size={isSmallScreen ? 20 : 22} color="#666" />
               </TouchableOpacity>
             </View>
-
-            <ScrollView style={styles.formBody} showsVerticalScrollIndicator keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.formContent, isSmallScreen && styles.formContentSmall, { paddingBottom: 24 }]}>
+            { formDataLoading ? (
+            <View style={{ padding: 20, alignItems: 'center' }}>
+              <ActivityIndicator size="large" color="#4f8cff" />
+              <Text style={{ marginTop: 8, color: '#666' }}>Cargando formaciones y cohortes...</Text>
+            </View>
+          ) : (
+          <ScrollView style={styles.formBody} showsVerticalScrollIndicator keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.formContent, isSmallScreen && styles.formContentSmall, { paddingBottom: 24 }]}>
               {/* Información Personal */}
               <View style={styles.formSection}>
                 <View style={styles.sectionHeader}>
@@ -997,7 +1040,7 @@ const InscripcionesScreen = () => {
                 <View style={[styles.fieldContainer, isSmallScreen && styles.fieldContainerSmall]}>
                   <Text style={[styles.label, isSmallScreen && styles.labelSmall]}>Tipo de Formación *</Text>
                   <View style={[styles.pickerContainer, isSmallScreen && styles.pickerContainerSmall]}>
-                    <Picker selectedValue={selectedTipoFormacion} onValueChange={(v) => setSelectedTipoFormacion(v)} style={[styles.picker, isSmallScreen && styles.pickerSmall, { width: '100%' }]} dropdownIconColor="#666" mode="dropdown">
+                    <Picker selectedValue={selectedTipoFormacion} onValueChange={(v) => setSelectedTipoFormacion(v === undefined || v === null ? undefined : Number(v))} style={[styles.picker, isSmallScreen && styles.pickerSmall, { width: '100%' }]} dropdownIconColor="#666" mode="dropdown">
                       <Picker.Item label="Seleccione tipo..." value={undefined} />
                       {tiposFormacion.map(tf => <Picker.Item key={tf.idTF} label={tf.nombreTipoFormacion} value={tf.idTF} />)}
                     </Picker>
@@ -1079,7 +1122,8 @@ const InscripcionesScreen = () => {
                 </View>
               </View>
             </ScrollView>
-
+            )}
+          
             <View style={[styles.formFooter, isSmallScreen && styles.formFooterSmall]}>
               <TouchableOpacity style={[styles.formButton, styles.cancelButton, isSmallScreen && styles.formButtonSmall]} onPress={() => setFormModalVisible(false)} disabled={creating}>
                 <Text style={[styles.cancelButtonText, isSmallScreen && styles.cancelButtonTextSmall]}>Cancelar</Text>
