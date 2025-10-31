@@ -298,51 +298,84 @@ class NotaSerializer(serializers.ModelSerializer):
 
     def _get_first_relation(self, obj):
         """
-        Función helper para obtener la primera relación de inscripción
-        (que ya fue pre-cargada por la vista).
+        Obtiene la primera NotaRelacionada asociada (preferiblemente la prefetechada).
+        Devolvemos siempre un objeto relation o None.
         """
         try:
-            # 1. Intenta usar los datos prefetcheados por la vista (rápido)
-            #    Buscamos el atributo 'prefetched_relaciones_con_inscripcion' que definimos en la vista.
+            # Si la vista prefetcheó y dejó el atributo, úsalo
             prefetched_list = getattr(obj, 'prefetched_relaciones_con_inscripcion', None)
             if prefetched_list:
                 return prefetched_list[0] if prefetched_list else None
-            
-            # 2. Fallback (Lento: N+1) - Si la prefetch falló o no se usó.
+
+            # Intentar acceder a la relación que viene del related_name 'relaciones'
+            rels = getattr(obj, 'relaciones', None)
+            if rels is not None:
+                first = rels.first()
+                if first:
+                    return first
+
+            # Fallback: consulta select_related para evitar N+1 si no había prefetech
             logger.warning(f"[Consulta N+1] Ejecutando fallback lento para Nota {obj.idNota}")
             return NotaRelacionada.objects.filter(
-                idNota=obj, 
+                idNota=obj,
                 idInscripcion__isnull=False
             ).select_related('idInscripcion__idCohorte__idFormacion').first()
-        
+
         except Exception as e:
-            logger.error(f"Error en _get_first_relation para nota {obj.idNota}: {e}")
+            logger.exception(f"Error en _get_first_relation para nota {obj.idNota}: {e}")
             return None
+
+    def _resolve_formacion_from_inscripcion(self, ins):
+        """
+        Intentos ordenados para obtener el objeto / nombre de la formación
+        desde una instancia de Inscripcion.
+        Devuelve dict con keys mínimas {'idFormacion':..., 'nombreFormacion': ...}
+        o {'nombreFormacion': 'Formación no disponible'} como fallback.
+        """
+        if not ins:
+            return {'nombreFormacion': 'Formación no disponible'}
+
+        # 1) Si Inscripcion tiene FK directa llamada 'idFormacion'
+        form = getattr(ins, 'idFormacion', None)
+        if form:
+            nombre = getattr(form, 'nombreFormacion', getattr(form, 'nombre', None)) or str(form)
+            identificador = getattr(form, 'idFormacion', getattr(form, 'id', None))
+            return {'idFormacion': identificador, 'nombreFormacion': nombre}
+
+        # 2) Si existe cohorte -> cohorte.idFormacion
+        coh = getattr(ins, 'idCohorte', None)
+        if coh:
+            form2 = getattr(coh, 'idFormacion', None)
+            if form2:
+                nombre = getattr(form2, 'nombreFormacion', getattr(form2, 'nombre', None)) or str(form2)
+                identificador = getattr(form2, 'idFormacion', getattr(form2, 'id', None))
+                return {'idFormacion': identificador, 'nombreFormacion': nombre}
+
+        # 3) Si Inscripcion contiene un campo nombreFormacion (string) u otro nombre directo
+        nombre_directo = getattr(ins, 'nombreFormacion', None) or getattr(ins, 'formacion_nombre', None)
+        if nombre_directo:
+            return {'nombreFormacion': nombre_directo}
+
+        # 4) Fallback
+        return {'nombreFormacion': 'Formación no disponible'}
 
     def get_idInscripcion(self, obj):
         rel = self._get_first_relation(obj)
-        if rel and rel.idInscripcion:
-            return rel.idInscripcion.idInscripcion
+        if rel and getattr(rel, 'idInscripcion', None):
+            return getattr(rel.idInscripcion, 'idInscripcion', None)
         return None
 
     def get_formacion(self, obj):
-        # Obtenemos la relación (debería ser instantáneo gracias al prefetch)
         rel = self._get_first_relation(obj)
-        
         try:
-            # Simplemente seguimos la cadena de relaciones que ya está en memoria.
-            # rel -> idInscripcion -> idCohorte -> idFormacion
-            formacion = rel.idInscripcion.idCohorte.idFormacion
-            
-            # Si llegamos aquí, encontramos la formación.
-            return {
-                'idFormacion': formacion.idFormacion,
-                'nombreFormacion': formacion.nombreFormacion
-            }
-        except (AttributeError, TypeError, Exception) as e:
-            # Si algo en la cadena es Nulo (ej, rel=None, idInscripcion=None, etc.)
-            # el código entrará aquí.
-            logger.warning(f"No se pudo resolver la formación para la nota {obj.idNota}. Rel: {rel}. Error: {e}")
+            if not rel:
+                return {'nombreFormacion': 'Formación no disponible'}
+
+            ins = getattr(rel, 'idInscripcion', None)
+            resolved = self._resolve_formacion_from_inscripcion(ins)
+            return resolved
+        except Exception as e:
+            logger.exception(f"No se pudo resolver la formación para la nota {obj.idNota}. Rel: {rel}. Error: {e}")
             return {'nombreFormacion': 'Formación no disponible'}
 
 class PagoSerializer(serializers.ModelSerializer):

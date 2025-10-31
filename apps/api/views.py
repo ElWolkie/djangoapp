@@ -127,7 +127,13 @@ class InscripcionListCreate(generics.ListCreateAPIView):
                 raise ValueError(f'No se encontró tasa para la moneda {moneda_configuracion.nombreMoneda}')
 
             # Valor de inscripción desde formacion (ajusta si viene en payload)
-            valor_inscripcion = inscripcion.idCohorte.idFormacion.valorInscripcion  # O de payload si envías
+            valor_inscripcion = None
+            if getattr(inscripcion, 'idCohorte', None) and getattr(inscripcion.idCohorte, 'idFormacion', None):
+                valor_inscripcion = getattr(inscripcion.idCohorte.idFormacion, 'valorInscripcion', None)
+
+            if valor_inscripcion is None:
+                # fallback razonable o raise para que el dev lo vea
+                raise ValueError('No se pudo determinar valor_inscripcion desde la cohorte/formación.')
 
             # Periodo activo
             periodo_activo = periodoContable.objects.filter(estadoPeriodo=True).first()
@@ -173,8 +179,8 @@ class InscripcionListCreate(generics.ListCreateAPIView):
             )
 
             # Detalles asiento (ajusta planes)
-            plan_debe = PlanArticulo.objects.filter(tipoArticulo='INSCRIPCION', tipo=1).order_by('-fecha').first()
-            plan_haber = PlanArticulo.objects.filter(tipoArticulo='INSCRIPCION', tipo=0).order_by('-fecha').first()
+            plan_debe = PlanArticulo.objects.filter(tipoArticulo='INSCRIPCION', tipo=True).order_by('-fecha').first()
+            plan_haber = PlanArticulo.objects.filter(tipoArticulo='INSCRIPCION', tipo=False).order_by('-fecha').first()
             if plan_debe and plan_haber:
                 DetalleAsiento.objects.create(idAsiento=asiento, idPlanCuenta=plan_debe.idPlanCuenta, debe=nota.totalNota, haber=Decimal('0.00'))
                 DetalleAsiento.objects.create(idAsiento=asiento, idPlanCuenta=plan_haber.idPlanCuenta, debe=Decimal('0.00'), haber=nota.totalNota)
@@ -273,22 +279,18 @@ class NotasUsuarioAutenticadoView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_persona(self):
-        """
-        Obtiene el objeto Personas del usuario autenticado.
-        Asume que tu modelo de Usuario (request.user) tiene un campo OneToOne 'idPersona'.
-        """
         try:
-            # Acceso directo a la relación. 
-            # request.user ES el objeto de tu modelo Usuarios (definido en AUTH_USER_MODEL)
-            # y ese modelo tiene una relación 'idPersona'
             if hasattr(self.request.user, 'idPersona') and self.request.user.idPersona:
                 return self.request.user.idPersona
-            
-            logger.warning(f"El usuario {self.request.user} no tiene 'idPersona' asociado.")
+            # fallback: si existe tabla Usuarios que relaciona user -> persona
+            usuario_rel = Usuarios.objects.filter(user_id=getattr(self.request.user, 'id', None)).first()
+            if usuario_rel and getattr(usuario_rel, 'idPersona', None):
+                return usuario_rel.idPersona
             return None
         except Exception as e:
-            logger.error(f"Error crítico al obtener 'idPersona' del usuario {self.request.user}: {e}")
+            logger.exception("Error obteniendo persona: %s", e)
             return None
+
 
     def get_queryset(self):
         persona = self.get_persona()
@@ -317,6 +319,8 @@ class NotasUsuarioAutenticadoView(generics.ListAPIView):
         return qs
 
 class PagoCreateAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    
     @transaction.atomic
     def post(self, request):
         print("🚀 [PAGO-VIEW] Iniciando procesamiento...")
@@ -408,7 +412,7 @@ class PagoCreateAPIView(APIView):
                 'success': False,
                 'message': f'Error procesando pago: {str(e)}'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
+        
 class RequisitoListCreate(generics.ListCreateAPIView):
     queryset = Requisito.objects.all()  # Usa el modelo Requisito
     serializer_class = RequisitoSerializer  # Usa el serializador RequisitoSerializer

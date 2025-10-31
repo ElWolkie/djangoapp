@@ -1,4 +1,4 @@
-// src/screens/pago.tsx - VERSIÓN AJUSTADA (montos read-only, sin bancos/teléfono/foto)
+// src/screens/pago.tsx
 import React, { useState, useEffect, useContext, useCallback } from 'react';
 import {
   View,
@@ -13,12 +13,12 @@ import {
   KeyboardAvoidingView,
   Platform,
   useWindowDimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import api from '../api/api';
 import { AuthContext } from '../contexts/AuthContext';
-import { ActivityIndicator } from 'react-native';
 
 interface NotaItem {
   idNota?: number;
@@ -30,7 +30,6 @@ interface NotaItem {
   idInscripcion?: number | null;
   idInscripcion_detail?: any;
   persona?: { nombre?: string; cedula?: string } | any;
-  // campo de ayuda local
   _resolvedFormacionName?: string | null;
   [k: string]: any;
 }
@@ -43,7 +42,7 @@ interface Inscripcion {
   idPersona_detail?: {
     cedula?: string;
   };
-  idCohorte?: any;  // Cohorte
+  idCohorte?: any;
   idFormacion_detail?: {
     idFormacion?: number;
     nombreFormacion?: string;
@@ -54,13 +53,12 @@ interface Inscripcion {
   saldoPendiente?: number;
 }
 
-const PagoScreen = () => {
+const PagoScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { user } = useContext(AuthContext);
   const { width } = useWindowDimensions();
-
-  const { notaData, inscripcionId } = route.params || {};
+  const { notaData } = route.params || {};
 
   const [refreshing, setRefreshing] = useState(false);
   const [formData, setFormData] = useState({
@@ -79,11 +77,13 @@ const PagoScreen = () => {
   const [notaSeleccionada, setNotaSeleccionada] = useState<NotaItem | null>(notaData ?? null);
   const [submitting, setSubmitting] = useState(false);
 
-  // Estados para inscripciones
   const [inscripcionesUsuario, setInscripcionesUsuario] = useState<Inscripcion[]>([]);
   const [cargandoInscripciones, setCargandoInscripciones] = useState(false);
 
-  // Helpers ----------------------------------------------------------------
+  // modales separados
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+
   const placeholderNames = new Set(['Formación no especificada', 'Información no disponible', '—', null, undefined, '']);
 
   const isValidFormacionName = (name?: string | null) => {
@@ -94,93 +94,65 @@ const PagoScreen = () => {
     return true;
   };
 
-  // Lógica limpia para extraer nombre de formación (solo de datos reales, sin manual)
   const getNombreFormacion = (inscripcion: Inscripcion): string => {
-    // 1) idFormacion_detail (directo)
-    const name1 = inscripcion.idFormacion_detail?.nombreFormacion;
+    const name1 = (inscripcion as any).idFormacion_detail?.nombreFormacion;
     if (name1 && isValidFormacionName(name1)) return name1;
 
-    // 2) cohorte.idFormacion (nested)
     const name2 = inscripcion.idCohorte?.idFormacion?.nombreFormacion || inscripcion.idCohorte?.idFormacion?.nombre;
     if (name2 && isValidFormacionName(name2)) return name2;
 
-    // 3) Otros fields si existen (e.g., inscripcion.nombreFormacion si agregas)
     const name3 = (inscripcion as any).nombreFormacion;
     if (name3 && isValidFormacionName(name3)) return name3;
 
     return 'Formación no especificada';
   };
 
-  // Función para mapear nota a su inscripción (mejorada)
   const findInscripcionForNota = (nota: NotaItem): Inscripcion | null => {
-    console.log(`🔍 Buscando inscripción para nota ${nota.idNota}: fecha=${nota.fechaEmision}, monto=${nota.totalNota}, idIns=${nota.idInscripcion}`);
-
-    // Prioridad 1: Por ID de inscripción
+    // Prioridad 1: Por idInscripcion
     const idIns = nota.idInscripcion ?? nota.idInscripcion_detail?.idInscripcion ?? nota.inscripcion_id ?? null;
     if (idIns) {
       const match = inscripcionesUsuario.find((ins) => ins.idInscripcion === Number(idIns));
-      if (match) {
-        console.log(`✅ Match por ID: ${match.idInscripcion}`);
-        return match;
-      }
+      if (match) return match;
     }
 
-    // Prioridad 2: Por fecha cercana (+/- 1 día)
+    // Prioridad 2: Por fecha cercana
     if (nota.fechaEmision) {
       const notaDate = new Date(nota.fechaEmision).getTime();
       const match = inscripcionesUsuario.find((ins) => {
         if (ins.fechaInscripcion) {
           const insDate = new Date(ins.fechaInscripcion).getTime();
           const diff = Math.abs(notaDate - insDate);
-          return diff < 86400000;  // 1 día
+          return diff < 86400000;
         }
         return false;
       });
-      if (match) {
-        console.log(`✅ Match por fecha: nota ${nota.fechaEmision} ~ ins ${match.fechaInscripcion}`);
-        return match;
-      }
+      if (match) return match;
     }
 
-    // Prioridad 3: Por monto exacto (si unique)
+    // Prioridad 3: por monto
     if (nota.totalNota) {
       const matches = inscripcionesUsuario.filter((ins) => Number(ins.montoTotal) === Number(nota.totalNota));
-      if (matches.length === 1) {
-        console.log(`✅ Match por monto unique: ${nota.totalNota}`);
-        return matches[0];
-      } else if (matches.length > 1) {
-        console.warn(`⚠️ Múltiples matches por monto ${nota.totalNota}, usando primero`);
-        return matches[0];
-      }
+      if (matches.length === 1) return matches[0];
+      if (matches.length > 1) return matches[0];
     }
 
-    // Fallback: Primera inscripción con estado pendiente o parcial
-    const fallback = inscripcionesUsuario.find((ins) => ins.estadoPago !== 'PAGADO');
-    if (fallback) {
-      console.log(`📌 Fallback a primera pendiente: ${fallback.idInscripcion}`);
-      return fallback;
-    }
-
-    console.warn(`⚠️ No match para nota ${nota.idNota}`);
-    return null;
+    // Fallback
+    return inscripcionesUsuario.find((ins) => ins.estadoPago !== 'PAGADO') ?? null;
   };
 
-  // getFormacionNameFromNota: Usa el mapper
   const getFormacionNameFromNota = (nota: NotaItem) => {
     if (!nota) return 'Formación no especificada';
     if (nota._resolvedFormacionName && isValidFormacionName(nota._resolvedFormacionName)) return nota._resolvedFormacionName;
 
-    // Buscar inscripción matching y extraer nombre
     const ins = findInscripcionForNota(nota);
     if (ins) {
       const name = getNombreFormacion(ins);
       if (isValidFormacionName(name)) {
-        nota._resolvedFormacionName = name;  // Cache
+        nota._resolvedFormacionName = name;
         return name;
       }
     }
 
-    // Fallback si backend envió algo usable
     if (nota.formacion && (nota.formacion.nombreFormacion || nota.formacion.nombre)) {
       const nm = nota.formacion.nombreFormacion ?? nota.formacion.nombre;
       if (isValidFormacionName(nm)) return nm;
@@ -189,7 +161,6 @@ const PagoScreen = () => {
     return 'Formación no especificada';
   };
 
-  // Cargar inscripciones del usuario
   const cargarInscripcionesUsuario = useCallback(async () => {
     setCargandoInscripciones(true);
     try {
@@ -197,13 +168,9 @@ const PagoScreen = () => {
       const data = response.data;
       let items: Inscripcion[] = [];
 
-      if (Array.isArray(data)) {
-        items = data;
-      } else if (data.results && Array.isArray(data.results)) {
-        items = data.results;
-      } else if (data.data && Array.isArray(data.data)) {
-        items = data.data;
-      }
+      if (Array.isArray(data)) items = data;
+      else if (data.results && Array.isArray(data.results)) items = data.results;
+      else if (data.data && Array.isArray(data.data)) items = data.data;
 
       const cedulaUsuario = user?.cedula ? normalizarCedula(user.cedula) : null;
       if (cedulaUsuario) {
@@ -214,6 +181,7 @@ const PagoScreen = () => {
       }
 
       setInscripcionesUsuario(items);
+      // console.debug para desarrollo
       console.log('📚 Inscripciones cargadas:', items.map(i => ({ id: i.idInscripcion, fecha: i.fechaInscripcion, monto: i.montoTotal, formacion: getNombreFormacion(i) })));
     } catch (error: any) {
       console.error('Error cargando inscripciones:', error);
@@ -223,30 +191,22 @@ const PagoScreen = () => {
     }
   }, [user]);
 
-  // Cargar notas del usuario
   const cargarNotasUsuario = useCallback(async () => {
     setCargandoNotas(true);
     try {
       const response = await api.get('/api/notas/usuario/autenticado/');
-      console.log('📡 Raw notas response:', response.data);
       const payload = response.data ?? {};
       let items: NotaItem[] = [];
 
-      if (payload && typeof payload === 'object' && Array.isArray(payload.data)) {
-        items = payload.data;
-      } else if (Array.isArray(response.data)) {
-        items = response.data;
-      } else {
-        if (payload.success === false) {
-          throw new Error(payload.message || 'No se pudieron cargar las notas');
-        }
+      if (payload && typeof payload === 'object' && Array.isArray(payload.data)) items = payload.data;
+      else if (Array.isArray(response.data)) items = response.data;
+      else {
+        if (payload.success === false) throw new Error(payload.message || 'No se pudieron cargar las notas');
         if (payload && payload.data && !Array.isArray(payload.data)) {
           const maybe = payload.data.items ?? payload.data.results ?? [];
           if (Array.isArray(maybe)) items = maybe;
         }
       }
-
-      console.log('🗂️ Items extraídos:', items.map(n => ({ id: n.idNota, fecha: n.fechaEmision, monto: n.totalNota })));
 
       setNotasUsuario(items);
     } catch (error: any) {
@@ -271,6 +231,10 @@ const PagoScreen = () => {
     if (notaData) {
       setNotaSeleccionada(notaData);
       setFormData(prev => ({ ...prev, idNota: String(notaData.idNota ?? ''), monto: String(notaData.totalNota ?? '') }));
+      // si viene notaData y estás en modo automático, abre directamente modal pago
+      if (!modoDirecto) {
+        setShowPaymentModal(true);
+      }
     }
   }, [modoDirecto, user, notaData, cargarNotasUsuario, cargarInscripcionesUsuario]);
 
@@ -280,14 +244,36 @@ const PagoScreen = () => {
     setRefreshing(false);
   };
 
-  // Selección de nota por el usuario
   const seleccionarNota = async (nota: NotaItem) => {
     setNotaSeleccionada(nota);
     setFormData(prev => ({ ...prev, idNota: String(nota.idNota ?? ''), monto: String(nota.totalNota ?? '') }));
     setErrors({});
+    // abrir modal de detalle (no abrir pago directo)
+    setShowDetailsModal(true);
+    setShowPaymentModal(false);
   };
 
-  // Validaciones / submit
+  const iniciarPago = () => {
+    if (!notaSeleccionada) return Alert.alert('Error', 'Seleccione una nota primero');
+    setFormData(prev => ({
+      ...prev,
+      idNota: String(notaSeleccionada.idNota ?? ''),
+      monto: String(notaSeleccionada.totalNota ?? 0),
+      referencia: '',
+      fechaPago: new Date().toISOString().split('T')[0],
+    }));
+    setShowDetailsModal(false);
+    setShowPaymentModal(true);
+    setErrors({});
+  };
+
+  const cerrarModales = () => {
+    setShowDetailsModal(false);
+    setShowPaymentModal(false);
+    setNotaSeleccionada(null);
+    setErrors({});
+  };
+
   const validateForm = (): boolean => {
     const newErrors: { [key: string]: string } = {};
     if (!formData.idNota) newErrors.idNota = 'Debe seleccionar una nota';
@@ -314,16 +300,26 @@ const PagoScreen = () => {
 
     setSubmitting(true);
     try {
-      const response = await api.post('/api/pagos/create/', formData);
+      const response = await api.post('/api/pagos/create/', {
+        idNota: Number(formData.idNota),
+        monto: Number(formData.monto),
+        fechaPago: formData.fechaPago,
+        formaPago: formData.formaPago,
+        referencia: formData.referencia,
+        observaciones: formData.observaciones,
+      });
+
       if (response.data.success) {
         Alert.alert('Éxito', response.data.message || 'Pago registrado correctamente.');
-        setNotaSeleccionada(null);  // Cierra modal
-        onRefresh();  // Recarga lista
+        setShowPaymentModal(false);
+        setNotaSeleccionada(null);
+        await onRefresh();
       } else {
         Alert.alert('Error', response.data.message || 'Error al procesar pago');
       }
     } catch (error: any) {
-      Alert.alert('Error', error.response?.data?.message || 'Error en la conexión');
+      const msg = error.response?.data?.message || error.message || 'Error en la conexión';
+      Alert.alert('Error', msg.toString());
     } finally {
       setSubmitting(false);
     }
@@ -344,7 +340,6 @@ const PagoScreen = () => {
     return d.toLocaleDateString('es-VE');
   };
 
-  // Render --------------------------------------------------------------------------------
   const renderNotaItem = ({ item }: { item: NotaItem }) => {
     const estado = (item.estado ?? '').toUpperCase();
     const formacionName = getFormacionNameFromNota(item);
@@ -386,7 +381,7 @@ const PagoScreen = () => {
 
   const modalMaxWidth = Math.min(Math.max(320, width - 48), 900);
 
-  // UI: modoDirecto (lista + modal)
+  // UI modoDirecto
   if (modoDirecto) {
     return (
       <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -413,7 +408,7 @@ const PagoScreen = () => {
             <FlatList
               data={notasUsuario}
               renderItem={renderNotaItem}
-              keyExtractor={(item) => String(item.idNota ?? Math.random())}
+              keyExtractor={(item) => String(item.idNota ?? 'nota-' + Math.random().toString(36).slice(2, 9))}
               refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#4f8cff']} tintColor="#4f8cff" />}
               contentContainerStyle={styles.listaContent}
               showsVerticalScrollIndicator={false}
@@ -421,16 +416,17 @@ const PagoScreen = () => {
           )}
         </View>
 
-        {notaSeleccionada && (
+        {/* MODAL DETALLE */}
+        {notaSeleccionada && showDetailsModal && (
           <View style={styles.formularioOverlay}>
             <ScrollView contentContainerStyle={[styles.formScrollContent, { padding: 20 }]}>
               <View style={[styles.formCard, { width: modalMaxWidth, alignSelf: 'center' }]}>
                 <View style={styles.formHeader}>
                   <View style={styles.formTitleContainer}>
-                    <Icon name="credit-card-check" size={24} color="#28a745" />
-                    <Text style={styles.formTitle}>Procesar Pago</Text>
+                    <Icon name="file-document" size={24} color="#495057" />
+                    <Text style={styles.formTitle}>Detalle de Nota</Text>
                   </View>
-                  <TouchableOpacity onPress={() => setNotaSeleccionada(null)} style={styles.cancelarBtn}>
+                  <TouchableOpacity onPress={cerrarModales} style={styles.cancelarBtn}>
                     <Icon name="close" size={22} color="#6c757d" />
                   </TouchableOpacity>
                 </View>
@@ -459,7 +455,58 @@ const PagoScreen = () => {
                   </View>
                 </View>
 
-                {/* Forma, monto, referencia, etc. (idéntico a tu UI anterior) */}
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 }}>
+                  <TouchableOpacity style={[styles.submitButton, { backgroundColor: '#6c757d' }]} onPress={cerrarModales}>
+                    <Text style={styles.submitButtonText}>Cerrar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.submitButton} onPress={iniciarPago}>
+                    <Text style={styles.submitButtonText}>Iniciar Pago</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </ScrollView>
+          </View>
+        )}
+
+        {/* MODAL PAGO */}
+        {notaSeleccionada && showPaymentModal && (
+          <View style={styles.formularioOverlay}>
+            <ScrollView contentContainerStyle={[styles.formScrollContent, { padding: 20 }]}>
+              <View style={[styles.formCard, { width: modalMaxWidth, alignSelf: 'center' }]}>
+                <View style={styles.formHeader}>
+                  <View style={styles.formTitleContainer}>
+                    <Icon name="credit-card-check" size={24} color="#28a745" />
+                    <Text style={styles.formTitle}>Procesar Pago</Text>
+                  </View>
+                  <TouchableOpacity onPress={cerrarModales} style={styles.cancelarBtn}>
+                    <Icon name="close" size={22} color="#6c757d" />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.infoCard}>
+                  <View style={styles.infoHeader}>
+                    <Icon name="file-document" size={18} color="#495057" />
+                    <Text style={styles.infoTitle}>Nota Seleccionada</Text>
+                  </View>
+
+                  <View style={styles.infoGrid}>
+                    <View style={styles.infoItem}>
+                      <Text style={styles.infoLabel}>Número:</Text>
+                      <Text style={styles.infoValue}>{notaSeleccionada.numeroNota ?? '—'}</Text>
+                    </View>
+                    <View style={styles.infoItem}>
+                      <Text style={styles.infoLabel}>Formación:</Text>
+                      <Text style={styles.infoValue} numberOfLines={2}>
+                        {getFormacionNameFromNota(notaSeleccionada)}
+                      </Text>
+                    </View>
+                    <View style={styles.infoItem}>
+                      <Text style={styles.infoLabel}>Total:</Text>
+                      <Text style={styles.totalValue}>${formatCurrency(Number(notaSeleccionada.totalNota ?? 0))}</Text>
+                    </View>
+                  </View>
+                </View>
+
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>Forma de Pago *</Text>
                   <View style={styles.radioGroup}>
@@ -480,14 +527,11 @@ const PagoScreen = () => {
                   <Text style={styles.label}>Monto a Pagar</Text>
                   <View style={styles.inputContainer}>
                     <Text style={styles.currencySymbol}>$</Text>
-                    <TextInput
-                      style={[styles.input, { color: '#495057' }]}
-                      value={formatCurrency(Number(notaSeleccionada.totalNota ?? 0))}
-                      editable={false}
-                    />
+                    <TextInput style={[styles.input, styles.readOnlyInput]} value={formatCurrency(Number(notaSeleccionada.totalNota ?? 0))} editable={false} />
                   </View>
                 </View>
 
+                {/* REFERENCIA: solo aquí */}
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>Número de Referencia *</Text>
                   <TextInput style={[styles.input, errors.referencia && styles.inputError]} value={formData.referencia} onChangeText={(v) => handleInputChange('referencia', v)} placeholder="Ej: 123456789" maxLength={40} placeholderTextColor="#6c757d" />
@@ -511,7 +555,7 @@ const PagoScreen = () => {
                 <TouchableOpacity style={styles.submitButton} onPress={handleProcesarPago} disabled={submitting}>
                   <View style={styles.submitButtonContent}>
                     {submitting ? <ActivityIndicator color="#fff" /> : <Icon name="arrow-right" size={20} color="#fff" />}
-                    <Text style={styles.submitButtonText}>{submitting ? 'Procesando...' : 'Continuar al Pago'}</Text>
+                    <Text style={styles.submitButtonText}>{submitting ? 'Procesando...' : 'Procesar Pago'}</Text>
                   </View>
                 </TouchableOpacity>
               </View>
@@ -522,10 +566,10 @@ const PagoScreen = () => {
     );
   }
 
-  // modo automático (notaData proporcionada por params)
+  // modo automático (notaData)
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.formScrollContent}>
         <View style={styles.header}>
           <View style={styles.headerContent}>
             <Text style={styles.title}>Procesar Pago</Text>
@@ -567,11 +611,7 @@ const PagoScreen = () => {
             <Text style={styles.label}>Monto a Pagar</Text>
             <View style={styles.inputContainer}>
               <Text style={styles.currencySymbol}>$</Text>
-              <TextInput
-                style={[styles.input, styles.readOnlyInput]}
-                value={formatCurrency(Number(notaSeleccionada?.totalNota ?? 0))}
-                editable={false}
-              />
+              <TextInput style={[styles.input, styles.readOnlyInput]} value={formatCurrency(Number(notaSeleccionada?.totalNota ?? notaData?.totalNota ?? 0))} editable={false} />
             </View>
           </View>
 
@@ -616,91 +656,82 @@ function normalizarCedula(cedula: string): string {
   return normalizada;
 }
 
-// Estilos aquí al final
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8f9fa' },
   scrollView: { flex: 1 },
-  scrollContent: { flexGrow: 1, paddingBottom: 40 },
-  header: { backgroundColor: '#fff', padding: 20, borderBottomWidth: 1, borderBottomColor: '#e9ecef', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  header: { flexDirection: 'row', padding: 16, alignItems: 'center', justifyContent: 'space-between' },
   headerContent: { flex: 1 },
-  headerIcon: { padding: 8, backgroundColor: '#f8f9fa', borderRadius: 12 },
-  title: { fontSize: 26, fontWeight: 'bold', color: '#343a40', marginBottom: 4 },
-  subtitle: { fontSize: 16, color: '#6c757d', fontWeight: '500' },
-  readOnlyInput: { color: '#495057', backgroundColor: '#f8f9fa' },
-  
-  listaContainer: { flex: 1, padding: 16 },
-  listaContent: { paddingBottom: 20 },
+  title: { fontSize: 20, fontWeight: '700', color: '#212529' },
+  subtitle: { fontSize: 13, color: '#6c757d', marginTop: 4 },
+  headerIcon: { marginLeft: 12 },
+  listaContainer: { flex: 1, paddingHorizontal: 12, paddingBottom: 20 },
+  listaContent: { paddingBottom: 120 },
+  notaItem: { backgroundColor: '#fff', borderRadius: 8, padding: 12, marginVertical: 8, shadowColor: '#000', shadowOpacity: 0.03, elevation: 1 },
+  notaItemSeleccionada: { borderColor: '#4f8cff', borderWidth: 1.5 },
+  notaHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  notaNumero: { fontWeight: '700', color: '#343a40' },
+  estadoBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
+  estadoText: { fontSize: 12, color: '#fff' },
+  estadoPagada: { backgroundColor: '#28a745' },
+  estadoParcial: { backgroundColor: '#ffc107' },
+  estadoPendiente: { backgroundColor: '#dc3545' },
+  notaFormacion: { marginTop: 8, color: '#495057' },
+  notaFooter: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 },
+  notaFecha: { color: '#6c757d' },
+  notaMonto: { fontWeight: '700', color: '#212529' },
+  seleccionadoIndicator: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
+  seleccionadoText: { marginLeft: 6, color: '#28a745' },
 
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 60 },
-  loadingText: { marginTop: 12, color: '#6c757d', fontSize: 16, fontWeight: '500' },
-
-  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 80 },
-  emptyText: { fontSize: 18, color: '#6c757d', fontWeight: '600', marginTop: 16, textAlign: 'center' },
-  emptySubtext: { fontSize: 14, color: '#6c757d', textAlign: 'center', marginTop: 8, paddingHorizontal: 40, lineHeight: 20 },
-
-  notaItem: { backgroundColor: '#fff', padding: 16, borderRadius: 12, marginBottom: 12, borderWidth: 2, borderColor: 'transparent' },
-  notaItemSeleccionada: { borderColor: '#28a745', backgroundColor: '#f8fff9' },
-  notaHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  notaNumero: { fontSize: 16, fontWeight: '700', color: '#343a40' },
-  estadoBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
-  estadoPendiente: { backgroundColor: '#fff3cd' },
-  estadoParcial: { backgroundColor: '#d1ecf1' },
-  estadoPagada: { backgroundColor: '#d4edda' },
-  estadoText: { fontSize: 12, fontWeight: '700', color: '#000' },
-  notaFormacion: { fontSize: 14, color: '#495057', marginBottom: 12, lineHeight: 20 },
-  notaFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  notaFecha: { fontSize: 13, color: '#6c757d', fontWeight: '500' },
-  notaMonto: { fontSize: 16, fontWeight: 'bold', color: '#28a745' },
-
-  seleccionadoIndicator: { flexDirection: 'row', alignItems: 'center', marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#e9ecef' },
-  seleccionadoText: { marginLeft: 8, color: '#28a745', fontWeight: '600', fontSize: 14 },
-
-  formularioOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.55)' },
-  formScrollContent: { flexGrow: 1, justifyContent: 'center' },
-
-  formCard: { backgroundColor: '#fff', borderRadius: 12, padding: 20, marginHorizontal: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 12, elevation: 6 },
-  formHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  formularioOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center', padding: 16 },
+  formScrollContent: { paddingBottom: 40 },
+  formCard: { backgroundColor: '#fff', borderRadius: 12, padding: 12, shadowColor: '#000', shadowOpacity: 0.05, elevation: 4 },
+  formHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   formTitleContainer: { flexDirection: 'row', alignItems: 'center' },
-  formTitle: { fontSize: 20, fontWeight: 'bold', marginLeft: 8 },
-  cancelarBtn: { padding: 8, borderRadius: 8, backgroundColor: '#f8f9fa' },
+  formTitle: { marginLeft: 8, fontWeight: '700', color: '#212529' },
+  cancelarBtn: { padding: 6 },
 
-  infoCard: { backgroundColor: '#fff', marginBottom: 16, padding: 12, borderRadius: 12, borderLeftWidth: 4, borderLeftColor: '#4f8cff' },
-  infoHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  infoTitle: { fontSize: 16, fontWeight: '700', marginLeft: 8 },
-  infoGrid: { gap: 8 },
-  infoItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  totalItem: { borderTopWidth: 1, borderTopColor: '#e9ecef', paddingTop: 12, marginTop: 6 },
-  infoLabel: { fontSize: 14, color: '#6c757d', fontWeight: '500', flex: 1 },
-  infoValue: { fontSize: 14, color: '#495057', fontWeight: '600', flex: 1, textAlign: 'right' },
-  totalLabel: { fontSize: 16, fontWeight: '700', color: '#495057', flex: 1 },
-  totalValue: { fontSize: 16, fontWeight: '700', color: '#28a745', flex: 1, textAlign: 'right' },
+  infoCard: { marginTop: 12, backgroundColor: '#f1f3f5', borderRadius: 8, padding: 10 },
+  infoHeader: { flexDirection: 'row', alignItems: 'center' },
+  infoTitle: { marginLeft: 8, fontWeight: '700', color: '#343a40' },
+  infoGrid: { marginTop: 8 },
+  infoItem: { marginBottom: 8 },
+  infoLabel: { color: '#6c757d', fontSize: 13 },
+  infoValue: { color: '#212529', fontWeight: '600' },
+  totalItem: { marginTop: 6 },
+  totalLabel: { color: '#6c757d', fontWeight: '700' },
+  totalValue: { color: '#212529', fontWeight: '900', fontSize: 16 },
 
-  inputGroup: { marginBottom: 16 },
-  label: { fontSize: 15, fontWeight: '600', color: '#495057', marginBottom: 8 },
-  inputContainer: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#ced4da', borderRadius: 8, backgroundColor: '#fff' },
-  currencySymbol: { fontSize: 16, fontWeight: '600', color: '#495057', paddingHorizontal: 12, backgroundColor: '#f8f9fa', borderRightWidth: 1, borderRightColor: '#ced4da', height: 44, textAlignVertical: 'center' },
-  inputIcon: { paddingHorizontal: 12 },
-  input: { flex: 1, padding: 12, fontSize: 15, color: '#495057', minHeight: 44 },
-  inputError: { borderColor: '#dc3545' },
-  textArea: { height: 100 },
-  helperText: { fontSize: 13, color: '#6c757d', marginTop: 6 },
-  helperTextBold: { fontWeight: '700', color: '#495057' },
+  inputGroup: { marginTop: 12 },
+  label: { marginBottom: 6, color: '#495057', fontWeight: '600' },
+  inputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 8, paddingHorizontal: 8, borderWidth: 1, borderColor: '#e9ecef' },
+  currencySymbol: { marginRight: 6, color: '#495057' },
+  input: { flex: 1, paddingVertical: 10, paddingHorizontal: 6, color: '#212529' },
+  readOnlyInput: { backgroundColor: '#e9ecef' },
+  inputError: { borderColor: '#dc3545', borderWidth: 1 },
+  inputIcon: { marginRight: 8 },
+  radioGroup: { marginTop: 6 },
+  radioOption: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 10, borderRadius: 8, borderWidth: 1, borderColor: '#e9ecef', marginBottom: 8 },
+  radioOptionSelected: { borderColor: '#4f8cff', backgroundColor: '#eef6ff' },
+  radioContent: { flexDirection: 'row', alignItems: 'center' },
+  radioCircle: { width: 18, height: 18, borderRadius: 9, borderWidth: 1.5, borderColor: '#6c757d', justifyContent: 'center', alignItems: 'center', marginRight: 10 },
+  radioSelected: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#4f8cff' },
+  radioLabel: { color: '#495057' },
+  radioLabelSelected: { fontWeight: '700' },
 
-  radioGroup: { gap: 8 },
-  radioOption: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 12, borderWidth: 1, borderColor: '#e9ecef', borderRadius: 8, backgroundColor: '#fff', marginBottom: 8 },
-  radioOptionSelected: { borderColor: '#4f8cff', backgroundColor: '#f0f7ff' },
-  radioContent: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-  radioCircle: { height: 20, width: 20, borderRadius: 10, borderWidth: 2, borderColor: '#ced4da', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-  radioSelected: { height: 10, width: 10, borderRadius: 5, backgroundColor: '#4f8cff' },
-  radioLabel: { fontSize: 15, color: '#495057', fontWeight: '500' },
-  radioLabelSelected: { color: '#4f8cff', fontWeight: '700' },
+  textArea: { minHeight: 80 },
+  submitButton: { marginTop: 16, backgroundColor: '#4f8cff', paddingVertical: 12, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  submitButtonContent: { flexDirection: 'row', alignItems: 'center' },
+  submitButtonText: { color: '#fff', marginLeft: 8, fontWeight: '700' },
 
   errorContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 6 },
-  errorText: { fontSize: 13, color: '#dc3545', marginLeft: 6, fontWeight: '600' },
+  errorText: { color: '#dc3545', marginLeft: 6 },
 
-  submitButton: { backgroundColor: '#28a745', padding: 12, borderRadius: 10, alignItems: 'center', marginTop: 8 },
-  submitButtonContent: { flexDirection: 'row', alignItems: 'center' },
-  submitButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold', marginLeft: 8 },
+  loadingContainer: { padding: 20, alignItems: 'center' },
+  loadingText: { color: '#6c757d' },
+
+  emptyContainer: { alignItems: 'center', padding: 24 },
+  emptyText: { fontSize: 16, fontWeight: '700', color: '#343a40', marginTop: 8 },
+  emptySubtext: { color: '#6c757d', marginTop: 4 },
 });
 
 export default PagoScreen;

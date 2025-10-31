@@ -79,6 +79,7 @@ class Nota(models.Model):
 
     def __str__(self):
         return f"Nota {self.numeroNota} - {self.tipoOperacion}"
+    
 class NotaRelacionada(models.Model):
     idNota = models.ForeignKey(Nota, on_delete=models.CASCADE, related_name='relaciones')
     idInscripcion = models.ForeignKey(Inscripcion, on_delete=models.SET_NULL, null=True, blank=True, related_name='notas')
@@ -107,7 +108,6 @@ class NotaRelacionada(models.Model):
         if self.idSolicitud:
             relaciones.append(f"Solicitud {self.idSolicitud.idSolicitud}")
         return f"Nota {self.idNota.idNota} relacionada con: {', '.join(relaciones)}"
-
 
 class Factura(models.Model):
     numeroFactura = models.CharField(max_length=50, unique=True)  # Número único de factura
