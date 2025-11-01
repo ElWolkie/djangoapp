@@ -22,7 +22,7 @@ from apps.planCuenta.models import PlanCuenta
 from apps.periodoContable.models import periodoContable
 from django.db import transaction
 from django.utils.timezone import now
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 import uuid
 
 from apps.factura.models import Nota, Pago, NotaRelacionada, PlanArticulo
@@ -342,35 +342,206 @@ class NotasUsuarioAutenticadoView(generics.ListAPIView):
         return qs
     
 class PagoCreateAPIView(APIView):
-    permission_classes = [IsAuthenticated]
-
     @transaction.atomic
     def post(self, request):
-        # Debug rápido: devuelve lo que llega para verificar que la vista responde JSON
         try:
-            print("=== DEBUG PAGO: entrada ===")
-            print("User:", getattr(request, "user", None))
-            print("AUTH HEADER:", request.META.get("HTTP_AUTHORIZATION"))
-            print("CONTENT-TYPE:", request.META.get("CONTENT_TYPE"))
-            try:
-                print("RAW BODY (bytes):", request.body[:2000])
-            except Exception as e:
-                print("No se pudo leer body raw:", e)
+            data = request.data
+            print(f"📥 Datos recibidos: {data}")
+            
+            # Validar datos requeridos
+            required_fields = ['idNota', 'formaPago', 'monto', 'fechaPago']
+            for field in required_fields:
+                if field not in data:
+                    return Response({
+                        'success': False,
+                        'message': f'Campo requerido faltante: {field}'
+                    }, status=status.HTTP_400_BAD_REQUEST)
 
-            # devolver debug JSON para comprobar que el endpoint funciona
-            return Response({
-                "success": True,
-                "debug": {
-                    "user": str(getattr(request, "user", None)),
-                    "auth_header_present": bool(request.META.get("HTTP_AUTHORIZATION")),
-                    "content_type": request.META.get("CONTENT_TYPE"),
-                    "data": request.data
+            # Obtener y validar nota
+            try:
+                nota = Nota.objects.get(idNota=data['idNota'])
+                print(f"✅ Nota encontrada: {nota.numeroNota} - Estado: {nota.estado}")
+            except Nota.DoesNotExist:
+                return Response({
+                    'success': False,
+                    'message': 'Nota no encontrada'
+                }, status=status.HTTP_404_NOT_FOUND)
+
+            if nota.estado == 'PAGADA':
+                return Response({
+                    'success': False,
+                    'message': 'Esta nota ya ha sido pagada completamente'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Validar monto
+            try:
+                monto_pago = Decimal(str(data['monto']))
+                if monto_pago <= 0:
+                    return Response({
+                        'success': False,
+                        'message': 'El monto debe ser mayor a 0'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
+                if monto_pago > nota.totalNota:
+                    return Response({
+                        'success': False,
+                        'message': f'El monto no puede ser mayor al total de la nota (${nota.totalNota})'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+            except (ValueError, InvalidOperation):
+                return Response({
+                    'success': False,
+                    'message': 'Formato de monto inválido'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # 🔥 CORRECCIÓN: Obtener tasa de la configuración, no moneda base
+            configuracion = Configuracion.objects.first()
+            if not configuracion:
+                return Response({
+                    'success': False,
+                    'message': 'Configuración del sistema no encontrada'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            moneda_configuracion = configuracion.moneda
+            tasa = Tasa.objects.filter(idMoneda=moneda_configuracion).order_by('-idTasa').first()
+            
+            if not tasa:
+                return Response({
+                    'success': False,
+                    'message': f'No se encontró tasa para la moneda de configuración ({moneda_configuracion.nombreMoneda})'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            print(f"✅ Tasa encontrada: {tasa.idTasa} - {tasa.montoTasa}")
+
+            # Obtener periodo contable activo
+            periodo_activo = periodoContable.objects.filter(estadoPeriodo=True).first()
+            if not periodo_activo:
+                return Response({
+                    'success': False,
+                    'message': 'No hay periodo contable activo'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            print(f"✅ Periodo activo: {periodo_activo.nombrePeriodo}")
+
+            # 🔥 CORRECCIÓN: Crear asiento contable con número único
+            numero_asiento = f"PAGO-{now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
+            
+            asiento = AsientoContable.objects.create(
+                numeroAsiento=numero_asiento,
+                fechaAsiento=now().date(),
+                conceptoAsiento=f"Pago de {data['formaPago']} - Nota: {nota.numeroNota}",
+                idPeriodo=periodo_activo
+            )
+            print(f"✅ Asiento contable creado: {asiento.idAsiento}")
+
+            # 🔥 CORRECCIÓN: Crear pago según el modelo REAL
+            pago = Pago.objects.create(
+                idNota=nota,
+                idAsiento=asiento,
+                idTasa=tasa,
+                # idCuentaBanco se deja null por ahora (no viene del frontend)
+                monto=monto_pago,
+                fechaPago=data['fechaPago'],
+                formaPago=data['formaPago'],
+                referencia=data.get('referencia', ''),
+                observaciones=data.get('observaciones', '')
+                # fechaRegistro se auto-genera
+            )
+            print(f"✅ Pago creado: {pago.idPago}")
+
+            # Actualizar estado de la nota
+            if monto_pago >= nota.totalNota:
+                nota.estado = 'PAGADA'
+                print(f"✅ Nota marcada como PAGADA")
+            else:
+                nota.estado = 'PARCIAL'
+                print(f"✅ Nota marcada como PARCIAL")
+            
+            nota.save()
+
+            # Actualizar estado de la inscripción relacionada si existe
+            try:
+                nota_relacionada = NotaRelacionada.objects.filter(idNota=nota).first()
+                if nota_relacionada and nota_relacionada.idInscripcion:
+                    inscripcion = nota_relacionada.idInscripcion
+                    if monto_pago >= nota.totalNota:
+                        inscripcion.estadoPago = 'PAGADO'
+                    else:
+                        inscripcion.estadoPago = 'PARCIAL'
+                    inscripcion.save()
+                    print(f"✅ Inscripción actualizada: {inscripcion.idInscripcion}")
+            except Exception as e:
+                print(f"⚠️ No se pudo actualizar inscripción: {str(e)}")
+
+            # 🔥 CORRECCIÓN: Crear detalles del asiento contable
+            try:
+                # Buscar cuentas contables para el tipo de artículo
+                plan_articulo_debe = PlanArticulo.objects.filter(
+                    tipoArticulo=nota.tipoArticulo,
+                    tipo=1  # DEBE
+                ).order_by('-fecha').first()
+                
+                plan_articulo_haber = PlanArticulo.objects.filter(
+                    tipoArticulo=nota.tipoArticulo, 
+                    tipo=0  # HABER
+                ).order_by('-fecha').first()
+
+                if plan_articulo_debe and plan_articulo_haber:
+                    DetalleAsiento.objects.create(
+                        idAsiento=asiento,
+                        idPlanCuenta=plan_articulo_debe.idPlanCuenta,
+                        debe=monto_pago,
+                        haber=Decimal('0.00')
+                    )
+                    DetalleAsiento.objects.create(
+                        idAsiento=asiento,
+                        idPlanCuenta=plan_articulo_haber.idPlanCuenta,
+                        debe=Decimal('0.00'),
+                        haber=monto_pago
+                    )
+                    print(f"✅ Detalles de asiento creados")
+                else:
+                    print(f"⚠️ No se encontraron cuentas contables para {nota.tipoArticulo}")
+            except Exception as e:
+                print(f"⚠️ Error creando detalles de asiento: {str(e)}")
+
+            # Respuesta exitosa
+            response_data = {
+                'success': True,
+                'message': '¡Pago procesado exitosamente! 🎉',
+                'data': {
+                    'idPago': pago.idPago,
+                    'numeroAsiento': asiento.numeroAsiento,  # Usar número de asiento como referencia
+                    'monto': float(pago.monto),
+                    'fechaPago': pago.fechaPago.isoformat(),
+                    'formaPago': pago.formaPago,
+                    'referencia': pago.referencia,
+                    'nota': {
+                        'idNota': nota.idNota,
+                        'numeroNota': nota.numeroNota,
+                        'nuevoEstado': nota.estado,
+                        'totalNota': float(nota.totalNota)
+                    }
                 }
-            }, status=status.HTTP_200_OK)
+            }
+            
+            print("🎊 Pago procesado exitosamente!")
+            return Response(response_data, status=status.HTTP_201_CREATED)
+
         except Exception as e:
-            tb = traceback.format_exc()
-            print("💥 Excepción en DEBUG POST:", tb)
-            return Response({"success": False, "error": str(e), "trace": tb}, status=500)
+            print(f"💥 Error en PagoCreateAPIView: {str(e)}")
+            import traceback
+            print(f"📋 Traceback: {traceback.format_exc()}")
+            
+            return Response({
+                'success': False,
+                'message': f'Error procesando pago: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def generar_numero_pago(self):
+        # CORREGIDO: usar now() en lugar de timezone.now()
+        fecha_actual = now().strftime('%Y%m%d')
+        numero_unico = uuid.uuid4().hex[:6].upper()
+        return f"PAGO-{fecha_actual}-{numero_unico}"
         
 class RequisitoListCreate(generics.ListCreateAPIView):
     queryset = Requisito.objects.all()  # Usa el modelo Requisito
