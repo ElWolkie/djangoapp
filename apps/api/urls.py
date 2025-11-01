@@ -16,24 +16,32 @@ urlpatterns = [
     path('registrar_persona/', PersonaPublicRegisterView.as_view(), name='registrar_persona_public'),
     path('registrar_usuario/', UsuarioPublicRegisterView.as_view(), name='registrar_usuario_public'),
     path('obtener-persona-login/', obtener_persona_login, name='obtener-persona-login'),
-    path('api/formaciones/<int:formacion_id>/cuotas/', CuotasFormacionAPIView.as_view(), name='formacion-cuotas'),
-    path('nota-cobro/create/', NotaCobroCreateAPIView.as_view(), name='nota_cobro_create'),
-    path('api/pagos/create/', views.PagoCreateAPIView.as_view(), name='api-pagos-create'),
-    path('notas/usuario/autenticado/', notas_por_usuario_autenticado, name='notas_autenticado'),
+    
+    path('pagos/create/', views.PagoCreateAPIView.as_view(), name='api-pagos-create'),
+
+    path('notas/usuario/autenticado/', views.NotasUsuarioAutenticadoView.as_view(), name='notas-usuario-autenticado'),
+    
     path('corregir-relaciones/', corregir_relaciones_notas, name='corregir_relaciones'),
     path('notas/por-cedula/', notas_por_cedula, name='notas_por_cedula'),
     path('diagnosticar-notas/', diagnosticar_notas, name='diagnosticar_notas'),
     path('inscripcion/usuario/', views.InscripcionUsuarioList.as_view(), name='inscripcion-usuario'),
-    path('notas/usuario/autenticado/', views.NotasUsuarioAutenticadoView.as_view(), name='notas-usuario-autenticado'),
     path('inscripcion/<int:pk>/', views.InscripcionDetail.as_view(), name='inscripcion-detail'),
     
     path('cohorte/', views.CohorteListCreate.as_view(), name='cohorte-list'),
     path('cargo/', views.CargoListCreate.as_view(), name='cargo-list'),
     path('honorario/', views.HonorarioListCreate.as_view(), name='honorario-list'),
     path('inscripcion/', views.InscripcionListCreate.as_view(), name='inscripcion-list'),
+    
     path('formaciones/<int:pk>/cuotas/', views.CuotasPorFormacionList.as_view(), name='formacion-cuotas'),
-    path('formaciones/<int:pk>/', views.FormacionRetrieve.as_view(), name='formacion-detail'),  # opcional si no existe
+    path('formaciones/<int:pk>/', views.FormacionRetrieve.as_view(), name='formacion-detail'),
     path('formaciones/', views.FormacionListCreate.as_view(), name='formaciones-list'),
+    
+    # Ruta de cuotas de formación que SÍ estaba en tu endpoint
+    path('formaciones/<int:formacion_id>/cuotas/', CuotasFormacionAPIView.as_view(), name='formacion-cuotas-api'),
+
+    # Ruta de creación de nota de cobro que SÍ estaba en tu endpoint
+    path('nota-cobro/create/', NotaCobroCreateAPIView.as_view(), name='nota_cobro_create'),
+
     path('requisito/', views.RequisitoListCreate.as_view(), name='requisito-list'),
     path('servicio/', views.ServicioListCreate.as_view(), name='servicio-list'),
     path('tramite/', views.TramiteListCreate.as_view(), name='tramite-list'),
@@ -43,9 +51,9 @@ urlpatterns = [
     path('tasa/', views.TasaListCreate.as_view(), name='tasa-list'),
     path('usuario/', views.UsuarioListCreate.as_view(), name='usuario-list'),
 
-    path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),  # Solo permite POST
-    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),  # Solo permite POST
-    path('token_cedula/', CedulaTokenObtainView.as_view(), name='token_obtain_pair'),
+    path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('token_cedula/', CedulaTokenObtainView.as_view(), name='token_obtain_cedula'), # Renombrado 'name' para evitar colisión
 
     # URLs para contabilidad
     path('libro-diario/', views.LibroDiarioAPIView.as_view(), name='libro-diario'),
@@ -54,7 +62,5 @@ urlpatterns = [
     path('ingresos/', views.IngresosAPIView.as_view(), name='ingresos'),
     path('egresos/', views.EgresosAPIView.as_view(), name='egresos'),
 
-
-    ############### API DE PAGO TEMPORAL APP ############################
     path('pago-temporal/', views.PagoTemporalCreateAPIView.as_view(), name='pago-temporal-create'),
 ]
