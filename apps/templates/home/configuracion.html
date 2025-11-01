@@ -166,6 +166,12 @@
     text-decoration: none;
     cursor: pointer;
   }
+    .cedula-select {
+      flex: 0 0 50px;
+      border-radius: 0.5rem 0 0 0.5rem !important;
+      border-right: none;
+      background-color: #fff;
+  }
 </style>
 {% endblock stylesheets %}
 
@@ -175,10 +181,10 @@
     <div class="config-header">
       <h2><i class="fas fa-cog text-warning"></i> Configuración Institucional</h2>
     </div>
-    
+
     <div class="d-flex justify-content-between align-items-center mb-4">
       <div></div> <!-- Espacio vacío para alinear el botón a la derecha -->
-      <button id="editConfigBtn" type="button" class="btn-edit">
+      <button id="editConfigBtn" type="button" class="btn-edit" title="Editar Configuración">
         <i class="fas fa-pencil-alt me-2"></i> Editar Configuración
       </button>
     </div>
@@ -209,7 +215,7 @@
               {{ form.nombreInstitucion.errors|first }}
               </div>
             {% endif %}
-            
+
             </div>
           <div class="form-group">
             <label for="id_rif" class="form-label">
@@ -221,7 +227,7 @@
                 {{ form.rif.errors|first }}
               </div>
             {% endif %}
-            
+
           </div>
           <div class="form-group">
             <label for="cuentaBancoDisplay" class="form-label label-with-icon">
@@ -243,9 +249,9 @@
                   type="hidden"
                   id="idCuentaBanco"
                   name="idCuentaBanco"
-                  required
+                  required tittle="Esta cuenta se mostrará en la App para las transferencias."
                   {% if cuenta_seleccionada_id %} value="{{ cuenta_seleccionada_id }}" {% endif %} />
-                <button type="button" id="openAccountModal" class="btn btn-warning" aria-label="Buscar cuenta bancaria" disabled>
+                <button type="button" id="openAccountModal" class="btn btn-warning" aria-label="Buscar cuenta bancaria" title="Buscar cuenta bancaria" disabled>
                   <i class="fas fa-search"></i>
                 </button>
               </div>
@@ -264,7 +270,7 @@
           <label for="id_moneda" class="form-label">
             <i class="fas fa-coins me-1"></i> Moneda del sistema
           </label>
-          <div class="input-group">
+          <div class="input-group" title="Seleccione la moneda que usará el sistema. Esta opción determinará el formato monetario en toda la aplicación. No confundir con la moneda nacional (ID=1).">
             {{ form.moneda }}
           </div>
           {% if form.moneda.errors %}
@@ -275,7 +281,7 @@
               </div>
             </div>
             <div class="col-6">
-              <div class="form-group">
+              <div class="form-group" title="Porcentaje de descuento automático aplicado a clientes-proveedores (solo para clientes que ejercen ambas funciones).">
                 <label for="id_descuento" class="form-label">
                   <i class="fas fa-percent me-1"></i> Porcentaje de Descuento
                 </label>
@@ -285,7 +291,7 @@
                     {{ form.descuento.errors|first }}
                   </div>
                 {% endif %}
-                <small class="form-text text-muted">Ingrese un valor entre 0 y 100</small>
+                <small class="form-text text-muted">Introduzca un valor entre 0 y 100.</small>
               </div>
             </div>
           </div>
@@ -302,15 +308,15 @@
           </div>
           <div class="form-group">
             <label for="cedulaCuenta" class="form-label">
-              <i class="fas fa-id-card me-2"></i> Cédula de la Cuenta
+              <i class="fas fa-id-card me-2"></i> Cédula de la Cuenta para Transferencias App
             </label>
             <div class="input-group">
-              <select id="tipo_cedulaCuenta" name="tipo_cedulaCuenta" class="form-select cedula-select" required>
-                <option value="V">V</option>
-                <option value="E">E</option>
-                <option value="P">P</option>
-                <option value="J">J</option>
-                <option value="G">G</option>
+              <select id="tipo_cedulaCuenta" name="cedula-select" class="form-select cedula-select" required>
+                <option value="V"> V-</option>
+                <option value="E"> E-</option>
+                <option value="P"> P-</option>
+                <option value="J"> J-</option>
+                <option value="G"> G-</option>
               </select>
               <input type="text" id="cedulaCuenta" name="numerocedulaCuenta" class="form-control cedula-input text-dark" placeholder="12345678" maxlength="8" oninput="this.value = this.value.replace(/[^0-9]/g, '')" required>
             </div>
@@ -324,11 +330,51 @@
             <div class="invalid-feedback">Por favor, ingrese una cédula válida.</div>
           </div>
 
-         
-        </div>
 
+        </div>
+      </div>
+      <div class="row mt-5">
+  <div class="col-12">
+    <h4 class="text-center mb-4">
+      <i class="fas fa-list-alt me-2"></i> Requisitos Aplicables para Inscripciones desde la App
+    </h4>
+    <div class="table-responsive">
+      <table class="table table-bordered table-striped text-center">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Nombre del Requisito</th>
+            <th>APP</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for requisito in requisitos_app %}
+          <tr>
+            <td>{{ requisito.idRequisito }}</td>
+            <td>{{ requisito.nombreRequisito }}</td>
+            <td>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input app-checkbox" type="radio" name="app_{{ requisito.idRequisito }}" id="app_si_{{ requisito.idRequisito }}" value="true" {% if requisito.app %}checked{% endif %} {% if not edit_mode %}disabled{% endif %} style="accent-color: #28a745;">
+                <label class="form-check-label text-success" for="app_si_{{ requisito.idRequisito }}">Sí</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input app-checkbox" type="radio" name="app_{{ requisito.idRequisito }}" id="app_no_{{ requisito.idRequisito }}" value="false" {% if not requisito.app %}checked{% endif %} {% if not edit_mode %}disabled{% endif %} style="accent-color: #f54100;">
+                <label class="form-check-label text-warning" for="app_no_{{ requisito.idRequisito }}">No</label>
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="3" class="text-muted">No hay requisitos disponibles en la app.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
       <hr class="my-4" />
-      
+
       <h4 class="text-center mb-4">
         <i class="fas fa-images me-2 mb-2"></i> Imágenes Institucionales
       </h4> <br>
@@ -347,7 +393,7 @@
             {% else %}
               <p class="text-muted text-center">No hay logo cargado.</p>
             {% endif %}
-            
+
             <div class="form-group mt-3">
               <label for="id_logo" class="form-label">
                 <i class="fas fa-upload me-2"></i> Cambiar Logotipo
@@ -364,7 +410,7 @@
             </div>
           </div>
         </div>
-        
+
         <div class="col-md-6">
           <div class="image-section">
             <h6 class="image-title">
@@ -378,7 +424,7 @@
             {% else %}
               <p class="text-muted text-center">No hay firma cargada.</p>
             {% endif %}
-            
+
             <div class="form-group mt-3">
               <label for="id_firma" class="form-label">
                 <i class="fas fa-upload me-2"></i> Cambiar Firma Autorizada
@@ -441,7 +487,7 @@
               </td>
             </tr>
             {% endfor %}
-            
+
           </tbody>
         </table>
       </div>
@@ -450,7 +496,7 @@
       </p>
       <!-- Agregado de la paginación y mensaje de sin registros -->
       <div class="pagination-container d-flex justify-content-center mt-3"></div>
-      
+
     </div>
     <div class="modal-footer">
           <button type="button" id="closeAccountModal" class="btn btn-secondary" style="margin-top: 10px;">Cerrar</button>
@@ -462,13 +508,15 @@
         <button id="saveConfigBtn" type="submit" class="btn-save me-2" style="display: none;">
           <i class="fas fa-save me-2"></i> Guardar Cambios
         </button>
-        <button id="cancelConfigBtn" type="button" class="btn-cancel" style="display: none;">
+        <!-- <button id="cancelConfigBtn" type="button" class="btn-cancel" style="display: none;">
           <i class="fas fa-times me-2"></i> Cancelar
-        </button>
+        </button> -->
       </div>
     </form>
   </div>
 </div>
+
+
 {% endblock content %}
 
 {% block javascripts %}
@@ -480,10 +528,10 @@ document.addEventListener("DOMContentLoaded", function() {
     const saveBtn = document.getElementById('saveConfigBtn');
     const cancelBtn = document.getElementById('cancelConfigBtn');
     const formFields = form.querySelectorAll('input:not([type="hidden"]):not([type="submit"]), select, textarea');
-    
+
     // Guardar estado inicial de los campos (excepto archivos)
     let initialFormState = {};
-    
+
     function saveInitialState() {
         formFields.forEach(field => {
             // Solo guardar el estado de campos no de archivo
@@ -492,7 +540,7 @@ document.addEventListener("DOMContentLoaded", function() {
             }
         });
     }
-    
+
     function restoreInitialState() {
         formFields.forEach(field => {
             if (field.type !== 'file' && initialFormState[field.name] !== undefined) {
@@ -500,7 +548,7 @@ document.addEventListener("DOMContentLoaded", function() {
             }
         });
     }
-    
+
     // Al cargar la página, guardar estado inicial
     saveInitialState();
 
@@ -512,33 +560,33 @@ document.addEventListener("DOMContentLoaded", function() {
         saveBtn.style.display = 'none';
         cancelBtn.style.display = 'none';
         editBtn.style.display = 'inline-block';
-    }
+      }
 
-    function setEditState() {
+      function setEditState() {
         formFields.forEach(field => {
-            field.disabled = false;
+          field.disabled = false;
         });
         const openModalBtn = document.getElementById("openAccountModal");
         if (openModalBtn) {
-            openModalBtn.disabled = false; // Habilitar el botón del modal
+          openModalBtn.disabled = false; // Habilitar el botón del modal
         }
         saveBtn.style.display = 'inline-block';
         cancelBtn.style.display = 'inline-block';
         editBtn.style.display = 'none';
-    }
+      }
 
-    if (editBtn) {
+      if (editBtn) {
         editBtn.addEventListener('click', setEditState);
-    }
-    
-    if (cancelBtn) {
-        cancelBtn.addEventListener('click', function() {
-            restoreInitialState();
-            setViewState();
-        });
-    }
+      }
 
-    setViewState();
+      if (cancelBtn) {
+        cancelBtn.addEventListener('click', function() {
+          restoreInitialState();
+          setViewState();
+        });
+      }
+
+      setViewState();
 });
 </script>
 
