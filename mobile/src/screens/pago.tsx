@@ -35,22 +35,27 @@ interface NotaItem {
 }
 
 interface Inscripcion {
-  idInscripcion: number;
+  idInscripcion?: number;
   estadoPago?: string;
   fechaInscripcion?: string;
-  idPersona?: number;
+  idPersona?: number | string | null;
   idPersona_detail?: {
     cedula?: string;
+    [k: string]: any;
   };
   idCohorte?: any;
+  idCohorte_detail?: any;
   idFormacion_detail?: {
     idFormacion?: number;
     nombreFormacion?: string;
     valorInscripcion?: number | string;
+    [k: string]: any;
   };
   montoPagado?: number;
   montoTotal?: number;
   saldoPendiente?: number;
+  nombreFormacion?: string;
+  [k: string]: any;
 }
 
 const PagoScreen: React.FC = () => {
@@ -61,10 +66,17 @@ const PagoScreen: React.FC = () => {
   const { notaData } = route.params || {};
 
   const [refreshing, setRefreshing] = useState(false);
+
+  // helper para formatear monto para enviar al backend (4 decimales, punto decimal)
+  const toBackendDecimal = (v: number | string) => {
+    const n = Number(String(v).replace(',', '.')) || 0;
+    return n.toFixed(4); // devuelve string con 4 decimales
+  };
+
   const [formData, setFormData] = useState({
     idNota: notaData?.idNota?.toString?.() ?? '',
     formaPago: 'TRANSFERENCIA',
-    monto: notaData?.totalNota?.toString?.() ?? '',
+    monto: notaData?.totalNota != null ? toBackendDecimal(notaData.totalNota) : '',
     referencia: '',
     observaciones: '',
     fechaPago: new Date().toISOString().split('T')[0],
@@ -80,12 +92,21 @@ const PagoScreen: React.FC = () => {
   const [inscripcionesUsuario, setInscripcionesUsuario] = useState<Inscripcion[]>([]);
   const [cargandoInscripciones, setCargandoInscripciones] = useState(false);
 
-  // modales separados
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
 
-  const placeholderNames = new Set(['Formación no especificada', 'Información no disponible', '—', null, undefined, '']);
+  const pagoMovilInfo = {
+    banco: 'BANCO DEMO',
+    titular: 'INSTITUCIÓN EJEMPLO C.A.',
+    cedulaTitular: 'V-12345678',
+    numeroCuenta: '0123-4567-8901-2345',
+    tipoCuenta: 'Ahorros',
+    telefonoPagoMovil: '+58 424-1234567',
+    rif: 'J-12345678-9'
+  };
 
+  // helpers
+  const placeholderNames = new Set(['Formación no especificada', 'Información no disponible', '—', null, undefined, '']);
   const isValidFormacionName = (name?: string | null) => {
     if (!name) return false;
     const s = String(name).trim();
@@ -111,7 +132,7 @@ const PagoScreen: React.FC = () => {
     // Prioridad 1: Por idInscripcion
     const idIns = nota.idInscripcion ?? nota.idInscripcion_detail?.idInscripcion ?? nota.inscripcion_id ?? null;
     if (idIns) {
-      const match = inscripcionesUsuario.find((ins) => ins.idInscripcion === Number(idIns));
+      const match = inscripcionesUsuario.find((ins) => Number(ins.idInscripcion) === Number(idIns));
       if (match) return match;
     }
 
@@ -122,7 +143,7 @@ const PagoScreen: React.FC = () => {
         if (ins.fechaInscripcion) {
           const insDate = new Date(ins.fechaInscripcion).getTime();
           const diff = Math.abs(notaDate - insDate);
-          return diff < 86400000;
+          return diff < 86400000; // 1 día
         }
         return false;
       });
@@ -136,8 +157,8 @@ const PagoScreen: React.FC = () => {
       if (matches.length > 1) return matches[0];
     }
 
-    // Fallback
-    return inscripcionesUsuario.find((ins) => ins.estadoPago !== 'PAGADO') ?? null;
+    // Fallback: una inscripción no pagada
+    return inscripcionesUsuario.find((ins) => (ins.estadoPago ?? '').toUpperCase() !== 'PAGADO') ?? null;
   };
 
   const getFormacionNameFromNota = (nota: NotaItem) => {
@@ -161,6 +182,7 @@ const PagoScreen: React.FC = () => {
     return 'Formación no especificada';
   };
 
+  // Cargar inscripciones del usuario
   const cargarInscripcionesUsuario = useCallback(async () => {
     setCargandoInscripciones(true);
     try {
@@ -181,7 +203,6 @@ const PagoScreen: React.FC = () => {
       }
 
       setInscripcionesUsuario(items);
-      // console.debug para desarrollo
       console.log('📚 Inscripciones cargadas:', items.map(i => ({ id: i.idInscripcion, fecha: i.fechaInscripcion, monto: i.montoTotal, formacion: getNombreFormacion(i) })));
     } catch (error: any) {
       console.error('Error cargando inscripciones:', error);
@@ -230,7 +251,7 @@ const PagoScreen: React.FC = () => {
     }
     if (notaData) {
       setNotaSeleccionada(notaData);
-      setFormData(prev => ({ ...prev, idNota: String(notaData.idNota ?? ''), monto: String(notaData.totalNota ?? '') }));
+      setFormData(prev => ({ ...prev, idNota: String(notaData.idNota ?? ''), monto: toBackendDecimal(notaData.totalNota ?? 0) }));
       // si viene notaData y estás en modo automático, abre directamente modal pago
       if (!modoDirecto) {
         setShowPaymentModal(true);
@@ -246,9 +267,8 @@ const PagoScreen: React.FC = () => {
 
   const seleccionarNota = async (nota: NotaItem) => {
     setNotaSeleccionada(nota);
-    setFormData(prev => ({ ...prev, idNota: String(nota.idNota ?? ''), monto: String(nota.totalNota ?? '') }));
+    setFormData(prev => ({ ...prev, idNota: String(nota.idNota ?? ''), monto: toBackendDecimal(nota.totalNota ?? 0) }));
     setErrors({});
-    // abrir modal de detalle (no abrir pago directo)
     setShowDetailsModal(true);
     setShowPaymentModal(false);
   };
@@ -258,7 +278,7 @@ const PagoScreen: React.FC = () => {
     setFormData(prev => ({
       ...prev,
       idNota: String(notaSeleccionada.idNota ?? ''),
-      monto: String(notaSeleccionada.totalNota ?? 0),
+      monto: toBackendDecimal(notaSeleccionada.totalNota ?? 0),
       referencia: '',
       fechaPago: new Date().toISOString().split('T')[0],
     }));
@@ -278,9 +298,9 @@ const PagoScreen: React.FC = () => {
     const newErrors: { [key: string]: string } = {};
     if (!formData.idNota) newErrors.idNota = 'Debe seleccionar una nota';
     if (!formData.formaPago) newErrors.formaPago = 'Seleccione forma de pago';
-    if (!formData.monto || parseFloat(String(formData.monto)) <= 0) newErrors.monto = 'Monto debe ser mayor a 0';
-    else if (notaSeleccionada && parseFloat(String(formData.monto)) > Number(notaSeleccionada.totalNota ?? 0))
-      newErrors.monto = `El monto no puede ser mayor a $${formatCurrency(Number(notaSeleccionada.totalNota ?? 0))}`;
+    const montoNum = Number(String(formData.monto).replace(',', '.'));
+    if (!formData.monto || isNaN(montoNum) || montoNum <= 0) newErrors.monto = 'Monto debe ser mayor a 0';
+    else if (notaSeleccionada && montoNum > Number(notaSeleccionada.totalNota ?? 0)) newErrors.monto = `El monto no puede exceder el total de la nota ($${Number(notaSeleccionada.totalNota ?? 0)})`;
     if (!formData.referencia.trim()) newErrors.referencia = 'Número de referencia es requerido';
     if (!formData.fechaPago) newErrors.fechaPago = 'Fecha de pago es requerida';
     setErrors(newErrors);
@@ -292,45 +312,104 @@ const PagoScreen: React.FC = () => {
     if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }));
   };
 
-  const handleProcesarPago = async () => {
-    if (!validateForm()) {
-      Alert.alert('Error', 'Por favor complete todos los campos requeridos');
-      return;
-    }
+  // ---------- PROCESAR PAGO (adaptado estrictamente al backend)
+const handleProcesarPago = async () => {
+  if (!validateForm()) {
+    Alert.alert('Error', 'Por favor complete todos los campos requeridos');
+    return;
+  }
 
-    setSubmitting(true);
-    try {
-      const response = await api.post('/api/pagos/create/', {
-        idNota: Number(formData.idNota),
-        monto: Number(formData.monto),
-        fechaPago: formData.fechaPago,
-        formaPago: formData.formaPago,
-        referencia: formData.referencia,
-        observaciones: formData.observaciones,
-      });
+  setSubmitting(true);
 
-      if (response.data.success) {
-        Alert.alert('Éxito', response.data.message || 'Pago registrado correctamente.');
-        setShowPaymentModal(false);
-        setNotaSeleccionada(null);
-        await onRefresh();
-      } else {
-        Alert.alert('Error', response.data.message || 'Error al procesar pago');
-      }
-    } catch (error: any) {
-      const msg = error.response?.data?.message || error.message || 'Error en la conexión';
-      Alert.alert('Error', msg.toString());
-    } finally {
-      setSubmitting(false);
-    }
+  // payload compatible con el serializer (monto con 4 decimales aceptados por backend)
+  const payload = {
+    idNota: Number(formData.idNota),
+    monto: Number(String(formData.monto).replace(',', '.')), // si el backend prefiere string con 4 decimales, ajusta abajo
+    fechaPago: formData.fechaPago,
+    formaPago: String(formData.formaPago),
+    referencia: String(formData.referencia || ''),
+    observaciones: String(formData.observaciones || ''),
   };
 
-  const formatCurrency = (amount: number): string => {
-    try {
-      return new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
-    } catch {
-      return Number(amount || 0).toFixed(2);
+  console.log('[Pago] Payload a enviar:', payload);
+
+  try {
+    const response = await api.post('/api/pagos/create/', payload, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      validateStatus: () => true // manejamos nosotros el status
+    });
+
+    console.log('[Pago] response.status:', response.status);
+
+    // Si el servidor devolvió JSON
+    const contentType = response.headers?.['content-type'] ?? response.headers?.['Content-Type'] ?? '';
+    const isJson = typeof contentType === 'string' && contentType.toLowerCase().includes('application/json');
+
+    if (isJson) {
+      const body = response.data;
+      console.log('[Pago] response.data (json):', body);
+
+      if ((response.status === 201 || response.status === 200) && body?.success) {
+        const d = body.data ?? {};
+        Alert.alert('Pago procesado', `Pago registrado correctamente.\nAsiento: ${d.numeroAsiento ?? '—'}\nID Pago: ${d.idPago ?? '—'}\nMonto: ${d.monto ?? payload.monto}`, [{ text: 'OK' }]);
+        // sincronizar en memoria y refrescar
+        const idNotaNum = Number(payload.idNota);
+        if (idNotaNum) setNotasUsuario(prev => prev.map(n => (Number(n.idNota) === idNotaNum ? { ...n, estado: 'PAGADA' } : n)));
+        await Promise.all([cargarNotasUsuario(), cargarInscripcionesUsuario()]);
+        setShowPaymentModal(false);
+        setNotaSeleccionada(null);
+      } else {
+        // Backend devolvió JSON con success=false o error
+        const msg = body.message ?? JSON.stringify(body);
+        Alert.alert('Error', `Servidor: ${msg}`);
+      }
+    } else {
+      // servidor devolvió HTML (error 500 renderizado como página) o texto no-JSON
+      // mostrar los primeros 600 caracteres y pedir revisar logs del servidor
+      const textBody = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
+      console.warn('[Pago] Servidor devolvió texto/HTML en body. Primeros 600 chars:', textBody.slice(0, 600));
+      Alert.alert(
+        'Error del servidor',
+        `El servidor devolvió una página de error (500). Por favor revisa los logs del backend.\nStatus: ${response.status}\nMás info en consola (primeros 600 chars).`
+      );
+      // opcional: abrir panel de debug (o enviar textBody a un endpoint de logs si existe)
     }
+  } catch (err: any) {
+    console.error('[Pago] error catched:', err);
+    const resp = err?.response;
+    if (resp?.status === 400 && resp.data) {
+      const body = resp.data;
+      let message = body.message ?? 'Error de validación';
+      if (body.errors && typeof body.errors === 'object') {
+        const parts: string[] = [];
+        Object.keys(body.errors).forEach(k => {
+          const v = body.errors[k];
+          if (Array.isArray(v)) parts.push(`${k}: ${v.join(', ')}`);
+          else parts.push(`${k}: ${String(v)}`);
+        });
+        message += '\n' + parts.join('\n');
+      } else if (body.detail) {
+        message = body.detail;
+      }
+      Alert.alert('Error de validación', message);
+    } else if (resp?.status === 500) {
+      Alert.alert('Error servidor', resp.data?.message ?? 'Error interno del servidor. Revisa logs.');
+      console.error('[Pago] respuesta 500 (body):', resp.data);
+    } else {
+      Alert.alert('Error', err.message ? String(err.message) : 'Error en la conexión');
+    }
+  } finally {
+    setSubmitting(false);
+  }
+};
+
+
+  const formatCurrency = (amount: number): string => {
+    try { return new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount); }
+    catch { return Number(amount || 0).toFixed(2); }
   };
 
   const formatDate = (dateString?: string): string => {
@@ -381,7 +460,6 @@ const PagoScreen: React.FC = () => {
 
   const modalMaxWidth = Math.min(Math.max(320, width - 48), 900);
 
-  // UI modoDirecto
   if (modoDirecto) {
     return (
       <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -531,7 +609,6 @@ const PagoScreen: React.FC = () => {
                   </View>
                 </View>
 
-                {/* REFERENCIA: solo aquí */}
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>Número de Referencia *</Text>
                   <TextInput style={[styles.input, errors.referencia && styles.inputError]} value={formData.referencia} onChangeText={(v) => handleInputChange('referencia', v)} placeholder="Ej: 123456789" maxLength={40} placeholderTextColor="#6c757d" />
@@ -552,7 +629,21 @@ const PagoScreen: React.FC = () => {
                   <TextInput style={[styles.input, styles.textArea]} value={formData.observaciones} onChangeText={(v) => handleInputChange('observaciones', v)} placeholder="Observaciones adicionales..." multiline numberOfLines={3} textAlignVertical="top" placeholderTextColor="#6c757d" />
                 </View>
 
-                <TouchableOpacity style={styles.submitButton} onPress={handleProcesarPago} disabled={submitting}>
+                {formData.formaPago === 'PAGO_MOVIL' && (
+                  <View style={[styles.infoCard, { marginTop: 12 }]}>
+                    <View style={styles.infoHeader}><Icon name="cellphone" size={18} color="#495057" /><Text style={styles.infoTitle}>Datos para Pago Móvil (demo)</Text></View>
+                    <View style={{ marginTop: 8 }}>
+                      <Text style={styles.infoLabel}>Banco: <Text style={styles.infoValueInline}>{pagoMovilInfo.banco}</Text></Text>
+                      <Text style={styles.infoLabel}>Titular: <Text style={styles.infoValueInline}>{pagoMovilInfo.titular}</Text></Text>
+                      <Text style={styles.infoLabel}>RIF: <Text style={styles.infoValueInline}>{pagoMovilInfo.rif}</Text></Text>
+                      <Text style={styles.infoLabel}>Teléfono/Pay: <Text style={styles.infoValueInline}>{pagoMovilInfo.telefonoPagoMovil}</Text></Text>
+                      <Text style={styles.infoLabel}>Cuenta: <Text style={styles.infoValueInline}>{pagoMovilInfo.numeroCuenta} ({pagoMovilInfo.tipoCuenta})</Text></Text>
+                      <Text style={{ marginTop: 8, color: '#6c757d', fontSize: 12 }}>Nota: estos datos son de ejemplo. En producción se deben obtener desde su API de configuración.</Text>
+                    </View>
+                  </View>
+                )}
+
+                <TouchableOpacity style={[styles.submitButton, submitting && { opacity: 0.7 }]} onPress={handleProcesarPago} disabled={submitting}>
                   <View style={styles.submitButtonContent}>
                     {submitting ? <ActivityIndicator color="#fff" /> : <Icon name="arrow-right" size={20} color="#fff" />}
                     <Text style={styles.submitButtonText}>{submitting ? 'Procesando...' : 'Procesar Pago'}</Text>
@@ -611,7 +702,11 @@ const PagoScreen: React.FC = () => {
             <Text style={styles.label}>Monto a Pagar</Text>
             <View style={styles.inputContainer}>
               <Text style={styles.currencySymbol}>$</Text>
-              <TextInput style={[styles.input, styles.readOnlyInput]} value={formatCurrency(Number(notaSeleccionada?.totalNota ?? notaData?.totalNota ?? 0))} editable={false} />
+              <TextInput
+                style={[styles.input, styles.readOnlyInput]}
+                value={formatCurrency(Number(notaSeleccionada?.totalNota ?? notaData?.totalNota ?? 0))}
+                editable={false}
+              />
             </View>
           </View>
 
@@ -635,7 +730,21 @@ const PagoScreen: React.FC = () => {
             <TextInput style={[styles.input, styles.textArea]} value={formData.observaciones} onChangeText={(v) => handleInputChange('observaciones', v)} placeholder="Observaciones adicionales..." multiline numberOfLines={3} textAlignVertical="top" placeholderTextColor="#6c757d" />
           </View>
 
-          <TouchableOpacity style={styles.submitButton} onPress={handleProcesarPago} disabled={submitting}>
+          {formData.formaPago === 'PAGO_MOVIL' && (
+            <View style={[styles.infoCard, { marginTop: 12 }]}>
+              <View style={styles.infoHeader}><Icon name="cellphone" size={18} color="#495057" /><Text style={styles.infoTitle}>Datos para Pago Móvil (demo)</Text></View>
+              <View style={{ marginTop: 8 }}>
+                <Text style={styles.infoLabel}>Banco: <Text style={styles.infoValueInline}>{pagoMovilInfo.banco}</Text></Text>
+                <Text style={styles.infoLabel}>Titular: <Text style={styles.infoValueInline}>{pagoMovilInfo.titular}</Text></Text>
+                <Text style={styles.infoLabel}>RIF: <Text style={styles.infoValueInline}>{pagoMovilInfo.rif}</Text></Text>
+                <Text style={styles.infoLabel}>Teléfono/Pay: <Text style={styles.infoValueInline}>{pagoMovilInfo.telefonoPagoMovil}</Text></Text>
+                <Text style={styles.infoLabel}>Cuenta: <Text style={styles.infoValueInline}>{pagoMovilInfo.numeroCuenta} ({pagoMovilInfo.tipoCuenta})</Text></Text>
+                <Text style={{ marginTop: 8, color: '#6c757d', fontSize: 12 }}>Nota: estos datos son de ejemplo. En producción se deben obtener desde su API de configuración.</Text>
+              </View>
+            </View>
+          )}
+
+          <TouchableOpacity style={[styles.submitButton, submitting && { opacity: 0.7 }]} onPress={handleProcesarPago} disabled={submitting}>
             <View style={styles.submitButtonContent}>
               {submitting ? <ActivityIndicator color="#fff" /> : <Icon name="arrow-right" size={20} color="#fff" />}
               <Text style={styles.submitButtonText}>{submitting ? 'Procesando...' : 'Procesar Pago'}</Text>
@@ -697,6 +806,7 @@ const styles = StyleSheet.create({
   infoItem: { marginBottom: 8 },
   infoLabel: { color: '#6c757d', fontSize: 13 },
   infoValue: { color: '#212529', fontWeight: '600' },
+  infoValueInline: { color: '#212529', fontWeight: '700' },
   totalItem: { marginTop: 6 },
   totalLabel: { color: '#6c757d', fontWeight: '700' },
   totalValue: { color: '#212529', fontWeight: '900', fontSize: 16 },

@@ -5,7 +5,6 @@ import {
   Text,
   FlatList,
   ActivityIndicator,
-  StyleSheet,
   useWindowDimensions,
   TouchableOpacity,
   TextInput,
@@ -13,6 +12,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  StyleSheet, // <-- IMPORTANTE: agregado
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import Modal from 'react-native-modal';
@@ -106,57 +106,52 @@ const cuotasFromFormacionObj = (f: any): Cuota[] => {
   return [];
 };
 
-const formatDateShort = (dateString?: string | null) => {
-  if (!dateString) return '—';
+const parseToDate = (v: any): Date | null => {
+  if (!v) return null;
   try {
-    const d = new Date(dateString);
-    if (Number.isNaN(d.getTime())) return '—';
-    const dd = String(d.getDate()).padStart(2, '0');
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const yyyy = d.getFullYear();
-    return `${dd}/${mm}/${yyyy}`;
+    // soporta timestamps, 'YYYY-MM-DD', ISO strings, numbers
+    const d = new Date(String(v));
+    if (!isNaN(d.getTime())) return d;
+    return null;
   } catch {
-    return '—';
+    return null;
   }
 };
 
 // Determina si una cohorte está "activa" para inscripción en la fecha actual.
-// Regla aplicada: la cohorte debe tener fechaInicio, y la fecha actual debe estar dentro
-// del intervalo [fechaInicio, fechaInicio + lapsoInscripcion] o respetando fechaFin si existe.
+// Acepta varios formatos de fecha, usa lapsoInscripcion si no hay fechaFin.
 const isCohorteActiva = (coh: any) => {
   if (!coh) return false;
-  const fechaInicioRaw = coh.fechaInicio ?? coh.start_date ?? coh.startDate ?? null;
-  if (!fechaInicioRaw) return false;
-  const start = new Date(String(fechaInicioRaw));
-  if (Number.isNaN(start.getTime())) return false;
 
-  // Si existe fechaFin usamos esa como límite (si es válida)
-  let end: Date | null = null;
-  const fechaFinRaw = coh.fechaFin ?? coh.end_date ?? coh.endDate ?? null;
-  if (fechaFinRaw) {
-    const d = new Date(String(fechaFinRaw));
-    if (!Number.isNaN(d.getTime())) end = d;
-  }
+  const fechaInicioRaw = coh.fechaInicio ?? coh.start_date ?? coh.startDate ?? coh.raw?.fechaInicio ?? coh.raw?.start_date ?? null;
+  const start = parseToDate(fechaInicioRaw);
+  if (!start) return false;
 
-  // Si no hay fechaFin, usar lapsoInscripcion (en días) sumado a fechaInicio
+  // If explicit fechaFin use it
+  const fechaFinRaw = coh.fechaFin ?? coh.end_date ?? coh.endDate ?? coh.raw?.fechaFin ?? coh.raw?.end_date ?? null;
+  let end = parseToDate(fechaFinRaw);
+
+  // If no end, try lapsoInscripcion (days)
   if (!end) {
-    const lapso = Number(coh.lapsoInscripcion ?? coh.lapso ?? coh.lap ?? 0);
-    if (lapso > 0) {
-      const tmp = new Date(start);
-      // sumamos lapso días (siendo inclusivo, si lapso = 5 y start = 20 => end = 20 + 5 días)
-      tmp.setDate(tmp.getDate() + lapso);
-      end = tmp;
+    const lapso = Number(coh.lapsoInscripcion ?? coh.lapso ?? coh.lap ?? coh.raw?.lapsoInscripcion ?? 0);
+    if (isFinite(lapso) && lapso > 0) {
+      end = new Date(start);
+      end.setDate(end.getDate() + lapso);
     } else {
-      // si no hay lapso ni fechaFin entonces consideramos que la cohorte no está abierta
-      // (no tiene ventana de inscripción definida).
       return false;
     }
   }
 
   const now = new Date();
-  // Normalizar horas a 00:00 para comparar fechas solamente (opcional)
-  // Pero preferimos comparación exacta:
-  return now >= start && now <= end && String(coh.estadoCohorte ?? '').toUpperCase() !== 'INACTIVO';
+  // normalizar solo fecha (evita problema horas)
+  const startDay = new Date(start.getFullYear(), start.getMonth(), start.getDate()).getTime();
+  const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate()).getTime();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+
+  const estado = String(coh.estadoCohorte ?? coh.estado ?? '').toUpperCase();
+  if (estado === 'INACTIVO' || estado === 'CERRADO') return false;
+
+  return today >= startDay && today <= endDay;
 };
 
 // ---------- COMPONENT ----------
@@ -165,7 +160,7 @@ const InscripcionesScreen = () => {
   const { user } = useContext(AuthContext);
 
   // ----------------------------------------
-  // Llamado a hooks (siempre en el topo, sin condiciones)
+  // Hooks
   // ----------------------------------------
   const { width, height } = useWindowDimensions();
   const isSmallScreen = width <= 620;
@@ -191,9 +186,10 @@ const InscripcionesScreen = () => {
   const [formacionesFiltradas, setFormacionesFiltradas] = useState<Formacion[]>([]); // disponibles + filtradas por tipo
   const [cohortes, setCohortes] = useState<Cohorte[]>([]);
 
-  const [selectedTipoFormacion, setSelectedTipoFormacion] = useState<number | undefined>(undefined);
-  const [selectedFormacion, setSelectedFormacion] = useState<number | undefined>(undefined);
-  const [selectedCohorte, setSelectedCohorte] = useState<number | undefined>(undefined);
+  // usa null en vez de undefined para compatibilidad de Picker
+  const [selectedTipoFormacion, setSelectedTipoFormacion] = useState<number | null>(null);
+  const [selectedFormacion, setSelectedFormacion] = useState<number | null>(null);
+  const [selectedCohorte, setSelectedCohorte] = useState<number | null>(null);
 
   // Cost summary
   const [valorInscripcion, setValorInscripcion] = useState(0);
@@ -253,7 +249,6 @@ const InscripcionesScreen = () => {
         if (!cedulaInscripcion) return false;
         return normalizarCedula(cedulaInscripcion) === cedulaUsuarioNormalizada;
       }).map((ins: any) => {
-        // NORMALIZAR idFormacion_detail e idCohorte_detail (soportar varias formas)
         const rawForm = ins.idFormacion_detail ?? ins.idFormacion ?? ins.formacion ?? null;
         const formNormalized = rawForm
           ? {
@@ -279,7 +274,6 @@ const InscripcionesScreen = () => {
             }
           : null;
 
-        // Asegurar fecha y montos por compatibilidad
         const fecha = ins.fechaInscripcion ?? ins.fecha ?? ins.created_at ?? null;
         const montoTot = Number(ins.montoTotal ?? ins.total ?? ins.monto ?? ins.valor ?? 0);
         const montoPag = Number(ins.montoPagado ?? ins.pagado ?? 0);
@@ -318,13 +312,13 @@ const InscripcionesScreen = () => {
       const formacionesData = results[1].status === 'fulfilled' ? results[1].value.data : [];
       const cohortesData = results[2].status === 'fulfilled' ? results[2].value.data : [];
 
-      // helper robusto para extraer arrays
       const toArray = (resp: any) => {
         if (!resp) return [];
         if (Array.isArray(resp)) return resp;
         if (resp.results && Array.isArray(resp.results)) return resp.results;
         if (resp.data && Array.isArray(resp.data)) return resp.data;
-        return Array.isArray(resp) ? resp : (typeof resp === 'object' ? [resp] : []);
+        if (typeof resp === 'object') return [resp];
+        return [];
       };
 
       const tiposArr = toArray(tiposData);
@@ -340,7 +334,6 @@ const InscripcionesScreen = () => {
         }
 
         if (tipo === 'formaciones') {
-          // detectar idTF en múltiples lugares
           const idTF = Number(
             item.idTF ??
             item.tipo_formacion ??
@@ -368,20 +361,25 @@ const InscripcionesScreen = () => {
         }
 
         if (tipo === 'cohortes') {
-          // extraer idFormacion robusto
           const idFormRaw = item.idFormacion ?? item.idFormacion_detail ?? item.formacion ?? item.id_formacion ?? null;
           const idFormacionObj = (typeof idFormRaw === 'object' && idFormRaw !== null)
             ? { idFormacion: Number(idFormRaw.idFormacion ?? idFormRaw.id ?? idFormRaw.pk ?? 0), nombreFormacion: idFormRaw.nombreFormacion ?? idFormRaw.nombre ?? null, valorInscripcion: Number(idFormRaw.valorInscripcion ?? idFormRaw.precio ?? 0) }
             : (idFormRaw ? { idFormacion: Number(idFormRaw) } : null);
 
+          const idCohorte = Number(item.idCohorte ?? item.id ?? item.pk ?? 0);
+
+          // normalizamos y agregamos idFormacionId para facilitar búsquedas
+          const idFormacionId = idFormacionObj ? Number(idFormacionObj.idFormacion ?? 0) : (typeof idFormRaw === 'number' ? Number(idFormRaw) : 0);
+
           return {
-            idCohorte: Number(item.idCohorte ?? item.id ?? item.pk ?? 0),
+            idCohorte,
             nombreCohorte: item.nombreCohorte ?? item.nombre ?? item.title ?? 'Sin nombre',
             lapsoInscripcion: Number(item.lapsoInscripcion ?? item.lapso ?? 0),
-            fechaInicio: item.fechaInicio ?? item.start_date ?? item.startDate ?? null,
-            fechaFin: item.fechaFin ?? item.end_date ?? item.endDate ?? null,
+            fechaInicio: item.fechaInicio ?? item.start_date ?? item.startDate ?? item.raw?.fechaInicio ?? null,
+            fechaFin: item.fechaFin ?? item.end_date ?? item.endDate ?? item.raw?.fechaFin ?? null,
             estadoCohorte: item.estadoCohorte ?? item.estado ?? 'INACTIVO',
             idFormacion: idFormacionObj,
+            idFormacionId, // <-- campo explícito para match rápido
             raw: item
           };
         }
@@ -392,10 +390,9 @@ const InscripcionesScreen = () => {
       const forms = extract(formsArr, 'formaciones');
       const cohorts = extract(cohortesArr, 'cohortes');
 
-      // logs para debug
       console.log('[fetchDatosFormulario] tipos sample:', tipos.slice(0,3));
       console.log('[fetchDatosFormulario] forms sample:', forms.slice(0,3));
-      console.log('[fetchDatosFormulario] cohorts sample:', cohorts.slice(0,3));
+      console.log('[fetchDatosFormulario] cohorts sample:', cohorts.slice(0,6));
 
       setTiposFormacion(tipos);
       setFormaciones(forms);
@@ -407,7 +404,6 @@ const InscripcionesScreen = () => {
       setFormDataLoading(false);
     }
   }, []);
-
 
   // ---------- Fecha por defecto ----------
   const establecerFechaActual = () => {
@@ -431,47 +427,56 @@ const InscripcionesScreen = () => {
   useEffect(() => {
     // Construir mapa formacionId -> cohorte activa (puede haber >1, tomamos la que esté abierta hoy)
     const activeCohortesByFormacion: Record<number, Cohorte[]> = {};
+
     cohortes.forEach((coh: any) => {
-      // Compatibilidad: coh.idFormacion puede ser objeto o número
-      let idFormacion = null;
-      if (coh.idFormacion && typeof coh.idFormacion === 'object') {
-        idFormacion = Number(coh.idFormacion.idFormacion ?? coh.idFormacion.id ?? 0);
-      } else if (coh.idFormacion) {
-        idFormacion = Number(coh.idFormacion);
-      } else if (coh.raw && coh.raw.formacion) {
-        // intento de fallback
-        idFormacion = Number(coh.raw.formacion.idFormacion ?? coh.raw.formacion.id ?? 0);
-      }
-      if (!idFormacion) return;
+      // obtener idFormacionNum de varias ubicaciones
+      let idFormacionNum = 0;
+      if (coh.idFormacionId) idFormacionNum = Number(coh.idFormacionId);
+      else if (coh.idFormacion && typeof coh.idFormacion === 'object') idFormacionNum = Number(coh.idFormacion.idFormacion ?? coh.idFormacion.id ?? 0);
+      else if (coh.raw && coh.raw.idFormacion) idFormacionNum = Number(coh.raw.idFormacion);
+      else if (typeof coh.idFormacion === 'number') idFormacionNum = Number(coh.idFormacion);
+
+      if (!idFormacionNum) return;
+
       if (isCohorteActiva(coh)) {
-        if (!activeCohortesByFormacion[idFormacion]) activeCohortesByFormacion[idFormacion] = [];
-        activeCohortesByFormacion[idFormacion].push(coh);
+        if (!activeCohortesByFormacion[idFormacionNum]) activeCohortesByFormacion[idFormacionNum] = [];
+        activeCohortesByFormacion[idFormacionNum].push(coh);
       }
     });
+
+    const keys = Object.keys(activeCohortesByFormacion);
+    console.log('[available] cohortes total:', cohortes.length, 'active map keys:', keys.length);
+    console.log('[available] mapa activeCohortesByFormacion keys:', keys);
 
     // Filtrar formaciones que tengan al menos una cohorte activa
     const available = formaciones.filter(f => {
-      return Boolean(activeCohortesByFormacion[Number((f as any).idFormacion)]);
+      const idF = Number((f as any).idFormacion ?? (f as any).id ?? 0);
+      return Boolean(activeCohortesByFormacion[idF] && activeCohortesByFormacion[idF].length > 0);
     });
 
-    setAvailableFormaciones(available);
+    if (available.length === 0) {
+      console.log('[available] No se encontraron formaciones con cohorte activa — aplicando fallback para mostrar todas las formaciones.');
+      // fallback: mostrar todas las formaciones (pero el usuario verá nota en el UI)
+      setAvailableFormaciones(formaciones);
+    } else {
+      setAvailableFormaciones(available);
+    }
   }, [formaciones, cohortes]);
 
   // ---------- Filtrado formaciones por tipo (ahora usa availableFormaciones) ----------
   useEffect(() => {
-    // si aún no cargaron availableFormaciones no hacemos nada
     if (!availableFormaciones || availableFormaciones.length === 0) {
       setFormacionesFiltradas([]);
       return;
     }
 
-    if (selectedTipoFormacion !== undefined && selectedTipoFormacion !== null) {
+    if (selectedTipoFormacion !== null && selectedTipoFormacion !== undefined) {
       const selectedTipoNum = Number(selectedTipoFormacion);
       console.log('[filter] selectedTipoFormacion =>', selectedTipoNum);
-      const filtradas = availableFormaciones.filter(f => Number(f.idTF) === selectedTipoNum);
+      const filtradas = availableFormaciones.filter(f => Number((f as any).idTF) === selectedTipoNum);
       console.log('[filter] formaciones filtradas count:', filtradas.length);
       setFormacionesFiltradas(filtradas);
-      setSelectedFormacion(undefined);
+      setSelectedFormacion(null);
 
       if (filtradas.length === 1) {
         const autoId = Number(filtradas[0].idFormacion);
@@ -480,28 +485,27 @@ const InscripcionesScreen = () => {
         if (coh) setSelectedCohorte(Number(coh.idCohorte));
       }
     } else {
-      // mostrar todas las disponibles
       setFormacionesFiltradas(availableFormaciones);
     }
   }, [selectedTipoFormacion, availableFormaciones]);
 
-
-  // Helper: encontrar cohorte activa (si hay varias devuelve la "mejor" — la primera con inicio <= now)
-  const findActiveCohorteForFormacion = (idFormacion: number | undefined | null) => {
+  // Helper: encontrar cohorte activa (si hay varias devuelve la "mejor")
+  // <-- important: explicit return type any to avoid strict Cohorte typing issues
+  const findActiveCohorteForFormacion = (idFormacion: number | undefined | null): any => {
     if (!idFormacion) return null;
     // buscar en cohortes la que esté activa y pertenezca a idFormacion
     const matches = cohortes
       .filter((c: any) => {
-        let idF = null;
-        if (c.idFormacion && typeof c.idFormacion === 'object') idF = Number(c.idFormacion.idFormacion ?? c.idFormacion.id ?? 0);
-        else if (c.idFormacion) idF = Number(c.idFormacion);
+        let idF = 0;
+        if (c.idFormacionId) idF = Number(c.idFormacionId);
+        else if (c.idFormacion && typeof c.idFormacion === 'object') idF = Number(c.idFormacion.idFormacion ?? c.idFormacion.id ?? 0);
         else if (c.raw && c.raw.idFormacion) idF = Number(c.raw.idFormacion);
+        else if (typeof c.idFormacion === 'number') idF = Number(c.idFormacion);
         return idF === Number(idFormacion) && isCohorteActiva(c);
       })
-      // ordenar por fechaInicio ascendente para elegir la que comienza antes o que está en curso
       .sort((a: any, b: any) => {
-        const da = new Date(String(a.fechaInicio ?? a.start_date ?? a.startDate ?? 0)).getTime();
-        const db = new Date(String(b.fechaInicio ?? b.start_date ?? b.startDate ?? 0)).getTime();
+        const da = parseToDate(a.fechaInicio ?? a.start_date ?? a.startDate ?? 0)?.getTime() ?? 0;
+        const db = parseToDate(b.fechaInicio ?? b.start_date ?? b.startDate ?? 0)?.getTime() ?? 0;
         return da - db;
       });
 
@@ -512,35 +516,39 @@ const InscripcionesScreen = () => {
   useEffect(() => {
     let mounted = true;
     const compute = async () => {
-      if (selectedFormacion === undefined) {
+      if (selectedFormacion === null || selectedFormacion === undefined) {
         if (!mounted) return;
         setValorInscripcion(0);
         setCuotas([]);
         setTotalCuotas(0);
         setMontoTotal(0);
-        setSelectedCohorte(undefined);
+        setSelectedCohorte(null);
         return;
       }
 
       // autoseleccionar cohorte activa para esta formacion (si existe)
-      const coh = findActiveCohorteForFormacion(selectedFormacion);
+      const coh: any = findActiveCohorteForFormacion(selectedFormacion); // <-- casteado a any
       if (coh) {
         setSelectedCohorte(Number(coh.idCohorte));
-        // si la cohorte trae valorInscripcion nos ayuda a mostrar valor rápidamente
-        const idFormObj = (coh.idFormacion && typeof coh.idFormacion === 'object') ? (coh.idFormacion as any) : null;
-        const valorFromCohForm = Number(idFormObj?.valorInscripcion ?? 0);
-        if (isFinite(Number(valorFromCohForm)) && Number(valorFromCohForm) > 0) {
+        const idFormObj = (coh.idFormacion && typeof coh.idFormacion === 'object') ? coh.idFormacion : null;
+        const valorFromCohForm = Number(idFormObj?.valorInscripcion ?? coh.raw?.valorInscripcion ?? 0);
+        if (isFinite(valorFromCohForm) && valorFromCohForm > 0) {
           setValorInscripcion(Number(valorFromCohForm));
         }
       } else {
-        setSelectedCohorte(undefined);
+        setSelectedCohorte(null);
       }
 
-      const formacionLocal = formaciones.find(f => f.idFormacion === selectedFormacion) as any;
+      const formacionLocal = formaciones.find(f => Number(f.idFormacion) === Number(selectedFormacion)) as any;
       let valorMatricula = Number(formacionLocal?.valorInscripcion ?? 0);
 
       // primero intentar obtener cuotas por endpoint
-      const cuotasData = await fetchCuotasForFormacion(Number(selectedFormacion));
+      let cuotasData: Cuota[] = [];
+      try {
+        cuotasData = await fetchCuotasForFormacion(Number(selectedFormacion));
+      } catch {
+        cuotasData = [];
+      }
 
       // si no hay valor en la lista, pedir detalle
       if ((!valorMatricula || valorMatricula === 0) && selectedFormacion) {
@@ -571,7 +579,7 @@ const InscripcionesScreen = () => {
             }
           }
         } catch (e) {
-          // ignore
+          // ignore - use what we have
         }
       }
 
@@ -650,10 +658,9 @@ const InscripcionesScreen = () => {
   // ---------- Validación y creación ----------
   const validateCreateForm = () => {
     const errs: Record<string, string> = {};
-    if (selectedTipoFormacion === undefined) errs.tipoFormacion = 'Seleccione un tipo de formación';
-    if (selectedFormacion === undefined) errs.formacion = 'Seleccione una formación';
-    // ahora la cohorte se autoselecciona al elegir formación, pero sigue siendo obligatoria
-    if (selectedCohorte === undefined) errs.cohorte = 'No se encontró una cohorte activa para la formación seleccionada';
+    if (selectedTipoFormacion === null) errs.tipoFormacion = 'Seleccione un tipo de formación';
+    if (selectedFormacion === null) errs.formacion = 'Seleccione una formación';
+    if (selectedCohorte === null) errs.cohorte = 'No se encontró una cohorte activa para la formación seleccionada';
     if (!user) errs.usuario = 'No se pudo obtener la información del usuario. Por favor, cierre sesión y vuelva a ingresar.';
     setFormErrors(errs);
     return Object.keys(errs).length === 0;
@@ -664,7 +671,6 @@ const InscripcionesScreen = () => {
       Alert.alert('Formulario inválido', 'Corrige los errores antes de continuar.');
       return;
     }
-    // identificar idPersona como número
     let idPersonaEnviar: number | null = null;
     if (!user) {
       Alert.alert('Error', 'No se pudo identificar su usuario. Por favor, cierre sesión y vuelva a ingresar.');
@@ -684,7 +690,6 @@ const InscripcionesScreen = () => {
     try {
       const payload = {
         idPersona: idPersonaEnviar,
-        // nota: el backend espera idCohorte (y el serializer ya no usa idFormacion para escritura)
         idCohorte: selectedCohorte,
         montoTotal: montoTotal,
         montoPagado: 0,
@@ -737,9 +742,9 @@ const InscripcionesScreen = () => {
   };
 
   const resetForm = () => {
-    setSelectedTipoFormacion(undefined);
-    setSelectedFormacion(undefined);
-    setSelectedCohorte(undefined);
+    setSelectedTipoFormacion(null);
+    setSelectedFormacion(null);
+    setSelectedCohorte(null);
     setFormErrors({});
     setValorInscripcion(0);
     setCuotas([]);
@@ -767,14 +772,13 @@ const InscripcionesScreen = () => {
 
   // Handler para selección de formación: autoselecciona cohorte activa asociada
   const handleSelectFormacion = (v: any) => {
-    const id = (v === undefined || v === null) ? undefined : Number(v);
+    const id = (v === undefined || v === null) ? null : Number(v);
     setSelectedFormacion(id);
     console.log('handleSelectFormacion -> selectedFormacion:', id);
-    const coh = findActiveCohorteForFormacion(id);
+    const coh = findActiveCohorteForFormacion(id ?? undefined);
     if (coh) setSelectedCohorte(Number(coh.idCohorte));
-    else setSelectedCohorte(undefined);
+    else setSelectedCohorte(null);
   };
-
 
   return (
     <View style={styles.container}>
@@ -1007,121 +1011,133 @@ const InscripcionesScreen = () => {
                 <Icon name="close" size={isSmallScreen ? 20 : 22} color="#666" />
               </TouchableOpacity>
             </View>
+
             { formDataLoading ? (
-            <View style={{ padding: 20, alignItems: 'center' }}>
-              <ActivityIndicator size="large" color="#4f8cff" />
-              <Text style={{ marginTop: 8, color: '#666' }}>Cargando formaciones y cohortes...</Text>
-            </View>
-          ) : (
-          <ScrollView style={styles.formBody} showsVerticalScrollIndicator keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.formContent, isSmallScreen && styles.formContentSmall, { paddingBottom: 24 }]}>
-              {/* Información Personal */}
-              <View style={styles.formSection}>
-                <View style={styles.sectionHeader}>
-                  <Icon name="account" size={isSmallScreen ? 18 : 20} color="#4f8cff" />
-                  <Text style={[styles.sectionTitle, isSmallScreen && styles.sectionTitleSmall]}>Información Personal</Text>
-                </View>
-
-                <View style={[styles.fieldContainer, isSmallScreen && styles.fieldContainerSmall]}>
-                  <Text style={[styles.label, isSmallScreen && styles.labelSmall]}>Cédula</Text>
-                  <View style={[styles.cedulaFijaContainer, isSmallScreen && styles.cedulaFijaContainerSmall]}>
-                    <Text style={[styles.cedulaFijaText, isSmallScreen && styles.cedulaFijaTextSmall]}>{user?.cedula || 'No disponible'}</Text>
-                  </View>
-                  <Text style={[styles.helpText, isSmallScreen && styles.helpTextSmall]}>{user?.nombres && user?.apellidos ? `${user.nombres} ${user.apellidos}` : 'Usuario actual'}</Text>
-                </View>
+              <View style={{ padding: 20, alignItems: 'center' }}>
+                <ActivityIndicator size="large" color="#4f8cff" />
+                <Text style={{ marginTop: 8, color: '#666' }}>Cargando formaciones y cohortes...</Text>
               </View>
-
-              {/* Información Académica */}
-              <View style={styles.formSection}>
-                <View style={styles.sectionHeader}>
-                  <Icon name="school" size={isSmallScreen ? 18 : 20} color="#4f8cff" />
-                  <Text style={[styles.sectionTitle, isSmallScreen && styles.sectionTitleSmall]}>Información Académica</Text>
-                </View>
-
-                <View style={[styles.fieldContainer, isSmallScreen && styles.fieldContainerSmall]}>
-                  <Text style={[styles.label, isSmallScreen && styles.labelSmall]}>Tipo de Formación *</Text>
-                  <View style={[styles.pickerContainer, isSmallScreen && styles.pickerContainerSmall]}>
-                    <Picker selectedValue={selectedTipoFormacion} onValueChange={(v) => setSelectedTipoFormacion(v === undefined || v === null ? undefined : Number(v))} style={[styles.picker, isSmallScreen && styles.pickerSmall, { width: '100%' }]} dropdownIconColor="#666" mode="dropdown">
-                      <Picker.Item label="Seleccione tipo..." value={undefined} />
-                      {tiposFormacion.map(tf => <Picker.Item key={tf.idTF} label={tf.nombreTipoFormacion} value={tf.idTF} />)}
-                    </Picker>
-                  </View>
-                  {formErrors.tipoFormacion && <Text style={[styles.errorText, isSmallScreen && styles.errorTextSmall]}>{formErrors.tipoFormacion}</Text>}
-                </View>
-
-                <View style={[styles.fieldContainer, isSmallScreen && styles.fieldContainerSmall]}>
-                  <Text style={[styles.label, isSmallScreen && styles.labelSmall]}>Formación *</Text>
-                  <View style={[styles.pickerContainer, isSmallScreen && styles.pickerContainerSmall]}>
-                    <Picker selectedValue={selectedFormacion} onValueChange={(v) => handleSelectFormacion(v)} style={[styles.picker, isSmallScreen && styles.pickerSmall, { width: '100%' }]} enabled={formacionesFiltradas.length > 0} dropdownIconColor="#666" mode="dropdown">
-                      <Picker.Item label={formacionesFiltradas.length === 0 ? "No hay formaciones disponibles" : "Seleccione formación..."} value={undefined} />
-                      {formacionesFiltradas.map((f: any) => (
-                        <Picker.Item key={f.idFormacion} label={`${f.nombreFormacion} - ${fmtMoney(f.valorInscripcion)}`} value={f.idFormacion} />
-                      ))}
-                    </Picker>
-                  </View>
-                  {formErrors.formacion && <Text style={[styles.errorText, isSmallScreen && styles.errorTextSmall]}>{formErrors.formacion}</Text>}
-                  {formErrors.cohorte && <Text style={[styles.errorText, isSmallScreen && styles.errorTextSmall]}>{formErrors.cohorte}</Text>}
-                  <Text style={[styles.helpText, isSmallScreen && styles.helpTextSmall]}>
-                    Nota: solo se muestran formaciones con cohorte de inscripción abierta. Al seleccionar una formación la cohorte se asigna automáticamente.
-                  </Text>
-                </View>
-
-                {/* Ya no mostramos un picker de cohorte: la cohorte se deduce de la formación seleccionada */}
-              </View>
-
-              {/* Resumen de costos */}
-              <View style={styles.formSection}>
-                <View style={styles.sectionHeader}>
-                  <Icon name="cash" size={isSmallScreen ? 18 : 20} color="#4f8cff" />
-                  <Text style={[styles.sectionTitle, isSmallScreen && styles.sectionTitleSmall]}>Resumen de Costos</Text>
-                </View>
-
-                <View style={[styles.costosContainer, isSmallScreen && styles.costosContainerSmall]}>
-                  <View style={[styles.costoItem, isSmallScreen && styles.costoItemSmall]}>
-                    <Text style={[styles.costoLabel, isSmallScreen && styles.costoLabelSmall]}>Inscripción:</Text>
-                    <Text style={[styles.costoValue, isSmallScreen && styles.costoValueSmall]}>{fmtMoney(valorInscripcion)}</Text>
+            ) : (
+              <ScrollView style={styles.formBody} showsVerticalScrollIndicator keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.formContent, isSmallScreen && styles.formContentSmall, { paddingBottom: 24 }]}>
+                {/* Información Personal */}
+                <View style={styles.formSection}>
+                  <View style={styles.sectionHeader}>
+                    <Icon name="account" size={isSmallScreen ? 18 : 20} color="#4f8cff" />
+                    <Text style={[styles.sectionTitle, isSmallScreen && styles.sectionTitleSmall]}>Información Personal</Text>
                   </View>
 
-                  {cuotas.length > 0 ? (
-                    <>
-                      {cuotas.map((cuota, index) => (
-                        <View key={index} style={[styles.costoItem, isSmallScreen && styles.costoItemSmall]}>
-                          <Text style={[styles.costoLabel, isSmallScreen && styles.costoLabelSmall]}>{cuota.nombreCuota}:</Text>
-                          <Text style={[styles.costoValue, isSmallScreen && styles.costoValueSmall]}>{fmtMoney(cuota.valorCuota)}</Text>
-                        </View>
-                      ))}
-                      <View style={[styles.costoItem, styles.costoTotal, isSmallScreen && styles.costoItemSmall]}>
-                        <Text style={[styles.costoLabel, isSmallScreen && styles.costoLabelSmall]}>Total Cuotas:</Text>
-                        <Text style={[styles.costoValue, isSmallScreen && styles.costoValueSmall]}>{fmtMoney(totalCuotas)}</Text>
-                      </View>
-                    </>
-                  ) : (
-                    <View style={[styles.costoItem, isSmallScreen && styles.costoItemSmall]}>
-                      <Text style={[styles.costoLabel, styles.noCuotas, isSmallScreen && styles.costoLabelSmall]}>No hay cuotas configuradas</Text>
+                  <View style={[styles.fieldContainer, isSmallScreen && styles.fieldContainerSmall]}>
+                    <Text style={[styles.label, isSmallScreen && styles.labelSmall]}>Cédula</Text>
+                    <View style={[styles.cedulaFijaContainer, isSmallScreen && styles.cedulaFijaContainerSmall]}>
+                      <Text style={[styles.cedulaFijaText, isSmallScreen && styles.cedulaFijaTextSmall]}>{user?.cedula || 'No disponible'}</Text>
                     </View>
-                  )}
-
-                  <View style={[styles.costoItem, styles.costoGrandTotal, isSmallScreen && styles.costoItemSmall]}>
-                    <Text style={[styles.costoLabel, styles.costoGrandTotalLabel, isSmallScreen && styles.costoLabelSmall]}>TOTAL A PAGAR:</Text>
-                    <Text style={[styles.costoValue, styles.costoGrandTotalValue, isSmallScreen && styles.costoValueSmall]}>{fmtMoney(montoTotal)}</Text>
+                    <Text style={[styles.helpText, isSmallScreen && styles.helpTextSmall]}>{user?.nombres && user?.apellidos ? `${user.nombres} ${user.apellidos}` : 'Usuario actual'}</Text>
                   </View>
                 </View>
-              </View>
 
-              {/* Fecha (automática) */}
-              <View style={styles.formSection}>
-                <View style={styles.sectionHeader}>
-                  <Icon name="calendar-clock" size={isSmallScreen ? 18 : 20} color="#4f8cff" />
-                  <Text style={[styles.sectionTitle, isSmallScreen && styles.sectionTitleSmall]}>Información de Registro</Text>
-                </View>
-
-                <View style={[styles.fieldContainer, isSmallScreen && styles.fieldContainerSmall]}>
-                  <View style={[styles.fechaContainer, isSmallScreen && styles.fechaContainerSmall]}>
-                    <Text style={[styles.fechaText, isSmallScreen && styles.fechaTextSmall]}>{fechaInscripcion}</Text>
+                {/* Información Académica */}
+                <View style={styles.formSection}>
+                  <View style={styles.sectionHeader}>
+                    <Icon name="school" size={isSmallScreen ? 18 : 20} color="#4f8cff" />
+                    <Text style={[styles.sectionTitle, isSmallScreen && styles.sectionTitleSmall]}>Información Académica</Text>
                   </View>
-                  <Text style={[styles.helpText, isSmallScreen && styles.helpTextSmall]}>Fecha (automática)</Text>
+
+                  <View style={[styles.fieldContainer, isSmallScreen && styles.fieldContainerSmall]}>
+                    <Text style={[styles.label, isSmallScreen && styles.labelSmall]}>Tipo de Formación *</Text>
+                    <View style={[styles.pickerContainer, isSmallScreen && styles.pickerContainerSmall]}>
+                      <Picker
+                        selectedValue={selectedTipoFormacion ?? null}
+                        onValueChange={(v) => setSelectedTipoFormacion(v === null ? null : Number(v))}
+                        style={[styles.picker, isSmallScreen && styles.pickerSmall, { width: '100%' }]}
+                        dropdownIconColor="#666"
+                        mode="dropdown"
+                      >
+                        <Picker.Item label="Seleccione tipo..." value={null} />
+                        {tiposFormacion.map(tf => <Picker.Item key={tf.idTF} label={tf.nombreTipoFormacion} value={tf.idTF} />)}
+                      </Picker>
+                    </View>
+                    {formErrors.tipoFormacion && <Text style={[styles.errorText, isSmallScreen && styles.errorTextSmall]}>{formErrors.tipoFormacion}</Text>}
+                  </View>
+
+                  <View style={[styles.fieldContainer, isSmallScreen && styles.fieldContainerSmall]}>
+                    <Text style={[styles.label, isSmallScreen && styles.labelSmall]}>Formación *</Text>
+                    <View style={[styles.pickerContainer, isSmallScreen && styles.pickerContainerSmall]}>
+                      <Picker
+                        selectedValue={selectedFormacion ?? null}
+                        onValueChange={(v) => handleSelectFormacion(v)}
+                        style={[styles.picker, isSmallScreen && styles.pickerSmall, { width: '100%' }]}
+                        enabled={formacionesFiltradas.length > 0}
+                        dropdownIconColor="#666"
+                        mode="dropdown"
+                      >
+                        <Picker.Item label={formacionesFiltradas.length === 0 ? "No hay formaciones disponibles" : "Seleccione formación..."} value={null} />
+                        {formacionesFiltradas.map((f: any) => (
+                          <Picker.Item key={f.idFormacion} label={`${f.nombreFormacion} - ${fmtMoney(f.valorInscripcion)}`} value={f.idFormacion} />
+                        ))}
+                      </Picker>
+                    </View>
+                    {formErrors.formacion && <Text style={[styles.errorText, isSmallScreen && styles.errorTextSmall]}>{formErrors.formacion}</Text>}
+                    {formErrors.cohorte && <Text style={[styles.errorText, isSmallScreen && styles.errorTextSmall]}>{formErrors.cohorte}</Text>}
+                    <Text style={[styles.helpText, isSmallScreen && styles.helpTextSmall]}>
+                      Nota: solo se muestran formaciones con cohorte de inscripción abierta. Al seleccionar una formación la cohorte se asigna automáticamente.
+                    </Text>
+                  </View>
                 </View>
-              </View>
-            </ScrollView>
+
+                {/* Resumen de costos */}
+                <View style={styles.formSection}>
+                  <View style={styles.sectionHeader}>
+                    <Icon name="cash" size={isSmallScreen ? 18 : 20} color="#4f8cff" />
+                    <Text style={[styles.sectionTitle, isSmallScreen && styles.sectionTitleSmall]}>Resumen de Costos</Text>
+                  </View>
+
+                  <View style={[styles.costosContainer, isSmallScreen && styles.costosContainerSmall]}>
+                    <View style={[styles.costoItem, isSmallScreen && styles.costoItemSmall]}>
+                      <Text style={[styles.costoLabel, isSmallScreen && styles.costoLabelSmall]}>Inscripción:</Text>
+                      <Text style={[styles.costoValue, isSmallScreen && styles.costoValueSmall]}>{fmtMoney(valorInscripcion)}</Text>
+                    </View>
+
+                    {cuotas.length > 0 ? (
+                      <>
+                        {cuotas.map((cuota, index) => (
+                          <View key={index} style={[styles.costoItem, isSmallScreen && styles.costoItemSmall]}>
+                            <Text style={[styles.costoLabel, isSmallScreen && styles.costoLabelSmall]}>{cuota.nombreCuota}:</Text>
+                            <Text style={[styles.costoValue, isSmallScreen && styles.costoValueSmall]}>{fmtMoney(cuota.valorCuota)}</Text>
+                          </View>
+                        ))}
+                        <View style={[styles.costoItem, styles.costoTotal, isSmallScreen && styles.costoItemSmall]}>
+                          <Text style={[styles.costoLabel, isSmallScreen && styles.costoLabelSmall]}>Total Cuotas:</Text>
+                          <Text style={[styles.costoValue, isSmallScreen && styles.costoValueSmall]}>{fmtMoney(totalCuotas)}</Text>
+                        </View>
+                      </>
+                    ) : (
+                      <View style={[styles.costoItem, isSmallScreen && styles.costoItemSmall]}>
+                        <Text style={[styles.costoLabel, styles.noCuotas, isSmallScreen && styles.costoLabelSmall]}>No hay cuotas configuradas</Text>
+                      </View>
+                    )}
+
+                    <View style={[styles.costoItem, styles.costoGrandTotal, isSmallScreen && styles.costoItemSmall]}>
+                      <Text style={[styles.costoLabel, styles.costoGrandTotalLabel, isSmallScreen && styles.costoLabelSmall]}>TOTAL A PAGAR:</Text>
+                      <Text style={[styles.costoValue, styles.costoGrandTotalValue, isSmallScreen && styles.costoValueSmall]}>{fmtMoney(montoTotal)}</Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Fecha (automática) */}
+                <View style={styles.formSection}>
+                  <View style={styles.sectionHeader}>
+                    <Icon name="calendar-clock" size={isSmallScreen ? 18 : 20} color="#4f8cff" />
+                    <Text style={[styles.sectionTitle, isSmallScreen && styles.sectionTitleSmall]}>Información de Registro</Text>
+                  </View>
+
+                  <View style={[styles.fieldContainer, isSmallScreen && styles.fieldContainerSmall]}>
+                    <View style={[styles.fechaContainer, isSmallScreen && styles.fechaContainerSmall]}>
+                      <Text style={[styles.fechaText, isSmallScreen && styles.fechaTextSmall]}>{fechaInscripcion}</Text>
+                    </View>
+                    <Text style={[styles.helpText, isSmallScreen && styles.helpTextSmall]}>Fecha (automática)</Text>
+                  </View>
+                </View>
+              </ScrollView>
             )}
           
             <View style={[styles.formFooter, isSmallScreen && styles.formFooterSmall]}>
