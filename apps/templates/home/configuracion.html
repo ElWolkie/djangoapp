@@ -128,11 +128,49 @@
     color: #6c757d;
     margin-top: 5px;
   }
+  /* Estilos para el modal */
+  .modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgb(0,0,0);
+    background-color: rgba(0,0,0,0.4);
+  }
+
+  .modal-content {
+    background-color: #fefefe;
+    margin: 15% auto;
+    padding: 20px;
+    border: 1px solid #888;
+    width: 80%;
+    max-width: 600px;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  }
+
+  .close {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+  }
+
+  .close:hover,
+  .close:focus {
+    color: black;
+    text-decoration: none;
+    cursor: pointer;
+  }
 </style>
 {% endblock stylesheets %}
 
 {% block content %}
-<div class="container">
+<div>
   <div class="config-container">
     <div class="config-header">
       <h2><i class="fas fa-cog text-warning"></i> Configuración Institucional</h2>
@@ -173,7 +211,6 @@
             {% endif %}
             
             </div>
-
           <div class="form-group">
             <label for="id_rif" class="form-label">
               <i class="fas fa-id-card me-2"></i> RIF
@@ -186,7 +223,39 @@
             {% endif %}
             
           </div>
-        </div>
+          <div class="form-group">
+            <label for="cuentaBancoDisplay" class="form-label label-with-icon">
+              <span class="label-icon"><i class="fas fa-university"></i></span>
+              <span>Número de Cuenta para Transferencias de la App</span>
+            </label>
+            <div class="field-wrap"></div>
+              <div class="input-group">
+                <input
+                  type="text"
+                  id="cuentaBancoInput"
+                  class="form-control text-dark"
+                  placeholder="Seleccione una cuenta bancaria"
+                  readonly
+                  required style="white-space:nowrap;"
+                  style="flex: 1 1 auto; min-width: 0;"
+                  {% if numeroCuentaBanco_seleccionada %} value="{{ numeroCuentaBanco_seleccionada }}" {% endif %} />
+                <input
+                  type="hidden"
+                  id="idCuentaBanco"
+                  name="idCuentaBanco"
+                  required
+                  {% if cuenta_seleccionada_id %} value="{{ cuenta_seleccionada_id }}" {% endif %} />
+                <button type="button" id="openAccountModal" class="btn btn-warning" aria-label="Buscar cuenta bancaria" disabled>
+                  <i class="fas fa-search"></i>
+                </button>
+              </div>
+            </div>
+            {% if form.idCuentaBanco.errors %}
+              <div class="invalid-feedback d-block">
+                {{ form.idCuentaBanco.errors|first }}
+              </div>
+            {% endif %}
+          </div>
 
         <div class="col-md-6">
           <div class="row">
@@ -197,9 +266,6 @@
           </label>
           <div class="input-group">
             {{ form.moneda }}
-            <button type="button" class="btn btn-outline-secondary" id="addMonedaBtn" data-bs-toggle="modal" data-bs-target="#monedaModal">
-              <i class="fas fa-plus"></i>
-            </button>
           </div>
           {% if form.moneda.errors %}
             <div class="invalid-feedback d-block">
@@ -234,15 +300,40 @@
               </div>
             {% endif %}
           </div>
+          <div class="form-group">
+            <label for="cedulaCuenta" class="form-label">
+              <i class="fas fa-id-card me-2"></i> Cédula de la Cuenta
+            </label>
+            <div class="input-group">
+              <select id="tipo_cedulaCuenta" name="tipo_cedulaCuenta" class="form-select cedula-select" required>
+                <option value="V">V</option>
+                <option value="E">E</option>
+                <option value="P">P</option>
+                <option value="J">J</option>
+                <option value="G">G</option>
+              </select>
+              <input type="text" id="cedulaCuenta" name="numerocedulaCuenta" class="form-control cedula-input text-dark" placeholder="12345678" maxlength="8" oninput="this.value = this.value.replace(/[^0-9]/g, '')" required>
+            </div>
+
+            <!-- Valor completo proveniente de la DB en formato "V-1234567" -->
+            <input type="hidden" id="cedulaCuentaCompleta" name="cedulaCuenta"
+              {% if configuracion_actual and configuracion_actual.cedulaCuenta %}
+                value="{{ configuracion_actual.cedulaCuenta }}"
+              {% endif %}>
+
+            <div class="invalid-feedback">Por favor, ingrese una cédula válida.</div>
+          </div>
+
+         
         </div>
 
       <hr class="my-4" />
       
       <h4 class="text-center mb-4">
-        <i class="fas fa-images me-2"></i> Imágenes Institucionales
-      </h4>
+        <i class="fas fa-images me-2 mb-2"></i> Imágenes Institucionales
+      </h4> <br>
 
-      <div class="row">
+      <div class="row mt-5">
         <div class="col-md-6">
           <div class="image-section">
             <h6 class="image-title">
@@ -306,6 +397,67 @@
         </div>
       </div>
 
+
+<!-- Modal para selección de cuenta bancaria -->
+<div id="accountModal" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 1000;">
+  <div class="modal-content" style="background: #fff; margin: 10% auto; padding: 20px; border-radius: 8px; width: 80%; max-width: 1700px;">
+    <div class="modal-header">
+      <h4>Seleccionar Cuenta Bancaria</h4>
+      <button type="button" id="closeAccountModal" class="btn-close" aria-label="Close"></button>
+    </div>
+    <div class="modal-body">
+      <div class="mb-3">
+        <div class="input-group mb-3">
+          <div class="input-group-prepend">
+            <span class="input-group-text bg-light">
+              <i class="fas fa-search text-warning"></i>
+            </span>
+          </div>
+          <input type="text" id="searchCuentaInput" class="form-control" placeholder="Buscar cuenta por banco, número o moneda...">
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm table-striped table-hover" id="tablaCuentas">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Banco</th>
+              <th>Número de Cuenta</th>
+              <th>Moneda</th>
+              <th>Acción</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for cuenta in cuentas_banco %}
+            <tr data-id="{{ cuenta.idCuentaBanco }}" data-nombre="{{ cuenta.numeroCuentaBanco }}" data-plan="{{ cuenta.planCuenta.idPlanCuenta }}" data-moneda="{{ cuenta.moneda }}">
+              <td>{{ cuenta.idCuentaBanco }}</td>
+              <td>{{ cuenta.banco.nombreBanco }}</td>
+              <td>{{ cuenta.numeroCuentaBanco }}</td>
+              <td>{{ cuenta.moneda.nombreMoneda }}</td>
+              <td>
+                <button type="button" class="btn btn-sm btn-warning elegirCuentaBtn">
+                  Elegir
+                </button>
+              </td>
+            </tr>
+            {% endfor %}
+            
+          </tbody>
+        </table>
+      </div>
+      <p id="mensajeSinRegistros" class="text-center text-muted my-4" style="display: none;">
+        <i class="fas fa-info-circle mr-2"></i> No se encontraron registros disponibles.
+      </p>
+      <!-- Agregado de la paginación y mensaje de sin registros -->
+      <div class="pagination-container d-flex justify-content-center mt-3"></div>
+      
+    </div>
+    <div class="modal-footer">
+          <button type="button" id="closeAccountModal" class="btn btn-secondary" style="margin-top: 10px;">Cerrar</button>
+    </div>
+  </div>
+</div>
+
       <div class="text-center mt-5">
         <button id="saveConfigBtn" type="submit" class="btn-save me-2" style="display: none;">
           <i class="fas fa-save me-2"></i> Guardar Cambios
@@ -315,25 +467,6 @@
         </button>
       </div>
     </form>
-  </div>
-</div>
-
-<!-- Modal para agregar moneda -->
-<div class="modal fade" id="monedaModal" tabindex="-1" role="dialog" aria-labelledby="monedaModalLabel" aria-hidden="true">
-  <div class="modal-dialog" role="document">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="monedaModalLabel">
-          <i class="fas fa-coins me-2"></i> Registrar Moneda
-        </h5>
-        <button type="button" class="btn btn-sm btn-icon-only text-dark" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
-            <i class="fas fa-times"></i>
-          </button>
-      </div>
-      <div class="modal-body">
-        <div id="modalMessages"></div>
-      </div>
-    </div>
   </div>
 </div>
 {% endblock content %}
@@ -346,7 +479,6 @@ document.addEventListener("DOMContentLoaded", function() {
     const editBtn = document.getElementById('editConfigBtn');
     const saveBtn = document.getElementById('saveConfigBtn');
     const cancelBtn = document.getElementById('cancelConfigBtn');
-    const addMonedaBtn = document.getElementById('addMonedaBtn');
     const formFields = form.querySelectorAll('input:not([type="hidden"]):not([type="submit"]), select, textarea');
     
     // Guardar estado inicial de los campos (excepto archivos)
@@ -376,7 +508,7 @@ document.addEventListener("DOMContentLoaded", function() {
         formFields.forEach(field => {
             field.disabled = true;
         });
-        if (addMonedaBtn) addMonedaBtn.disabled = true;
+        openModalBtn.disabled = true; // Bloquear el botón del modal
         saveBtn.style.display = 'none';
         cancelBtn.style.display = 'none';
         editBtn.style.display = 'inline-block';
@@ -386,7 +518,10 @@ document.addEventListener("DOMContentLoaded", function() {
         formFields.forEach(field => {
             field.disabled = false;
         });
-        if (addMonedaBtn) addMonedaBtn.disabled = false;
+        const openModalBtn = document.getElementById("openAccountModal");
+        if (openModalBtn) {
+            openModalBtn.disabled = false; // Habilitar el botón del modal
+        }
         saveBtn.style.display = 'inline-block';
         cancelBtn.style.display = 'inline-block';
         editBtn.style.display = 'none';
@@ -404,135 +539,200 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     setViewState();
-
-    // AJAX para el modal de Moneda
-    $('#monedaModal').on('show.bs.modal', function (e) {
-      var modal = $(this);
-      modal.find('.modal-body').html('<p class="text-center"><i class="fas fa-spinner fa-spin me-2"></i> Cargando formulario...</p>');
-      $('#modalMessages').html('');
-
-      $.ajax({
-          url: '{% url "moneda_modal" %}',
-          method: 'GET',
-          success: function(data) {
-              modal.find('.modal-body').html(data);
-          },
-          error: function() {
-              modal.find('.modal-body').html(
-                  '<div class="alert alert-danger">Error al cargar el formulario. Intente de nuevo.</div>'
-              );
-          }
-      });
-    });
-
-    $(document).on('submit', '#monedaForm', function(e) {
-      e.preventDefault();
-      var form = $(this);
-      var messagesContainer = $('#modalMessages');
-      messagesContainer.html('');
-
-      $.ajax({
-          url: form.attr('action') || '{% url "moneda_modal" %}',
-          method: 'POST',
-          data: form.serialize(),
-          dataType: 'json',
-          success: function(response) {
-              if (response.success) {
-                  messagesContainer.html(
-                      '<div class="alert alert-success alert-dismissible fade show" role="alert">' + 
-                      '<i class="fas fa-check-circle me-2"></i>' + response.message +
-                      '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div>'
-                  );
-                  
-                  var select = $('#id_moneda');
-                  select.append($('<option>', {
-                      value: response.idMoneda,
-                      text: response.nombreMoneda + (response.simboloMoneda ? ' (' + response.simboloMoneda + ')' : '')
-                  }));
-                  
-                  select.val(response.idMoneda);
-
-                  setTimeout(function() {
-                    window.location.reload();
-                }, 1000);
-              } else {
-                  var errorsHtml = '<div class="alert alert-danger"><strong>Errores:</strong><ul>';
-                  if (typeof response.errors === 'object' && response.errors !== null) {
-                    $.each(response.errors, function(field, errors) {
-                         errors.forEach(function(error) {
-                             errorsHtml += '<li>' + error + '</li>';
-                         });
-                    });
-                  } else {
-                      errorsHtml += '<li>Error desconocido. Intente nuevamente.</li>';
-                  }
-                  errorsHtml += '</ul></div>';
-                  messagesContainer.html(errorsHtml);
-              }
-          },
-          error: function(xhr) {
-              messagesContainer.html(
-                  '<div class="alert alert-danger"><i class="fas fa-exclamation-circle me-2"></i>Error en la comunicación con el servidor.</div>'
-              );
-          }
-      });
-    });
-
-    $('#monedaModal').on('hidden.bs.modal', function () {
-        $('#modalMessages').html('');
-    });
 });
 </script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  const openModalBtn = document.getElementById("openAccountModal");
+  const closeModalBtns = document.querySelectorAll("#closeAccountModal"); // Selecciona todos los botones de cierre
+  const modal = document.getElementById("accountModal");
+  const searchInput = document.getElementById("searchCuentaInput");
+  const tableRows = document.querySelectorAll("#tablaCuentas tbody tr");
+  const cuentaBancoInput = document.getElementById("cuentaBancoInput");
+  const idCuentaBancoInput = document.getElementById("idCuentaBanco");
+
+  if (openModalBtn) {
+    openModalBtn.addEventListener("click", function() {
+      modal.style.display = "block";
+    });
+  }
+
+  // Asegúrate de que todos los botones de cierre cierren el modal
+  closeModalBtns.forEach(btn => {
+    btn.addEventListener("click", function() {
+      modal.style.display = "none";
+    });
+  });
+
+  window.addEventListener("click", function(event) {
+    if (event.target === modal) {
+      modal.style.display = "none";
+    }
+  });
+
+  if (searchInput) {
+    searchInput.addEventListener("keyup", function() {
+      const filter = searchInput.value.toUpperCase();
+      let visibleRows = 0;
+
+      tableRows.forEach((row) => {
+        const cells = row.getElementsByTagName("td");
+        const match = Array.from(cells).some((cell) =>
+          cell.textContent.toUpperCase().includes(filter)
+        );
+        row.style.display = match ? "" : "none";
+        if (match) visibleRows++;
+      });
+
+      const mensajeSinRegistros = document.getElementById("mensajeSinRegistros");
+      mensajeSinRegistros.style.display = visibleRows === 0 ? "block" : "none";
+    });
+  }
+
+  tableRows.forEach(row => {
+    row.addEventListener("click", function() {
+      const cuentaId = row.getAttribute("data-id");
+      const cuentaNombre = row.getAttribute("data-nombre");
+
+      if (cuentaBancoInput && idCuentaBancoInput) {
+        cuentaBancoInput.value = cuentaNombre;
+        idCuentaBancoInput.value = cuentaId;
+      }
+
+      modal.style.display = "none";
+    });
+  });
+});
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  const tipoCedulaCuenta = document.getElementById("tipo_cedulaCuenta");
+  const cedulaCuenta = document.getElementById("cedulaCuenta");
+  const cedulaCuentaCompleta = document.getElementById("cedulaCuentaCompleta");
+
+  function updateCedulaCuentaCompleta() {
+    cedulaCuentaCompleta.value = `${tipoCedulaCuenta.value}-${cedulaCuenta.value}`;
+  }
+
+  tipoCedulaCuenta.addEventListener("change", updateCedulaCuentaCompleta);
+  cedulaCuenta.addEventListener("input", updateCedulaCuentaCompleta);
+});
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const tablaCuentas = document.getElementById("tablaCuentas");
+  const searchCuentaInput = document.getElementById("searchCuentaInput");
+  const paginationContainer = document.querySelector(".pagination-container");
+  const rowsPerPage = 10;
+  let currentPage = 1;
+
+  function displayRows(filteredRows) {
+    const rows = filteredRows || Array.from(tablaCuentas.getElementsByTagName("tr"));
+    const start = (currentPage - 1) * rowsPerPage;
+    const end = start + rowsPerPage;
+    rows.forEach((row, index) => {
+      row.style.display = index >= start && index < end ? "" : "none";
+    });
+  }
+
+  function setupPagination(filteredRows) {
+    const rows = filteredRows || Array.from(tablaCuentas.getElementsByTagName("tr"));
+    const totalPages = Math.ceil(rows.length / rowsPerPage);
+    paginationContainer.innerHTML = "";
+
+    const prevLi = document.createElement("li");
+    prevLi.className = `page-item ${currentPage === 1 ? "disabled" : ""}`;
+    prevLi.innerHTML = `<a class="page-link" href="#">&laquo;</a>`;
+    prevLi.addEventListener("click", (e) => {
+      e.preventDefault();
+      if (currentPage > 1) currentPage--;
+      displayRows(filteredRows);
+      setupPagination(filteredRows);
+    });
+    paginationContainer.appendChild(prevLi);
+
+    for (let i = 1; i <= totalPages; i++) {
+      const li = document.createElement("li");
+      li.className = `page-item ${i === currentPage ? "active" : ""}`;
+      li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+      li.addEventListener("click", (e) => {
+        e.preventDefault();
+        currentPage = i;
+        displayRows(filteredRows);
+        setupPagination(filteredRows);
+      });
+      paginationContainer.appendChild(li);
+    }
+
+    const nextLi = document.createElement("li");
+    nextLi.className = `page-item ${currentPage === totalPages ? "disabled" : ""}`;
+    nextLi.innerHTML = `<a class="page-link" href="#">&raquo;</a>`;
+    nextLi.addEventListener("click", (e) => {
+      e.preventDefault();
+      if (currentPage < totalPages) currentPage++;
+      displayRows(filteredRows);
+      setupPagination(filteredRows);
+    });
+    paginationContainer.appendChild(nextLi);
+  }
+
+  if (searchCuentaInput) {
+    searchCuentaInput.addEventListener("keyup", function () {
+      const filter = searchCuentaInput.value.toUpperCase();
+      const rows = Array.from(tablaCuentas.getElementsByTagName("tr"));
+      const filteredRows = rows.filter((row) => {
+        const cells = row.getElementsByTagName("td");
+        return Array.from(cells).some((cell) =>
+          cell.textContent.toUpperCase().includes(filter)
+        );
+      });
+
+      const mensajeSinRegistros = document.getElementById("mensajeSinRegistros");
+      mensajeSinRegistros.style.display = filteredRows.length === 0 ? "block" : "none";
+
+      currentPage = 1;
+      setupPagination(filteredRows);
+      displayRows(filteredRows);
+    });
+  }
+
+  setupPagination();
+  displayRows();
+});
+</script>
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    // Si el servidor dejó la cédula completa (ej. "V-1234567") en el hidden, parsearla y poblar campos
+    var fullCedula = document.getElementById('cedulaCuentaCompleta').value || '';
+    if (fullCedula) {
+      var parts = fullCedula.split('-');
+      var tipo = parts.shift() || '';
+      var numero = parts.join('-') || '';
+
+      var tipoSelect = document.getElementById('tipo_cedulaCuenta');
+      var numeroInput = document.getElementById('cedulaCuenta');
+
+      if (tipoSelect) {
+        for (var i = 0; i < tipoSelect.options.length; i++) {
+          if (tipoSelect.options[i].value === tipo) {
+            tipoSelect.selectedIndex = i;
+            break;
+          }
+        }
+      }
+
+      if (numeroInput) {
+        // limpia números no numéricos por seguridad (aunque el input ya tiene oninput)
+        numeroInput.value = numero.replace(/\D/g, '');
+      }
+
+      // Mantener la coherencia con el hidden (actualiza si se limpió/transformó)
+      document.getElementById('cedulaCuentaCompleta').value =
+        (tipo && numeroInput && numeroInput.value) ? tipo + '-' + numeroInput.value : '';
+    }
+  });
+</script>
 {% endblock javascripts %}
-
-<!--
-<style>
-  /* Clase para los botones de selector de color (círculos divididos) */
-  .split-circle-btn {
-      width: 50px;
-      height: 50px;
-      border-radius: 50%;
-      border: none;
-      outline: none;
-      cursor: pointer;
-      /* Fondo predeterminado: mitad azul y mitad naranja */
-      background: conic-gradient(#5e72e4 0deg 90deg, #fb6340 90deg 270deg, #cecdcd 270deg 360deg);
-      transition: transform 0.3s;
-  }
-
-  /* Efecto hover para dar un feedback visual */
-  .split-circle-btn:hover {
-      transform: scale(1.10);
-  }
-</style>
--->
-<!-- SECCIÓN COMENTADA PARA USO FUTURO EN CONFIGURACIÓN DE USUARIO -->
-    <!--
-    <hr class="my-4" />
-    <h4 class="text-center text-dark">Personalizar Web</h4>
-    <div class="row">
-      <div class="col-md-6">
-        <h6 class="text-dark font-weight-bold">Seleccionar Color Principal:</h6>
-        <div class="d-flex justify-content-around mt-3">
-          <button class="btn split-circle-btn" type="button" title="Gris/Azul/Naranja" onclick="setColor('split-blue-orange')"></button>
-          <button class="btn split-circle-btn" type="button" title="Gris/Azul/Morado" onclick="setColor('split-blue-purple')" 
-                  style="background: conic-gradient(#5e72e4 0deg 90deg, #5603ad 90deg 270deg, #cecdcd 270deg 360deg);"></button>
-          <button class="btn split-circle-btn" type="button" title="Gris/Negro/Rojo" onclick="setColor('split-red-black')" 
-                  style="background: conic-gradient(#212529 0deg 90deg, #f5365c 90deg 270deg, #cecdcd 270deg 360deg);"></button>
-        </div>
-        <input type="hidden" id="colorPrincipal" name="colorPrincipal" value="split-blue-orange" />
-      </div>
-      
-      <div class="col-md-6 text-center">
-        <h6 class="text-dark font-weight-bold">Tema:</h6>
-        <div class="btn-group btn-group-toggle mt-3" data-toggle="buttons">
-          <label class="btn btn-secondary active">
-            <input type="radio" name="tema" value="light" autocomplete="off" checked> Claro
-          </label>
-          <label class="btn btn-secondary">
-            <input type="radio" name="tema" value="dark" autocomplete="off"> Oscuro
-          </label>
-        </div>
-      </div>
-    </div>
-    -->

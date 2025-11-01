@@ -3810,6 +3810,18 @@ def index(request):
 def configuracion(request):
     config_existente = Configuracion.objects.order_by('-fechaConfiguracion').first()
     monedas = Moneda.objects.filter(estadoMoneda='ACTIVO')
+    # Obtener cuenta seleccionada (id y número) desde la configuración existente
+    cuenta_seleccionada_id = None
+    numeroCuentaBanco_seleccionada = None
+    if config_existente and getattr(config_existente, 'idCuentaBanco', None):
+        cuenta_obj = config_existente.idCuentaBanco
+        cuenta_seleccionada_id = cuenta_obj.idCuentaBanco
+        numeroCuentaBanco_seleccionada = cuenta_obj.numeroCuentaBanco
+
+    # Consulta de cuentas bancarias activas, con relaciones para evitar queries adicionales en la plantilla
+    cuentas_bancarias = CuentaBanco.objects.select_related('banco', 'moneda', 'planCuenta') \
+        .filter(estado=True) \
+        .order_by('-fechaActualizacion')
 
     if request.method == 'POST':
         form = ConfiguracionForm(request.POST, request.FILES, instance=config_existente)
@@ -3838,7 +3850,11 @@ def configuracion(request):
     context = {
         'form': form,
         'monedas': monedas,
-        'configuracion_actual': config_existente
+        'configuracion_actual': config_existente,
+        'cuentas_banco': cuentas_bancarias,
+        'cuenta_seleccionada_id': cuenta_seleccionada_id,
+        'numeroCuentaBanco_seleccionada': numeroCuentaBanco_seleccionada,
+        'total_cuentas_bancarias': cuentas_bancarias.count(),
     }
     return render(request, 'home/configuracion.html', context)
 
