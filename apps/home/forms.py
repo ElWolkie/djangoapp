@@ -1,4 +1,6 @@
-from django import forms  
+from django import forms
+
+from apps.cuentaBanco.models import CuentaBanco  
 from .models import  Usuarios, Formacion, TipoFormacion, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Denominacion, Banco, Moneda, Tasa, TipoMovimiento, Movimiento, Configuracion, CuotaFormacion
 from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
@@ -383,6 +385,22 @@ class ConfiguracionForm(forms.ModelForm):
         queryset=Moneda.objects.filter(estadoMoneda='ACTIVO'),
         widget=forms.Select(attrs={'class': 'form-control text-dark'}),
         empty_label="Seleccione una moneda..."
+    )    
+    idCuentaBanco = forms.ModelChoiceField(
+        queryset=CuentaBanco.objects.all(),
+        widget=forms.Select(attrs={
+            'class': 'form-control text-dark',
+            'placeholder': 'Seleccione una cuenta bancaria'
+        }),
+        empty_label="Seleccione una cuenta bancaria..."
+    )
+
+    cedulaCuenta = forms.CharField(
+        widget=forms.TextInput(attrs={
+            'class': 'form-control text-dark', 
+            'placeholder': 'Ej: V-12345678', 
+            'maxlength': 20
+        })
     )
     descuento = forms.DecimalField(
         max_digits=5, 
@@ -414,7 +432,7 @@ class ConfiguracionForm(forms.ModelForm):
 
     class Meta:
         model = Configuracion
-        fields = ['nombreInstitucion', 'rif', 'correoInstitucion', 'moneda', 'descuento', 'logo', 'firma']
+        fields = ['nombreInstitucion', 'rif', 'correoInstitucion', 'moneda', 'idCuentaBanco', 'cedulaCuenta', 'descuento', 'logo', 'firma']
 
     def __init__(self, *args, **kwargs):
         super(ConfiguracionForm, self).__init__(*args, **kwargs)

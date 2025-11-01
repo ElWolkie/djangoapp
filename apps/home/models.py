@@ -432,6 +432,14 @@ class Configuracion(models.Model):
     firma = models.ImageField(upload_to='configuracion/firmas/', verbose_name="Firma Autorizada")
     moneda = models.ForeignKey(Moneda, on_delete=models.PROTECT, verbose_name="Moneda Principal")
     descuento = models.DecimalField(max_digits=5, decimal_places=2, default=0, verbose_name="Descuento (%)")
+    idCuentaBanco = models.ForeignKey(
+        'cuentaBanco.CuentaBanco',  # Usar cadena para evitar el ciclo de importación
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        verbose_name="Cuenta Bancaria Asociada"
+    )
+    cedulaCuenta = models.CharField(max_length=20, verbose_name="Cédula de la Cuenta")
     fechaConfiguracion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Configuración")
 
     class Meta:

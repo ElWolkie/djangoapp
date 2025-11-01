@@ -1,0 +1,159 @@
+{% extends 'layouts/base.html' %}
+{% load static %}
+
+{% block title %}Configuración de la App{% endblock title %}
+
+{% block stylesheets %}
+<link rel="stylesheet" href="{% static 'assets/css/styleForms.css' %}" />
+<style>
+  .config-app-form {
+      background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+      border-radius: 1rem;
+      box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.1);
+      padding: 2rem;
+      margin: 2rem auto;
+      max-width: 900px;
+  }
+
+  .form-header {
+      text-align: center;
+      margin-bottom: 2rem;
+      position: relative;
+      padding-bottom: 1rem;
+  }
+
+  .form-header h2 {
+      color: #343a40;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+  }
+
+  .form-header::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 80px;
+      height: 4px;
+      background: linear-gradient(90deg, #ffc107, #fd7e14);
+      border-radius: 2px;
+  }
+
+  .form-group {
+      margin-bottom: 1.5rem;
+  }
+
+  .form-label {
+      font-weight: 600;
+      color: #495057;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+  }
+
+  .form-control {
+      border-radius: 0.5rem;
+      padding: 0.75rem 1.25rem;
+      border: 1px solid #ced4da;
+      transition: all 0.3s;
+      background-color: #fff;
+      box-shadow: inset 0 1px 2px rgba(0,0,0,0.075);
+  }
+
+  .form-control:focus {
+      border-color: #ffc107;
+      box-shadow: 0 0 0 0.25rem rgba(255, 193, 7, 0.25);
+  }
+
+  .btn-submit {
+      background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+      border: none;
+      color: #fff;
+      font-weight: 600;
+      padding: 0.75rem 2rem;
+      border-radius: 0.5rem;
+      transition: all 0.3s;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto;
+      width: 200px;
+      font-size: 1rem;
+  }
+
+  .btn-submit:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+      background: linear-gradient(135deg, #fd7e14 0%, #ffc107 100%);
+  }
+
+  .btn-submit i {
+      margin-right: 8px;
+  }
+</style>
+{% endblock stylesheets %}
+
+{% block content %}
+<div class="mt-4">
+  <div class="config-app-form">
+    <div class="form-header">
+      <h2><i class="fas fa-cogs text-warning"></i> Configuración de la App</h2>
+      <p class="text-muted">Complete todos los campos para configurar la aplicación</p>
+    </div>
+
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+          <div class="d-flex align-items-center">
+            <i class="fas {% if message.tags == 'success' %}fa-check-circle{% else %}fa-exclamation-circle{% endif %} me-2"></i>
+            <div>{{ message }}</div>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+      {% endfor %}
+    {% endif %}
+
+    <form method="POST" autocomplete="off">
+      {% csrf_token %}
+
+      <div class="row">
+        <div class="col-md-6">
+          <div class="form-group">
+            <label for="idCuentaBanco" class="form-label">
+              <i class="fas fa-university me-2"></i> Cuenta Bancaria Asociada
+            </label>
+            <input type="text" id="idCuentaBanco" name="idCuentaBanco" class="form-control" placeholder="Ingrese la cuenta bancaria" required>
+          </div>
+
+          <div class="form-group">
+            <label for="cedulaCuenta" class="form-label">
+              <i class="fas fa-id-card me-2"></i> Cédula de la Cuenta
+            </label>
+            <input type="text" id="cedulaCuenta" name="cedulaCuenta" class="form-control" placeholder="Ingrese la cédula de la cuenta" required>
+          </div>
+        </div>
+
+        <div class="col-md-6">
+          <div class="form-group">
+            <label for="estado" class="form-label">
+              <i class="fas fa-toggle-on me-2"></i> Estado de la Configuración
+            </label>
+            <select id="estado" name="estado" class="form-control" required>
+              <option value="True">Activo</option>
+              <option value="False">Inactivo</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-footer text-center mt-4">
+        <button type="submit" class="btn-submit">
+          <i class="fas fa-save me-2"></i> Guardar Configuración
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock content %}
