@@ -535,7 +535,6 @@ class PagoCreateSerializer(serializers.ModelSerializer):
         except Exception as e:
             print(f"⚠️ Error creando detalles de asiento (capturado): {e}")
 
-
         return pago
 
 class RequisitoSerializer(serializers.ModelSerializer):

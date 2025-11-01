@@ -57,6 +57,4 @@ urlpatterns = [
 
     ############### API DE PAGO TEMPORAL APP ############################
     path('pago-temporal/', views.PagoTemporalCreateAPIView.as_view(), name='pago-temporal-create'),
-
-
 ]
