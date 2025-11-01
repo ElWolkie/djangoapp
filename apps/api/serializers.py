@@ -243,8 +243,6 @@ class InscripcionSerializer(serializers.ModelSerializer):
         except Exception:
             return []
 
-
-
     def get_montoTotal(self, obj):
         """Retorna montoTotal como float seguro."""
         try:
@@ -500,17 +498,26 @@ class PagoCreateSerializer(serializers.ModelSerializer):
             nota_relacionada = NotaRelacionada.objects.filter(idNota=nota).first()
             if nota_relacionada and nota_relacionada.idInscripcion:
                 inscripcion = nota_relacionada.idInscripcion
-                inscripcion.estadoPago = 'PAGADO' if validated_data['monto'] >= nota.totalNota else 'PARCIAL'
-                inscripcion.save()
+                # usar helper para obtener idFormacion si lo necesitas
+                from apps.factura.utils import obtener_info_formacion_de_inscripcion
+                idFormacion_num, nombreForm = obtener_info_formacion_de_inscripcion(inscripcion)
+
+                # Actualizar estado de inscripción de forma segura
+                try:
+                    inscripcion.estadoPago = 'PAGADO' if validated_data['monto'] >= nota.totalNota else 'PARCIAL'
+                    inscripcion.montoPagado = (inscripcion.montoPagado or 0) + validated_data['monto']  # si aplica
+                    inscripcion.save()
+                except Exception as e:
+                    # no interrumpimos el proceso si falla, solo logueamos
+                    print(f"⚠️ No se pudo actualizar inscripción (save): {str(e)}")
         except Exception as e:
-            # no detiene el proceso si falla esto, solo log
-            print(f"⚠️ No se pudo actualizar inscripción: {str(e)}")
+            print(f"⚠️ No se pudo actualizar inscripción relacionada: {str(e)}")
 
         # Crear detalles de asiento (si existen planes)
         try:
             plan_articulo_debe = PlanArticulo.objects.filter(
                 tipoArticulo=nota.tipoArticulo,
-                tipo=True  # en tu modelo tipo es booleano; en versiones previas lo usabas 1/0
+                tipo=True
             ).order_by('-fecha').first()
 
             plan_articulo_haber = PlanArticulo.objects.filter(
@@ -518,7 +525,7 @@ class PagoCreateSerializer(serializers.ModelSerializer):
                 tipo=False
             ).order_by('-fecha').first()
 
-            if plan_articulo_debe and plan_articulo_haber:
+            if plan_articulo_debe and getattr(plan_articulo_debe, 'idPlanCuenta', None) and plan_articulo_haber and getattr(plan_articulo_haber, 'idPlanCuenta', None):
                 DetalleAsiento.objects.create(
                     idAsiento=asiento,
                     idPlanCuenta=plan_articulo_debe.idPlanCuenta,
@@ -531,8 +538,11 @@ class PagoCreateSerializer(serializers.ModelSerializer):
                     debe=Decimal('0.00'),
                     haber=validated_data['monto']
                 )
+            else:
+                print("⚠️ No se encontraron planes completos para crear DetalleAsiento. plan_debe/haber:", plan_articulo_debe, plan_articulo_haber)
         except Exception as e:
-            print(f"⚠️ Error creando detalles de asiento: {str(e)}")
+            print(f"⚠️ Error creando detalles de asiento (capturado): {e}")
+
 
         return pago
 
