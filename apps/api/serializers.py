@@ -86,7 +86,6 @@ class FormacionSerializer(serializers.ModelSerializer):
 
     def get_valorInscripcion(self, obj):
         try:
-            # convierte Decimal a float de forma segura
             v = getattr(obj, 'valorInscripcion', None)
             if v is None:
                 return 0.0
@@ -98,22 +97,19 @@ class FormacionSerializer(serializers.ModelSerializer):
 
     def get_cuotas_count(self, obj):
         try:
-            # intentos por nombres habituales de relación inversa
-            candidates = ['cuotas', 'cuotaformacion_set', 'inscripcioncuota_set', 'cuotas_set']
-            for name in candidates:
-                rel = getattr(obj, name, None)
-                if rel is None:
-                    continue
+            # usar related_name 'cuotas' (según tu model) y fallback a otros nombres
+            rel = getattr(obj, 'cuotas', None)
+            if rel is None:
+                rel = getattr(obj, 'cuotaformacion_set', None)
+            if rel is None:
+                return 0
+            try:
+                return rel.filter(is_active=True).count()
+            except Exception:
                 try:
-                    # si es queryset, filtrar por is_active si aplica
-                    return rel.filter(is_active=True).count()
+                    return rel.count()
                 except Exception:
-                    try:
-                        return rel.count()
-                    except Exception:
-                        continue
-            # fallback seguro
-            return 0
+                    return 0
         except Exception:
             return 0
 
@@ -137,14 +133,12 @@ class CohorteSerializer(serializers.ModelSerializer):
 
     def get_inscripcionAbierta(self, obj):
         try:
-            # si no hay fechaInicio no está abierta
             if not obj.fechaInicio:
                 return False
             lapso = int(obj.lapsoInscripcion or 0)
-            inicio_date = obj.fechaInicio if hasattr(obj.fechaInicio, 'date') else obj.fechaInicio
+            inicio_date = obj.fechaInicio
             hoy = now().date()
             fecha_fin_lapso = inicio_date + timedelta(days=lapso)
-            # está abierta si hoy está entre inicio_date y fecha_fin_lapso (inclusive)
             return inicio_date <= hoy <= fecha_fin_lapso
         except Exception:
             return False
@@ -184,13 +178,13 @@ class CuotaFormacionSerializer(serializers.ModelSerializer):
             return 0.0
 
 class InscripcionSerializer(serializers.ModelSerializer):
-    idPersona_detail = PersonaSerializer(source='idPersona', read_only=True)
-    idFormacion_detail = FormacionSerializer(source='idCohorte.idFormacion', read_only=True)
+    idPersona_detail = serializers.SerializerMethodField()
+    idFormacion_detail = serializers.SerializerMethodField()
     idCohorte_detail = CohorteSerializer(source='idCohorte', read_only=True)
     cuotas = serializers.SerializerMethodField(read_only=True)
 
-    idPersona = serializers.IntegerField(write_only=True)
-    idCohorte = serializers.IntegerField(write_only=True)
+    idPersona = serializers.IntegerField(write_only=True, required=False)
+    idCohorte = serializers.IntegerField(write_only=True, required=False)
 
     montoTotal = serializers.SerializerMethodField()
     saldoPendiente = serializers.SerializerMethodField()
@@ -213,67 +207,89 @@ class InscripcionSerializer(serializers.ModelSerializer):
             'cuotas',
         ]
 
+    def get_idPersona_detail(self, obj):
+        try:
+            persona = getattr(obj, 'idPersona', None)
+            if not persona:
+                return None
+            # evita importar PersonaSerializer si hay problemas; devuelve campos mínimos
+            return {
+                'idPersona': getattr(persona, 'idPersona', None),
+                'nombre': getattr(persona, 'nombre', None),
+                'cedula': getattr(persona, 'cedula', None),
+            }
+        except Exception:
+            return None
+
+    def get_idFormacion_detail(self, obj):
+        """
+        Devuelve data de la formación asociada de forma defensiva:
+        - intenta idCohorte.idFormacion (select_related)
+        - si no existe, intenta buscar mediante idCohorte_id -> query (fallback)
+        """
+        try:
+            cohorte = getattr(obj, 'idCohorte', None)
+            if cohorte:
+                form = getattr(cohorte, 'idFormacion', None)
+                if form:
+                    return FormacionSerializer(form).data
+                # si cohorte existe pero no tiene idFormacion prefetched: intentar resolver por FK id
+                form_id = getattr(cohorte, 'idFormacion_id', None) or getattr(cohorte, 'idFormacion', None)
+                if form_id:
+                    # hacer una consulta ligera
+                    form_obj = Formacion.objects.filter(idFormacion=form_id).first()
+                    if form_obj:
+                        return FormacionSerializer(form_obj).data
+            # fallback: intentar si el objeto Inscripcion tiene un campo nombreFormacion simple
+            nombre_directo = getattr(obj, 'nombreFormacion', None)
+            if nombre_directo:
+                return {'nombreFormacion': nombre_directo}
+            return None
+        except Exception as e:
+            logger.exception("get_idFormacion_detail error: %s", e)
+            return None
+
     def get_cuotas(self, obj):
-        """
-        Devuelve cuotas asociadas a la Formacion de la cohorte.
-        Primero intenta usar datos prefetchados (formacion.prefetched_cuotas),
-        si no, hace una consulta directa a CuotaFormacion.
-        """
         try:
             coh = getattr(obj, 'idCohorte', None)
             if not coh:
                 return []
-
-            formacion = getattr(coh, 'idFormacion', None)
-            if not formacion:
+            form = getattr(coh, 'idFormacion', None)
+            form_id = None
+            if form:
+                # si el prefetch populó attr 'prefetched_cuotas' en la instancia de formación
+                pref = getattr(form, 'prefetched_cuotas', None)
+                if pref is not None:
+                    return CuotaFormacionSerializer(pref, many=True).data
+                form_id = getattr(form, 'idFormacion', None) or getattr(form, 'id', None)
+            else:
+                # fallback: tal vez solo tenemos id
+                form_id = getattr(coh, 'idFormacion_id', None)
+            if not form_id:
                 return []
-
-            # Si prefetch_related llenó 'prefetched_cuotas' en la Formacion:
-            pref = getattr(formacion, 'prefetched_cuotas', None)
-            if pref is not None:
-                return CuotaFormacionSerializer(pref, many=True).data
-
-            # fallback: consulta directa
-            formacion_id = getattr(formacion, 'idFormacion', None) or getattr(formacion, 'id', None)
-            if not formacion_id:
-                return []
-
-            qs = CuotaFormacion.objects.filter(idFormacion_id=formacion_id, is_active=True).order_by('orden')
+            qs = CuotaFormacion.objects.filter(idFormacion_id=form_id, is_active=True).order_by('orden')
             return CuotaFormacionSerializer(qs, many=True).data
-        except Exception:
+        except Exception as e:
+            logger.exception("get_cuotas error: %s", e)
             return []
 
     def get_montoTotal(self, obj):
-        """Retorna montoTotal como float seguro."""
         try:
-            v = getattr(obj, 'montoTotal', None)
-            if v is None:
-                # algunos modelos usan total o monto
-                v = getattr(obj, 'total', None) or getattr(obj, 'monto', None) or 0.0
-            return float(v or 0.0)
+            return float(getattr(obj, 'montoTotal', getattr(obj, 'monto_total', getattr(obj, 'total', 0)) or 0) )
         except Exception:
             return 0.0
 
     def get_saldoPendiente(self, obj):
-        """Retorna saldoPendiente como float seguro."""
         try:
-            v = getattr(obj, 'saldoPendiente', None)
-            if v is None:
-                # fallback: calcular como montoTotal - montoPagado si ambos existen
-                monto_total = getattr(obj, 'montoTotal', None) or getattr(obj, 'total', None) or 0.0
-                monto_pagado = getattr(obj, 'montoPagado', None) or getattr(obj, 'pagado', None) or 0.0
-                return float((monto_total or 0.0) - (monto_pagado or 0.0))
-            return float(v or 0.0)
+            return float(getattr(obj, 'saldoPendiente', getattr(obj, 'montoTotal', 0) - getattr(obj, 'montoPagado', 0)))
         except Exception:
             return 0.0
 
     def create(self, validated_data):
         id_persona = validated_data.pop('idPersona', None)
         id_cohorte = validated_data.pop('idCohorte', None)
-
         if not id_persona or not id_cohorte:
             raise serializers.ValidationError("idPersona e idCohorte son obligatorios para crear una inscripción")
-
         inscripcion = Inscripcion.objects.create(
             idPersona_id=id_persona,
             idCohorte_id=id_cohorte,
@@ -281,8 +297,6 @@ class InscripcionSerializer(serializers.ModelSerializer):
         )
         return inscripcion
     
-logger = logging.getLogger(__name__)
-
 class NotaSerializer(serializers.ModelSerializer):
     idInscripcion = serializers.SerializerMethodField(read_only=True)
     formacion = serializers.SerializerMethodField(read_only=True)
@@ -296,65 +310,45 @@ class NotaSerializer(serializers.ModelSerializer):
 
     def _get_first_relation(self, obj):
         """
-        Obtiene la primera NotaRelacionada asociada (preferiblemente la prefetechada).
-        Devolvemos siempre un objeto relation o None.
+        Obtener rel prefetched o a través de relaciones; siempre devolver una NotaRelacionada o None.
         """
         try:
-            # Si la vista prefetcheó y dejó el atributo, úsalo
-            prefetched_list = getattr(obj, 'prefetched_relaciones_con_inscripcion', None)
-            if prefetched_list:
-                return prefetched_list[0] if prefetched_list else None
-
-            # Intentar acceder a la relación que viene del related_name 'relaciones'
+            prefetched = getattr(obj, 'prefetched_relaciones_con_inscripcion', None)
+            if prefetched:
+                return prefetched[0] if len(prefetched) else None
             rels = getattr(obj, 'relaciones', None)
             if rels is not None:
-                first = rels.first()
-                if first:
-                    return first
-
-            # Fallback: consulta select_related para evitar N+1 si no había prefetech
-            logger.warning(f"[Consulta N+1] Ejecutando fallback lento para Nota {obj.idNota}")
-            return NotaRelacionada.objects.filter(
-                idNota=obj,
-                idInscripcion__isnull=False
-            ).select_related('idInscripcion__idCohorte__idFormacion').first()
-
+                # si es manager queryset
+                try:
+                    return rels.filter(idInscripcion__isnull=False).select_related('idInscripcion__idCohorte__idFormacion').first()
+                except Exception:
+                    return rels.first()
+            return NotaRelacionada.objects.filter(idNota=obj, idInscripcion__isnull=False).select_related('idInscripcion__idCohorte__idFormacion').first()
         except Exception as e:
-            logger.exception(f"Error en _get_first_relation para nota {obj.idNota}: {e}")
+            logger.exception("Error en _get_first_relation: %s", e)
             return None
 
     def _resolve_formacion_from_inscripcion(self, ins):
-        """
-        Intentos ordenados para obtener el objeto / nombre de la formación
-        desde una instancia de Inscripcion.
-        Devuelve dict con keys mínimas {'idFormacion':..., 'nombreFormacion': ...}
-        o {'nombreFormacion': 'Formación no disponible'} como fallback.
-        """
         if not ins:
             return {'nombreFormacion': 'Formación no disponible'}
-
-        # 1) Si Inscripcion tiene FK directa llamada 'idFormacion'
-        form = getattr(ins, 'idFormacion', None)
-        if form:
-            nombre = getattr(form, 'nombreFormacion', getattr(form, 'nombre', None)) or str(form)
-            identificador = getattr(form, 'idFormacion', getattr(form, 'id', None))
-            return {'idFormacion': identificador, 'nombreFormacion': nombre}
-
-        # 2) Si existe cohorte -> cohorte.idFormacion
-        coh = getattr(ins, 'idCohorte', None)
-        if coh:
-            form2 = getattr(coh, 'idFormacion', None)
-            if form2:
-                nombre = getattr(form2, 'nombreFormacion', getattr(form2, 'nombre', None)) or str(form2)
-                identificador = getattr(form2, 'idFormacion', getattr(form2, 'id', None))
-                return {'idFormacion': identificador, 'nombreFormacion': nombre}
-
-        # 3) Si Inscripcion contiene un campo nombreFormacion (string) u otro nombre directo
-        nombre_directo = getattr(ins, 'nombreFormacion', None) or getattr(ins, 'formacion_nombre', None)
-        if nombre_directo:
-            return {'nombreFormacion': nombre_directo}
-
-        # 4) Fallback
+        # 1) intentar idCohorte.idFormacion
+        try:
+            coh = getattr(ins, 'idCohorte', None)
+            if coh:
+                form = getattr(coh, 'idFormacion', None)
+                if form:
+                    return {'idFormacion': getattr(form, 'idFormacion', getattr(form, 'id', None)), 'nombreFormacion': getattr(form, 'nombreFormacion', getattr(form, 'nombre', None))}
+            # 2) intentar campos directos
+            form_id = getattr(ins, 'idFormacion', None) or getattr(ins, 'idFormacion_id', None)
+            if form_id:
+                form_obj = Formacion.objects.filter(idFormacion=form_id).first()
+                if form_obj:
+                    return {'idFormacion': form_obj.idFormacion, 'nombreFormacion': form_obj.nombreFormacion}
+            nombre_directo = getattr(ins, 'nombreFormacion', None) or getattr(ins, 'formacion_nombre', None)
+            if nombre_directo:
+                return {'nombreFormacion': nombre_directo}
+        except Exception as e:
+            logger.exception("Error resolviendo formación desde Inscripcion: %s", e)
         return {'nombreFormacion': 'Formación no disponible'}
 
     def get_idInscripcion(self, obj):
@@ -368,12 +362,10 @@ class NotaSerializer(serializers.ModelSerializer):
         try:
             if not rel:
                 return {'nombreFormacion': 'Formación no disponible'}
-
             ins = getattr(rel, 'idInscripcion', None)
-            resolved = self._resolve_formacion_from_inscripcion(ins)
-            return resolved
+            return self._resolve_formacion_from_inscripcion(ins)
         except Exception as e:
-            logger.exception(f"No se pudo resolver la formación para la nota {obj.idNota}. Rel: {rel}. Error: {e}")
+            logger.exception("No se pudo resolver la formación para la nota %s: %s", getattr(obj, 'idNota', None), e)
             return {'nombreFormacion': 'Formación no disponible'}
 
 class PagoSerializer(serializers.ModelSerializer):

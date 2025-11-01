@@ -252,14 +252,20 @@ class InscripcionUsuarioList(generics.ListAPIView):
     incluidas (campo 'cuotas' que devuelve la serializer).
     """
     serializer_class = InscripcionSerializer
-    permission_classes = [AllowAny]  # si prefieres exigir token usa IsAuthenticated
+    permission_classes = [AllowAny]
 
     def get_queryset(self):
         qs = Inscripcion.objects.select_related(
             'idPersona', 'idCohorte', 'idCohorte__idFormacion'
+        ).prefetch_related(
+            Prefetch(
+                'idCohorte__idFormacion__cuotas',
+                queryset=CuotaFormacion.objects.filter(is_active=True).order_by('orden'),
+                to_attr='prefetched_cuotas'
+            ),
+            'inscripcioncuota_set'
         ).all()
 
-        # Si pasan ?cedula=V-12345678 filtramos por esa cédula
         cedula_q = self.request.query_params.get('cedula')
         if cedula_q:
             ced = re.sub(r'\D', '', cedula_q)
@@ -268,10 +274,8 @@ class InscripcionUsuarioList(generics.ListAPIView):
                 return qs.filter(idPersona_id=persona.idPersona)
             return qs.none()
 
-        # Intenta deducir persona asociado a request.user via modelo Usuarios (ajusta si tu relación es distinta)
         user = getattr(self.request, 'user', None)
         if user and not getattr(user, 'is_anonymous', False):
-            # Intenta buscar en tabla Usuarios que referencie persona
             try:
                 usuario_rel = Usuarios.objects.filter(user_id=getattr(user, 'id', None)).first()
                 if usuario_rel and getattr(usuario_rel, 'idPersona', None):
@@ -279,8 +283,6 @@ class InscripcionUsuarioList(generics.ListAPIView):
                     return qs.filter(idPersona_id=persona_id)
             except Exception:
                 pass
-
-            # fallback: buscar persona por username / campo cedula en user
             try:
                 ced_user = re.sub(r'\D', '', str(getattr(user, 'username', '') or ''))
                 if ced_user:
@@ -289,8 +291,6 @@ class InscripcionUsuarioList(generics.ListAPIView):
                         return qs.filter(idPersona_id=persona.idPersona)
             except Exception:
                 pass
-
-        # por defecto no exponemos todas las inscripciones
         return qs.none()
 
 class InscripcionDetail(generics.RetrieveAPIView):  # Cambié a Detail para claridad
@@ -308,21 +308,15 @@ class InscripcionDetail(generics.RetrieveAPIView):  # Cambié a Detail para clar
     serializer_class = InscripcionSerializer
     permission_classes = [IsAuthenticated]  # Seguridad
 
-logger = logging.getLogger(__name__)
-
 class NotasUsuarioAutenticadoView(generics.ListAPIView):
-    """
-    Devuelve las notas de cobro asociadas al usuario autenticado.
-    Optimizado con prefetch para incluir la información de la formación.
-    """
     serializer_class = NotaSerializer
     permission_classes = [IsAuthenticated]
 
     def get_persona(self):
         try:
+            # intenta devolver instancia Personas (no id)
             if hasattr(self.request.user, 'idPersona') and self.request.user.idPersona:
                 return self.request.user.idPersona
-            # fallback: si existe tabla Usuarios que relaciona user -> persona
             usuario_rel = Usuarios.objects.filter(user_id=getattr(self.request.user, 'id', None)).first()
             if usuario_rel and getattr(usuario_rel, 'idPersona', None):
                 return usuario_rel.idPersona
@@ -331,118 +325,76 @@ class NotasUsuarioAutenticadoView(generics.ListAPIView):
             logger.exception("Error obteniendo persona: %s", e)
             return None
 
-
     def get_queryset(self):
         persona = self.get_persona()
         if not persona:
-            return Nota.objects.none() # No hay persona, no hay notas.
+            return Nota.objects.none()
 
-        # --- CORRECCIÓN CLAVE ---
-        # 1. Definimos el Prefetch usando el related_name CORRECTO ('relaciones')
-        #    y le decimos que pre-cargue la ruta completa hasta la Formacion.
         prefetch_relacion = Prefetch(
-            'relaciones', # El related_name de NotaRelacionada -> Nota
-            queryset=NotaRelacionada.objects.select_related(
-                'idInscripcion__idCohorte__idFormacion'
-            ).filter(idInscripcion__isnull=False), # Solo nos importan las relaciones con inscripciones
-            to_attr='prefetched_relaciones_con_inscripcion' # Guardamos el resultado en un atributo claro
+            'relaciones',
+            queryset=NotaRelacionada.objects.select_related('idInscripcion__idCohorte__idFormacion').filter(idInscripcion__isnull=False),
+            to_attr='prefetched_relaciones_con_inscripcion'
         )
 
-        # 2. Filtramos las Notas usando el related_name CORRECTO ('relaciones')
-        #    Buscamos notas donde exista una relación a una inscripción de esta persona.
         qs = Nota.objects.filter(
             relaciones__idInscripcion__idPersona=persona
-        ).prefetch_related(
-            prefetch_relacion
-        ).distinct() # distinct() es crucial cuando se filtra a través de relaciones M2M
-        
+        ).prefetch_related(prefetch_relacion).distinct()
         return qs
-
+    
 class PagoCreateAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @transaction.atomic
     def post(self, request):
         try:
             print("🚀 [PAGO-VIEW] Iniciando procesamiento (debug wrapper)...")
-            # --- todo el código original de tu post aquí ---
-            # (puedes pegar exactamente lo que ya tenías dentro del método)
             serializer = PagoCreateSerializer(data=request.data, context={'request': request})
-
             if not serializer.is_valid():
                 print(f"❌ Validación falló: {serializer.errors}")
-                return Response({
-                    'success': False,
-                    'message': 'Datos inválidos',
-                    'errors': serializer.errors
-                }, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'success': False, 'message': 'Datos inválidos', 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
-            print("✅ Serializer válido")
-
-            # Intento robusto de moneda/tasa/periodo (igual que en tu versión)
+            # validar moneda/tasa/periodo ANTES de crear
             configuracion = Configuracion.objects.first()
-            moneda = None
-            if configuracion and getattr(configuracion, 'moneda', None):
-                moneda = configuracion.moneda
-            else:
-                moneda = Moneda.objects.filter(idMoneda=1).first()
-
+            moneda = getattr(configuracion, 'moneda', None) if configuracion else Moneda.objects.filter(idMoneda=1).first()
             if not moneda:
-                return Response({
-                    'success': False,
-                    'message': 'Moneda del sistema no configurada (ni configuración ni moneda id=1).'
-                }, status=status.HTTP_400_BAD_REQUEST)
-
+                return Response({'success': False, 'message': 'Moneda no configurada'}, status=status.HTTP_400_BAD_REQUEST)
             tasa = Tasa.objects.filter(idMoneda=moneda).order_by('-idTasa').first()
             if not tasa:
-                return Response({
-                    'success': False,
-                    'message': f'No se encontró tasa para la moneda {moneda}.'
-                }, status=status.HTTP_400_BAD_REQUEST)
-
+                return Response({'success': False, 'message': 'No hay tasa configurada para la moneda'}, status=status.HTTP_400_BAD_REQUEST)
             periodo_activo = periodoContable.objects.filter(estadoPeriodo=True).first()
             if not periodo_activo:
-                return Response({
-                    'success': False,
-                    'message': 'No hay periodo contable activo'
-                }, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'success': False, 'message': 'No hay periodo contable activo'}, status=status.HTTP_400_BAD_REQUEST)
 
-            # Crear pago dentro de transacción
-            with transaction.atomic():
-                pago = serializer.save()
-                pago_serializado = PagoSerializer(pago).data
+            pago = serializer.save()  # aquí puede lanzar ValidationError, etc.
+            pago_serializado = PagoSerializer(pago).data
 
-                response_data = {
-                    'success': True,
-                    'message': '¡Pago procesado exitosamente! 🎉',
-                    'data': {
-                        'idPago': pago.idPago,
-                        'numeroAsiento': pago.idAsiento.numeroAsiento,
-                        'monto': float(pago.monto),
-                        'fechaPago': pago.fechaPago.isoformat(),
-                        'formaPago': pago.formaPago,
-                        'referencia': pago.referencia or '',
-                        'nota': {
-                            'idNota': serializer.context.get('nota').idNota,
-                            'numeroNota': serializer.context.get('nota').numeroNota,
-                            'nuevoEstado': serializer.context.get('nota').estado,
-                            'totalNota': float(serializer.context.get('nota').totalNota)
-                        }
+            response_data = {
+                'success': True,
+                'message': '¡Pago procesado exitosamente! 🎉',
+                'data': {
+                    'idPago': pago.idPago,
+                    'numeroAsiento': pago.idAsiento.numeroAsiento,
+                    'monto': float(pago.monto),
+                    'fechaPago': pago.fechaPago.isoformat(),
+                    'formaPago': pago.formaPago,
+                    'referencia': pago.referencia or '',
+                    'nota': {
+                        'idNota': serializer.context.get('nota').idNota,
+                        'numeroNota': serializer.context.get('nota').numeroNota,
+                        'nuevoEstado': serializer.context.get('nota').estado,
+                        'totalNota': float(serializer.context.get('nota').totalNota),
                     }
                 }
-                print("🎊 Pago procesado exitosamente (debug wrapper)!")
-                return Response(response_data, status=status.HTTP_201_CREATED)
-
+            }
+            return Response(response_data, status=status.HTTP_201_CREATED)
+        except serializers.ValidationError as ve:
+            logger.exception("ValidationError en PagoCreateAPIView: %s", ve)
+            return Response({'success': False, 'message': 'Error en validación al crear pago', 'errors': getattr(ve, 'detail', str(ve))}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            # Traza completa para depuración (temporal)
             tb = traceback.format_exc()
-            print("💥 Exception en PagoCreateAPIView.post:\n", tb)
-            # Devolver JSON con información de depuración
-            return Response({
-                'success': False,
-                'message': 'Error interno al procesar pago (ver campo "debug_trace")',
-                'error': str(e),
-                'debug_trace': tb
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            logger.exception("Error en PagoCreateAPIView.post: %s\n%s", e, tb)
+            # Devuelve JSON con traza para debugging (temporal)
+            return Response({'success': False, 'message': 'Error interno al procesar pago', 'error': str(e), 'debug_trace': tb}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 class RequisitoListCreate(generics.ListCreateAPIView):
     queryset = Requisito.objects.all()  # Usa el modelo Requisito
