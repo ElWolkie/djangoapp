@@ -255,6 +255,7 @@ class Cargo(models.Model):
 class Requisito(models.Model):  
     idRequisito = models.AutoField(primary_key=True)
     nombreRequisito = models.CharField(max_length=100, unique=True)
+    app = models.BooleanField(default=False)
     estadoRequisito = models.CharField(max_length=10)
     fechaRequisito = models.DateField(auto_now_add=True)
 

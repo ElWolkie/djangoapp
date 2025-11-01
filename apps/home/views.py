@@ -4726,7 +4726,7 @@ def index(request):
 def configuracion(request):
     config_existente = Configuracion.objects.order_by('-fechaConfiguracion').first()
     monedas = Moneda.objects.filter(estadoMoneda='ACTIVO')
-    # Obtener cuenta seleccionada (id y número) desde la configuración existente
+    requisitos_app = Requisito.objects.filter(estadoRequisito='ACTIVO')
     cuenta_seleccionada_id = None
     numeroCuentaBanco_seleccionada = None
     if config_existente and getattr(config_existente, 'idCuentaBanco', None):
@@ -4734,7 +4734,6 @@ def configuracion(request):
         cuenta_seleccionada_id = cuenta_obj.idCuentaBanco
         numeroCuentaBanco_seleccionada = cuenta_obj.numeroCuentaBanco
 
-    # Consulta de cuentas bancarias activas, con relaciones para evitar queries adicionales en la plantilla
     cuentas_bancarias = CuentaBanco.objects.select_related('banco', 'moneda', 'planCuenta') \
         .filter(estado=True) \
         .order_by('-fechaActualizacion')
@@ -4744,19 +4743,27 @@ def configuracion(request):
         
         if form.is_valid():
             try:
-                configuracion_guardada = form.save()
-                messages.success(
-                    request, 
-                    f'Configuración institucional {"actualizada" if config_existente else "guardada"} exitosamente.'
-                )
-                return redirect('configuracion')
+                with transaction.atomic():
+                    configuracion_guardada = form.save()
+
+                    # Actualizar el atributo "app" de los requisitos
+                    for requisito in Requisito.objects.filter(estadoRequisito='ACTIVO'):
+                        app_value = request.POST.get(f'app_{requisito.idRequisito}')
+                        if app_value is not None:
+                            requisito.app = app_value == 'true'
+                            requisito.save()
+
+                    messages.success(
+                        request, 
+                        f'Configuración institucional {"actualizada" if config_existente else "guardada"} exitosamente.'
+                    )
+                    return redirect('configuracion')
             except Exception as e:
                 messages.error(
                     request, 
                     f'Ocurrió un error al guardar la configuración: {e}. Por favor, intente de nuevo.'
                 )
         else:
-            # Mostrar errores específicos
             for field, errors in form.errors.items():
                 for error in errors:
                     messages.error(request, f"{field}: {error}")
@@ -4770,10 +4777,10 @@ def configuracion(request):
         'cuentas_banco': cuentas_bancarias,
         'cuenta_seleccionada_id': cuenta_seleccionada_id,
         'numeroCuentaBanco_seleccionada': numeroCuentaBanco_seleccionada,
+        'requisitos_app': requisitos_app,
         'total_cuentas_bancarias': cuentas_bancarias.count(),
     }
     return render(request, 'home/configuracion.html', context)
-
 
 # Vista para actualizar monedas desde la API
 @login_required(login_url='login')

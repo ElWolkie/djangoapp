@@ -111,6 +111,7 @@
           <tr>
             <th>ID</th>
             <th>Nombre</th>
+            <th>APP</th>
             <th>Fecha</th>
             <th>Estado</th>
             <th class="actions-column">Acciones</th>
@@ -121,6 +122,17 @@
           <tr>
             <td class="text-center">{{ requisito.idRequisito }}</td>
             <td class="text-center">{{ requisito.nombreRequisito }}</td>
+            <td class="text-center" title="Define si aparece en la APP como recaudo.">
+              {% if requisito.app %}
+                <span class="badge bg-success text-white">
+                  <i class="fas fa-check-circle me-1"></i> Sí
+                </span>
+              {% else %}
+                <span class="badge bg-danger text-white">
+                  <i class="fas fa-times-circle me-1"></i> No
+                </span>
+              {% endif %}
+            </td>
             <td class="text-center">{{ requisito.fechaRequisito|date:"d/m/Y" }}</td>
             <td>
               {% if requisito.estadoRequisito|upper == "ACTIVO" %}
