@@ -360,97 +360,88 @@ class NotasUsuarioAutenticadoView(generics.ListAPIView):
 
 class PagoCreateAPIView(APIView):
     permission_classes = [IsAuthenticated]
-    
-    @transaction.atomic
+
     def post(self, request):
-        print("🚀 [PAGO-VIEW] Iniciando procesamiento...")
-        serializer = PagoCreateSerializer(data=request.data, context={'request': request})
-
-        if not serializer.is_valid():
-            print(f"❌ Validación falló: {serializer.errors}")
-            return Response({
-                'success': False,
-                'message': 'Datos inválidos',
-                'errors': serializer.errors
-            }, status=status.HTTP_400_BAD_REQUEST)
-
-        print("✅ Serializer válido")
-
-        # Antes de llamar a serializer.save() validamos que exista periodo contable y tasa en forma robusta
-        # (Nota ya fue comprobada en serializer.validate y está en serializer.context['nota'])
-        nota = serializer.context['nota']
-
-        # Intentar obtener moneda por configuración, sino fallback a Moneda id=1
-        configuracion = Configuracion.objects.first()
-        moneda = None
-        if configuracion and getattr(configuracion, 'moneda', None):
-            moneda = configuracion.moneda
-        else:
-            moneda = Moneda.objects.filter(idMoneda=1).first()
-
-        if not moneda:
-            return Response({
-                'success': False,
-                'message': 'Moneda del sistema no configurada (ni configuración ni moneda id=1).'
-            }, status=status.HTTP_400_BAD_REQUEST)
-
-        tasa = Tasa.objects.filter(idMoneda=moneda).order_by('-idTasa').first()
-        if not tasa:
-            return Response({
-                'success': False,
-                'message': f'No se encontró tasa para la moneda {moneda}.'
-            }, status=status.HTTP_400_BAD_REQUEST)
-
-        periodo_activo = periodoContable.objects.filter(estadoPeriodo=True).first()
-        if not periodo_activo:
-            return Response({
-                'success': False,
-                'message': 'No hay periodo contable activo'
-            }, status=status.HTTP_400_BAD_REQUEST)
-
-        # Todo validado — crear dentro de la misma transacción (serializer.create hace la mayoría del trabajo)
         try:
-            pago = serializer.save()
-            # serializar la respuesta
-            pago_serializado = PagoSerializer(pago).data
+            print("🚀 [PAGO-VIEW] Iniciando procesamiento (debug wrapper)...")
+            # --- todo el código original de tu post aquí ---
+            # (puedes pegar exactamente lo que ya tenías dentro del método)
+            serializer = PagoCreateSerializer(data=request.data, context={'request': request})
 
-            response_data = {
-                'success': True,
-                'message': '¡Pago procesado exitosamente! 🎉',
-                'data': {
-                    'idPago': pago.idPago,
-                    'numeroAsiento': pago.idAsiento.numeroAsiento,
-                    'monto': float(pago.monto),
-                    'fechaPago': pago.fechaPago.isoformat(),
-                    'formaPago': pago.formaPago,
-                    'referencia': pago.referencia or '',
-                    'nota': {
-                        'idNota': nota.idNota,
-                        'numeroNota': nota.numeroNota,
-                        'nuevoEstado': nota.estado,
-                        'totalNota': float(nota.totalNota)
+            if not serializer.is_valid():
+                print(f"❌ Validación falló: {serializer.errors}")
+                return Response({
+                    'success': False,
+                    'message': 'Datos inválidos',
+                    'errors': serializer.errors
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            print("✅ Serializer válido")
+
+            # Intento robusto de moneda/tasa/periodo (igual que en tu versión)
+            configuracion = Configuracion.objects.first()
+            moneda = None
+            if configuracion and getattr(configuracion, 'moneda', None):
+                moneda = configuracion.moneda
+            else:
+                moneda = Moneda.objects.filter(idMoneda=1).first()
+
+            if not moneda:
+                return Response({
+                    'success': False,
+                    'message': 'Moneda del sistema no configurada (ni configuración ni moneda id=1).'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            tasa = Tasa.objects.filter(idMoneda=moneda).order_by('-idTasa').first()
+            if not tasa:
+                return Response({
+                    'success': False,
+                    'message': f'No se encontró tasa para la moneda {moneda}.'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            periodo_activo = periodoContable.objects.filter(estadoPeriodo=True).first()
+            if not periodo_activo:
+                return Response({
+                    'success': False,
+                    'message': 'No hay periodo contable activo'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Crear pago dentro de transacción
+            with transaction.atomic():
+                pago = serializer.save()
+                pago_serializado = PagoSerializer(pago).data
+
+                response_data = {
+                    'success': True,
+                    'message': '¡Pago procesado exitosamente! 🎉',
+                    'data': {
+                        'idPago': pago.idPago,
+                        'numeroAsiento': pago.idAsiento.numeroAsiento,
+                        'monto': float(pago.monto),
+                        'fechaPago': pago.fechaPago.isoformat(),
+                        'formaPago': pago.formaPago,
+                        'referencia': pago.referencia or '',
+                        'nota': {
+                            'idNota': serializer.context.get('nota').idNota,
+                            'numeroNota': serializer.context.get('nota').numeroNota,
+                            'nuevoEstado': serializer.context.get('nota').estado,
+                            'totalNota': float(serializer.context.get('nota').totalNota)
+                        }
                     }
                 }
-            }
-            print("🎊 Pago procesado exitosamente!")
-            return Response(response_data, status=status.HTTP_201_CREATED)
-
-        except serializers.ValidationError as ve:
-            # errores arrojados por serializer.create
-            print(f"💥 ValidationError en creación: {ve.detail if hasattr(ve, 'detail') else str(ve)}")
-            return Response({
-                'success': False,
-                'message': 'Error en validación al crear pago',
-                'errors': ve.detail if hasattr(ve, 'detail') else str(ve)
-            }, status=status.HTTP_400_BAD_REQUEST)
+                print("🎊 Pago procesado exitosamente (debug wrapper)!")
+                return Response(response_data, status=status.HTTP_201_CREATED)
 
         except Exception as e:
-            import traceback
-            print(f"💥 Error en PagoCreateAPIView: {str(e)}")
-            print(f"📋 Traceback: {traceback.format_exc()}")
+            # Traza completa para depuración (temporal)
+            tb = traceback.format_exc()
+            print("💥 Exception en PagoCreateAPIView.post:\n", tb)
+            # Devolver JSON con información de depuración
             return Response({
                 'success': False,
-                'message': f'Error procesando pago: {str(e)}'
+                'message': 'Error interno al procesar pago (ver campo "debug_trace")',
+                'error': str(e),
+                'debug_trace': tb
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 class RequisitoListCreate(generics.ListCreateAPIView):
