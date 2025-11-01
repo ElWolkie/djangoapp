@@ -277,7 +277,12 @@ class PagoCreateAPIView(APIView):
 
     @transaction.atomic
     def post(self, request):
+        print("=== PAGO POST REQUEST START ===")
+        print("user:", getattr(request, 'user', None))
+        print("AUTHORIZATION:", request.META.get('HTTP_AUTHORIZATION'))
+        print("CONTENT-TYPE:", request.META.get('CONTENT_TYPE'))
         try:
+            print("raw body:", request.body[:2000])  # ojo, puede ser bytes
             data = request.data
             logger.debug('📥 Datos recibidos en PagoCreateAPIView: %s', data)
 
@@ -359,6 +364,7 @@ class PagoCreateAPIView(APIView):
             return Response(response_data, status=status.HTTP_201_CREATED)
 
         except Exception as e:
+            print("error reading body:", e)
             logger.exception('Error en PagoCreateAPIView.post: %s', e)
             tb = traceback.format_exc()
             return Response({'success': False, 'message': 'Error interno al procesar pago', 'error': str(e), 'debug_trace': tb}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
