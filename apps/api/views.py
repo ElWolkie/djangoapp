@@ -308,129 +308,74 @@ class InscripcionDetail(generics.RetrieveAPIView):  # Cambié a Detail para clar
     serializer_class = InscripcionSerializer
     permission_classes = [IsAuthenticated]  # Seguridad
 
-class NotasUsuarioAutenticadoView(generics.ListAPIView):
-    serializer_class = NotaSerializer
+
+class NotasUsuarioAutenticadoView(APIView):
     permission_classes = [IsAuthenticated]
-
-    def get_persona(self):
-        """
-        Obtiene la persona asociada al usuario de forma robusta.
-        """
+    
+    def get(self, request):
         try:
-            user = self.request.user
-            logger.info(f"Buscando persona para usuario: {user.username} (ID: {user.id})")
+            # El usuario autenticado es instancia de Usuarios
+            user = request.user
             
-            # 1. El usuario ES una instancia de Usuarios, que tiene idPersona
-            if hasattr(user, 'idPersona') and user.idPersona:
-                logger.info(f"Persona encontrada directamente en usuario: {user.idPersona}")
-                return user.idPersona
+            # Verificar que tiene idPersona
+            if not hasattr(user, 'idPersona') or not user.idPersona:
+                return Response({
+                    'success': False,
+                    'message': 'Usuario no tiene persona asociada',
+                    'data': []
+                }, status=404)
             
-            # 2. Si el usuario no es instancia de Usuarios, buscamos por ID
-            usuario_rel = Usuarios.objects.filter(id=user.id).first()
-            if usuario_rel and usuario_rel.idPersona:
-                logger.info(f"Persona encontrada a través de Usuarios: {usuario_rel.idPersona}")
-                return usuario_rel.idPersona
+            persona = user.idPersona
+            logger.info(f"🔍 Buscando notas para: {persona.nombres} {persona.apellidos}")
+
+            # 1. Notas directas de la persona
+            notas_directas = Nota.objects.filter(idPersona=persona)
             
-            # 3. Buscar por cédula del usuario
-            if hasattr(user, 'cedula') and user.cedula:
-                persona_por_cedula = Personas.objects.filter(cedula=user.cedula).first()
-                if persona_por_cedula:
-                    logger.info(f"Persona encontrada por cédula: {persona_por_cedula}")
-                    return persona_por_cedula
+            # 2. Notas a través de inscripciones
+            inscripciones_persona = Inscripcion.objects.filter(idPersona=persona)
+            notas_relacionadas_ids = NotaRelacionada.objects.filter(
+                idInscripcion__in=inscripciones_persona
+            ).values_list('idNota_id', flat=True)
+            notas_por_inscripcion = Nota.objects.filter(idNota__in=notas_relacionadas_ids)
             
-            logger.warning(f"No se pudo encontrar persona para usuario: {user.username} (ID: {user.id})")
-            return None
+            # Combinar resultados
+            todas_notas = (notas_directas | notas_por_inscripcion).distinct().order_by('-fechaEmision')
             
-        except Exception as e:
-            logger.exception(f"Error crítico obteniendo persona: {e}")
-            return None
-
-    def get_queryset(self):
-        """
-        Consulta robusta que encuentra todas las notas asociadas al usuario.
-        """
-        persona = self.get_persona()
-        if not persona:
-            logger.warning("No se encontró persona, retornando queryset vacío")
-            return Nota.objects.none()
-
-        logger.info(f"Buscando notas para persona ID: {persona.idPersona}, Cédula: {persona.cedula}")
-
-        # Prefetch optimizado para relaciones
-        prefetch_relacion = Prefetch(
-            'relaciones',
-            queryset=NotaRelacionada.objects.select_related(
-                'idInscripcion',
-                'idInscripcion__idCohorte',
-                'idInscripcion__idCohorte__idFormacion',
-                'idInscripcion__idPersona'
-            ).filter(idInscripcion__isnull=False),
-            to_attr='prefetched_relaciones_con_inscripcion'
-        )
-
-        # Construimos condiciones usando Q objects
-        condiciones = Q()
-        
-        # 1. Notas donde la persona es directamente la del usuario
-        condiciones |= Q(idPersona=persona)
-        
-        # 2. Notas relacionadas a través de inscripciones de la persona
-        # Buscar inscripciones de esta persona
-        inscripciones_persona = Inscripcion.objects.filter(idPersona=persona)
-        notas_por_inscripcion = NotaRelacionada.objects.filter(
-            idInscripcion__in=inscripciones_persona
-        ).values_list('idNota', flat=True)
-        
-        condiciones |= Q(idNota__in=notas_por_inscripcion)
-        
-        # 3. Notas donde la cédula de la persona coincide (backup)
-        condiciones |= Q(idPersona__cedula=persona.cedula)
-
-        # Ejecutar consulta
-        qs = Nota.objects.filter(condiciones).prefetch_related(
-            prefetch_relacion
-        ).select_related(
-            'idPersona',  # Para obtener datos directos de la persona
-            'formacion'   # Para datos de formación si existen directamente
-        ).distinct().order_by('-fechaEmision')
-
-        logger.info(f"Encontradas {qs.count()} notas para el usuario")
-        
-        # Log detallado para debugging
-        for nota in qs[:5]:  # Solo log primeras 5 para no saturar
-            relaciones_count = getattr(nota, 'prefetched_relaciones_con_inscripcion', [])
-            logger.debug(f"Nota {nota.idNota}: {nota.numeroNota} - Estado: {nota.estado} - Relaciones: {len(relaciones_count)}")
-
-        return qs
-
-    def list(self, request, *args, **kwargs):
-        """
-        Sobrescribimos list para agregar metadata útil en la respuesta.
-        """
-        try:
-            queryset = self.get_queryset()
-            serializer = self.get_serializer(queryset, many=True)
+            # Prefetch para optimizar
+            prefetch_relacion = Prefetch(
+                'relaciones',
+                queryset=NotaRelacionada.objects.select_related(
+                    'idInscripcion',
+                    'idInscripcion__idCohorte',
+                    'idInscripcion__idCohorte__idFormacion'
+                ),
+                to_attr='prefetched_relaciones'
+            )
             
-            persona = self.get_persona()
+            notas_final = todas_notas.prefetch_related(prefetch_relacion).select_related('idPersona')
             
-            response_data = {
+            # Serializar
+            from apps.api.serializers import NotaSerializer
+            serializer = NotaSerializer(notas_final, many=True)
+            
+            logger.info(f"✅ Encontradas {notas_final.count()} notas")
+            
+            return Response({
                 'success': True,
-                'count': queryset.count(),
+                'count': notas_final.count(),
                 'data': serializer.data,
                 'user_info': {
-                    'username': request.user.username,
-                    'cedula': getattr(persona, 'cedula', 'N/A') if persona else 'N/A',
-                    'persona_id': getattr(persona, 'idPersona', None) if persona else None
+                    'persona_id': persona.idPersona,
+                    'cedula': persona.cedula,
+                    'nombre_completo': f"{persona.nombres} {persona.apellidos}"
                 }
-            }
-            
-            return Response(response_data)
+            })
             
         except Exception as e:
-            logger.exception("Error en list method:")
+            logger.exception("Error crítico en NotasUsuarioAutenticadoView:")
             return Response({
                 'success': False,
-                'message': f'Error al cargar notas: {str(e)}',
+                'message': f'Error interno del servidor: {str(e)}',
                 'data': []
             }, status=500)
     
