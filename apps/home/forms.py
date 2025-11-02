@@ -1,7 +1,7 @@
 from django import forms
 
 from apps.cuentaBanco.models import CuentaBanco  
-from .models import  Usuarios, Formacion, TipoFormacion, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Denominacion, Banco, Moneda, Tasa, TipoMovimiento, Movimiento, Configuracion, CuotaFormacion
+from .models import  Usuarios, Formacion, TipoFormacion, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Moneda, Tasa, Configuracion, CuotaFormacion
 from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
 
