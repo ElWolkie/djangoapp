@@ -477,6 +477,17 @@
                           </a>
                         </li>
                     {% endif %}
+
+                    {% if user.is_superuser %}
+                      <li class="nav-item">
+                          <a class="nav-link" 
+                            href="{% url 'backup:list' %}" 
+                            style="padding-left: 15px;">
+                            <i class="fas fa-database text-orange"></i>
+                            <span class="nav-link-text">Respaldo
+                          </a>
+                        </li>
+                    {% endif %}
                   
                 </ul>
               </div>

@@ -2,6 +2,7 @@ from django.urls import path
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from . import views
 from .endpoints import verificar_cedula  # Nueva función
+from django.urls import include
 
 urlpatterns = [
     path('personas/', views.PersonaListCreate.as_view(), name='persona-list'),
@@ -43,6 +44,8 @@ urlpatterns = [
 
     ############### API DE PAGO TEMPORAL APP ############################
     path('pago-temporal/', views.PagoTemporalCreateAPIView.as_view(), name='pago-temporal-create'),
+    # Backup API
+    path('backups/', include('apps.backup.api_urls')),
 
 
 ]
