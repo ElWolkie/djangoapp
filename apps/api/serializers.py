@@ -623,8 +623,8 @@ class AsientoContableSerializer(serializers.ModelSerializer):
 
 class ConfiguracionSerializer(serializers.ModelSerializer):
     nombre_banco = serializers.CharField(source='idCuentaBanco.banco', read_only=True)
-    numero_cuenta = serializers.CharField(source='idCuentaBanco.numeroCuenta', read_only=True)
-    tipo_cuenta = serializers.CharField(source='idCuentaBanco.tipoCuenta', read_only=True)
+    numero_cuenta = serializers.CharField(source='idCuentaBanco.numeroCuentaBanco', read_only=True)
+    tipo_cuenta = serializers.CharField(source='idCuentaBanco.tipoProducto', read_only=True)
     
     class Meta:
         model = Configuracion
