@@ -608,6 +608,30 @@ class AsientoContableSerializer(serializers.ModelSerializer):
         fields = ['idAsiento', 'numeroAsiento', 'fechaAsiento', 'conceptoAsiento', 'idPeriodo', 'fechaAsientoDigital', 'detalles']
 
 
+class ConfiguracionSerializer(serializers.ModelSerializer):
+    nombre_banco = serializers.CharField(source='idCuentaBanco.banco', read_only=True)
+    numero_cuenta = serializers.CharField(source='idCuentaBanco.numeroCuenta', read_only=True)
+    tipo_cuenta = serializers.CharField(source='idCuentaBanco.tipoCuenta', read_only=True)
+    
+    class Meta:
+        model = Configuracion
+        fields = [
+            'idConfig',
+            'nombreInstitucion',
+            'rif',
+            'correoInstitucion',
+            'logo',
+            'firma',
+            'moneda',
+            'descuento',
+            'idCuentaBanco',
+            'cedulaCuenta',
+            'fechaConfiguracion',
+            'nombre_banco',
+            'numero_cuenta',
+            'tipo_cuenta'
+        ]
+
 ######## Nuevo Serializer para PagoTemporal##################### 
 
 class PagoTemporalSerializer(serializers.ModelSerializer):

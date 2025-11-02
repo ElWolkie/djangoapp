@@ -1,4 +1,4 @@
-from django.urls import path, re_path
+from django.urls import include, path, re_path
 from django.contrib import admin
 from . import views
 from .views import registrar_usuario
@@ -137,6 +137,8 @@ urlpatterns = [
     path('reactivateTasa/<int:pk>/', views.reactivate_tasa, name='reactivate_tasa'),
     path('tablaTasas/', views.tabla_tasas, name='tabla_tasas'),
     path('reporte-tasas/', views.reporte_tasas_pdf, name='reporte_tasas_pdf'),
+
+    path('api/configuracion/', include('apps.configuracion.urls')),
 
     # Ruta espicifica para Errores
     path('403/', views.page_403, name='page-403'),

@@ -11,7 +11,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.permissions import AllowAny
 from django.db.models import Sum
 from apps.home.models import Personas, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Moneda, Tasa, Formacion, TipoFormacion, Usuarios, CuotaFormacion
-from .serializers import PagoSerializer, PersonaSerializer, CedulaTokenObtainSerializer, TipoPersonaSerializer, PersonaTPSerializer, FormacionSerializer, TPFormacionSerializer, MateriaSerializer, CohorteSerializer, CargoSerializer, HonorarioSerializer, InscripcionSerializer, RequisitoSerializer, ServicioSerializer, TramiteSerializer, SolicitudSerializer, BancoSerializer, MonedaSerializer, TasaSerializer, UsuarioSerializer, AsientoContableSerializer, PlanCuentaSerializer, PeriodoContableSerializer, CuotaFormacionSerializer, NotaSerializer  # Importa ambos serializadores
+from .serializers import PagoSerializer, PersonaSerializer, CedulaTokenObtainSerializer, TipoPersonaSerializer, PersonaTPSerializer, FormacionSerializer, TPFormacionSerializer, MateriaSerializer, CohorteSerializer, CargoSerializer, HonorarioSerializer, InscripcionSerializer, RequisitoSerializer, ServicioSerializer, TramiteSerializer, SolicitudSerializer, BancoSerializer, MonedaSerializer, TasaSerializer, UsuarioSerializer, AsientoContableSerializer, PlanCuentaSerializer, PeriodoContableSerializer, CuotaFormacionSerializer, NotaSerializer, ConfiguracionSerializer  # Importa ambos serializadores
 from apps.persona.models import PersonaTP, TipoPersona
 from apps.honorario.models import Honorario
 from apps.inscripcion.models import Inscripcion, InscripcionCuota
@@ -484,26 +484,26 @@ class EgresosAPIView(APIView):
         serializer = PlanCuentaSerializer(egresos, many=True)
         return Response(serializer.data)
 
-
-
-##########################API DE PAGO TEMPORAL APP ############################
-
-from .serializers import PagoTemporalSerializer 
-class PagoTemporalCreateAPIView(APIView):
-    """
-    API para registrar un nuevo PagoTemporal.
-    """
-    def post(self, request, *args, **kwargs):
-        serializer = PagoTemporalSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
+class ConfiguracionAPIView(APIView):
+    permission_classes = [AllowAny]
+    
+    def get(self, request):
+        try:
+            configuracion = Configuracion.objects.first()
+            if configuracion:
+                serializer = ConfiguracionSerializer(configuracion)
+                return Response({
+                    'success': True,
+                    'data': serializer.data
+                })
+            else:
+                return Response({
+                    'success': False,
+                    'message': 'No hay configuración registrada en el sistema'
+                }, status=404)
+                
+        except Exception as e:
             return Response({
-                'success': True,
-                'message': 'Pago temporal registrado exitosamente.',
-                'data': serializer.data
-            }, status=status.HTTP_201_CREATED)
-        return Response({
-            'success': False,
-            'message': 'Error al registrar el pago temporal.',
-            'errors': serializer.errors
-        }, status=status.HTTP_400_BAD_REQUEST)
+                'success': False,
+                'message': f'Error al obtener configuración: {str(e)}'
+            }, status=500)

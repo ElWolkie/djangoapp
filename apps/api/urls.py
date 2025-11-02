@@ -50,6 +50,7 @@ urlpatterns = [
     path('moneda/', views.MonedaListCreate.as_view(), name='moneda-list'),
     path('tasa/', views.TasaListCreate.as_view(), name='tasa-list'),
     path('usuario/', views.UsuarioListCreate.as_view(), name='usuario-list'),
+    path('configuracion/', views.ConfiguracionAPIView.as_view(), name='configuracion'),
 
     path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),

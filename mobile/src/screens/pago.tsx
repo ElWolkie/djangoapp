@@ -14,6 +14,7 @@ import {
   Platform,
   useWindowDimensions,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -58,6 +59,18 @@ interface Inscripcion {
   [k: string]: any;
 }
 
+interface Configuracion {
+  idConfig?: number;
+  nombreInstitucion?: string;
+  rif?: string;
+  correoInstitucion?: string;
+  idCuentaBanco?: number;
+  cedulaCuenta?: string;
+  nombre_banco?: string;
+  numero_cuenta?: string;
+  tipo_cuenta?: string;
+}
+
 const PagoScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
@@ -66,11 +79,13 @@ const PagoScreen: React.FC = () => {
   const { notaData } = route.params || {};
 
   const [refreshing, setRefreshing] = useState(false);
+  const [configuracion, setConfiguracion] = useState<Configuracion | null>(null);
+  const [loadingConfig, setLoadingConfig] = useState(false);
 
   // helper para formatear monto para enviar al backend (4 decimales, punto decimal)
   const toBackendDecimal = (v: number | string) => {
     const n = Number(String(v).replace(',', '.')) || 0;
-    return n.toFixed(4); // devuelve string con 4 decimales
+    return n.toFixed(4);
   };
 
   const [formData, setFormData] = useState({
@@ -94,15 +109,35 @@ const PagoScreen: React.FC = () => {
 
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showRequisitosModal, setShowRequisitosModal] = useState(false);
+  const [showProcesoModal, setShowProcesoModal] = useState(false);
 
+  // Cargar configuración
+  const cargarConfiguracion = useCallback(async () => {
+    setLoadingConfig(true);
+    try {
+      const response = await api.get('/api/configuracion/configuracion/');
+      if (response.data.success) {
+        setConfiguracion(response.data.data);
+      } else {
+        console.warn('No se pudo cargar la configuración:', response.data.message);
+      }
+    } catch (error: any) {
+      console.error('Error cargando configuración:', error);
+    } finally {
+      setLoadingConfig(false);
+    }
+  }, []);
+
+  // Datos de pago móvil desde configuración
   const pagoMovilInfo = {
-    banco: 'BANCO DEMO',
-    titular: 'INSTITUCIÓN EJEMPLO C.A.',
-    cedulaTitular: 'V-12345678',
-    numeroCuenta: '0123-4567-8901-2345',
-    tipoCuenta: 'Ahorros',
-    telefonoPagoMovil: '+58 424-1234567',
-    rif: 'J-12345678-9'
+    banco: configuracion?.nombre_banco || 'Banco de la Institución',
+    titular: configuracion?.nombreInstitucion || 'Institución Educativa',
+    cedulaTitular: configuracion?.cedulaCuenta || 'V-00000000',
+    numeroCuenta: configuracion?.numero_cuenta || '0000-0000-0000-0000',
+    tipoCuenta: configuracion?.tipo_cuenta || 'Corriente',
+    telefonoPagoMovil: '+58 424-0000000', // Este campo no está en Configuracion, se mantiene fijo
+    rif: configuracion?.rif || 'J-00000000-0'
   };
 
   // helpers
@@ -143,7 +178,7 @@ const PagoScreen: React.FC = () => {
         if (ins.fechaInscripcion) {
           const insDate = new Date(ins.fechaInscripcion).getTime();
           const diff = Math.abs(notaDate - insDate);
-          return diff < 86400000; // 1 día
+          return diff < 86400000;
         }
         return false;
       });
@@ -182,6 +217,19 @@ const PagoScreen: React.FC = () => {
     return 'Formación no especificada';
   };
 
+  // Determinar estado y color de la nota
+  const getEstadoNota = (nota: NotaItem) => {
+    const estado = (nota.estado ?? '').toUpperCase();
+    
+    if (estado === 'PAGADA') {
+      return { texto: 'Pagada', color: '#28a745', esPagada: true };
+    } else if (estado === 'PARCIAL' || estado === 'PENDIENTE') {
+      return { texto: 'Pendiente', color: '#ffc107', esPendiente: true };
+    } else {
+      return { texto: 'Por pagar', color: '#dc3545', esPorPagar: true };
+    }
+  };
+
   // Cargar inscripciones del usuario
   const cargarInscripcionesUsuario = useCallback(async () => {
     setCargandoInscripciones(true);
@@ -203,10 +251,8 @@ const PagoScreen: React.FC = () => {
       }
 
       setInscripcionesUsuario(items);
-      console.log('📚 Inscripciones cargadas:', items.map(i => ({ id: i.idInscripcion, fecha: i.fechaInscripcion, monto: i.montoTotal, formacion: getNombreFormacion(i) })));
     } catch (error: any) {
       console.error('Error cargando inscripciones:', error);
-      Alert.alert('Error', 'No se pudieron cargar las inscripciones.');
     } finally {
       setCargandoInscripciones(false);
     }
@@ -232,19 +278,13 @@ const PagoScreen: React.FC = () => {
       setNotasUsuario(items);
     } catch (error: any) {
       console.error('Error cargando notas:', error?.response ?? error);
-      if (error.response?.status === 401) {
-        Alert.alert('Error de autenticación', 'Por favor inicie sesión nuevamente');
-      } else if (error.response?.status === 404) {
-        Alert.alert('Perfil no encontrado', 'No se encontró el perfil de persona asociado a su usuario');
-      } else {
-        Alert.alert('Error', error.message ? String(error.message) : 'No se pudieron cargar las notas. Verifica tu conexión.');
-      }
     } finally {
       setCargandoNotas(false);
     }
   }, []);
 
   useEffect(() => {
+    cargarConfiguracion();
     if (modoDirecto && user) {
       cargarInscripcionesUsuario();
       cargarNotasUsuario();
@@ -252,25 +292,35 @@ const PagoScreen: React.FC = () => {
     if (notaData) {
       setNotaSeleccionada(notaData);
       setFormData(prev => ({ ...prev, idNota: String(notaData.idNota ?? ''), monto: toBackendDecimal(notaData.totalNota ?? 0) }));
-      // si viene notaData y estás en modo automático, abre directamente modal pago
       if (!modoDirecto) {
         setShowPaymentModal(true);
       }
     }
-  }, [modoDirecto, user, notaData, cargarNotasUsuario, cargarInscripcionesUsuario]);
+  }, [modoDirecto, user, notaData, cargarNotasUsuario, cargarInscripcionesUsuario, cargarConfiguracion]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([cargarInscripcionesUsuario(), cargarNotasUsuario()]);
+    await Promise.all([cargarInscripcionesUsuario(), cargarNotasUsuario(), cargarConfiguracion()]);
     setRefreshing(false);
   };
 
   const seleccionarNota = async (nota: NotaItem) => {
     setNotaSeleccionada(nota);
-    setFormData(prev => ({ ...prev, idNota: String(nota.idNota ?? ''), monto: toBackendDecimal(nota.totalNota ?? 0) }));
-    setErrors({});
-    setShowDetailsModal(true);
-    setShowPaymentModal(false);
+    const estado = getEstadoNota(nota);
+    
+    if (estado.esPorPagar) {
+      // Nota por pagar - mostrar modal de pago
+      setFormData(prev => ({ ...prev, idNota: String(nota.idNota ?? ''), monto: toBackendDecimal(nota.totalNota ?? 0) }));
+      setErrors({});
+      setShowDetailsModal(true);
+      setShowPaymentModal(false);
+    } else if (estado.esPendiente) {
+      // Nota pendiente - mostrar modal de proceso
+      setShowProcesoModal(true);
+    } else if (estado.esPagada) {
+      // Nota pagada - mostrar modal de requisitos
+      setShowRequisitosModal(true);
+    }
   };
 
   const iniciarPago = () => {
@@ -290,6 +340,8 @@ const PagoScreen: React.FC = () => {
   const cerrarModales = () => {
     setShowDetailsModal(false);
     setShowPaymentModal(false);
+    setShowRequisitosModal(false);
+    setShowProcesoModal(false);
     setNotaSeleccionada(null);
     setErrors({});
   };
@@ -312,100 +364,95 @@ const PagoScreen: React.FC = () => {
     if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }));
   };
 
-  // ---------- PROCESAR PAGO (adaptado estrictamente al backend)
-const handleProcesarPago = async () => {
-  if (!validateForm()) {
-    Alert.alert('Error', 'Por favor complete todos los campos requeridos');
-    return;
-  }
+  // PROCESAR PAGO
+  const handleProcesarPago = async () => {
+    if (!validateForm()) {
+      Alert.alert('Error', 'Por favor complete todos los campos requeridos');
+      return;
+    }
 
-  setSubmitting(true);
+    setSubmitting(true);
 
-  // payload compatible con el serializer (monto con 4 decimales aceptados por backend)
-  const payload = {
-    idNota: Number(formData.idNota),
-    monto: Number(String(formData.monto).replace(',', '.')), // si el backend prefiere string con 4 decimales, ajusta abajo
-    fechaPago: formData.fechaPago,
-    formaPago: String(formData.formaPago),
-    referencia: String(formData.referencia || ''),
-    observaciones: String(formData.observaciones || ''),
-  };
+    const payload = {
+      idNota: Number(formData.idNota),
+      monto: Number(String(formData.monto).replace(',', '.')),
+      fechaPago: formData.fechaPago,
+      formaPago: String(formData.formaPago),
+      referencia: String(formData.referencia || ''),
+      observaciones: String(formData.observaciones || ''),
+    };
 
-  console.log('[Pago] Payload a enviar:', payload);
+    console.log('[Pago] Payload a enviar:', payload);
 
-  try {
-    const response = await api.post('/api/pagos/create/', payload, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      validateStatus: () => true // manejamos nosotros el status
-    });
+    try {
+      const response = await api.post('/api/pagos/create/', payload, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        validateStatus: () => true
+      });
 
-    console.log('[Pago] response.status:', response.status);
+      console.log('[Pago] response.status:', response.status);
 
-    // Si el servidor devolvió JSON
-    const contentType = response.headers?.['content-type'] ?? response.headers?.['Content-Type'] ?? '';
-    const isJson = typeof contentType === 'string' && contentType.toLowerCase().includes('application/json');
+      const contentType = response.headers?.['content-type'] ?? response.headers?.['Content-Type'] ?? '';
+      const isJson = typeof contentType === 'string' && contentType.toLowerCase().includes('application/json');
 
-    if (isJson) {
-      const body = response.data;
-      console.log('[Pago] response.data (json):', body);
+      if (isJson) {
+        const body = response.data;
+        console.log('[Pago] response.data (json):', body);
 
-      if ((response.status === 201 || response.status === 200) && body?.success) {
-        const d = body.data ?? {};
-        Alert.alert('Pago procesado', `Pago registrado correctamente.\nAsiento: ${d.numeroAsiento ?? '—'}\nID Pago: ${d.idPago ?? '—'}\nMonto: ${d.monto ?? payload.monto}`, [{ text: 'OK' }]);
-        // sincronizar en memoria y refrescar
-        const idNotaNum = Number(payload.idNota);
-        if (idNotaNum) setNotasUsuario(prev => prev.map(n => (Number(n.idNota) === idNotaNum ? { ...n, estado: 'PAGADA' } : n)));
-        await Promise.all([cargarNotasUsuario(), cargarInscripcionesUsuario()]);
-        setShowPaymentModal(false);
-        setNotaSeleccionada(null);
+        if ((response.status === 201 || response.status === 200) && body?.success) {
+          const d = body.data ?? {};
+          Alert.alert(
+            'Pago registrado', 
+            `Su pago ha sido registrado exitosamente y está pendiente de confirmación.\n\nReferencia: ${payload.referencia}\nMonto: $${payload.monto}`,
+            [{ text: 'OK' }]
+          );
+          
+          // Actualizar lista de notas
+          await cargarNotasUsuario();
+          setShowPaymentModal(false);
+          setNotaSeleccionada(null);
+        } else {
+          const msg = body.message ?? JSON.stringify(body);
+          Alert.alert('Error', `Servidor: ${msg}`);
+        }
       } else {
-        // Backend devolvió JSON con success=false o error
-        const msg = body.message ?? JSON.stringify(body);
-        Alert.alert('Error', `Servidor: ${msg}`);
+        const textBody = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
+        console.warn('[Pago] Servidor devolvió texto/HTML en body:', textBody.slice(0, 600));
+        Alert.alert(
+          'Error del servidor',
+          `El servidor devolvió una página de error (500). Por favor revisa los logs del backend.\nStatus: ${response.status}`
+        );
       }
-    } else {
-      // servidor devolvió HTML (error 500 renderizado como página) o texto no-JSON
-      // mostrar los primeros 600 caracteres y pedir revisar logs del servidor
-      const textBody = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
-      console.warn('[Pago] Servidor devolvió texto/HTML en body. Primeros 600 chars:', textBody.slice(0, 600));
-      Alert.alert(
-        'Error del servidor',
-        `El servidor devolvió una página de error (500). Por favor revisa los logs del backend.\nStatus: ${response.status}\nMás info en consola (primeros 600 chars).`
-      );
-      // opcional: abrir panel de debug (o enviar textBody a un endpoint de logs si existe)
-    }
-  } catch (err: any) {
-    console.error('[Pago] error catched:', err);
-    const resp = err?.response;
-    if (resp?.status === 400 && resp.data) {
-      const body = resp.data;
-      let message = body.message ?? 'Error de validación';
-      if (body.errors && typeof body.errors === 'object') {
-        const parts: string[] = [];
-        Object.keys(body.errors).forEach(k => {
-          const v = body.errors[k];
-          if (Array.isArray(v)) parts.push(`${k}: ${v.join(', ')}`);
-          else parts.push(`${k}: ${String(v)}`);
-        });
-        message += '\n' + parts.join('\n');
-      } else if (body.detail) {
-        message = body.detail;
+    } catch (err: any) {
+      console.error('[Pago] error catched:', err);
+      const resp = err?.response;
+      if (resp?.status === 400 && resp.data) {
+        const body = resp.data;
+        let message = body.message ?? 'Error de validación';
+        if (body.errors && typeof body.errors === 'object') {
+          const parts: string[] = [];
+          Object.keys(body.errors).forEach(k => {
+            const v = body.errors[k];
+            if (Array.isArray(v)) parts.push(`${k}: ${v.join(', ')}`);
+            else parts.push(`${k}: ${String(v)}`);
+          });
+          message += '\n' + parts.join('\n');
+        } else if (body.detail) {
+          message = body.detail;
+        }
+        Alert.alert('Error de validación', message);
+      } else if (resp?.status === 500) {
+        Alert.alert('Error servidor', resp.data?.message ?? 'Error interno del servidor. Revisa logs.');
+      } else {
+        Alert.alert('Error', err.message ? String(err.message) : 'Error en la conexión');
       }
-      Alert.alert('Error de validación', message);
-    } else if (resp?.status === 500) {
-      Alert.alert('Error servidor', resp.data?.message ?? 'Error interno del servidor. Revisa logs.');
-      console.error('[Pago] respuesta 500 (body):', resp.data);
-    } else {
-      Alert.alert('Error', err.message ? String(err.message) : 'Error en la conexión');
+    } finally {
+      setSubmitting(false);
     }
-  } finally {
-    setSubmitting(false);
-  }
-};
-
+  };
 
   const formatCurrency = (amount: number): string => {
     try { return new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount); }
@@ -420,8 +467,9 @@ const handleProcesarPago = async () => {
   };
 
   const renderNotaItem = ({ item }: { item: NotaItem }) => {
-    const estado = (item.estado ?? '').toUpperCase();
+    const estado = getEstadoNota(item);
     const formacionName = getFormacionNameFromNota(item);
+    
     return (
       <TouchableOpacity
         style={[styles.notaItem, notaSeleccionada?.idNota === item.idNota && styles.notaItemSeleccionada]}
@@ -429,13 +477,8 @@ const handleProcesarPago = async () => {
       >
         <View style={styles.notaHeader}>
           <Text style={styles.notaNumero}>{item.numeroNota ?? '—'}</Text>
-          <View style={[
-            styles.estadoBadge,
-            estado === 'PAGADA' ? styles.estadoPagada : estado === 'PARCIAL' ? styles.estadoParcial : styles.estadoPendiente
-          ]}>
-            <Text style={styles.estadoText}>
-              {estado === 'PAGADA' ? 'Pagada' : estado === 'PARCIAL' ? 'Parcial' : 'Pendiente'}
-            </Text>
+          <View style={[styles.estadoBadge, { backgroundColor: estado.color }]}>
+            <Text style={styles.estadoText}>{estado.texto}</Text>
           </View>
         </View>
 
@@ -451,7 +494,7 @@ const handleProcesarPago = async () => {
         {notaSeleccionada?.idNota === item.idNota && (
           <View style={styles.seleccionadoIndicator}>
             <Icon name="check-circle" size={20} color="#28a745" />
-            <Text style={styles.seleccionadoText}>Seleccionada para pago</Text>
+            <Text style={styles.seleccionadoText}>Seleccionada</Text>
           </View>
         )}
       </TouchableOpacity>
@@ -459,6 +502,131 @@ const handleProcesarPago = async () => {
   };
 
   const modalMaxWidth = Math.min(Math.max(320, width - 48), 900);
+
+  // Modal de Requisitos (para notas pagadas)
+  const ModalRequisitos = () => (
+    <Modal
+      visible={showRequisitosModal}
+      animationType="slide"
+      transparent={true}
+      onRequestClose={cerrarModales}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={[styles.modalContent, { maxWidth: modalMaxWidth }]}>
+          <View style={styles.modalHeader}>
+            <View style={styles.modalTitleContainer}>
+              <Icon name="clipboard-check" size={24} color="#28a745" />
+              <Text style={styles.modalTitle}>Requisitos de Entrega</Text>
+            </View>
+            <TouchableOpacity onPress={cerrarModales} style={styles.closeButton}>
+              <Icon name="close" size={22} color="#6c757d" />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.modalBody}>
+            <View style={styles.successCard}>
+              <Icon name="check-circle" size={50} color="#28a745" />
+              <Text style={styles.successTitle}>¡Pago Confirmado!</Text>
+              <Text style={styles.successSubtitle}>
+                Su pago ha sido confirmado exitosamente. Para completar su inscripción, 
+                por favor acérquese a la institución con los siguientes documentos:
+              </Text>
+            </View>
+
+            <View style={styles.requisitosList}>
+              <Text style={styles.requisitosTitle}>Documentos Requeridos:</Text>
+              
+              <View style={styles.requisitoItem}>
+                <Icon name="checkbox-marked-circle" size={20} color="#28a745" />
+                <Text style={styles.requisitoText}>Copia de la cédula de identidad</Text>
+              </View>
+              
+              <View style={styles.requisitoItem}>
+                <Icon name="checkbox-marked-circle" size={20} color="#28a745" />
+                <Text style={styles.requisitoText}>Comprobante de pago original</Text>
+              </View>
+              
+              <View style={styles.requisitoItem}>
+                <Icon name="checkbox-marked-circle" size={20} color="#28a745" />
+                <Text style={styles.requisitoText}>Foto tipo carnet (fondo blanco)</Text>
+              </View>
+              
+              <View style={styles.requisitoItem}>
+                <Icon name="checkbox-marked-circle" size={20} color="#28a745" />
+                <Text style={styles.requisitoText}>Título de bachiller o equivalente</Text>
+              </View>
+              
+              <View style={styles.requisitoItem}>
+                <Icon name="checkbox-marked-circle" size={20} color="#28a745" />
+                <Text style={styles.requisitoText}>Notas certificadas de bachillerato</Text>
+              </View>
+            </View>
+
+            <View style={styles.infoCard}>
+              <Text style={styles.infoTitle}>📍 Dirección de la Institución:</Text>
+              <Text style={styles.infoText}>
+                {configuracion?.nombreInstitucion || 'Institución Educativa'}\n
+                Av. Principal, Edificio Central\n
+                Horario de atención: Lunes a Viernes 8:00 AM - 4:00 PM
+              </Text>
+            </View>
+          </ScrollView>
+
+          <View style={styles.modalFooter}>
+            <TouchableOpacity style={styles.primaryButton} onPress={cerrarModales}>
+              <Text style={styles.primaryButtonText}>Entendido</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+
+  // Modal de Proceso (para notas pendientes)
+  const ModalProceso = () => (
+    <Modal
+      visible={showProcesoModal}
+      animationType="slide"
+      transparent={true}
+      onRequestClose={cerrarModales}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={[styles.modalContent, { maxWidth: modalMaxWidth }]}>
+          <View style={styles.modalHeader}>
+            <View style={styles.modalTitleContainer}>
+              <Icon name="clock-outline" size={24} color="#ffc107" />
+              <Text style={styles.modalTitle}>Pago en Proceso</Text>
+            </View>
+            <TouchableOpacity onPress={cerrarModales} style={styles.closeButton}>
+              <Icon name="close" size={22} color="#6c757d" />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.modalBody}>
+            <View style={styles.warningCard}>
+              <Icon name="clock" size={50} color="#ffc107" />
+              <Text style={styles.warningTitle}>Pago Pendiente de Confirmación</Text>
+              <Text style={styles.warningSubtitle}>
+                Su pago se encuentra en proceso de verificación por nuestra administración. 
+                Una vez confirmado, recibirá una notificación y podrá proceder con la entrega de documentos.
+              </Text>
+            </View>
+
+            <View style={styles.infoCard}>
+              <Text style={styles.infoTitle}>⏳ Tiempo de espera estimado:</Text>
+              <Text style={styles.infoText}>24-48 horas hábiles</Text>
+            </View>
+          </View>
+
+          <View style={styles.modalFooter}>
+            <TouchableOpacity style={styles.primaryButton} onPress={cerrarModales}>
+              <Text style={styles.primaryButtonText}>Entendido</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
 
   if (modoDirecto) {
     return (
@@ -475,7 +643,10 @@ const handleProcesarPago = async () => {
 
         <View style={styles.listaContainer}>
           {cargandoNotas || cargandoInscripciones ? (
-            <View style={styles.loadingContainer}><Text style={styles.loadingText}>Cargando notas...</Text></View>
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#4f8cff" />
+              <Text style={styles.loadingText}>Cargando notas...</Text>
+            </View>
           ) : notasUsuario.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Icon name="file-alert" size={70} color="#dee2e6" />
@@ -494,7 +665,7 @@ const handleProcesarPago = async () => {
           )}
         </View>
 
-        {/* MODAL DETALLE */}
+        {/* MODAL DETALLE (solo para notas por pagar) */}
         {notaSeleccionada && showDetailsModal && (
           <View style={styles.formularioOverlay}>
             <ScrollView contentContainerStyle={[styles.formScrollContent, { padding: 20 }]}>
@@ -631,14 +802,13 @@ const handleProcesarPago = async () => {
 
                 {formData.formaPago === 'PAGO_MOVIL' && (
                   <View style={[styles.infoCard, { marginTop: 12 }]}>
-                    <View style={styles.infoHeader}><Icon name="cellphone" size={18} color="#495057" /><Text style={styles.infoTitle}>Datos para Pago Móvil (demo)</Text></View>
+                    <View style={styles.infoHeader}><Icon name="cellphone" size={18} color="#495057" /><Text style={styles.infoTitle}>Datos para Pago Móvil</Text></View>
                     <View style={{ marginTop: 8 }}>
                       <Text style={styles.infoLabel}>Banco: <Text style={styles.infoValueInline}>{pagoMovilInfo.banco}</Text></Text>
                       <Text style={styles.infoLabel}>Titular: <Text style={styles.infoValueInline}>{pagoMovilInfo.titular}</Text></Text>
                       <Text style={styles.infoLabel}>RIF: <Text style={styles.infoValueInline}>{pagoMovilInfo.rif}</Text></Text>
                       <Text style={styles.infoLabel}>Teléfono/Pay: <Text style={styles.infoValueInline}>{pagoMovilInfo.telefonoPagoMovil}</Text></Text>
                       <Text style={styles.infoLabel}>Cuenta: <Text style={styles.infoValueInline}>{pagoMovilInfo.numeroCuenta} ({pagoMovilInfo.tipoCuenta})</Text></Text>
-                      <Text style={{ marginTop: 8, color: '#6c757d', fontSize: 12 }}>Nota: estos datos son de ejemplo. En producción se deben obtener desde su API de configuración.</Text>
                     </View>
                   </View>
                 )}
@@ -653,11 +823,17 @@ const handleProcesarPago = async () => {
             </ScrollView>
           </View>
         )}
+
+        {/* Modales nuevos */}
+        <ModalRequisitos />
+        <ModalProceso />
       </KeyboardAvoidingView>
     );
   }
 
-  // modo automático (notaData)
+  // Resto del código para modo automático (no directo) permanece igual...
+  // [El resto del código se mantiene igual que antes para el modo automático]
+
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.formScrollContent}>
@@ -732,14 +908,13 @@ const handleProcesarPago = async () => {
 
           {formData.formaPago === 'PAGO_MOVIL' && (
             <View style={[styles.infoCard, { marginTop: 12 }]}>
-              <View style={styles.infoHeader}><Icon name="cellphone" size={18} color="#495057" /><Text style={styles.infoTitle}>Datos para Pago Móvil (demo)</Text></View>
+              <View style={styles.infoHeader}><Icon name="cellphone" size={18} color="#495057" /><Text style={styles.infoTitle}>Datos para Pago Móvil</Text></View>
               <View style={{ marginTop: 8 }}>
                 <Text style={styles.infoLabel}>Banco: <Text style={styles.infoValueInline}>{pagoMovilInfo.banco}</Text></Text>
                 <Text style={styles.infoLabel}>Titular: <Text style={styles.infoValueInline}>{pagoMovilInfo.titular}</Text></Text>
                 <Text style={styles.infoLabel}>RIF: <Text style={styles.infoValueInline}>{pagoMovilInfo.rif}</Text></Text>
                 <Text style={styles.infoLabel}>Teléfono/Pay: <Text style={styles.infoValueInline}>{pagoMovilInfo.telefonoPagoMovil}</Text></Text>
                 <Text style={styles.infoLabel}>Cuenta: <Text style={styles.infoValueInline}>{pagoMovilInfo.numeroCuenta} ({pagoMovilInfo.tipoCuenta})</Text></Text>
-                <Text style={{ marginTop: 8, color: '#6c757d', fontSize: 12 }}>Nota: estos datos son de ejemplo. En producción se deben obtener desde su API de configuración.</Text>
               </View>
             </View>
           )}
@@ -752,18 +927,13 @@ const handleProcesarPago = async () => {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Modales para modo automático */}
+      <ModalRequisitos />
+      <ModalProceso />
     </KeyboardAvoidingView>
   );
 };
-
-function normalizarCedula(cedula: string): string {
-  if (!cedula) return '';
-  let normalizada = cedula.toString().toUpperCase().replace(/[\.\-\s]/g, '');
-  if (/^[VEJG]/.test(normalizada)) {
-    normalizada = normalizada.substring(1);
-  }
-  return normalizada;
-}
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8f9fa' },
@@ -842,6 +1012,141 @@ const styles = StyleSheet.create({
   emptyContainer: { alignItems: 'center', padding: 24 },
   emptyText: { fontSize: 16, fontWeight: '700', color: '#343a40', marginTop: 8 },
   emptySubtext: { color: '#6c757d', marginTop: 4 },
+
+  // Nuevos estilos para modales
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    width: '100%',
+    maxHeight: '80%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e9ecef',
+  },
+  modalTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginLeft: 8,
+    color: '#212529',
+  },
+  closeButton: {
+    padding: 4,
+  },
+  modalBody: {
+    padding: 16,
+  },
+  modalFooter: {
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#e9ecef',
+  },
+  successCard: {
+    backgroundColor: '#d4edda',
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  successTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#155724',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  successSubtitle: {
+    color: '#155724',
+    textAlign: 'center',
+    marginTop: 8,
+    lineHeight: 20,
+  },
+  warningCard: {
+    backgroundColor: '#fff3cd',
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  warningTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#856404',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  warningSubtitle: {
+    color: '#856404',
+    textAlign: 'center',
+    marginTop: 8,
+    lineHeight: 20,
+  },
+  requisitosList: {
+    marginBottom: 16,
+  },
+  requisitosTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#212529',
+    marginBottom: 12,
+  },
+  requisitoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+    paddingHorizontal: 8,
+  },
+  requisitoText: {
+    marginLeft: 12,
+    color: '#495057',
+    fontSize: 14,
+    flex: 1,
+  },
+  primaryButton: {
+    backgroundColor: '#4f8cff',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  primaryButtonText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 16,
+  },
+  infoText: {
+    color: '#495057',
+    lineHeight: 20,
+    marginTop: 4,
+  },
 });
+
+function normalizarCedula(cedula: string): string {
+  if (!cedula) return '';
+  let normalizada = cedula.toString().toUpperCase().replace(/[\.\-\s]/g, '');
+  if (/^[VEJG]/.test(normalizada)) {
+    normalizada = normalizada.substring(1);
+  }
+  return normalizada;
+}
 
 export default PagoScreen;

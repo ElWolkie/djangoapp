@@ -6,14 +6,12 @@ from apps.persona.models import Personas
 from apps.empresa.models import empresa
 from apps.periodoContable.models import periodoContable
 from apps.asientoContable.models import AsientoContable, DetalleAsiento
-from apps.home.models import CuotaFormacion, Moneda, Tasa
+from apps.home.models import Configuracion, CuotaFormacion, Moneda, Tasa
 from apps.cuentaBanco.models import CuentaBanco
 from apps.solicitud.models import Solicitud
 from django.utils.timezone import now
 from apps.planCuenta.models import PlanCuenta
 from django.db import transaction
-
-
 
 TIPOS_ARTICULO = [
         ('HONORARIO_PROFESOR', 'Pagos a Proveedores - Honorarios Profesionales'), # esto es un pago
@@ -224,6 +222,11 @@ class PagoTemporal(models.Model):
         if not periodo_activo:
             raise ValueError("No hay ningún periodo contable registrado o activo en el sistema.")
 
+        # Obtener configuración para datos de cuenta bancaria
+        configuracion = Configuracion.objects.first()
+        if not configuracion or not configuracion.idCuentaBanco:
+            raise ValueError("No se encontró configuración de cuenta bancaria en el sistema.")
+
         # Crear el asiento contable para el pago
         numero_asiento_pago = f"PAGO-{self.idNota.numeroNota}"
         asiento_pago = AsientoContable.objects.create(
@@ -240,10 +243,8 @@ class PagoTemporal(models.Model):
             raise ValueError("No se encontró la cuenta por cobrar en el asiento principal de la nota.")
         plan_cuenta_haber = detalle_debe.idPlanCuenta
 
-        # Obtener el plan de cuenta para el Debe (Caja/Banco) según la cuenta bancaria
-        if not self.idCuentaBanco or not self.idCuentaBanco.planCuenta:
-            raise ValueError("No se encontró el plan de cuenta asociado a la cuenta bancaria seleccionada.")
-        plan_cuenta_debe = self.idCuentaBanco.planCuenta
+        # Obtener el plan de cuenta para el Debe (Caja/Banco) desde la configuración
+        plan_cuenta_debe = configuracion.idCuentaBanco.planCuenta
 
         # Crear los detalles del asiento contable
         DetalleAsiento.objects.create(
@@ -262,18 +263,18 @@ class PagoTemporal(models.Model):
         # Crear el registro en la tabla principal `Pago`
         pago = Pago.objects.create(
             idNota=self.idNota,
-            idAsiento=asiento_pago,  # Asignar el asiento contable creado
-            idCuentaBanco=self.idCuentaBanco,
+            idAsiento=asiento_pago,
+            idCuentaBanco=configuracion.idCuentaBanco,  # Usar cuenta de la configuración
             monto=self.monto,
             fechaPago=self.fechaPago,
-            formaPago="TRANSFERENCIA",  # Siempre será transferencia
+            formaPago="TRANSFERENCIA",
             referencia=self.referencia,
             idTasa=self.idTasa,
             observaciones=self.observaciones
         )
 
         # Actualizar el estado de la nota
-        self.idNota.estado = 'PAGADO'
+        self.idNota.estado = 'PAGADA'
         self.idNota.save()
 
         # Marcar el pago temporal como confirmado
