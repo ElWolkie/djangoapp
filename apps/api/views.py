@@ -315,24 +315,23 @@ class NotasUsuarioAutenticadoView(generics.ListAPIView):
     def get_persona(self):
         """
         Obtiene la persona asociada al usuario de forma robusta.
-        Intenta múltiples formas de encontrar la relación.
         """
         try:
             user = self.request.user
+            logger.info(f"Buscando persona para usuario: {user.username} (ID: {user.id})")
             
-            # 1. Primero intenta obtener la persona directamente del usuario
+            # 1. El usuario ES una instancia de Usuarios, que tiene idPersona
             if hasattr(user, 'idPersona') and user.idPersona:
                 logger.info(f"Persona encontrada directamente en usuario: {user.idPersona}")
                 return user.idPersona
             
-            # 2. Busca por relación Usuarios
-            from apps.home.models import Usuarios  # Asegúrate de importar tu modelo Usuarios
-            usuario_rel = Usuarios.objects.filter(user_id=getattr(user, 'id', None)).first()
-            if usuario_rel and getattr(usuario_rel, 'idPersona', None):
+            # 2. Si el usuario no es instancia de Usuarios, buscamos por ID
+            usuario_rel = Usuarios.objects.filter(id=user.id).first()
+            if usuario_rel and usuario_rel.idPersona:
                 logger.info(f"Persona encontrada a través de Usuarios: {usuario_rel.idPersona}")
                 return usuario_rel.idPersona
             
-            # 3. Busca por cédula (último recurso)
+            # 3. Buscar por cédula del usuario
             if hasattr(user, 'cedula') and user.cedula:
                 persona_por_cedula = Personas.objects.filter(cedula=user.cedula).first()
                 if persona_por_cedula:
@@ -349,54 +348,58 @@ class NotasUsuarioAutenticadoView(generics.ListAPIView):
     def get_queryset(self):
         """
         Consulta robusta que encuentra todas las notas asociadas al usuario.
-        Incluye notas por relaciones directas e indirectas.
         """
         persona = self.get_persona()
         if not persona:
             logger.warning("No se encontró persona, retornando queryset vacío")
             return Nota.objects.none()
 
-        logger.info(f"Buscando notas para persona ID: {persona.idPersona}, Cédula: {getattr(persona, 'cedula', 'N/A')}")
+        logger.info(f"Buscando notas para persona ID: {persona.idPersona}, Cédula: {persona.cedula}")
 
         # Prefetch optimizado para relaciones
         prefetch_relacion = Prefetch(
             'relaciones',
             queryset=NotaRelacionada.objects.select_related(
+                'idInscripcion',
+                'idInscripcion__idCohorte',
                 'idInscripcion__idCohorte__idFormacion',
                 'idInscripcion__idPersona'
             ).filter(idInscripcion__isnull=False),
             to_attr='prefetched_relaciones_con_inscripcion'
         )
 
-        # Construimos condiciones más robustas usando Q objects
+        # Construimos condiciones usando Q objects
         condiciones = Q()
         
         # 1. Notas donde la persona es directamente la del usuario
-        condiciones |= Q(persona=persona)
+        condiciones |= Q(idPersona=persona)
         
         # 2. Notas relacionadas a través de inscripciones de la persona
-        condiciones |= Q(relaciones__idInscripcion__idPersona=persona)
+        # Buscar inscripciones de esta persona
+        inscripciones_persona = Inscripcion.objects.filter(idPersona=persona)
+        notas_por_inscripcion = NotaRelacionada.objects.filter(
+            idInscripcion__in=inscripciones_persona
+        ).values_list('idNota', flat=True)
+        
+        condiciones |= Q(idNota__in=notas_por_inscripcion)
         
         # 3. Notas donde la cédula de la persona coincide (backup)
-        if hasattr(persona, 'cedula') and persona.cedula:
-            condiciones |= Q(persona__cedula=persona.cedula)
-        
-        # 4. Notas donde el ID de persona coincide (backup adicional)
-        condiciones |= Q(persona__idPersona=persona.idPersona)
+        condiciones |= Q(idPersona__cedula=persona.cedula)
 
-        # Ejecutar consulta con prefetch y distinct
+        # Ejecutar consulta
         qs = Nota.objects.filter(condiciones).prefetch_related(
             prefetch_relacion
         ).select_related(
-            'persona',  # Para obtener datos directos de la persona
-            'formacion'  # Para datos de formación si existen directamente
-        ).distinct().order_by('-fechaEmision')  # Ordenar por fecha más reciente primero
+            'idPersona',  # Para obtener datos directos de la persona
+            'formacion'   # Para datos de formación si existen directamente
+        ).distinct().order_by('-fechaEmision')
 
         logger.info(f"Encontradas {qs.count()} notas para el usuario")
         
         # Log detallado para debugging
-        for nota in qs[:3]:  # Solo log primeras 3 para no saturar
-            logger.debug(f"Nota {nota.idNota}: {nota.numeroNota} - Persona: {getattr(nota.persona, 'cedula', 'N/A')}")
+        for nota in qs[:5]:  # Solo log primeras 5 para no saturar
+            relaciones_count = getattr(nota, 'prefetched_relaciones_con_inscripcion', [])
+            logger.debug(f"Nota {nota.idNota}: {nota.numeroNota} - Estado: {nota.estado} - Relaciones: {len(relaciones_count)}")
 
         return qs
 
@@ -405,30 +408,23 @@ class NotasUsuarioAutenticadoView(generics.ListAPIView):
         Sobrescribimos list para agregar metadata útil en la respuesta.
         """
         try:
-            response = super().list(request, *args, **kwargs)
+            queryset = self.get_queryset()
+            serializer = self.get_serializer(queryset, many=True)
             
-            # Agregar metadata útil
-            if isinstance(response.data, list):
-                response.data = {
-                    'success': True,
-                    'count': len(response.data),
-                    'data': response.data,
-                    'user_info': {
-                        'username': request.user.username,
-                        'cedula': getattr(request.user, 'cedula', 'N/A'),
-                        'persona_id': getattr(self.get_persona(), 'idPersona', None)
-                    }
-                }
-            elif isinstance(response.data, dict) and 'results' in response.data:
-                # Para paginación
-                response.data['success'] = True
-                response.data['user_info'] = {
+            persona = self.get_persona()
+            
+            response_data = {
+                'success': True,
+                'count': queryset.count(),
+                'data': serializer.data,
+                'user_info': {
                     'username': request.user.username,
-                    'cedula': getattr(request.user, 'cedula', 'N/A'),
-                    'persona_id': getattr(self.get_persona(), 'idPersona', None)
+                    'cedula': getattr(persona, 'cedula', 'N/A') if persona else 'N/A',
+                    'persona_id': getattr(persona, 'idPersona', None) if persona else None
                 }
+            }
             
-            return response
+            return Response(response_data)
             
         except Exception as e:
             logger.exception("Error en list method:")
