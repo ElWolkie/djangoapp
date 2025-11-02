@@ -89,7 +89,7 @@ const PagoScreen: React.FC = () => {
 
   const [formData, setFormData] = useState({
     idNota: notaData?.idNota?.toString?.() ?? '',
-    formaPago: 'TRANSFERENCIA', // Solo transferencia ahora
+    formaPago: 'TRANSFERENCIA',
     monto: notaData?.totalNota != null ? toBackendDecimal(notaData.totalNota) : '',
     referencia: '',
     observaciones: '',
@@ -115,7 +115,7 @@ const PagoScreen: React.FC = () => {
   const cargarConfiguracion = useCallback(async () => {
     setLoadingConfig(true);
     try {
-      const response = await api.get('/api/configuracion/configuracion/');
+      const response = await api.get('/api/configuracion/');
       if (response.data.success) {
         setConfiguracion(response.data.data);
         console.log('✅ Configuración cargada:', response.data.data);
@@ -204,7 +204,7 @@ const PagoScreen: React.FC = () => {
     return 'Formación no especificada';
   };
 
-  // Determinar estado y color de la nota - VERSIÓN CORREGIDA
+  // Determinar estado y color de la nota
   const getEstadoNota = (nota: NotaItem) => {
     if (!nota || nota.estado === null || nota.estado === undefined) {
       return { texto: 'Por pagar', color: '#dc3545', esPorPagar: true };
@@ -219,7 +219,6 @@ const PagoScreen: React.FC = () => {
     } else if (estado === 'PENDIENTE') {
       return { texto: 'Por pagar', color: '#dc3545', esPorPagar: true };
     } else {
-      // Cualquier otro estado lo consideramos "Por pagar"
       return { texto: 'Por pagar', color: '#dc3545', esPorPagar: true };
     }
   };
@@ -361,7 +360,6 @@ const PagoScreen: React.FC = () => {
       return;
     }
 
-    // Validar que tenemos configuración con cuenta bancaria
     if (!configuracion || !configuracion.idCuentaBanco) {
       Alert.alert('Error', 'No hay cuenta bancaria configurada en el sistema. Contacte al administrador.');
       return;
@@ -373,7 +371,7 @@ const PagoScreen: React.FC = () => {
       idNota: Number(formData.idNota),
       monto: Number(String(formData.monto).replace(',', '.')),
       fechaPago: formData.fechaPago,
-      formaPago: 'TRANSFERENCIA', // Siempre transferencia
+      formaPago: 'TRANSFERENCIA',
       referencia: String(formData.referencia || ''),
       observaciones: String(formData.observaciones || ''),
     };
@@ -491,6 +489,57 @@ const PagoScreen: React.FC = () => {
 
   const modalMaxWidth = Math.min(Math.max(320, width - 48), 900);
 
+  // Componente para mostrar información de la cuenta bancaria
+  const InfoCuentaBancaria = () => (
+    <View style={styles.cuentaBancariaCard}>
+      <View style={styles.cuentaHeader}>
+        <Icon name="bank" size={20} color="#2dce89" />
+        <Text style={styles.cuentaTitle}>Información para Transferencia</Text>
+      </View>
+      
+      <View style={styles.cuentaGrid}>
+        <View style={styles.cuentaItem}>
+          <Text style={styles.cuentaLabel}>Banco:</Text>
+          <Text style={styles.cuentaValue}>{configuracion?.nombre_banco || 'No especificado'}</Text>
+        </View>
+        
+        <View style={styles.cuentaItem}>
+          <Text style={styles.cuentaLabel}>Tipo de Cuenta:</Text>
+          <Text style={styles.cuentaValue}>{configuracion?.tipo_cuenta || 'No especificado'}</Text>
+        </View>
+        
+        <View style={styles.cuentaItem}>
+          <Text style={styles.cuentaLabel}>Número de Cuenta:</Text>
+          <Text style={[styles.cuentaValue, styles.cuentaDestacado]}>
+            {configuracion?.numero_cuenta || 'No especificado'}
+          </Text>
+        </View>
+        
+        <View style={styles.cuentaItem}>
+          <Text style={styles.cuentaLabel}>Cédula/RIF:</Text>
+          <Text style={[styles.cuentaValue, styles.cuentaDestacado]}>
+            {configuracion?.cedulaCuenta || 'No especificado'}
+          </Text>
+        </View>
+        
+        <View style={styles.cuentaItem}>
+          <Text style={styles.cuentaLabel}>Titular:</Text>
+          <Text style={styles.cuentaValue}>{configuracion?.nombreInstitucion || 'Institución'}</Text>
+        </View>
+      </View>
+
+      <View style={styles.cuentaInstrucciones}>
+        <Text style={styles.instruccionesTitle}>📋 Instrucciones:</Text>
+        <Text style={styles.instruccionesText}>
+          1. Realice la transferencia a la cuenta mostrada arriba{'\n'}
+          2. Guarde el número de referencia de la transferencia{'\n'}
+          3. Complete el formulario con la referencia y fecha{'\n'}
+          4. Envíe el comprobante por correo si es requerido
+        </Text>
+      </View>
+    </View>
+  );
+
   // Modal de Requisitos (para notas pagadas)
   const ModalRequisitos = () => (
     <Modal
@@ -500,7 +549,7 @@ const PagoScreen: React.FC = () => {
       onRequestClose={cerrarModales}
     >
       <View style={styles.modalOverlay}>
-        <View style={[styles.modalContent, { maxWidth: modalMaxWidth }]}>
+        <View style={[styles.modalContent, { maxWidth: modalMaxWidth, maxHeight: '90%' }]}>
           <View style={styles.modalHeader}>
             <View style={styles.modalTitleContainer}>
               <Icon name="clipboard-check" size={24} color="#28a745" />
@@ -511,7 +560,7 @@ const PagoScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.modalBody}>
+          <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
             <View style={styles.successCard}>
               <Icon name="check-circle" size={50} color="#28a745" />
               <Text style={styles.successTitle}>¡Pago Confirmado!</Text>
@@ -579,7 +628,7 @@ const PagoScreen: React.FC = () => {
       onRequestClose={cerrarModales}
     >
       <View style={styles.modalOverlay}>
-        <View style={[styles.modalContent, { maxWidth: modalMaxWidth }]}>
+        <View style={[styles.modalContent, { maxWidth: modalMaxWidth, maxHeight: '80%' }]}>
           <View style={styles.modalHeader}>
             <View style={styles.modalTitleContainer}>
               <Icon name="clock-outline" size={24} color="#ffc107" />
@@ -656,7 +705,7 @@ const PagoScreen: React.FC = () => {
         {/* MODAL DETALLE (solo para notas por pagar) */}
         {notaSeleccionada && showDetailsModal && (
           <View style={styles.formularioOverlay}>
-            <View style={[styles.modalContent, { width: modalMaxWidth }]}>
+            <View style={[styles.modalContent, { width: modalMaxWidth, maxHeight: '85%' }]}>
               <View style={styles.modalHeader}>
                 <View style={styles.modalTitleContainer}>
                   <Icon name="file-document" size={24} color="#495057" />
@@ -667,7 +716,7 @@ const PagoScreen: React.FC = () => {
                 </TouchableOpacity>
               </View>
 
-              <View style={styles.modalBody}>
+              <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
                 <View style={styles.infoCard}>
                   <View style={styles.infoHeader}>
                     <Icon name="file-document" size={18} color="#495057" />
@@ -692,14 +741,25 @@ const PagoScreen: React.FC = () => {
                   </View>
                 </View>
 
-                <View style={styles.modalFooter}>
-                  <TouchableOpacity style={[styles.secondaryButton, { marginRight: 8 }]} onPress={cerrarModales}>
-                    <Text style={styles.secondaryButtonText}>Cancelar</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.primaryButton} onPress={iniciarPago}>
-                    <Text style={styles.primaryButtonText}>Iniciar Pago</Text>
-                  </TouchableOpacity>
+                {/* Información de cuenta bancaria en modal de detalles */}
+                <InfoCuentaBancaria />
+
+                <View style={styles.infoCard}>
+                  <Text style={styles.infoTitle}>💡 Siguiente Paso:</Text>
+                  <Text style={styles.infoText}>
+                    Al continuar, podrá registrar los datos de su transferencia. 
+                    Asegúrese de tener a mano el comprobante de pago con el número de referencia.
+                  </Text>
                 </View>
+              </ScrollView>
+
+              <View style={styles.modalFooter}>
+                <TouchableOpacity style={[styles.secondaryButton, { marginRight: 8 }]} onPress={cerrarModales}>
+                  <Text style={styles.secondaryButtonText}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.primaryButton} onPress={iniciarPago}>
+                  <Text style={styles.primaryButtonText}>Continuar al Pago</Text>
+                </TouchableOpacity>
               </View>
             </View>
           </View>
@@ -708,7 +768,7 @@ const PagoScreen: React.FC = () => {
         {/* MODAL PAGO MEJORADO */}
         {notaSeleccionada && showPaymentModal && (
           <View style={styles.formularioOverlay}>
-            <View style={[styles.modalContent, { width: modalMaxWidth }]}>
+            <View style={[styles.modalContent, { width: modalMaxWidth, maxHeight: '90%' }]}>
               <View style={styles.modalHeader}>
                 <View style={styles.modalTitleContainer}>
                   <Icon name="credit-card-check" size={24} color="#28a745" />
@@ -719,7 +779,7 @@ const PagoScreen: React.FC = () => {
                 </TouchableOpacity>
               </View>
 
-              <ScrollView style={styles.modalBody}>
+              <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
                 <View style={styles.infoCard}>
                   <View style={styles.infoHeader}>
                     <Icon name="file-document" size={18} color="#495057" />
@@ -743,6 +803,9 @@ const PagoScreen: React.FC = () => {
                     </View>
                   </View>
                 </View>
+
+                {/* Información de cuenta bancaria */}
+                <InfoCuentaBancaria />
 
                 <View style={styles.formSection}>
                   <Text style={styles.sectionTitle}>Datos del Pago</Text>
@@ -815,7 +878,8 @@ const PagoScreen: React.FC = () => {
                     <Text style={styles.infoText}>
                       • Su pago será verificado por la administración{"\n"}
                       • Recibirá una notificación cuando sea confirmado{"\n"}
-                      • El proceso puede tomar 24-48 horas hábiles
+                      • El proceso puede tomar 24-48 horas hábiles{"\n"}
+                      • Guarde el comprobante de transferencia
                     </Text>
                   </View>
                 </View>
@@ -850,7 +914,7 @@ const PagoScreen: React.FC = () => {
     );
   }
 
-  // [El resto del código para modo automático se mantiene similar pero adaptado...]
+  // [El resto del código para modo automático se mantiene similar...]
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -872,6 +936,47 @@ const PagoScreen: React.FC = () => {
               <View style={styles.infoItem}><Text style={styles.infoLabel}>Estudiante:</Text><Text style={styles.infoValue}>{notaData.persona?.nombre ?? notaData.persona ?? '—'}</Text></View>
               <View style={styles.infoItem}><Text style={styles.infoLabel}>Cédula:</Text><Text style={styles.infoValue}>{notaData.persona?.cedula ?? '—'}</Text></View>
               <View style={[styles.infoItem, styles.totalItem]}><Text style={styles.totalLabel}>Total a Pagar:</Text><Text style={styles.totalValue}>${formatCurrency(Number(notaData.totalNota ?? 0))}</Text></View>
+            </View>
+          </View>
+        )}
+
+        {/* Información de cuenta bancaria en el formulario principal */}
+        {configuracion && (
+          <View style={[styles.cuentaBancariaCard, { maxWidth: Math.min(920, width - 48), alignSelf: 'center' }]}>
+            <View style={styles.cuentaHeader}>
+              <Icon name="bank" size={20} color="#2dce89" />
+              <Text style={styles.cuentaTitle}>Información para Transferencia</Text>
+            </View>
+            
+            <View style={styles.cuentaGrid}>
+              <View style={styles.cuentaItem}>
+                <Text style={styles.cuentaLabel}>Banco:</Text>
+                <Text style={styles.cuentaValue}>{configuracion.nombre_banco || 'No especificado'}</Text>
+              </View>
+              
+              <View style={styles.cuentaItem}>
+                <Text style={styles.cuentaLabel}>Tipo de Cuenta:</Text>
+                <Text style={styles.cuentaValue}>{configuracion.tipo_cuenta || 'No especificado'}</Text>
+              </View>
+              
+              <View style={styles.cuentaItem}>
+                <Text style={styles.cuentaLabel}>Número de Cuenta:</Text>
+                <Text style={[styles.cuentaValue, styles.cuentaDestacado]}>
+                  {configuracion.numero_cuenta || 'No especificado'}
+                </Text>
+              </View>
+              
+              <View style={styles.cuentaItem}>
+                <Text style={styles.cuentaLabel}>Cédula/RIF:</Text>
+                <Text style={[styles.cuentaValue, styles.cuentaDestacado]}>
+                  {configuracion.cedulaCuenta || 'No especificado'}
+                </Text>
+              </View>
+              
+              <View style={styles.cuentaItem}>
+                <Text style={styles.cuentaLabel}>Titular:</Text>
+                <Text style={styles.cuentaValue}>{configuracion.nombreInstitucion || 'Institución'}</Text>
+              </View>
             </View>
           </View>
         )}
@@ -956,7 +1061,7 @@ const PagoScreen: React.FC = () => {
   );
 };
 
-// Estilos mejorados
+// Estilos mejorados con información de cuenta bancaria
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8f9fa' },
   scrollView: { flex: 1 },
@@ -973,9 +1078,6 @@ const styles = StyleSheet.create({
   notaNumero: { fontWeight: '700', color: '#343a40', fontSize: 16 },
   estadoBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
   estadoText: { fontSize: 12, color: '#fff', fontWeight: '600' },
-  estadoPagada: { backgroundColor: '#28a745' },
-  estadoParcial: { backgroundColor: '#ffc107' },
-  estadoPendiente: { backgroundColor: '#dc3545' },
   notaFormacion: { marginTop: 8, color: '#495057', fontSize: 14, lineHeight: 20 },
   notaFooter: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 12, alignItems: 'center' },
   notaFecha: { color: '#6c757d', fontSize: 13 },
@@ -988,12 +1090,12 @@ const styles = StyleSheet.create({
   
   // Modal Styles
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  modalContent: { backgroundColor: '#fff', borderRadius: 16, width: '100%', maxHeight: '90%', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 8 },
+  modalContent: { backgroundColor: '#fff', borderRadius: 16, width: '100%', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 8 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: '#e9ecef' },
   modalTitleContainer: { flexDirection: 'row', alignItems: 'center' },
   modalTitle: { fontSize: 20, fontWeight: '700', marginLeft: 8, color: '#212529' },
   closeButton: { padding: 4 },
-  modalBody: { padding: 20, maxHeight: '80%' },
+  modalBody: { padding: 20 },
   modalFooter: { padding: 20, borderTopWidth: 1, borderTopColor: '#e9ecef', flexDirection: 'row', justifyContent: 'flex-end' },
 
   // Card Styles
@@ -1007,6 +1109,19 @@ const styles = StyleSheet.create({
   totalItem: { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#dee2e6' },
   totalLabel: { color: '#495057', fontWeight: '700', fontSize: 15 },
   totalValue: { color: '#212529', fontWeight: '900', fontSize: 18 },
+
+  // Cuenta Bancaria Styles
+  cuentaBancariaCard: { backgroundColor: '#e8f5e8', borderRadius: 12, padding: 16, marginBottom: 16, borderLeftWidth: 4, borderLeftColor: '#2dce89' },
+  cuentaHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  cuentaTitle: { marginLeft: 8, fontWeight: '700', color: '#155724', fontSize: 16 },
+  cuentaGrid: {  },
+  cuentaItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, paddingVertical: 4 },
+  cuentaLabel: { color: '#155724', fontSize: 14, fontWeight: '600' },
+  cuentaValue: { color: '#212529', fontWeight: '600', fontSize: 14, flex: 1, textAlign: 'right' },
+  cuentaDestacado: { color: '#2dce89', fontWeight: '800', fontSize: 15 },
+  cuentaInstrucciones: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#c3e6cb' },
+  instruccionesTitle: { color: '#155724', fontWeight: '700', fontSize: 14, marginBottom: 8 },
+  instruccionesText: { color: '#155724', fontSize: 13, lineHeight: 18 },
 
   // Form Styles
   formSection: {  },
