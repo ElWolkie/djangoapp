@@ -265,7 +265,7 @@ export default function DashboardScreen() {
   const loadNotasAndPagos = async (cedulaUsuarioNormalizada: string) => {
     try {
       // Cargar notas reales
-      const notasResult = await safeApiCall('/api/notas/');
+      const notasResult = await safeApiCall('notas/por-cedula');
       let todasNotas = extractData(notasResult.data);
       
       // Filtrar notas del usuario actual

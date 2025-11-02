@@ -18,9 +18,11 @@ urlpatterns = [
     path('obtener-persona-login/', obtener_persona_login, name='obtener-persona-login'),
     
     path('pagos/create/', views.PagoCreateAPIView.as_view(), name='api-pagos-create'),
-
     path('notas/usuario/autenticado/', views.NotasUsuarioAutenticadoView.as_view(), name='notas-usuario-autenticado'),
-    
+
+    path('pagos/', views.PagoUsuarioListView.as_view(), name='pagos-list-usuario'),
+    path('notas/', views.NotasUsuarioAutenticadoView.as_view(), name='notas-list-usuario'),
+
     path('corregir-relaciones/', corregir_relaciones_notas, name='corregir_relaciones'),
     path('notas/por-cedula/', notas_por_cedula, name='notas_por_cedula'),
     path('diagnosticar-notas/', diagnosticar_notas, name='diagnosticar_notas'),

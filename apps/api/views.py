@@ -214,9 +214,9 @@ class InscripcionListCreate(generics.ListCreateAPIView):
                 idInscripcion=inscripcion
             )
 
-            # 8) Crear detalles de asiento (usar booleano True/False)
-            plan_debe = PlanArticulo.objects.filter(tipoArticulo='INSCRIPCION', tipo=True).order_by('-fecha').first()
-            plan_haber = PlanArticulo.objects.filter(tipoArticulo='INSCRIPCION', tipo=False).order_by('-fecha').first()
+            # 8) Crear detalles de asiento
+            plan_debe = PlanArticulo.objects.filter(tipoArticulo='INSCRIPCION', tipo=1).order_by('-fecha').first()
+            plan_haber = PlanArticulo.objects.filter(tipoArticulo='INSCRIPCION', tipo=0).order_by('-fecha').first()
             if plan_debe and plan_haber:
                 DetalleAsiento.objects.create(idAsiento=asiento, idPlanCuenta=plan_debe.idPlanCuenta, debe=nota.totalNota, haber=Decimal('0.00'))
                 DetalleAsiento.objects.create(idAsiento=asiento, idPlanCuenta=plan_haber.idPlanCuenta, debe=Decimal('0.00'), haber=nota.totalNota)
@@ -428,7 +428,46 @@ class PagoCreateAPIView(APIView):
                 "message": "Ocurrió un error inesperado al procesar el pago temporal.",
                 "error": str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+# --- ¡NUEVA VISTA DE PAGOS PARA DASHBOARD! ---
+class PagoUsuarioListView(generics.ListAPIView):
+    serializer_class = PagoSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        try:
+            # Obtener el objeto Personas relacionado con el usuario autenticado
+            persona = self.request.user.idPersona
+        except Exception as e:
+            logger.error(f"Error al obtener idPersona del usuario: {e}")
+            return Pago.objects.none()
         
+        if not persona:
+             logger.warning("Usuario autenticado sin persona asociada.")
+             return Pago.objects.none()
+
+        # 1. Buscar notas asociadas a la persona
+        notas_directas_ids = Nota.objects.filter(idPersona=persona).values_list('idNota', flat=True)
+        
+        # 2. Buscar pagos asociados a esas notas
+        # Usamos Q para filtrar donde el idNota sea una de las IDs que encontramos
+        return Pago.objects.filter(
+            Q(idNota__in=notas_directas_ids)
+        ).select_related(
+            'idNota' # Optimizamos la consulta para el PagoListSerializer
+        ).order_by('-fechaPago')
+        
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        
+        # Estructura de respuesta que usa tu frontend
+        return Response({
+            'success': True,
+            'count': queryset.count(),
+            'data': serializer.data
+        }, status=status.HTTP_200_OK)
+
 class RequisitoListCreate(generics.ListCreateAPIView):
     queryset = Requisito.objects.all()  # Usa el modelo Requisito
     serializer_class = RequisitoSerializer  # Usa el serializador RequisitoSerializer

@@ -301,12 +301,14 @@ class InscripcionSerializer(serializers.ModelSerializer):
 class NotaSerializer(serializers.ModelSerializer):
     idInscripcion = serializers.SerializerMethodField(read_only=True)
     formacion = serializers.SerializerMethodField(read_only=True)
+    # Añadimos persona para que el frontend pueda verificar (aunque la API ya filtra)
+    persona = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Nota
         fields = [
             'idNota', 'numeroNota', 'fechaEmision', 'totalNota', 'estado',
-            'tipoArticulo', 'formaPago', 'idInscripcion', 'formacion',
+            'tipoArticulo', 'formaPago', 'idInscripcion', 'formacion', 'persona'
         ]
 
     def _get_first_relation(self, obj):
@@ -324,7 +326,7 @@ class NotaSerializer(serializers.ModelSerializer):
                     return rels.filter(idInscripcion__isnull=False).select_related('idInscripcion__idCohorte__idFormacion').first()
                 except Exception:
                     return rels.first()
-            return NotaRelacionada.objects.filter(idNota=obj, idInscripcion__isnull=False).select_related('idInscripcion__idCohorte__idFormacion').first()
+            return NotaRelacionada.objects.filter(idNota=obj, idInscripcion__isnull=False).select_related('idInscripcion__idCohorte__idFormacion', 'idInscripcion__idPersona').first()
         except Exception as e:
             logger.exception("Error en _get_first_relation: %s", e)
             return None
@@ -368,10 +370,27 @@ class NotaSerializer(serializers.ModelSerializer):
         except Exception as e:
             logger.exception("No se pudo resolver la formación para la nota %s: %s", getattr(obj, 'idNota', None), e)
             return {'nombreFormacion': 'Formación no disponible'}
+        
+    def get_persona(self, obj):
+        # Devuelve los datos de la persona asociada a la nota
+        if obj.idPersona:
+            return {
+                'cedula': obj.idPersona.cedula,
+                'nombre': obj.idPersona.nombres
+            }
+        # Fallback si la nota no tiene persona directa (aunque debería)
+        rel = self._get_first_relation(obj)
+        try:
+            persona = rel.idInscripcion.idPersona
+            return {
+                'cedula': persona.cedula,
+                'nombre': persona.nombres
+            }
+        except (AttributeError, TypeError):
+            return None
 
 class PagoSerializer(serializers.ModelSerializer):
     idNota = NotaSerializer(read_only=True)
-    
     class Meta:
         model = Pago
         fields = [
