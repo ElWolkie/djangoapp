@@ -436,6 +436,7 @@ class PagoCreateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         """
         Crea un PagoTemporal usando la cuenta bancaria de la configuración.
+        IMPORTANTE: NO cambia el estado de la nota aquí.
         """
         nota = self.context.get('nota')
         configuracion = self.context.get('configuracion')
@@ -462,7 +463,7 @@ class PagoCreateSerializer(serializers.ModelSerializer):
         # Crear PagoTemporal con la cuenta bancaria de la configuración
         pago_temporal = PagoTemporal.objects.create(
             idNota=nota,
-            idCuentaBanco=configuracion.idCuentaBanco,  # Usamos la cuenta de la configuración
+            idCuentaBanco=configuracion.idCuentaBanco,
             idTasa=tasa,
             monto=validated_data['monto'],
             referencia=validated_data.get('referencia', '') or '',

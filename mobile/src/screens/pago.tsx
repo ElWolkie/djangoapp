@@ -204,15 +204,22 @@ const PagoScreen: React.FC = () => {
     return 'Formación no especificada';
   };
 
-  // Determinar estado y color de la nota
+  // Determinar estado y color de la nota - VERSIÓN CORREGIDA
   const getEstadoNota = (nota: NotaItem) => {
-    const estado = (nota.estado ?? '').toUpperCase();
+    if (!nota || nota.estado === null || nota.estado === undefined) {
+      return { texto: 'Por pagar', color: '#dc3545', esPorPagar: true };
+    }
+
+    const estado = nota.estado.toUpperCase();
     
     if (estado === 'PAGADA') {
       return { texto: 'Pagada', color: '#28a745', esPagada: true };
-    } else if (estado === 'PARCIAL' || estado === 'PENDIENTE') {
-      return { texto: 'Pendiente', color: '#ffc107', esPendiente: true };
+    } else if (estado === 'PARCIAL') {
+      return { texto: 'Parcial', color: '#ffc107', esParcial: true };
+    } else if (estado === 'PENDIENTE') {
+      return { texto: 'Por pagar', color: '#dc3545', esPorPagar: true };
     } else {
+      // Cualquier otro estado lo consideramos "Por pagar"
       return { texto: 'Por pagar', color: '#dc3545', esPorPagar: true };
     }
   };
@@ -300,7 +307,7 @@ const PagoScreen: React.FC = () => {
       setErrors({});
       setShowDetailsModal(true);
       setShowPaymentModal(false);
-    } else if (estado.esPendiente) {
+    } else if (estado.esParcial) {
       setShowProcesoModal(true);
     } else if (estado.esPagada) {
       setShowRequisitosModal(true);
