@@ -182,6 +182,49 @@
         {% endfor %}
         </tbody>
         </table>
+
+<!-- Paginación -->
+    {% if is_paginated %}
+    <nav aria-label="Paginación">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page=1&usuario={{ filtro_usuario }}&accion={{ filtro_accion }}&fecha={{ filtro_fecha }}" aria-label="Primera">
+                    <span aria-hidden="true">&laquo;&laquo;</span>
+                </a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}&usuario={{ filtro_usuario }}&accion={{ filtro_accion }}&fecha={{ filtro_fecha }}" aria-label="Anterior">
+                    <span aria-hidden="true">&laquo;</span>
+                </a>
+            </li>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+                {% if num == 1 or num == page_obj.paginator.num_pages or num >= page_obj.number|add:"-2" and num <= page_obj.number|add:"2" %}
+                <li class="page-item {% if num == page_obj.number %}active{% endif %}">
+                    <a class="page-link" href="?page={{ num }}&usuario={{ filtro_usuario }}&accion={{ filtro_accion }}&fecha={{ filtro_fecha }}">{{ num }}</a>
+                </li>
+                {% elif num == page_obj.number|add:"-3" or num == page_obj.number|add:"3" %}
+                <li class="page-item disabled"><span class="page-link">...</span></li>
+                {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}&usuario={{ filtro_usuario }}&accion={{ filtro_accion }}&fecha={{ filtro_fecha }}" aria-label="Siguiente">
+                    <span aria-hidden="true">&raquo;</span>
+                </a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}&usuario={{ filtro_usuario }}&accion={{ filtro_accion }}&fecha={{ filtro_fecha }}" aria-label="Última">
+                    <span aria-hidden="true">&raquo;&raquo;</span>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
     </div>
 </div>
 
@@ -242,34 +285,6 @@
 {% endif %}
 {% endfor %}
 
-<!-- Paginación -->
-    {% if is_paginated %}
-    <nav aria-label="Paginación">
-        <ul class="pagination justify-content-center">
-            {% if page_obj.has_previous %}
-            <li class="page-item">
-                <a class="page-link" href="?page=1&usuario={{ filtro_usuario }}&accion={{ filtro_accion }}&fecha={{ filtro_fecha }}">Primera</a>
-            </li>
-            <li class="page-item">
-                <a class="page-link" href="?page={{ page_obj.previous_page_number }}&usuario={{ filtro_usuario }}&accion={{ filtro_accion }}&fecha={{ filtro_fecha }}">Anterior</a>
-            </li>
-            {% endif %}
-            
-            <li class="page-item disabled">
-                <span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
-            </li>
-            
-            {% if page_obj.has_next %}
-            <li class="page-item">
-                <a class="page-link" href="?page={{ page_obj.next_page_number }}&usuario={{ filtro_usuario }}&accion={{ filtro_accion }}&fecha={{ filtro_fecha }}">Siguiente</a>
-            </li>
-            <li class="page-item">
-                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}&usuario={{ filtro_usuario }}&accion={{ filtro_accion }}&fecha={{ filtro_fecha }}">Última</a>
-            </li>
-            {% endif %}
-        </ul>
-    </nav>
-    {% endif %}
 </div>
 {% endblock %}
 
@@ -287,7 +302,7 @@
       headers: { 'X-Requested-With': 'XMLHttpRequest' }
     })
     .then(res => res.json())
-    .then(data => {
+    .then data => {
       // Crear alerta Bootstrap al tope de la página
       const container = document.querySelector('.container');
       const alertDiv = document.createElement('div');
