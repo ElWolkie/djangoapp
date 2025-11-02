@@ -138,8 +138,6 @@ urlpatterns = [
     path('tablaTasas/', views.tabla_tasas, name='tabla_tasas'),
     path('reporte-tasas/', views.reporte_tasas_pdf, name='reporte_tasas_pdf'),
 
-    path('api/configuracion/', include('apps.api.urls')),
-
     # Ruta espicifica para Errores
     path('403/', views.page_403, name='page-403'),
 
