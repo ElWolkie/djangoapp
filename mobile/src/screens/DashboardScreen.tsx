@@ -98,6 +98,10 @@ interface Pago {
   idNota: number;
   formaPago: string;
   referencia?: string;
+  idNota_detail?: {
+    numeroNota?: string;
+    descripcion?: string;
+  };
 }
 
 export default function DashboardScreen() {
@@ -264,16 +268,20 @@ export default function DashboardScreen() {
   // Cargar datos reales de notas y pagos
   const loadNotasAndPagos = async (cedulaUsuarioNormalizada: string) => {
     try {
-      // Cargar notas reales
+      // Cargar notas reales del endpoint específico para usuario autenticado
       const notasResult = await safeApiCall('/api/notas/usuario/autenticado/');
       let todasNotas = extractData(notasResult.data);
       
-      // Filtrar notas del usuario actual
+      console.log('📋 Notas obtenidas del endpoint:', todasNotas.length);
+      
+      // Filtrar notas del usuario actual (por si el endpoint no filtra completamente)
       const misNotas = todasNotas.filter((nota: any) => {
         const cedulaNota = nota.idPersona_detail?.cedula || nota.idPersona?.cedula;
         if (!cedulaNota) return false;
         return normalizarCedula(cedulaNota) === cedulaUsuarioNormalizada;
       });
+
+      console.log('👤 Notas filtradas para el usuario:', misNotas.length);
 
       // Filtrar notas por pagar (PENDIENTE o PARCIAL)
       const notasPendientes = misNotas.filter((nota: any) => 
@@ -285,10 +293,13 @@ export default function DashboardScreen() {
       const pagosResult = await safeApiCall('/api/pagos/');
       let todosPagos = extractData(pagosResult.data);
       
+      console.log('💰 Todos los pagos obtenidos:', todosPagos.length);
+      
       // Filtrar pagos del usuario
       const misPagosFiltrados = todosPagos.filter((pago: any) => {
         const cedulaPago = pago.idNota?.idPersona_detail?.cedula || 
-                          pago.idNota?.idPersona?.cedula;
+                          pago.idNota?.idPersona?.cedula ||
+                          pago.idPersona_detail?.cedula;
         if (!cedulaPago) return false;
         return normalizarCedula(cedulaPago) === cedulaUsuarioNormalizada;
       }).map((pago: any) => ({
@@ -297,15 +308,27 @@ export default function DashboardScreen() {
         fechaPago: pago.fechaPago,
         idNota: pago.idNota?.idNota || pago.idNota,
         formaPago: pago.formaPago,
-        referencia: pago.referencia
+        referencia: pago.referencia,
+        idNota_detail: pago.idNota_detail || {
+          numeroNota: pago.idNota?.numeroNota,
+          descripcion: pago.idNota?.descripcion
+        }
       }));
 
+      console.log('👤 Pagos filtrados para el usuario:', misPagosFiltrados.length);
       setMisPagos(misPagosFiltrados);
 
-      return { misNotas, misPagos: misPagosFiltrados };
+      return { 
+        misNotas, 
+        misPagos: misPagosFiltrados,
+        notasPendientes 
+      };
     } catch (error) {
       console.error('Error cargando notas y pagos:', error);
-      return { misNotas: [], misPagos: [] };
+      // En caso de error, establecer arrays vacíos
+      setNotasPorPagar([]);
+      setMisPagos([]);
+      return { misNotas: [], misPagos: [], notasPendientes: [] };
     }
   };
 
@@ -338,6 +361,7 @@ export default function DashboardScreen() {
       }
 
       const cedulaUsuarioNormalizada = normalizarCedula(personaCedula);
+      console.log('👤 Usuario normalizado:', cedulaUsuarioNormalizada);
 
       // Cargar inscripciones
       const inscripcionesResult = await safeApiCall('/api/inscripcion/');
@@ -351,22 +375,32 @@ export default function DashboardScreen() {
         if (todasInscripciones.length > 0) {
           misInscripcionesFiltradas = todasInscripciones.filter((insc: any) => {
             const cedulaInscripcion = insc.idPersona_detail?.cedula || insc.idPersona?.cedula;
-            if (!cedulaInscripcion) return false;
+            if (!cedulaInscripcion) {
+              console.log('❌ Inscripción sin cédula:', insc.idInscripcion);
+              return false;
+            }
             const cedulaInscNormalizada = normalizarCedula(cedulaInscripcion);
-            return cedulaInscNormalizada === cedulaUsuarioNormalizada;
+            const coincide = cedulaInscNormalizada === cedulaUsuarioNormalizada;
+            if (!coincide) {
+              console.log('❌ Cédula no coincide:', cedulaInscNormalizada, 'vs', cedulaUsuarioNormalizada);
+            }
+            return coincide;
           }).map((insc: any) => ({
             ...insc,
             fechaInscripcion: insc.fechaInscripcion || insc.fechaInscripcionString || null,
           } as Inscripcion));
         }
+        console.log('✅ Inscripciones filtradas para el usuario:', misInscripcionesFiltradas.length);
+      } else {
+        console.warn('❌ No se pudieron cargar las inscripciones');
       }
 
       setMisInscripciones(misInscripcionesFiltradas);
 
       // Cargar notas y pagos reales
-      const { misPagos: misPagosReales } = await loadNotasAndPagos(cedulaUsuarioNormalizada);
+      const { misNotas, misPagos: misPagosReales, notasPendientes } = await loadNotasAndPagos(cedulaUsuarioNormalizada);
 
-      // Calcular estado de pagos basado en inscripciones y notas
+      // Calcular estado de pagos basado en inscripciones Y notas
       const inscripcionesPagadas = misInscripcionesFiltradas.filter(i => 
         i.estadoPago === 'PAGADO'
       ).length;
@@ -375,10 +409,27 @@ export default function DashboardScreen() {
         i.estadoPago === 'PENDIENTE' || i.estadoPago === 'PARCIAL'
       ).length;
 
+      // También considerar las notas para el estado general
+      const totalNotasPendientes = notasPendientes.length;
+      const totalPagos = misPagosReales.length;
+
+      console.log('📊 Resumen final:', {
+        inscripciones: misInscripcionesFiltradas.length,
+        inscripcionesPagadas,
+        inscripcionesPendientes,
+        notasPendientes: totalNotasPendientes,
+        pagos: totalPagos
+      });
+
       setEstadoPago({ 
         pagado: inscripcionesPagadas, 
         pendiente: inscripcionesPendientes 
       });
+
+      // Si no hay datos, no es un error - solo mostrar estado vacío
+      if (misInscripcionesFiltradas.length === 0 && totalNotasPendientes === 0 && totalPagos === 0) {
+        console.log('ℹ️ Usuario sin datos registrados');
+      }
 
     } catch (err: any) {
       console.error('❌ Error crítico en loadAllData:', err);
@@ -476,6 +527,17 @@ export default function DashboardScreen() {
     }
   }
 
+  // Obtener descripción de la nota para pagos
+  const getDescripcionNota = (pago: Pago): string => {
+    if (pago.idNota_detail?.descripcion) {
+      return pago.idNota_detail.descripcion;
+    }
+    if (pago.idNota_detail?.numeroNota) {
+      return `Nota ${pago.idNota_detail.numeroNota}`;
+    }
+    return `Pago para nota ${pago.idNota}`;
+  };
+
   // Render principal
   if (loading) {
     return (
@@ -558,8 +620,11 @@ export default function DashboardScreen() {
                 <Text style={styles.notaDetalle}>
                   {getCohorteDeNota(nota)} • Emitida: {formatDate(nota.fechaEmision)} • Estado: {nota.estado}
                 </Text>
-                <Text style={styles.notaEstado}>
-                  {nota.estado === 'PARCIAL' ? 'Pago parcial realizado' : 'Pendiente de pago'}
+                <Text style={[
+                  styles.notaEstado,
+                  { color: nota.estado === 'PARCIAL' ? '#f7b731' : '#fb6340' }
+                ]}>
+                  {nota.estado === 'PARCIAL' ? '✅ Pago parcial realizado' : '⏳ Pendiente de pago'}
                 </Text>
               </View>
             ))}
@@ -587,9 +652,10 @@ export default function DashboardScreen() {
                 <Text style={styles.inscripcionDetalle}>
                   Valor: {fmtMoney(getValorInscripcion(inscripcion))} • Fecha: {formatDate(inscripcion.fechaInscripcion)}
                 </Text>
-                {inscripcion.montoPagado && (
+                {inscripcion.montoPagado !== undefined && inscripcion.montoPagado > 0 && (
                   <Text style={styles.inscripcionPago}>
-                    Pagado: {fmtMoney(inscripcion.montoPagado)} • Saldo: {fmtMoney(inscripcion.saldoPendiente)}
+                    Pagado: {fmtMoney(inscripcion.montoPagado)} • 
+                    {inscripcion.saldoPendiente !== undefined && ` Saldo: ${fmtMoney(inscripcion.saldoPendiente)}`}
                   </Text>
                 )}
               </View>
@@ -603,14 +669,24 @@ export default function DashboardScreen() {
             {misPagos.slice(0, 5).map((pago) => (
               <View key={pago.idPago} style={styles.pagoItem}>
                 <View style={styles.pagoHeader}>
+                  <Text style={styles.pagoDescripcion}>{getDescripcionNota(pago)}</Text>
                   <Text style={styles.pagoMonto}>{fmtMoney(pago.monto)}</Text>
-                  <Text style={styles.pagoFecha}>{formatDate(pago.fechaPago)}</Text>
                 </View>
-                <Text style={styles.pagoDetalle}>
-                  Forma de pago: {pago.formaPago} • Referencia: {pago.referencia || 'N/A'}
-                </Text>
+                <View style={styles.pagoDetalleRow}>
+                  <Text style={styles.pagoDetalle}>
+                    {formatDate(pago.fechaPago)} • {pago.formaPago}
+                  </Text>
+                  {pago.referencia && (
+                    <Text style={styles.pagoReferencia}>Ref: {pago.referencia}</Text>
+                  )}
+                </View>
               </View>
             ))}
+            {misPagos.length > 5 && (
+              <Text style={styles.moreItemsText}>
+                Y {misPagos.length - 5} pagos más...
+              </Text>
+            )}
           </View>
         )}
 
@@ -622,6 +698,12 @@ export default function DashboardScreen() {
               {user?.displayName ? `${user.displayName}, ` : ''} aún no tienes inscripciones, pagos ni notas registradas. 
               Puedes comenzar realizando una nueva inscripción.
             </Text>
+            <TouchableOpacity 
+              style={styles.primaryButton} 
+              onPress={() => navigation.navigate('Inscripciones')}
+            >
+              <Text style={styles.primaryButtonText}>Comenzar Inscripción</Text>
+            </TouchableOpacity>
           </View>
         )}
       </ScrollView>
@@ -635,9 +717,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f7fa',
   },
   responsiveScrollView: {
-    maxWidth: 1200, // Máximo ancho para web
-    alignSelf: 'center', // Centrar en web
-    width: '100%', // Ancho completo en móvil
+    maxWidth: 1200,
+    alignSelf: 'center',
+    width: '100%',
   },
   header: {
     backgroundColor: '#4f8cff',
@@ -688,9 +770,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.14,
     shadowRadius: 12,
     elevation: 6,
-    minWidth: 150, // Mínimo para móviles
-    flex: 1, // Flex para adaptarse
-    maxWidth: 240, // Máximo para tablets/web
+    minWidth: 150,
+    flex: 1,
+    maxWidth: 240,
     margin: 6,
   },
   responsiveCard: {
@@ -813,6 +895,19 @@ const styles = StyleSheet.create({
     color: '#4f8cff',
     textAlign: 'center',
     lineHeight: 20,
+    marginBottom: 16,
+  },
+  primaryButton: {
+    backgroundColor: '#4f8cff',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  primaryButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 14,
   },
   detailContainer: {
     marginTop: 20,
@@ -867,7 +962,6 @@ const styles = StyleSheet.create({
   },
   notaEstado: {
     fontSize: 11,
-    color: '#f7b731',
     fontWeight: '600',
   },
   inscripcionItem: {
@@ -922,18 +1016,37 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     flexWrap: 'wrap',
   },
+  pagoDescripcion: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#22223b',
+    flex: 1,
+  },
   pagoMonto: {
     fontSize: 16,
     fontWeight: '700',
     color: '#2dce89',
   },
-  pagoFecha: {
-    fontSize: 12,
-    color: '#666',
-    fontWeight: '600',
+  pagoDetalleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flexWrap: 'wrap',
   },
   pagoDetalle: {
     fontSize: 12,
     color: '#666',
+  },
+  pagoReferencia: {
+    fontSize: 11,
+    color: '#6c757d',
+    fontStyle: 'italic',
+  },
+  moreItemsText: {
+    fontSize: 12,
+    color: '#6c757d',
+    textAlign: 'center',
+    marginTop: 8,
+    fontStyle: 'italic',
   },
 });

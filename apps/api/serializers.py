@@ -301,32 +301,32 @@ class InscripcionSerializer(serializers.ModelSerializer):
 class NotaSerializer(serializers.ModelSerializer):
     idInscripcion = serializers.SerializerMethodField(read_only=True)
     formacion = serializers.SerializerMethodField(read_only=True)
-    # Añadimos persona para que el frontend pueda verificar (aunque la API ya filtra)
     persona = serializers.SerializerMethodField(read_only=True)
+    idPersona_detail = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Nota
         fields = [
             'idNota', 'numeroNota', 'fechaEmision', 'totalNota', 'estado',
-            'tipoArticulo', 'formaPago', 'idInscripcion', 'formacion', 'persona'
+            'tipoArticulo', 'formaPago', 'idInscripcion', 'formacion', 'persona', 'idPersona_detail'
         ]
 
     def _get_first_relation(self, obj):
         """
-        Obtener rel prefetched o a través de relaciones; siempre devolver una NotaRelacionada o None.
+        Obtener rel prefetched o a través de relaciones
         """
         try:
-            prefetched = getattr(obj, 'prefetched_relaciones_con_inscripcion', None)
-            if prefetched:
-                return prefetched[0] if len(prefetched) else None
-            rels = getattr(obj, 'relaciones', None)
-            if rels is not None:
-                # si es manager queryset
-                try:
-                    return rels.filter(idInscripcion__isnull=False).select_related('idInscripcion__idCohorte__idFormacion').first()
-                except Exception:
-                    return rels.first()
-            return NotaRelacionada.objects.filter(idNota=obj, idInscripcion__isnull=False).select_related('idInscripcion__idCohorte__idFormacion', 'idInscripcion__idPersona').first()
+            # Primero intentar con las relaciones prefetched
+            prefetched = getattr(obj, 'prefetched_relaciones', None)
+            if prefetched and len(prefetched) > 0:
+                return prefetched[0]
+            
+            # Si no hay prefetch, buscar directamente
+            rel = obj.relaciones.filter(idInscripcion__isnull=False).select_related(
+                'idInscripcion__idCohorte__idFormacion',
+                'idInscripcion__idPersona'
+            ).first()
+            return rel
         except Exception as e:
             logger.exception("Error en _get_first_relation: %s", e)
             return None
@@ -334,30 +334,24 @@ class NotaSerializer(serializers.ModelSerializer):
     def _resolve_formacion_from_inscripcion(self, ins):
         if not ins:
             return {'nombreFormacion': 'Formación no disponible'}
-        # 1) intentar idCohorte.idFormacion
         try:
             coh = getattr(ins, 'idCohorte', None)
             if coh:
                 form = getattr(coh, 'idFormacion', None)
                 if form:
-                    return {'idFormacion': getattr(form, 'idFormacion', getattr(form, 'id', None)), 'nombreFormacion': getattr(form, 'nombreFormacion', getattr(form, 'nombre', None))}
-            # 2) intentar campos directos
-            form_id = getattr(ins, 'idFormacion', None) or getattr(ins, 'idFormacion_id', None)
-            if form_id:
-                form_obj = Formacion.objects.filter(idFormacion=form_id).first()
-                if form_obj:
-                    return {'idFormacion': form_obj.idFormacion, 'nombreFormacion': form_obj.nombreFormacion}
-            nombre_directo = getattr(ins, 'nombreFormacion', None) or getattr(ins, 'formacion_nombre', None)
-            if nombre_directo:
-                return {'nombreFormacion': nombre_directo}
+                    return {
+                        'idFormacion': form.idFormacion, 
+                        'nombreFormacion': form.nombreFormacion
+                    }
+            return {'nombreFormacion': 'Formación no disponible'}
         except Exception as e:
             logger.exception("Error resolviendo formación desde Inscripcion: %s", e)
-        return {'nombreFormacion': 'Formación no disponible'}
+            return {'nombreFormacion': 'Formación no disponible'}
 
     def get_idInscripcion(self, obj):
         rel = self._get_first_relation(obj)
-        if rel and getattr(rel, 'idInscripcion', None):
-            return getattr(rel.idInscripcion, 'idInscripcion', None)
+        if rel and rel.idInscripcion:
+            return rel.idInscripcion.idInscripcion
         return None
 
     def get_formacion(self, obj):
@@ -365,29 +359,46 @@ class NotaSerializer(serializers.ModelSerializer):
         try:
             if not rel:
                 return {'nombreFormacion': 'Formación no disponible'}
-            ins = getattr(rel, 'idInscripcion', None)
-            return self._resolve_formacion_from_inscripcion(ins)
+            return self._resolve_formacion_from_inscripcion(rel.idInscripcion)
         except Exception as e:
-            logger.exception("No se pudo resolver la formación para la nota %s: %s", getattr(obj, 'idNota', None), e)
+            logger.exception("No se pudo resolver la formación para la nota %s: %s", obj.idNota, e)
             return {'nombreFormacion': 'Formación no disponible'}
         
     def get_persona(self, obj):
-        # Devuelve los datos de la persona asociada a la nota
-        if obj.idPersona:
-            return {
-                'cedula': obj.idPersona.cedula,
-                'nombre': obj.idPersona.nombres
-            }
-        # Fallback si la nota no tiene persona directa (aunque debería)
-        rel = self._get_first_relation(obj)
+        """Devuelve los datos de la persona desde idPersona directo de la nota"""
         try:
-            persona = rel.idInscripcion.idPersona
+            if obj.idPersona:
+                return {
+                    'cedula': obj.idPersona.cedula,
+                    'nombre': f"{obj.idPersona.nombres} {obj.idPersona.apellidos}"
+                }
+        except Exception as e:
+            logger.warning("No se pudo obtener persona directa para nota %s: %s", obj.idNota, e)
+        
+        # Fallback: intentar a través de la relación NotaRelacionada
+        try:
+            rel = self._get_first_relation(obj)
+            if rel and rel.idInscripcion and rel.idInscripcion.idPersona:
+                persona = rel.idInscripcion.idPersona
+                return {
+                    'cedula': persona.cedula,
+                    'nombre': f"{persona.nombres} {persona.apellidos}"
+                }
+        except Exception as e:
+            logger.warning("No se pudo obtener persona por relación para nota %s: %s", obj.idNota, e)
+        
+        return None
+
+    def get_idPersona_detail(self, obj):
+        """Campo adicional para compatibilidad con el frontend"""
+        persona_data = self.get_persona(obj)
+        if persona_data:
             return {
-                'cedula': persona.cedula,
-                'nombre': persona.nombres
+                'cedula': persona_data['cedula'],
+                'nombres': persona_data['nombre'].split(' ')[0] if ' ' in persona_data['nombre'] else persona_data['nombre'],
+                'apellidos': ' '.join(persona_data['nombre'].split(' ')[1:]) if ' ' in persona_data['nombre'] else ''
             }
-        except (AttributeError, TypeError):
-            return None
+        return None
 
 class PagoSerializer(serializers.ModelSerializer):
     idNota = NotaSerializer(read_only=True)

@@ -314,10 +314,8 @@ class NotasUsuarioAutenticadoView(APIView):
     
     def get(self, request):
         try:
-            # El usuario autenticado es instancia de Usuarios
             user = request.user
             
-            # Verificar que tiene idPersona
             if not hasattr(user, 'idPersona') or not user.idPersona:
                 return Response({
                     'success': False,
@@ -326,39 +324,63 @@ class NotasUsuarioAutenticadoView(APIView):
                 }, status=404)
             
             persona = user.idPersona
-            logger.info(f"🔍 Buscando notas para: {persona.nombres} {persona.apellidos}")
+            logger.info(f"🔍 Buscando notas para: {persona.nombres} {persona.apellidos} (Cédula: {persona.cedula})")
 
-            # 1. Notas directas de la persona
+            # BUSCAR NOTAS DIRECTAS por idPersona
             notas_directas = Nota.objects.filter(idPersona=persona)
-            
-            # 2. Notas a través de inscripciones
+            logger.info(f"📄 Notas directas encontradas: {notas_directas.count()}")
+
+            # BUSCAR NOTAS a través de inscripciones
             inscripciones_persona = Inscripcion.objects.filter(idPersona=persona)
-            notas_relacionadas_ids = NotaRelacionada.objects.filter(
-                idInscripcion__in=inscripciones_persona
-            ).values_list('idNota_id', flat=True)
-            notas_por_inscripcion = Nota.objects.filter(idNota__in=notas_relacionadas_ids)
+            logger.info(f"📚 Inscripciones encontradas: {inscripciones_persona.count()}")
             
-            # Combinar resultados
+            # Log de inscripciones para debug
+            for ins in inscripciones_persona:
+                cohorte_nombre = getattr(ins.idCohorte, 'nombreCohorte', 'Sin cohorte') if ins.idCohorte else 'Sin cohorte'
+                logger.info(f"  - Inscripción {ins.idInscripcion}: {cohorte_nombre}")
+
+            # Obtener notas relacionadas con las inscripciones
+            notas_relacionadas = NotaRelacionada.objects.filter(
+                idInscripcion__in=inscripciones_persona
+            ).select_related('idNota')
+            
+            notas_por_inscripcion = Nota.objects.filter(
+                idNota__in=notas_relacionadas.values_list('idNota_id', flat=True)
+            )
+            
+            logger.info(f"🔗 Notas por inscripción: {notas_por_inscripcion.count()}")
+
+            # COMBINAR resultados
             todas_notas = (notas_directas | notas_por_inscripcion).distinct().order_by('-fechaEmision')
             
-            # Prefetch para optimizar
+            logger.info(f"📋 Total de notas únicas: {todas_notas.count()}")
+
+            # PREFETCH para optimizar - usando el nombre correcto del atributo
             prefetch_relacion = Prefetch(
                 'relaciones',
                 queryset=NotaRelacionada.objects.select_related(
                     'idInscripcion',
                     'idInscripcion__idCohorte',
-                    'idInscripcion__idCohorte__idFormacion'
+                    'idInscripcion__idCohorte__idFormacion',
+                    'idInscripcion__idPersona'
                 ),
                 to_attr='prefetched_relaciones'
             )
             
+            # Aplicar prefetch y select_related
             notas_final = todas_notas.prefetch_related(prefetch_relacion).select_related('idPersona')
             
+            # Log detallado de cada nota encontrada
+            logger.info("--- DETALLE DE NOTAS ENCONTRADAS ---")
+            for nota in notas_final:
+                tiene_persona = "SÍ" if nota.idPersona else "NO"
+                relaciones_count = len(getattr(nota, 'prefetched_relaciones', []))
+                logger.info(f"  - Nota {nota.idNota}: {nota.numeroNota} | Estado: {nota.estado} | Total: {nota.totalNota} | Persona directa: {tiene_persona} | Relaciones: {relaciones_count}")
+            
             # Serializar
-            from apps.api.serializers import NotaSerializer
             serializer = NotaSerializer(notas_final, many=True)
             
-            logger.info(f"✅ Encontradas {notas_final.count()} notas")
+            logger.info(f"✅ Proceso completado. Enviando {notas_final.count()} notas")
             
             return Response({
                 'success': True,
@@ -368,6 +390,12 @@ class NotasUsuarioAutenticadoView(APIView):
                     'persona_id': persona.idPersona,
                     'cedula': persona.cedula,
                     'nombre_completo': f"{persona.nombres} {persona.apellidos}"
+                },
+                'debug_info': {
+                    'notas_directas_count': notas_directas.count(),
+                    'inscripciones_count': inscripciones_persona.count(),
+                    'notas_por_inscripcion_count': notas_por_inscripcion.count(),
+                    'notas_final_count': notas_final.count()
                 }
             })
             
