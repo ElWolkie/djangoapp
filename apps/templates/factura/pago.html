@@ -257,6 +257,25 @@ select.input-with-icon.form-select {
     opacity: 1 !important;
     width: 100%;
 }
+
+/* Efecto de transición para abrir y cerrar modales */
+.modal.fade {
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out;
+}
+
+.modal.show {
+  opacity: 1;
+}
+
+.modal-backdrop {
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out;
+}
+
+.modal-backdrop.show {
+  opacity: 0.5;
+}
 </style>
 {% endblock stylesheets %}
 
@@ -285,7 +304,7 @@ select.input-with-icon.form-select {
               <input type="text" id="notaInput" class="form-control" placeholder="Seleccione una nota" readonly required />
             </div>
             <input type="hidden" id="idNota" name="idNota" required />
-            <button type="button" id="buscarNota" class="btn btn-warning" data-toggle="modal" data-target="#notaModal" aria-label="Buscar nota">
+            <button type="button" id="buscarNota" class="btn btn-warning" aria-label="Buscar nota">
               <i class="fas fa-search"></i>
             </button>
           </div>
@@ -304,10 +323,11 @@ select.input-with-icon.form-select {
             <i class="fas fa-wallet input-icon" aria-hidden="true"></i>
             <select id="formaPago" name="formaPago" class="form-select large" required>
               <option value="" disabled selected>Seleccione la forma de pago...</option>
-              <option value="EFECTIVO">Efectivo</option>
-              <option value="TRANSFERENCIA">Transferencia</option>
-              <option value="TARJETA">Tarjeta</option>
-              <option value="CHEQUE">Cheque</option>
+              <option value="EFECTIVO">EFECTIVO</option>
+              <option value="TRANSFERENCIA">TRANSFERENCIA</option>
+              <option value="BIOPAGO">BIOPAGO</option>
+              <option value="TARJETA">TARJETA</option>
+              <option value="CHEQUE">CHEQUE</option>
             </select>
           </div>
           <small class="form-text text-muted">Si es efectivo, no necesitas seleccionar cuenta.</small>
@@ -371,7 +391,7 @@ select.input-with-icon.form-select {
             </div>
             <input type="hidden" id="idCuentaBanco" name="idCuentaBanco" required />
             <input type="hidden" id="idPlanCuentaDebe" name="idPlanCuentaDebe" required />
-            <button type="button" id="buscarCuentaBanco" class="btn btn-warning" data-toggle="modal" data-target="#cuentaBancoModal" aria-label="Buscar cuenta bancaria">
+            <button type="button" id="buscarCuentaBanco" class="btn btn-warning" aria-label="Buscar cuenta bancaria">
               <i class="fas fa-search"></i>
             </button>
           </div>
@@ -431,43 +451,38 @@ select.input-with-icon.form-select {
   </form>
 </div>
 
-<!-- Los modales se mantienen igual -->
 <!-- Modal para seleccionar Nota -->
 <div class="modal fade" id="notaModal" tabindex="-1" role="dialog" aria-labelledby="notaModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
     <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="notaModalLabel"><i class="fas fa-file-invoice text-warning me-2"></i> Seleccionar Nota</h5>
-        <button type="button" class="close btn-close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title text-white" id="notaModalLabel">Seleccionar Nota</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
         </button>
       </div>
       <div class="modal-body">
-         <!-- Barra de búsqueda para el modal de notas -->
-        <div class="mb-3">
-          <div class="input-group mb-3">
-            <div class="input-group-prepend">
-              <span class="input-group-text bg-light">
-                <i class="fas fa-search text-warning"></i>
-              </span>
-            </div>
-            <input type="text" id="searchNotaInput" class="form-control" placeholder="Buscar nota por cliente, número o deuda...">
+        <div class="input-group mb-3">
+          <input type="text" id="searchNotaInput" class="form-control" placeholder="Buscar nota por cliente, número o deuda...">
+          <div class="input-group-append">
+            <span class="input-group-text"><i class="fas fa-search"></i></span>
           </div>
         </div>
         <div class="table-responsive">
           <table class="table table-sm table-striped table-hover" id="tablaNotas">
-            <thead>
+            <thead class="bg-light">
               <tr>
                 <th>ID</th>
                 <th>Número</th>
                 <th>Cliente</th>
                 <th>Total</th>
                 <th>Deuda</th>
+                <th>Seleccionar</th>
               </tr>
             </thead>
             <tbody>
               {% for nota in notas %}
-              <tr data-id="{{ nota.idNota }}" data-nombre="{{ nota.numeroNota }}" data-deuda="{{ nota.saldoPendiente }}"  data-moneda-simbolo="{{ nota.simbolo_moneda }}">
+              <tr data-id="{{ nota.idNota }}" data-nombre="{{ nota.numeroNota }}" data-deuda="{{ nota.saldoPendiente }}" data-moneda-simbolo="{{ nota.simbolo_moneda }}">
                 <td>{{ nota.idNota }}</td>
                 <td>{{ nota.numeroNota }}</td>
                 <td>
@@ -478,30 +493,23 @@ select.input-with-icon.form-select {
                   {% else %}
                     N/A
                   {% endif %}
-                
                 </td>
-                <td>
-                  {{ nota.totalNota|default:"0.00" }}
-                  {% if nota.simbolo_moneda %}
-                  {{ nota.simbolo_moneda }}
-                  {% else %}
-                  (Sin símbolo)
-                  {% endif %}
-                </td>
+                <td>{{ nota.totalNota|default:"0.00" }} {% if nota.simbolo_moneda %}{{ nota.simbolo_moneda }}{% else %}(Sin símbolo){% endif %}</td>
                 <td>{{ nota.saldoPendiente|floatformat:2|default:"0.00" }} {{ nota.idTasa.idMoneda.simboloMoneda }}</td>
+                <td>
+                  <button class="btn btn-sm btn-warning btn-select">
+                    <i class="fas fa-check"></i> Elegir
+                  </button>
+                </td>
               </tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
-           <!-- Contenedor para la paginación -->
-        <div class="pagination-container d-flex justify-content-center mt-3"></div>
-        <p id="mensajeSinRegistros" class="text-center text-muted my-4" style="display: none;">
-          <i class="fas fa-info-circle mr-2"></i> No se encontraron registros
-        </p>
+        <p id="mensajeSinRegistros" class="text-center text-muted" style="display: none;">No hay registros disponibles</p>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
       </div>
     </div>
   </div>
@@ -511,32 +519,28 @@ select.input-with-icon.form-select {
 <div class="modal fade" id="cuentaBancoModal" tabindex="-1" role="dialog" aria-labelledby="cuentaBancoModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
     <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="cuentaBancoModalLabel"><i class="fas fa-university text-warning me-2"></i> Seleccionar Cuenta Bancaria</h5>
-        <button type="button" class="close btn-close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title text-white" id="cuentaBancoModalLabel">Seleccionar Cuenta Bancaria</h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
         </button>
       </div>
       <div class="modal-body">
-           <!-- Barra de búsqueda para el modal de cuentas bancarias -->
-        <div class="mb-3">
-          <div class="input-group mb-3">
-            <div class="input-group-prepend">
-              <span class="input-group-text bg-light">
-                <i class="fas fa-search text-warning"></i>
-              </span>
-            </div>
-            <input type="text" id="searchCuentaInput" class="form-control" placeholder="Buscar cuenta por banco, número o moneda...">
+        <div class="input-group mb-3">
+          <input type="text" id="searchCuentaInput" class="form-control" placeholder="Buscar cuenta por banco, número o moneda...">
+          <div class="input-group-append">
+            <span class="input-group-text"><i class="fas fa-search"></i></span>
           </div>
         </div>
         <div class="table-responsive">
           <table class="table table-sm table-striped table-hover" id="tablaCuentas">
-            <thead>
+            <thead class="bg-light">
               <tr>
                 <th>ID</th>
                 <th>Banco</th>
                 <th>Número de Cuenta</th>
                 <th>Moneda</th>
+                <th>Seleccionar</th>
               </tr>
             </thead>
             <tbody>
@@ -546,19 +550,20 @@ select.input-with-icon.form-select {
                 <td>{{ cuenta.banco.nombreBanco }}</td>
                 <td>{{ cuenta.numeroCuentaBanco }}</td>
                 <td>{{ cuenta.moneda.nombreMoneda }}</td>
+                <td>
+                  <button class="btn btn-sm btn-warning btn-select">
+                    <i class="fas fa-check"></i> Elegir
+                  </button>
+                </td>
               </tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
-            <!-- Contenedor para la paginación -->
-        <div class="pagination-container d-flex justify-content-center mt-3"></div>
-        <p id="mensajeSinRegistros" class="text-center text-muted my-4" style="display: none;">
-          <i class="fas fa-info-circle mr-2"></i> No se encontraron registros disponibles.
-        </p>
+        <p id="mensajeSinRegistros" class="text-center text-muted" style="display: none;">No hay registros disponibles</p>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
       </div>
     </div>
   </div>
@@ -1507,5 +1512,106 @@ document.addEventListener('DOMContentLoaded', function () {
   displayRowsCuenta();
   setupPaginationCuenta();
 });
+</script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    // Función para abrir modal con efecto
+    function abrirModal(modalId) {
+      const modal = document.getElementById(modalId);
+      if (modal) {
+        modal.classList.add('show');
+        modal.style.display = 'block';
+        setTimeout(() => {
+          modal.classList.add('fade');
+        }, 10);
+        document.body.classList.add('modal-open');
+        document.body.style.overflow = 'hidden';
+        const backdrop = document.createElement('div');
+        backdrop.className = 'modal-backdrop fade';
+        document.body.appendChild(backdrop);
+        setTimeout(() => {
+          backdrop.classList.add('show');
+        }, 10);
+      }
+    }
+
+    // Función para cerrar modal con efecto
+    function cerrarModal(modalId) {
+      const modal = document.getElementById(modalId);
+      if (modal) {
+        modal.classList.remove('show');
+        const backdrop = document.querySelector('.modal-backdrop');
+        if (backdrop) {
+          backdrop.classList.remove('show');
+          setTimeout(() => {
+            backdrop.parentNode.removeChild(backdrop);
+          }, 300);
+        }
+        setTimeout(() => {
+          modal.style.display = 'none';
+          modal.classList.remove('fade');
+          document.body.classList.remove('modal-open');
+          document.body.style.overflow = '';
+        }, 300);
+      }
+    }
+
+    // Botón para abrir el modal de notas
+    const buscarNotaBtn = document.getElementById('buscarNota');
+    if (buscarNotaBtn) {
+      buscarNotaBtn.addEventListener('click', function () {
+        abrirModal('notaModal');
+      });
+    }
+
+    // Botón para abrir el modal de cuentas bancarias
+    const buscarCuentaBancoBtn = document.getElementById('buscarCuentaBanco');
+    if (buscarCuentaBancoBtn) {
+      buscarCuentaBancoBtn.addEventListener('click', function () {
+        abrirModal('cuentaBancoModal');
+      });
+    }
+
+    // Seleccionar nota
+    const tablaNotas = document.getElementById('tablaNotas');
+    tablaNotas.addEventListener('click', function (e) {
+      const row = e.target.closest('tr');
+      if (row) {
+        const idNota = row.getAttribute('data-id');
+        const nombreNota = row.getAttribute('data-nombre');
+        document.getElementById('notaInput').value = nombreNota;
+        document.getElementById('idNota').value = idNota;
+
+        // Cerrar modal con efecto
+        cerrarModal('notaModal');
+      }
+    });
+
+    // Seleccionar cuenta bancaria
+    const tablaCuentas = document.getElementById('tablaCuentas');
+    tablaCuentas.addEventListener('click', function (e) {
+      const row = e.target.closest('tr');
+      if (row) {
+        const idCuentaBanco = row.getAttribute('data-id');
+        const nombreCuentaBanco = row.getAttribute('data-nombre');
+        document.getElementById('cuentaBancoInput').value = nombreCuentaBanco;
+        document.getElementById('idCuentaBanco').value = idCuentaBanco;
+
+        // Cerrar modal con efecto
+        cerrarModal('cuentaBancoModal');
+      }
+    });
+
+    // Botones de cerrar modal
+    const closeButtons = document.querySelectorAll('[data-bs-dismiss="modal"]');
+    closeButtons.forEach(button => {
+      button.addEventListener('click', function () {
+        const modal = button.closest('.modal');
+        if (modal) {
+          cerrarModal(modal.id);
+        }
+      });
+    });
+  });
 </script>
 {% endblock javascripts %}
