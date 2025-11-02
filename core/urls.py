@@ -22,6 +22,7 @@ urlpatterns = [
     path('factura/', include('apps.factura.urls')),      # UI Kits Html files factura
     path('saldoContable/', include('apps.saldoContable.urls')),      # UI Kits Html files saldo contable
     path('librosContables/', include('apps.librosContables.urls')),      # UI Kits Html files factura
+    path('backup/', include('apps.backup.urls')),      # UI for DB backup/restore
 
 
     path('home/', include("apps.home.urls")),

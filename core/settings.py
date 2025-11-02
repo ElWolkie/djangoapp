@@ -109,6 +109,8 @@ INSTALLED_APPS = [
     "apps.saldoContable",  # Habilita la aplicación para gestionar saldo contable
     'apps.requisitoCliente',  # Habilita la aplicación para gestionar requisitos de cliente
     'apps.librosContables',  # Habilita la aplicación para gestionar requisitos de cliente
+    'apps.backup',  # App para crear/restaurar backups desde la UI
+    
 
 ]
 
