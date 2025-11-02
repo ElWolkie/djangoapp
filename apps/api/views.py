@@ -343,62 +343,51 @@ class NotasUsuarioAutenticadoView(generics.ListAPIView):
     
 class PagoCreateAPIView(APIView):
     """
-    Endpoint para crear un nuevo Pago.
-    Delega toda la lógica de validación y creación al PagoCreateSerializer.
+    Endpoint para crear un nuevo Pago Temporal.
     """
-    # Asegúrate de que solo usuarios logueados puedan pagar
     permission_classes = [IsAuthenticated] 
 
     def post(self, request, *args, **kwargs):
-        logger.info(f"📥 Petición de pago recibida: {request.data}")
+        logger.info(f"📥 Petición de pago temporal recibida: {request.data}")
         
-        # 1. Pasamos los datos de la app (request.data) al Serializer
         serializer = PagoCreateSerializer(data=request.data)
         
         try:
-            # 2. Validamos. Si falla, levanta un error (ValidationEror)
-            # Esto ejecuta tu método validate() en el serializer.
             serializer.is_valid(raise_exception=True)
+            pago_temporal = serializer.save()
             
-            # 3. Guardamos. Si la validación pasó, esto llama
-            #    automáticamente a tu método create() en el serializer.
-            pago = serializer.save()
-            
-            # 4. Si todo salió bien, preparamos la respuesta JSON exitosa
+            # Respuesta adaptada para PagoTemporal
             response_data = {
                 'success': True,
-                'message': '¡Pago procesado exitosamente! 🎉',
+                'message': '¡Pago temporal registrado exitosamente! 🎉',
                 'data': {
-                    'idPago': pago.idPago,
-                    # Recuperamos el número de asiento que guardaste en el serializer
-                    'numeroPago': getattr(pago, 'numero_asiento_generado', 'N/A'),
-                    'monto': float(pago.monto),
-                    'fechaPago': pago.fechaPago.isoformat(),
+                    'idPagoTemporal': pago_temporal.idPagoTemporal,
+                    'monto': float(pago_temporal.monto),
+                    'fechaPago': pago_temporal.fechaPago.isoformat(),
+                    'confirmado': pago_temporal.confirmado,
                     'nota': {
-                        'idNota': pago.idNota.idNota,
-                        'numeroNota': pago.idNota.numeroNota,
-                        'nuevoEstado': pago.idNota.estado,
+                        'idNota': pago_temporal.idNota.idNota,
+                        'numeroNota': pago_temporal.idNota.numeroNota,
+                        'estado': pago_temporal.idNota.estado,  # Estado permanece igual hasta confirmación
                     }
                 }
             }
-            logger.info(f"🎊 Pago creado exitosamente: {pago.idPago}")
+            logger.info(f"🎊 Pago temporal creado exitosamente: {pago_temporal.idPagoTemporal}")
             return Response(response_data, status=status.HTTP_201_CREATED)
             
         except serializers.ValidationError as e:
-            # Si serializer.is_valid() falla, DRF entra aquí
-            logger.warning(f"Error de validación de pago: {e.detail}")
+            logger.warning(f"Error de validación de pago temporal: {e.detail}")
             return Response({
                 "success": False,
                 "message": "Datos inválidos. Por favor revise los errores.",
-                "errors": e.detail # Errores detallados
+                "errors": e.detail
             }, status=status.HTTP_400_BAD_REQUEST)
             
         except Exception as e:
-            # Si tu método .create() del serializer falla (ej: Tasa no encontrada)
-            logger.error(f"Error crítico en la creación del pago: {str(e)}")
+            logger.error(f"Error crítico en la creación del pago temporal: {str(e)}")
             return Response({
                 "success": False,
-                "message": "Ocurrió un error inesperado al procesar el pago.",
+                "message": "Ocurrió un error inesperado al procesar el pago temporal.",
                 "error": str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         

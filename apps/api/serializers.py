@@ -14,7 +14,7 @@ from apps.solicitud.models import Solicitud
 from apps.asientoContable.models import AsientoContable, DetalleAsiento
 from apps.planCuenta.models import PlanCuenta
 from apps.periodoContable.models import periodoContable
-from apps.cuentaBanco.models import Banco
+from apps.cuentaBanco.models import Banco, CuentaBanco
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
@@ -390,9 +390,10 @@ class PagoCreateSerializer(serializers.ModelSerializer):
     formaPago = serializers.CharField(max_length=50)
     referencia = serializers.CharField(max_length=100, required=False, allow_blank=True)
     observaciones = serializers.CharField(required=False, allow_blank=True)
+    idCuentaBanco = serializers.IntegerField(write_only=True, required=False)  # Nuevo campo para PagoTemporal
 
     class Meta:
-        model = Pago
+        model = PagoTemporal  # Cambiado a PagoTemporal
         fields = [
             'idNota',
             'monto',
@@ -400,6 +401,7 @@ class PagoCreateSerializer(serializers.ModelSerializer):
             'formaPago',
             'referencia',
             'observaciones',
+            'idCuentaBanco',  # Agregado
         ]
 
     def validate_monto(self, value):
@@ -423,14 +425,21 @@ class PagoCreateSerializer(serializers.ModelSerializer):
                 "monto": f"El monto no puede exceder el total de la nota (${nota.totalNota})."
             })
 
-        # Guardar la nota en el contexto para usarla en create / view
+        # Validar cuenta bancaria si se proporciona
+        if data.get('idCuentaBanco'):
+            try:
+                cuenta_banco = CuentaBanco.objects.get(idCuentaBanco=data['idCuentaBanco'])
+                data['idCuentaBanco'] = cuenta_banco
+            except CuentaBanco.DoesNotExist:
+                raise serializers.ValidationError({"idCuentaBanco": "La cuenta bancaria especificada no existe."})
+
+        # Guardar la nota en el contexto para usarla en create
         self.context['nota'] = nota
         return data
 
     def create(self, validated_data):
         """
-        Crea el AsientoContable, Pago y DetalleAsiento. 
-        Este método se espera sea llamado dentro de una transacción atómica desde la view.
+        Crea un PagoTemporal en lugar de Pago.
         """
         nota = self.context.get('nota')
         if nota is None:
@@ -451,91 +460,22 @@ class PagoCreateSerializer(serializers.ModelSerializer):
         if not tasa:
             raise serializers.ValidationError(f"No se encontró tasa para la moneda {moneda}.")
 
-        # periodo contable activo (la view puede validar también)
-        from apps.periodoContable.models import periodoContable
-        periodo_activo = periodoContable.objects.filter(estadoPeriodo=True).first()
-        if not periodo_activo:
-            raise serializers.ValidationError("No hay periodo contable activo.")
+        # Extraer idCuentaBanco si existe
+        id_cuenta_banco = validated_data.pop('idCuentaBanco', None)
 
-        # Crear AsientoContable con número único
-        numero_asiento = f"PAGO-{now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
-        asiento = AsientoContable.objects.create(
-            numeroAsiento=numero_asiento,
-            fechaAsiento=now().date(),
-            conceptoAsiento=f"Pago de {validated_data['formaPago']} - Nota: {nota.numeroNota}",
-            idPeriodo=periodo_activo
-        )
-
-        # Crear Pago
-        pago = Pago.objects.create(
+        # Crear PagoTemporal (NO se crea AsientoContable aquí)
+        pago_temporal = PagoTemporal.objects.create(
             idNota=nota,
-            idAsiento=asiento,
+            idCuentaBanco=id_cuenta_banco,
             idTasa=tasa,
             monto=validated_data['monto'],
-            fechaPago=validated_data['fechaPago'],
-            formaPago=validated_data['formaPago'],
             referencia=validated_data.get('referencia', '') or '',
-            observaciones=validated_data.get('observaciones', '') or ''
+            observaciones=validated_data.get('observaciones', '') or '',
+            fechaPago=validated_data['fechaPago'],
+            confirmado=False  # Siempre se crea como pendiente
         )
 
-        # Actualizar estado de nota
-        if validated_data['monto'] >= nota.totalNota:
-            nota.estado = 'PAGADA'
-        else:
-            nota.estado = 'PARCIAL'
-        nota.save()
-
-        # Actualizar inscripción relacionada (si aplica)
-        try:
-            nota_relacionada = NotaRelacionada.objects.filter(idNota=nota).first()
-            if nota_relacionada and nota_relacionada.idInscripcion:
-                inscripcion = nota_relacionada.idInscripcion
-                # usar helper para obtener idFormacion si lo necesitas
-                from apps.factura.utils import obtener_info_formacion_de_inscripcion
-                idFormacion_num, nombreForm = obtener_info_formacion_de_inscripcion(inscripcion)
-
-                # Actualizar estado de inscripción de forma segura
-                try:
-                    inscripcion.estadoPago = 'PAGADO' if validated_data['monto'] >= nota.totalNota else 'PARCIAL'
-                    inscripcion.montoPagado = (inscripcion.montoPagado or 0) + validated_data['monto']  # si aplica
-                    inscripcion.save()
-                except Exception as e:
-                    # no interrumpimos el proceso si falla, solo logueamos
-                    print(f"⚠️ No se pudo actualizar inscripción (save): {str(e)}")
-        except Exception as e:
-            print(f"⚠️ No se pudo actualizar inscripción relacionada: {str(e)}")
-
-        # Crear detalles de asiento (si existen planes)
-        try:
-            plan_articulo_debe = PlanArticulo.objects.filter(
-                tipoArticulo=nota.tipoArticulo,
-                tipo=True
-            ).order_by('-fecha').first()
-
-            plan_articulo_haber = PlanArticulo.objects.filter(
-                tipoArticulo=nota.tipoArticulo,
-                tipo=False
-            ).order_by('-fecha').first()
-
-            if plan_articulo_debe and getattr(plan_articulo_debe, 'idPlanCuenta', None) and plan_articulo_haber and getattr(plan_articulo_haber, 'idPlanCuenta', None):
-                DetalleAsiento.objects.create(
-                    idAsiento=asiento,
-                    idPlanCuenta=plan_articulo_debe.idPlanCuenta,
-                    debe=validated_data['monto'],
-                    haber=Decimal('0.00')
-                )
-                DetalleAsiento.objects.create(
-                    idAsiento=asiento,
-                    idPlanCuenta=plan_articulo_haber.idPlanCuenta,
-                    debe=Decimal('0.00'),
-                    haber=validated_data['monto']
-                )
-            else:
-                print("⚠️ No se encontraron planes completos para crear DetalleAsiento. plan_debe/haber:", plan_articulo_debe, plan_articulo_haber)
-        except Exception as e:
-            print(f"⚠️ Error creando detalles de asiento (capturado): {e}")
-
-        return pago
+        return pago_temporal
 
 class RequisitoSerializer(serializers.ModelSerializer):
     class Meta:
