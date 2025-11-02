@@ -82,7 +82,6 @@ const PagoScreen: React.FC = () => {
   const [configuracion, setConfiguracion] = useState<Configuracion | null>(null);
   const [loadingConfig, setLoadingConfig] = useState(false);
 
-  // helper para formatear monto para enviar al backend (4 decimales, punto decimal)
   const toBackendDecimal = (v: number | string) => {
     const n = Number(String(v).replace(',', '.')) || 0;
     return n.toFixed(4);
@@ -90,7 +89,7 @@ const PagoScreen: React.FC = () => {
 
   const [formData, setFormData] = useState({
     idNota: notaData?.idNota?.toString?.() ?? '',
-    formaPago: 'TRANSFERENCIA',
+    formaPago: 'TRANSFERENCIA', // Solo transferencia ahora
     monto: notaData?.totalNota != null ? toBackendDecimal(notaData.totalNota) : '',
     referencia: '',
     observaciones: '',
@@ -119,26 +118,18 @@ const PagoScreen: React.FC = () => {
       const response = await api.get('/api/configuracion/configuracion/');
       if (response.data.success) {
         setConfiguracion(response.data.data);
+        console.log('✅ Configuración cargada:', response.data.data);
       } else {
         console.warn('No se pudo cargar la configuración:', response.data.message);
+        Alert.alert('Advertencia', 'No se pudo cargar la configuración del sistema');
       }
     } catch (error: any) {
       console.error('Error cargando configuración:', error);
+      Alert.alert('Error', 'No se pudo cargar la configuración del sistema');
     } finally {
       setLoadingConfig(false);
     }
   }, []);
-
-  // Datos de pago móvil desde configuración
-  const pagoMovilInfo = {
-    banco: configuracion?.nombre_banco || 'Banco de la Institución',
-    titular: configuracion?.nombreInstitucion || 'Institución Educativa',
-    cedulaTitular: configuracion?.cedulaCuenta || 'V-00000000',
-    numeroCuenta: configuracion?.numero_cuenta || '0000-0000-0000-0000',
-    tipoCuenta: configuracion?.tipo_cuenta || 'Corriente',
-    telefonoPagoMovil: '+58 424-0000000', // Este campo no está en Configuracion, se mantiene fijo
-    rif: configuracion?.rif || 'J-00000000-0'
-  };
 
   // helpers
   const placeholderNames = new Set(['Formación no especificada', 'Información no disponible', '—', null, undefined, '']);
@@ -164,14 +155,12 @@ const PagoScreen: React.FC = () => {
   };
 
   const findInscripcionForNota = (nota: NotaItem): Inscripcion | null => {
-    // Prioridad 1: Por idInscripcion
     const idIns = nota.idInscripcion ?? nota.idInscripcion_detail?.idInscripcion ?? nota.inscripcion_id ?? null;
     if (idIns) {
       const match = inscripcionesUsuario.find((ins) => Number(ins.idInscripcion) === Number(idIns));
       if (match) return match;
     }
 
-    // Prioridad 2: Por fecha cercana
     if (nota.fechaEmision) {
       const notaDate = new Date(nota.fechaEmision).getTime();
       const match = inscripcionesUsuario.find((ins) => {
@@ -185,14 +174,12 @@ const PagoScreen: React.FC = () => {
       if (match) return match;
     }
 
-    // Prioridad 3: por monto
     if (nota.totalNota) {
       const matches = inscripcionesUsuario.filter((ins) => Number(ins.montoTotal) === Number(nota.totalNota));
       if (matches.length === 1) return matches[0];
       if (matches.length > 1) return matches[0];
     }
 
-    // Fallback: una inscripción no pagada
     return inscripcionesUsuario.find((ins) => (ins.estadoPago ?? '').toUpperCase() !== 'PAGADO') ?? null;
   };
 
@@ -309,16 +296,13 @@ const PagoScreen: React.FC = () => {
     const estado = getEstadoNota(nota);
     
     if (estado.esPorPagar) {
-      // Nota por pagar - mostrar modal de pago
       setFormData(prev => ({ ...prev, idNota: String(nota.idNota ?? ''), monto: toBackendDecimal(nota.totalNota ?? 0) }));
       setErrors({});
       setShowDetailsModal(true);
       setShowPaymentModal(false);
     } else if (estado.esPendiente) {
-      // Nota pendiente - mostrar modal de proceso
       setShowProcesoModal(true);
     } else if (estado.esPagada) {
-      // Nota pagada - mostrar modal de requisitos
       setShowRequisitosModal(true);
     }
   };
@@ -349,7 +333,6 @@ const PagoScreen: React.FC = () => {
   const validateForm = (): boolean => {
     const newErrors: { [key: string]: string } = {};
     if (!formData.idNota) newErrors.idNota = 'Debe seleccionar una nota';
-    if (!formData.formaPago) newErrors.formaPago = 'Seleccione forma de pago';
     const montoNum = Number(String(formData.monto).replace(',', '.'));
     if (!formData.monto || isNaN(montoNum) || montoNum <= 0) newErrors.monto = 'Monto debe ser mayor a 0';
     else if (notaSeleccionada && montoNum > Number(notaSeleccionada.totalNota ?? 0)) newErrors.monto = `El monto no puede exceder el total de la nota ($${Number(notaSeleccionada.totalNota ?? 0)})`;
@@ -371,13 +354,19 @@ const PagoScreen: React.FC = () => {
       return;
     }
 
+    // Validar que tenemos configuración con cuenta bancaria
+    if (!configuracion || !configuracion.idCuentaBanco) {
+      Alert.alert('Error', 'No hay cuenta bancaria configurada en el sistema. Contacte al administrador.');
+      return;
+    }
+
     setSubmitting(true);
 
     const payload = {
       idNota: Number(formData.idNota),
       monto: Number(String(formData.monto).replace(',', '.')),
       fechaPago: formData.fechaPago,
-      formaPago: String(formData.formaPago),
+      formaPago: 'TRANSFERENCIA', // Siempre transferencia
       referencia: String(formData.referencia || ''),
       observaciones: String(formData.observaciones || ''),
     };
@@ -393,8 +382,6 @@ const PagoScreen: React.FC = () => {
         validateStatus: () => true
       });
 
-      console.log('[Pago] response.status:', response.status);
-
       const contentType = response.headers?.['content-type'] ?? response.headers?.['Content-Type'] ?? '';
       const isJson = typeof contentType === 'string' && contentType.toLowerCase().includes('application/json');
 
@@ -403,14 +390,12 @@ const PagoScreen: React.FC = () => {
         console.log('[Pago] response.data (json):', body);
 
         if ((response.status === 201 || response.status === 200) && body?.success) {
-          const d = body.data ?? {};
           Alert.alert(
             'Pago registrado', 
-            `Su pago ha sido registrado exitosamente y está pendiente de confirmación.\n\nReferencia: ${payload.referencia}\nMonto: $${payload.monto}`,
+            `✅ Su pago ha sido registrado exitosamente y está pendiente de confirmación.\n\n📋 Referencia: ${payload.referencia}\n💰 Monto: $${payload.monto}\n\nLe notificaremos cuando sea confirmado.`,
             [{ text: 'OK' }]
           );
           
-          // Actualizar lista de notas
           await cargarNotasUsuario();
           setShowPaymentModal(false);
           setNotaSeleccionada(null);
@@ -419,11 +404,9 @@ const PagoScreen: React.FC = () => {
           Alert.alert('Error', `Servidor: ${msg}`);
         }
       } else {
-        const textBody = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
-        console.warn('[Pago] Servidor devolvió texto/HTML en body:', textBody.slice(0, 600));
         Alert.alert(
           'Error del servidor',
-          `El servidor devolvió una página de error (500). Por favor revisa los logs del backend.\nStatus: ${response.status}`
+          `El servidor devolvió un error. Por favor contacte al administrador.\nStatus: ${response.status}`
         );
       }
     } catch (err: any) {
@@ -440,12 +423,10 @@ const PagoScreen: React.FC = () => {
             else parts.push(`${k}: ${String(v)}`);
           });
           message += '\n' + parts.join('\n');
-        } else if (body.detail) {
-          message = body.detail;
         }
         Alert.alert('Error de validación', message);
       } else if (resp?.status === 500) {
-        Alert.alert('Error servidor', resp.data?.message ?? 'Error interno del servidor. Revisa logs.');
+        Alert.alert('Error servidor', 'Error interno del servidor. Contacte al administrador.');
       } else {
         Alert.alert('Error', err.message ? String(err.message) : 'Error en la conexión');
       }
@@ -668,18 +649,18 @@ const PagoScreen: React.FC = () => {
         {/* MODAL DETALLE (solo para notas por pagar) */}
         {notaSeleccionada && showDetailsModal && (
           <View style={styles.formularioOverlay}>
-            <ScrollView contentContainerStyle={[styles.formScrollContent, { padding: 20 }]}>
-              <View style={[styles.formCard, { width: modalMaxWidth, alignSelf: 'center' }]}>
-                <View style={styles.formHeader}>
-                  <View style={styles.formTitleContainer}>
-                    <Icon name="file-document" size={24} color="#495057" />
-                    <Text style={styles.formTitle}>Detalle de Nota</Text>
-                  </View>
-                  <TouchableOpacity onPress={cerrarModales} style={styles.cancelarBtn}>
-                    <Icon name="close" size={22} color="#6c757d" />
-                  </TouchableOpacity>
+            <View style={[styles.modalContent, { width: modalMaxWidth }]}>
+              <View style={styles.modalHeader}>
+                <View style={styles.modalTitleContainer}>
+                  <Icon name="file-document" size={24} color="#495057" />
+                  <Text style={styles.modalTitle}>Detalle de Nota</Text>
                 </View>
+                <TouchableOpacity onPress={cerrarModales} style={styles.closeButton}>
+                  <Icon name="close" size={22} color="#6c757d" />
+                </TouchableOpacity>
+              </View>
 
+              <View style={styles.modalBody}>
                 <View style={styles.infoCard}>
                   <View style={styles.infoHeader}>
                     <Icon name="file-document" size={18} color="#495057" />
@@ -704,38 +685,38 @@ const PagoScreen: React.FC = () => {
                   </View>
                 </View>
 
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 }}>
-                  <TouchableOpacity style={[styles.submitButton, { backgroundColor: '#6c757d' }]} onPress={cerrarModales}>
-                    <Text style={styles.submitButtonText}>Cerrar</Text>
+                <View style={styles.modalFooter}>
+                  <TouchableOpacity style={[styles.secondaryButton, { marginRight: 8 }]} onPress={cerrarModales}>
+                    <Text style={styles.secondaryButtonText}>Cancelar</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.submitButton} onPress={iniciarPago}>
-                    <Text style={styles.submitButtonText}>Iniciar Pago</Text>
+                  <TouchableOpacity style={styles.primaryButton} onPress={iniciarPago}>
+                    <Text style={styles.primaryButtonText}>Iniciar Pago</Text>
                   </TouchableOpacity>
                 </View>
               </View>
-            </ScrollView>
+            </View>
           </View>
         )}
 
-        {/* MODAL PAGO */}
+        {/* MODAL PAGO MEJORADO */}
         {notaSeleccionada && showPaymentModal && (
           <View style={styles.formularioOverlay}>
-            <ScrollView contentContainerStyle={[styles.formScrollContent, { padding: 20 }]}>
-              <View style={[styles.formCard, { width: modalMaxWidth, alignSelf: 'center' }]}>
-                <View style={styles.formHeader}>
-                  <View style={styles.formTitleContainer}>
-                    <Icon name="credit-card-check" size={24} color="#28a745" />
-                    <Text style={styles.formTitle}>Procesar Pago</Text>
-                  </View>
-                  <TouchableOpacity onPress={cerrarModales} style={styles.cancelarBtn}>
-                    <Icon name="close" size={22} color="#6c757d" />
-                  </TouchableOpacity>
+            <View style={[styles.modalContent, { width: modalMaxWidth }]}>
+              <View style={styles.modalHeader}>
+                <View style={styles.modalTitleContainer}>
+                  <Icon name="credit-card-check" size={24} color="#28a745" />
+                  <Text style={styles.modalTitle}>Registrar Pago</Text>
                 </View>
+                <TouchableOpacity onPress={cerrarModales} style={styles.closeButton}>
+                  <Icon name="close" size={22} color="#6c757d" />
+                </TouchableOpacity>
+              </View>
 
+              <ScrollView style={styles.modalBody}>
                 <View style={styles.infoCard}>
                   <View style={styles.infoHeader}>
                     <Icon name="file-document" size={18} color="#495057" />
-                    <Text style={styles.infoTitle}>Nota Seleccionada</Text>
+                    <Text style={styles.infoTitle}>Información de la Nota</Text>
                   </View>
 
                   <View style={styles.infoGrid}>
@@ -750,77 +731,108 @@ const PagoScreen: React.FC = () => {
                       </Text>
                     </View>
                     <View style={styles.infoItem}>
-                      <Text style={styles.infoLabel}>Total:</Text>
+                      <Text style={styles.infoLabel}>Total a Pagar:</Text>
                       <Text style={styles.totalValue}>${formatCurrency(Number(notaSeleccionada.totalNota ?? 0))}</Text>
                     </View>
                   </View>
                 </View>
 
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Forma de Pago *</Text>
-                  <View style={styles.radioGroup}>
-                    {['TRANSFERENCIA', 'PAGO_MOVIL'].map(tipo => (
-                      <TouchableOpacity key={tipo} style={[styles.radioOption, formData.formaPago === tipo && styles.radioOptionSelected]} onPress={() => handleInputChange('formaPago', tipo)}>
-                        <View style={styles.radioContent}>
-                          <View style={styles.radioCircle}>{formData.formaPago === tipo && <View style={styles.radioSelected} />}</View>
-                          <Text style={[styles.radioLabel, formData.formaPago === tipo && styles.radioLabelSelected]}>{tipo === 'TRANSFERENCIA' ? 'Transferencia Bancaria' : 'Pago Móvil'}</Text>
-                        </View>
-                        <Icon name={tipo === 'TRANSFERENCIA' ? 'bank-transfer' : 'cellphone'} size={20} color={formData.formaPago === tipo ? '#4f8cff' : '#6c757d'} />
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                  {errors.formaPago && <View style={styles.errorContainer}><Icon name="alert-circle" size={16} color="#dc3545" /><Text style={styles.errorText}>{errors.formaPago}</Text></View>}
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Monto a Pagar</Text>
-                  <View style={styles.inputContainer}>
-                    <Text style={styles.currencySymbol}>$</Text>
-                    <TextInput style={[styles.input, styles.readOnlyInput]} value={formatCurrency(Number(notaSeleccionada.totalNota ?? 0))} editable={false} />
-                  </View>
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Número de Referencia *</Text>
-                  <TextInput style={[styles.input, errors.referencia && styles.inputError]} value={formData.referencia} onChangeText={(v) => handleInputChange('referencia', v)} placeholder="Ej: 123456789" maxLength={40} placeholderTextColor="#6c757d" />
-                  {errors.referencia && <View style={styles.errorContainer}><Icon name="alert-circle" size={16} color="#dc3545" /><Text style={styles.errorText}>{errors.referencia}</Text></View>}
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Fecha de Pago *</Text>
-                  <View style={styles.inputContainer}>
-                    <Icon name="calendar" size={20} color="#6c757d" style={styles.inputIcon} />
-                    <TextInput style={[styles.input, errors.fechaPago && styles.inputError]} value={formData.fechaPago} onChangeText={(v) => handleInputChange('fechaPago', v)} placeholder="AAAA-MM-DD" placeholderTextColor="#6c757d" />
-                  </View>
-                  {errors.fechaPago && <View style={styles.errorContainer}><Icon name="alert-circle" size={16} color="#dc3545" /><Text style={styles.errorText}>{errors.fechaPago}</Text></View>}
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Observaciones</Text>
-                  <TextInput style={[styles.input, styles.textArea]} value={formData.observaciones} onChangeText={(v) => handleInputChange('observaciones', v)} placeholder="Observaciones adicionales..." multiline numberOfLines={3} textAlignVertical="top" placeholderTextColor="#6c757d" />
-                </View>
-
-                {formData.formaPago === 'PAGO_MOVIL' && (
-                  <View style={[styles.infoCard, { marginTop: 12 }]}>
-                    <View style={styles.infoHeader}><Icon name="cellphone" size={18} color="#495057" /><Text style={styles.infoTitle}>Datos para Pago Móvil</Text></View>
-                    <View style={{ marginTop: 8 }}>
-                      <Text style={styles.infoLabel}>Banco: <Text style={styles.infoValueInline}>{pagoMovilInfo.banco}</Text></Text>
-                      <Text style={styles.infoLabel}>Titular: <Text style={styles.infoValueInline}>{pagoMovilInfo.titular}</Text></Text>
-                      <Text style={styles.infoLabel}>RIF: <Text style={styles.infoValueInline}>{pagoMovilInfo.rif}</Text></Text>
-                      <Text style={styles.infoLabel}>Teléfono/Pay: <Text style={styles.infoValueInline}>{pagoMovilInfo.telefonoPagoMovil}</Text></Text>
-                      <Text style={styles.infoLabel}>Cuenta: <Text style={styles.infoValueInline}>{pagoMovilInfo.numeroCuenta} ({pagoMovilInfo.tipoCuenta})</Text></Text>
+                <View style={styles.formSection}>
+                  <Text style={styles.sectionTitle}>Datos del Pago</Text>
+                  
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Forma de Pago</Text>
+                    <View style={styles.readOnlyField}>
+                      <Icon name="bank-transfer" size={20} color="#4f8cff" style={styles.fieldIcon} />
+                      <Text style={styles.readOnlyText}>Transferencia Bancaria</Text>
                     </View>
                   </View>
-                )}
 
-                <TouchableOpacity style={[styles.submitButton, submitting && { opacity: 0.7 }]} onPress={handleProcesarPago} disabled={submitting}>
-                  <View style={styles.submitButtonContent}>
-                    {submitting ? <ActivityIndicator color="#fff" /> : <Icon name="arrow-right" size={20} color="#fff" />}
-                    <Text style={styles.submitButtonText}>{submitting ? 'Procesando...' : 'Procesar Pago'}</Text>
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Número de Referencia *</Text>
+                    <TextInput 
+                      style={[styles.input, errors.referencia && styles.inputError]} 
+                      value={formData.referencia} 
+                      onChangeText={(v) => handleInputChange('referencia', v)} 
+                      placeholder="Ingrese el número de referencia de la transferencia" 
+                      maxLength={40} 
+                      placeholderTextColor="#6c757d" 
+                    />
+                    {errors.referencia && (
+                      <View style={styles.errorContainer}>
+                        <Icon name="alert-circle" size={16} color="#dc3545" />
+                        <Text style={styles.errorText}>{errors.referencia}</Text>
+                      </View>
+                    )}
+                  </View>
+
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Fecha de Pago *</Text>
+                    <View style={styles.inputContainer}>
+                      <Icon name="calendar" size={20} color="#6c757d" style={styles.inputIcon} />
+                      <TextInput 
+                        style={[styles.input, errors.fechaPago && styles.inputError]} 
+                        value={formData.fechaPago} 
+                        onChangeText={(v) => handleInputChange('fechaPago', v)} 
+                        placeholder="AAAA-MM-DD" 
+                        placeholderTextColor="#6c757d" 
+                      />
+                    </View>
+                    {errors.fechaPago && (
+                      <View style={styles.errorContainer}>
+                        <Icon name="alert-circle" size={16} color="#dc3545" />
+                        <Text style={styles.errorText}>{errors.fechaPago}</Text>
+                      </View>
+                    )}
+                  </View>
+
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Observaciones (Opcional)</Text>
+                    <TextInput 
+                      style={[styles.input, styles.textArea]} 
+                      value={formData.observaciones} 
+                      onChangeText={(v) => handleInputChange('observaciones', v)} 
+                      placeholder="Observaciones adicionales sobre el pago..." 
+                      multiline 
+                      numberOfLines={3} 
+                      textAlignVertical="top" 
+                      placeholderTextColor="#6c757d" 
+                    />
+                  </View>
+
+                  <View style={styles.infoCard}>
+                    <View style={styles.infoHeader}>
+                      <Icon name="information" size={18} color="#495057" />
+                      <Text style={styles.infoTitle}>Información Importante</Text>
+                    </View>
+                    <Text style={styles.infoText}>
+                      • Su pago será verificado por la administración{"\n"}
+                      • Recibirá una notificación cuando sea confirmado{"\n"}
+                      • El proceso puede tomar 24-48 horas hábiles
+                    </Text>
+                  </View>
+                </View>
+              </ScrollView>
+
+              <View style={styles.modalFooter}>
+                <TouchableOpacity 
+                  style={[styles.primaryButton, submitting && styles.buttonDisabled]} 
+                  onPress={handleProcesarPago} 
+                  disabled={submitting}
+                >
+                  <View style={styles.buttonContent}>
+                    {submitting ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <Icon name="check-circle" size={20} color="#fff" />
+                    )}
+                    <Text style={styles.primaryButtonText}>
+                      {submitting ? 'Procesando...' : 'Confirmar Pago'}
+                    </Text>
                   </View>
                 </TouchableOpacity>
               </View>
-            </ScrollView>
+            </View>
           </View>
         )}
 
@@ -831,16 +843,15 @@ const PagoScreen: React.FC = () => {
     );
   }
 
-  // Resto del código para modo automático (no directo) permanece igual...
-  // [El resto del código se mantiene igual que antes para el modo automático]
+  // [El resto del código para modo automático se mantiene similar pero adaptado...]
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.formScrollContent}>
         <View style={styles.header}>
           <View style={styles.headerContent}>
-            <Text style={styles.title}>Procesar Pago</Text>
-            <Text style={styles.subtitle}>Complete los datos para registrar el pago</Text>
+            <Text style={styles.title}>Registrar Pago</Text>
+            <Text style={styles.subtitle}>Complete los datos para registrar el pago por transferencia</Text>
           </View>
           <View style={styles.headerIcon}><Icon name="credit-card-scan" size={28} color="#4f8cff" /></View>
         </View>
@@ -859,285 +870,186 @@ const PagoScreen: React.FC = () => {
         )}
 
         <View style={[styles.formCard, { maxWidth: Math.min(920, width - 48), alignSelf: 'center' }]}>
-          <View style={styles.formTitleContainer}><Icon name="credit-card-outline" size={24} color="#495057" /><Text style={styles.formTitle}>Datos del Pago</Text></View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Forma de Pago *</Text>
-            <View style={styles.radioGroup}>
-              {['TRANSFERENCIA', 'PAGO_MOVIL'].map(tipo => (
-                <TouchableOpacity key={tipo} style={[styles.radioOption, formData.formaPago === tipo && styles.radioOptionSelected]} onPress={() => handleInputChange('formaPago', tipo)}>
-                  <View style={styles.radioContent}><View style={styles.radioCircle}>{formData.formaPago === tipo && <View style={styles.radioSelected} />}</View><Text style={[styles.radioLabel, formData.formaPago === tipo && styles.radioLabelSelected]}>{tipo === 'TRANSFERENCIA' ? 'Transferencia Bancaria' : 'Pago Móvil'}</Text></View>
-                  <Icon name={tipo === 'TRANSFERENCIA' ? 'bank-transfer' : 'cellphone'} size={20} color={formData.formaPago === tipo ? '#4f8cff' : '#6c757d'} />
-                </TouchableOpacity>
-              ))}
+          <View style={styles.formSection}>
+            <Text style={styles.sectionTitle}>Datos del Pago</Text>
+            
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Forma de Pago</Text>
+              <View style={styles.readOnlyField}>
+                <Icon name="bank-transfer" size={20} color="#4f8cff" style={styles.fieldIcon} />
+                <Text style={styles.readOnlyText}>Transferencia Bancaria</Text>
+              </View>
             </View>
-            {errors.formaPago && <View style={styles.errorContainer}><Icon name="alert-circle" size={16} color="#dc3545" /><Text style={styles.errorText}>{errors.formaPago}</Text></View>}
-          </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Monto a Pagar</Text>
-            <View style={styles.inputContainer}>
-              <Text style={styles.currencySymbol}>$</Text>
-              <TextInput
-                style={[styles.input, styles.readOnlyInput]}
-                value={formatCurrency(Number(notaSeleccionada?.totalNota ?? notaData?.totalNota ?? 0))}
-                editable={false}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Número de Referencia *</Text>
+              <TextInput 
+                style={[styles.input, errors.referencia && styles.inputError]} 
+                value={formData.referencia} 
+                onChangeText={(v) => handleInputChange('referencia', v)} 
+                placeholder="Ingrese el número de referencia" 
+                maxLength={40} 
+                placeholderTextColor="#6c757d" 
+              />
+              {errors.referencia && <View style={styles.errorContainer}><Icon name="alert-circle" size={16} color="#dc3545" /><Text style={styles.errorText}>{errors.referencia}</Text></View>}
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Fecha de Pago *</Text>
+              <View style={styles.inputContainer}>
+                <Icon name="calendar" size={20} color="#6c757d" style={styles.inputIcon} />
+                <TextInput 
+                  style={[styles.input, errors.fechaPago && styles.inputError]} 
+                  value={formData.fechaPago} 
+                  onChangeText={(v) => handleInputChange('fechaPago', v)} 
+                  placeholder="AAAA-MM-DD" 
+                  placeholderTextColor="#6c757d" 
+                />
+              </View>
+              {errors.fechaPago && <View style={styles.errorContainer}><Icon name="alert-circle" size={16} color="#dc3545" /><Text style={styles.errorText}>{errors.fechaPago}</Text></View>}
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Observaciones</Text>
+              <TextInput 
+                style={[styles.input, styles.textArea]} 
+                value={formData.observaciones} 
+                onChangeText={(v) => handleInputChange('observaciones', v)} 
+                placeholder="Observaciones adicionales..." 
+                multiline 
+                numberOfLines={3} 
+                textAlignVertical="top" 
+                placeholderTextColor="#6c757d" 
               />
             </View>
           </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Número de Referencia *</Text>
-            <TextInput style={[styles.input, errors.referencia && styles.inputError]} value={formData.referencia} onChangeText={(v) => handleInputChange('referencia', v)} placeholder="Ej: 123456789" maxLength={40} placeholderTextColor="#6c757d" />
-            {errors.referencia && <View style={styles.errorContainer}><Icon name="alert-circle" size={16} color="#dc3545" /><Text style={styles.errorText}>{errors.referencia}</Text></View>}
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Fecha de Pago *</Text>
-            <View style={styles.inputContainer}>
-              <Icon name="calendar" size={20} color="#6c757d" style={styles.inputIcon} />
-              <TextInput style={[styles.input, errors.fechaPago && styles.inputError]} value={formData.fechaPago} onChangeText={(v) => handleInputChange('fechaPago', v)} placeholder="AAAA-MM-DD" placeholderTextColor="#6c757d" />
-            </View>
-            {errors.fechaPago && <View style={styles.errorContainer}><Icon name="alert-circle" size={16} color="#dc3545" /><Text style={styles.errorText}>{errors.fechaPago}</Text></View>}
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Observaciones</Text>
-            <TextInput style={[styles.input, styles.textArea]} value={formData.observaciones} onChangeText={(v) => handleInputChange('observaciones', v)} placeholder="Observaciones adicionales..." multiline numberOfLines={3} textAlignVertical="top" placeholderTextColor="#6c757d" />
-          </View>
-
-          {formData.formaPago === 'PAGO_MOVIL' && (
-            <View style={[styles.infoCard, { marginTop: 12 }]}>
-              <View style={styles.infoHeader}><Icon name="cellphone" size={18} color="#495057" /><Text style={styles.infoTitle}>Datos para Pago Móvil</Text></View>
-              <View style={{ marginTop: 8 }}>
-                <Text style={styles.infoLabel}>Banco: <Text style={styles.infoValueInline}>{pagoMovilInfo.banco}</Text></Text>
-                <Text style={styles.infoLabel}>Titular: <Text style={styles.infoValueInline}>{pagoMovilInfo.titular}</Text></Text>
-                <Text style={styles.infoLabel}>RIF: <Text style={styles.infoValueInline}>{pagoMovilInfo.rif}</Text></Text>
-                <Text style={styles.infoLabel}>Teléfono/Pay: <Text style={styles.infoValueInline}>{pagoMovilInfo.telefonoPagoMovil}</Text></Text>
-                <Text style={styles.infoLabel}>Cuenta: <Text style={styles.infoValueInline}>{pagoMovilInfo.numeroCuenta} ({pagoMovilInfo.tipoCuenta})</Text></Text>
-              </View>
-            </View>
-          )}
-
-          <TouchableOpacity style={[styles.submitButton, submitting && { opacity: 0.7 }]} onPress={handleProcesarPago} disabled={submitting}>
-            <View style={styles.submitButtonContent}>
-              {submitting ? <ActivityIndicator color="#fff" /> : <Icon name="arrow-right" size={20} color="#fff" />}
-              <Text style={styles.submitButtonText}>{submitting ? 'Procesando...' : 'Procesar Pago'}</Text>
+          <TouchableOpacity 
+            style={[styles.primaryButton, submitting && styles.buttonDisabled]} 
+            onPress={handleProcesarPago} 
+            disabled={submitting}
+          >
+            <View style={styles.buttonContent}>
+              {submitting ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Icon name="check-circle" size={20} color="#fff" />
+              )}
+              <Text style={styles.primaryButtonText}>
+                {submitting ? 'Procesando...' : 'Confirmar Pago'}
+              </Text>
             </View>
           </TouchableOpacity>
         </View>
       </ScrollView>
 
-      {/* Modales para modo automático */}
       <ModalRequisitos />
       <ModalProceso />
     </KeyboardAvoidingView>
   );
 };
 
+// Estilos mejorados
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8f9fa' },
   scrollView: { flex: 1 },
-  header: { flexDirection: 'row', padding: 16, alignItems: 'center', justifyContent: 'space-between' },
+  header: { flexDirection: 'row', padding: 20, alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e9ecef' },
   headerContent: { flex: 1 },
-  title: { fontSize: 20, fontWeight: '700', color: '#212529' },
-  subtitle: { fontSize: 13, color: '#6c757d', marginTop: 4 },
+  title: { fontSize: 22, fontWeight: '700', color: '#212529' },
+  subtitle: { fontSize: 14, color: '#6c757d', marginTop: 4 },
   headerIcon: { marginLeft: 12 },
-  listaContainer: { flex: 1, paddingHorizontal: 12, paddingBottom: 20 },
+  listaContainer: { flex: 1, paddingHorizontal: 16, paddingBottom: 20 },
   listaContent: { paddingBottom: 120 },
-  notaItem: { backgroundColor: '#fff', borderRadius: 8, padding: 12, marginVertical: 8, shadowColor: '#000', shadowOpacity: 0.03, elevation: 1 },
-  notaItemSeleccionada: { borderColor: '#4f8cff', borderWidth: 1.5 },
+  notaItem: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginVertical: 8, shadowColor: '#000', shadowOpacity: 0.05, shadowOffset: { width: 0, height: 2 }, shadowRadius: 4, elevation: 2 },
+  notaItemSeleccionada: { borderColor: '#4f8cff', borderWidth: 2 },
   notaHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  notaNumero: { fontWeight: '700', color: '#343a40' },
-  estadoBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
-  estadoText: { fontSize: 12, color: '#fff' },
+  notaNumero: { fontWeight: '700', color: '#343a40', fontSize: 16 },
+  estadoBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
+  estadoText: { fontSize: 12, color: '#fff', fontWeight: '600' },
   estadoPagada: { backgroundColor: '#28a745' },
   estadoParcial: { backgroundColor: '#ffc107' },
   estadoPendiente: { backgroundColor: '#dc3545' },
-  notaFormacion: { marginTop: 8, color: '#495057' },
-  notaFooter: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 },
-  notaFecha: { color: '#6c757d' },
-  notaMonto: { fontWeight: '700', color: '#212529' },
-  seleccionadoIndicator: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
-  seleccionadoText: { marginLeft: 6, color: '#28a745' },
+  notaFormacion: { marginTop: 8, color: '#495057', fontSize: 14, lineHeight: 20 },
+  notaFooter: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 12, alignItems: 'center' },
+  notaFecha: { color: '#6c757d', fontSize: 13 },
+  notaMonto: { fontWeight: '700', color: '#212529', fontSize: 16 },
+  seleccionadoIndicator: { flexDirection: 'row', alignItems: 'center', marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#e9ecef' },
+  seleccionadoText: { marginLeft: 6, color: '#28a745', fontWeight: '600' },
 
-  formularioOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center', padding: 16 },
+  formularioOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   formScrollContent: { paddingBottom: 40 },
-  formCard: { backgroundColor: '#fff', borderRadius: 12, padding: 12, shadowColor: '#000', shadowOpacity: 0.05, elevation: 4 },
-  formHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  formTitleContainer: { flexDirection: 'row', alignItems: 'center' },
-  formTitle: { marginLeft: 8, fontWeight: '700', color: '#212529' },
-  cancelarBtn: { padding: 6 },
+  
+  // Modal Styles
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  modalContent: { backgroundColor: '#fff', borderRadius: 16, width: '100%', maxHeight: '90%', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 8 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: '#e9ecef' },
+  modalTitleContainer: { flexDirection: 'row', alignItems: 'center' },
+  modalTitle: { fontSize: 20, fontWeight: '700', marginLeft: 8, color: '#212529' },
+  closeButton: { padding: 4 },
+  modalBody: { padding: 20, maxHeight: '80%' },
+  modalFooter: { padding: 20, borderTopWidth: 1, borderTopColor: '#e9ecef', flexDirection: 'row', justifyContent: 'flex-end' },
 
-  infoCard: { marginTop: 12, backgroundColor: '#f1f3f5', borderRadius: 8, padding: 10 },
-  infoHeader: { flexDirection: 'row', alignItems: 'center' },
-  infoTitle: { marginLeft: 8, fontWeight: '700', color: '#343a40' },
-  infoGrid: { marginTop: 8 },
-  infoItem: { marginBottom: 8 },
-  infoLabel: { color: '#6c757d', fontSize: 13 },
-  infoValue: { color: '#212529', fontWeight: '600' },
-  infoValueInline: { color: '#212529', fontWeight: '700' },
-  totalItem: { marginTop: 6 },
-  totalLabel: { color: '#6c757d', fontWeight: '700' },
-  totalValue: { color: '#212529', fontWeight: '900', fontSize: 16 },
+  // Card Styles
+  infoCard: { backgroundColor: '#f8f9fa', borderRadius: 12, padding: 16, marginBottom: 16, borderLeftWidth: 4, borderLeftColor: '#4f8cff' },
+  infoHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  infoTitle: { marginLeft: 8, fontWeight: '700', color: '#343a40', fontSize: 16 },
+  infoGrid: {  },
+  infoItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  infoLabel: { color: '#6c757d', fontSize: 14, fontWeight: '500' },
+  infoValue: { color: '#212529', fontWeight: '600', fontSize: 14, flex: 1, textAlign: 'right' },
+  totalItem: { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#dee2e6' },
+  totalLabel: { color: '#495057', fontWeight: '700', fontSize: 15 },
+  totalValue: { color: '#212529', fontWeight: '900', fontSize: 18 },
 
-  inputGroup: { marginTop: 12 },
-  label: { marginBottom: 6, color: '#495057', fontWeight: '600' },
-  inputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 8, paddingHorizontal: 8, borderWidth: 1, borderColor: '#e9ecef' },
-  currencySymbol: { marginRight: 6, color: '#495057' },
-  input: { flex: 1, paddingVertical: 10, paddingHorizontal: 6, color: '#212529' },
-  readOnlyInput: { backgroundColor: '#e9ecef' },
-  inputError: { borderColor: '#dc3545', borderWidth: 1 },
+  // Form Styles
+  formSection: {  },
+  sectionTitle: { fontSize: 18, fontWeight: '700', color: '#495057', marginBottom: 16, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: '#e9ecef' },
+  inputGroup: { marginBottom: 20 },
+  label: { marginBottom: 8, color: '#495057', fontWeight: '600', fontSize: 14 },
+  readOnlyField: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#e9ecef', borderRadius: 8, padding: 12 },
+  fieldIcon: { marginRight: 8 },
+  readOnlyText: { color: '#495057', fontWeight: '600', fontSize: 16 },
+  inputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 8, paddingHorizontal: 12, borderWidth: 1, borderColor: '#e9ecef' },
   inputIcon: { marginRight: 8 },
-  radioGroup: { marginTop: 6 },
-  radioOption: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 10, borderRadius: 8, borderWidth: 1, borderColor: '#e9ecef', marginBottom: 8 },
-  radioOptionSelected: { borderColor: '#4f8cff', backgroundColor: '#eef6ff' },
-  radioContent: { flexDirection: 'row', alignItems: 'center' },
-  radioCircle: { width: 18, height: 18, borderRadius: 9, borderWidth: 1.5, borderColor: '#6c757d', justifyContent: 'center', alignItems: 'center', marginRight: 10 },
-  radioSelected: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#4f8cff' },
-  radioLabel: { color: '#495057' },
-  radioLabelSelected: { fontWeight: '700' },
+  input: { flex: 1, paddingVertical: 12, paddingHorizontal: 8, color: '#212529', fontSize: 16 },
+  inputError: { borderColor: '#dc3545' },
+  textArea: { minHeight: 100, textAlignVertical: 'top' },
 
-  textArea: { minHeight: 80 },
-  submitButton: { marginTop: 16, backgroundColor: '#4f8cff', paddingVertical: 12, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  submitButtonContent: { flexDirection: 'row', alignItems: 'center' },
-  submitButtonText: { color: '#fff', marginLeft: 8, fontWeight: '700' },
+  // Button Styles
+  primaryButton: { backgroundColor: '#4f8cff', paddingVertical: 16, borderRadius: 12, alignItems: 'center', justifyContent: 'center', shadowColor: '#4f8cff', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
+  secondaryButton: { backgroundColor: '#6c757d', paddingVertical: 16, borderRadius: 12, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
+  buttonDisabled: { opacity: 0.6 },
+  buttonContent: { flexDirection: 'row', alignItems: 'center' },
+  primaryButtonText: { color: '#fff', marginLeft: 8, fontWeight: '700', fontSize: 16 },
+  secondaryButtonText: { color: '#fff', fontWeight: '700', fontSize: 16 },
 
-  errorContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 6 },
-  errorText: { color: '#dc3545', marginLeft: 6 },
+  // Error Styles
+  errorContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
+  errorText: { color: '#dc3545', marginLeft: 6, fontSize: 14 },
 
-  loadingContainer: { padding: 20, alignItems: 'center' },
-  loadingText: { color: '#6c757d' },
+  // Success/Warning Cards
+  successCard: { backgroundColor: '#d4edda', padding: 20, borderRadius: 12, alignItems: 'center', marginBottom: 20, borderLeftWidth: 4, borderLeftColor: '#28a745' },
+  successTitle: { fontSize: 20, fontWeight: '700', color: '#155724', marginTop: 12, textAlign: 'center' },
+  successSubtitle: { color: '#155724', textAlign: 'center', marginTop: 8, lineHeight: 22, fontSize: 15 },
+  warningCard: { backgroundColor: '#fff3cd', padding: 20, borderRadius: 12, alignItems: 'center', marginBottom: 20, borderLeftWidth: 4, borderLeftColor: '#ffc107' },
+  warningTitle: { fontSize: 20, fontWeight: '700', color: '#856404', marginTop: 12, textAlign: 'center' },
+  warningSubtitle: { color: '#856404', textAlign: 'center', marginTop: 8, lineHeight: 22, fontSize: 15 },
 
-  emptyContainer: { alignItems: 'center', padding: 24 },
-  emptyText: { fontSize: 16, fontWeight: '700', color: '#343a40', marginTop: 8 },
-  emptySubtext: { color: '#6c757d', marginTop: 4 },
+  // Requisitos
+  requisitosList: { marginBottom: 20 },
+  requisitosTitle: { fontSize: 18, fontWeight: '700', color: '#212529', marginBottom: 16 },
+  requisitoItem: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12, paddingHorizontal: 8 },
+  requisitoText: { marginLeft: 12, color: '#495057', fontSize: 15, flex: 1, lineHeight: 22 },
 
-  // Nuevos estilos para modales
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    width: '100%',
-    maxHeight: '80%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e9ecef',
-  },
-  modalTitleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginLeft: 8,
-    color: '#212529',
-  },
-  closeButton: {
-    padding: 4,
-  },
-  modalBody: {
-    padding: 16,
-  },
-  modalFooter: {
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#e9ecef',
-  },
-  successCard: {
-    backgroundColor: '#d4edda',
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  successTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#155724',
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  successSubtitle: {
-    color: '#155724',
-    textAlign: 'center',
-    marginTop: 8,
-    lineHeight: 20,
-  },
-  warningCard: {
-    backgroundColor: '#fff3cd',
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  warningTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#856404',
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  warningSubtitle: {
-    color: '#856404',
-    textAlign: 'center',
-    marginTop: 8,
-    lineHeight: 20,
-  },
-  requisitosList: {
-    marginBottom: 16,
-  },
-  requisitosTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#212529',
-    marginBottom: 12,
-  },
-  requisitoItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-    paddingHorizontal: 8,
-  },
-  requisitoText: {
-    marginLeft: 12,
-    color: '#495057',
-    fontSize: 14,
-    flex: 1,
-  },
-  primaryButton: {
-    backgroundColor: '#4f8cff',
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  primaryButtonText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 16,
-  },
-  infoText: {
-    color: '#495057',
-    lineHeight: 20,
-    marginTop: 4,
-  },
+  // Loading & Empty States
+  loadingContainer: { padding: 40, alignItems: 'center' },
+  loadingText: { color: '#6c757d', marginTop: 12, fontSize: 16 },
+  emptyContainer: { alignItems: 'center', padding: 40 },
+  emptyText: { fontSize: 18, fontWeight: '700', color: '#343a40', marginTop: 16, textAlign: 'center' },
+  emptySubtext: { color: '#6c757d', marginTop: 8, textAlign: 'center', fontSize: 14 },
+
+  formCard: { backgroundColor: '#fff', borderRadius: 16, padding: 24, margin: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 4 },
+  infoText: { color: '#495057', lineHeight: 22, fontSize: 14 },
 });
 
 function normalizarCedula(cedula: string): string {

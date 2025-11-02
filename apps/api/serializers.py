@@ -390,10 +390,9 @@ class PagoCreateSerializer(serializers.ModelSerializer):
     formaPago = serializers.CharField(max_length=50)
     referencia = serializers.CharField(max_length=100, required=False, allow_blank=True)
     observaciones = serializers.CharField(required=False, allow_blank=True)
-    idCuentaBanco = serializers.IntegerField(write_only=True, required=False)  # Nuevo campo para PagoTemporal
 
     class Meta:
-        model = PagoTemporal  # Cambiado a PagoTemporal
+        model = PagoTemporal
         fields = [
             'idNota',
             'monto',
@@ -401,7 +400,6 @@ class PagoCreateSerializer(serializers.ModelSerializer):
             'formaPago',
             'referencia',
             'observaciones',
-            'idCuentaBanco',  # Agregado
         ]
 
     def validate_monto(self, value):
@@ -425,28 +423,29 @@ class PagoCreateSerializer(serializers.ModelSerializer):
                 "monto": f"El monto no puede exceder el total de la nota (${nota.totalNota})."
             })
 
-        # Validar cuenta bancaria si se proporciona
-        if data.get('idCuentaBanco'):
-            try:
-                cuenta_banco = CuentaBanco.objects.get(idCuentaBanco=data['idCuentaBanco'])
-                data['idCuentaBanco'] = cuenta_banco
-            except CuentaBanco.DoesNotExist:
-                raise serializers.ValidationError({"idCuentaBanco": "La cuenta bancaria especificada no existe."})
+        # Validar que existe configuración con cuenta bancaria
+        configuracion = Configuracion.objects.first()
+        if not configuracion or not configuracion.idCuentaBanco:
+            raise serializers.ValidationError("No hay cuenta bancaria configurada en el sistema.")
 
-        # Guardar la nota en el contexto para usarla en create
+        # Guardar la nota y configuración en el contexto
         self.context['nota'] = nota
+        self.context['configuracion'] = configuracion
         return data
 
     def create(self, validated_data):
         """
-        Crea un PagoTemporal en lugar de Pago.
+        Crea un PagoTemporal usando la cuenta bancaria de la configuración.
         """
         nota = self.context.get('nota')
+        configuracion = self.context.get('configuracion')
+        
         if nota is None:
             raise serializers.ValidationError("Nota no encontrada en contexto.")
+        if configuracion is None or configuracion.idCuentaBanco is None:
+            raise serializers.ValidationError("Configuración de cuenta bancaria no encontrada.")
 
-        # Obtener moneda/tasa: preferir configuración si existe, si no fallback a Moneda id=1
-        configuracion = Configuracion.objects.first()
+        # Obtener moneda/tasa
         moneda = None
         if configuracion and getattr(configuracion, 'moneda', None):
             moneda = configuracion.moneda
@@ -454,25 +453,22 @@ class PagoCreateSerializer(serializers.ModelSerializer):
             moneda = Moneda.objects.filter(idMoneda=1).first()
 
         if not moneda:
-            raise serializers.ValidationError("No se pudo determinar la moneda del sistema (ni configuración ni idMoneda=1).")
+            raise serializers.ValidationError("No se pudo determinar la moneda del sistema.")
 
         tasa = Tasa.objects.filter(idMoneda=moneda).order_by('-idTasa').first()
         if not tasa:
             raise serializers.ValidationError(f"No se encontró tasa para la moneda {moneda}.")
 
-        # Extraer idCuentaBanco si existe
-        id_cuenta_banco = validated_data.pop('idCuentaBanco', None)
-
-        # Crear PagoTemporal (NO se crea AsientoContable aquí)
+        # Crear PagoTemporal con la cuenta bancaria de la configuración
         pago_temporal = PagoTemporal.objects.create(
             idNota=nota,
-            idCuentaBanco=id_cuenta_banco,
+            idCuentaBanco=configuracion.idCuentaBanco,  # Usamos la cuenta de la configuración
             idTasa=tasa,
             monto=validated_data['monto'],
             referencia=validated_data.get('referencia', '') or '',
             observaciones=validated_data.get('observaciones', '') or '',
             fechaPago=validated_data['fechaPago'],
-            confirmado=False  # Siempre se crea como pendiente
+            confirmado=False
         )
 
         return pago_temporal
@@ -631,21 +627,3 @@ class ConfiguracionSerializer(serializers.ModelSerializer):
             'numero_cuenta',
             'tipo_cuenta'
         ]
-
-######## Nuevo Serializer para PagoTemporal##################### 
-
-class PagoTemporalSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = PagoTemporal
-        fields = [
-            'idPagoTemporal',
-            'idNota',
-            'idCuentaBanco',
-            'monto',
-            'fechaPago',
-            'referencia',
-            'idTasa',
-            'observaciones',
-            'confirmado'
-        ]
-        read_only_fields = ['idPagoTemporal', 'confirmado']
