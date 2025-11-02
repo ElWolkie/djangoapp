@@ -50,7 +50,7 @@ interface Cohorte {
   fechaInicio?: string;
   fechaFin?: string;
   estadoCohorte?: string;
-  idFormacion?: Formacion; // anidado
+  idFormacion?: Formacion;
 }
 
 interface Inscripcion {
@@ -200,15 +200,12 @@ export default function DashboardScreen() {
 
   // Obtener nombre de la formación (varias fuentes)
   const getNombreFormacion = (inscripcion: Inscripcion): string => {
-    // 1) idFormacion_detail (directo)
     if (inscripcion.idFormacion_detail?.nombreFormacion) {
       return inscripcion.idFormacion_detail.nombreFormacion;
     }
-    // 2) cohorte.idFormacion (nested)
     if (inscripcion.idCohorte?.idFormacion?.nombreFormacion) {
       return inscripcion.idCohorte.idFormacion.nombreFormacion!;
     }
-    // 3) extraer del nombre de la cohorte (fallback)
     const nombreCohorte = inscripcion.idCohorte?.nombreCohorte;
     if (nombreCohorte) {
       if (nombreCohorte.includes('Biotecnología')) return 'Biotecnología';
@@ -216,10 +213,8 @@ export default function DashboardScreen() {
       if (nombreCohorte.includes('Medicina')) return 'Medicina';
       if (nombreCohorte.includes('Derecho')) return 'Derecho';
       if (nombreCohorte.includes('Administración')) return 'Administración';
-      // si no coincide, devolver el nombre de la cohorte
       return nombreCohorte;
     }
-
     return 'Formación Continua';
   };
 
@@ -242,6 +237,78 @@ export default function DashboardScreen() {
     return 0;
   };
 
+  // Función mejorada para extraer datos de APIs
+  const extractData = (data: any): any[] => {
+    try {
+      if (data == null) return [];
+      if (Array.isArray(data)) return data;
+      if (typeof data === 'object') {
+        const commonKeys = ['results', 'data', 'rows', 'items', 'list', 'inscripciones', 'results_list'];
+        for (const k of commonKeys) {
+          if (Array.isArray(data[k])) return data[k];
+        }
+        if (data.data && Array.isArray(data.data.results)) return data.data.results;
+        if (data.pagination && Array.isArray(data.pagination.results)) return data.pagination.results;
+        const arrayProps = Object.values(data).filter(v => Array.isArray(v));
+        if (arrayProps.length === 1) return arrayProps[0];
+        if (data.idInscripcion || data.id || data.id_inscripcion || data.idPersona) return [data];
+        const flattened = ([] as any[]).concat(...Object.values(data).filter(Array.isArray));
+        if (flattened.length) return flattened;
+      }
+    } catch (e) {
+      console.warn('Error extrayendo datos:', e);
+    }
+    return [];
+  };
+
+  // Cargar datos reales de notas y pagos
+  const loadNotasAndPagos = async (cedulaUsuarioNormalizada: string) => {
+    try {
+      // Cargar notas reales
+      const notasResult = await safeApiCall('/api/notas/');
+      let todasNotas = extractData(notasResult.data);
+      
+      // Filtrar notas del usuario actual
+      const misNotas = todasNotas.filter((nota: any) => {
+        const cedulaNota = nota.idPersona_detail?.cedula || nota.idPersona?.cedula;
+        if (!cedulaNota) return false;
+        return normalizarCedula(cedulaNota) === cedulaUsuarioNormalizada;
+      });
+
+      // Filtrar notas por pagar (PENDIENTE o PARCIAL)
+      const notasPendientes = misNotas.filter((nota: any) => 
+        nota.estado === 'PENDIENTE' || nota.estado === 'PARCIAL'
+      );
+      setNotasPorPagar(notasPendientes);
+
+      // Cargar pagos reales
+      const pagosResult = await safeApiCall('/api/pagos/');
+      let todosPagos = extractData(pagosResult.data);
+      
+      // Filtrar pagos del usuario
+      const misPagosFiltrados = todosPagos.filter((pago: any) => {
+        const cedulaPago = pago.idNota?.idPersona_detail?.cedula || 
+                          pago.idNota?.idPersona?.cedula;
+        if (!cedulaPago) return false;
+        return normalizarCedula(cedulaPago) === cedulaUsuarioNormalizada;
+      }).map((pago: any) => ({
+        idPago: pago.idPago,
+        monto: pago.monto,
+        fechaPago: pago.fechaPago,
+        idNota: pago.idNota?.idNota || pago.idNota,
+        formaPago: pago.formaPago,
+        referencia: pago.referencia
+      }));
+
+      setMisPagos(misPagosFiltrados);
+
+      return { misNotas, misPagos: misPagosFiltrados };
+    } catch (error) {
+      console.error('Error cargando notas y pagos:', error);
+      return { misNotas: [], misPagos: [] };
+    }
+  };
+
   // Cargar TODOS los datos en una sola función
   const loadAllData = async () => {
     setLoading(true);
@@ -251,22 +318,6 @@ export default function DashboardScreen() {
       console.log('🔍 Iniciando carga de datos del dashboard...');
       if (!user) {
         console.warn('⚠️ No hay usuario en el contexto de autenticación');
-        setLoading(false);
-        return;
-      }
-
-      const personaCedula = user.cedula;
-      if (!personaCedula) {
-        console.warn('⚠️ No se encontró cédula en user data');
-        setLoading(false);
-        return;
-      }
-      const cedulaUsuarioNormalizada = normalizarCedula(personaCedula);
-      const inscripcionesResult = await safeApiCall('/api/inscripcion/');
-
-      if (!inscripcionesResult.success) {
-        console.warn('API inscripcion falló:', inscripcionesResult.error);
-        setError(typeof inscripcionesResult.error === 'string' ? inscripcionesResult.error : 'Error al obtener inscripciones (500)');
         setMisInscripciones([]);
         setNotasPorPagar([]);
         setMisPagos([]);
@@ -275,111 +326,67 @@ export default function DashboardScreen() {
         return;
       }
 
-      function extractData(data: any): any[] {
-        try {
-          if (data == null) return [];
-
-          // Si ya es un array, devolver tal cual
-          if (Array.isArray(data)) return data;
-
-          // Si es un objeto, buscar claves comunes que contienen arrays
-          if (typeof data === 'object') {
-            const commonKeys = ['results', 'data', 'rows', 'items', 'list', 'inscripciones', 'results_list'];
-            for (const k of commonKeys) {
-              if (Array.isArray(data[k])) return data[k];
-            }
-
-            // Algunos endpoints devuelven { data: { results: [...] } } u otras anidaciones
-            if (data.data && Array.isArray(data.data.results)) return data.data.results;
-            if (data.pagination && Array.isArray(data.pagination.results)) return data.pagination.results;
-
-            // Si hay exactamente una propiedad que es array, devolverla
-            const arrayProps = Object.values(data).filter(v => Array.isArray(v));
-            if (arrayProps.length === 1) return arrayProps[0];
-
-            // Si el objeto parece ser un solo registro (tiene id o idInscripcion), envolverlo en array
-            if (data.idInscripcion || data.id || data.id_inscripcion || data.idPersona) return [data];
-
-            // Como último recurso intentar aplanar arrays encontrados en las propiedades
-            const flattened = ([] as any[]).concat(...Object.values(data).filter(Array.isArray));
-            if (flattened.length) return flattened;
-          }
-        } catch (e) {
-          // Silencioso: devolver array vacío en caso de error de parsing
-        }
-
-        return [];
-}
-
-      const todasInscripciones = extractData(inscripcionesResult.data);
-
-      console.log('📊 Todas las inscripciones obtenidas:', todasInscripciones.length);
-
-      let misInscripcionesFiltradas: Inscripcion[] = [];
-
-      if (todasInscripciones.length > 0) {
-        misInscripcionesFiltradas = todasInscripciones.filter((insc: any) => {
-          const cedulaInscripcion = insc.idPersona_detail?.cedula || insc.idPersona?.cedula;
-          if (!cedulaInscripcion) return false;
-          const cedulaInscNormalizada = normalizarCedula(cedulaInscripcion);
-          return cedulaInscNormalizada === cedulaUsuarioNormalizada;
-        }).map((insc: any) => {
-          // Normalizar estructura mínima que usamos en UI
-          return {
-            ...insc,
-            // asegurar fechas y valores en tipos esperados
-            fechaInscripcion: insc.fechaInscripcion || insc.fechaInscripcionString || null,
-          } as Inscripcion;
-        });
+      const personaCedula = user.cedula;
+      if (!personaCedula) {
+        console.warn('⚠️ No se encontró cédula en user data');
+        setMisInscripciones([]);
+        setNotasPorPagar([]);
+        setMisPagos([]);
+        setEstadoPago({ pagado: 0, pendiente: 0 });
+        setLoading(false);
+        return;
       }
 
-      // Debug
-      misInscripcionesFiltradas.forEach((insc) => {
-        console.log('🔍 Insc debug:', {
-          id: insc.idInscripcion,
-          cohorte: insc.idCohorte,
-          formacion_detail: insc.idFormacion_detail,
-        });
-      });
+      const cedulaUsuarioNormalizada = normalizarCedula(personaCedula);
+
+      // Cargar inscripciones
+      const inscripcionesResult = await safeApiCall('/api/inscripcion/');
+      
+      let misInscripcionesFiltradas: Inscripcion[] = [];
+      
+      if (inscripcionesResult.success) {
+        const todasInscripciones = extractData(inscripcionesResult.data);
+        console.log('📊 Todas las inscripciones obtenidas:', todasInscripciones.length);
+
+        if (todasInscripciones.length > 0) {
+          misInscripcionesFiltradas = todasInscripciones.filter((insc: any) => {
+            const cedulaInscripcion = insc.idPersona_detail?.cedula || insc.idPersona?.cedula;
+            if (!cedulaInscripcion) return false;
+            const cedulaInscNormalizada = normalizarCedula(cedulaInscripcion);
+            return cedulaInscNormalizada === cedulaUsuarioNormalizada;
+          }).map((insc: any) => ({
+            ...insc,
+            fechaInscripcion: insc.fechaInscripcion || insc.fechaInscripcionString || null,
+          } as Inscripcion));
+        }
+      }
 
       setMisInscripciones(misInscripcionesFiltradas);
 
-      // Simular notas por pagar (temporal)
-      const notasSimuladas = misInscripcionesFiltradas.map(insc => ({
-        idNota: insc.idInscripcion + 1000,
-        totalNota: insc.montoTotal ?? getValorInscripcion(insc) ?? 0,
-        descripcion: `Inscripción - ${getNombreFormacion(insc)}`,
-        estado: insc.estadoPago === 'PAGADO' ? 'PAGADA' : insc.estadoPago ?? 'PENDIENTE',
-        fechaEmision: insc.fechaInscripcion,
-        tipoOperacion: 'COBRO',
-        tipoArticulo: 'INSCRIPCION',
-        relaciones: [{
-          idInscripcion: {
-            idInscripcion: insc.idInscripcion,
-            idCohorte: {
-              idCohorte: insc.idCohorte?.idCohorte,
-              nombreCohorte: getNombreCohorte(insc)
-            }
-          }
-        }]
-      }));
+      // Cargar notas y pagos reales
+      const { misPagos: misPagosReales } = await loadNotasAndPagos(cedulaUsuarioNormalizada);
 
-      const notasPendientes = notasSimuladas.filter(n => n.estado === 'PENDIENTE' || n.estado === 'PARCIAL');
-      setNotasPorPagar(notasPendientes);
+      // Calcular estado de pagos basado en inscripciones y notas
+      const inscripcionesPagadas = misInscripcionesFiltradas.filter(i => 
+        i.estadoPago === 'PAGADO'
+      ).length;
+      
+      const inscripcionesPendientes = misInscripcionesFiltradas.filter(i => 
+        i.estadoPago === 'PENDIENTE' || i.estadoPago === 'PARCIAL'
+      ).length;
 
-      setMisPagos([]); // temporal
+      setEstadoPago({ 
+        pagado: inscripcionesPagadas, 
+        pendiente: inscripcionesPendientes 
+      });
 
-      const inscripcionesPagadas = misInscripcionesFiltradas.filter(i => i.estadoPago === 'PAGADO').length;
-      const inscripcionesPendientes = misInscripcionesFiltradas.filter(i => i.estadoPago === 'PENDIENTE' || i.estadoPago === 'PARCIAL').length;
-
-      setEstadoPago({ pagado: inscripcionesPagadas, pendiente: inscripcionesPendientes });
-
-      if (misInscripcionesFiltradas.length === 0) {
-        setError('No se encontraron inscripciones para este usuario');
-      }
     } catch (err: any) {
       console.error('❌ Error crítico en loadAllData:', err);
-      setError('Error inesperado al cargar los datos');
+      // No establecer error para que se muestre el dashboard vacío
+      setMisInscripciones([]);
+      setNotasPorPagar([]);
+      setMisPagos([]);
+      setEstadoPago({ pagado: 0, pendiente: 0 });
     } finally {
       setLoading(false);
       console.log('🏁 Carga de datos finalizada');
@@ -403,6 +410,7 @@ export default function DashboardScreen() {
   // Stats
   const ultimaInscripcion = misInscripciones.length ? misInscripciones[0] : null;
   const montoTotalPorPagar = notasPorPagar.reduce((t, n) => t + (n.totalNota || 0), 0);
+  const ultimoPago = misPagos.length ? misPagos[0] : null;
 
   const stats = [
     {
@@ -410,50 +418,65 @@ export default function DashboardScreen() {
       value: misInscripciones.length.toString(),
       icon: 'book-account',
       color: '#fb6340',
-      subtitle: ultimaInscripcion ? `${getNombreCohorte(ultimaInscripcion)} - ${ultimaInscripcion.estadoPago ?? 'Activa'}` : 'No tienes inscripciones',
+      subtitle: ultimaInscripcion ? 
+        `${getNombreCohorte(ultimaInscripcion)} - ${ultimaInscripcion.estadoPago ?? 'Activa'}` : 
+        'No tienes inscripciones',
     },
     {
       title: 'Mis Pagos',
       value: misPagos.length.toString(),
       icon: 'currency-usd',
       color: '#2dce89',
-      subtitle: misPagos.length ? `Último: ${formatDate(misPagos[0].fechaPago)} - $${misPagos[0].monto}` : 'No hay pagos registrados',
+      subtitle: ultimoPago ? 
+        `Último: ${formatDate(ultimoPago.fechaPago)} - ${fmtMoney(ultimoPago.monto)}` : 
+        'No hay pagos registrados',
     },
     {
       title: 'Estado de Pagos',
       value: estadoPago.pendiente === 0 ? 'Al día' : 'Pendiente',
       icon: 'clock-check',
       color: estadoPago.pendiente === 0 ? '#11cdef' : '#f7b731',
-      subtitle: estadoPago.pendiente === 0 ? 'Todas las inscripciones pagadas' : `${estadoPago.pendiente} inscripción(es) pendiente(s)`,
+      subtitle: estadoPago.pendiente === 0 ? 
+        'Todas las inscripciones pagadas' : 
+        `${estadoPago.pendiente} inscripción(es) pendiente(s)`,
     },
     {
       title: 'Notas por Pagar',
       value: notasPorPagar.length.toString(),
       icon: 'note-alert',
       color: '#f5365c',
-      subtitle: montoTotalPorPagar > 0 ? `Total: ${fmtMoney(montoTotalPorPagar)}` : 'No hay notas pendientes',
+      subtitle: montoTotalPorPagar > 0 ? 
+        `Total: ${fmtMoney(montoTotalPorPagar)}` : 
+        'No hay notas pendientes',
     },
   ];
 
   const handleRetry = () => loadAllData();
 
-  // Renders (loading / error handled)
-  if (!user && loading) {
-    return (
-      <View style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor="#4f8cff" />
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>{greeting.emoji} {greeting.title}</Text>
-          <Text style={styles.headerSubtitle}>Mi panel personal • {formatDate(new Date().toISOString())}</Text>
-        </View>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color="#4f8cff" />
-          <Text style={{ marginTop: 12, color: '#666' }}>Cargando información del usuario...</Text>
-        </View>
-      </View>
-    );
+  function getCohorteDeNota(nota: NotaCobro): React.ReactNode {
+    try {
+      const relaciones = nota?.relaciones;
+      if (Array.isArray(relaciones) && relaciones.length > 0) {
+        const r0 = relaciones[0];
+        const nombre = r0?.idInscripcion?.idCohorte?.nombreCohorte;
+        if (nombre) return String(nombre);
+      }
+
+      const insc = (nota as any).idInscripcion;
+      if (insc) {
+        const nn = insc?.idCohorte?.nombreCohorte || insc?.idCohorte?.nombre;
+        if (nn) return String(nn);
+      }
+
+      if (nota.descripcion) return nota.descripcion;
+      return '—';
+    } catch (e) {
+      console.warn('getCohorteDeNota error:', e);
+      return '—';
+    }
   }
 
+  // Render principal
   if (loading) {
     return (
       <View style={styles.container}>
@@ -470,57 +493,6 @@ export default function DashboardScreen() {
     );
   }
 
-  if (error) {
-    return (
-      <View style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor="#4f8cff" />
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>{greeting.emoji} {greeting.title}</Text>
-          <Text style={styles.headerSubtitle}>Mi panel personal • {formatDate(new Date().toISOString())}</Text>
-        </View>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20 }}>
-          <Icon name="alert-circle" size={48} color="#f5365c" />
-          <Text style={{ color: '#f5365c', fontWeight: '700', marginBottom: 8, marginTop: 12, textAlign: 'center' }}>
-            Error al cargar datos
-          </Text>
-          <Text style={{ color: '#666', textAlign: 'center', marginBottom: 20 }}>{error}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={handleRetry}>
-            <Icon name="reload" size={20} color="#fff" />
-            <Text style={styles.retryButtonText}>Reintentar</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
-
-      function getCohorteDeNota(nota: NotaCobro): React.ReactNode {
-      try {
-        // Estructuras posibles: nota.relaciones -> [ { idInscripcion: { idCohorte: { nombreCohorte } } } ]
-        const relaciones = nota?.relaciones;
-        if (Array.isArray(relaciones) && relaciones.length > 0) {
-          const r0 = relaciones[0];
-          const nombre = r0?.idInscripcion?.idCohorte?.nombreCohorte
-          if (nombre) return String(nombre);
-        }
-
-        // Si la nota trae idInscripcion a nivel superior (otras APIs)
-        const insc = (nota as any).idInscripcion;
-        if (insc) {
-          const nn = insc?.idCohorte?.nombreCohorte || insc?.idCohorte?.nombre;
-          if (nn) return String(nn);
-        }
-
-        // Fallbacks: usar descripción de la nota o un guion
-        if (nota.descripcion) return nota.descripcion;
-        return '—';
-      } catch (e) {
-        // no romper la UI por un dato mal formado
-        console.warn('getCohorteDeNota error:', e);
-        return '—';
-      }
-    }
-
-
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#4f8cff" />
@@ -532,13 +504,18 @@ export default function DashboardScreen() {
         <Text style={styles.headerSubtitle}>Mi panel personal • {formatDate(new Date().toISOString())}</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent} 
+        showsVerticalScrollIndicator={false}
+        style={styles.responsiveScrollView}
+      >
         <View style={styles.cardsRow}>
           {stats.map((item, idx) => (
             <Animated.View
               key={item.title}
               style={[
                 styles.card,
+                styles.responsiveCard,
                 {
                   opacity: cardsAnim[idx],
                   transform: [{ translateY: cardsAnim[idx].interpolate({ inputRange: [0, 1], outputRange: [40, 0] }) }],
@@ -550,12 +527,12 @@ export default function DashboardScreen() {
               </View>
               <Text style={styles.cardTitle}>{item.title}</Text>
               <Text style={styles.cardValue}>{item.value}</Text>
-              <Text style={styles.cardSubtitle}>{item.subtitle}</Text>
+              <Text style={styles.cardSubtitle} numberOfLines={2}>{item.subtitle}</Text>
             </Animated.View>
           ))}
         </View>
 
-        <View style={styles.sectionContainer}>
+        <View style={[styles.sectionContainer, styles.responsiveSection]}>
           <Text style={styles.sectionTitle}>Acciones rápidas</Text>
           <View style={styles.actionsRow}>
             <TouchableOpacity style={styles.actionButton} onPress={() => navigation.navigate('Inscripciones')}>
@@ -570,7 +547,7 @@ export default function DashboardScreen() {
         </View>
 
         {notasPorPagar.length > 0 && (
-          <View style={styles.detailContainer}>
+          <View style={[styles.detailContainer, styles.responsiveDetail]}>
             <Text style={styles.detailTitle}>Notas por Pagar</Text>
             {notasPorPagar.map((nota) => (
               <View key={nota.idNota} style={styles.notaItem}>
@@ -579,7 +556,10 @@ export default function DashboardScreen() {
                   <Text style={styles.notaMonto}>{fmtMoney(nota.totalNota)}</Text>
                 </View>
                 <Text style={styles.notaDetalle}>
-                  {getCohorteDeNota(nota)} • Emitida: {formatDate(nota.fechaEmision)} • Tipo: {nota.tipoArticulo || 'Cobro'}
+                  {getCohorteDeNota(nota)} • Emitida: {formatDate(nota.fechaEmision)} • Estado: {nota.estado}
+                </Text>
+                <Text style={styles.notaEstado}>
+                  {nota.estado === 'PARCIAL' ? 'Pago parcial realizado' : 'Pendiente de pago'}
                 </Text>
               </View>
             ))}
@@ -587,7 +567,7 @@ export default function DashboardScreen() {
         )}
 
         {misInscripciones.length > 0 && (
-          <View style={styles.detailContainer}>
+          <View style={[styles.detailContainer, styles.responsiveDetail]}>
             <Text style={styles.detailTitle}>Mis Inscripciones Activas</Text>
             {misInscripciones.map((inscripcion) => (
               <View key={inscripcion.idInscripcion} style={styles.inscripcionItem}>
@@ -595,16 +575,39 @@ export default function DashboardScreen() {
                   <Text style={styles.inscripcionNombre}>{getNombreCohorte(inscripcion)}</Text>
                   <Text style={[
                       styles.inscripcionEstado,
-                      { color: inscripcion.estadoPago === 'PAGADO' ? '#2dce89' : inscripcion.estadoPago === 'PARCIAL' ? '#f7b731' : '#fb6340' }
+                      { 
+                        color: inscripcion.estadoPago === 'PAGADO' ? '#2dce89' : 
+                               inscripcion.estadoPago === 'PARCIAL' ? '#f7b731' : '#fb6340' 
+                      }
                     ]}>
                     {inscripcion.estadoPago ?? 'PENDIENTE'}
                   </Text>
                 </View>
-
                 <Text style={styles.inscripcionFormacion}>{getNombreFormacion(inscripcion)}</Text>
-
                 <Text style={styles.inscripcionDetalle}>
                   Valor: {fmtMoney(getValorInscripcion(inscripcion))} • Fecha: {formatDate(inscripcion.fechaInscripcion)}
+                </Text>
+                {inscripcion.montoPagado && (
+                  <Text style={styles.inscripcionPago}>
+                    Pagado: {fmtMoney(inscripcion.montoPagado)} • Saldo: {fmtMoney(inscripcion.saldoPendiente)}
+                  </Text>
+                )}
+              </View>
+            ))}
+          </View>
+        )}
+
+        {misPagos.length > 0 && (
+          <View style={[styles.detailContainer, styles.responsiveDetail]}>
+            <Text style={styles.detailTitle}>Mis Últimos Pagos</Text>
+            {misPagos.slice(0, 5).map((pago) => (
+              <View key={pago.idPago} style={styles.pagoItem}>
+                <View style={styles.pagoHeader}>
+                  <Text style={styles.pagoMonto}>{fmtMoney(pago.monto)}</Text>
+                  <Text style={styles.pagoFecha}>{formatDate(pago.fechaPago)}</Text>
+                </View>
+                <Text style={styles.pagoDetalle}>
+                  Forma de pago: {pago.formaPago} • Referencia: {pago.referencia || 'N/A'}
                 </Text>
               </View>
             ))}
@@ -616,7 +619,8 @@ export default function DashboardScreen() {
             <Icon name="information" size={32} color="#4f8cff" />
             <Text style={styles.infoTitle}>Bienvenido al sistema</Text>
             <Text style={styles.infoText}>
-              {user?.displayName ? `${user.displayName}, ` : ''} aún no tienes inscripciones, pagos ni notas registradas. Puedes comenzar realizando una nueva inscripción.
+              {user?.displayName ? `${user.displayName}, ` : ''} aún no tienes inscripciones, pagos ni notas registradas. 
+              Puedes comenzar realizando una nueva inscripción.
             </Text>
           </View>
         )}
@@ -630,13 +634,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f7fa',
   },
-  // ---------------------------
-  // HEADER reducido
-  // ---------------------------
+  responsiveScrollView: {
+    maxWidth: 1200, // Máximo ancho para web
+    alignSelf: 'center', // Centrar en web
+    width: '100%', // Ancho completo en móvil
+  },
   header: {
     backgroundColor: '#4f8cff',
-    paddingTop: 28,        // antes 48 -> reducido
-    paddingBottom: 12,     // antes 20 -> reducido
+    paddingTop: 28,
+    paddingBottom: 12,
     paddingHorizontal: 20,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
@@ -649,7 +655,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: '#fff',
-    fontSize: 22,          // antes 26 -> ligeramente más pequeño
+    fontSize: 22,
     fontWeight: '800',
     letterSpacing: 0.3,
   },
@@ -659,30 +665,36 @@ const styles = StyleSheet.create({
     marginTop: 6,
     fontWeight: '600',
   },
-
   scrollContent: {
     alignItems: 'center',
     paddingVertical: 24,
+    paddingHorizontal: 10,
   },
   cardsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
     gap: 12,
-    width: '94%',
+    width: '100%',
+    maxWidth: 1000,
   },
   card: {
-    width: CARD_WIDTH,
     backgroundColor: '#fff',
     borderRadius: 16,
     padding: 18,
-    margin: 6,
     alignItems: 'center',
     shadowColor: 'rgba(79,140,255,0.18)',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.14,
     shadowRadius: 12,
     elevation: 6,
+    minWidth: 150, // Mínimo para móviles
+    flex: 1, // Flex para adaptarse
+    maxWidth: 240, // Máximo para tablets/web
+    margin: 6,
+  },
+  responsiveCard: {
+    // Se adapta automáticamente con flex: 1
   },
   iconCircle: {
     width: 48,
@@ -721,7 +733,8 @@ const styles = StyleSheet.create({
   },
   sectionContainer: {
     marginTop: 20,
-    width: '94%',
+    width: '100%',
+    maxWidth: 1000,
     backgroundColor: '#fff',
     borderRadius: 14,
     padding: 16,
@@ -731,6 +744,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.10,
     shadowRadius: 8,
     elevation: 4,
+  },
+  responsiveSection: {
+    paddingHorizontal: 16,
   },
   sectionTitle: {
     fontSize: 15,
@@ -742,6 +758,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     width: '100%',
+    flexWrap: 'wrap',
+    gap: 10,
   },
   actionButton: {
     flexDirection: 'row',
@@ -751,7 +769,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 12,
     flex: 1,
-    marginHorizontal: 4,
+    minWidth: 150,
+    justifyContent: 'center',
   },
   actionButtonText: {
     color: '#4f8cff',
@@ -775,7 +794,8 @@ const styles = StyleSheet.create({
   },
   infoContainer: {
     marginTop: 20,
-    width: '94%',
+    width: '100%',
+    maxWidth: 1000,
     backgroundColor: '#e7f0ff',
     borderRadius: 14,
     padding: 20,
@@ -796,7 +816,8 @@ const styles = StyleSheet.create({
   },
   detailContainer: {
     marginTop: 20,
-    width: '94%',
+    width: '100%',
+    maxWidth: 1000,
     backgroundColor: '#fff',
     borderRadius: 14,
     padding: 16,
@@ -805,6 +826,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.10,
     shadowRadius: 8,
     elevation: 4,
+  },
+  responsiveDetail: {
+    paddingHorizontal: 16,
   },
   detailTitle: {
     fontSize: 16,
@@ -823,6 +847,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 4,
+    flexWrap: 'wrap',
   },
   notaDescripcion: {
     fontSize: 14,
@@ -838,6 +863,12 @@ const styles = StyleSheet.create({
   notaDetalle: {
     fontSize: 12,
     color: '#666',
+    marginBottom: 2,
+  },
+  notaEstado: {
+    fontSize: 11,
+    color: '#f7b731',
+    fontWeight: '600',
   },
   inscripcionItem: {
     backgroundColor: '#f8f9fe',
@@ -850,6 +881,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 4,
+    flexWrap: 'wrap',
   },
   inscripcionNombre: {
     fontSize: 14,
@@ -861,14 +893,47 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
-  inscripcionDetalle: {
-    fontSize: 12,
-    color: '#666',
-  },
   inscripcionFormacion: {
     fontSize: 12,
     color: '#4f8cff',
     fontWeight: '600',
     marginBottom: 4,
+  },
+  inscripcionDetalle: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 2,
+  },
+  inscripcionPago: {
+    fontSize: 11,
+    color: '#2dce89',
+    fontWeight: '600',
+  },
+  pagoItem: {
+    backgroundColor: '#f0f9f4',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  pagoHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+    flexWrap: 'wrap',
+  },
+  pagoMonto: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#2dce89',
+  },
+  pagoFecha: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '600',
+  },
+  pagoDetalle: {
+    fontSize: 12,
+    color: '#666',
   },
 });

@@ -19,6 +19,7 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
 from django.utils.timezone import now
+from django.db import models
 
 import logging
 from apps.factura.models import Nota, NotaRelacionada, Pago, PlanArticulo, PagoTemporal
@@ -435,8 +436,7 @@ class PagoCreateSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         """
-        Crea un PagoTemporal usando la cuenta bancaria de la configuración.
-        IMPORTANTE: NO cambia el estado de la nota aquí.
+        Crea un PagoTemporal y actualiza el estado de la nota a PARCIAL si corresponde
         """
         nota = self.context.get('nota')
         configuracion = self.context.get('configuracion')
@@ -460,6 +460,13 @@ class PagoCreateSerializer(serializers.ModelSerializer):
         if not tasa:
             raise serializers.ValidationError(f"No se encontró tasa para la moneda {moneda}.")
 
+        # Calcular pagos existentes para determinar si cambiar estado a PARCIAL
+        pagos_existentes = Pago.objects.filter(idNota=nota).aggregate(total_pagado=models.Sum('monto'))['total_pagado'] or 0
+        pagos_temporales = PagoTemporal.objects.filter(idNota=nota, confirmado=False).aggregate(total_temporal=models.Sum('monto'))['total_temporal'] or 0
+        
+        total_pagado_actual = Decimal(str(pagos_existentes)) + Decimal(str(pagos_temporales))
+        nuevo_total_pagado = total_pagado_actual + validated_data['monto']
+
         # Crear PagoTemporal con la cuenta bancaria de la configuración
         pago_temporal = PagoTemporal.objects.create(
             idNota=nota,
@@ -469,8 +476,17 @@ class PagoCreateSerializer(serializers.ModelSerializer):
             referencia=validated_data.get('referencia', '') or '',
             observaciones=validated_data.get('observaciones', '') or '',
             fechaPago=validated_data['fechaPago'],
+            formaPago=validated_data['formaPago'],
             confirmado=False
         )
+
+        # Actualizar estado de la nota si es necesario
+        if nuevo_total_pagado < nota.totalNota and nota.estado != 'PARCIAL':
+            nota.estado = 'PARCIAL'
+            nota.save()
+        elif nuevo_total_pagado >= nota.totalNota:
+            nota.estado = 'PAGADA'
+            nota.save()
 
         return pago_temporal
 
