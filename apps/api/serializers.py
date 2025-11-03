@@ -182,13 +182,13 @@ class CuotaFormacionSerializer(serializers.ModelSerializer):
             return 0.0
 
 class InscripcionSerializer(serializers.ModelSerializer):
-    idPersona_detail = PersonaSerializer(source='idPersona', read_only=True)
-    idFormacion_detail = FormacionSerializer(source='idCohorte.idFormacion', read_only=True)
+    idPersona_detail = serializers.SerializerMethodField()
+    idFormacion_detail = serializers.SerializerMethodField()
     idCohorte_detail = CohorteSerializer(source='idCohorte', read_only=True)
     cuotas = serializers.SerializerMethodField(read_only=True)
 
-    idPersona = serializers.IntegerField(write_only=True)
-    idCohorte = serializers.IntegerField(write_only=True)
+    idPersona = serializers.IntegerField(write_only=True, required=False)
+    idCohorte = serializers.IntegerField(write_only=True, required=False)
 
     montoTotal = serializers.SerializerMethodField()
     saldoPendiente = serializers.SerializerMethodField()
@@ -211,69 +211,89 @@ class InscripcionSerializer(serializers.ModelSerializer):
             'cuotas',
         ]
 
+    def get_idPersona_detail(self, obj):
+        try:
+            persona = getattr(obj, 'idPersona', None)
+            if not persona:
+                return None
+            # evita importar PersonaSerializer si hay problemas; devuelve campos mínimos
+            return {
+                'idPersona': getattr(persona, 'idPersona', None),
+                'nombre': getattr(persona, 'nombre', None),
+                'cedula': getattr(persona, 'cedula', None),
+            }
+        except Exception:
+            return None
+
+    def get_idFormacion_detail(self, obj):
+        """
+        Devuelve data de la formación asociada de forma defensiva:
+        - intenta idCohorte.idFormacion (select_related)
+        - si no existe, intenta buscar mediante idCohorte_id -> query (fallback)
+        """
+        try:
+            cohorte = getattr(obj, 'idCohorte', None)
+            if cohorte:
+                form = getattr(cohorte, 'idFormacion', None)
+                if form:
+                    return FormacionSerializer(form).data
+                # si cohorte existe pero no tiene idFormacion prefetched: intentar resolver por FK id
+                form_id = getattr(cohorte, 'idFormacion_id', None) or getattr(cohorte, 'idFormacion', None)
+                if form_id:
+                    # hacer una consulta ligera
+                    form_obj = Formacion.objects.filter(idFormacion=form_id).first()
+                    if form_obj:
+                        return FormacionSerializer(form_obj).data
+            # fallback: intentar si el objeto Inscripcion tiene un campo nombreFormacion simple
+            nombre_directo = getattr(obj, 'nombreFormacion', None)
+            if nombre_directo:
+                return {'nombreFormacion': nombre_directo}
+            return None
+        except Exception as e:
+            logger.exception("get_idFormacion_detail error: %s", e)
+            return None
+
     def get_cuotas(self, obj):
-        """
-        Devuelve cuotas asociadas a la Formacion de la cohorte.
-        Primero intenta usar datos prefetchados (formacion.prefetched_cuotas),
-        si no, hace una consulta directa a CuotaFormacion.
-        """
         try:
             coh = getattr(obj, 'idCohorte', None)
             if not coh:
                 return []
-
-            formacion = getattr(coh, 'idFormacion', None)
-            if not formacion:
+            form = getattr(coh, 'idFormacion', None)
+            form_id = None
+            if form:
+                # si el prefetch populó attr 'prefetched_cuotas' en la instancia de formación
+                pref = getattr(form, 'prefetched_cuotas', None)
+                if pref is not None:
+                    return CuotaFormacionSerializer(pref, many=True).data
+                form_id = getattr(form, 'idFormacion', None) or getattr(form, 'id', None)
+            else:
+                # fallback: tal vez solo tenemos id
+                form_id = getattr(coh, 'idFormacion_id', None)
+            if not form_id:
                 return []
-
-            # Si prefetch_related llenó 'prefetched_cuotas' en la Formacion:
-            pref = getattr(formacion, 'prefetched_cuotas', None)
-            if pref is not None:
-                return CuotaFormacionSerializer(pref, many=True).data
-
-            # fallback: consulta directa
-            formacion_id = getattr(formacion, 'idFormacion', None) or getattr(formacion, 'id', None)
-            if not formacion_id:
-                return []
-
-            qs = CuotaFormacion.objects.filter(idFormacion_id=formacion_id, is_active=True).order_by('orden')
+            qs = CuotaFormacion.objects.filter(idFormacion_id=form_id, is_active=True).order_by('orden')
             return CuotaFormacionSerializer(qs, many=True).data
-        except Exception:
+        except Exception as e:
+            logger.exception("get_cuotas error: %s", e)
             return []
 
-
-
     def get_montoTotal(self, obj):
-        """Retorna montoTotal como float seguro."""
         try:
-            v = getattr(obj, 'montoTotal', None)
-            if v is None:
-                # algunos modelos usan total o monto
-                v = getattr(obj, 'total', None) or getattr(obj, 'monto', None) or 0.0
-            return float(v or 0.0)
+            return float(getattr(obj, 'montoTotal', getattr(obj, 'monto_total', getattr(obj, 'total', 0)) or 0) )
         except Exception:
             return 0.0
 
     def get_saldoPendiente(self, obj):
-        """Retorna saldoPendiente como float seguro."""
         try:
-            v = getattr(obj, 'saldoPendiente', None)
-            if v is None:
-                # fallback: calcular como montoTotal - montoPagado si ambos existen
-                monto_total = getattr(obj, 'montoTotal', None) or getattr(obj, 'total', None) or 0.0
-                monto_pagado = getattr(obj, 'montoPagado', None) or getattr(obj, 'pagado', None) or 0.0
-                return float((monto_total or 0.0) - (monto_pagado or 0.0))
-            return float(v or 0.0)
+            return float(getattr(obj, 'saldoPendiente', getattr(obj, 'montoTotal', 0) - getattr(obj, 'montoPagado', 0)))
         except Exception:
             return 0.0
 
     def create(self, validated_data):
         id_persona = validated_data.pop('idPersona', None)
         id_cohorte = validated_data.pop('idCohorte', None)
-
         if not id_persona or not id_cohorte:
             raise serializers.ValidationError("idPersona e idCohorte son obligatorios para crear una inscripción")
-
         inscripcion = Inscripcion.objects.create(
             idPersona_id=id_persona,
             idCohorte_id=id_cohorte,
