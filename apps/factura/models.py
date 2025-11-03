@@ -12,6 +12,7 @@ from apps.solicitud.models import Solicitud
 from django.utils.timezone import now
 from apps.planCuenta.models import PlanCuenta
 from django.db import transaction
+import re
 
 
 
@@ -224,15 +225,38 @@ class PagoTemporal(models.Model):
         if not periodo_activo:
             raise ValueError("No hay ningún periodo contable registrado o activo en el sistema.")
 
+        # Evitar duplicados en el nombre del asiento contable
+        base_numero_asiento = f"PAGO-{self.idNota.numeroNota}"
+
+        # Buscar todos los asientos con ese prefijo
+        asientos_similares = AsientoContable.objects.filter(
+                   numeroAsiento__startswith=base_numero_asiento
+        ).values_list('numeroAsiento', flat=True)
+
+        # Determinar número de asiento único
+        if base_numero_asiento not in asientos_similares:
+            numero_asiento_pago = base_numero_asiento
+        else:
+            # Buscar todos los sufijos -N existentes
+            sufijos = []
+            patron = re.compile(rf"^{re.escape(base_numero_asiento)}-(\d+)$")
+            for n in asientos_similares:
+                match = patron.match(n)
+                if match:
+                    sufijos.append(int(match.group(1)))
+            if sufijos:
+                nuevo_sufijo = max(sufijos) + 1
+            else:
+                nuevo_sufijo = 1
+            numero_asiento_pago = f"{base_numero_asiento}-{nuevo_sufijo}"
+
         # Crear el asiento contable para el pago
-        numero_asiento_pago = f"PAGO-{self.idNota.numeroNota}"
         asiento_pago = AsientoContable.objects.create(
             numeroAsiento=numero_asiento_pago,
             fechaAsiento=self.fechaPago,
             conceptoAsiento=f"Pago de {self.idNota.numeroNota}",
             idPeriodo=periodo_activo
         )
-
         # Obtener la cuenta del Plan de Cuenta usada en el Debe del asiento principal de la nota
         asiento_principal = self.idNota.idAsiento
         detalle_debe = DetalleAsiento.objects.filter(idAsiento=asiento_principal, debe__gt=0).first()
