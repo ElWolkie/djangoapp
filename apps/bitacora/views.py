@@ -55,7 +55,7 @@ def ejecutar_limpieza_bitacora(request):
 class BitacoraListView(ListView):
     model = Bitacora
     template_name = 'bitacora_list.html'
-    paginate_by = 1
+    paginate_by = 15
     context_object_name = 'registros'
 
     def get_queryset(self):

@@ -194,5 +194,61 @@
       url.searchParams.delete('page');
       window.location.href = url.toString();
     }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const forms = document.querySelectorAll('form[action]');
+
+      forms.forEach(form => {
+        form.addEventListener('submit', async (event) => {
+          event.preventDefault();
+
+          const url = form.action;
+          const formData = new FormData(form);
+          const csrfToken = formData.get('csrfmiddlewaretoken');
+
+          try {
+            const response = await fetch(url, {
+              method: 'POST',
+              headers: {
+                'X-CSRFToken': csrfToken,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(Object.fromEntries(formData)),
+            });
+
+            const globalMessages = document.getElementById('globalMessages');
+            if (response.ok) {
+              const result = await response.json();
+              globalMessages.innerHTML = `
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                  ${result.message || 'Operación exitosa.'}
+                  <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+                    <i class="fas fa-times"></i>
+                  </button>
+                </div>`;
+              setTimeout(() => window.location.reload(), 2000); // Recargar después de 2 segundos
+            } else {
+              const result = await response.json();
+              globalMessages.innerHTML = `
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                  ${result.message || 'Ocurrió un error.'}
+                  <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+                    <i class="fas fa-times"></i>
+                  </button>
+                </div>`;
+            }
+          } catch (error) {
+            const globalMessages = document.getElementById('globalMessages');
+            globalMessages.innerHTML = `
+              <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                Error de red: ${error.message}
+                <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+                  <i class="fas fa-times"></i>
+                </button>
+              </div>`;
+          }
+        });
+      });
+    });
   </script>
 {% endblock javascripts %}

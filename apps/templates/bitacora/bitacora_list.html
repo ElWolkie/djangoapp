@@ -17,12 +17,19 @@
       color: white;
       border-radius: 15px 15px 0 0;
     }
-    /* Quitar cualquier override de .modal.fade.show que tenías */
+  .container-balance {
+    max-width: 1500px;
+    margin: 2rem auto;
+    padding: 2rem;
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  }
   </style>
 {% endblock %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="container-balance mt-4">
   <h2 class="mb-4">Registros de Bitácora</h2>
 
   <!-- Filtros -->
@@ -30,7 +37,7 @@
         <div class="row g-2">
             <div class="col-md-3">
             <input type="text" name="usuario" class="form-control text-dark"
-                    placeholder="Usuario" value="{{ filtro_usuario }}">
+                    placeholder="Buscar por usuario" value="{{ filtro_usuario }}">
             </div>
             <div class="col-md-3">
             <select name="accion" class="form-control text-dark">
@@ -132,7 +139,7 @@
 </div>
 
 
-    <div class="table-responsive">
+    <div class="table-responsive" style="zoom:0.9;">
         <table class="table table-striped">
         <thead class="table-light">
             <tr>
