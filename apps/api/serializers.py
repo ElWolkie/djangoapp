@@ -417,7 +417,6 @@ class AsientoContableSimpleSerializer(serializers.ModelSerializer):
 class PagoCreateSerializer(serializers.ModelSerializer):
     idNota = serializers.IntegerField(write_only=True)
     monto = serializers.DecimalField(max_digits=20, decimal_places=4)
-    fechaPago = serializers.DateField()
     formaPago = serializers.CharField(max_length=50)
     referencia = serializers.CharField(max_length=100, required=False, allow_blank=True)
     observaciones = serializers.CharField(required=False, allow_blank=True)
@@ -427,8 +426,7 @@ class PagoCreateSerializer(serializers.ModelSerializer):
         fields = [
             'idNota',
             'monto',
-            'fechaPago',
-            'formaPago',
+            'formaPago',  # Quitamos fechaPago
             'referencia',
             'observaciones',
         ]
@@ -497,7 +495,7 @@ class PagoCreateSerializer(serializers.ModelSerializer):
         total_pagado_actual = Decimal(str(pagos_existentes)) + Decimal(str(pagos_temporales))
         nuevo_total_pagado = total_pagado_actual + validated_data['monto']
 
-        # Crear PagoTemporal con la cuenta bancaria de la configuración
+        # Crear PagoTemporal - fechaPago se genera automáticamente con auto_now_add=True
         pago_temporal = PagoTemporal.objects.create(
             idNota=nota,
             idCuentaBanco=configuracion.idCuentaBanco,
@@ -505,9 +503,9 @@ class PagoCreateSerializer(serializers.ModelSerializer):
             monto=validated_data['monto'],
             referencia=validated_data.get('referencia', '') or '',
             observaciones=validated_data.get('observaciones', '') or '',
-            fechaPago=validated_data['fechaPago'],
             formaPago=validated_data['formaPago'],
             confirmado=False
+            # fechaPago se asigna automáticamente
         )
 
         # Actualizar estado de la nota si es necesario
