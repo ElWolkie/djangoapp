@@ -4,10 +4,7 @@ import re
 import uuid
 import decimal
 import traceback
-
-import logging
-logger = logging.getLogger(__name__)
-
+from venv import logger
 from rest_framework import serializers
 from apps.home.models import Configuracion, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Moneda, Tasa, Formacion, CuotaFormacion, TipoFormacion, Usuarios
 from apps.persona.models import Personas, PersonaTP, TipoPersona
@@ -17,12 +14,11 @@ from apps.solicitud.models import Solicitud
 from apps.asientoContable.models import AsientoContable, DetalleAsiento
 from apps.planCuenta.models import PlanCuenta
 from apps.periodoContable.models import periodoContable
-from apps.cuentaBanco.models import Banco, CuentaBanco
+from apps.cuentaBanco.models import Banco
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
 from django.utils.timezone import now
-from django.db import models, transaction
 
 import logging
 from apps.factura.models import Nota, NotaRelacionada, Pago, PlanArticulo, PagoTemporal
@@ -90,6 +86,7 @@ class FormacionSerializer(serializers.ModelSerializer):
 
     def get_valorInscripcion(self, obj):
         try:
+            # convierte Decimal a float de forma segura
             v = getattr(obj, 'valorInscripcion', None)
             if v is None:
                 return 0.0
@@ -101,19 +98,22 @@ class FormacionSerializer(serializers.ModelSerializer):
 
     def get_cuotas_count(self, obj):
         try:
-            # usar related_name 'cuotas' (según tu model) y fallback a otros nombres
-            rel = getattr(obj, 'cuotas', None)
-            if rel is None:
-                rel = getattr(obj, 'cuotaformacion_set', None)
-            if rel is None:
-                return 0
-            try:
-                return rel.filter(is_active=True).count()
-            except Exception:
+            # intentos por nombres habituales de relación inversa
+            candidates = ['cuotas', 'cuotaformacion_set', 'inscripcioncuota_set', 'cuotas_set']
+            for name in candidates:
+                rel = getattr(obj, name, None)
+                if rel is None:
+                    continue
                 try:
-                    return rel.count()
+                    # si es queryset, filtrar por is_active si aplica
+                    return rel.filter(is_active=True).count()
                 except Exception:
-                    return 0
+                    try:
+                        return rel.count()
+                    except Exception:
+                        continue
+            # fallback seguro
+            return 0
         except Exception:
             return 0
 
@@ -137,12 +137,14 @@ class CohorteSerializer(serializers.ModelSerializer):
 
     def get_inscripcionAbierta(self, obj):
         try:
+            # si no hay fechaInicio no está abierta
             if not obj.fechaInicio:
                 return False
             lapso = int(obj.lapsoInscripcion or 0)
-            inicio_date = obj.fechaInicio
+            inicio_date = obj.fechaInicio if hasattr(obj.fechaInicio, 'date') else obj.fechaInicio
             hoy = now().date()
             fecha_fin_lapso = inicio_date + timedelta(days=lapso)
+            # está abierta si hoy está entre inicio_date y fecha_fin_lapso (inclusive)
             return inicio_date <= hoy <= fecha_fin_lapso
         except Exception:
             return False
@@ -182,13 +184,13 @@ class CuotaFormacionSerializer(serializers.ModelSerializer):
             return 0.0
 
 class InscripcionSerializer(serializers.ModelSerializer):
-    idPersona_detail = serializers.SerializerMethodField()
-    idFormacion_detail = serializers.SerializerMethodField()
+    idPersona_detail = PersonaSerializer(source='idPersona', read_only=True)
+    idFormacion_detail = FormacionSerializer(source='idCohorte.idFormacion', read_only=True)
     idCohorte_detail = CohorteSerializer(source='idCohorte', read_only=True)
     cuotas = serializers.SerializerMethodField(read_only=True)
 
-    idPersona = serializers.IntegerField(write_only=True, required=False)
-    idCohorte = serializers.IntegerField(write_only=True, required=False)
+    idPersona = serializers.IntegerField(write_only=True)
+    idCohorte = serializers.IntegerField(write_only=True)
 
     montoTotal = serializers.SerializerMethodField()
     saldoPendiente = serializers.SerializerMethodField()
@@ -211,89 +213,69 @@ class InscripcionSerializer(serializers.ModelSerializer):
             'cuotas',
         ]
 
-    def get_idPersona_detail(self, obj):
-        try:
-            persona = getattr(obj, 'idPersona', None)
-            if not persona:
-                return None
-            # evita importar PersonaSerializer si hay problemas; devuelve campos mínimos
-            return {
-                'idPersona': getattr(persona, 'idPersona', None),
-                'nombre': getattr(persona, 'nombre', None),
-                'cedula': getattr(persona, 'cedula', None),
-            }
-        except Exception:
-            return None
-
-    def get_idFormacion_detail(self, obj):
-        """
-        Devuelve data de la formación asociada de forma defensiva:
-        - intenta idCohorte.idFormacion (select_related)
-        - si no existe, intenta buscar mediante idCohorte_id -> query (fallback)
-        """
-        try:
-            cohorte = getattr(obj, 'idCohorte', None)
-            if cohorte:
-                form = getattr(cohorte, 'idFormacion', None)
-                if form:
-                    return FormacionSerializer(form).data
-                # si cohorte existe pero no tiene idFormacion prefetched: intentar resolver por FK id
-                form_id = getattr(cohorte, 'idFormacion_id', None) or getattr(cohorte, 'idFormacion', None)
-                if form_id:
-                    # hacer una consulta ligera
-                    form_obj = Formacion.objects.filter(idFormacion=form_id).first()
-                    if form_obj:
-                        return FormacionSerializer(form_obj).data
-            # fallback: intentar si el objeto Inscripcion tiene un campo nombreFormacion simple
-            nombre_directo = getattr(obj, 'nombreFormacion', None)
-            if nombre_directo:
-                return {'nombreFormacion': nombre_directo}
-            return None
-        except Exception as e:
-            logger.exception("get_idFormacion_detail error: %s", e)
-            return None
-
     def get_cuotas(self, obj):
+        """
+        Devuelve cuotas asociadas a la Formacion de la cohorte.
+        Primero intenta usar datos prefetchados (formacion.prefetched_cuotas),
+        si no, hace una consulta directa a CuotaFormacion.
+        """
         try:
             coh = getattr(obj, 'idCohorte', None)
             if not coh:
                 return []
-            form = getattr(coh, 'idFormacion', None)
-            form_id = None
-            if form:
-                # si el prefetch populó attr 'prefetched_cuotas' en la instancia de formación
-                pref = getattr(form, 'prefetched_cuotas', None)
-                if pref is not None:
-                    return CuotaFormacionSerializer(pref, many=True).data
-                form_id = getattr(form, 'idFormacion', None) or getattr(form, 'id', None)
-            else:
-                # fallback: tal vez solo tenemos id
-                form_id = getattr(coh, 'idFormacion_id', None)
-            if not form_id:
+
+            formacion = getattr(coh, 'idFormacion', None)
+            if not formacion:
                 return []
-            qs = CuotaFormacion.objects.filter(idFormacion_id=form_id, is_active=True).order_by('orden')
+
+            # Si prefetch_related llenó 'prefetched_cuotas' en la Formacion:
+            pref = getattr(formacion, 'prefetched_cuotas', None)
+            if pref is not None:
+                return CuotaFormacionSerializer(pref, many=True).data
+
+            # fallback: consulta directa
+            formacion_id = getattr(formacion, 'idFormacion', None) or getattr(formacion, 'id', None)
+            if not formacion_id:
+                return []
+
+            qs = CuotaFormacion.objects.filter(idFormacion_id=formacion_id, is_active=True).order_by('orden')
             return CuotaFormacionSerializer(qs, many=True).data
-        except Exception as e:
-            logger.exception("get_cuotas error: %s", e)
+        except Exception:
             return []
 
+
+
     def get_montoTotal(self, obj):
+        """Retorna montoTotal como float seguro."""
         try:
-            return float(getattr(obj, 'montoTotal', getattr(obj, 'monto_total', getattr(obj, 'total', 0)) or 0) )
+            v = getattr(obj, 'montoTotal', None)
+            if v is None:
+                # algunos modelos usan total o monto
+                v = getattr(obj, 'total', None) or getattr(obj, 'monto', None) or 0.0
+            return float(v or 0.0)
         except Exception:
             return 0.0
 
     def get_saldoPendiente(self, obj):
+        """Retorna saldoPendiente como float seguro."""
         try:
-            return float(getattr(obj, 'saldoPendiente', getattr(obj, 'montoTotal', 0) - getattr(obj, 'montoPagado', 0)))
+            v = getattr(obj, 'saldoPendiente', None)
+            if v is None:
+                # fallback: calcular como montoTotal - montoPagado si ambos existen
+                monto_total = getattr(obj, 'montoTotal', None) or getattr(obj, 'total', None) or 0.0
+                monto_pagado = getattr(obj, 'montoPagado', None) or getattr(obj, 'pagado', None) or 0.0
+                return float((monto_total or 0.0) - (monto_pagado or 0.0))
+            return float(v or 0.0)
         except Exception:
             return 0.0
 
     def create(self, validated_data):
         id_persona = validated_data.pop('idPersona', None)
         id_cohorte = validated_data.pop('idCohorte', None)
+
         if not id_persona or not id_cohorte:
             raise serializers.ValidationError("idPersona e idCohorte son obligatorios para crear una inscripción")
+
         inscripcion = Inscripcion.objects.create(
             idPersona_id=id_persona,
             idCohorte_id=id_cohorte,
@@ -301,60 +283,86 @@ class InscripcionSerializer(serializers.ModelSerializer):
         )
         return inscripcion
     
+logger = logging.getLogger(__name__)
+
 class NotaSerializer(serializers.ModelSerializer):
     idInscripcion = serializers.SerializerMethodField(read_only=True)
     formacion = serializers.SerializerMethodField(read_only=True)
-    persona = serializers.SerializerMethodField(read_only=True)
-    idPersona_detail = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Nota
         fields = [
             'idNota', 'numeroNota', 'fechaEmision', 'totalNota', 'estado',
-            'tipoArticulo', 'formaPago', 'idInscripcion', 'formacion', 'persona', 'idPersona_detail'
+            'tipoArticulo', 'formaPago', 'idInscripcion', 'formacion',
         ]
 
     def _get_first_relation(self, obj):
         """
-        Obtener rel prefetched o a través de relaciones
+        Obtiene la primera NotaRelacionada asociada (preferiblemente la prefetechada).
+        Devolvemos siempre un objeto relation o None.
         """
         try:
-            # Primero intentar con las relaciones prefetched
-            prefetched = getattr(obj, 'prefetched_relaciones', None)
-            if prefetched and len(prefetched) > 0:
-                return prefetched[0]
-            
-            # Si no hay prefetch, buscar directamente
-            rel = obj.relaciones.filter(idInscripcion__isnull=False).select_related(
-                'idInscripcion__idCohorte__idFormacion',
-                'idInscripcion__idPersona'
-            ).first()
-            return rel
+            # Si la vista prefetcheó y dejó el atributo, úsalo
+            prefetched_list = getattr(obj, 'prefetched_relaciones_con_inscripcion', None)
+            if prefetched_list:
+                return prefetched_list[0] if prefetched_list else None
+
+            # Intentar acceder a la relación que viene del related_name 'relaciones'
+            rels = getattr(obj, 'relaciones', None)
+            if rels is not None:
+                first = rels.first()
+                if first:
+                    return first
+
+            # Fallback: consulta select_related para evitar N+1 si no había prefetech
+            logger.warning(f"[Consulta N+1] Ejecutando fallback lento para Nota {obj.idNota}")
+            return NotaRelacionada.objects.filter(
+                idNota=obj,
+                idInscripcion__isnull=False
+            ).select_related('idInscripcion__idCohorte__idFormacion').first()
+
         except Exception as e:
-            logger.exception("Error en _get_first_relation: %s", e)
+            logger.exception(f"Error en _get_first_relation para nota {obj.idNota}: {e}")
             return None
 
     def _resolve_formacion_from_inscripcion(self, ins):
+        """
+        Intentos ordenados para obtener el objeto / nombre de la formación
+        desde una instancia de Inscripcion.
+        Devuelve dict con keys mínimas {'idFormacion':..., 'nombreFormacion': ...}
+        o {'nombreFormacion': 'Formación no disponible'} como fallback.
+        """
         if not ins:
             return {'nombreFormacion': 'Formación no disponible'}
-        try:
-            coh = getattr(ins, 'idCohorte', None)
-            if coh:
-                form = getattr(coh, 'idFormacion', None)
-                if form:
-                    return {
-                        'idFormacion': form.idFormacion, 
-                        'nombreFormacion': form.nombreFormacion
-                    }
-            return {'nombreFormacion': 'Formación no disponible'}
-        except Exception as e:
-            logger.exception("Error resolviendo formación desde Inscripcion: %s", e)
-            return {'nombreFormacion': 'Formación no disponible'}
+
+        # 1) Si Inscripcion tiene FK directa llamada 'idFormacion'
+        form = getattr(ins, 'idFormacion', None)
+        if form:
+            nombre = getattr(form, 'nombreFormacion', getattr(form, 'nombre', None)) or str(form)
+            identificador = getattr(form, 'idFormacion', getattr(form, 'id', None))
+            return {'idFormacion': identificador, 'nombreFormacion': nombre}
+
+        # 2) Si existe cohorte -> cohorte.idFormacion
+        coh = getattr(ins, 'idCohorte', None)
+        if coh:
+            form2 = getattr(coh, 'idFormacion', None)
+            if form2:
+                nombre = getattr(form2, 'nombreFormacion', getattr(form2, 'nombre', None)) or str(form2)
+                identificador = getattr(form2, 'idFormacion', getattr(form2, 'id', None))
+                return {'idFormacion': identificador, 'nombreFormacion': nombre}
+
+        # 3) Si Inscripcion contiene un campo nombreFormacion (string) u otro nombre directo
+        nombre_directo = getattr(ins, 'nombreFormacion', None) or getattr(ins, 'formacion_nombre', None)
+        if nombre_directo:
+            return {'nombreFormacion': nombre_directo}
+
+        # 4) Fallback
+        return {'nombreFormacion': 'Formación no disponible'}
 
     def get_idInscripcion(self, obj):
         rel = self._get_first_relation(obj)
-        if rel and rel.idInscripcion:
-            return rel.idInscripcion.idInscripcion
+        if rel and getattr(rel, 'idInscripcion', None):
+            return getattr(rel.idInscripcion, 'idInscripcion', None)
         return None
 
     def get_formacion(self, obj):
@@ -362,49 +370,17 @@ class NotaSerializer(serializers.ModelSerializer):
         try:
             if not rel:
                 return {'nombreFormacion': 'Formación no disponible'}
-            return self._resolve_formacion_from_inscripcion(rel.idInscripcion)
-        except Exception as e:
-            logger.exception("No se pudo resolver la formación para la nota %s: %s", obj.idNota, e)
-            return {'nombreFormacion': 'Formación no disponible'}
-        
-    def get_persona(self, obj):
-        """Devuelve los datos de la persona desde idPersona directo de la nota"""
-        try:
-            if obj.idPersona:
-                return {
-                    'cedula': obj.idPersona.cedula,
-                    'nombre': f"{obj.idPersona.nombres} {obj.idPersona.apellidos}"
-                }
-        except Exception as e:
-            logger.warning("No se pudo obtener persona directa para nota %s: %s", obj.idNota, e)
-        
-        # Fallback: intentar a través de la relación NotaRelacionada
-        try:
-            rel = self._get_first_relation(obj)
-            if rel and rel.idInscripcion and rel.idInscripcion.idPersona:
-                persona = rel.idInscripcion.idPersona
-                return {
-                    'cedula': persona.cedula,
-                    'nombre': f"{persona.nombres} {persona.apellidos}"
-                }
-        except Exception as e:
-            logger.warning("No se pudo obtener persona por relación para nota %s: %s", obj.idNota, e)
-        
-        return None
 
-    def get_idPersona_detail(self, obj):
-        """Campo adicional para compatibilidad con el frontend"""
-        persona_data = self.get_persona(obj)
-        if persona_data:
-            return {
-                'cedula': persona_data['cedula'],
-                'nombres': persona_data['nombre'].split(' ')[0] if ' ' in persona_data['nombre'] else persona_data['nombre'],
-                'apellidos': ' '.join(persona_data['nombre'].split(' ')[1:]) if ' ' in persona_data['nombre'] else ''
-            }
-        return None
+            ins = getattr(rel, 'idInscripcion', None)
+            resolved = self._resolve_formacion_from_inscripcion(ins)
+            return resolved
+        except Exception as e:
+            logger.exception(f"No se pudo resolver la formación para la nota {obj.idNota}. Rel: {rel}. Error: {e}")
+            return {'nombreFormacion': 'Formación no disponible'}
 
 class PagoSerializer(serializers.ModelSerializer):
     idNota = NotaSerializer(read_only=True)
+    
     class Meta:
         model = Pago
         fields = [
@@ -422,13 +398,18 @@ class PagoCreateSerializer(serializers.ModelSerializer):
     monto = serializers.DecimalField(max_digits=20, decimal_places=4)
     fechaPago = serializers.DateField()
     formaPago = serializers.CharField(max_length=50)
-    referencia = serializers.CharField(max_length=100, required=False, allow_blank=True, default='')
-    observaciones = serializers.CharField(required=False, allow_blank=True, default='')
+    referencia = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    observaciones = serializers.CharField(required=False, allow_blank=True)
 
     class Meta:
-        model = PagoTemporal # ¡Correcto!
+        model = Pago
         fields = [
-            'idNota', 'monto', 'fechaPago', 'formaPago', 'referencia', 'observaciones',
+            'idNota',
+            'monto',
+            'fechaPago',
+            'formaPago',
+            'referencia',
+            'observaciones',
         ]
 
     def validate_monto(self, value):
@@ -437,13 +418,13 @@ class PagoCreateSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, data):
-        # 1. Validar que la nota exista
+        # Validar que la nota exista
         try:
             nota = Nota.objects.get(idNota=data['idNota'])
         except Nota.DoesNotExist:
             raise serializers.ValidationError({"idNota": "La nota especificada no existe."})
 
-        # 2. Validaciones de negocio
+        # Validaciones de negocio
         if nota.estado == 'PAGADA':
             raise serializers.ValidationError("Esta nota ya ha sido pagada completamente.")
 
@@ -451,70 +432,109 @@ class PagoCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({
                 "monto": f"El monto no puede exceder el total de la nota (${nota.totalNota})."
             })
-        
-        # 3. Validar referencia
-        if data.get('formaPago') != 'EFECTIVO' and not data.get('referencia'):
-             raise serializers.ValidationError({"referencia": "El número de referencia es obligatorio."})
 
-        # 4. Validar que existe configuración con cuenta bancaria
-        configuracion = Configuracion.objects.first()
-        if not configuracion or not configuracion.idCuentaBanco:
-            raise serializers.ValidationError("No hay cuenta bancaria configurada en el sistema.")
-
-        # Guardar la nota y configuración en el contexto
+        # Guardar la nota en el contexto para usarla en create / view
         self.context['nota'] = nota
-        self.context['configuracion'] = configuracion
         return data
 
-    @transaction.atomic
     def create(self, validated_data):
         """
-        Crea un PagoTemporal y actualiza el estado de la nota si es necesario.
+        Crea el AsientoContable, Pago y DetalleAsiento. 
+        Este método se espera sea llamado dentro de una transacción atómica desde la view.
         """
         nota = self.context.get('nota')
-        configuracion = self.context.get('configuracion')
+        if nota is None:
+            raise serializers.ValidationError("Nota no encontrada en contexto.")
 
-        # 1. Obtener Tasa (basado en la moneda de la configuración)
-        if not configuracion.moneda:
-             raise serializers.ValidationError("La configuración no tiene una moneda definida.")
-        
-        tasa = Tasa.objects.filter(idMoneda=configuracion.moneda).order_by('-idTasa').first()
+        # Obtener moneda/tasa: preferir configuración si existe, si no fallback a Moneda id=1
+        configuracion = Configuracion.objects.first()
+        moneda = None
+        if configuracion and getattr(configuracion, 'moneda', None):
+            moneda = configuracion.moneda
+        else:
+            moneda = Moneda.objects.filter(idMoneda=1).first()
+
+        if not moneda:
+            raise serializers.ValidationError("No se pudo determinar la moneda del sistema (ni configuración ni idMoneda=1).")
+
+        tasa = Tasa.objects.filter(idMoneda=moneda).order_by('-idTasa').first()
         if not tasa:
-            raise serializers.ValidationError(f"No se encontró tasa para la moneda {configuracion.moneda}.")
+            raise serializers.ValidationError(f"No se encontró tasa para la moneda {moneda}.")
 
-        # 2. Calcular pagos existentes para determinar si cambiar estado a PARCIAL
-        pagos_existentes = Pago.objects.filter(idNota=nota).aggregate(total_pagado=models.Sum('monto'))['total_pagado'] or 0
-        pagos_temporales_pendientes = PagoTemporal.objects.filter(idNota=nota, confirmado=False).aggregate(total_temporal=models.Sum('monto'))['total_temporal'] or 0
-        
-        total_comprometido = Decimal(str(pagos_existentes)) + Decimal(str(pagos_temporales_pendientes))
-        nuevo_total_comprometido = total_comprometido + validated_data['monto']
+        # periodo contable activo (la view puede validar también)
+        from apps.periodoContable.models import periodoContable
+        periodo_activo = periodoContable.objects.filter(estadoPeriodo=True).first()
+        if not periodo_activo:
+            raise serializers.ValidationError("No hay periodo contable activo.")
 
-        # 3. Crear el PagoTemporal (¡Ahora sí!)
-        pago_temporal = PagoTemporal.objects.create(
-            idNota=nota,
-            idCuentaBanco=configuracion.idCuentaBanco,
-            idTasa=tasa,
-            monto=validated_data['monto'],
-            referencia=validated_data.get('referencia', ''),
-            observaciones=validated_data.get('observaciones', ''),
-            fechaPago=validated_data['fechaPago'],
-            formaPago=validated_data['formaPago'],
-            confirmado=False  # Nace como no confirmado
+        # Crear AsientoContable con número único
+        numero_asiento = f"PAGO-{now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
+        asiento = AsientoContable.objects.create(
+            numeroAsiento=numero_asiento,
+            fechaAsiento=now().date(),
+            conceptoAsiento=f"Pago de {validated_data['formaPago']} - Nota: {nota.numeroNota}",
+            idPeriodo=periodo_activo
         )
 
-        # 4. Actualizar estado de la nota (PENDIENTE -> PARCIAL o PAGADA)
-        if nuevo_total_comprometido >= nota.totalNota:
-            if nota.estado != 'PAGADA':
-                nota.estado = 'PAGADA'
-                nota.save(update_fields=['estado'])
-                logger.info(f"Nota {nota.idNota} actualizada a PAGADA (temporal)")
-        elif nuevo_total_comprometido > 0 and nota.estado == 'PENDIENTE':
-            nota.estado = 'PARCIAL'
-            nota.save(update_fields=['estado'])
-            logger.info(f"Nota {nota.idNota} actualizada a PARCIAL (temporal)")
+        # Crear Pago
+        pago = Pago.objects.create(
+            idNota=nota,
+            idAsiento=asiento,
+            idTasa=tasa,
+            monto=validated_data['monto'],
+            fechaPago=validated_data['fechaPago'],
+            formaPago=validated_data['formaPago'],
+            referencia=validated_data.get('referencia', '') or '',
+            observaciones=validated_data.get('observaciones', '') or ''
+        )
 
-        # 5. Devolver el objeto PagoTemporal creado
-        return pago_temporal
+        # Actualizar estado de nota
+        if validated_data['monto'] >= nota.totalNota:
+            nota.estado = 'PAGADA'
+        else:
+            nota.estado = 'PARCIAL'
+        nota.save()
+
+        # Actualizar inscripción relacionada (si aplica)
+        try:
+            nota_relacionada = NotaRelacionada.objects.filter(idNota=nota).first()
+            if nota_relacionada and nota_relacionada.idInscripcion:
+                inscripcion = nota_relacionada.idInscripcion
+                inscripcion.estadoPago = 'PAGADO' if validated_data['monto'] >= nota.totalNota else 'PARCIAL'
+                inscripcion.save()
+        except Exception as e:
+            # no detiene el proceso si falla esto, solo log
+            print(f"⚠️ No se pudo actualizar inscripción: {str(e)}")
+
+        # Crear detalles de asiento (si existen planes)
+        try:
+            plan_articulo_debe = PlanArticulo.objects.filter(
+                tipoArticulo=nota.tipoArticulo,
+                tipo=True  # en tu modelo tipo es booleano; en versiones previas lo usabas 1/0
+            ).order_by('-fecha').first()
+
+            plan_articulo_haber = PlanArticulo.objects.filter(
+                tipoArticulo=nota.tipoArticulo,
+                tipo=False
+            ).order_by('-fecha').first()
+
+            if plan_articulo_debe and plan_articulo_haber:
+                DetalleAsiento.objects.create(
+                    idAsiento=asiento,
+                    idPlanCuenta=plan_articulo_debe.idPlanCuenta,
+                    debe=validated_data['monto'],
+                    haber=Decimal('0.00')
+                )
+                DetalleAsiento.objects.create(
+                    idAsiento=asiento,
+                    idPlanCuenta=plan_articulo_haber.idPlanCuenta,
+                    debe=Decimal('0.00'),
+                    haber=validated_data['monto']
+                )
+        except Exception as e:
+            print(f"⚠️ Error creando detalles de asiento: {str(e)}")
+
+        return pago
 
 class RequisitoSerializer(serializers.ModelSerializer):
     class Meta:
@@ -647,26 +667,20 @@ class AsientoContableSerializer(serializers.ModelSerializer):
         fields = ['idAsiento', 'numeroAsiento', 'fechaAsiento', 'conceptoAsiento', 'idPeriodo', 'fechaAsientoDigital', 'detalles']
 
 
-class ConfiguracionSerializer(serializers.ModelSerializer):
-    nombre_banco = serializers.CharField(source='idCuentaBanco.banco', read_only=True)
-    numero_cuenta = serializers.CharField(source='idCuentaBanco.numeroCuentaBanco', read_only=True)
-    tipo_cuenta = serializers.CharField(source='idCuentaBanco.tipoProducto', read_only=True)
-    
+######## Nuevo Serializer para PagoTemporal##################### 
+
+class PagoTemporalSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Configuracion
+        model = PagoTemporal
         fields = [
-            'idConfig',
-            'nombreInstitucion',
-            'rif',
-            'correoInstitucion',
-            'logo',
-            'firma',
-            'moneda',
-            'descuento',
+            'idPagoTemporal',
+            'idNota',
             'idCuentaBanco',
-            'cedulaCuenta',
-            'fechaConfiguracion',
-            'nombre_banco',
-            'numero_cuenta',
-            'tipo_cuenta'
+            'monto',
+            'fechaPago',
+            'referencia',
+            'idTasa',
+            'observaciones',
+            'confirmado'
         ]
+        read_only_fields = ['idPagoTemporal', 'confirmado']
