@@ -4,7 +4,10 @@ import re
 import uuid
 import decimal
 import traceback
-from venv import logger
+
+import logging
+logger = logging.getLogger(__name__)
+
 from rest_framework import serializers
 from apps.home.models import Configuracion, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Moneda, Tasa, Formacion, CuotaFormacion, TipoFormacion, Usuarios
 from apps.persona.models import Personas, PersonaTP, TipoPersona
