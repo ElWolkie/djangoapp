@@ -71,6 +71,15 @@ interface Configuracion {
   tipo_cuenta?: string;
 }
 
+interface Requisito {
+    idRequisito: number;
+    nombreRequisito: string;
+    app: boolean; // Campo clave para el filtro
+    estadoRequisito: string;
+    fechaRequisito: string;
+}
+
+
 const PagoScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
@@ -81,6 +90,10 @@ const PagoScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [configuracion, setConfiguracion] = useState<Configuracion | null>(null);
   const [loadingConfig, setLoadingConfig] = useState(false);
+
+  const [requisitosData, setRequisitosData] = useState<Requisito[]>([]);
+  const [loadingRequisitos, setLoadingRequisitos] = useState(false);
+
 
   const toBackendDecimal = (v: number | string) => {
     const n = Number(String(v).replace(',', '.')) || 0;
@@ -128,6 +141,34 @@ const PagoScreen: React.FC = () => {
       Alert.alert('Error', 'No se pudo cargar la configuración del sistema');
     } finally {
       setLoadingConfig(false);
+    }
+  }, []);
+
+  // NUEVA FUNCIÓN: Cargar y filtrar requisitos
+  const cargarRequisitos = useCallback(async () => {
+    setLoadingRequisitos(true);
+    try {
+      // Asume que tu endpoint es /api/requisito/
+      const response = await api.get('/api/requisito/');
+      const payload = response.data?.data ?? response.data?.results ?? response.data;
+      
+      let items: Requisito[] = [];
+
+      if (Array.isArray(payload)) items = payload;
+      else if (payload && Array.isArray(payload.results)) items = payload.results;
+      else if (payload && Array.isArray(payload.data)) items = payload.data;
+
+      // FILTRADO CLAVE: Solo guardar los requisitos con app=true
+      const requisitosFisicos = items.filter(req => req.app === true);
+      console.log(`✅ Requisitos cargados y filtrados. Total: ${items.length}, Físicos (app: true): ${requisitosFisicos.length}`);
+      
+      setRequisitosData(requisitosFisicos);
+
+    } catch (error: any) {
+      console.error('Error cargando requisitos:', error?.response ?? error);
+      // Opcional: Mostrar un mensaje de error si la lista de requisitos falla en cargar
+    } finally {
+      setLoadingRequisitos(false);
     }
   }, []);
 
@@ -276,6 +317,23 @@ const PagoScreen: React.FC = () => {
     }
   }, []);
 
+   useEffect(() => {
+    // Se agregan cargarRequisitos al inicio
+    cargarConfiguracion();
+    cargarRequisitos(); // <--- LLAMADA A CARGAR REQUISITOS
+    if (modoDirecto && user) {
+      cargarInscripcionesUsuario();
+      cargarNotasUsuario();
+    }
+    if (notaData) {
+      setNotaSeleccionada(notaData);
+      setFormData(prev => ({ ...prev, idNota: String(notaData.idNota ?? ''), monto: toBackendDecimal(notaData.totalNota ?? 0) }));
+      if (!modoDirecto) {
+        setShowPaymentModal(true);
+      }
+    }
+  }, [modoDirecto, user, notaData, cargarNotasUsuario, cargarInscripcionesUsuario, cargarConfiguracion, cargarRequisitos]);
+
   useEffect(() => {
     cargarConfiguracion();
     if (modoDirecto && user) {
@@ -293,7 +351,7 @@ const PagoScreen: React.FC = () => {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([cargarInscripcionesUsuario(), cargarNotasUsuario(), cargarConfiguracion()]);
+    await Promise.all([cargarInscripcionesUsuario(), cargarNotasUsuario(), cargarConfiguracion(), cargarRequisitos()]);
     setRefreshing(false);
   };
 
@@ -540,7 +598,7 @@ const PagoScreen: React.FC = () => {
     </View>
   );
 
-  // Modal de Requisitos (para notas pagadas)
+ // Modal de Requisitos (ACTUALIZADO para usar requisitosData)
   const ModalRequisitos = () => (
     <Modal
       visible={showRequisitosModal}
@@ -566,45 +624,39 @@ const PagoScreen: React.FC = () => {
               <Text style={styles.successTitle}>¡Pago Confirmado!</Text>
               <Text style={styles.successSubtitle}>
                 Su pago ha sido confirmado exitosamente. Para completar su inscripción, 
-                por favor acérquese a la institución con los siguientes documentos:
+                por favor acérquese a la institución con los siguientes documentos físicos:
               </Text>
             </View>
 
             <View style={styles.requisitosList}>
               <Text style={styles.requisitosTitle}>Documentos Requeridos:</Text>
               
-              <View style={styles.requisitoItem}>
-                <Icon name="checkbox-marked-circle" size={20} color="#28a745" />
-                <Text style={styles.requisitoText}>Copia de la cédula de identidad</Text>
-              </View>
-              
-              <View style={styles.requisitoItem}>
-                <Icon name="checkbox-marked-circle" size={20} color="#28a745" />
-                <Text style={styles.requisitoText}>Comprobante de pago original</Text>
-              </View>
-              
-              <View style={styles.requisitoItem}>
-                <Icon name="checkbox-marked-circle" size={20} color="#28a745" />
-                <Text style={styles.requisitoText}>Foto tipo carnet (fondo blanco)</Text>
-              </View>
-              
-              <View style={styles.requisitoItem}>
-                <Icon name="checkbox-marked-circle" size={20} color="#28a745" />
-                <Text style={styles.requisitoText}>Título de bachiller o equivalente</Text>
-              </View>
-              
-              <View style={styles.requisitoItem}>
-                <Icon name="checkbox-marked-circle" size={20} color="#28a745" />
-                <Text style={styles.requisitoText}>Notas certificadas de bachillerato</Text>
-              </View>
+              {/* LÓGICA DE CARGA Y VISUALIZACIÓN DE REQUISITOS FILTRADOS */}
+              {loadingRequisitos ? (
+                  <ActivityIndicator size="large" color="#007bff" style={{ marginVertical: 20 }} />
+              ) : requisitosData.length > 0 ? (
+                  requisitosData.map((req) => (
+                      <View key={req.idRequisito} style={styles.requisitoItem}>
+                          <Icon name="checkbox-marked-circle" size={20} color="#28a745" />
+                          <Text style={styles.requisitoText}>{req.nombreRequisito}</Text>
+                      </View>
+                  ))
+              ) : (
+                  <View style={styles.requisitoItem}>
+                      <Icon name="information-outline" size={20} color="#ffc107" />
+                      <Text style={[styles.requisitoText, { color: '#ffc107' }]}>
+                          No se encontraron requisitos físicos (app: true) para consignar.
+                      </Text>
+                  </View>
+              )}
             </View>
 
             <View style={styles.infoCard}>
               <Text style={styles.infoTitle}>📍 Dirección de la Institución:</Text>
               <Text style={styles.infoText}>
                 {configuracion?.nombreInstitucion || 'Institución Educativa'}\n
-                Av. Principal, Edificio Central\n
-                Horario de atención: Lunes a Viernes 8:00 AM - 4:00 PM
+                Av. Principal, Edificio Central
+                Horario de atención: Martes a Jueves 8:00 AM - 3:00 PM
               </Text>
             </View>
           </ScrollView>
