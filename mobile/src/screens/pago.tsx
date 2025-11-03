@@ -93,6 +93,7 @@ const PagoScreen: React.FC = () => {
     monto: notaData?.totalNota != null ? toBackendDecimal(notaData.totalNota) : '',
     referencia: '',
     observaciones: '',
+    fechaPago: new Date().toISOString().split('T')[0],
   });
 
   const [errors, setErrors] = useState<{ [k: string]: string }>({});
@@ -342,6 +343,7 @@ const PagoScreen: React.FC = () => {
     if (!formData.monto || isNaN(montoNum) || montoNum <= 0) newErrors.monto = 'Monto debe ser mayor a 0';
     else if (notaSeleccionada && montoNum > Number(notaSeleccionada.totalNota ?? 0)) newErrors.monto = `El monto no puede exceder el total de la nota ($${Number(notaSeleccionada.totalNota ?? 0)})`;
     if (!formData.referencia.trim()) newErrors.referencia = 'Número de referencia es requerido';
+    if (!formData.fechaPago) newErrors.fechaPago = 'Fecha de pago es requerida';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -368,6 +370,7 @@ const PagoScreen: React.FC = () => {
     const payload = {
       idNota: Number(formData.idNota),
       monto: Number(String(formData.monto).replace(',', '.')),
+      fechaPago: formData.fechaPago,
       formaPago: 'TRANSFERENCIA',
       referencia: String(formData.referencia || ''),
       observaciones: String(formData.observaciones || ''),
@@ -834,6 +837,26 @@ const PagoScreen: React.FC = () => {
                   </View>
 
                   <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Fecha de Pago *</Text>
+                    <View style={styles.inputContainer}>
+                      <Icon name="calendar" size={20} color="#6c757d" style={styles.inputIcon} />
+                      <TextInput 
+                        style={[styles.input, errors.fechaPago && styles.inputError]} 
+                        value={formData.fechaPago} 
+                        onChangeText={(v) => handleInputChange('fechaPago', v)} 
+                        placeholder="AAAA-MM-DD" 
+                        placeholderTextColor="#6c757d" 
+                      />
+                    </View>
+                    {errors.fechaPago && (
+                      <View style={styles.errorContainer}>
+                        <Icon name="alert-circle" size={16} color="#dc3545" />
+                        <Text style={styles.errorText}>{errors.fechaPago}</Text>
+                      </View>
+                    )}
+                  </View>
+
+                  <View style={styles.inputGroup}>
                     <Text style={styles.label}>Observaciones (Opcional)</Text>
                     <TextInput 
                       style={[styles.input, styles.textArea]} 
@@ -981,6 +1004,21 @@ const PagoScreen: React.FC = () => {
                 placeholderTextColor="#6c757d" 
               />
               {errors.referencia && <View style={styles.errorContainer}><Icon name="alert-circle" size={16} color="#dc3545" /><Text style={styles.errorText}>{errors.referencia}</Text></View>}
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Fecha de Pago *</Text>
+              <View style={styles.inputContainer}>
+                <Icon name="calendar" size={20} color="#6c757d" style={styles.inputIcon} />
+                <TextInput 
+                  style={[styles.input, errors.fechaPago && styles.inputError]} 
+                  value={formData.fechaPago} 
+                  onChangeText={(v) => handleInputChange('fechaPago', v)} 
+                  placeholder="AAAA-MM-DD" 
+                  placeholderTextColor="#6c757d" 
+                />
+              </View>
+              {errors.fechaPago && <View style={styles.errorContainer}><Icon name="alert-circle" size={16} color="#dc3545" /><Text style={styles.errorText}>{errors.fechaPago}</Text></View>}
             </View>
 
             <View style={styles.inputGroup}>

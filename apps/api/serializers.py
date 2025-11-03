@@ -19,7 +19,7 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
 from django.utils.timezone import now
-from django.db import models
+from django.db import models, transaction
 
 import logging
 from apps.factura.models import Nota, NotaRelacionada, Pago, PlanArticulo, PagoTemporal
@@ -417,18 +417,15 @@ class AsientoContableSimpleSerializer(serializers.ModelSerializer):
 class PagoCreateSerializer(serializers.ModelSerializer):
     idNota = serializers.IntegerField(write_only=True)
     monto = serializers.DecimalField(max_digits=20, decimal_places=4)
+    fechaPago = serializers.DateField()
     formaPago = serializers.CharField(max_length=50)
-    referencia = serializers.CharField(max_length=100, required=False, allow_blank=True)
-    observaciones = serializers.CharField(required=False, allow_blank=True)
+    referencia = serializers.CharField(max_length=100, required=False, allow_blank=True, default='')
+    observaciones = serializers.CharField(required=False, allow_blank=True, default='')
 
     class Meta:
-        model = PagoTemporal
+        model = PagoTemporal # ¡Correcto!
         fields = [
-            'idNota',
-            'monto',
-            'formaPago',  # Quitamos fechaPago
-            'referencia',
-            'observaciones',
+            'idNota', 'monto', 'fechaPago', 'formaPago', 'referencia', 'observaciones',
         ]
 
     def validate_monto(self, value):
@@ -437,13 +434,13 @@ class PagoCreateSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, data):
-        # Validar que la nota exista
+        # 1. Validar que la nota exista
         try:
             nota = Nota.objects.get(idNota=data['idNota'])
         except Nota.DoesNotExist:
             raise serializers.ValidationError({"idNota": "La nota especificada no existe."})
 
-        # Validaciones de negocio
+        # 2. Validaciones de negocio
         if nota.estado == 'PAGADA':
             raise serializers.ValidationError("Esta nota ya ha sido pagada completamente.")
 
@@ -451,8 +448,12 @@ class PagoCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({
                 "monto": f"El monto no puede exceder el total de la nota (${nota.totalNota})."
             })
+        
+        # 3. Validar referencia
+        if data.get('formaPago') != 'EFECTIVO' and not data.get('referencia'):
+             raise serializers.ValidationError({"referencia": "El número de referencia es obligatorio."})
 
-        # Validar que existe configuración con cuenta bancaria
+        # 4. Validar que existe configuración con cuenta bancaria
         configuracion = Configuracion.objects.first()
         if not configuracion or not configuracion.idCuentaBanco:
             raise serializers.ValidationError("No hay cuenta bancaria configurada en el sistema.")
@@ -462,60 +463,54 @@ class PagoCreateSerializer(serializers.ModelSerializer):
         self.context['configuracion'] = configuracion
         return data
 
+    @transaction.atomic
     def create(self, validated_data):
         """
-        Crea un PagoTemporal y actualiza el estado de la nota a PARCIAL si corresponde
+        Crea un PagoTemporal y actualiza el estado de la nota si es necesario.
         """
         nota = self.context.get('nota')
         configuracion = self.context.get('configuracion')
+
+        # 1. Obtener Tasa (basado en la moneda de la configuración)
+        if not configuracion.moneda:
+             raise serializers.ValidationError("La configuración no tiene una moneda definida.")
         
-        if nota is None:
-            raise serializers.ValidationError("Nota no encontrada en contexto.")
-        if configuracion is None or configuracion.idCuentaBanco is None:
-            raise serializers.ValidationError("Configuración de cuenta bancaria no encontrada.")
-
-        # Obtener moneda/tasa
-        moneda = None
-        if configuracion and getattr(configuracion, 'moneda', None):
-            moneda = configuracion.moneda
-        else:
-            moneda = Moneda.objects.filter(idMoneda=1).first()
-
-        if not moneda:
-            raise serializers.ValidationError("No se pudo determinar la moneda del sistema.")
-
-        tasa = Tasa.objects.filter(idMoneda=moneda).order_by('-idTasa').first()
+        tasa = Tasa.objects.filter(idMoneda=configuracion.moneda).order_by('-idTasa').first()
         if not tasa:
-            raise serializers.ValidationError(f"No se encontró tasa para la moneda {moneda}.")
+            raise serializers.ValidationError(f"No se encontró tasa para la moneda {configuracion.moneda}.")
 
-        # Calcular pagos existentes para determinar si cambiar estado a PARCIAL
+        # 2. Calcular pagos existentes para determinar si cambiar estado a PARCIAL
         pagos_existentes = Pago.objects.filter(idNota=nota).aggregate(total_pagado=models.Sum('monto'))['total_pagado'] or 0
-        pagos_temporales = PagoTemporal.objects.filter(idNota=nota, confirmado=False).aggregate(total_temporal=models.Sum('monto'))['total_temporal'] or 0
+        pagos_temporales_pendientes = PagoTemporal.objects.filter(idNota=nota, confirmado=False).aggregate(total_temporal=models.Sum('monto'))['total_temporal'] or 0
         
-        total_pagado_actual = Decimal(str(pagos_existentes)) + Decimal(str(pagos_temporales))
-        nuevo_total_pagado = total_pagado_actual + validated_data['monto']
+        total_comprometido = Decimal(str(pagos_existentes)) + Decimal(str(pagos_temporales_pendientes))
+        nuevo_total_comprometido = total_comprometido + validated_data['monto']
 
-        # Crear PagoTemporal - fechaPago se genera automáticamente con auto_now_add=True
+        # 3. Crear el PagoTemporal (¡Ahora sí!)
         pago_temporal = PagoTemporal.objects.create(
             idNota=nota,
             idCuentaBanco=configuracion.idCuentaBanco,
             idTasa=tasa,
             monto=validated_data['monto'],
-            referencia=validated_data.get('referencia', '') or '',
-            observaciones=validated_data.get('observaciones', '') or '',
+            referencia=validated_data.get('referencia', ''),
+            observaciones=validated_data.get('observaciones', ''),
+            fechaPago=validated_data['fechaPago'],
             formaPago=validated_data['formaPago'],
-            confirmado=False
-            # fechaPago se asigna automáticamente
+            confirmado=False  # Nace como no confirmado
         )
 
-        # Actualizar estado de la nota si es necesario
-        if nuevo_total_pagado < nota.totalNota and nota.estado != 'PARCIAL':
+        # 4. Actualizar estado de la nota (PENDIENTE -> PARCIAL o PAGADA)
+        if nuevo_total_comprometido >= nota.totalNota:
+            if nota.estado != 'PAGADA':
+                nota.estado = 'PAGADA'
+                nota.save(update_fields=['estado'])
+                logger.info(f"Nota {nota.idNota} actualizada a PAGADA (temporal)")
+        elif nuevo_total_comprometido > 0 and nota.estado == 'PENDIENTE':
             nota.estado = 'PARCIAL'
-            nota.save()
-        elif nuevo_total_pagado >= nota.totalNota:
-            nota.estado = 'PAGADA'
-            nota.save()
+            nota.save(update_fields=['estado'])
+            logger.info(f"Nota {nota.idNota} actualizada a PARCIAL (temporal)")
 
+        # 5. Devolver el objeto PagoTemporal creado
         return pago_temporal
 
 class RequisitoSerializer(serializers.ModelSerializer):
