@@ -36,7 +36,9 @@ def libro_diario(request):
     start_date = request.GET.get('start_date')  # Obtener la fecha de inicio
     end_date = request.GET.get('end_date')  # Obtener la fecha de fin
     periodo_id = request.GET.get('periodo')  # Obtener el ID del período contable
-
+   # Obtener símbolo de la moneda desde la configuración
+    config = Configuracion.objects.first()
+    simbolo = config.moneda.simboloMoneda if config and getattr(config, 'moneda', '$') else '$'
     asientos = AsientoContable.objects.prefetch_related('detalles').order_by('fechaAsiento', 'numeroAsiento')
 
     # Filtrar por el término de búsqueda si existe
@@ -89,7 +91,10 @@ def libro_diario(request):
         'total_debe': totales['total_debe'] or 0,
         'total_haber': totales['total_haber'] or 0,
         'periodos': periodoContable.objects.all(),  # Lista de períodos contables
-        'periodo_seleccionado': periodo_seleccionado  # Objeto del período seleccionado
+        'periodo_seleccionado': periodo_seleccionado,  # Objeto del período seleccionado
+        'search_query': search_query,
+        'simbolo': simbolo,
+
     })
 
 def libro_mayor(request):
@@ -101,7 +106,9 @@ def libro_mayor(request):
     periodo_id = request.GET.get('periodo')
     start_date = request.GET.get('start_date')
     end_date = request.GET.get('end_date')
-
+    # Obtener símbolo de la moneda desde la configuración
+    config = Configuracion.objects.first()
+    simbolo = config.moneda.simboloMoneda if config and getattr(config, 'moneda', '$') else '$'
     if start_date or end_date:
         # Si se está utilizando el filtro de rango de fechas, ignorar el filtro de período
         periodo = None
@@ -275,7 +282,8 @@ def libro_mayor(request):
         'periodos': periodoContable.objects.all(),
         'periodo_seleccionado': periodo,
         'total_debe': global_total_debe,
-        'total_haber': global_total_haber
+        'total_haber': global_total_haber,
+        'simbolo': simbolo,
     }
 
     return render(request, 'librosContables/libroMayor.html', context)
@@ -288,7 +296,9 @@ def balance_cuentas(request):
     periodo_id = request.GET.get('periodo')
     page_number = request.GET.get('page', 1)
     items_per_page = 20
-
+    # Obtener símbolo de la moneda desde la configuración
+    config = Configuracion.objects.first()
+    simbolo = config.moneda.simboloMoneda if config and getattr(config, 'moneda', '$') else '$'
     search_query = request.GET.get('search', '').strip()
 
     # Obtener período contable
@@ -498,7 +508,9 @@ def balance_cuentas(request):
         'total_general_saldo_actual': total_general_saldo_actual,
         'total_general_saldo_acumulado': total_general_saldo_acumulado,
         'paginator': paginator,
-        'mostrando_total': f"Mostrando {len(cuentas_aplanadas)} cuentas"
+        'mostrando_total': f"Mostrando {len(cuentas_aplanadas)} cuentas",
+        'search_query': search_query,
+        'simbolo': simbolo
     }
 
     return render(request, 'librosContables/balanceCuentas.html', context)

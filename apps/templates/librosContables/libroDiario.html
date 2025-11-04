@@ -308,12 +308,12 @@
   <div class="totals-container">
     <div class="total-card total-debe">
       <h5>Total Debe</h5>
-      <div class="total-value">{{ total_debe|floatformat:2 }}</div>
+      <div class="total-value">{{ total_debe|floatformat:2 }}{{ simbolo }}</div>
     </div>
     
     <div class="total-card total-haber">
       <h5>Total Haber</h5>
-      <div class="total-value">{{ total_haber|floatformat:2 }}</div>
+      <div class="total-value">{{ total_haber|floatformat:2 }}{{ simbolo }}</div>
     </div>
   </div>
 
@@ -357,12 +357,12 @@
               <td data-label="Cuenta">{{ detalle.idPlanCuenta.nombrePlanCuenta }}</td>
               <td data-label="Debe" class="highlight-debe">
                 {% if detalle.debe|floatformat:2 != "0.00" %}
-                  {{ detalle.debe|floatformat:2 }}
+                  {{ detalle.debe|floatformat:2 }}{{ simbolo }}
                 {% endif %}
               </td>
               <td data-label="Haber" class="highlight-haber">
                 {% if detalle.haber|floatformat:2 != "0.00" %}
-                  {{ detalle.haber|floatformat:2 }}
+                  {{ detalle.haber|floatformat:2 }}{{ simbolo }}
                 {% endif %}
               </td>
              

@@ -311,11 +311,11 @@
   <div class="totals-container">
     <div class="total-card total-debe">
       <h5>Total Debe</h5>
-      <div class="total-value">{{ total_debe|floatformat:2 }}</div>
+      <div class="total-value">{{ total_debe|floatformat:2 }}{{ simbolo }}</div>
     </div>
     <div class="total-card total-haber">
       <h5>Total Haber</h5>
-      <div class="total-value">{{ total_haber|floatformat:2 }}</div>
+      <div class="total-value">{{ total_haber|floatformat:2 }}{{ simbolo }}</div>
     </div>
   </div>
 
@@ -364,13 +364,13 @@
           <td colspan="2" class="text-end fw-bold">Saldo Inicial:</td>
           <td colspan="2">
             <span class="fw-bold">
-              {{ item.data.saldo_inicial|floatformat:2 }}
+              {{ item.data.saldo_inicial|floatformat:2 }}{{ simbolo }}
             </span>
           </td>
           <td colspan="2" class="text-end fw-bold">Saldo Final:</td>
           <td>
             <span class="fw-bold {% if item.data.saldo_final > 0 %}saldo-deudor{% elif item.data.saldo_final < 0 %}saldo-acreedor{% else %}saldo-cero{% endif %}">
-              {{ item.data.saldo_final|floatformat:2 }}
+              {{ item.data.saldo_final|floatformat:2 }}{{ simbolo }}
             </span>
           </td>
           <td>
@@ -396,20 +396,20 @@
           <td>{{ item.data.beneficiario }}</td>
             <td class="highlight-debe">
             {% if item.data.debe > 0 %}
-              {{ item.data.debe|floatformat:2 }}
+              {{ item.data.debe|floatformat:2 }}{{ simbolo }}
             {% else %}
               &nbsp;
             {% endif %}
             </td>
             <td class="highlight-haber">
             {% if item.data.haber > 0 %}
-              {{ item.data.haber|floatformat:2 }}
+              {{ item.data.haber|floatformat:2 }}{{ simbolo }}
             {% else %}
               &nbsp;
             {% endif %}
             </td>
           <td class="{% if item.data.saldo > 0 %}saldo-deudor{% elif item.data.saldo < 0 %}saldo-acreedor{% else %}saldo-cero{% endif %}">
-            {{ item.data.saldo|floatformat:2 }}
+            {{ item.data.saldo|floatformat:2 }}{{ simbolo }}
           </td>
           <td>
             {% if item.data.saldo > 0 %}
