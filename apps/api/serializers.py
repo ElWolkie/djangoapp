@@ -514,11 +514,14 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
     de una inscripción.
     """
     idInscripcion = serializers.IntegerField(write_only=True)
-    nombreCuota = serializers.CharField(max_length=100)
+    # Permitir identificar la cuota por id o por nombre
+    idCuota = serializers.IntegerField(required=False, allow_null=True)
+    nombreCuota = serializers.CharField(max_length=200, required=False, allow_blank=True)
     monto = serializers.DecimalField(max_digits=20, decimal_places=4)
-    referencia = serializers.CharField(max_length=100)
-    fechaPago = serializers.DateField() # Asumimos que el frontend la enviará
+    referencia = serializers.CharField(max_length=200)
+    fechaPago = serializers.DateField()  # Formato: YYYY-MM-DD
     observaciones = serializers.CharField(required=False, allow_blank=True, default='')
+    formaPago = serializers.CharField(required=False, allow_blank=True, default='TRANSFERENCIA')
 
     def validate_monto(self, value):
         if value <= Decimal('0.00'):
@@ -526,113 +529,159 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
         return value
 
     def validate(self, data):
-        # 1. Validar que la Inscripción exista
+        # 1) Validar existencia de inscripción
         try:
             inscripcion = Inscripcion.objects.get(idInscripcion=data['idInscripcion'])
         except Inscripcion.DoesNotExist:
             raise serializers.ValidationError({"idInscripcion": "La inscripción especificada no existe."})
 
-        # 2. Validar que la inscripción esté PAGADA (requisito clave que mencionaste)
-        if inscripcion.estadoPago != 'PAGADO':
-            # Buscamos la nota de inscripción inicial para estar seguros
-            nota_inscripcion = Nota.objects.filter(relaciones__idInscripcion=inscripcion, tipoArticulo='INSCRIPCION').first()
-            if not nota_inscripcion or nota_inscripcion.estado != 'PAGADA':
-                raise serializers.ValidationError("Solo puedes pagar cuotas si el pago de inscripción inicial ya ha sido confirmado.")
+        # 2) Validar que la inscripción esté PAGADA o que la nota de inscripción tenga PagoTemporal confirmado
+        nota_inscripcion = Nota.objects.filter(
+            relaciones__idInscripcion=inscripcion,
+            tipoArticulo='INSCRIPCION'
+        ).first()
 
-        # 3. Validar que la cuota exista y esté pendiente
-        try:
-            # Buscamos la cuota por nombre Y que esté EN ESPERA
-            # (EN ESPERA = lista para ser pagada, PENDIENTE = ya se generó nota)
-            cuota = inscripcion.inscripcioncuota_set.get(
-                idCuota__nombreCuota=data['nombreCuota'],
-                estadoPago='EN ESPERA' # ¡Solo permite pagar la siguiente cuota EN ESPERA!
+        pago_confirmado = False
+        if nota_inscripcion:
+            # 2.a) si la nota ya está PAGADA -> ok
+            if nota_inscripcion.estado and str(nota_inscripcion.estado).upper() == 'PAGADA':
+                pago_confirmado = True
+            else:
+                # 2.b) buscar pago temporal confirmado vinculado a esa nota
+                pago_confirmado = PagoTemporal.objects.filter(idNota=nota_inscripcion, confirmado=True).exists()
+
+        # 2.c) también aceptamos si la propia inscripcion.estadoPago == 'PAGADO'
+        if str((inscripcion.estadoPago or '')).upper() == 'PAGADO':
+            pago_confirmado = True
+
+        if not pago_confirmado:
+            raise serializers.ValidationError(
+                "Solo puedes pagar cuotas si el pago de la inscripción inicial ya ha sido confirmado."
             )
-        except InscripcionCuota.DoesNotExist:
-            raise serializers.ValidationError({"cuota": "La cuota seleccionada no está disponible para pago (ya fue pagada, está pendiente de confirmación o no existe)."})
-        except InscripcionCuota.MultipleObjectsReturned:
-            raise serializers.ValidationError({"cuota": "Error de duplicidad de cuotas. Contacte a soporte."})
 
-        # 4. Validar el monto (opcional, pero buena idea)
-        if data['monto'] != cuota.idCuota.valorCuota:
-             logger.warning(f"Monto de pago ({data['monto']}) no coincide con valor de cuota ({cuota.idCuota.valorCuota})")
-             # Permitimos el pago, pero ajustamos al valor real de la cuota
-             data['monto'] = cuota.idCuota.valorCuota
-        
-        # 5. Validar configuración
+        # 3) Obtener la InscripcionCuota objetivo (por idCuota o por nombre)
+        cuota_obj: InscripcionCuota = None
+        id_cuota = data.get('idCuota', None)
+        nombre_cuota = (data.get('nombreCuota') or '').strip()
+
+        try:
+            if id_cuota:
+                cuota_obj = inscripcion.inscripcioncuota_set.select_related('idCuota').get(idCuota__idCuota=id_cuota)
+            elif nombre_cuota:
+                # Buscar por nombre en la FK idCuota.nombreCuota o por campo propio
+                cuota_obj = inscripcion.inscripcioncuota_set.select_related('idCuota').filter(
+                    idCuota__nombreCuota__iexact=nombre_cuota
+                ).first() or inscripcion.inscripcioncuota_set.filter(nombreCuota__iexact=nombre_cuota).first()
+            else:
+                raise serializers.ValidationError({"cuota": "Debe indicar idCuota o nombreCuota."})
+        except InscripcionCuota.DoesNotExist:
+            raise serializers.ValidationError({"cuota": "La cuota especificada no existe para esta inscripción."})
+
+        if cuota_obj is None:
+            raise serializers.ValidationError({"cuota": "La cuota especificada no existe para esta inscripción."})
+
+        # 4) Validar que la cuota esté en estado 'EN ESPERA' (listo para generar nota)
+        estado = str((getattr(cuota_obj, 'estadoPago', '') or '')).upper()
+        if estado not in ('EN ESPERA', 'ESPERA', ''):
+            raise serializers.ValidationError(
+                {"cuota": "La cuota seleccionada no está disponible para pago (ya fue pagada o está pendiente)."}
+            )
+
+        # 5) Validar el monto — si difiere, lo ajustamos con warning
+        valor_esperado = getattr(cuota_obj.idCuota, 'valorCuota', None) or getattr(cuota_obj, 'valorCuota', None)
+        if valor_esperado is not None:
+            # convertir a Decimal
+            try:
+                valor_esperado = Decimal(str(valor_esperado))
+            except Exception:
+                valor_esperado = None
+
+        if valor_esperado is not None and Decimal(str(data['monto'])) != valor_esperado:
+            logger.warning(
+                f"Monto recibido ({data['monto']}) no coincide con valor de cuota ({valor_esperado}). Ajustando al valor real."
+            )
+            # Ajustamos el monto al valor real (opcional — si prefieres rechazar, lanzar ValidationError)
+            data['monto'] = valor_esperado
+
+        # 6) Validar configuración / cuenta bancaria
         configuracion = Configuracion.objects.first()
-        if not configuracion or not configuracion.idCuentaBanco:
+        if not configuracion:
+            raise serializers.ValidationError("No hay configuración del sistema. Contacte al administrador.")
+        if not getattr(configuracion, 'idCuentaBanco', None):
             raise serializers.ValidationError("No hay cuenta bancaria configurada en el sistema.")
 
-        # Guardar objetos en el contexto para usarlos en create()
+        # Guardamos en contexto para create()
         self.context['inscripcion'] = inscripcion
-        self.context['cuota'] = cuota
+        self.context['cuota_obj'] = cuota_obj
         self.context['configuracion'] = configuracion
+        self.context['nota_inscripcion'] = nota_inscripcion
+
         return data
 
     @transaction.atomic
     def create(self, validated_data):
-        inscripcion = self.context.get('inscripcion')
-        cuota = self.context.get('cuota') # Esta es la InscripcionCuota
-        configuracion = self.context.get('configuracion')
-        
-        # 1. Obtener Tasa
-        if not configuracion.moneda:
-             raise serializers.ValidationError("La configuración no tiene una moneda definida.")
-        tasa = Tasa.objects.filter(idMoneda=configuracion.moneda).order_by('-idTasa').first()
-        if not tasa:
-            raise serializers.ValidationError(f"No se encontró tasa para la moneda {configuracion.moneda}.")
+        inscripcion: Inscripcion = self.context.get('inscripcion')
+        cuota_obj: InscripcionCuota = self.context.get('cuota_obj')
+        configuracion: Configuracion = self.context.get('configuracion')
 
-        # 2. Crear Asiento (Temporal/Provisorio)
+        # Obtener tasa para la moneda configurada (si aplica)
+        tasa = None
+        if getattr(configuracion, 'moneda', None):
+            tasa = Tasa.objects.filter(idMoneda=configuracion.moneda).order_by('-idTasa').first()
+
+        periodo = periodoContable.objects.filter(estadoPeriodo=True).first() or periodoContable.objects.order_by('-idPeriodo').first()
+
+        # Crear asiento contable provisorio
         numero_asiento = f"CUOTA-{now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
         asiento = AsientoContable.objects.create(
             numeroAsiento=numero_asiento,
             fechaAsiento=now().date(),
-            conceptoAsiento=f"Solicitud pago cuota: {cuota.idCuota.nombreCuota} - Inscripción: {inscripcion.idInscripcion}",
-            idPeriodo=periodoContable.objects.filter(estadoPeriodo=True).first()
+            conceptoAsiento=f"Solicitud pago cuota: {getattr(cuota_obj.idCuota, 'nombreCuota', '')} - Inscripción: {inscripcion.idInscripcion}",
+            idPeriodo=periodo
         )
 
-        # 3. Crear la Nota de Cobro para esta cuota
+        # Crear nota de cobro para la cuota
         numero_nota = f"NOTA-CUOTA-{uuid.uuid4().hex[:6].upper()}"
         nota = Nota.objects.create(
             idAsiento=asiento,
             idPersona=inscripcion.idPersona,
             tipoOperacion='COBRO',
-            tipoArticulo='CUOTA', # ¡Importante!
+            tipoArticulo='CUOTA',
             numeroNota=numero_nota,
             fechaEmision=now().date(),
             fechaVencimiento=now().date() + timedelta(days=7),
-            formaPago=validated_data['formaPago'],
+            formaPago=validated_data.get('formaPago', 'TRANSFERENCIA'),
             totalNota=validated_data['monto'],
             idTasa=tasa,
-            estado='PENDIENTE', # La nota nace PENDIENTE
-            observaciones=f"Nota para {cuota.idCuota.nombreCuota}"
+            estado='PENDIENTE',
+            observaciones=f"Nota para {getattr(cuota_obj.idCuota, 'nombreCuota', '')}"
         )
 
-        # 4. Relacionar la Nota con la Cuota y la Inscripción
+        # Relacionamos nota <-> inscripcion <-> cuota
         NotaRelacionada.objects.create(
             idNota=nota,
             idInscripcion=inscripcion,
-            idCuota=cuota
+            idCuota=cuota_obj
         )
 
-        # 5. Crear el PagoTemporal (el reporte del usuario)
+        # Crear el PagoTemporal (registro que admin confirmará después)
         pago_temporal = PagoTemporal.objects.create(
-            idNota=nota, # Se asocia a la NUEVA nota de cobro
+            idNota=nota,  # vinculamos a la nota recién creada
             idCuentaBanco=configuracion.idCuentaBanco,
             idTasa=tasa,
             monto=validated_data['monto'],
             referencia=validated_data.get('referencia', ''),
             observaciones=validated_data.get('observaciones', ''),
             fechaPago=validated_data['fechaPago'],
-            formaPago=validated_data['formaPago'],
+            formaPago=validated_data.get('formaPago', 'TRANSFERENCIA'),
             confirmado=False
         )
 
-        # 6. Actualizar el estado de la InscripcionCuota
-        cuota.estadoPago = 'PENDIENTE' # Pasa de 'EN ESPERA' a 'PENDIENTE' (esperando confirmación)
-        cuota.save()
+        # Marcar la InscripcionCuota como PENDIENTE (esperando confirmación)
+        cuota_obj.estadoPago = 'PENDIENTE'
+        cuota_obj.save()
 
-        return pago_temporal # Devolvemos el pago temporal creado
+        return pago_temporal
 
 class RequisitoSerializer(serializers.ModelSerializer):
     class Meta:
