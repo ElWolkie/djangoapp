@@ -1,61 +1,196 @@
+{% extends 'layouts/base.html' %}
 {% load static %}
+
+{% block title %}Editar Inscripción{% endblock title %}
 
 {% block stylesheets %}
 <link rel="stylesheet" href="{% static 'assets/css/styleForms.css' %}" />
 <link rel="stylesheet" href="{% static 'assets/css/argon.css' %}" />
 <style>
-  .inscripcion-container {
-    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-    border-radius: 1rem;
-    box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.1);
-    padding: 1.5rem;
-    margin: 0.5rem auto;
-    max-width: 95%;
-    width: 100%;
+  .inscripcion-form {
+      background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+      border-radius: 1rem;
+      box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.1);
+      padding: 2rem;
+      margin: 2rem auto;
+      max-width: 800px;
   }
-  .inscripcion-header {
-    text-align: center;
+  
+  .form-header {
+      text-align: center;
+      margin-bottom: 2rem;
+      position: relative;
+      padding-bottom: 1rem;
+  }
+  
+  .form-header h2 {
+      color: #343a40;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+  }
+  
+  .form-header::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 80px;
+      height: 4px;
+      background: linear-gradient(90deg, #ffc107, #fd7e14);
+      border-radius: 2px;
+  }
+  
+  .input-group {
+      position: relative;
+      display: flex;
+  }
+  
+  .cedula-select {
+      flex: 0 0 100px;
+      border-radius: 0.5rem 0 0 0.5rem !important;
+      border-right: none;
+      background-color: #fff;
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+      background-repeat: no-repeat;
+      background-position: right 0.75rem center;
+      background-size: 16px 12px;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+      padding-right: 2.5rem;
+  }
+  
+  .cedula-input {
+      flex: 1;
+      border-radius: 0 0.5rem 0.5rem 0 !important;
+  }
+  
+  .check-icon {
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+      background-color: #fff;
+      border: 1px solid #ced4da;
+      border-left: none;
+      border-radius: 0 0.5rem 0.5rem 0;
+  }
+  
+  .btn-submit {
+      background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+      border: none;
+      color: #fff;
+      font-weight: 600;
+      padding: 0.75rem 2rem;
+      border-radius: 0.5rem;
+      transition: all 0.3s;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      display: block;
+      margin: 2rem auto 0;
+      width: 200px;
+  }
+  
+  .btn-submit:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+      background: linear-gradient(135deg, #fd7e14 0%, #ffc107 100%);
+  }
+  
+  .styled-select {
+      border-radius: 0.5rem;
+      padding: 0.75rem 1.25rem;
+      border: 1px solid #ced4da;
+      background-color: #fff;
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+      background-repeat: no-repeat;
+      background-position: right 1rem center;
+      background-size: 16px 12px;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+      color: #212529;
+      font-weight: 500;
+      transition: all 0.3s;
+      width: 100%;
+      display: block;
+      box-sizing: border-box;
+  }
+  
+  .styled-select:focus {
+      border-color: #ffc107;
+      box-shadow: 0 0 0 0.25rem rgba(255, 193, 7, 0.25);
+  }
+  
+  .select-group {
+      position: relative;
+      margin-bottom: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+  }
+  
+  .select-group label {
+      display: flex;
+      align-items: center;
+      margin-bottom: 0.5rem;
+      font-weight: 600;
+      color: #495057;
+  }
+  
+  .select-group i {
+      margin-right: 10px;
+      color: #6c757d;
+      font-size: 1.2rem;
+  }
+
+  .col-md-6.form-group, .col-md-4.form-group, .col-md-8.form-group {
+      display: flex;
+      flex-direction: column;
+  }
+  
+  .form-divider {
+      position: relative;
+      text-align: center;
+      margin: 2rem 0;
+  }
+  
+  .form-divider::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, #dee2e6, transparent);
+  }
+  
+  .form-divider span {
+      position: relative;
+      background: #f8f9fa;
+      padding: 0 15px;
+      color: #6c757d;
+      font-weight: 600;
+      z-index: 1;
+  }
+  
+  .form-group {
     margin-bottom: 1.5rem;
     position: relative;
-    padding-bottom: 1rem;
   }
-  .inscripcion-header h2 {
-    color: #343a40;
-    font-weight: 700;
-    font-size: 1.8rem;
-    margin-bottom: 0.5rem;
-  }
-  .inscripcion-header p {
-    margin-bottom: 0;
-  }
-  .inscripcion-header::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 80px;
-    height: 4px;
-    background: linear-gradient(90deg, #ffc107, #fd7e14);
-    border-radius: 2px;
-  }
-  .form-group {
-    margin-bottom: 1.2rem;
-    position: relative;
-  }
+  
   .form-label {
     font-weight: 600;
     color: #495057;
     margin-bottom: 0.5rem;
     display: flex;
     align-items: center;
-    font-size: 0.95rem;
   }
+  
   .form-label i {
     margin-right: 8px;
     color: #fd7e14;
-    font-size: 0.9rem;
   }
+  
   .form-control {
     border-radius: 0.5rem;
     padding: 0.75rem 1.25rem;
@@ -63,13 +198,13 @@
     background-color: #fff;
     box-shadow: inset 0 1px 2px rgba(0,0,0,0.075);
     transition: all 0.3s;
-    height: 48px;
-    font-size: 0.95rem;
   }
+  
   .form-control:focus {
     border-color: #ffc107;
     box-shadow: 0 0 0 0.25rem rgba(255,193,7,0.25);
   }
+  
   .input-icon {
     position: absolute;
     left: 12px;
@@ -77,27 +212,20 @@
     transform: translateY(-50%);
     color: #6c757d;
     z-index: 2;
-    font-size: 0.9rem;
   }
+  
   .input-with-icon {
     padding-left: 40px;
   }
-  .btn-submit {
-    background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
-    border: none;
-    color: #fff;
-    font-weight: 600;
-    padding: 0.75rem 2rem;
-    border-radius: 0.5rem;
-    transition: all 0.3s;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    font-size: 1rem;
+  
+  .input-group-btn .btn {
+    border-radius: 0 0.5rem 0.5rem 0;
+    background: #ffc107;
+    color: #343a40;
+    border: 1px solid #ced4da;
+    border-left: none;
   }
-  .btn-submit:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
-    background: linear-gradient(135deg, #fd7e14 0%, #ffc107 100%);
-  }
+
   .readonly-field {
     display: block;
     width: 100%;
@@ -116,183 +244,429 @@
     display: flex;
     align-items: center;
   }
+  
   .readonly-field.with-icon {
     padding-left: 40px;
   }
-  .invalid-feedback {
-    display: none;
-    width: 100%;
-    margin-top: 0.25rem;
-    font-size: 80%;
-    color: #dc3545;
-  }
-  .was-validated .form-control:invalid ~ .invalid-feedback {
-    display: block;
+
+  @media (max-width: 767px) {
+    .inscripcion-form { padding: 1rem; margin: 1rem; max-width: 100%; }
+    .cedula-select { flex-basis: 80px; }
+    .styled-select { padding: 0.6rem 0.9rem; }
   }
 </style>
 {% endblock stylesheets %}
 
 {% block content %}
-<div class="inscripcion-container">
-  <div class="inscripcion-header">
-    <h2><i class="fas fa-user-graduate text-warning"></i> Editar Inscripción</h2>
-    <p class="text-muted">Complete los campos para editar la inscripción</p>
-  </div>
-
-  <form id="editInscripcionForm" method="POST" action="{% url 'edit_inscripcion' inscripcion.idInscripcion %}" class="needs-validation" autocomplete="off" novalidate>
-    {% csrf_token %}
+<div class=" mt-4">
+  <div class="inscripcion-form">
+    <div class="form-header">
+      <h2><i class="fas fa-edit text-warning"></i> Editar Inscripción</h2>
+      <p class="text-muted">Modifique los campos necesarios para actualizar la inscripción</p>
+    </div>
     
-    <div class="row">
-      <!-- Cédula del Cliente (solo visualización) -->
-      <div class="col-md-6">
-        <div class="form-group">
-          <label class="form-label">
-            <i class="fas fa-id-card"></i> Cédula del Cliente
-          </label>
-          <div class="input-group position-relative">
-            <i class="fas fa-id-card input-icon"></i>
-            <div class="readonly-field with-icon">
-              {{ inscripcion.idPersona.cedula }}
-            </div>
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+          <div class="d-flex align-items-center">
+            <i class="fas {% if message.tags == 'success' %}fa-check-circle{% else %}fa-exclamation-circle{% endif %} me-2"></i>
+            <div>{{ message }}</div>
           </div>
-          <input type="hidden" name="cedulaPersona" value="{{ inscripcion.idPersona.cedula }}">
-          <input type="hidden" id="idPersona" name="idPersona" value="{{ inscripcion.idPersona.idPersona }}">
+          <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
         </div>
-      </div>
-
-      <!-- Cohorte (solo visualización) -->
-      <div class="col-md-6">
-        <div class="form-group">
-          <label class="form-label">
-            <i class="fas fa-users"></i> Cohorte
-          </label>
-          <div class="input-group position-relative">
-            <i class="fas fa-users input-icon"></i>
-            <div class="readonly-field with-icon">
-              {{ inscripcion.idCohorte.nombreCohorte }}
-            </div>
-          </div>
-          <input type="hidden" id="nombreCohorte" name="nombreCohorte" value="{{ inscripcion.idCohorte.nombreCohorte }}" />
-          <input type="hidden" id="idCohorte" name="idCohorte" value="{{ inscripcion.idCohorte.idCohorte }}" />
-          <input type="hidden" id="estadoContrato" name="estadoContrato" value="ACTIVO" />
-        </div>
-      </div>
-
-      <!-- Tipo de Formación -->
-      <div class="col-md-6">
-        <div class="form-group">
-          <label for="idTF" class="form-label">
-            <i class="fas fa-list-alt"></i> Tipo de Formación
-          </label>
-          <div class="input-group position-relative">
-            <i class="fas fa-list-alt input-icon"></i>
-            <select id="idTF" name="idTF" class="form-control input-with-icon" required>
-              <option value="" disabled>Seleccione..</option>
-              {% for tipo in tipos_formacion %}
-                <option value="{{ tipo.idTF }}" {% if tipo.idTF == inscripcion.idTF.idTF %}selected{% endif %}>{{ tipo.nombreTipoFormacion }}</option>
-              {% endfor %}
-            </select>
-            <div class="invalid-feedback">Por favor, seleccione una opción válida.</div>
+      {% endfor %}
+    {% endif %}
+    
+    <form method="POST" autocomplete="off" id="editInscripcionForm" action="{% url 'edit_inscripcion' inscripcion.idInscripcion %}">
+      {% csrf_token %}
+      
+      <!-- Grupo de Cédula (solo visualización) -->
+      <div class="form-group mb-4">
+        <label class="form-label">
+          <i class="fas fa-id-card me-2"></i> Cédula del Cliente
+        </label>
+        <div class="input-group position-relative">
+          <i class="fas fa-id-card input-icon"></i>
+          <div class="readonly-field with-icon">
+            {{ inscripcion.idPersona.cedula }}
           </div>
         </div>
+        <input type="hidden" name="cedulaPersona" value="{{ inscripcion.idPersona.cedula }}">
+        <input type="hidden" id="idPersona" name="idPersona" value="{{ inscripcion.idPersona.idPersona }}">
       </div>
 
-      <!-- Formación Académica -->
-      <div class="col-md-6">
-        <div class="form-group">
-          <label for="idFormacion" class="form-label">
-            <i class="fas fa-graduation-cap"></i> Formación Académica
-          </label>
-          <div class="input-group position-relative">
-            <i class="fas fa-graduation-cap input-icon"></i>
-            <select id="idFormacion" name="idFormacion" class="form-control input-with-icon" required>
+      <div class="form-divider">
+        <span><i class="fas fa-book me-2"></i> Información Académica</span>
+      </div>   
+      
+      <div class="row">
+        <!-- Tipo de Formación -->
+        <div class="col-md-6 form-group">
+          <div class="select-group">
+            <label for="idTF" class="form-label">
+              <i class="fas fa-graduation-cap me-2"></i> Tipo de Formación
+            </label>
+            <select id="idTF" name="idTF" class="form-select styled-select" required>
               <option value="" disabled>Seleccione...</option>
-              {% for formacion in formaciones %}
-                <option value="{{ formacion.idFormacion }}"
-                  {% if formacion.idFormacion == inscripcion.idFormacion.idFormacion %}selected{% endif %}
-                  data-tf="{{ formacion.idTF.idTF }}">
-                  {{ formacion.nombreFormacion }}
-                </option>
+              {% for tipo in tipos_formacion %}
+              <option value="{{ tipo.idTF }}" {% if tipo.idTF == inscripcion.idTF.idTF %}selected{% endif %}>{{ tipo.nombreTipoFormacion }}</option>
               {% endfor %}
             </select>
-            <div class="invalid-feedback">Por favor, seleccione una formación válida.</div>
+            <div class="invalid-feedback">Por favor, seleccione un tipo de formación.</div>
+          </div>
+        </div>
+
+        <!-- Formación Académica -->
+        <div class="col-md-6 form-group">
+          <div class="select-group">
+            <label for="idFormacion" class="form-label">
+              <i class="fas fa-book me-2"></i> Formación Académica
+            </label>
+            <div class="input-group">
+              <i class="fas fa-search input-icon"></i>
+              <input type="text" id="formacionInput" class="form-control input-with-icon" 
+                     placeholder="Seleccione una formación académica" readonly required 
+                     value="{{ inscripcion.idFormacion.nombreFormacion }} - Cohorte {{ inscripcion.idCohorte.nombreCohorte }}" />
+              <button type="button" id="buscarFormacion" class="btn btn-warning btn-sm" data-bs-toggle="modal" data-bs-target="#formacionModal">
+                <i class="fas fa-search text-white"></i>
+              </button>
+              <div class="invalid-feedback">Por favor, seleccione una formación académica válida.</div>
+            </div>
+            <input type="hidden" id="idCohorte" name="idCohorte" value="{{ inscripcion.idCohorte.idCohorte }}" />
+            <input type="hidden" id="idFormacion" name="idFormacion" value="{{ inscripcion.idFormacion.idFormacion }}" />
           </div>
         </div>
       </div>
-    </div>
-
-    <div id="alert-container"></div>
-
-    <div class="text-center mt-3">
+            
+      <div id="alert-container"></div>
+      
+      <div class="form-group mb-4">
+        <label for="resumenCostos" class="form-label">
+          <i class="fas fa-money-bill-wave me-2"></i> Resumen de Costos
+        </label>
+        <div id="resumenCostos" class="table-responsive">
+          <table class="table table-bordered table-responsive w-100 d-block d-md-table">
+            <thead class="table-light">
+              <tr>
+                <th>Concepto</th>
+                <th>Detalle</th>
+              </tr>
+            </thead>
+            <tbody id="resumenCostosBody">
+              <tr>
+                <td><strong>VALOR INSCRIPCIÓN</strong></td>
+                <td id="valorInscripcion">-</td>
+              </tr>
+              <tr>
+                <td><strong>TOTAL EN CUOTAS</strong></td>
+                <td id="valorCuotas">-</td>
+              </tr>
+              <tr>
+                <td><strong>TOTAL GLOBAL</strong></td>
+                <td id="valorTotal">-</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
       <button type="submit" class="btn-submit">
-        <i class="fas fa-save me-2"></i> Guardar
+        <i class="fas fa-save me-2"></i> Actualizar
       </button>
+    </form>
+  </div>
+</div>
+
+<!-- Modal para buscar formación académica -->
+<div class="modal fade" id="formacionModal" tabindex="-1" role="dialog" aria-labelledby="formacionModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title text-white" id="formacionModalLabel">
+          <i class="fas fa-search mr-2"></i> Seleccionar Formación Académica
+        </h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="input-group mb-3">
+          <div class="input-group-prepend">
+            <span class="input-group-text bg-light">
+              <i class="fas fa-search text-warning"></i>
+            </span>
+          </div>
+          <input class="form-control" id="searchFormacionInput" type="text" placeholder="Buscar formación...">
+        </div>
+        <div class="table-responsive">
+          <table class="table table-sm table-striped table-hover" id="tablaFormaciones">
+            <thead class="bg-light">
+              <tr>
+                <th style="width: 15%;">Código</th>
+                <th style="width: 60%;">Nombre</th>
+                <th style="width: 15%;">Cohorte</th>
+                <th style="width: 10%;">Seleccionar</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for formacion in formaciones %}
+                <tr data-id="{{ formacion.idFormacion }}" 
+                    data-nombre="{{ formacion.nombreFormacion }} - Cohorte {{ formacion.cohorte.nombreCohorte }}"   
+                    data-tf="{{ formacion.idTF.idTF }}"
+                    data-valorInscripcion="{{ formacion.valorInscripcion }}" 
+                    data-tieneCuotas="{{ formacion.tieneCuotas }}" 
+                    data-cuotasActivas="{{ formacion.cuotas_activas }}" 
+                    data-cantidadCuotas="{{ formacion.cantidad_cuotas }}" 
+                    data-cuotas="{{ formacion.cuotas_json }}"
+                    data-idCohorte="{{ formacion.cohorte.idCohorte }}">
+                  <td>{{ formacion.idFormacion }}</td>
+                  <td>{{ formacion.nombreFormacion }}</td>
+                  <td>{{ formacion.cohorte.nombreCohorte }}</td>
+                  <td>
+                    <button class="btn btn-sm btn-warning btn-select">
+                      <i class="fas fa-check"></i> Elegir
+                    </button>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <p id="mensajeSinRegistros" class="text-center text-muted my-4" style="display: none;">
+          <i class="fas fa-info-circle mr-2"></i> No se encontraron registros
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
     </div>
-  </form>
+  </div>
 </div>
 {% endblock content %}
 
 {% block javascripts %}
-<script>
-  function filtrarFormaciones() {
-    console.log('Filtrando formaciones...');
-    const tipoSelect = document.getElementById('idTF');
-    const formacionSelect = document.getElementById('idFormacion');
-    
-    if (!tipoSelect || !formacionSelect) {
-      console.error('No se encontraron los elementos select');
-      return;
-    }
-    
-    const tipoSeleccionado = tipoSelect.value;
-    console.log('Tipo seleccionado:', tipoSeleccionado);
-    
-    // Mostrar todas las opciones primero
-    for (let i = 0; i < formacionSelect.options.length; i++) {
-      formacionSelect.options[i].style.display = '';
-    }
-    
-    // Ocultar las que no coincidan con el tipo seleccionado
-    if (tipoSeleccionado) {
-      for (let i = 0; i < formacionSelect.options.length; i++) {
-        const opcion = formacionSelect.options[i];
-        const tipoFormacion = opcion.getAttribute('data-tf');
-        
-        if (opcion.value && tipoFormacion !== tipoSeleccionado) {
-          opcion.style.display = 'none';
-        }
-      }
-    }
-    
-    // Asegurarse de que el valor seleccionado sea visible
-    const opcionSeleccionada = formacionSelect.options[formacionSelect.selectedIndex];
-    if (opcionSeleccionada.style.display === 'none') {
-      // Si la opción seleccionada está oculta, seleccionar la primera visible
-      for (let i = 0; i < formacionSelect.options.length; i++) {
-        if (formacionSelect.options[i].style.display !== 'none' && formacionSelect.options[i].value) {
-          formacionSelect.value = formacionSelect.options[i].value;
-          break;
-        }
-      }
-    }
-  }
+  <script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
+  <script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
+  <script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
+  
+  <script>
+  document.addEventListener("DOMContentLoaded", function () {
+    // ============================
+    // 1) Filtrar formaciones por tipo de formación
+    // ============================
+    function filterFormaciones() {
+      const selectedTipoFormacion = document.getElementById("idTF").value;
+      const rows = document.querySelectorAll("#tablaFormaciones tbody tr");
 
-  function initEditInscripcion() {
-    console.log('Inicializando formulario de edición de inscripción');
-    
-    // 1. Configurar filtro de formaciones
-    const tipoSelect = document.getElementById('idTF');
-    if (tipoSelect) {
-      // Ejecutar filtro inmediatamente al cargar
-      setTimeout(filtrarFormaciones, 100);
-      
-      tipoSelect.addEventListener('change', function() {
-        console.log('Cambio detectado en tipo de formación');
-        filtrarFormaciones();
+      rows.forEach((row) => {
+        const tipoFormacion = row.dataset.tf;
+        if (tipoFormacion === selectedTipoFormacion || !selectedTipoFormacion) {
+          row.style.display = "";
+        } else {
+          row.style.display = "none";
+        }
       });
+
+      // Actualizar mensaje de sin registros
+      const visibleRows = Array.from(rows).filter(row => row.style.display !== 'none');
+      document.getElementById("mensajeSinRegistros").style.display = 
+        visibleRows.length === 0 ? "block" : "none";
     }
 
-    // 2. Configurar validación del formulario
+    // ============================
+    // 2) Actualizar resumen de costos
+    // ============================
+    function updateResumenCostos() {
+      const selectedId = document.getElementById("idFormacion").value;
+      const selectedRow = Array.from(document.querySelectorAll("#tablaFormaciones tbody tr")).find(
+        (row) => row.dataset.id === selectedId
+      );
+
+      if (!selectedRow) {
+        // Si no hay selección, usar los valores actuales de la inscripción
+        const valorInscripcion = parseFloat("{{ inscripcion.idFormacion.valorInscripcion }}") || 0;
+        updateResumenCostosDisplay(valorInscripcion, []);
+        return;
+      }
+
+      const valorInscripcion = parseFloat(selectedRow.dataset.valorinscripcion) || 0;
+      const cuotas = JSON.parse(selectedRow.dataset.cuotas || "[]");
+      
+      updateResumenCostosDisplay(valorInscripcion, cuotas);
+    }
+
+    function updateResumenCostosDisplay(valorInscripcion, cuotas) {
+      let valorCuotas = 0;
+      const resumenCostosBody = document.getElementById("resumenCostosBody");
+
+      // Limpiar y crear estructura base
+      resumenCostosBody.innerHTML = `
+        <tr>
+          <td><strong>VALOR INSCRIPCIÓN</strong></td>
+          <td id="valorInscripcion" style="background-color: #cce5ff;"><strong>-</strong></td>
+        </tr>
+        <tr>
+          <td><strong>TOTAL EN CUOTAS</strong></td>
+          <td id="valorCuotas" style="background-color: #e2d4f0;"><strong>-</strong></td>
+        </tr>
+        <tr style="background-color: #d4edda;">
+          <td><strong>TOTAL GLOBAL</strong></td>
+          <td id="valorTotal"><strong>-</strong></td>
+        </tr>
+      `;
+
+      // Agregar filas de cuotas individuales
+      if (cuotas.length > 0) {
+        cuotas.forEach((cuota) => {
+          valorCuotas += parseFloat(cuota.valorCuota);
+          const fila = document.createElement("tr");
+          fila.innerHTML = `
+            <td><strong>${cuota.nombreCuota || "Cuota"}</strong></td>
+            <td>$${parseFloat(cuota.valorCuota).toFixed(2)}</td>
+          `;
+          resumenCostosBody.insertBefore(fila, resumenCostosBody.querySelector("#valorCuotas").parentElement);
+        });
+      }
+
+      const valorTotal = valorInscripcion + valorCuotas;
+
+      document.getElementById("valorInscripcion").textContent = `$${valorInscripcion.toFixed(2)}`;
+      document.getElementById("valorCuotas").textContent = `$${valorCuotas.toFixed(2)}`;
+      document.getElementById("valorTotal").textContent = `$${valorTotal.toFixed(2)}`;
+    }
+
+    // ============================
+    // 3) Enviar formulario por AJAX
+    // ============================
+    function submitForm(e) {
+      e.preventDefault();
+
+      const tipoFormacion = document.getElementById("idTF").value;
+      const formacion = document.getElementById("idFormacion").value;
+
+      if (!tipoFormacion || !formacion) {
+        Swal.fire({
+          icon: "warning",
+          title: "Campos requeridos",
+          text: "Por favor seleccione un tipo de formación y una formación académica",
+          confirmButtonText: "OK",
+          customClass: { confirmButton: "btn btn-warning" },
+          buttonsStyling: false,
+        });
+        return;
+      }
+
+      const formData = new FormData(document.getElementById("editInscripcionForm"));
+
+      fetch(document.getElementById("editInscripcionForm").action, {
+        method: "POST",
+        body: formData,
+        headers: { "X-Requested-With": "XMLHttpRequest" },
+      })
+        .then((r) => r.json())
+        .then((json) => {
+          if (json.success) {
+            Swal.fire({
+              icon: "success",
+              title: "¡Éxito!",
+              text: json.message,
+              confirmButtonText: "Continuar",
+              customClass: { confirmButton: "btn btn-warning" },
+              buttonsStyling: false,
+            }).then(() => {
+              if (json.redirect_url) {
+                window.location.href = json.redirect_url;
+              }
+            });
+          } else if (json.errors) {
+            let errorMessages = '';
+            for (const [field, error] of Object.entries(json.errors)) {
+              errorMessages += `<p>${error}</p>`;
+            }
+            Swal.fire({
+              icon: "error",
+              title: "Errores en el formulario",
+              html: errorMessages,
+              confirmButtonText: "OK",
+              customClass: { confirmButton: "btn btn-warning" },
+              buttonsStyling: false,
+            });
+          }
+        })
+        .catch(() => Swal.fire("Error", "Error al comunicarse con el servidor", "error"));
+    }
+
+    // ============================
+    // 4) Lógica del modal de formación académica
+    // ============================
+    const tablaFormaciones = document.getElementById("tablaFormaciones");
+    const searchFormacionInput = document.getElementById("searchFormacionInput");
+    const formacionInput = document.getElementById("formacionInput");
+    const idFormacionInput = document.getElementById("idFormacion");
+    const idCohorteInput = document.getElementById("idCohorte");
+
+    // Filtrar formaciones en la tabla según la búsqueda
+    searchFormacionInput.addEventListener("input", function () {
+      const searchTerm = this.value.toLowerCase();
+      const rows = tablaFormaciones.querySelectorAll("tbody tr");
+
+      let hasResults = false;
+
+      rows.forEach((row) => {
+        const nombre = row.dataset.nombre.toLowerCase();
+        if (nombre.includes(searchTerm) && row.style.display !== "none") {
+          row.style.display = "";
+          hasResults = true;
+        } else {
+          row.style.display = "none";
+        }
+      });
+
+      document.getElementById("mensajeSinRegistros").style.display = hasResults ? "none" : "block";
+    });
+
+    // Seleccionar una formación al hacer clic en "Elegir"
+    tablaFormaciones.addEventListener("click", function (e) {
+      const btn = e.target.closest('.btn-select');
+      if (btn) {
+        const row = btn.closest("tr");
+        const idFormacion = row.dataset.id;
+        const nombreFormacion = row.dataset.nombre;
+        const idCohorte = row.dataset.idcohorte;
+
+        // Actualizar los campos
+        formacionInput.value = nombreFormacion;
+        idFormacionInput.value = idFormacion;
+        idCohorteInput.value = idCohorte;
+
+        // Cerrar el modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById("formacionModal"));
+        modal.hide();
+
+        // Actualizar el resumen de costos
+        updateResumenCostos();
+      }
+    });
+
+    // ============================
+    // 5) Enlazar eventos
+    // ============================
+    document.getElementById("idTF").addEventListener("change", filterFormaciones);
+    document.getElementById("editInscripcionForm").addEventListener("submit", submitForm);
+
+    // ============================
+    // 6) Inicialización
+    // ============================
+    
+    // Ejecutar filtro inicial
+    filterFormaciones();
+    
+    // Actualizar resumen de costos con los valores actuales de la inscripción
+    updateResumenCostos();
+
+    // Configurar validación del formulario
     const form = document.getElementById('editInscripcionForm');
     if (form) {
       form.addEventListener('submit', function(e) {
@@ -303,74 +677,6 @@
         form.classList.add('was-validated');
       });
     }
-
-    // 3. Configurar envío AJAX
-    if (form) {
-      form.addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        const submitBtn = form.querySelector('button[type="submit"]');
-        const originalText = submitBtn.innerHTML;
-        
-        if (submitBtn) {
-          submitBtn.disabled = true;
-          submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Guardando...';
-        }
-
-        // Crear FormData y enviar
-        const formData = new FormData(form);
-        
-        fetch(form.action, {
-          method: 'POST',
-          body: formData,
-          headers: { 
-            'X-Requested-With': 'XMLHttpRequest',
-            'X-CSRFToken': '{{ csrf_token }}'
-          }
-        })
-        .then(response => response.json())
-        .then(data => {
-          if (data.success) {
-            // Recargar la página después de guardar exitosamente
-            window.location.reload();
-          } else {
-            // Manejo de errores
-            let errorMessage = 'Error al guardar los cambios';
-            
-            if (data.errors && data.errors.__all__) {
-              errorMessage = data.errors.__all__.message;
-            } else if (data.errors) {
-              errorMessage = '';
-              for (const field in data.errors) {
-                errorMessage += data.errors[field].join('\n') + '\n';
-              }
-            }
-            
-            // Mostrar error en el contenedor de alertas
-            const alertContainer = document.getElementById('alert-container');
-            if (alertContainer) {
-              alertContainer.innerHTML = `<div class="alert alert-danger">${errorMessage}</div>`;
-            }
-          }
-        })
-        .catch(error => {
-          console.error('Error:', error);
-          const alertContainer = document.getElementById('alert-container');
-          if (alertContainer) {
-            alertContainer.innerHTML = '<div class="alert alert-danger">Error de conexión con el servidor</div>';
-          }
-        })
-        .finally(() => {
-          if (submitBtn) {
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = originalText;
-          }
-        });
-      });
-    }
-  }
-
-  // Inicializar cuando el documento esté listo
-  document.addEventListener('DOMContentLoaded', initEditInscripcion);
-</script>
-{% endblock %}
+  });
+  </script>
+{% endblock javascripts %}

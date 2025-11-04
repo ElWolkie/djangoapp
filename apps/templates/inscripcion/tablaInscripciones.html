@@ -235,13 +235,11 @@
                 {% else %}
                     <!-- No tiene nota: Mostrar botones normales de edición -->
                     {% if perms.inscripcion.change_inscripcion %}
-                    <button class="btn btn-primary btn-sm"
-                            data-bs-toggle="modal"
-                            data-bs-target="#editInscripcionModal"
-                            data-url="{% url 'edit_inscripcion' inscripcion.idInscripcion %}"
-                            title="Editar">
+                    <a href="{% url 'edit_inscripcion' inscripcion.idInscripcion %}" 
+                      class="btn btn-primary btn-sm" 
+                      title="Editar">
                         <i class="fas fa-edit"></i>
-                    </button>
+                    </a>
                     {% endif %}
                     
                     {% if inscripcion.is_active and perms.inscripcion.change_inscripcion %}
@@ -393,24 +391,6 @@
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-      </div>
-    </div>
-  </div>
-</div>
-{% endif %}
-
-{% if perms.inscripcion.change_inscripcion %}
-<div class="modal fade" id="editInscripcionModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content">
-      <div class="modal-header bg-primary text-white">
-        <h5 class="modal-title text-white"><i class="fas fa-edit me-2"></i> Editar Inscripción</h5>
-        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
-          <i class="fas fa-times"></i>
-        </button>
-      </div>
-      <div class="modal-body" id="editInscripcionContent">
-        <div class="text-center py-4 text-muted">Cargando formulario…</div>
       </div>
     </div>
   </div>

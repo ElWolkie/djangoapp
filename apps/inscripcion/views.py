@@ -140,7 +140,7 @@ def edit_inscripcion(request, pk):
     # GET: Mostrar formulario de edición (solo para carga inicial)
     form = InscripcionForm(instance=instance)
     
-# Obtener TODAS las formaciones activas
+    # Obtener TODAS las formaciones activas (similar a inscripcion_modal)
     formaciones = Formacion.objects.filter(estadoFormacion='ACTIVO').annotate(
         cuotas_activas=Exists(
             CuotaFormacion.objects.filter(
@@ -149,11 +149,21 @@ def edit_inscripcion(request, pk):
             )
         ),
         cantidad_cuotas=Count('cuotas', filter=models.Q(cuotas__is_active=True))
-    )
-    
-    # Generar datos para las cuotas
-    # Serializar cuotas a JSON correctamente
+    ).prefetch_related('cuotas')
+
+    # Filtrar cohortes activas para las formaciones
+    today = datetime.now().date()
+    available_formaciones = []
     for formacion in formaciones:
+        cohortes = Cohorte.objects.filter(idFormacion=formacion, estadoCohorte='ACTIVO')
+        for cohorte in cohortes:
+            # En edición, mostramos todas las cohortes activas sin restricción de fecha
+            formacion.cohorte = cohorte
+            available_formaciones.append(formacion)
+            break
+
+    # Serializar cuotas a JSON correctamente
+    for formacion in available_formaciones:
         formacion.cuotas_json = json.dumps([
             {
                 'idCuota': cuota.idCuota,
@@ -165,13 +175,13 @@ def edit_inscripcion(request, pk):
         ])
     
     context = {
-        'form': InscripcionForm(instance=instance),
+        'form': form,
         'inscripcion': instance,
         'personas': Personas.objects.all(),
         'cargos': Cargo.objects.all(),
         'materias': Materia.objects.all(),
         'cohortes': Cohorte.objects.all(),
-        'formaciones': formaciones,  # Todas las formaciones activas
+        'formaciones': available_formaciones,  # Formaciones disponibles
         'tipos_formacion': TipoFormacion.objects.all()
     }
     
