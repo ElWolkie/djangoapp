@@ -192,6 +192,7 @@ class InscripcionSerializer(serializers.ModelSerializer):
 
     montoTotal = serializers.SerializerMethodField()
     saldoPendiente = serializers.SerializerMethodField()
+    pago_inscripcion_confirmada = serializers.SerializerMethodField()
 
     class Meta:
         model = Inscripcion
@@ -209,7 +210,33 @@ class InscripcionSerializer(serializers.ModelSerializer):
             'saldoPendiente',
             'is_active',
             'cuotas',
+            'pago_inscripcion_confirmada',
         ]
+
+    def get_pago_inscripcion_confirmada(self, inscripcion: Inscripcion):
+        """
+        Devuelve True si existe una Nota de tipo 'INSCRIPCION' relacionada y
+        hay al menos un PagoTemporal asociado a esa nota con confirmado=True.
+        Fallback: si la nota existe y nota.estado == 'PAGADA' devuelve True.
+        """
+        try:
+            # Nota relacionada a esta inscripción (tu relación puede variar; ajusta filtro si hace falta)
+            nota = Nota.objects.filter(relaciones__idInscripcion=inscripcion, tipoArticulo='INSCRIPCION').first()
+            if not nota:
+                return False
+
+            # Buscar en PagoTemporal (idNota FK a Nota) si existe confirmado=True
+            if PagoTemporal.objects.filter(idNota=nota, confirmado=True).exists():
+                return True
+
+            # Fallback (por compatibilidad): si la nota ya está marcada como PAGADA
+            if (nota.estado or '').upper() == 'PAGADA':
+                return True
+
+            return False
+        except Exception:
+            # en caso de error mantenemos False (más seguro)
+            return False
 
     def get_idPersona_detail(self, obj):
         try:

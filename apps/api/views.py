@@ -496,24 +496,22 @@ class PagoUsuarioListView(generics.ListAPIView):
             'data': serializer.data
         }, status=status.HTTP_200_OK)
 
-# --- ¡NUEVA VISTA PARA PAGAR CUOTAS! ---
 class CuotaPagoTemporalCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
-        logger.info(f"📥 Petición de pago de CUOTA recibida: {request.user} - {request.data}")
+        logger.info(f"Petición de pago de CUOTA recibida: {request.data}")
         serializer = CuotaPagoTemporalSerializer(data=request.data, context={'request': request})
-
         try:
             serializer.is_valid(raise_exception=True)
             pago_temporal = serializer.save()
-            return Response({
+            response_data = {
                 'success': True,
-                'message': '¡Solicitud de pago de cuota registrada!',
+                'message': 'Solicitud de pago de cuota registrada.',
                 'data': {
-                    'idPagoTemporal': getattr(pago_temporal, 'idPagoTemporal', getattr(pago_temporal, 'pk', None)),
+                    'idPagoTemporal': pago_temporal.idPagoTemporal,
                     'monto': float(pago_temporal.monto),
-                    'fechaPago': pago_temporal.fechaPago.isoformat(),
+                    'fechaPago': pago_temporal.fechaPago.isoformat() if pago_temporal.fechaPago else None,
                     'confirmado': pago_temporal.confirmado,
                     'nota': {
                         'idNota': pago_temporal.idNota.idNota,
@@ -521,13 +519,14 @@ class CuotaPagoTemporalCreateView(APIView):
                         'estado': pago_temporal.idNota.estado,
                     }
                 }
-            }, status=status.HTTP_201_CREATED)
+            }
+            return Response(response_data, status=status.HTTP_201_CREATED)
         except serializers.ValidationError as e:
-            logger.warning("Validación de pago de cuota falló: %s", e.detail)
-            return Response({"success": False, "message": "Datos inválidos", "errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
+            logger.warning(f"Error de validación de pago de cuota: {e.detail}")
+            return Response({"success": False, "message": "Datos inválidos.", "errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            logger.error("Error creando pago de cuota: %s", str(e), exc_info=True)
-            return Response({"success": False, "message": "Error interno", "error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            logger.exception("Error inesperado creando pago de cuota")
+            return Response({"success": False, "message": "Ocurrió un error procesando el pago.", "error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class RequisitoListCreate(generics.ListCreateAPIView):
     queryset = Requisito.objects.all()  # Usa el modelo Requisito
