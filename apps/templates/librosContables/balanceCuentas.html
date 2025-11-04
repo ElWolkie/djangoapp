@@ -339,12 +339,12 @@
   <div class="totals-container">
     <div class="total-card total-debe">
       <h5>Total Debe General</h5>
-      <div class="total-value">${{ total_general_debe|floatformat:2 }}</div>
+      <div class="total-value">{{ total_general_debe|floatformat:2 }}{{ simbolo }}</div>
     </div>
     
     <div class="total-card total-haber">
       <h5>Total Haber General</h5>
-      <div class="total-value">${{ total_general_haber|floatformat:2 }}</div>
+      <div class="total-value">{{ total_general_haber|floatformat:2 }}{{ simbolo }}</div>
     </div>
     
     
@@ -382,46 +382,46 @@
       <td class="text-end highlight-saldo-anterior">
         {% if cuenta_data.saldo_anterior_acumulado > 0 %}
           <span class="saldo-anterior-badge saldo-anterior-deudor">
-            ${{ cuenta_data.saldo_anterior_acumulado|floatformat:2 }}
+            {{ cuenta_data.saldo_anterior_acumulado|floatformat:2 }}{{ simbolo }}
           </span>
         {% elif cuenta_data.saldo_anterior_acumulado < 0 %}
           <span class="saldo-anterior-badge saldo-anterior-acreedor">
-            ${{ cuenta_data.saldo_anterior_acumulado|floatformat:2 }}
+            {{ cuenta_data.saldo_anterior_acumulado|floatformat:2 }}{{ simbolo }}
           </span>
         {% else %}
-          <span class="saldo-anterior-badge saldo-anterior-cero">$0.00</span>
+          <span class="saldo-anterior-badge saldo-anterior-cero">0.00{{ simbolo }}</span>
         {% endif %}
       </td>
       <td class="text-end highlight-debe">
-        ${{ cuenta_data.total_debe_acumulado|floatformat:2 }}
+        {{ cuenta_data.total_debe_acumulado|floatformat:2 }}{{ simbolo }}
       </td>
       <td class="text-end highlight-haber">
-        ${{ cuenta_data.total_haber_acumulado|floatformat:2 }}
+        {{ cuenta_data.total_haber_acumulado|floatformat:2 }}{{ simbolo }}
       </td>
       <td class="text-end">
         {% if cuenta_data.saldo_actual > 0 %}
           <span class="saldo-badge saldo-deudor">
-            ${{ cuenta_data.saldo_actual|floatformat:2 }}
+            {{ cuenta_data.saldo_actual|floatformat:2 }}{{ simbolo }}
           </span>
         {% elif cuenta_data.saldo_actual < 0 %}
           <span class="saldo-badge saldo-acreedor">
-            ${{ cuenta_data.saldo_actual|floatformat:2 }}
+            {{ cuenta_data.saldo_actual|floatformat:2 }}{{ simbolo }}
           </span>
         {% else %}
-          <span class="saldo-badge saldo-cero">$0.00</span>
+          <span class="saldo-badge saldo-cero">0.00{{ simbolo }}</span>
         {% endif %}
       </td>
       <td class="text-end">
         {% if cuenta_data.saldo_acumulado > 0 %}
           <span class="saldo-badge saldo-deudor">
-            ${{ cuenta_data.saldo_acumulado|floatformat:2 }}
+            {{ cuenta_data.saldo_acumulado|floatformat:2 }}{{ simbolo }}
           </span>
         {% elif cuenta_data.saldo_acumulado < 0 %}
           <span class="saldo-badge saldo-acreedor">
-            ${{ cuenta_data.saldo_acumulado|floatformat:2 }}
+            {{ cuenta_data.saldo_acumulado|floatformat:2 }}{{ simbolo }}
           </span>
         {% else %}
-          <span class="saldo-badge saldo-cero">$0.00</span>
+          <span class="saldo-badge saldo-cero">0.00{{ simbolo }}</span>
         {% endif %}
       </td>
     </tr>
@@ -439,31 +439,31 @@
     <th colspan="2" class="text-end">TOTALES GENERALES:</th>
     <th class="text-end">
       {% if total_general_saldo_anterior > 0 %}
-        <span class="text-success">${{ total_general_saldo_anterior|floatformat:2 }}</span>
+        <span class="text-success">{{ total_general_saldo_anterior|floatformat:2 }}{{ simbolo }}</span>
       {% elif total_general_saldo_anterior < 0 %}
-        <span class="text-danger">${{ total_general_saldo_anterior|floatformat:2 }}</span>
+        <span class="text-danger">{{ total_general_saldo_anterior|floatformat:2 }}{{ simbolo }}</span>
       {% else %}
-        ${{ total_general_saldo_anterior|floatformat:2 }}
+        {{ total_general_saldo_anterior|floatformat:2 }}{{ simbolo }}
       {% endif %}
     </th>
-    <th class="text-end">${{ total_general_debe|floatformat:2 }}</th>
-    <th class="text-end">${{ total_general_haber|floatformat:2 }}</th>
+    <th class="text-end">{{ total_general_debe|floatformat:2 }}{{ simbolo }}</th>
+    <th class="text-end">{{ total_general_haber|floatformat:2 }}{{ simbolo }}</th>
     <th class="text-end">
       {% if total_general_saldo_actual > 0 %}
-        <span class="text-success">${{ total_general_saldo_actual|floatformat:2 }}</span>
+        <span class="text-success">{{ total_general_saldo_actual|floatformat:2 }}{{ simbolo }}</span>
       {% elif total_general_saldo_actual < 0 %}
-        <span class="text-danger">${{ total_general_saldo_actual|floatformat:2 }}</span>
+        <span class="text-danger">{{ total_general_saldo_actual|floatformat:2 }}{{ simbolo }}</span>
       {% else %}
-        ${{ total_general_saldo_actual|floatformat:2 }}
+        {{ total_general_saldo_actual|floatformat:2 }}{{ simbolo }}
       {% endif %}
     </th>
     <th class="text-end">
       {% if total_general_saldo_acumulado > 0 %}
-        <span class="text-success">${{ total_general_saldo_acumulado|floatformat:2 }}</span>
+        <span class="text-success">{{ total_general_saldo_acumulado|floatformat:2 }}{{ simbolo }}</span>
       {% elif total_general_saldo_acumulado < 0 %}
-        <span class="text-danger">${{ total_general_saldo_acumulado|floatformat:2 }}</span>
+        <span class="text-danger">{{ total_general_saldo_acumulado|floatformat:2 }}{{ simbolo }}</span>
       {% else %}
-        ${{ total_general_saldo_acumulado|floatformat:2 }}
+        {{ total_general_saldo_acumulado|floatformat:2 }}{{ simbolo }}
       {% endif %}
     </th>
   </tr>
@@ -581,7 +581,7 @@ document.addEventListener('DOMContentLoaded', function () {
       if (!startTimestamp) startTimestamp = timestamp;
       const progress = Math.min((timestamp - startTimestamp) / duration, 1);
       const value = Math.floor(progress * (end - start) + start);
-      element.textContent = '$' + formatNumber(value.toFixed(2));
+      element.textContent = formatNumber(value.toFixed(2)) + '{{ simbolo }}';
       if (progress < 1) {
         window.requestAnimationFrame(step);
       }

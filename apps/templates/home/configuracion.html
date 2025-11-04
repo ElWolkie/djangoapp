@@ -269,6 +269,9 @@
               <div class="form-group">
           <label for="id_moneda" class="form-label">
             <i class="fas fa-coins me-1"></i> Moneda del sistema
+            <button type="button" class="btn btn-link p-0 ms-2" title="La moneda base del sistema es la unidad monetaria principal utilizada en todas las transacciones financieras dentro de la aplicación. Incluye la presentación de precios, los cálculos de impuestos, la generación de informes financieros y cualquier otra operación relacionada con el dinero a nivel contable. Modifíquela bajo la supervisión de un contador o de un ingeniero informático calificado que consulte el manual del sistema y genere respaldos de seguridad." aria-label="Más información sobre la moneda del sistema">
+              <i class="fas fa-info-circle text-muted"></i>
+            </button>
           </label>
           <div class="input-group" title="Seleccione la moneda que usará el sistema. Esta opción determinará el formato monetario en toda la aplicación. No confundir con la moneda nacional (ID=1).">
             {{ form.moneda }}
