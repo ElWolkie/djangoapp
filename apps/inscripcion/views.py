@@ -122,7 +122,6 @@ def edit_inscripcion(request, pk):
     if request.method == 'POST':
         form = InscripcionForm(request.POST, instance=instance)
         if form.is_valid():
-            # Guardar sin modificar el estado is_active
             form.save()
             return JsonResponse({
                 'success': True,
@@ -130,59 +129,76 @@ def edit_inscripcion(request, pk):
                 'redirect_url': reverse('tabla_inscripciones')
             })
         else:
-            # Mejor formato para errores incluyendo todos los mensajes
             errors = {field: error[0] for field, error in form.errors.get_json_data().items()}
             return JsonResponse({
                 'success': False, 
                 'errors': errors
             }, status=400)
     
-    # GET: Mostrar formulario de edición (solo para carga inicial)
+    # GET: Mostrar formulario de edición
     form = InscripcionForm(instance=instance)
     
-    # Obtener TODAS las formaciones activas (similar a inscripcion_modal)
-    formaciones = Formacion.objects.filter(estadoFormacion='ACTIVO').annotate(
-        cuotas_activas=Exists(
-            CuotaFormacion.objects.filter(
-                idFormacion=OuterRef('pk'),
-                is_active=True
-            )
-        ),
-        cantidad_cuotas=Count('cuotas', filter=models.Q(cuotas__is_active=True))
-    ).prefetch_related('cuotas')
-
-    # Filtrar cohortes activas para las formaciones
-    today = datetime.now().date()
-    available_formaciones = []
+    # Obtener la formación actual a través de la cohorte
+    formacion_actual = instance.idCohorte.idFormacion
+    
+    # Obtener todos los tipos de formación activos
+    tipos_formacion = TipoFormacion.objects.filter(estadoTipoFormacion='ACTIVO')
+    
+    # Obtener todas las formaciones activas con sus cohortes activas
+    # Pero las filtraremos en el template por JavaScript según el tipo seleccionado
+    formaciones = Formacion.objects.filter(estadoFormacion='ACTIVO')
+    
+    # Preparar datos de formaciones con cohortes
+    formaciones_data = []
     for formacion in formaciones:
-        cohortes = Cohorte.objects.filter(idFormacion=formacion, estadoCohorte='ACTIVO')
-        for cohorte in cohortes:
-            # En edición, mostramos todas las cohortes activas sin restricción de fecha
-            formacion.cohorte = cohorte
-            available_formaciones.append(formacion)
-            break
+        # Buscar cohortes activas para esta formación
+        cohortes_activas = Cohorte.objects.filter(
+            idFormacion=formacion, 
+            estadoCohorte='ACTIVO'
+        )
+        
+        if cohortes_activas.exists():
+            # Tomar la primera cohorte activa
+            cohorte = cohortes_activas.first()
+            
+            # Obtener cuotas activas
+            cuotas_activas = formacion.cuotas.filter(is_active=True)
+            
+            # Serializar cuotas
+            cuotas_json = json.dumps([
+                {
+                    'idCuota': cuota.idCuota,
+                    'nombreCuota': cuota.nombreCuota,
+                    'valorCuota': float(cuota.valorCuota),
+                    'orden': cuota.orden
+                }
+                for cuota in cuotas_activas
+            ])
+            
+            formaciones_data.append({
+                'idFormacion': formacion.idFormacion,
+                'nombreFormacion': formacion.nombreFormacion,
+                'idTF': formacion.idTF.idTF,  # ID del tipo de formación
+                'nombreTipoFormacion': formacion.idTF.nombreTipoFormacion,  # Nombre del tipo
+                'valorInscripcion': float(formacion.valorInscripcion),
+                'tieneCuotas': cuotas_activas.exists(),
+                'cantidad_cuotas': cuotas_activas.count(),
+                'cuotas_json': cuotas_json,
+                'idCohorte': cohorte.idCohorte,
+                'nombreCohorte': cohorte.nombreCohorte
+            })
 
-    # Serializar cuotas a JSON correctamente
-    for formacion in available_formaciones:
-        formacion.cuotas_json = json.dumps([
-            {
-                'idCuota': cuota.idCuota,
-                'nombreCuota': cuota.nombreCuota,
-                'valorCuota': float(cuota.valorCuota),
-                'orden': cuota.orden
-            }
-            for cuota in formacion.cuotas.filter(is_active=True)
-        ])
+    # Debug
+    print(f"[DEBUG] Formación actual: {formacion_actual.nombreFormacion}")
+    print(f"[DEBUG] Tipo de formación actual: {formacion_actual.idTF.nombreTipoFormacion}")
+    print(f"[DEBUG] Total formaciones disponibles: {len(formaciones_data)}")
     
     context = {
         'form': form,
         'inscripcion': instance,
-        'personas': Personas.objects.all(),
-        'cargos': Cargo.objects.all(),
-        'materias': Materia.objects.all(),
-        'cohortes': Cohorte.objects.all(),
-        'formaciones': available_formaciones,  # Formaciones disponibles
-        'tipos_formacion': TipoFormacion.objects.all()
+        'formacion_actual': formacion_actual,
+        'formaciones_data': formaciones_data,
+        'tipos_formacion': tipos_formacion
     }
     
     return render(request, 'inscripcion/editInscripcion.html', context)
