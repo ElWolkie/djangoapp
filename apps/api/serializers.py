@@ -12,7 +12,7 @@ from rest_framework import serializers
 from apps.home.models import Configuracion, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Moneda, Tasa, Formacion, CuotaFormacion, TipoFormacion, Usuarios
 from apps.persona.models import Personas, PersonaTP, TipoPersona
 from apps.honorario.models import Honorario
-from apps.inscripcion.models import Inscripcion
+from apps.inscripcion.models import Inscripcion, InscripcionCuota
 from apps.solicitud.models import Solicitud
 from apps.asientoContable.models import AsientoContable, DetalleAsiento
 from apps.planCuenta.models import PlanCuenta
@@ -506,6 +506,133 @@ class PagoCreateSerializer(serializers.ModelSerializer):
         )
 
         return pago_temporal
+
+# --- ¡NUEVA CLASE PARA PAGAR CUOTAS! ---
+class CuotaPagoTemporalSerializer(serializers.Serializer):
+    """
+    Serializer para registrar un pago temporal de una CUOTA específica
+    de una inscripción.
+    """
+    idInscripcion = serializers.IntegerField(write_only=True)
+    nombreCuota = serializers.CharField(max_length=100)
+    monto = serializers.DecimalField(max_digits=20, decimal_places=4)
+    referencia = serializers.CharField(max_length=100)
+    fechaPago = serializers.DateField() # Asumimos que el frontend la enviará
+    observaciones = serializers.CharField(required=False, allow_blank=True, default='')
+
+    def validate_monto(self, value):
+        if value <= Decimal('0.00'):
+            raise serializers.ValidationError("El monto debe ser mayor a 0.")
+        return value
+
+    def validate(self, data):
+        # 1. Validar que la Inscripción exista
+        try:
+            inscripcion = Inscripcion.objects.get(idInscripcion=data['idInscripcion'])
+        except Inscripcion.DoesNotExist:
+            raise serializers.ValidationError({"idInscripcion": "La inscripción especificada no existe."})
+
+        # 2. Validar que la inscripción esté PAGADA (requisito clave que mencionaste)
+        if inscripcion.estadoPago != 'PAGADO':
+            # Buscamos la nota de inscripción inicial para estar seguros
+            nota_inscripcion = Nota.objects.filter(relaciones__idInscripcion=inscripcion, tipoArticulo='INSCRIPCION').first()
+            if not nota_inscripcion or nota_inscripcion.estado != 'PAGADA':
+                raise serializers.ValidationError("Solo puedes pagar cuotas si el pago de inscripción inicial ya ha sido confirmado.")
+
+        # 3. Validar que la cuota exista y esté pendiente
+        try:
+            # Buscamos la cuota por nombre Y que esté EN ESPERA
+            # (EN ESPERA = lista para ser pagada, PENDIENTE = ya se generó nota)
+            cuota = inscripcion.inscripcioncuota_set.get(
+                idCuota__nombreCuota=data['nombreCuota'],
+                estadoPago='EN ESPERA' # ¡Solo permite pagar la siguiente cuota EN ESPERA!
+            )
+        except InscripcionCuota.DoesNotExist:
+            raise serializers.ValidationError({"cuota": "La cuota seleccionada no está disponible para pago (ya fue pagada, está pendiente de confirmación o no existe)."})
+        except InscripcionCuota.MultipleObjectsReturned:
+            raise serializers.ValidationError({"cuota": "Error de duplicidad de cuotas. Contacte a soporte."})
+
+        # 4. Validar el monto (opcional, pero buena idea)
+        if data['monto'] != cuota.idCuota.valorCuota:
+             logger.warning(f"Monto de pago ({data['monto']}) no coincide con valor de cuota ({cuota.idCuota.valorCuota})")
+             # Permitimos el pago, pero ajustamos al valor real de la cuota
+             data['monto'] = cuota.idCuota.valorCuota
+        
+        # 5. Validar configuración
+        configuracion = Configuracion.objects.first()
+        if not configuracion or not configuracion.idCuentaBanco:
+            raise serializers.ValidationError("No hay cuenta bancaria configurada en el sistema.")
+
+        # Guardar objetos en el contexto para usarlos en create()
+        self.context['inscripcion'] = inscripcion
+        self.context['cuota'] = cuota
+        self.context['configuracion'] = configuracion
+        return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        inscripcion = self.context.get('inscripcion')
+        cuota = self.context.get('cuota') # Esta es la InscripcionCuota
+        configuracion = self.context.get('configuracion')
+        
+        # 1. Obtener Tasa
+        if not configuracion.moneda:
+             raise serializers.ValidationError("La configuración no tiene una moneda definida.")
+        tasa = Tasa.objects.filter(idMoneda=configuracion.moneda).order_by('-idTasa').first()
+        if not tasa:
+            raise serializers.ValidationError(f"No se encontró tasa para la moneda {configuracion.moneda}.")
+
+        # 2. Crear Asiento (Temporal/Provisorio)
+        numero_asiento = f"CUOTA-{now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
+        asiento = AsientoContable.objects.create(
+            numeroAsiento=numero_asiento,
+            fechaAsiento=now().date(),
+            conceptoAsiento=f"Solicitud pago cuota: {cuota.idCuota.nombreCuota} - Inscripción: {inscripcion.idInscripcion}",
+            idPeriodo=periodoContable.objects.filter(estadoPeriodo=True).first()
+        )
+
+        # 3. Crear la Nota de Cobro para esta cuota
+        numero_nota = f"NOTA-CUOTA-{uuid.uuid4().hex[:6].upper()}"
+        nota = Nota.objects.create(
+            idAsiento=asiento,
+            idPersona=inscripcion.idPersona,
+            tipoOperacion='COBRO',
+            tipoArticulo='CUOTA', # ¡Importante!
+            numeroNota=numero_nota,
+            fechaEmision=now().date(),
+            fechaVencimiento=now().date() + timedelta(days=7),
+            formaPago=validated_data['formaPago'],
+            totalNota=validated_data['monto'],
+            idTasa=tasa,
+            estado='PENDIENTE', # La nota nace PENDIENTE
+            observaciones=f"Nota para {cuota.idCuota.nombreCuota}"
+        )
+
+        # 4. Relacionar la Nota con la Cuota y la Inscripción
+        NotaRelacionada.objects.create(
+            idNota=nota,
+            idInscripcion=inscripcion,
+            idCuota=cuota
+        )
+
+        # 5. Crear el PagoTemporal (el reporte del usuario)
+        pago_temporal = PagoTemporal.objects.create(
+            idNota=nota, # Se asocia a la NUEVA nota de cobro
+            idCuentaBanco=configuracion.idCuentaBanco,
+            idTasa=tasa,
+            monto=validated_data['monto'],
+            referencia=validated_data.get('referencia', ''),
+            observaciones=validated_data.get('observaciones', ''),
+            fechaPago=validated_data['fechaPago'],
+            formaPago=validated_data['formaPago'],
+            confirmado=False
+        )
+
+        # 6. Actualizar el estado de la InscripcionCuota
+        cuota.estadoPago = 'PENDIENTE' # Pasa de 'EN ESPERA' a 'PENDIENTE' (esperando confirmación)
+        cuota.save()
+
+        return pago_temporal # Devolvemos el pago temporal creado
 
 class RequisitoSerializer(serializers.ModelSerializer):
     class Meta:

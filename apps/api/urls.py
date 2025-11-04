@@ -22,6 +22,8 @@ urlpatterns = [
 
     path('pagos/', views.PagoUsuarioListView.as_view(), name='pagos-list-usuario'),
 
+    path('pagos/cuota/create/', views.CuotaPagoTemporalCreateView.as_view(), name='api-pagos-cuota-create'),
+
     path('corregir-relaciones/', corregir_relaciones_notas, name='corregir_relaciones'),
     path('notas/por-cedula/', notas_por_cedula, name='notas_por_cedula'),
     path('diagnosticar-notas/', diagnosticar_notas, name='diagnosticar_notas'),
