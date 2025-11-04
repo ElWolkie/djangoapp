@@ -172,6 +172,17 @@
       border-right: none;
       background-color: #fff;
   }
+
+  .input-group .input-group-text {
+    background-color: #f8f9fa;
+    border: 1px solid #ced4da;
+    border-right: none;
+    border-radius: 0.5rem 0 0 0.5rem;
+  }
+
+  .input-group .form-control {
+    border-radius: 0 0.5rem 0.5rem 0;
+  }
 </style>
 {% endblock stylesheets %}
 
@@ -785,5 +796,123 @@ document.addEventListener("DOMContentLoaded", function () {
         (tipo && numeroInput && numeroInput.value) ? tipo + '-' + numeroInput.value : '';
     }
   });
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const tablaRequisitos = document.querySelector("table.table-bordered");
+  const searchWrapper = document.createElement("div");
+  searchWrapper.className = "input-group mb-3";
+
+  const searchIcon = document.createElement("span");
+  searchIcon.className = "input-group-text";
+  searchIcon.innerHTML = '<i class="fas fa-search"></i>';
+
+  const searchRequisitoInput = document.createElement("input");
+  searchRequisitoInput.type = "text";
+  searchRequisitoInput.placeholder = "Buscar requisito...";
+  searchRequisitoInput.className = "form-control";
+
+  searchWrapper.appendChild(searchIcon);
+  searchWrapper.appendChild(searchRequisitoInput);
+  tablaRequisitos.parentElement.insertBefore(searchWrapper, tablaRequisitos);
+
+  const paginationContainer = document.createElement("div");
+  const mensajeSinCoincidencias = document.createElement("p");
+  const rowsPerPage = 10;
+  let currentPage = 1;
+
+  // Crear mensaje de sin coincidencias
+  mensajeSinCoincidencias.textContent = "No se encontraron coincidencias.";
+  mensajeSinCoincidencias.className = "text-center text-muted my-4";
+  mensajeSinCoincidencias.style.display = "none";
+  tablaRequisitos.parentElement.appendChild(mensajeSinCoincidencias);
+
+  // Evitar que el buscador envíe el formulario al presionar ENTER
+  searchRequisitoInput.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+    }
+  });
+
+  // Crear contenedor de paginación
+  paginationContainer.className = "pagination-container d-flex justify-content-center mt-3";
+  tablaRequisitos.parentElement.appendChild(paginationContainer);
+
+  function displayRows(filteredRows) {
+    const rows = filteredRows || Array.from(tablaRequisitos.querySelectorAll("tbody tr"));
+    const start = (currentPage - 1) * rowsPerPage;
+    const end = start + rowsPerPage;
+    rows.forEach((row, index) => {
+      row.style.display = index >= start && index < end ? "" : "none";
+    });
+  }
+
+  function setupPagination(filteredRows) {
+    const rows = filteredRows || Array.from(tablaRequisitos.querySelectorAll("tbody tr"));
+    const totalPages = Math.ceil(rows.length / rowsPerPage);
+    paginationContainer.innerHTML = "";
+
+    const prevLi = document.createElement("li");
+    prevLi.className = `page-item ${currentPage === 1 ? "disabled" : ""}`;
+    prevLi.innerHTML = `<a class="page-link" href="#">&laquo;</a>`;
+    prevLi.addEventListener("click", (e) => {
+      e.preventDefault();
+      if (currentPage > 1) currentPage--;
+      displayRows(filteredRows);
+      setupPagination(filteredRows);
+    });
+    paginationContainer.appendChild(prevLi);
+
+    for (let i = 1; i <= totalPages; i++) {
+      const li = document.createElement("li");
+      li.className = `page-item ${i === currentPage ? "active" : ""}`;
+      li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+      li.addEventListener("click", (e) => {
+        e.preventDefault();
+        currentPage = i;
+        displayRows(filteredRows);
+        setupPagination(filteredRows);
+      });
+      paginationContainer.appendChild(li);
+    }
+
+    const nextLi = document.createElement("li");
+    nextLi.className = `page-item ${currentPage === totalPages ? "disabled" : ""}`;
+    nextLi.innerHTML = `<a class="page-link" href="#">&raquo;</a>`;
+    nextLi.addEventListener("click", (e) => {
+      e.preventDefault();
+      if (currentPage < totalPages) currentPage++;
+      displayRows(filteredRows);
+      setupPagination(filteredRows);
+    });
+    paginationContainer.appendChild(nextLi);
+  }
+
+
+  searchRequisitoInput.addEventListener("input", function () {
+    const filter = searchRequisitoInput.value.toUpperCase();
+    const rows = Array.from(tablaRequisitos.querySelectorAll("tbody tr"));
+    const filteredRows = rows.filter((row) => {
+      const cells = row.getElementsByTagName("td");
+      return Array.from(cells).some((cell) =>
+        cell.textContent.toUpperCase().includes(filter)
+      );
+    });
+
+    if (filteredRows.length === 0) {
+      mensajeSinCoincidencias.style.display = "block";
+      rows.forEach((row) => (row.style.display = "none"));
+    } else {
+      mensajeSinCoincidencias.style.display = "none";
+      currentPage = 1;
+      setupPagination(filteredRows);
+      displayRows(filteredRows);
+    }
+  });
+
+  setupPagination();
+  displayRows();
+});
 </script>
 {% endblock javascripts %}
