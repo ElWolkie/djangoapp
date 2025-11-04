@@ -265,24 +265,10 @@
       <p class="text-muted">Modifique los campos necesarios para actualizar la inscripción</p>
     </div>
     
-    {% if messages %}
-      {% for message in messages %}
-        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-          <div class="d-flex align-items-center">
-            <i class="fas {% if message.tags == 'success' %}fa-check-circle{% else %}fa-exclamation-circle{% endif %} me-2"></i>
-            <div>{{ message }}</div>
-          </div>
-          <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="alert" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
-          <i class="fas fa-times"></i>
-        </button>
-        </div>
-      {% endfor %}
-    {% endif %}
-    
     <form method="POST" autocomplete="off" id="editInscripcionForm" action="{% url 'edit_inscripcion' inscripcion.idInscripcion %}">
       {% csrf_token %}
       
-      <!-- Grupo de Cédula (solo visualización) -->
+      <!-- Cédula (solo lectura) -->
       <div class="form-group mb-4">
         <label class="form-label">
           <i class="fas fa-id-card me-2"></i> Cédula del Cliente
@@ -293,8 +279,7 @@
             {{ inscripcion.idPersona.cedula }}
           </div>
         </div>
-        <input type="hidden" name="cedulaPersona" value="{{ inscripcion.idPersona.cedula }}">
-        <input type="hidden" id="idPersona" name="idPersona" value="{{ inscripcion.idPersona.idPersona }}">
+        <input type="hidden" name="idPersona" value="{{ inscripcion.idPersona.idPersona }}">
       </div>
 
       <div class="form-divider">
@@ -314,7 +299,6 @@
               <option value="{{ tipo.idTF }}" {% if tipo.idTF == inscripcion.idTF.idTF %}selected{% endif %}>{{ tipo.nombreTipoFormacion }}</option>
               {% endfor %}
             </select>
-            <div class="invalid-feedback">Por favor, seleccione un tipo de formación.</div>
           </div>
         </div>
 
@@ -328,26 +312,39 @@
               <i class="fas fa-search input-icon"></i>
               <input type="text" id="formacionInput" class="form-control input-with-icon" 
                      placeholder="Seleccione una formación académica" readonly required 
-                     value="{{ inscripcion.idFormacion.nombreFormacion }} - Cohorte {{ inscripcion.idCohorte.nombreCohorte }}" />
+                     value="{{ formacion_actual.nombreFormacion }}" />
               <button type="button" id="buscarFormacion" class="btn btn-warning btn-sm" data-bs-toggle="modal" data-bs-target="#formacionModal">
                 <i class="fas fa-search text-white"></i>
               </button>
-              <div class="invalid-feedback">Por favor, seleccione una formación académica válida.</div>
             </div>
             <input type="hidden" id="idCohorte" name="idCohorte" value="{{ inscripcion.idCohorte.idCohorte }}" />
-            <input type="hidden" id="idFormacion" name="idFormacion" value="{{ inscripcion.idFormacion.idFormacion }}" />
+            <input type="hidden" id="idFormacion" name="idFormacion" value="{{ formacion_actual.idFormacion }}" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Cohorte (solo visualización) -->
+      <div class="form-group mb-4">
+        <label class="form-label">
+          <i class="fas fa-users me-2"></i> Cohorte
+        </label>
+        <div class="input-group position-relative">
+          <i class="fas fa-users input-icon"></i>
+          <div class="readonly-field with-icon">
+            {{ inscripcion.idCohorte.nombreCohorte }}
           </div>
         </div>
       </div>
             
       <div id="alert-container"></div>
       
+      <!-- Resumen de Costos -->
       <div class="form-group mb-4">
         <label for="resumenCostos" class="form-label">
           <i class="fas fa-money-bill-wave me-2"></i> Resumen de Costos
         </label>
         <div id="resumenCostos" class="table-responsive">
-          <table class="table table-bordered table-responsive w-100 d-block d-md-table">
+          <table class="table table-bordered">
             <thead class="table-light">
               <tr>
                 <th>Concepto</th>
@@ -357,7 +354,7 @@
             <tbody id="resumenCostosBody">
               <tr>
                 <td><strong>VALOR INSCRIPCIÓN</strong></td>
-                <td id="valorInscripcion">-</td>
+                <td id="valorInscripcion">${{ formacion_actual.valorInscripcion|default:0 }}</td>
               </tr>
               <tr>
                 <td><strong>TOTAL EN CUOTAS</strong></td>
@@ -379,64 +376,69 @@
   </div>
 </div>
 
-<!-- Modal para buscar formación académica -->
-<div class="modal fade" id="formacionModal" tabindex="-1" role="dialog" aria-labelledby="formacionModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+<!-- Modal para formaciones -->
+<div class="modal fade" id="formacionModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content">
       <div class="modal-header bg-primary text-white">
-        <h5 class="modal-title text-white" id="formacionModalLabel">
+        <h5 class="modal-title text-white">
           <i class="fas fa-search mr-2"></i> Seleccionar Formación Académica
         </h5>
-        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
-          <i class="fas fa-times"></i>
-        </button>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
+        <div class="mb-3" style="display: none;">
+          <label class="form-label">Filtrar por tipo de formación:</label>
+          <select id="filtroTipoFormacion" class="form-select">
+            <option value="">Todos los tipos</option>
+            {% for tipo in tipos_formacion %}
+            <option value="{{ tipo.idTF }}">{{ tipo.nombreTipoFormacion }}</option>
+            {% endfor %}
+          </select>
+        </div>
         <div class="input-group mb-3">
-          <div class="input-group-prepend">
-            <span class="input-group-text bg-light">
-              <i class="fas fa-search text-warning"></i>
-            </span>
-          </div>
-          <input class="form-control" id="searchFormacionInput" type="text" placeholder="Buscar formación...">
+          <input class="form-control" id="searchFormacionInput" type="text" placeholder="Buscar formación por nombre...">
         </div>
         <div class="table-responsive">
           <table class="table table-sm table-striped table-hover" id="tablaFormaciones">
             <thead class="bg-light">
               <tr>
-                <th style="width: 15%;">Código</th>
-                <th style="width: 60%;">Nombre</th>
-                <th style="width: 15%;">Cohorte</th>
-                <th style="width: 10%;">Seleccionar</th>
+                <th>Código</th>
+                <th>Nombre</th>
+                <th>Tipo</th>
+                <th>Cohorte</th>
+                <th>Seleccionar</th>
               </tr>
             </thead>
             <tbody>
-              {% for formacion in formaciones %}
-                <tr data-id="{{ formacion.idFormacion }}" 
-                    data-nombre="{{ formacion.nombreFormacion }} - Cohorte {{ formacion.cohorte.nombreCohorte }}"   
-                    data-tf="{{ formacion.idTF.idTF }}"
-                    data-valorInscripcion="{{ formacion.valorInscripcion }}" 
-                    data-tieneCuotas="{{ formacion.tieneCuotas }}" 
-                    data-cuotasActivas="{{ formacion.cuotas_activas }}" 
-                    data-cantidadCuotas="{{ formacion.cantidad_cuotas }}" 
-                    data-cuotas="{{ formacion.cuotas_json }}"
-                    data-idCohorte="{{ formacion.cohorte.idCohorte }}">
-                  <td>{{ formacion.idFormacion }}</td>
-                  <td>{{ formacion.nombreFormacion }}</td>
-                  <td>{{ formacion.cohorte.nombreCohorte }}</td>
-                  <td>
-                    <button class="btn btn-sm btn-warning btn-select">
-                      <i class="fas fa-check"></i> Elegir
-                    </button>
-                  </td>
-                </tr>
+              {% for item in formaciones_data %}
+              <tr data-id="{{ item.idFormacion }}" 
+                  data-nombre="{{ item.nombreFormacion }}"   
+                  data-tf="{{ item.idTF }}"
+                  data-tipo-nombre="{{ item.nombreTipoFormacion }}"
+                  data-valorInscripcion="{{ item.valorInscripcion }}" 
+                  data-tieneCuotas="{{ item.tieneCuotas }}" 
+                  data-cantidadCuotas="{{ item.cantidad_cuotas }}" 
+                  data-cuotas="{{ item.cuotas_json }}"
+                  data-idCohorte="{{ item.idCohorte }}"
+                  data-cohorte-nombre="{{ item.nombreCohorte }}">
+                <td>{{ item.idFormacion }}</td>
+                <td>{{ item.nombreFormacion }}</td>
+                <td>{{ item.nombreTipoFormacion }}</td>
+                <td>{{ item.nombreCohorte }}</td>
+                <td>
+                  <button class="btn btn-sm btn-warning btn-select">
+                    <i class="fas fa-check"></i> Elegir
+                  </button>
+                </td>
+              </tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
-        <p id="mensajeSinRegistros" class="text-center text-muted my-4" style="display: none;">
-          <i class="fas fa-info-circle mr-2"></i> No se encontraron registros
-        </p>
+        <div id="mensajeSinResultados" class="text-center text-muted my-4" style="display: none;">
+          <i class="fas fa-info-circle mr-2"></i> No se encontraron formaciones que coincidan con los filtros
+        </div>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
@@ -447,236 +449,191 @@
 {% endblock content %}
 
 {% block javascripts %}
-  <script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
-  <script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
-  <script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
-  
-  <script>
-  document.addEventListener("DOMContentLoaded", function () {
-    // ============================
-    // 1) Filtrar formaciones por tipo de formación
-    // ============================
-    function filterFormaciones() {
-      const selectedTipoFormacion = document.getElementById("idTF").value;
-      const rows = document.querySelectorAll("#tablaFormaciones tbody tr");
+<script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
+<script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
+<script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
 
-      rows.forEach((row) => {
-        const tipoFormacion = row.dataset.tf;
-        if (tipoFormacion === selectedTipoFormacion || !selectedTipoFormacion) {
-          row.style.display = "";
-        } else {
-          row.style.display = "none";
-        }
-      });
-
-      // Actualizar mensaje de sin registros
-      const visibleRows = Array.from(rows).filter(row => row.style.display !== 'none');
-      document.getElementById("mensajeSinRegistros").style.display = 
-        visibleRows.length === 0 ? "block" : "none";
-    }
-
-    // ============================
-    // 2) Actualizar resumen de costos
-    // ============================
-    function updateResumenCostos() {
-      const selectedId = document.getElementById("idFormacion").value;
-      const selectedRow = Array.from(document.querySelectorAll("#tablaFormaciones tbody tr")).find(
-        (row) => row.dataset.id === selectedId
-      );
-
-      if (!selectedRow) {
-        // Si no hay selección, usar los valores actuales de la inscripción
-        const valorInscripcion = parseFloat("{{ inscripcion.idFormacion.valorInscripcion }}") || 0;
-        updateResumenCostosDisplay(valorInscripcion, []);
-        return;
-      }
-
-      const valorInscripcion = parseFloat(selectedRow.dataset.valorinscripcion) || 0;
-      const cuotas = JSON.parse(selectedRow.dataset.cuotas || "[]");
-      
-      updateResumenCostosDisplay(valorInscripcion, cuotas);
-    }
-
-    function updateResumenCostosDisplay(valorInscripcion, cuotas) {
-      let valorCuotas = 0;
-      const resumenCostosBody = document.getElementById("resumenCostosBody");
-
-      // Limpiar y crear estructura base
-      resumenCostosBody.innerHTML = `
-        <tr>
-          <td><strong>VALOR INSCRIPCIÓN</strong></td>
-          <td id="valorInscripcion" style="background-color: #cce5ff;"><strong>-</strong></td>
-        </tr>
-        <tr>
-          <td><strong>TOTAL EN CUOTAS</strong></td>
-          <td id="valorCuotas" style="background-color: #e2d4f0;"><strong>-</strong></td>
-        </tr>
-        <tr style="background-color: #d4edda;">
-          <td><strong>TOTAL GLOBAL</strong></td>
-          <td id="valorTotal"><strong>-</strong></td>
-        </tr>
-      `;
-
-      // Agregar filas de cuotas individuales
-      if (cuotas.length > 0) {
-        cuotas.forEach((cuota) => {
-          valorCuotas += parseFloat(cuota.valorCuota);
-          const fila = document.createElement("tr");
-          fila.innerHTML = `
-            <td><strong>${cuota.nombreCuota || "Cuota"}</strong></td>
-            <td>$${parseFloat(cuota.valorCuota).toFixed(2)}</td>
-          `;
-          resumenCostosBody.insertBefore(fila, resumenCostosBody.querySelector("#valorCuotas").parentElement);
-        });
-      }
-
-      const valorTotal = valorInscripcion + valorCuotas;
-
-      document.getElementById("valorInscripcion").textContent = `$${valorInscripcion.toFixed(2)}`;
-      document.getElementById("valorCuotas").textContent = `$${valorCuotas.toFixed(2)}`;
-      document.getElementById("valorTotal").textContent = `$${valorTotal.toFixed(2)}`;
-    }
-
-    // ============================
-    // 3) Enviar formulario por AJAX
-    // ============================
-    function submitForm(e) {
-      e.preventDefault();
-
-      const tipoFormacion = document.getElementById("idTF").value;
-      const formacion = document.getElementById("idFormacion").value;
-
-      if (!tipoFormacion || !formacion) {
-        Swal.fire({
-          icon: "warning",
-          title: "Campos requeridos",
-          text: "Por favor seleccione un tipo de formación y una formación académica",
-          confirmButtonText: "OK",
-          customClass: { confirmButton: "btn btn-warning" },
-          buttonsStyling: false,
-        });
-        return;
-      }
-
-      const formData = new FormData(document.getElementById("editInscripcionForm"));
-
-      fetch(document.getElementById("editInscripcionForm").action, {
-        method: "POST",
-        body: formData,
-        headers: { "X-Requested-With": "XMLHttpRequest" },
-      })
-        .then((r) => r.json())
-        .then((json) => {
-          if (json.success) {
-            Swal.fire({
-              icon: "success",
-              title: "¡Éxito!",
-              text: json.message,
-              confirmButtonText: "Continuar",
-              customClass: { confirmButton: "btn btn-warning" },
-              buttonsStyling: false,
-            }).then(() => {
-              if (json.redirect_url) {
-                window.location.href = json.redirect_url;
-              }
-            });
-          } else if (json.errors) {
-            let errorMessages = '';
-            for (const [field, error] of Object.entries(json.errors)) {
-              errorMessages += `<p>${error}</p>`;
-            }
-            Swal.fire({
-              icon: "error",
-              title: "Errores en el formulario",
-              html: errorMessages,
-              confirmButtonText: "OK",
-              customClass: { confirmButton: "btn btn-warning" },
-              buttonsStyling: false,
-            });
-          }
-        })
-        .catch(() => Swal.fire("Error", "Error al comunicarse con el servidor", "error"));
-    }
-
-    // ============================
-    // 4) Lógica del modal de formación académica
-    // ============================
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    // Elementos del DOM
     const tablaFormaciones = document.getElementById("tablaFormaciones");
     const searchFormacionInput = document.getElementById("searchFormacionInput");
+    const filtroTipoFormacion = document.getElementById("filtroTipoFormacion");
     const formacionInput = document.getElementById("formacionInput");
     const idFormacionInput = document.getElementById("idFormacion");
     const idCohorteInput = document.getElementById("idCohorte");
+    const idTFSelect = document.getElementById("idTF");
+    const mensajeSinResultados = document.getElementById("mensajeSinResultados");
 
-    // Filtrar formaciones en la tabla según la búsqueda
-    searchFormacionInput.addEventListener("input", function () {
-      const searchTerm = this.value.toLowerCase();
-      const rows = tablaFormaciones.querySelectorAll("tbody tr");
+    // Función para filtrar formaciones en el modal
+    function filtrarFormacionesModal() {
+        const filtroTipo = filtroTipoFormacion.value;
+        const filtroTexto = searchFormacionInput.value.toLowerCase();
+        const rows = tablaFormaciones.querySelectorAll("tbody tr");
+        
+        let resultadosVisibles = 0;
 
-      let hasResults = false;
+        rows.forEach((row) => {
+            const tipoFormacion = row.dataset.tf;
+            const nombreFormacion = row.dataset.nombre.toLowerCase();
+            const tipoNombre = row.dataset.tipoNombre.toLowerCase();
+            
+            // Aplicar filtros
+            const coincideTipo = !filtroTipo || tipoFormacion === filtroTipo;
+            const coincideTexto = !filtroTexto || 
+                                nombreFormacion.includes(filtroTexto) || 
+                                tipoNombre.includes(filtroTexto);
+            
+            if (coincideTipo && coincideTexto) {
+                row.style.display = "";
+                resultadosVisibles++;
+            } else {
+                row.style.display = "none";
+            }
+        });
 
-      rows.forEach((row) => {
-        const nombre = row.dataset.nombre.toLowerCase();
-        if (nombre.includes(searchTerm) && row.style.display !== "none") {
-          row.style.display = "";
-          hasResults = true;
-        } else {
-          row.style.display = "none";
-        }
-      });
-
-      document.getElementById("mensajeSinRegistros").style.display = hasResults ? "none" : "block";
-    });
-
-    // Seleccionar una formación al hacer clic en "Elegir"
-    tablaFormaciones.addEventListener("click", function (e) {
-      const btn = e.target.closest('.btn-select');
-      if (btn) {
-        const row = btn.closest("tr");
-        const idFormacion = row.dataset.id;
-        const nombreFormacion = row.dataset.nombre;
-        const idCohorte = row.dataset.idcohorte;
-
-        // Actualizar los campos
-        formacionInput.value = nombreFormacion;
-        idFormacionInput.value = idFormacion;
-        idCohorteInput.value = idCohorte;
-
-        // Cerrar el modal
-        const modal = bootstrap.Modal.getInstance(document.getElementById("formacionModal"));
-        modal.hide();
-
-        // Actualizar el resumen de costos
-        updateResumenCostos();
-      }
-    });
-
-    // ============================
-    // 5) Enlazar eventos
-    // ============================
-    document.getElementById("idTF").addEventListener("change", filterFormaciones);
-    document.getElementById("editInscripcionForm").addEventListener("submit", submitForm);
-
-    // ============================
-    // 6) Inicialización
-    // ============================
-    
-    // Ejecutar filtro inicial
-    filterFormaciones();
-    
-    // Actualizar resumen de costos con los valores actuales de la inscripción
-    updateResumenCostos();
-
-    // Configurar validación del formulario
-    const form = document.getElementById('editInscripcionForm');
-    if (form) {
-      form.addEventListener('submit', function(e) {
-        if (!form.checkValidity()) {
-          e.preventDefault();
-          e.stopPropagation();
-        }
-        form.classList.add('was-validated');
-      });
+        // Mostrar/ocultar mensaje de sin resultados
+        mensajeSinResultados.style.display = resultadosVisibles === 0 ? "block" : "none";
     }
-  });
-  </script>
+
+    // Función para filtrar formaciones por tipo (cuando cambia el tipo en el formulario principal)
+    function filtrarFormacionesPorTipo() {
+        const tipoSeleccionado = idTFSelect.value;
+        filtroTipoFormacion.value = tipoSeleccionado;
+        filtrarFormacionesModal();
+    }
+
+    // Inicializar el resumen de costos con los valores actuales
+    function inicializarResumenCostos() {
+        const valorInscripcion = parseFloat("{{ formacion_actual.valorInscripcion|default:0 }}");
+        actualizarResumenCostos(valorInscripcion, []);
+    }
+
+    function actualizarResumenCostos(valorInscripcion, cuotas) {
+        let valorCuotas = 0;
+        const resumenCostosBody = document.getElementById("resumenCostosBody");
+
+        // Limpiar y crear estructura base
+        resumenCostosBody.innerHTML = `
+            <tr>
+                <td><strong>VALOR INSCRIPCIÓN</strong></td>
+                <td id="valorInscripcion" style="background-color: #cce5ff;"><strong>$${valorInscripcion.toFixed(2)}</strong></td>
+            </tr>
+            <tr>
+                <td><strong>TOTAL EN CUOTAS</strong></td>
+                <td id="valorCuotas" style="background-color: #e2d4f0;"><strong>-</strong></td>
+            </tr>
+            <tr style="background-color: #d4edda;">
+                <td><strong>TOTAL GLOBAL</strong></td>
+                <td id="valorTotal"><strong>-</strong></td>
+            </tr>
+        `;
+
+        // Agregar filas de cuotas individuales
+        if (cuotas.length > 0) {
+            cuotas.forEach((cuota) => {
+                valorCuotas += parseFloat(cuota.valorCuota);
+                const fila = document.createElement("tr");
+                fila.innerHTML = `
+                    <td><strong>${cuota.nombreCuota || "Cuota"}</strong></td>
+                    <td>$${parseFloat(cuota.valorCuota).toFixed(2)}</td>
+                `;
+                resumenCostosBody.insertBefore(fila, resumenCostosBody.querySelector("#valorCuotas").parentElement);
+            });
+        }
+
+        const valorTotal = valorInscripcion + valorCuotas;
+
+        document.getElementById("valorCuotas").textContent = `$${valorCuotas.toFixed(2)}`;
+        document.getElementById("valorTotal").textContent = `$${valorTotal.toFixed(2)}`;
+    }
+
+    // Event listeners para filtros del modal
+    searchFormacionInput.addEventListener("input", filtrarFormacionesModal);
+    filtroTipoFormacion.addEventListener("change", filtrarFormacionesModal);
+    
+    // Cuando cambia el tipo de formación en el formulario principal, actualizar el filtro del modal
+    idTFSelect.addEventListener("change", function() {
+        filtrarFormacionesPorTipo();
+    });
+
+    // Cuando se abre el modal, aplicar el filtro actual del tipo de formación
+    document.getElementById('formacionModal').addEventListener('show.bs.modal', function () {
+        filtrarFormacionesPorTipo();
+    });
+
+    // Seleccionar una formación
+    tablaFormaciones.addEventListener("click", function (e) {
+        const btn = e.target.closest('.btn-select');
+        if (btn) {
+            const row = btn.closest("tr");
+            const idFormacion = row.dataset.id;
+            const nombreFormacion = row.dataset.nombre;
+            const idCohorte = row.dataset.idcohorte;
+            const valorInscripcion = parseFloat(row.dataset.valorinscripcion) || 0;
+            const cuotas = JSON.parse(row.dataset.cuotas || "[]");
+
+            // Actualizar los campos
+            formacionInput.value = nombreFormacion;
+            idFormacionInput.value = idFormacion;
+            idCohorteInput.value = idCohorte;
+
+            // Cerrar el modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById("formacionModal"));
+            modal.hide();
+
+            // Actualizar el resumen de costos
+            actualizarResumenCostos(valorInscripcion, cuotas);
+        }
+    });
+
+    // Enviar formulario
+    document.getElementById("editInscripcionForm").addEventListener("submit", function(e) {
+        e.preventDefault();
+
+        const formData = new FormData(this);
+
+        fetch(this.action, {
+            method: "POST",
+            body: formData,
+            headers: { "X-Requested-With": "XMLHttpRequest" },
+        })
+            .then((r) => r.json())
+            .then((json) => {
+                if (json.success) {
+                    Swal.fire({
+                        icon: "success",
+                        title: "¡Éxito!",
+                        text: json.message,
+                        confirmButtonText: "Continuar",
+                        customClass: { confirmButton: "btn btn-warning" },
+                        buttonsStyling: false,
+                    }).then(() => {
+                        if (json.redirect_url) {
+                            window.location.href = json.redirect_url;
+                        }
+                    });
+                } else if (json.errors) {
+                    let errorMessages = '';
+                    for (const [field, error] of Object.entries(json.errors)) {
+                        errorMessages += `<p>${error}</p>`;
+                    }
+                    Swal.fire({
+                        icon: "error",
+                        title: "Errores en el formulario",
+                        html: errorMessages,
+                        confirmButtonText: "OK",
+                        customClass: { confirmButton: "btn btn-warning" },
+                        buttonsStyling: false,
+                    });
+                }
+            })
+            .catch(() => Swal.fire("Error", "Error al comunicarse con el servidor", "error"));
+    });
+
+    // Inicializar
+    inicializarResumenCostos();
+    filtrarFormacionesPorTipo(); // Aplicar filtro inicial
+});
+</script>
 {% endblock javascripts %}
