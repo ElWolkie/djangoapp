@@ -217,8 +217,29 @@ class PagoTemporal(models.Model):
         """
         Confirma el pago temporal, lo mueve a la tabla principal `Pago` y realiza los registros dependientes.
         """
+        # Validar si el pago ya fue confirmado
         if self.confirmado:
             raise ValueError("El pago ya ha sido confirmado.")
+
+        # Validar que el monto sea positivo
+        if self.monto <= 0:
+            raise ValueError("El monto del pago debe ser mayor a cero.")
+
+        # Validar que la nota asociada exista
+        if not self.idNota:
+            raise ValueError("Debe asociar una nota válida al pago.")
+
+        # Validar que la cuenta bancaria exista y tenga un plan de cuenta asociado
+        if not self.idCuentaBanco:
+            raise ValueError("Debe seleccionar una cuenta bancaria válida.")
+
+        # Debugging: Verificar el tipo y atributos de idCuentaBanco
+        print(f"idCuentaBanco: {self.idCuentaBanco}")
+        print(f"idCuentaBanco type: {type(self.idCuentaBanco)}")
+        print(f"idCuentaBanco attributes: {dir(self.idCuentaBanco)}")
+
+        if not self.idCuentaBanco.planCuenta:
+            raise ValueError("La cuenta bancaria seleccionada no tiene un plan de cuenta asociado.")
 
         # Verificar si hay un periodo contable activo
         periodo_activo = periodoContable.objects.filter(estadoPeriodo=True).first()
@@ -227,27 +248,21 @@ class PagoTemporal(models.Model):
 
         # Evitar duplicados en el nombre del asiento contable
         base_numero_asiento = f"PAGO-{self.idNota.numeroNota}"
-
-        # Buscar todos los asientos con ese prefijo
         asientos_similares = AsientoContable.objects.filter(
-                   numeroAsiento__startswith=base_numero_asiento
+            numeroAsiento__startswith=base_numero_asiento
         ).values_list('numeroAsiento', flat=True)
 
         # Determinar número de asiento único
         if base_numero_asiento not in asientos_similares:
             numero_asiento_pago = base_numero_asiento
         else:
-            # Buscar todos los sufijos -N existentes
             sufijos = []
             patron = re.compile(rf"^{re.escape(base_numero_asiento)}-(\d+)$")
             for n in asientos_similares:
                 match = patron.match(n)
                 if match:
                     sufijos.append(int(match.group(1)))
-            if sufijos:
-                nuevo_sufijo = max(sufijos) + 1
-            else:
-                nuevo_sufijo = 1
+            nuevo_sufijo = max(sufijos) + 1 if sufijos else 1
             numero_asiento_pago = f"{base_numero_asiento}-{nuevo_sufijo}"
 
         # Crear el asiento contable para el pago
@@ -257,6 +272,7 @@ class PagoTemporal(models.Model):
             conceptoAsiento=f"Pago de {self.idNota.numeroNota}",
             idPeriodo=periodo_activo
         )
+
         # Obtener la cuenta del Plan de Cuenta usada en el Debe del asiento principal de la nota
         asiento_principal = self.idNota.idAsiento
         detalle_debe = DetalleAsiento.objects.filter(idAsiento=asiento_principal, debe__gt=0).first()
@@ -265,8 +281,6 @@ class PagoTemporal(models.Model):
         plan_cuenta_haber = detalle_debe.idPlanCuenta
 
         # Obtener el plan de cuenta para el Debe (Caja/Banco) según la cuenta bancaria
-        if not self.idCuentaBanco or not self.idCuentaBanco.planCuenta:
-            raise ValueError("No se encontró el plan de cuenta asociado a la cuenta bancaria seleccionada.")
         plan_cuenta_debe = self.idCuentaBanco.planCuenta
 
         # Crear los detalles del asiento contable

@@ -491,19 +491,27 @@
       })
         .then((response) => response.json())
         .then((data) => {
-          if (data.success) {
+            if (data.success) {
             Swal.fire({
               icon: 'success',
-              title: 'Registro exitoso',
+              title:"¡Registro exitoso!",
               text: data.message,
+              showCancelButton: true,
               confirmButtonText: 'Aceptar',
+              cancelButtonText: 'Registrar Otro Plan Cuenta',
               customClass: {
-                confirmButton: 'btn btn-warning',
+              confirmButton: 'btn btn-warning',
+              cancelButton: 'btn btn-secondary'
               },
               buttonsStyling: false,
-            }).then(() => {
+            }).then((result) => {
+              if (result.isConfirmed) {
               if (data.redirect_url) {
                 window.location.href = data.redirect_url;
+              }
+              } else if (result.dismiss === Swal.DismissReason.cancel) {
+              // Recargar la página para registrar otro plan de cuenta
+              window.location.reload();
               }
             });
           } else {

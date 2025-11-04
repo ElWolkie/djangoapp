@@ -72,6 +72,7 @@ class PlanCuenta(models.Model):
         verbose_name = "Plan de Cuenta"
         verbose_name_plural = "Planes de Cuenta"
         ordering = ['codigoPlanCuenta']
+        unique_together = ('nombrePlanCuenta', 'nivelPlanCuenta', 'tipoPlanCuenta')  # Evitar duplicados
 
     def __str__(self):
                 return f"{self.codigoPlanCuenta} - {self.nombrePlanCuenta}"
