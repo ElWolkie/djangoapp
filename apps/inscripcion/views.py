@@ -192,7 +192,7 @@ def edit_inscripcion(request, pk):
     print(f"[DEBUG] Formación actual: {formacion_actual.nombreFormacion}")
     print(f"[DEBUG] Tipo de formación actual: {formacion_actual.idTF.nombreTipoFormacion}")
     print(f"[DEBUG] Total formaciones disponibles: {len(formaciones_data)}")
-    
+    print(formaciones_data)
     context = {
         'form': form,
         'inscripcion': instance,

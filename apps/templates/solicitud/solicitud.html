@@ -481,14 +481,21 @@ document.addEventListener("DOMContentLoaded", function() {
         if (json.success) {
           Swal.fire({
             icon: "success",
-            title: "¡Solicitud Registrada!",
+             title:"¡Registro exitoso!",
             text: json.message,
+            showCancelButton: true,
             confirmButtonText: "Generar Factura",
-            customClass: { confirmButton: "btn btn-warning" },
+            cancelButtonText: "Registrar Otra Solicitud",
+            customClass: { confirmButton: "btn btn-warning", cancelButton: "btn btn-secondary" },
             buttonsStyling: false
-          }).then(() => {
-            // Redirigir a la lista de solicitudes o a donde corresponda
-            window.location.href = json.redirect_url;
+          }).then((result) => {
+            if (result.isConfirmed) {
+              // Redirigir a la factura u otra URL provista por el servidor
+              window.location.href = json.redirect_url;
+            } else {
+              // Recargar la página para permitir registrar otra solicitud
+              location.reload();
+            }
           });
         } else if (json.error) {
           Swal.fire({
