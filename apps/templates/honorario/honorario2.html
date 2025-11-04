@@ -542,14 +542,21 @@ document.addEventListener("DOMContentLoaded", () => {
             icon:"success",
             title:"¡Registro exitoso!",
             text:data.message,
-            confirmButtonText:"Facturar",
-            customClass:{ confirmButton:"btn btn-warning" },
-            buttonsStyling:false
-          }).then(()=>{
-            e.target.reset();
-            document.getElementById("check-icon").textContent="";
-            document.getElementById("check-cohorte-icon").textContent="";
-            if (data.redirect_url) window.location=data.redirect_url;
+            showCancelButton: true,
+            confirmButtonText: "Facturar",
+            cancelButtonText: "Registrar Otro Honorario",
+            customClass: { confirmButton: "btn btn-warning", cancelButton: "btn btn-secondary" },
+            buttonsStyling: false
+          }).then((result) => {
+            if (result.isConfirmed) {
+              e.target.reset();
+              document.getElementById("check-icon").textContent = "";
+              document.getElementById("check-cohorte-icon").textContent = "";
+              if (data.redirect_url) window.location = data.redirect_url;
+            } else if (result.isDismissed) {
+              // Al presionar "Registrar Otro Honorario" recargar la página
+              window.location.reload();
+            }
           });
         }
         if (data.errors && data.errors.__all__) {

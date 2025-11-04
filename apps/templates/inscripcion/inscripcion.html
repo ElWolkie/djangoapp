@@ -628,13 +628,20 @@ document.addEventListener("DOMContentLoaded", function () {
         if (json.success) {
           Swal.fire({
             icon: "success",
-            title: "¡Listo!",
+            title:"¡Registro exitoso!",
             text: json.message,
+            showCancelButton: true,
             confirmButtonText: "Facturar",
-            customClass: { confirmButton: "btn btn-warning" },
+            cancelButtonText: "Registrar Otra Inscripción",
+            customClass: { confirmButton: "btn btn-warning", cancelButton: "btn btn-secondary" },
             buttonsStyling: false,
-          }).then(() => {
-            window.location.href = json.redirect_url;
+          }).then((result) => {
+            if (result.isConfirmed) {
+              window.location.href = json.redirect_url;
+            } else if (result.dismiss === Swal.DismissReason.cancel) {
+              // Recargar la página si se presiona "Registrar Otro Honorario"
+              location.reload();
+            }
           });
         } else if (json.error) {
           Swal.fire({
