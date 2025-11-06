@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 import re
 import uuid
 import decimal
@@ -600,6 +600,7 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
         inscripcion: Inscripcion = self.context.get('inscripcion')
         cuota: InscripcionCuota = self.context.get('cuota')
         configuracion = self.context.get('configuracion')
+        monto_pago = validated_data['monto'] # Este tiene 4 decimales
 
         # 1. Obtener tasa
         tasa = None
@@ -636,7 +637,7 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
             fechaEmision=now().date(),
             fechaVencimiento=now().date() + timedelta(days=7),
             formaPago='TRANSFERENCIA',
-            totalNota=validated_data['monto'],
+            totalNota=monto_pago, # La nota puede guardar 4 decimales
             idTasa=tasa,
             estado='PENDIENTE',
             observaciones=f"Nota para {getattr(cuota.idCuota, 'nombreCuota', 'Cuota')}"
@@ -654,11 +655,11 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
 
             DetalleAsiento.objects.create(
                 idAsiento=asiento, idPlanCuenta=plan_debe.idPlanCuenta,
-                debe=validated_data['monto'], haber=Decimal('0.00')
+                debe=monto_pago, haber=Decimal('0.00')
             )
             DetalleAsiento.objects.create(
                 idAsiento=asiento, idPlanCuenta=plan_haber.idPlanCuenta,
-                debe=Decimal('0.00'), haber=validated_data['monto']
+                debe=Decimal('0.00'), haber=monto_pago
             )
         except Exception as e:
             raise serializers.ValidationError(f"Error creando detalles contables: {e}")
@@ -675,21 +676,20 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
             idNota=nota,
             idCuentaBanco=getattr(configuracion, 'idCuentaBanco'),
             idTasa=tasa,
-            monto=validated_data['monto'],
+            monto=monto_pago,
             referencia=validated_data.get('referencia', ''),
             observaciones=validated_data.get('observaciones', ''),
             confirmado=False
         )
         
-        # --- ¡SOLUCIÓN DEFINITIVA! ---
+        # --- ¡SOLUCIÓN DEFINITIVA AQUÍ! ---
         # 8. Actualizar la InscripcionCuota
         cuota.estadoPago = 'PENDIENTE'
+        cuota.fechaPago = now().date()
         
-        # NO usamos pago_temporal.fechaPago.date() porque es None
-        # Usamos now().date() que es el valor correcto
-        cuota.fechaPago = now().date() 
-        
-        cuota.montoPagado = validated_data['monto']
+        # REDONDEAMOS el monto a 2 decimales antes de guardarlo en InscripcionCuota
+        dos_decimales = Decimal('0.01')
+        cuota.montoPagado = monto_pago.quantize(dos_decimales, rounding=ROUND_HALF_UP)
         
         cuota.save(update_fields=['estadoPago', 'fechaPago', 'montoPagado'])
         logger.info(f"InscripcionCuota {cuota.id if hasattr(cuota, 'id') else cuota.pk} actualizada a PENDIENTE.")
