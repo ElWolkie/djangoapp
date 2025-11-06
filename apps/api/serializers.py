@@ -599,6 +599,9 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
 
     @transaction.atomic
     def create(self, validated_data):
+        """
+        Crea la Nota, Asiento, DetalleAsiento, PagoTemporal y actualiza la InscripcionCuota.
+        """
         inscripcion: Inscripcion = self.context.get('inscripcion')
         cuota: InscripcionCuota = self.context.get('cuota')
         configuracion = self.context.get('configuracion')
@@ -644,13 +647,15 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
             observaciones=f"Nota para {getattr(cuota.idCuota, 'nombreCuota', 'Cuota')}"
         )
 
-        # --- ¡AQUÍ ESTÁ LA SOLUCIÓN AL PROBLEMA 2! ---
+        # --- ¡SOLUCIÓN AL PROBLEMA 2! ---
         # 5. Crear detalles de asiento para la Nota de Cuota
         try:
+            # Buscamos los planes para 'CUOTA' (no 'INSCRIPCION')
             plan_debe = PlanArticulo.objects.filter(tipoArticulo='CUOTA', tipo=True).order_by('-fecha').first()
             plan_haber = PlanArticulo.objects.filter(tipoArticulo='CUOTA', tipo=False).order_by('-fecha').first()
             
             if not plan_debe or not plan_haber:
+                logger.error(f"No se encontraron planes contables (DEBE/HABER) para el tipo 'CUOTA'.")
                 raise serializers.ValidationError("No se encontraron planes contables (DEBE/HABER) para el tipo 'CUOTA'.")
 
             DetalleAsiento.objects.create(
@@ -661,7 +666,7 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
                 idAsiento=asiento, idPlanCuenta=plan_haber.idPlanCuenta,
                 debe=Decimal('0.00'), haber=validated_data['monto']
             )
-            logger.info(f"Detalles de asiento creados para Asiento {asiento.idAsiento}")
+            logger.info(f"Detalles de asiento creados para Asiento {asiento.idAsiento} (CUOTA)")
         except Exception as e:
             logger.error(f"Error creando detalles de asiento para CUOTA: {e}")
             raise serializers.ValidationError(f"Error creando detalles contables: {e}")
@@ -685,16 +690,14 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
             # 'fechaPago' usa auto_now_add=True en el modelo PagoTemporal
         )
         
-        # --- ¡AQUÍ ESTÁ LA SOLUCIÓN AL PROBLEMA 1! ---
+        # --- ¡SOLUCIÓN AL PROBLEMA 1! ---
         # 8. Actualizar la InscripcionCuota con los datos del pago
         cuota.estadoPago = 'PENDIENTE' # Pasa de 'EN ESPERA' a 'PENDIENTE'
         
-        # Asignamos la fecha del pago reportado (si el frontend la envió)
-        # o usamos la fecha de hoy si no.
-        fecha_pago_reportada = validated_data.get('fechaPago', now().date())
-        cuota.fechaPago = fecha_pago_reportada
+        # Asignamos la fecha de hoy (o la fecha del pago_temporal si prefieres)
+        cuota.fechaPago = pago_temporal.fechaPago.date() # Usamos la fecha del pago temporal
         
-        # Acumulamos el monto pagado (aunque en este flujo, es el monto total)
+        # Acumulamos el monto pagado
         cuota.montoPagado = validated_data['monto']
         
         cuota.save(update_fields=['estadoPago', 'fechaPago', 'montoPagado'])
