@@ -32,7 +32,7 @@ apps/static/assets/.temp
 # Archivos de configuración sensible
 .env
 capp/build/
-
+start_django.sh
 # Mobile (evitar subir node_modules y builds móviles)
 mobile/node_modules/
 mobile/.expo/

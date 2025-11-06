@@ -1,0 +1,81 @@
+# COMANDOS E INSTRUCCIONES PARA CONFIGURAR Y EJECUTAR EL PROYECTO
+
+## 1. Instalación de dependencias del sistema
+sudo apt install python3 python3-pip python3-venv -y
+sudo apt install -y nodejs
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt install nginx -y
+sudo apt install certbot python3-certbot-nginx -y
+
+## 2. Clonar el repositorio del proyecto
+git clone https://github.com/ElWolkie/djangoapp.git
+
+## 3. Configuración del entorno virtual
+cd djangoapp
+python3 -m venv env
+source env/bin/activate
+
+## 4. Instalación de dependencias del proyecto
+pip install -r requirements.txt
+
+## 5. Configuración de permisos para la aplicación
+chmod +x /home/stelaringt/djangoapp/start_django.sh
+chmod +x /home/stelaringt/djangoapp/SACFU.desktop
+
+## 6. Configuración de permisos para Nginx
+sudo chown -R www-data:www-data /home/stelaringt/djangoapp/static
+sudo chown -R www-data:www-data /home/stelaringt/djangoapp/media
+sudo chmod -R 755 /home/stelaringt/djangoapp/static
+sudo chmod -R 755 /home/stelaringt/djangoapp/media
+
+## 7. Configuración de parámetros iniciales
+python manage.py create_parametros_tributarios
+
+## 8. Configuración de Gunicorn
+pip install gunicorn
+gunicorn --workers 3 --bind 0.0.0.0:8000 core.wsgi:application
+
+## 9. Configuración de Nginx
+sudo nano /etc/nginx/sites-available/djangoapp
+
+# Contenido del archivo de configuración de Nginx:
+server {
+    listen 80;
+    server_name 192.168.x.x; # Reemplaza con la IP de tu máquina
+
+    location = /favicon.ico { access_log off; log_not_found off; }
+    location /static/ {
+        root /home/stelaringt/djangoapp;
+    }
+
+    location /media/ {
+        root /home/stelaringt/djangoapp;
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+
+# Crear un enlace simbólico y probar la configuración
+sudo ln -s /etc/nginx/sites-available/djangoapp /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl restart nginx
+
+## 10. Configuración de HTTPS con Certbot
+sudo certbot --nginx -d tu-dominio.com
+
+## 11. Comandos adicionales
+# Para detener el servidor Django:
+pkill -f "python manage.py runserver"
+
+# Para iniciar el servidor manualmente:
+source /home/stelaringt/djangoapp/venv/bin/activate
+python manage.py runserver 0.0.0.0:8000
+
+# Para verificar el estado del servidor:
+ps aux | grep runserver
