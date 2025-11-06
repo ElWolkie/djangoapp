@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Name=SACFU
+Comment=Inicia el servidor Django y abre el navegador
+Exec=/home/stelaringt/djangoapp/start_django.sh
+Icon=/home/stelaringt/djangoapp/media/SACFU.png
+Terminal=false
+Type=Application
+Categories=Development;
+Name[es_VE]=SACFU.desktop
