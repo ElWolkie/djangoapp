@@ -287,58 +287,57 @@ const CuotasPorPagarScreen = () => {
   };
 
   const handleSolicitarPago = async () => {
-    if (!modalPayload || !modalPayload.inscripcion || !modalPayload.cuota) {
-      Alert.alert('Error', 'Datos de pago incompletos');
-      return;
-    }
-    if (!referencia.trim()) {
-      Alert.alert('Error', 'Ingrese número de referencia');
-      return;
-    }
-    if (!fechaPago.trim()) {
-      Alert.alert('Error', 'Ingrese la fecha del pago');
-      return;
-    }
+    if (!modalPayload || !modalPayload.inscripcion || !modalPayload.cuota) {
+      Alert.alert('Error', 'Datos de pago incompletos');
+      return;
+    }
+    if (!referencia.trim()) {
+      Alert.alert('Error', 'Ingrese número de referencia');
+      return;
+    }
 
-    setSubmitting(true);
-    try {
-      const payload = {
-        idInscripcion: modalPayload.inscripcion.idInscripcion ?? modalPayload.inscripcion.id ?? modalPayload.inscripcion.pk,
-        idCuota: modalPayload.cuota.idCuota ?? modalPayload.cuota.id ?? null,
-        nombreCuota: modalPayload.cuota.nombreCuota,
-        monto: Number(modalPayload.cuota.valorCuota) || 0,
-        referencia: referencia.trim(),
-        fechaPago: fechaPago,
-        observaciones: observaciones.trim(),
-        formaPago: 'TRANSFERENCIA',
-      };
+    setSubmitting(true);
+    try {
+      const payload = {
+        idInscripcion: modalPayload.inscripcion.idInscripcion,
+        nombreCuota: modalPayload.cuota.nombreCuota,
+        monto: modalPayload.cuota.valorCuota,
+        referencia: referencia.trim(),
+        observaciones: observaciones.trim(),
+      };
 
-      const res = await api.post('/api/pagos/cuota/create/', payload);
+      console.log("[Pago Cuota] Enviando payload:", payload);
 
-      if (res.status === 200 || res.status === 201) {
-        Alert.alert('Solicitud enviada', 'Su pago ha sido enviado y queda pendiente de validación administrativa.');
-        closeModal();
-        await loadInscripciones();
-      } else {
+      const res = await api.post('/api/pagos/cuota/create/', payload);
+
+      if (res.status === 200 || res.status === 201) {
+        Alert.alert('Solicitud enviada', 'Su pago ha sido enviado y queda pendiente de validación administrativa.');
+        closeModal();
+        await loadInscripciones();
+      } else {
+        // Manejar respuesta JSON de error
         const msg = res.data?.message || res.data?.error || 'No se pudo registrar la solicitud de pago.';
-        Alert.alert('Error', msg);
-      }
-    } catch (e: any) {
-      console.error('Error al solicitar pago de cuota', e.response?.data || e);
-      const errors = e?.response?.data?.errors;
+        Alert.alert('Error', msg);
+      }
+    } catch (e: any) {
+      console.error('Error al solicitar pago de cuota', e.response?.data || e);
+      
+      // Manejo de errores de validación del serializer
+      const errors = e?.response?.data?.errors;
       let msg = 'Error desconocido';
-      if (errors && typeof errors === 'object') {
+      if (errors) {
+        // Formatear el error para que sea legible
         msg = Object.keys(errors)
-          .map(key => `${key}: ${Array.isArray(errors[key]) ? errors[key].join(', ') : errors[key]}`)
+          .map(key => `${key}: ${errors[key].join(', ')}`)
           .join('\n');
       } else {
-        msg = e?.response?.data?.message || e?.message || 'Error desconocido';
+        msg = e?.response?.data?.message || e?.response?.data?.detail || e?.message || 'Error desconocido';
       }
-      Alert.alert('Error al enviar el pago', msg);
-    } finally {
-      setSubmitting(false);
-    }
-  };
+      Alert.alert('Error al enviar el pago', msg);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const renderInscripcionItem = ({ item }: { item: InscripcionLite }) => {
     const idKey = item.idInscripcion ?? item.id ?? null;

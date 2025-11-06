@@ -534,13 +534,18 @@ class PagoCreateSerializer(serializers.ModelSerializer):
         return pago_temporal
 
 class CuotaPagoTemporalSerializer(serializers.Serializer):
+    """
+    Serializer para registrar un pago temporal de una CUOTA específica
+    de una inscripción.
+    """
     idInscripcion = serializers.IntegerField(write_only=True)
     nombreCuota = serializers.CharField(max_length=200)
     monto = serializers.DecimalField(max_digits=20, decimal_places=4)
     referencia = serializers.CharField(max_length=200)
-    fechaPago = serializers.DateField()
     observaciones = serializers.CharField(required=False, allow_blank=True, default='')
-    formaPago = serializers.CharField(required=False, default='TRANSFERENCIA')
+    
+    # --- CAMPOS ELIMINADOS ---
+    # Ya no esperamos 'fechaPago' ni 'formaPago' del frontend
 
     def validate_monto(self, value):
         if value <= Decimal('0.00'):
@@ -562,7 +567,7 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
         # 3) VALIDACIÓN CLAVE: PagoTemporal confirmado O nota.estado == 'PAGADA'
         pago_confirmado = PagoTemporal.objects.filter(idNota=nota_inscripcion, confirmado=True).exists()
         if not pago_confirmado and (nota_inscripcion.estado or '').upper() != 'PAGADA':
-            raise serializers.ValidationError("El pago de inscripción no está confirmado. Solo puede pagar cuotas después de la confirmación de la nota de inscripción.")
+            raise serializers.ValidationError("El pago de inscripción no está confirmado. Solo puede pagar cuotas después de la confirmación.")
 
         # 4) validar que exista la InscripcionCuota con estado EN ESPERA para ese nombre
         try:
@@ -575,16 +580,13 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
         except InscripcionCuota.MultipleObjectsReturned:
             raise serializers.ValidationError({"cuota": "Error de duplicidad de cuotas. Contacte a soporte."})
 
-        # 5) validar/ajustar monto (coincida con valor real de la cuota si está disponible)
+        # 5) validar/ajustar monto
         real_valor = getattr(cuota.idCuota, 'valorCuota', None)
         if real_valor is not None and Decimal(data['monto']) != Decimal(real_valor):
-            # Ajustamos el monto al valor de la cuota (evita inconsistencias)
             data['monto'] = Decimal(real_valor)
 
-        # 6) validar configuración (cuenta banco, tasa...)
-        if Configuracion is None:
-            raise serializers.ValidationError("Falta modelo Configuracion o su import; verifica la app 'configuracion' y ruta del import.")
-        configuracion = Configuracion.objects.first() if Configuracion else None
+        # 6) validar configuración
+        configuracion = Configuracion.objects.first()
         if not configuracion or not getattr(configuracion, 'idCuentaBanco', None):
             raise serializers.ValidationError("No hay cuenta bancaria configurada en el sistema.")
 
@@ -592,111 +594,84 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
         self.context['inscripcion'] = inscripcion
         self.context['cuota'] = cuota
         self.context['configuracion'] = configuracion
-        self.context['nota_inscripcion'] = nota_inscripcion
         return data
 
     @transaction.atomic
     def create(self, validated_data):
         """
-        Crea:
-         - Asiento contable provisorio
-         - Nota (tipo CUOTA)
-         - NotaRelacionada (idInscripcion + idCuota)
-         - PagoTemporal (vinculado a la nota creada)
-         - Cambia estado InscripcionCuota -> 'PENDIENTE'
+        Crea la Nota, PagoTemporal y actualiza la InscripcionCuota.
+        'formaPago' se omite y 'fechaPago' (en PagoTemporal) se asigna automáticamente.
         """
+        inscripcion: Inscripcion = self.context.get('inscripcion')
+        cuota: InscripcionCuota = self.context.get('cuota')
+        configuracion = self.context.get('configuracion')
+
+        # 1. Obtener tasa
+        tasa = None
         try:
-            inscripcion: Inscripcion = self.context.get('inscripcion')
-            cuota: InscripcionCuota = self.context.get('cuota')
-            configuracion = self.context.get('configuracion')
-            nota_inscripcion = self.context.get('nota_inscripcion')
-
-            # Obtener tasa por moneda configurada
+            moneda = getattr(configuracion, 'moneda', None)
+            if moneda:
+                tasa = Tasa.objects.filter(idMoneda=moneda).order_by('-idTasa').first()
+        except Exception:
             tasa = None
-            try:
-                moneda = getattr(configuracion, 'idMoneda', getattr(configuracion, 'moneda', None))
-                if moneda:
-                    tasa = Tasa.objects.filter(idMoneda=moneda).order_by('-idTasa').first()
-            except Exception:
-                tasa = None
 
-            if not tasa:
-                raise serializers.ValidationError("No se encontró tasa para la moneda configurada.")
+        if not tasa:
+            raise serializers.ValidationError("No se encontró tasa para la moneda configurada.")
 
-            # Verificar periodo contable
-            periodo_activo = periodoContable.objects.filter(estadoPeriodo=True).first()
-            if not periodo_activo:
-                raise serializers.ValidationError("No hay periodo contable activo. Contacte a administración.")
+        # 2. Verificar periodo contable
+        periodo_activo = periodoContable.objects.filter(estadoPeriodo=True).first()
+        if not periodo_activo:
+            raise serializers.ValidationError("No hay periodo contable activo. Contacte a administración.")
 
-            # Crear asiento provisorio para la nota de cuota (si AsientoContable requiere campos adicionales
-            # el propio modelo puede lanzar excepción; la manejamos y transformamos en ValidationError)
-            numero_asiento = f"CUOTA-{now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
-            asiento = AsientoContable.objects.create(
-                numeroAsiento=numero_asiento,
-                fechaAsiento=now().date(),
-                conceptoAsiento=f"Solicitud pago cuota: {getattr(cuota.idCuota, 'nombreCuota', 'Cuota')} - Inscripción: {inscripcion.idInscripcion}",
-                idPeriodo=periodo_activo
-            )
+        # 3. Crear asiento provisorio
+        numero_asiento = f"CUOTA-{now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
+        asiento = AsientoContable.objects.create(
+            numeroAsiento=numero_asiento,
+            fechaAsiento=now().date(),
+            conceptoAsiento=f"Solicitud pago cuota: {getattr(cuota.idCuota, 'nombreCuota', 'Cuota')} - Inscripción: {inscripcion.idInscripcion}",
+            idPeriodo=periodo_activo
+        )
 
-            # Crear la Nota de Cobro para esta cuota
-            numero_nota = f"NOTA-CUOTA-{uuid.uuid4().hex[:6].upper()}"
-            nota = Nota.objects.create(
-                idAsiento=asiento,
-                idPersona=inscripcion.idPersona,
-                tipoArticulo='CUOTA',
-                numeroNota=numero_nota,
-                fechaEmision=now().date(),
-                fechaVencimiento=now().date() + timedelta(days=7),
-                formaPago=validated_data.get('formaPago', 'TRANSFERENCIA'),
-                totalNota=validated_data['monto'],
-                idTasa=tasa,
-                estado='PENDIENTE',
-                observaciones=f"Nota para {getattr(cuota.idCuota, 'nombreCuota', 'Cuota')}"
-            )
+        # 4. Crear la Nota de Cobro (tipo CUOTA)
+        numero_nota = f"NOTA-CUOTA-{uuid.uuid4().hex[:6].upper()}"
+        nota = Nota.objects.create(
+            idAsiento=asiento,
+            idPersona=inscripcion.idPersona,
+            tipoArticulo='CUOTA',
+            numeroNota=numero_nota,
+            fechaEmision=now().date(),
+            fechaVencimiento=now().date() + timedelta(days=7),
+            formaPago='TRANSFERENCIA', # <- Se asigna un valor por defecto en el backend
+            totalNota=validated_data['monto'],
+            idTasa=tasa,
+            estado='PENDIENTE',
+            observaciones=f"Nota para {getattr(cuota.idCuota, 'nombreCuota', 'Cuota')}"
+        )
 
-            # Relacionar la nota con la inscripcion y la cuota (NotaRelacionada)
-            NotaRelacionada.objects.create(
-                idNota=nota,
-                idInscripcion=inscripcion,
-                idCuota=cuota
-            )
+        # 5. Relacionar la nota
+        NotaRelacionada.objects.create(
+            idNota=nota,
+            idInscripcion=inscripcion,
+            idCuota=cuota
+        )
 
-            # Crear PagoTemporal (informe del usuario). No pasamos fechaPago directo si el campo es auto_now_add.
-            pago_temporal = PagoTemporal.objects.create(
-                idNota=nota,
-                idCuentaBanco=getattr(configuracion, 'idCuentaBanco'),
-                idTasa=tasa,
-                monto=validated_data['monto'],
-                referencia=validated_data.get('referencia', ''),
-                observaciones=validated_data.get('observaciones', ''),
-                confirmado=False
-            )
+        # 6. Crear PagoTemporal (SIN formaPago y SIN fechaPago)
+        pago_temporal = PagoTemporal.objects.create(
+            idNota=nota,
+            idCuentaBanco=getattr(configuracion, 'idCuentaBanco'),
+            idTasa=tasa,
+            monto=validated_data['monto'],
+            referencia=validated_data.get('referencia', ''),
+            observaciones=validated_data.get('observaciones', ''),
+            confirmado=False
+            # fechaPago es auto_now_add=True en el modelo y se asignará sola
+        )
 
-            # Si el frontend mandó fechaPago la asignamos manualmente (convertimos Date -> DateTime)
-            fp = validated_data.get('fechaPago')
-            if fp:
-                # fp viene como date; convertir a datetime (00:00) y hacer aware
-                fp_dt = datetime.combine(fp, datetime.min.time())
-                try:
-                    fp_dt = make_aware(fp_dt)
-                except Exception:
-                    # si ya es aware o falla, dejamos fp_dt tal cual
-                    pass
-                pago_temporal.fechaPago = fp_dt
-                pago_temporal.save(update_fields=['fechaPago'])
+        # 7. Actualizar el estado de la InscripcionCuota a PENDIENTE
+        cuota.estadoPago = 'PENDIENTE'
+        cuota.save(update_fields=['estadoPago'])
 
-            # Actualizar el estado de la InscripcionCuota a PENDIENTE
-            cuota.estadoPago = 'PENDIENTE'
-            cuota.save(update_fields=['estadoPago'])
-
-            return pago_temporal
-
-        except serializers.ValidationError:
-            # re-lanzar ValidationError para que DRF lo retorne como 400
-            raise
-        except Exception as exc:
-            # cualquier error inesperado lo convertimos a ValidationError para evitar 500 HTML
-            raise serializers.ValidationError({"detail": f"Error creando pago de cuota: {str(exc)}"})
+        return pago_temporal
 
 class RequisitoSerializer(serializers.ModelSerializer):
     class Meta:
