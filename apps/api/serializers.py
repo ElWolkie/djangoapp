@@ -544,8 +544,9 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
     referencia = serializers.CharField(max_length=200)
     observaciones = serializers.CharField(required=False, allow_blank=True, default='')
     
-    # --- CAMPOS ELIMINADOS ---
-    # Ya no esperamos 'fechaPago' ni 'formaPago' del frontend
+    # Eliminamos fechaPago y formaPago, ya que el backend los maneja
+    # fechaPago = serializers.DateField() 
+    # formaPago = serializers.CharField(required=False, default='TRANSFERENCIA')
 
     def validate_monto(self, value):
         if value <= Decimal('0.00'):
@@ -598,10 +599,6 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
 
     @transaction.atomic
     def create(self, validated_data):
-        """
-        Crea la Nota, PagoTemporal y actualiza la InscripcionCuota.
-        'formaPago' se omite y 'fechaPago' (en PagoTemporal) se asigna automáticamente.
-        """
         inscripcion: Inscripcion = self.context.get('inscripcion')
         cuota: InscripcionCuota = self.context.get('cuota')
         configuracion = self.context.get('configuracion')
@@ -614,7 +611,6 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
                 tasa = Tasa.objects.filter(idMoneda=moneda).order_by('-idTasa').first()
         except Exception:
             tasa = None
-
         if not tasa:
             raise serializers.ValidationError("No se encontró tasa para la moneda configurada.")
 
@@ -637,25 +633,47 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
         nota = Nota.objects.create(
             idAsiento=asiento,
             idPersona=inscripcion.idPersona,
-            tipoArticulo='CUOTA',
+            tipoArticulo='CUOTA', # ¡Correcto!
             numeroNota=numero_nota,
             fechaEmision=now().date(),
             fechaVencimiento=now().date() + timedelta(days=7),
-            formaPago='TRANSFERENCIA', # <- Se asigna un valor por defecto en el backend
+            formaPago='TRANSFERENCIA', # Valor por defecto
             totalNota=validated_data['monto'],
             idTasa=tasa,
             estado='PENDIENTE',
             observaciones=f"Nota para {getattr(cuota.idCuota, 'nombreCuota', 'Cuota')}"
         )
 
-        # 5. Relacionar la nota
+        # --- ¡AQUÍ ESTÁ LA SOLUCIÓN AL PROBLEMA 2! ---
+        # 5. Crear detalles de asiento para la Nota de Cuota
+        try:
+            plan_debe = PlanArticulo.objects.filter(tipoArticulo='CUOTA', tipo=True).order_by('-fecha').first()
+            plan_haber = PlanArticulo.objects.filter(tipoArticulo='CUOTA', tipo=False).order_by('-fecha').first()
+            
+            if not plan_debe or not plan_haber:
+                raise serializers.ValidationError("No se encontraron planes contables (DEBE/HABER) para el tipo 'CUOTA'.")
+
+            DetalleAsiento.objects.create(
+                idAsiento=asiento, idPlanCuenta=plan_debe.idPlanCuenta,
+                debe=validated_data['monto'], haber=Decimal('0.00')
+            )
+            DetalleAsiento.objects.create(
+                idAsiento=asiento, idPlanCuenta=plan_haber.idPlanCuenta,
+                debe=Decimal('0.00'), haber=validated_data['monto']
+            )
+            logger.info(f"Detalles de asiento creados para Asiento {asiento.idAsiento}")
+        except Exception as e:
+            logger.error(f"Error creando detalles de asiento para CUOTA: {e}")
+            raise serializers.ValidationError(f"Error creando detalles contables: {e}")
+        
+        # 6. Relacionar la nota
         NotaRelacionada.objects.create(
             idNota=nota,
             idInscripcion=inscripcion,
             idCuota=cuota
         )
 
-        # 6. Crear PagoTemporal (SIN formaPago y SIN fechaPago)
+        # 7. Crear PagoTemporal
         pago_temporal = PagoTemporal.objects.create(
             idNota=nota,
             idCuentaBanco=getattr(configuracion, 'idCuentaBanco'),
@@ -664,12 +682,23 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
             referencia=validated_data.get('referencia', ''),
             observaciones=validated_data.get('observaciones', ''),
             confirmado=False
-            # fechaPago es auto_now_add=True en el modelo y se asignará sola
+            # 'fechaPago' usa auto_now_add=True en el modelo PagoTemporal
         )
-
-        # 7. Actualizar el estado de la InscripcionCuota a PENDIENTE
-        cuota.estadoPago = 'PENDIENTE'
-        cuota.save(update_fields=['estadoPago'])
+        
+        # --- ¡AQUÍ ESTÁ LA SOLUCIÓN AL PROBLEMA 1! ---
+        # 8. Actualizar la InscripcionCuota con los datos del pago
+        cuota.estadoPago = 'PENDIENTE' # Pasa de 'EN ESPERA' a 'PENDIENTE'
+        
+        # Asignamos la fecha del pago reportado (si el frontend la envió)
+        # o usamos la fecha de hoy si no.
+        fecha_pago_reportada = validated_data.get('fechaPago', now().date())
+        cuota.fechaPago = fecha_pago_reportada
+        
+        # Acumulamos el monto pagado (aunque en este flujo, es el monto total)
+        cuota.montoPagado = validated_data['monto']
+        
+        cuota.save(update_fields=['estadoPago', 'fechaPago', 'montoPagado'])
+        logger.info(f"InscripcionCuota {cuota.id} actualizada a PENDIENTE.")
 
         return pago_temporal
 
