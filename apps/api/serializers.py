@@ -544,9 +544,7 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
     referencia = serializers.CharField(max_length=200)
     observaciones = serializers.CharField(required=False, allow_blank=True, default='')
     
-    # Eliminamos fechaPago y formaPago, ya que el backend los maneja
-    # fechaPago = serializers.DateField() 
-    # formaPago = serializers.CharField(required=False, default='TRANSFERENCIA')
+    # Campos eliminados (fechaPago, formaPago)
 
     def validate_monto(self, value):
         if value <= Decimal('0.00'):
@@ -644,23 +642,16 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
             observaciones=f"Nota para {getattr(cuota.idCuota, 'nombreCuota', 'Cuota')}"
         )
 
-        # --- ¡SOLUCIÓN DEFINITIVA AQUÍ! ---
-        # 5. Crear detalles de asiento para la Nota de Cuota
+        # 5. Crear detalles de asiento
         try:
-            # Buscamos los planes para 'CUOTA' (no 'INSCRIPCION')
-            # Usamos 'tipo=1' (True) y 'tipo=0' (False) para ser explícitos
-            plan_debe = PlanArticulo.objects.filter(tipoArticulo='CUOTA', tipo=1).order_by('-fecha').first()
-            plan_haber = PlanArticulo.objects.filter(tipoArticulo='CUOTA', tipo=0).order_by('-fecha').first()
+            plan_debe = PlanArticulo.objects.filter(tipoArticulo='CUOTA', tipo=True).order_by('-fecha').first()
+            plan_haber = PlanArticulo.objects.filter(tipoArticulo='CUOTA', tipo=False).order_by('-fecha').first()
             
-            # VALIDACIÓN: Si alguno NO existe, detenemos la transacción
             if not plan_debe:
-                logger.error(f"Error 500: No se encontró PlanArticulo DEBE (tipo=1) para tipoArticulo='CUOTA'.")
                 raise serializers.ValidationError("Error de configuración: No se encontró plan de cuenta (DEBE) para 'CUOTA'.")
             if not plan_haber:
-                logger.error(f"Error 500: No se encontró PlanArticulo HABER (tipo=0) para tipoArticulo='CUOTA'.")
                 raise serializers.ValidationError("Error de configuración: No se encontró plan de cuenta (HABER) para 'CUOTA'.")
 
-            # Si ambos existen, los creamos
             DetalleAsiento.objects.create(
                 idAsiento=asiento, idPlanCuenta=plan_debe.idPlanCuenta,
                 debe=validated_data['monto'], haber=Decimal('0.00')
@@ -669,11 +660,7 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
                 idAsiento=asiento, idPlanCuenta=plan_haber.idPlanCuenta,
                 debe=Decimal('0.00'), haber=validated_data['monto']
             )
-            logger.info(f"Detalles de asiento creados para Asiento {asiento.idAsiento} (CUOTA)")
-            
         except Exception as e:
-            logger.error(f"Error inesperado creando detalles de asiento para CUOTA: {e}")
-            # Lanzamos el error para que la transacción haga rollback
             raise serializers.ValidationError(f"Error creando detalles contables: {e}")
         
         # 6. Relacionar la nota
@@ -692,18 +679,20 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
             referencia=validated_data.get('referencia', ''),
             observaciones=validated_data.get('observaciones', ''),
             confirmado=False
-            # 'fechaPago' usa auto_now_add=True en el modelo PagoTemporal
         )
         
+        # --- ¡SOLUCIÓN DEFINITIVA! ---
         # 8. Actualizar la InscripcionCuota
         cuota.estadoPago = 'PENDIENTE'
         
-        # Usamos la fecha del pago temporal (que es auto_now_add)
-        cuota.fechaPago = pago_temporal.fechaPago.date() 
+        # NO usamos pago_temporal.fechaPago.date() porque es None
+        # Usamos now().date() que es el valor correcto
+        cuota.fechaPago = now().date() 
+        
         cuota.montoPagado = validated_data['monto']
         
         cuota.save(update_fields=['estadoPago', 'fechaPago', 'montoPagado'])
-        logger.info(f"InscripcionCuota {cuota.id} actualizada a PENDIENTE.")
+        logger.info(f"InscripcionCuota {cuota.id if hasattr(cuota, 'id') else cuota.pk} actualizada a PENDIENTE.")
 
         return pago_temporal
 
