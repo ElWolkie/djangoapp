@@ -500,56 +500,24 @@ class CuotaPagoTemporalCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
-        logger.info("Petición de pago de CUOTA recibida: %s", request.data)
-        serializer = CuotaPagoTemporalSerializer(data=request.data, context={'request': request})
         try:
+            serializer = CuotaPagoTemporalSerializer(data=request.data, context={'request': request})
             serializer.is_valid(raise_exception=True)
             pago_temporal = serializer.save()
-            # intentar leer debug_steps si el serializer los dejó
             debug = serializer.context.get('debug_steps', None)
-            return Response({
-                'success': True,
-                'message': 'Solicitud de pago de cuota registrada.',
-                'data': {
-                    'idPagoTemporal': pago_temporal.idPagoTemporal,
-                    'monto': float(pago_temporal.monto),
-                    'fechaPago': pago_temporal.fechaPago.isoformat() if pago_temporal.fechaPago else None,
-                    'confirmado': pago_temporal.confirmado,
-                    'nota': {
-                        'idNota': pago_temporal.idNota.idNota,
-                        'numeroNota': pago_temporal.idNota.numeroNota,
-                        'estado': pago_temporal.idNota.estado,
-                    }
-                },
-                'debug': debug
-            }, status=status.HTTP_201_CREATED)
+            return Response({ 'success': True, 'data': {...}, 'debug': debug }, status=201)
         except serializers.ValidationError as e:
-            logger.warning("Error de validacion: %s", e.detail)
-            return Response({"success": False, "message": "Datos inválidos.", "errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"success": False, "errors": e.detail}, status=400)
         except Exception as e:
-            # si el serializer lanzó el Exception con dict (ver create), lo desenpaquetamos
-            payload = {}
-            try:
-                # si e.args[0] es un dict con info debug
-                first = e.args[0] if len(e.args) else None
-                if isinstance(first, dict):
-                    payload = first
-                else:
-                    payload = {"error": str(e)}
-            except Exception:
-                payload = {"error": str(e)}
-            tb = payload.get('traceback') or traceback.format_exc()
-            debug_steps = payload.get('debug_steps') or []
-            logger.exception("Error creando pago de cuota: %s", tb)
+            tb = traceback.format_exc()
+            logger.exception("Error procesando pago de cuota: %s", tb)
+            # devolver JSON con traza (solo debug)
             return Response({
-                'success': False,
-                'message': 'Ocurrió un error procesando el pago.',
-                'error': payload.get('error', str(e)),
-                'traceback': tb,
-                'debug_steps': debug_steps
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
+                "success": False,
+                "message": "Error inesperado procesando pago de cuota (DEBUG).",
+                "error": str(e),
+                "traceback": tb,
+            }, status=500)
 
 class RequisitoListCreate(generics.ListCreateAPIView):
     queryset = Requisito.objects.all()  # Usa el modelo Requisito
