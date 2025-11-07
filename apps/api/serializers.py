@@ -534,7 +534,10 @@ class PagoCreateSerializer(serializers.ModelSerializer):
         return pago_temporal
 
 class CuotaPagoTemporalSerializer(serializers.Serializer):
-    
+    """
+    Serializer para registrar un pago temporal de una CUOTA específica
+    de una inscripción.
+    """
     idInscripcion = serializers.IntegerField(write_only=True)
     nombreCuota = serializers.CharField(max_length=200)
     monto = serializers.DecimalField(max_digits=20, decimal_places=4)
