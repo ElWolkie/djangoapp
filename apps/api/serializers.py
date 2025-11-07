@@ -644,8 +644,8 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
 
         # 5. Crear detalles de asiento
         try:
-            plan_debe = PlanArticulo.objects.filter(tipoArticulo='CUOTA', tipo=True).order_by('-fecha').first()
-            plan_haber = PlanArticulo.objects.filter(tipoArticulo='CUOTA', tipo=False).order_by('-fecha').first()
+            plan_debe = PlanArticulo.objects.filter(tipoArticulo='CUOTA', tipo=1).order_by('-fecha').first()
+            plan_haber = PlanArticulo.objects.filter(tipoArticulo='CUOTA', tipo=0).order_by('-fecha').first()
             
             if not plan_debe:
                 raise serializers.ValidationError("Error de configuración: No se encontró plan de cuenta (DEBE) para 'CUOTA'.")
