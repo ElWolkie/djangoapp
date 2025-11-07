@@ -505,7 +505,7 @@ class CuotaPagoTemporalCreateView(APIView):
         try:
             serializer.is_valid(raise_exception=True)
             pago_temporal = serializer.save()
-            response_data = {
+            return Response({
                 'success': True,
                 'message': 'Solicitud de pago de cuota registrada.',
                 'data': {
@@ -519,14 +519,16 @@ class CuotaPagoTemporalCreateView(APIView):
                         'estado': pago_temporal.idNota.estado,
                     }
                 }
-            }
-            return Response(response_data, status=status.HTTP_201_CREATED)
+            }, status=status.HTTP_201_CREATED)
         except serializers.ValidationError as e:
             logger.warning(f"Error de validación de pago de cuota: {e.detail}")
             return Response({"success": False, "message": "Datos inválidos.", "errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            logger.exception("Error inesperado creando pago de cuota")
-            return Response({"success": False, "message": "Ocurrió un error procesando el pago.", "error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            # incluir traceback detallado para debugging local
+            tb = traceback.format_exc()
+            logger.exception("Error inesperado creando pago de cuota:\n%s", tb)
+            return Response({"success": False, "message": "Ocurrió un error procesando el pago.", "error": str(e), "traceback": tb}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 class RequisitoListCreate(generics.ListCreateAPIView):
     queryset = Requisito.objects.all()  # Usa el modelo Requisito
