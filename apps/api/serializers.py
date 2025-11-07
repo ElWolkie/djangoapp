@@ -668,21 +668,45 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
 
             debug_steps.append({"step": "related_model_detectado", "related_model": getattr(related_model, '__name__', str(related_model))})
 
-            # resolved value for idCuota
             idCuota_value = None
-            # Si la FK apunta a InscripcionCuota
+
+            # Caso: NotaRelacionada.idCuota apunta a InscripcionCuota
             if related_model == InscripcionCuota:
                 idCuota_value = cuota
-            # Si la FK apunta a CuotaFormacion
+
+            # Caso: NotaRelacionada.idCuota apunta a CuotaFormacion
             elif related_model == CuotaFormacion or (hasattr(related_model, '__name__') and related_model.__name__.lower() == 'cuotaformacion'):
-                idCuota_value = getattr(cuota, 'idCuota', None)
-                if idCuota_value is None:
-                    raise serializers.ValidationError({"cuota": "No se pudo resolver la CuotaFormacion desde InscripcionCuota."})
+                # cuota.idCuota puede ser instancia o un PK; intentamos resolver a instancia válida
+                posible = getattr(cuota, 'idCuota', None)
+                if isinstance(posible, CuotaFormacion):
+                    idCuota_value = posible
+                else:
+                    # si es un PK (int/str), buscar la fila en CuotaFormacion
+                    try:
+                        id_pk = int(posible)
+                    except Exception:
+                        id_pk = None
+
+                    if id_pk is None:
+                        raise serializers.ValidationError({
+                            "cuota": "Imposible resolver idCuota (valor inesperado). Por favor revise el registro InscripcionCuota.",
+                            "debug": debug_steps
+                        })
+
+                    cf = CuotaFormacion.objects.filter(pk=id_pk).first()
+                    if not cf:
+                        # aquí evitamos IntegrityError y damos info útil
+                        raise serializers.ValidationError({
+                            "cuota": f"La CuotaFormacion con id={id_pk} referenciada por InscripcionCuota (id={getattr(cuota, 'pk', None)}) no existe. Corrija la base de datos antes de reintentar.",
+                            "debug": debug_steps
+                        })
+                    idCuota_value = cf
+
+            # Fallback: pasar la relación tal como esté (puede ser instancia)
             else:
-                # fallback: intentar usar cuota.idCuota si existe, sino la instancia de InscripcionCuota
                 idCuota_value = getattr(cuota, 'idCuota', cuota)
 
-            # Crear NotaRelacionada con el valor resuelto
+            # Finalmente crear NotaRelacionada usando el idCuota_value resuelto
             try:
                 nr = NotaRelacionada.objects.create(
                     idNota=nota,
@@ -691,10 +715,15 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
                 )
                 debug_steps.append({"step": "nota_relacionada_creada", "nota_relacionada_id": getattr(nr, 'pk', None)})
             except IntegrityError as ie:
-                # error de FK -> devolver info clara
                 tb = traceback.format_exc()
                 debug_steps.append({"step": "integrity_error_creando_notarelacion", "error": str(ie)})
-                raise serializers.ValidationError({"error": "Violación de integridad al crear NotaRelacionada. Revise las claves foráneas.", "detail": str(ie), "debug": debug_steps, "traceback": tb})
+                raise serializers.ValidationError({
+                    "error": "Violación de integridad creando NotaRelacionada. Revise las claves foráneas.",
+                    "detail": str(ie),
+                    "debug": debug_steps,
+                    "traceback": tb
+                })
+
 
             # crear PagoTemporal
             cuenta_banco_val = getattr(configuracion, 'idCuentaBanco', getattr(configuracion, 'id_cuenta_banco', getattr(configuracion, 'cuenta_banco', None)))
