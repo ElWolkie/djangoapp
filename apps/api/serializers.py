@@ -1,12 +1,13 @@
-from datetime import datetime, timedelta
+from django.apps import apps
+from datetime import timedelta
 from decimal import Decimal
 import re
 import uuid
 import decimal
 import traceback
-
-import logging
-logger = logging.getLogger(__name__)
+from django.contrib.auth import get_user_model
+from django.utils.timezone import now
+from django.db import IntegrityError, transaction
 
 from rest_framework import serializers
 from apps.home.models import Configuracion, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Moneda, Tasa, Formacion, CuotaFormacion, TipoFormacion, Usuarios
@@ -17,15 +18,12 @@ from apps.solicitud.models import Solicitud
 from apps.asientoContable.models import AsientoContable, DetalleAsiento
 from apps.planCuenta.models import PlanCuenta
 from apps.periodoContable.models import periodoContable
-from apps.cuentaBanco.models import Banco, CuentaBanco
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from apps.cuentaBanco.models import Banco
 from rest_framework_simplejwt.tokens import RefreshToken
-from django.contrib.auth import get_user_model
-from django.utils.timezone import make_aware, now
-from django.db import models, transaction
+from apps.factura.models import Nota, NotaRelacionada, Pago, PlanArticulo, PagoTemporal
 
 import logging
-from apps.factura.models import Nota, NotaRelacionada, Pago, PlanArticulo, PagoTemporal
+logger = logging.getLogger(__name__)
 
 class TipoPersonaSerializer(serializers.ModelSerializer):
     class Meta:
@@ -538,7 +536,6 @@ def generar_numero_nota():
     fecha_actual = now().strftime('%Y%m%d')
     numero_unico = uuid.uuid4().hex[:6].upper()
     return f"NOTA-CUOTA-{fecha_actual}-{numero_unico}"
-# ---------- Serializer robusto (defensivo) ----------
 
 class CuotaPagoTemporalSerializer(serializers.Serializer):
     idInscripcion = serializers.IntegerField(write_only=True)
@@ -583,14 +580,12 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
         # 5) validar/ajustar monto
         real_valor = getattr(cuota.idCuota, 'valorCuota', None)
         if real_valor is not None and Decimal(data['monto']) != Decimal(str(real_valor)):
-            # ajustar al valor real para evitar inconsistencias
             data['monto'] = Decimal(str(real_valor))
 
         # 6) validar configuración (con fallback en nombres)
         configuracion = Configuracion.objects.first()
         cuenta_banco = None
         if configuracion:
-            # algunos proyectos usan idCuentaBanco o id_cuenta_banco o cuenta_banco
             cuenta_banco = getattr(configuracion, 'idCuentaBanco', None) or getattr(configuracion, 'id_cuenta_banco', None) or getattr(configuracion, 'cuenta_banco', None)
 
         if not configuracion or not cuenta_banco:
@@ -605,16 +600,20 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
 
     @transaction.atomic
     def create(self, validated_data):
-        # debug steps
+        """
+        Crea Nota (CUOTA), NotaRelacionada (con idCuota correctamente resuelto),
+        PagoTemporal y DetalleAsiento (si existen PlanArticulo).
+        Devuelve PagoTemporal o lanza serializers.ValidationError con debug.
+        """
         debug_steps = []
         try:
             inscripcion = self.context.get('inscripcion')
             cuota = self.context.get('cuota')
             configuracion = self.context.get('configuracion')
 
-            debug_steps.append({"step": "context_loaded", "inscripcion": getattr(inscripcion, 'idInscripcion', None), "cuota": getattr(cuota, 'idCuota', None), "configuracion": bool(configuracion)})
+            debug_steps.append({"step": "context_loaded", "inscripcion": getattr(inscripcion, 'idInscripcion', None), "cuota_idInscripcionCuota": getattr(cuota, 'pk', None), "configuracion": bool(configuracion)})
 
-            # tasa
+            # obtener tasa
             tasa = None
             moneda = getattr(configuracion, 'moneda', None) or getattr(configuracion, 'idMoneda', None)
             debug_steps.append({"step": "moneda_detectada", "moneda": str(moneda)})
@@ -623,7 +622,7 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
             debug_steps.append({"step": "tasa_busqueda", "tasa_found": bool(tasa), "tasa_id": getattr(tasa, 'idTasa', None)})
 
             if not tasa:
-                raise Exception("No se encontró tasa para la moneda configurada.")
+                raise serializers.ValidationError({"error": "No se encontró tasa para la moneda configurada.", "debug": debug_steps})
 
             # periodo
             periodo_activo = periodoContable.objects.filter(estadoPeriodo=True).first()
@@ -631,22 +630,20 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
                 periodo_activo = periodoContable.objects.order_by('-idPeriodo').first()
             debug_steps.append({"step": "periodo", "periodo_activo": getattr(periodo_activo, 'idPeriodo', None)})
             if not periodo_activo:
-                raise Exception("No hay periodo contable activo.")
+                raise serializers.ValidationError({"error": "No hay periodo contable activo.", "debug": debug_steps})
 
             # crear asiento
             numero_asiento = f"CUOTA-{now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
-            debug_steps.append({"step": "crear_asiento_before", "numero_asiento": numero_asiento})
             asiento = AsientoContable.objects.create(
                 numeroAsiento=numero_asiento,
                 fechaAsiento=now().date(),
                 conceptoAsiento=f"Solicitud pago cuota: {getattr(cuota.idCuota, 'nombreCuota', 'Cuota')} - Inscripción: {inscripcion.idInscripcion}",
                 idPeriodo=periodo_activo
             )
-            debug_steps.append({"step": "crear_asiento_after", "asiento_id": getattr(asiento, 'pk', None)})
+            debug_steps.append({"step": "asiento_creado", "asiento_id": getattr(asiento, 'pk', None)})
 
             # crear nota
-            numero_nota = generar_numero_nota()
-            debug_steps.append({"step": "crear_nota_before", "numero_nota": numero_nota, "monto": str(validated_data['monto'])})
+            numero_nota = f"NOTA-CUOTA-{uuid.uuid4().hex[:6].upper()}"
             nota = Nota.objects.create(
                 idAsiento=asiento,
                 idPersona=inscripcion.idPersona,
@@ -660,15 +657,47 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
                 estado='PENDIENTE',
                 observaciones=f"Nota para {getattr(cuota.idCuota, 'nombreCuota', 'Cuota')}"
             )
-            debug_steps.append({"step": "crear_nota_after", "nota_id": getattr(nota, 'idNota', None)})
+            debug_steps.append({"step": "nota_creada", "nota_id": getattr(nota, 'idNota', None)})
 
-            # relacionar nota
-            nr = NotaRelacionada.objects.create(idNota=nota, idInscripcion=inscripcion, idCuota=cuota)
-            debug_steps.append({"step": "nota_relacionada", "nota_relacionada_id": getattr(nr, 'pk', None)})
+            # --- Aquí resolvemos correctamente qué pasar a NotaRelacionada.idCuota ---
+            try:
+                related_field = NotaRelacionada._meta.get_field('idCuota')
+                related_model = related_field.remote_field.model
+            except Exception:
+                related_model = None
 
-            # pago temporal
+            debug_steps.append({"step": "related_model_detectado", "related_model": getattr(related_model, '__name__', str(related_model))})
+
+            # resolved value for idCuota
+            idCuota_value = None
+            # Si la FK apunta a InscripcionCuota
+            if related_model == InscripcionCuota:
+                idCuota_value = cuota
+            # Si la FK apunta a CuotaFormacion
+            elif related_model == CuotaFormacion or (hasattr(related_model, '__name__') and related_model.__name__.lower() == 'cuotaformacion'):
+                idCuota_value = getattr(cuota, 'idCuota', None)
+                if idCuota_value is None:
+                    raise serializers.ValidationError({"cuota": "No se pudo resolver la CuotaFormacion desde InscripcionCuota."})
+            else:
+                # fallback: intentar usar cuota.idCuota si existe, sino la instancia de InscripcionCuota
+                idCuota_value = getattr(cuota, 'idCuota', cuota)
+
+            # Crear NotaRelacionada con el valor resuelto
+            try:
+                nr = NotaRelacionada.objects.create(
+                    idNota=nota,
+                    idInscripcion=inscripcion,
+                    idCuota=idCuota_value
+                )
+                debug_steps.append({"step": "nota_relacionada_creada", "nota_relacionada_id": getattr(nr, 'pk', None)})
+            except IntegrityError as ie:
+                # error de FK -> devolver info clara
+                tb = traceback.format_exc()
+                debug_steps.append({"step": "integrity_error_creando_notarelacion", "error": str(ie)})
+                raise serializers.ValidationError({"error": "Violación de integridad al crear NotaRelacionada. Revise las claves foráneas.", "detail": str(ie), "debug": debug_steps, "traceback": tb})
+
+            # crear PagoTemporal
             cuenta_banco_val = getattr(configuracion, 'idCuentaBanco', getattr(configuracion, 'id_cuenta_banco', getattr(configuracion, 'cuenta_banco', None)))
-            debug_steps.append({"step": "pago_temporal_before", "idCuentaBanco": str(cuenta_banco_val), "idTasa": getattr(tasa, 'idTasa', None)})
             pago_temporal = PagoTemporal.objects.create(
                 idNota=nota,
                 idCuentaBanco=cuenta_banco_val,
@@ -678,14 +707,14 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
                 observaciones=validated_data.get('observaciones', ''),
                 confirmado=False
             )
-            debug_steps.append({"step": "pago_temporal_after", "idPagoTemporal": getattr(pago_temporal, 'idPagoTemporal', None)})
+            debug_steps.append({"step": "pago_temporal_creado", "idPagoTemporal": getattr(pago_temporal, 'idPagoTemporal', None)})
 
-            # actualizar cuota
+            # actualizar cuota estado
             cuota.estadoPago = 'PENDIENTE'
             cuota.save(update_fields=['estadoPago'])
             debug_steps.append({"step": "cuota_actualizada", "estadoPago": cuota.estadoPago})
 
-            # detalles de asiento (PlanArticulo)
+            # detalles de asiento si hay PlanArticulo
             plan_articulos = PlanArticulo.objects.filter(tipoArticulo='CUOTA').order_by('-fecha')
             plan_debe = plan_articulos.filter(tipo=True).first() or plan_articulos.filter(tipo=1).first()
             plan_haber = plan_articulos.filter(tipo=False).first() or plan_articulos.filter(tipo=0).first()
@@ -708,15 +737,18 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
             else:
                 debug_steps.append({"step": "detalle_asiento_omitido", "reason": "PlanArticulo no encontrado"})
 
-            # si todo OK, guardar debug en contexto para la view (útil)
+            # devolver pago_temporal y debug en context (la vista puede devolver debug)
             self.context['debug_steps'] = debug_steps
             return pago_temporal
 
+        except serializers.ValidationError:
+            # re-lanzar tal cual (ya es ValidationError)
+            raise
         except Exception as exc:
             tb = traceback.format_exc()
-            logger.exception("Error en create() CuotaPagoTemporalSerializer: %s", tb)
-            # attach debug to exception so view can return it
-            raise Exception({"error": str(exc), "traceback": tb, "debug_steps": debug_steps})
+            logger.exception("Error en create() CuotaPagoTemporalSerializer: %s\n%s", exc, tb)
+            # convertir a ValidationError para que la vista devuelva JSON legible
+            raise serializers.ValidationError({"error": str(exc), "traceback": tb, "debug": debug_steps})
 
 class RequisitoSerializer(serializers.ModelSerializer):
     class Meta:
