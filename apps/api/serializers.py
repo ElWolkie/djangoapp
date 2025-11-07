@@ -539,6 +539,7 @@ def generar_numero_nota():
     numero_unico = uuid.uuid4().hex[:6].upper()
     return f"NOTA-CUOTA-{fecha_actual}-{numero_unico}"
 # ---------- Serializer robusto (defensivo) ----------
+
 class CuotaPagoTemporalSerializer(serializers.Serializer):
     idInscripcion = serializers.IntegerField(write_only=True)
     nombreCuota = serializers.CharField(max_length=200)
@@ -604,91 +605,118 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
 
     @transaction.atomic
     def create(self, validated_data):
-        # delegamos la creación real a la vista o lo hacemos aquí
-        inscripcion = self.context.get('inscripcion')
-        cuota = self.context.get('cuota')
-        configuracion = self.context.get('configuracion')
+        # debug steps
+        debug_steps = []
+        try:
+            inscripcion = self.context.get('inscripcion')
+            cuota = self.context.get('cuota')
+            configuracion = self.context.get('configuracion')
 
-        # obtener tasa
-        tasa = None
-        moneda = getattr(configuracion, 'moneda', None) or getattr(configuracion, 'idMoneda', None)
-        if moneda:
-            tasa = Tasa.objects.filter(idMoneda=moneda).order_by('-idTasa').first()
-        if not tasa:
-            raise serializers.ValidationError("No se encontró tasa para la moneda configurada.")
+            debug_steps.append({"step": "context_loaded", "inscripcion": getattr(inscripcion, 'idInscripcion', None), "cuota": getattr(cuota, 'idCuota', None), "configuracion": bool(configuracion)})
 
-        # periodo activo
-        periodo_activo = periodoContable.objects.filter(estadoPeriodo=True).first()
-        if not periodo_activo:
-            periodo_activo = periodoContable.objects.order_by('-idPeriodo').first()
-        if not periodo_activo:
-            raise serializers.ValidationError("No hay periodo contable activo.")
+            # tasa
+            tasa = None
+            moneda = getattr(configuracion, 'moneda', None) or getattr(configuracion, 'idMoneda', None)
+            debug_steps.append({"step": "moneda_detectada", "moneda": str(moneda)})
+            if moneda:
+                tasa = Tasa.objects.filter(idMoneda=moneda).order_by('-idTasa').first()
+            debug_steps.append({"step": "tasa_busqueda", "tasa_found": bool(tasa), "tasa_id": getattr(tasa, 'idTasa', None)})
 
-        # crear asiento
-        numero_asiento = f"CUOTA-{now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
-        asiento = AsientoContable.objects.create(
-            numeroAsiento=numero_asiento,
-            fechaAsiento=now().date(),
-            conceptoAsiento=f"Solicitud pago cuota: {getattr(cuota.idCuota, 'nombreCuota', 'Cuota')} - Inscripción: {inscripcion.idInscripcion}",
-            idPeriodo=periodo_activo
-        )
+            if not tasa:
+                raise Exception("No se encontró tasa para la moneda configurada.")
 
-        # crear nota
-        numero_nota = generar_numero_nota()
-        nota = Nota.objects.create(
-            idAsiento=asiento,
-            idPersona=inscripcion.idPersona,
-            tipoArticulo='CUOTA',
-            numeroNota=numero_nota,
-            fechaEmision=now().date(),
-            fechaVencimiento=now().date() + timedelta(days=7),
-            formaPago='TRANSFERENCIA',
-            totalNota=validated_data['monto'],
-            idTasa=tasa,
-            estado='PENDIENTE',
-            observaciones=f"Nota para {getattr(cuota.idCuota, 'nombreCuota', 'Cuota')}"
-        )
+            # periodo
+            periodo_activo = periodoContable.objects.filter(estadoPeriodo=True).first()
+            if not periodo_activo:
+                periodo_activo = periodoContable.objects.order_by('-idPeriodo').first()
+            debug_steps.append({"step": "periodo", "periodo_activo": getattr(periodo_activo, 'idPeriodo', None)})
+            if not periodo_activo:
+                raise Exception("No hay periodo contable activo.")
 
-        # relacionar nota
-        NotaRelacionada.objects.create(idNota=nota, idInscripcion=inscripcion, idCuota=cuota)
-
-        # pago temporal
-        pago_temporal = PagoTemporal.objects.create(
-            idNota=nota,
-            idCuentaBanco=getattr(configuracion, 'idCuentaBanco', getattr(configuracion, 'id_cuenta_banco', getattr(configuracion, 'cuenta_banco', None))),
-            idTasa=tasa,
-            monto=validated_data['monto'],
-            referencia=validated_data.get('referencia', ''),
-            observaciones=validated_data.get('observaciones', ''),
-            confirmado=False
-        )
-
-        # actualizar estado cuota
-        cuota.estadoPago = 'PENDIENTE'
-        cuota.save(update_fields=['estadoPago'])
-
-        # crear detalle asiento si hay PlanArticulo (no obligatorio)
-        plan_articulos = PlanArticulo.objects.filter(tipoArticulo='CUOTA').order_by('-fecha')
-        plan_debe = plan_articulos.filter(tipo=True).first() or plan_articulos.filter(tipo=1).first()
-        plan_haber = plan_articulos.filter(tipo=False).first() or plan_articulos.filter(tipo=0).first()
-
-        if plan_debe and plan_haber:
-            DetalleAsiento.objects.create(
-                idAsiento=asiento,
-                idPlanCuenta=plan_debe.idPlanCuenta,
-                debe=Decimal(validated_data['monto']),
-                haber=Decimal('0.00')
+            # crear asiento
+            numero_asiento = f"CUOTA-{now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
+            debug_steps.append({"step": "crear_asiento_before", "numero_asiento": numero_asiento})
+            asiento = AsientoContable.objects.create(
+                numeroAsiento=numero_asiento,
+                fechaAsiento=now().date(),
+                conceptoAsiento=f"Solicitud pago cuota: {getattr(cuota.idCuota, 'nombreCuota', 'Cuota')} - Inscripción: {inscripcion.idInscripcion}",
+                idPeriodo=periodo_activo
             )
-            DetalleAsiento.objects.create(
-                idAsiento=asiento,
-                idPlanCuenta=plan_haber.idPlanCuenta,
-                debe=Decimal('0.00'),
-                haber=Decimal(validated_data['monto'])
-            )
-        else:
-            logger.warning("No se encontraron PlanArticulo para CUOTA; asiento creado sin detalles contables.")
+            debug_steps.append({"step": "crear_asiento_after", "asiento_id": getattr(asiento, 'pk', None)})
 
-        return pago_temporal
+            # crear nota
+            numero_nota = generar_numero_nota()
+            debug_steps.append({"step": "crear_nota_before", "numero_nota": numero_nota, "monto": str(validated_data['monto'])})
+            nota = Nota.objects.create(
+                idAsiento=asiento,
+                idPersona=inscripcion.idPersona,
+                tipoArticulo='CUOTA',
+                numeroNota=numero_nota,
+                fechaEmision=now().date(),
+                fechaVencimiento=now().date() + timedelta(days=7),
+                formaPago='TRANSFERENCIA',
+                totalNota=validated_data['monto'],
+                idTasa=tasa,
+                estado='PENDIENTE',
+                observaciones=f"Nota para {getattr(cuota.idCuota, 'nombreCuota', 'Cuota')}"
+            )
+            debug_steps.append({"step": "crear_nota_after", "nota_id": getattr(nota, 'idNota', None)})
+
+            # relacionar nota
+            nr = NotaRelacionada.objects.create(idNota=nota, idInscripcion=inscripcion, idCuota=cuota)
+            debug_steps.append({"step": "nota_relacionada", "nota_relacionada_id": getattr(nr, 'pk', None)})
+
+            # pago temporal
+            cuenta_banco_val = getattr(configuracion, 'idCuentaBanco', getattr(configuracion, 'id_cuenta_banco', getattr(configuracion, 'cuenta_banco', None)))
+            debug_steps.append({"step": "pago_temporal_before", "idCuentaBanco": str(cuenta_banco_val), "idTasa": getattr(tasa, 'idTasa', None)})
+            pago_temporal = PagoTemporal.objects.create(
+                idNota=nota,
+                idCuentaBanco=cuenta_banco_val,
+                idTasa=tasa,
+                monto=validated_data['monto'],
+                referencia=validated_data.get('referencia', ''),
+                observaciones=validated_data.get('observaciones', ''),
+                confirmado=False
+            )
+            debug_steps.append({"step": "pago_temporal_after", "idPagoTemporal": getattr(pago_temporal, 'idPagoTemporal', None)})
+
+            # actualizar cuota
+            cuota.estadoPago = 'PENDIENTE'
+            cuota.save(update_fields=['estadoPago'])
+            debug_steps.append({"step": "cuota_actualizada", "estadoPago": cuota.estadoPago})
+
+            # detalles de asiento (PlanArticulo)
+            plan_articulos = PlanArticulo.objects.filter(tipoArticulo='CUOTA').order_by('-fecha')
+            plan_debe = plan_articulos.filter(tipo=True).first() or plan_articulos.filter(tipo=1).first()
+            plan_haber = plan_articulos.filter(tipo=False).first() or plan_articulos.filter(tipo=0).first()
+            debug_steps.append({"step": "plan_articulos", "plan_debe": getattr(plan_debe, 'pk', None), "plan_haber": getattr(plan_haber, 'pk', None)})
+
+            if plan_debe and plan_haber:
+                DetalleAsiento.objects.create(
+                    idAsiento=asiento,
+                    idPlanCuenta=plan_debe.idPlanCuenta,
+                    debe=Decimal(validated_data['monto']),
+                    haber=Decimal('0.00')
+                )
+                DetalleAsiento.objects.create(
+                    idAsiento=asiento,
+                    idPlanCuenta=plan_haber.idPlanCuenta,
+                    debe=Decimal('0.00'),
+                    haber=Decimal(validated_data['monto'])
+                )
+                debug_steps.append({"step": "detalle_asiento_creado"})
+            else:
+                debug_steps.append({"step": "detalle_asiento_omitido", "reason": "PlanArticulo no encontrado"})
+
+            # si todo OK, guardar debug en contexto para la view (útil)
+            self.context['debug_steps'] = debug_steps
+            return pago_temporal
+
+        except Exception as exc:
+            tb = traceback.format_exc()
+            logger.exception("Error en create() CuotaPagoTemporalSerializer: %s", tb)
+            # attach debug to exception so view can return it
+            raise Exception({"error": str(exc), "traceback": tb, "debug_steps": debug_steps})
 
 class RequisitoSerializer(serializers.ModelSerializer):
     class Meta:
