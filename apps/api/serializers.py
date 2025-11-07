@@ -544,8 +544,7 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
     referencia = serializers.CharField(max_length=200)
     observaciones = serializers.CharField(required=False, allow_blank=True, default='')
     
-    # Campos eliminados (fechaPago, formaPago)
-
+    # ... (validate_monto y validate se mantienen iguales) ...
     def validate_monto(self, value):
         if value <= Decimal('0.00'):
             raise serializers.ValidationError("El monto debe ser mayor a 0.")
@@ -637,7 +636,7 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
             fechaEmision=now().date(),
             fechaVencimiento=now().date() + timedelta(days=7),
             formaPago='TRANSFERENCIA',
-            totalNota=monto_pago, # La nota puede guardar 4 decimales
+            totalNota=monto_pago,
             idTasa=tasa,
             estado='PENDIENTE',
             observaciones=f"Nota para {getattr(cuota.idCuota, 'nombreCuota', 'Cuota')}"
@@ -682,17 +681,26 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
             confirmado=False
         )
         
-        # --- ¡SOLUCIÓN DEFINITIVA AQUÍ! ---
+        # --- ¡MANEJO DE ERROR CRÍTICO Y SOLUCIÓN DE GUARDADO! ---
         # 8. Actualizar la InscripcionCuota
-        cuota.estadoPago = 'PENDIENTE'
-        cuota.fechaPago = now().date()
-        
-        # REDONDEAMOS el monto a 2 decimales antes de guardarlo en InscripcionCuota
-        dos_decimales = Decimal('0.01')
-        cuota.montoPagado = monto_pago.quantize(dos_decimales, rounding=ROUND_HALF_UP)
-        
-        cuota.save(update_fields=['estadoPago', 'fechaPago', 'montoPagado'])
-        logger.info(f"InscripcionCuota {cuota.id if hasattr(cuota, 'id') else cuota.pk} actualizada a PENDIENTE.")
+        try:
+            cuota.estadoPago = 'PENDIENTE'
+            cuota.fechaPago = now().date()
+            
+            # Redondeo para InscripcionCuota (2 decimales)
+            dos_decimales = Decimal('0.01')
+            cuota.montoPagado = monto_pago.quantize(dos_decimales, rounding=ROUND_HALF_UP)
+            
+            # CAMBIO CLAVE: Usamos un save() simple para evitar problemas con update_fields
+            cuota.save() 
+            logger.info(f"InscripcionCuota {cuota.id if hasattr(cuota, 'id') else cuota.pk} actualizada a PENDIENTE.")
+
+        except Exception as e:
+            # Si hay un error aquí, lo capturamos, lo logeamos y lo lanzamos como ValidationError
+            # para que la transacción haga ROLLBACK y veamos el mensaje en el log de Django.
+            logger.error(f"Error CRÍTICO al actualizar InscripcionCuota {cuota.pk}: {e}")
+            raise serializers.ValidationError(f"Error interno al finalizar el pago de cuota: {e}")
+
 
         return pago_temporal
 
