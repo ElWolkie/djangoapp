@@ -659,41 +659,37 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
 
             # === Preparar el objeto correcto para NotaRelacionada.idCuota ===
             try:
+                # Determinar qué modelo espera la FK idCuota en NotaRelacionada
                 expected_model = NotaRelacionada._meta.get_field('idCuota').remote_field.model
-                debug_steps.append({"step": "expected_fk_model", "model": expected_model.__name__})
-            except Exception:
-                expected_model = None
-                debug_steps.append({"step": "expected_fk_model", "model": None})
+                # Si la FK en NotaRelacionada apunta a InscripcionCuota -> pasar la instancia 'cuota'
+                # Si apunta a CuotaFormacion -> pasar cuota.idCuota (la FK desde InscripcionCuota hacia CuotaFormacion)
+                if expected_model.__name__.lower() in ('inscripcioncuota', 'inscripcion_cuota'):
+                    obj_para_idCuota = cuota
+                elif expected_model.__name__.lower() in ('cuotaformacion', 'cuota_formacion'):
+                    obj_para_idCuota = getattr(cuota, 'idCuota', None)
+                else:
+                    # fallback: intentar con la instancia de InscripcionCuota (más probable)
+                    obj_para_idCuota = cuota
 
-            # Normalmente NotaRelacionada.idCuota espera InscripcionCuota
-            if expected_model and expected_model.__name__.lower() in ('inscripcioncuota', 'inscripcion_cuota'):
-                obj_para_idCuota = cuota
-            elif expected_model and expected_model.__name__.lower() in ('cuotaformacion', 'cuota_formacion'):
-                # fallback raro: si espera CuotaFormacion, pasar la instancia relacionada
-                obj_para_idCuota = getattr(cuota, 'idCuota', None)
-            else:
-                # último recurso: si cuota es instancia de InscripcionCuota, usarla
-                obj_para_idCuota = cuota
+                if obj_para_idCuota is None:
+                    logger.error("No se pudo resolver objeto para idCuota. expected_model=%s", expected_model)
+                    return Response({'success': False, 'message': 'Error interno: idCuota no resuelto.'}, status=500)
 
-            if obj_para_idCuota is None:
-                raise serializers.ValidationError({"error": "No se pudo resolver objeto para idCuota en NotaRelacionada.", "debug": debug_steps})
+                # Intentar crear NotaRelacionada y detectar errores de integridad
+                try:
+                    NotaRelacionada.objects.create(idNota=nota, idInscripcion=inscripcion, idCuota=obj_para_idCuota)
+                except IntegrityError as ie:
+                    # Log con detalle y devolver 400 para que el front lo vea claramente
+                    logger.exception("IntegrityError creando NotaRelacionada: %s", ie)
+                    return Response({
+                        'success': False,
+                        'message': 'Error de integridad al crear la relación de nota. Revisa la cuota/inscripcion.',
+                        'detail': str(ie)
+                    }, status=400)
 
-            # crear nota relacionada (capturar integrity errors)
-            try:
-                NotaRelacionada.objects.create(
-                    idNota=nota,
-                    idInscripcion=inscripcion,
-                    idCuota=obj_para_idCuota
-                )
-                debug_steps.append({"step": "nota_relacionada_created"})
-            except IntegrityError as ie:
-                # Mensaje útil y debug para la vista
-                logger.exception("IntegrityError creando NotaRelacionada: %s", ie)
-                raise serializers.ValidationError({
-                    "error": "Integridad referencial al crear NotaRelacionada. Revisa idCuota/idInscripcion.",
-                    "detail": str(ie),
-                    "debug": debug_steps
-                })
+            except Exception as e:
+                logger.exception("Error resolviendo modelo esperado para idCuota: %s", e)
+                return Response({'success': False, 'message': 'Error interno al crear la relación de nota.'}, status=500)
 
             # pago temporal
             cuenta_banco_val = getattr(configuracion, 'idCuentaBanco', getattr(configuracion, 'id_cuenta_banco', getattr(configuracion, 'cuenta_banco', None)))

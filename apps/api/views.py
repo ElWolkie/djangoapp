@@ -1,6 +1,8 @@
 from datetime import timedelta
 import re
 import traceback
+import uuid
+
 from django.db.models import Prefetch, Q
 from rest_framework import generics, status
 from rest_framework.response import Response
@@ -8,7 +10,7 @@ from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from django.utils.timezone import now
 from decimal import Decimal
-import uuid
+from rest_framework import status as drf_status
 
 from apps.api import serializers
 from rest_framework import serializers as drf_serializers
@@ -502,111 +504,41 @@ class CuotaCobroCreateAPIView(APIView):
 
     @transaction.atomic
     def post(self, request):
-        id_inscripcion = request.data.get('idInscripcion')
-        nombre_cuota = request.data.get('nombreCuota')
-        monto = request.data.get('monto')
-        referencia = request.data.get('referencia', '')
-        observaciones = request.data.get('observaciones', '')
-
-        if not id_inscripcion or not nombre_cuota or monto is None:
-            return Response({'success': False, 'message': 'Faltan parámetros obligatorios: idInscripcion, nombreCuota, monto'}, status=status.HTTP_400_BAD_REQUEST)
+        logger.info("Petición de pago de CUOTA recibida: %s", request.data)
+        serializer = CuotaPagoTemporalSerializer(data=request.data, context={'request': request})
 
         try:
-            inscripcion = Inscripcion.objects.select_related('idCohorte__idFormacion', 'idPersona').filter(idInscripcion=id_inscripcion, is_active=True).first()
-            if not inscripcion:
-                return Response({'success': False, 'message': 'Inscripción no encontrada o inactiva.'}, status=status.HTTP_404_NOT_FOUND)
+            serializer.is_valid(raise_exception=True)
+            pago_temporal = serializer.save()  # todo el flujo está en el serializer
 
-            inscripcion = Inscripcion.objects.select_for_update().get(pk=inscripcion.pk)
+            # preparar respuesta clara
+            nota = getattr(pago_temporal, 'idNota', None)
+            result = {
+                'idPagoTemporal': getattr(pago_temporal, 'idPagoTemporal', None),
+                'idNota': getattr(nota, 'idNota', None) if nota else None,
+                'numeroNota': getattr(nota, 'numeroNota', None) if nota else None,
+                'monto': float(getattr(pago_temporal, 'monto', 0)),
+                'confirmado': bool(getattr(pago_temporal, 'confirmado', False)),
+                'debug_steps': serializer.context.get('debug_steps', [])
+            }
 
-            configuracion = Configuracion.objects.first()
-            if not configuracion:
-                return Response({'success': False, 'message': 'No hay configuración activa.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({
+                'success': True,
+                'message': 'Solicitud de pago de cuota registrada correctamente.',
+                'data': result
+            }, status=drf_status.HTTP_201_CREATED)
 
-            moneda_config = getattr(configuracion, 'moneda', None)
-            tasa = Tasa.objects.filter(idMoneda=moneda_config).order_by('-idTasa').first()
-            if not tasa:
-                return Response({'success': False, 'message': 'No hay tasa configurada para la moneda.'}, status=status.HTTP_400_BAD_REQUEST)
+        except serializers.ValidationError as ve:
+            logger.warning("Validación fallo en pago cuota: %s", ve)
+            return Response({'success': False, 'errors': ve.detail}, status=drf_status.HTTP_400_BAD_REQUEST)
 
-            periodo_activo = periodoContable.objects.filter(estadoPeriodo=True).first() or periodoContable.objects.order_by('-idPeriodo').first()
-            if not periodo_activo:
-                return Response({'success': False, 'message': 'No hay periodo contable activo.'}, status=status.HTTP_400_BAD_REQUEST)
-
-            try:
-                cuota = inscripcion.inscripcioncuota_set.select_related('idCuota').get(idCuota__nombreCuota__iexact=nombre_cuota, estadoPago='EN ESPERA')
-            except InscripcionCuota.DoesNotExist:
-                return Response({'success': False, 'message': 'La cuota no está disponible para pago (no existe o no está EN ESPERA).'}, status=status.HTTP_400_BAD_REQUEST)
-            except InscripcionCuota.MultipleObjectsReturned:
-                return Response({'success': False, 'message': 'Duplicidad de cuotas. Contacte soporte.'}, status=status.HTTP_400_BAD_REQUEST)
-
-            # ajuste del monto
-            valor_real = getattr(cuota.idCuota, 'valorCuota', None)
-            monto_decimal = Decimal(str(monto))
-            if valor_real is not None:
-                valor_real_dec = Decimal(str(valor_real))
-                if monto_decimal != valor_real_dec:
-                    logger.warning(f"Monto recibido ({monto_decimal}) no coincide con valor de cuota ({valor_real_dec}). Ajustando.")
-                    monto_decimal = valor_real_dec
-
-            # crear asiento y nota (igual que antes)
-            numero_asiento = f"CUOTA-{now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
-            asiento = AsientoContable.objects.create(numeroAsiento=numero_asiento, fechaAsiento=now().date(), conceptoAsiento=f"Asiento CUOTA {cuota.idCuota.nombreCuota} - Inscripción {inscripcion.idInscripcion}", idPeriodo=periodo_activo)
-
-            numero_nota = generar_numero_nota()
-            nota = Nota.objects.create(idAsiento=asiento, idPersona=inscripcion.idPersona, tipoArticulo='CUOTA', numeroNota=numero_nota, fechaEmision=now().date(), fechaVencimiento=now().date()+timedelta(days=7), formaPago='TRANSFERENCIA', totalNota=monto_decimal, idTasa=tasa, estado='PENDIENTE', observaciones=f"Nota CUOTA generada automáticamente para {cuota.idCuota.nombreCuota}")
-
-            # RELACIONAR: detectar qué espera NotaRelacionada.idCuota
-            try:
-                related_field = NotaRelacionada._meta.get_field('idCuota')
-                related_model = related_field.remote_field.model
-            except Exception:
-                related_model = None
-
-            if related_model == InscripcionCuota:
-                idcuota_val = cuota
-            elif related_model == CuotaFormacion or (hasattr(related_model, '__name__') and related_model.__name__.lower() == 'cuotaformacion'):
-                idcuota_val = getattr(cuota, 'idCuota', None)
-                if idcuota_val is None:
-                    return Response({'success': False, 'message': 'No se pudo resolver CuotaFormacion desde InscripcionCuota.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-            else:
-                idcuota_val = getattr(cuota, 'idCuota', cuota)
-
-            try:
-                NotaRelacionada.objects.create(idNota=nota, idInscripcion=inscripcion, idCuota=idcuota_val)
-            except IntegrityError as ie:
-                logger.exception("IntegrityError creando NotaRelacionada: %s", ie)
-                return Response({'success': False, 'message': 'Error de integridad al crear la relación de nota (ver logs).', 'error': str(ie)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-            pago_temporal = PagoTemporal.objects.create(idNota=nota, idCuentaBanco=getattr(configuracion, 'idCuentaBanco'), idTasa=tasa, monto=monto_decimal, referencia=referencia, observaciones=observaciones, confirmado=False)
-
-            # Detalle asiento si PlanArticulo existe
-            plan_articulos = PlanArticulo.objects.filter(tipoArticulo='CUOTA').order_by('-fecha')
-            plan_debe = plan_articulos.filter(tipo=True).first() or plan_articulos.filter(tipo=1).first()
-            plan_haber = plan_articulos.filter(tipo=False).first() or plan_articulos.filter(tipo=0).first()
-            if plan_debe and plan_haber:
-                DetalleAsiento.objects.create(idAsiento=asiento, idPlanCuenta=plan_debe.idPlanCuenta, debe=float(monto_decimal), haber=Decimal('0.00'))
-                DetalleAsiento.objects.create(idAsiento=asiento, idPlanCuenta=plan_haber.idPlanCuenta, debe=Decimal('0.00'), haber=float(monto_decimal))
-            else:
-                logger.warning("No se encontraron PlanArticulo para CUOTA (debe/haber).")
-
-            cuota.estadoPago = 'PENDIENTE'
-            cuota.save(update_fields=['estadoPago'])
-            if inscripcion.estadoPago not in ['PAGADO', 'FACTURADO']:
-                inscripcion.estadoPago = 'PENDIENTE'
-                inscripcion.save(update_fields=['estadoPago'])
-
-            return Response({'success': True, 'message': 'Solicitud de pago de cuota registrada correctamente.', 'data': {'idPagoTemporal': pago_temporal.idPagoTemporal, 'idNota': nota.idNota, 'numeroNota': nota.numeroNota, 'monto': float(pago_temporal.monto), 'confirmado': pago_temporal.confirmado}}, status=status.HTTP_201_CREATED)
-
-        except drf_serializers.ValidationError as ve:
-            logger.warning("Error de validación: %s", ve.detail)
-            return Response({"success": False, "message": "Datos inválidos.", "errors": ve.detail}, status=status.HTTP_400_BAD_REQUEST)
-        except IntegrityError as ie:
-            tb = traceback.format_exc()
-            logger.exception("IntegrityError general: %s\n%s", ie, tb)
-            return Response({"success": False, "message": "Error de integridad en la base de datos.", "error": str(ie), "traceback": tb}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         except Exception as exc:
-            tb = traceback.format_exc()
-            logger.exception("Error creando nota/pago temporal de cuota: %s\n%s", exc, tb)
-            return Response({"success": False, "message": "Ocurrió un error creando la nota de cuota.", "error": str(exc), "traceback": tb}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            logger.exception("Error creando nota/pago temporal de cuota")
+            return Response({
+                'success': False,
+                'message': 'Ocurrió un error creando la nota de cuota.',
+                'error': str(exc)
+            }, status=drf_status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class CuotaPagoTemporalCreateView(APIView):
     permission_classes = [IsAuthenticated]
