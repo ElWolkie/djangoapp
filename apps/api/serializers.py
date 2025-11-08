@@ -573,7 +573,7 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
         try:
             cuota = inscripcion.inscripcioncuota_set.select_related('idCuota').get(
                 idCuota__nombreCuota__iexact=data['nombreCuota'],
-                estadoPago='EN ESPERA'
+                estadoPago__iexact='EN ESPERA'
             )
         except InscripcionCuota.DoesNotExist:
             raise serializers.ValidationError({"cuota": "La cuota seleccionada no está disponible para pago (ya fue pagada, está pendiente o no existe)."})
@@ -657,10 +657,11 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
             debug_steps.append({"step": "crear_nota", "nota_id": getattr(nota, 'idNota', None)})
 
             # === Crear NotaRelacionada: intentar con InscripcionCuota primero, si falla intentar con CuotaFormacion ===
+            created_nr = None
             try:
                 # intento normal: pasar la instancia InscripcionCuota
                 with transaction.atomic():
-                    nr = NotaRelacionada.objects.create(
+                    created_nr = NotaRelacionada.objects.create(
                         idNota=nota,
                         idInscripcion=inscripcion,
                         idCuota=cuota  # intenta insertar la FK como InscripcionCuota
@@ -682,7 +683,7 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
                 # crear usando idCuota_id (pasa la PK directamente)
                 try:
                     with transaction.atomic():
-                        nr = NotaRelacionada.objects.create(
+                        created_nr = NotaRelacionada.objects.create(
                             idNota=nota,
                             idInscripcion=inscripcion,
                             idCuota_id=cf_pk  # <- uso explícito del _id para saltar la validación de instancia
@@ -708,23 +709,9 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
                 observaciones=validated_data.get('observaciones', ''),
                 confirmado=False
             )
-
-            # REFRESH y SUMMARY: garantizar estructura consistente para la vista/frontend
-            pago_temporal.refresh_from_db()
-            summary = {
-                'idPagoTemporal': getattr(pago_temporal, 'idPagoTemporal', None),
-                'idNota': getattr(pago_temporal.idNota, 'idNota', None) if getattr(pago_temporal, 'idNota', None) else None,
-                'numeroNota': getattr(pago_temporal.idNota, 'numeroNota', None) if getattr(pago_temporal, 'idNota', None) else None,
-                'monto': float(getattr(pago_temporal, 'monto', 0)),
-                'confirmado': bool(getattr(pago_temporal, 'confirmado', False)),
-            }
-            # adjuntar para que la vista pueda usarlo o para debugging
-            self.context['created_payment'] = summary
-            pago_temporal._summary = summary
-
             debug_steps.append({"step": "pago_temporal_created", "idPagoTemporal": getattr(pago_temporal, 'idPagoTemporal', None)})
 
-            # actualizar cuota
+            # actualizar cuota (InscripcionCuota)
             cuota.estadoPago = 'PENDIENTE'
             cuota.save(update_fields=['estadoPago'])
             debug_steps.append({"step": "cuota_actualizada", "estadoPago": cuota.estadoPago})
@@ -752,12 +739,16 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
             else:
                 debug_steps.append({"step": "detalle_asiento_omitido", "reason": "PlanArticulo no encontrado"})
 
-            # guardar debug en contexto para que la vista lo devuelva si lo desea
+            # Guardar meta para la vista: id de la nota relacionada y el raw idCuota guardado en DB
+            if created_nr:
+                self.context['created_nr_id'] = getattr(created_nr, 'id', None)
+                # _id raw es el entero que está en la columna idCuota_id (puede ser id InscripcionCuota o id CuotaFormacion)
+                self.context['created_nr_raw_idCuota'] = getattr(created_nr, 'idCuota_id', None)
+
             self.context['debug_steps'] = debug_steps
             return pago_temporal
 
         except serializers.ValidationError:
-            # re-raise para que DRF lo maneje como 400
             raise
         except Exception as exc:
             tb = traceback.format_exc()
