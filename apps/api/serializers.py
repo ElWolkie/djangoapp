@@ -22,6 +22,7 @@ from apps.periodoContable.models import periodoContable
 from apps.cuentaBanco.models import Banco
 from rest_framework_simplejwt.tokens import RefreshToken
 from apps.factura.models import Nota, NotaRelacionada, Pago, PlanArticulo, PagoTemporal
+from apps.factura.utils import create_nota_relacionada_robusta
 
 import logging
 logger = logging.getLogger(__name__)
@@ -660,7 +661,7 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
             # intento 1: pasar la instancia InscripcionCuota (lo natural según el modelo actual)
             try:
                 with transaction.atomic():
-                    NotaRelacionada.objects.create(idNota=nota, idInscripcion=inscripcion, idCuota=cuota)
+                    nr = create_nota_relacionada_robusta(nota=nota, inscripcion=inscripcion, inscripcion_cuota=cuota)
                     debug_steps.append({"step": "nota_relacionada", "method": "inscripcioncuota", "idCuota_used": getattr(cuota, 'pk', None)})
             except IntegrityError as ie1:
                 # rollback al savepoint y tratar con cuota.idCuota (CuotaFormacion)
@@ -671,7 +672,7 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
                         cf = getattr(cuota, 'idCuota', None)
                         if cf is None:
                             raise serializers.ValidationError({"error": "No se pudo resolver CuotaFormacion desde InscripcionCuota."})
-                        NotaRelacionada.objects.create(idNota=nota, idInscripcion=inscripcion, idCuota=cf)
+                        nr = create_nota_relacionada_robusta(nota=nota, inscripcion=inscripcion, inscripcion_cuota=cuota)
                         debug_steps.append({"step": "nota_relacionada", "method": "cuotaformacion", "idCuota_used": getattr(cf, 'pk', None)})
                 except IntegrityError as ie2:
                     last_exc = ie2
