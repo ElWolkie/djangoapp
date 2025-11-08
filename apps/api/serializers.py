@@ -697,7 +697,6 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
                         "debug": debug_steps
                     })
 
-
             # pago temporal
             cuenta_banco_val = getattr(configuracion, 'idCuentaBanco', getattr(configuracion, 'id_cuenta_banco', getattr(configuracion, 'cuenta_banco', None)))
             pago_temporal = PagoTemporal.objects.create(
@@ -709,6 +708,20 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
                 observaciones=validated_data.get('observaciones', ''),
                 confirmado=False
             )
+
+            # REFRESH y SUMMARY: garantizar estructura consistente para la vista/frontend
+            pago_temporal.refresh_from_db()
+            summary = {
+                'idPagoTemporal': getattr(pago_temporal, 'idPagoTemporal', None),
+                'idNota': getattr(pago_temporal.idNota, 'idNota', None) if getattr(pago_temporal, 'idNota', None) else None,
+                'numeroNota': getattr(pago_temporal.idNota, 'numeroNota', None) if getattr(pago_temporal, 'idNota', None) else None,
+                'monto': float(getattr(pago_temporal, 'monto', 0)),
+                'confirmado': bool(getattr(pago_temporal, 'confirmado', False)),
+            }
+            # adjuntar para que la vista pueda usarlo o para debugging
+            self.context['created_payment'] = summary
+            pago_temporal._summary = summary
+
             debug_steps.append({"step": "pago_temporal_created", "idPagoTemporal": getattr(pago_temporal, 'idPagoTemporal', None)})
 
             # actualizar cuota

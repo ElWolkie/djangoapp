@@ -509,37 +509,61 @@ class CuotaCobroCreateAPIView(APIView):
 
         try:
             serializer.is_valid(raise_exception=True)
-            pago_temporal = serializer.save()  # todo el flujo está en el serializer
+            pago_temporal = serializer.save()  # el serializer hace todo el flujo y guarda summary en context
 
-            # preparar respuesta clara
-            nota = getattr(pago_temporal, 'idNota', None)
-            result = {
-                'idPagoTemporal': getattr(pago_temporal, 'idPagoTemporal', None),
-                'idNota': getattr(nota, 'idNota', None) if nota else None,
-                'numeroNota': getattr(nota, 'numeroNota', None) if nota else None,
-                'monto': float(getattr(pago_temporal, 'monto', 0)),
-                'confirmado': bool(getattr(pago_temporal, 'confirmado', False)),
-                'debug_steps': serializer.context.get('debug_steps', [])
-            }
+            # Intentar obtener el summary creado por el serializer (preferible)
+            created_summary = serializer.context.get('created_payment') or getattr(pago_temporal, '_summary', None)
+
+            # Si por alguna razón no existe, armamos un fallback consistente
+            if not created_summary and pago_temporal is not None:
+                nota = getattr(pago_temporal, 'idNota', None)
+                created_summary = {
+                    'idPagoTemporal': getattr(pago_temporal, 'idPagoTemporal', None),
+                    'idNota': getattr(nota, 'idNota', None) if nota else None,
+                    'numeroNota': getattr(nota, 'numeroNota', None) if nota else None,
+                    'monto': float(getattr(pago_temporal, 'monto', 0)),
+                    'confirmado': bool(getattr(pago_temporal, 'confirmado', False)),
+                }
+
+            debug_steps = serializer.context.get('debug_steps', [])
 
             return Response({
                 'success': True,
                 'message': 'Solicitud de pago de cuota registrada correctamente.',
-                'data': result
+                'data': created_summary,
+                'debug_steps': debug_steps
             }, status=drf_status.HTTP_201_CREATED)
 
-        except serializers.ValidationError as ve:
-            logger.warning("Validación fallo en pago cuota: %s", ve)
+        except drf_serializers.ValidationError as ve:
+            # errores de validación controlados por DRF/serializer
+            logger.warning("Validación fallo en pago cuota: %s", ve.detail)
             return Response({'success': False, 'errors': ve.detail}, status=drf_status.HTTP_400_BAD_REQUEST)
 
         except Exception as exc:
-            logger.exception("Error creando nota/pago temporal de cuota")
+            # El serializer podría lanzar una Exception cuyo primer arg sea un dict con debug -> desempaquetar
+            payload = {}
+            try:
+                first = exc.args[0] if len(exc.args) else None
+                if isinstance(first, dict):
+                    payload = first
+                else:
+                    payload = {"error": str(exc)}
+            except Exception:
+                payload = {"error": str(exc)}
+
+            tb = payload.get('traceback') or traceback.format_exc()
+            debug_steps = payload.get('debug_steps') or serializer.context.get('debug_steps', [])
+
+            logger.exception("Error creando nota/pago temporal de cuota: %s", tb)
+
             return Response({
                 'success': False,
                 'message': 'Ocurrió un error creando la nota de cuota.',
-                'error': str(exc)
+                'error': payload.get('error', str(exc)),
+                'traceback': tb,
+                'debug_steps': debug_steps
             }, status=drf_status.HTTP_500_INTERNAL_SERVER_ERROR)
-
+        
 class CuotaPagoTemporalCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
