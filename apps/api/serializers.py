@@ -657,32 +657,46 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
             debug_steps.append({"step": "crear_nota", "nota_id": getattr(nota, 'idNota', None)})
 
             # === Crear NotaRelacionada: intentar con InscripcionCuota primero, si falla intentar con CuotaFormacion ===
-            last_exc = None
-            # intento 1: pasar la instancia InscripcionCuota (lo natural según el modelo actual)
             try:
+                # intento normal: pasar la instancia InscripcionCuota
                 with transaction.atomic():
-                    nr = create_nota_relacionada_robusta(nota=nota, inscripcion=inscripcion, inscripcion_cuota=cuota)
-                    debug_steps.append({"step": "nota_relacionada", "method": "inscripcioncuota", "idCuota_used": getattr(cuota, 'pk', None)})
-            except IntegrityError as ie1:
-                # rollback al savepoint y tratar con cuota.idCuota (CuotaFormacion)
-                last_exc = ie1
-                logger.warning("FK failed al crear NotaRelacionada usando InscripcionCuota pk=%s: %s", getattr(cuota,'pk',None), ie1)
+                    nr = NotaRelacionada.objects.create(
+                        idNota=nota,
+                        idInscripcion=inscripcion,
+                        idCuota=cuota  # intenta insertar la FK como InscripcionCuota
+                    )
+                debug_steps.append({"step": "nota_relacionada", "method": "inscripcioncuota", "idCuota_used": getattr(cuota, 'pk', None)})
+            except IntegrityError as ie:
+                # Fallback: la BD probablemente tenga la FK apuntando a CuotaFormacion.
+                logger.warning("IntegrityError creando NotaRelacionada con InscripcionCuota pk=%s: %s", getattr(cuota,'pk',None), ie)
+                # obtener la FK real hacia CuotaFormacion desde la InscripcionCuota
+                cf = getattr(cuota, 'idCuota', None)
+                cf_pk = getattr(cf, 'idCuota', None) or getattr(cf, 'pk', None)
+                if not cf_pk:
+                    # no podemos resolver la cuota_formacion -> error claro para el cliente
+                    raise serializers.ValidationError({
+                        "error": "No se pudo resolver la CuotaFormacion desde la InscripcionCuota para crear la relación (fallback).",
+                        "detail": str(ie),
+                        "debug": debug_steps
+                    })
+                # crear usando idCuota_id (pasa la PK directamente)
                 try:
                     with transaction.atomic():
-                        cf = getattr(cuota, 'idCuota', None)
-                        if cf is None:
-                            raise serializers.ValidationError({"error": "No se pudo resolver CuotaFormacion desde InscripcionCuota."})
-                        nr = create_nota_relacionada_robusta(nota=nota, inscripcion=inscripcion, inscripcion_cuota=cuota)
-                        debug_steps.append({"step": "nota_relacionada", "method": "cuotaformacion", "idCuota_used": getattr(cf, 'pk', None)})
+                        nr = NotaRelacionada.objects.create(
+                            idNota=nota,
+                            idInscripcion=inscripcion,
+                            idCuota_id=cf_pk  # <- uso explícito del _id para saltar la validación de instancia
+                        )
+                    debug_steps.append({"step": "nota_relacionada", "method": "cuotaformacion_fallback", "idCuota_used": cf_pk})
                 except IntegrityError as ie2:
-                    last_exc = ie2
-                    logger.exception("FK failed también usando CuotaFormacion pk=%s: %s", getattr(getattr(cuota,'idCuota',None),'pk',None), ie2)
-                    # Ninguna opción funcionó -> error claro para el cliente
+                    # fallback también falló -> devolvemos error con info de debug
+                    logger.exception("Fallback también fallo creando NotaRelacionada con idCuota_id=%s: %s", cf_pk, ie2)
                     raise serializers.ValidationError({
-                        "error": "Error de integridad al crear la relación NotaRelacionada. Revisa integridad de FK entre NotaRelacionada.idCuota y tablas CuotaFormacion/InscripcionCuota.",
+                        "error": "Error de integridad creando NotaRelacionada (fallback a CuotaFormacion).",
                         "detail": str(ie2),
                         "debug": debug_steps
                     })
+
 
             # pago temporal
             cuenta_banco_val = getattr(configuracion, 'idCuentaBanco', getattr(configuracion, 'id_cuenta_banco', getattr(configuracion, 'cuenta_banco', None)))
