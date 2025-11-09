@@ -640,45 +640,37 @@ const forcePendingStateAggressive = useCallback((inscripcionesData: any[], pendi
   };
 
   // En handleSolicitarPago, modifica esta parte:
-const handleSolicitarPago = async () => {
-  if (!modalPayload || !modalPayload.inscripcion || !modalPayload.cuota) {
-    Alert.alert('Error', 'Datos de pago incompletos');
-    return;
-  }
-  if (!referencia.trim()) {
-    Alert.alert('Error', 'Ingrese número de referencia');
-    return;
-  }
+  const handleSolicitarPago = async () => {
+    if (!modalPayload || !modalPayload.inscripcion || !modalPayload.cuota) {
+      Alert.alert('Error', 'Datos de pago incompletos');
+      return;
+    }
+    if (!referencia.trim()) {
+      Alert.alert('Error', 'Ingrese número de referencia');
+      return;
+    }
 
-  setSubmitting(true);
-  try {
-    const payload = {
-      idInscripcion: modalPayload.inscripcion.idInscripcion ?? modalPayload.inscripcion.id ?? modalPayload.inscripcion.pk,
-      nombreCuota: modalPayload.cuota.nombreCuota,
-      monto: modalPayload.cuota.valorCuota,
-      referencia: referencia.trim(),
-      observaciones: observaciones.trim(),
+    setSubmitting(true);
+    
+    const insId = modalPayload?.inscripcion?.idInscripcion ?? modalPayload?.inscripcion?.id ?? modalPayload?.inscripcion?.pk;
+    const cuotaIdent = {
+      idCuota: modalPayload?.cuota?.idCuota ?? modalPayload?.cuota?.id ?? null,
+      nombreCuota: (modalPayload?.cuota?.nombreCuota ?? '').toString().trim(),
+      monto: Number(modalPayload?.cuota?.valorCuota ?? 0),
     };
 
-    console.log('[Pago Cuota] Enviando payload:', payload);
-    const res = await api.post('/api/pagos/cuota/create/', payload);
-
-    if (res.status === 200 || res.status === 201) {
-      const data = res.data?.data ?? res.data;
-      const pagoTemporalId = data?.idPagoTemporal ?? data?.idPago ?? data?.id ?? null;
-      
-      // 🔥 USAR EL ESTADO REAL DEL BACKEND AHORA
-      const estadoNota = data?.estado_nota ?? 'PENDIENTE';
-      const confirmado = estadoNota === 'PAGADO' || data?.confirmado === true;
-
-      const insId = modalPayload?.inscripcion?.idInscripcion ?? modalPayload?.inscripcion?.id ?? modalPayload?.inscripcion?.pk;
-      const cuotaIdent = {
-        idCuota: modalPayload?.cuota?.idCuota ?? modalPayload?.cuota?.id ?? null,
-        nombreCuota: (modalPayload?.cuota?.nombreCuota ?? '').toString().trim(),
-        monto: Number(modalPayload?.cuota?.valorCuota ?? 0),
+    try {
+      const payload = {
+        idInscripcion: insId,
+        nombreCuota: cuotaIdent.nombreCuota,
+        monto: cuotaIdent.monto,
+        referencia: referencia.trim(),
+        observaciones: observaciones.trim(),
       };
 
-      // 1) ACTUALIZACIÓN OPTIMISTA BASADA EN RESPUESTA REAL DEL BACKEND
+      console.log('[Pago Cuota] Enviando payload:', payload);
+      
+      // 🔥 ACTUALIZACIÓN OPTIMISTA INMEDIATA
       setInscripciones(prev => prev.map((ins: any) => {
         const curInsId = ins.idInscripcion ?? ins.id ?? null;
         if (insId && curInsId !== insId) return ins;
@@ -689,13 +681,13 @@ const handleSolicitarPago = async () => {
           const sameId = cuotaIdent.idCuota && (Number(c.idCuota) === Number(cuotaIdent.idCuota) || Number(c.id) === Number(cuotaIdent.idCuota));
           
           if (sameId || (sameName && sameMonto)) {
-            console.log('[Pago-debug] Marcando cuota con estado:', estadoNota, 'Confirmado:', confirmado);
+            console.log('[Pago-Optimista] Marcando cuota como PENDIENTE inmediatamente:', c.nombreCuota);
             return {
               ...c,
-              estadoPago: estadoNota === 'PAGADO' ? 'PAGADO' : 'PENDIENTE',
-              pendingPayment: estadoNota !== 'PAGADO',
-              pagoConfirmado: confirmado,
-              pagoTemporalId: pagoTemporalId,
+              estadoPago: 'PENDIENTE',
+              pendingPayment: true,
+              pagoConfirmado: false,
+              pagoTemporalId: `temp-${Date.now()}`,
               disabled: true,
             };
           }
@@ -705,13 +697,41 @@ const handleSolicitarPago = async () => {
         return { ...ins, cuotas };
       }));
 
-      // 2) AGREGAR A PAGOS LOCALES PENDIENTES SOLO SI NO ESTÁ CONFIRMADO
-      if (!confirmado) {
+      const res = await api.post('/api/pagos/cuota/create/', payload);
+
+      if (res.status === 200 || res.status === 201) {
+        const data = res.data?.data ?? res.data;
+        console.log('[Pago Cuota] Respuesta exitosa:', data);
+        
+        const pagoTemporalId = data?.idPagoTemporal ?? data?.idPago ?? data?.id ?? null;
+        
+        // Actualizar con ID real del backend
+        setInscripciones(prev => prev.map((ins: any) => {
+          const curInsId = ins.idInscripcion ?? ins.id ?? null;
+          if (insId && curInsId !== insId) return ins;
+          
+          const cuotas = (ins.cuotas || []).map((c: any) => {
+            const sameName = String(c.nombreCuota ?? '').toLowerCase() === String(cuotaIdent.nombreCuota ?? '').toLowerCase();
+            const sameMonto = Math.abs(Number(c.valorCuota ?? 0) - Number(cuotaIdent.monto ?? 0)) < 0.01;
+            const sameId = cuotaIdent.idCuota && (Number(c.idCuota) === Number(cuotaIdent.idCuota) || Number(c.id) === Number(cuotaIdent.idCuota));
+            
+            if (sameId || (sameName && sameMonto)) {
+              return {
+                ...c,
+                pagoTemporalId: pagoTemporalId,
+              };
+            }
+            return c;
+          });
+          
+          return { ...ins, cuotas };
+        }));
+
+        // Agregar a pagos locales
         const newPending = {
           insId,
           ...cuotaIdent,
           pagoTemporalId,
-          idNota: data?.idNota ?? null,
           confirmado: false,
           referencia: referencia.trim(),
           timestamp: Date.now(),
@@ -724,53 +744,63 @@ const handleSolicitarPago = async () => {
           );
           return [...filtered, newPending];
         });
-      }
 
-      closeModal();
+        closeModal();
+        Alert.alert('Solicitud enviada', 'Pago pendiente de revisión administrativa.');
 
-      // 3) MENSAJE BASADO EN ESTADO REAL
-      if (confirmado) {
-        Alert.alert('Pago confirmado', 'El pago ha sido confirmado automáticamente por el sistema.');
       } else {
-        Alert.alert(
-          'Solicitud enviada', 
-          'Pago pendiente de revisión administrativa. El estado se actualizará cuando sea procesado.'
-        );
+        const msg = res.data?.message || res.data?.error || 'No se pudo registrar la solicitud.';
+        Alert.alert('Error', msg);
+        // Revertir en caso de error
+        setTimeout(() => {
+          loadInscripciones();
+        }, 1000);
+      }
+    } catch (e: any) {
+      console.error('Error completo al solicitar pago:', e);
+      console.error('Datos de respuesta del error:', e?.response?.data);
+      
+      let errorMessage = 'Error desconocido';
+      
+      // 🔥 MEJOR MANEJO DE ERRORES - MOSTRAR MENSAJE ESPECÍFICO DEL BACKEND
+      if (e?.response?.data) {
+        const errorData = e.response.data;
+        
+        if (typeof errorData === 'string') {
+          errorMessage = errorData;
+        } else if (errorData.errors) {
+          // Si hay múltiples errores
+          if (typeof errorData.errors === 'object') {
+            errorMessage = Object.entries(errorData.errors)
+              .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(', ') : value}`)
+              .join('\n');
+          } else {
+            errorMessage = String(errorData.errors);
+          }
+        } else if (errorData.error) {
+          errorMessage = errorData.error;
+        } else if (errorData.message) {
+          errorMessage = errorData.message;
+        } else if (errorData.detail) {
+          errorMessage = errorData.detail;
+        } else {
+          errorMessage = JSON.stringify(errorData);
+        }
+      } else if (e?.message) {
+        errorMessage = e.message;
       }
 
-      // 4) RECARGAR PARA SINCRONIZAR
+      console.log('[Pago-Error] Mensaje de error procesado:', errorMessage);
+      Alert.alert('Error al enviar el pago', errorMessage);
+      
+      // Revertir cambios optimistas
       setTimeout(() => {
         loadInscripciones();
-      }, 1500);
-
-    } else {
-      const msg = res.data?.message || res.data?.error || 'No se pudo registrar la solicitud.';
-      Alert.alert('Error', msg);
+      }, 1000);
+    } finally {
+      setSubmitting(false);
     }
-  } catch (e: any) {
-    console.error('Error al solicitar pago de cuota', e?.response?.data ?? e);
-    const errors = e?.response?.data?.errors ?? e?.response?.data?.error ?? e?.response?.data;
-    let msg = 'Error desconocido';
-    if (errors) {
-      if (typeof errors === 'string') msg = errors;
-      else if (typeof errors === 'object') {
-        try {
-          msg = Object.keys(errors).map(k => `${k}: ${Array.isArray(errors[k]) ? errors[k].join(', ') : String(errors[k])}`).join('\n');
-        } catch { msg = JSON.stringify(errors); }
-      } else msg = String(errors);
-    } else {
-      msg = e?.message ?? String(e);
-    }
-    Alert.alert('Error al enviar el pago', msg);
-    
-    // Revertir en caso de error
-    setTimeout(() => {
-      loadInscripciones();
-    }, 1000);
-  } finally {
-    setSubmitting(false);
-  }
-};
+  };
 
   const renderInscripcionItem = ({ item }: { item: InscripcionLite }) => {
   const idKey = item.idInscripcion ?? item.id ?? null;
