@@ -21,10 +21,11 @@ class DetalleAsientoForm(forms.ModelForm):
     """
     class Meta:
         model = DetalleAsiento
-        fields = ['idPlanCuenta', 'debe', 'haber', 'estadoDetalle']
+        fields = ['idPlanCuenta', 'debe', 'haber', 'estadoDetalle', 'idMoneda']
         widgets = {
             'idPlanCuenta': forms.Select(attrs={'class': 'form-control'}),
             'debe': forms.NumberInput(attrs={'class': 'form-control'}),
             'haber': forms.NumberInput(attrs={'class': 'form-control'}),
             'estadoDetalle': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'idMoneda': forms.Select(attrs={'class': 'form-control'}),
         }
