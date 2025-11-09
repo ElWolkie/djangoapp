@@ -4,7 +4,7 @@ from django.db import models
 from django.db import models
 from apps.planCuenta.models import PlanCuenta
 from apps.periodoContable.models import periodoContable  # Asegúrate de que el modelo Periodo esté en esta app
-
+from apps.home.models import Moneda
 class AsientoContable(models.Model):
     """
     Modelo que representa un asiento contable.
@@ -32,6 +32,7 @@ class DetalleAsiento(models.Model):
     idDetalle = models.AutoField(primary_key=True, verbose_name="ID Detalle")
     idAsiento = models.ForeignKey(AsientoContable, on_delete=models.CASCADE, related_name="detalles", verbose_name="Asiento Contable")
     idPlanCuenta = models.ForeignKey(PlanCuenta, on_delete=models.CASCADE, verbose_name="Plan de Cuenta")
+    idMoneda = models.ForeignKey(Moneda, on_delete=models.CASCADE, verbose_name="Moneda")
     debe = models.DecimalField(max_digits=15, decimal_places=2, default=0.00, verbose_name="Debe")
     haber = models.DecimalField(max_digits=15, decimal_places=2, default=0.00, verbose_name="Haber")
     estadoDetalle = models.BooleanField(default=True, verbose_name="Estado Activo")
