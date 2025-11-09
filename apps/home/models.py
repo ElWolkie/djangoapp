@@ -375,6 +375,13 @@ class Tasa(models.Model):
             qs = qs.exclude(pk=self.pk)
         if qs.exists():
             raise ValidationError("Ya existe una tasa con la misma moneda, monto y fecha/hora.")
+        
+    @property
+    def tiene_pagos_asociados(self):
+        """Verifica si la tasa tiene pagos asociados"""
+        from apps.factura.models import Pago, PagoTemporal
+        return (Pago.objects.filter(idTasa=self).exists() or 
+                PagoTemporal.objects.filter(idTasa=self).exists())
 
 
 class TipoIngreso(models.Model):  

@@ -3865,18 +3865,27 @@ def reporte_monedas_pdf(request):
     p.save()
     return response
 
-#TASA
+# TASA
 @login_required(login_url='login')
 @permission_required("home.add_tasa", raise_exception=True)
 def tasa_modal(request):
-    monedas = Moneda.objects.filter(estadoMoneda='ACTIVO')  # Filtrar monedas activas
+    monedas = Moneda.objects.filter(estadoMoneda='ACTIVO')
     if request.method == 'POST':
         form = TasaForm(request.POST)
         if form.is_valid():
-            form.save()
+            # Obtener la moneda de la nueva tasa
+            nueva_tasa = form.save(commit=False)
+            moneda = nueva_tasa.idMoneda
+            
+            # Desactivar todas las tasas anteriores de la misma moneda
+            Tasa.objects.filter(idMoneda=moneda, estadoTasa='ACTIVO').update(estadoTasa='INACTIVO')
+            
+            # Activar la nueva tasa
+            nueva_tasa.estadoTasa = 'ACTIVO'
+            nueva_tasa.save()
+            
             return JsonResponse({'success': True, 'message': 'Registro exitoso.'})
         else:
-           # print(form.errors)  # esto para depurar errores
             errors = {field: error for field, error in form.errors.items()}
             return JsonResponse({'success': False, 'errors': errors})
     else:
@@ -3890,18 +3899,84 @@ def tasa_modal(request):
 @permission_required("home.change_tasa", raise_exception=True)
 def edit_tasa(request, pk):
     instance = get_object_or_404(Tasa, pk=pk)
+    
+    # Verificar si la tasa tiene pagos asociados
+    from apps.factura.models import Pago, PagoTemporal
+    pagos_asociados = Pago.objects.filter(idTasa=instance).exists()
+    pagos_temporales_asociados = PagoTemporal.objects.filter(idTasa=instance).exists()
+    
+    tiene_registros_asociados = pagos_asociados or pagos_temporales_asociados
+    
     if request.method == 'POST':
+        if tiene_registros_asociados:
+            return JsonResponse({
+                'success': False, 
+                'errors': {'__all__': 'No se puede editar esta tasa porque tiene registros de pagos asociados.'}
+            })
+        
         form = TasaForm(request.POST, instance=instance)
         if form.is_valid():
             form.save()
-            return JsonResponse({'success': True, 'message': 'Edición exitosa.'})  # Respuesta JSON
+            return JsonResponse({'success': True, 'message': 'Edición exitosa.'})
         else:
             errors = {field: error for field, error in form.errors.items()}
-            return JsonResponse({'success': False, 'errors': errors})  # Respuesta JSON con errores
+            return JsonResponse({'success': False, 'errors': errors})
     else:
         form = TasaForm(instance=instance)
         monedas = Moneda.objects.all()
-    return render(request, 'home/modales/editTasa.html', {'form': form, 'tasa': instance,'monedas':monedas})
+    
+    return render(request, 'home/modales/editTasa.html', {
+        'form': form, 
+        'tasa': instance,
+        'monedas': monedas,
+        'tiene_registros_asociados': tiene_registros_asociados
+    })
+
+@login_required(login_url='login')
+@permission_required("home.change_tasa", raise_exception=True)
+def edit_tasa(request, pk):
+    instance = get_object_or_404(Tasa, pk=pk)
+    
+    # Verificar si la tasa tiene pagos asociados
+    from apps.factura.models import Pago, PagoTemporal
+    pagos_asociados = Pago.objects.filter(idTasa=instance).exists()
+    pagos_temporales_asociados = PagoTemporal.objects.filter(idTasa=instance).exists()
+    
+    tiene_registros_asociados = pagos_asociados or pagos_temporales_asociados
+    
+    if request.method == 'POST':
+        if tiene_registros_asociados:
+            return JsonResponse({
+                'success': False, 
+                'errors': {'__all__': 'No se puede editar esta tasa porque tiene registros de pagos asociados.'}
+            })
+        
+        form = TasaForm(request.POST, instance=instance)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({'success': True, 'message': 'Edición exitosa.'})
+        else:
+            errors = {field: error for field, error in form.errors.items()}
+            return JsonResponse({'success': False, 'errors': errors})
+    else:
+        # Si es GET y tiene registros asociados, no mostrar el formulario
+        if tiene_registros_asociados:
+            return render(request, 'home/modales/editTasa.html', {
+                'form': None,
+                'tasa': instance,
+                'monedas': Moneda.objects.all(),
+                'tiene_registros_asociados': True
+            })
+        
+        form = TasaForm(instance=instance)
+        monedas = Moneda.objects.all()
+    
+    return render(request, 'home/modales/editTasa.html', {
+        'form': form, 
+        'tasa': instance,
+        'monedas': monedas,
+        'tiene_registros_asociados': tiene_registros_asociados
+    })
 
 @login_required
 @permission_required('home.change_tasa', raise_exception=True)
@@ -3937,7 +4012,7 @@ def reactivate_tasa(request, pk):
 @permission_required("home.view_tasa", raise_exception=True)
 def tabla_tasas(request):
     mostrar = request.GET.get('mostrar_inactivos', 'false') == 'true'
-    search_query = request.GET.get('search', '').strip()  # Obtener el término de búsqueda
+    search_query = request.GET.get('search', '').strip()
 
     if mostrar:
         tasas = Tasa.objects.all()
@@ -3954,6 +4029,20 @@ def tabla_tasas(request):
             Q(fechaTasa__icontains=search_query)
         )
 
+    # Importar modelos de pagos para verificar registros asociados
+    from apps.factura.models import Pago, PagoTemporal
+    
+    # Obtener IDs de tasas que tienen pagos asociados
+    tasas_con_pagos = Pago.objects.values_list('idTasa', flat=True).distinct()
+    tasas_con_pagos_temporales = PagoTemporal.objects.values_list('idTasa', flat=True).distinct()
+    
+    # Combinar todos los IDs de tasas con registros asociados
+    todas_tasas_con_registros = set(list(tasas_con_pagos) + list(tasas_con_pagos_temporales))
+    
+    # Agregar atributo a cada tasa indicando si tiene registros asociados
+    for tasa in tasas:
+        tasa.tiene_registros_asociados = tasa.idTasa in todas_tasas_con_registros
+
     # Mensajes informativos (aplicados sobre el queryset ya filtrado)
     if mostrar:
         hay_inactivos = tasas.exclude(estadoTasa='ACTIVO').exists()
@@ -3964,7 +4053,7 @@ def tabla_tasas(request):
             messages.info(request, 'No hay tasas activas para mostrar.')
 
     # Paginación
-    paginator = Paginator(tasas, 10)  # 10 tasas por página
+    paginator = Paginator(tasas, 10)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
