@@ -112,6 +112,7 @@
             <th>Monto</th>
             <th>Fecha | Hora</th>
             <th>Estado</th>
+            <th>Registros Asociados</th>
             <th class="actions-column">Acciones</th>
           </tr>
         </thead>
@@ -133,45 +134,54 @@
                 </span>
               {% endif %}
             </td>
-            <td class="actions-column">
-              <div class="d-flex gap-2">
-            
-                {# --- EDITAR --- #}
-                {% if perms.home.change_tasa %}
-                  <button class="btn btn-primary btn-sm"
-                          data-bs-toggle="modal"
-                          data-bs-target="#editTasaModal"
-                          data-id="{{ tasa.idTasa }}"
-                          data-url="{% url 'edit_tasa' tasa.idTasa %}"
-                          title="Editar tasa">
-                    <i class="fas fa-edit"></i>
-                  </button>
-                {% endif %}
-            
-                {# --- INHABILITAR (solo si está activo) --- #}
-                {% if tasa.estadoTasa|upper == "ACTIVO" and perms.home.change_tasa %}
-                  <button class="btn btn-outline-warning btn-sm"
-                          data-bs-toggle="modal"
-                          data-bs-target="#deleteTasaModal"
-                          data-url="{% url 'desactivar_tasa' tasa.idTasa %}"
-                          title="Inhabilitar tasa">
-                    <i class="fas fa-user-slash"></i>
-                  </button>
+            <td class="text-center">
+                {% if tasa.tiene_pagos_asociados %}
+                    <span class="badge bg-warning text-dark" title="Esta tasa tiene pagos asociados">
+                        <i class="fas fa-exclamation-triangle me-1"></i> Con registros
+                    </span>
                 {% else %}
-            
-                {# --- REACTIVAR (solo si está inactivo) --- #}
-                {% if tasa.estadoTasa|upper == "INACTIVO" and perms.home.change_tasa %}
-                  <button class="btn btn-success btn-sm"
-                          data-bs-toggle="modal"
-                          data-bs-target="#reactivateTasaModal"
-                          data-url="{% url 'reactivate_tasa' tasa.idTasa %}"
-                          title="Reactivar tasa">
-                    <i class="fas fa-redo"></i>
-                  </button>
+                    <span class="badge bg-secondary">Sin registros</span>
                 {% endif %}
-                {% endif %}
-              </div>
             </td>
+
+            <!-- En las acciones, deshabilitar edición si tiene registros -->
+            <td class="actions-column">
+            <div class="d-flex gap-2">
+              <!-- EDITAR - OCULTAR completamente si tiene registros asociados -->
+              {% if perms.home.change_tasa and not tasa.tiene_registros_asociados %}
+                <button class="btn btn-primary btn-sm"
+                        data-bs-toggle="modal"
+                        data-bs-target="#editTasaModal"
+                        data-id="{{ tasa.idTasa }}"
+                        data-url="{% url 'edit_tasa' tasa.idTasa %}"
+                        title="Editar tasa">
+                  <i class="fas fa-edit"></i>
+                </button>
+              {% endif %}
+              
+              <!-- INHABILITAR (solo si está activo y no tiene registros asociados) -->
+              {% if tasa.estadoTasa|upper == "ACTIVO" and perms.home.change_tasa and not tasa.tiene_registros_asociados %}
+                <button class="btn btn-outline-warning btn-sm"
+                        data-bs-toggle="modal"
+                        data-bs-target="#deleteTasaModal"
+                        data-url="{% url 'desactivar_tasa' tasa.idTasa %}"
+                        title="Inhabilitar tasa">
+                  <i class="fas fa-user-slash"></i>
+                </button>
+              {% endif %}
+              
+              <!-- REACTIVAR (solo si está inactivo) -->
+              {% if tasa.estadoTasa|upper == "INACTIVO" and perms.home.change_tasa %}
+                <button class="btn btn-success btn-sm"
+                        data-bs-toggle="modal"
+                        data-bs-target="#reactivateTasaModal"
+                        data-url="{% url 'reactivate_tasa' tasa.idTasa %}"
+                        title="Reactivar tasa">
+                  <i class="fas fa-redo"></i>
+                </button>
+              {% endif %}
+            </div>
+          </td>
           </tr>
           {% empty %}
           <tr>

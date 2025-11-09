@@ -2279,18 +2279,17 @@ def reporte_facturas_pdf(request):
     p.save()
     return response
 
-
 def factura_generar_pdf(request, pk):
     factura = get_object_or_404(Factura, pk=pk)
     nota = factura.nota
     detalles = FacturaDetalle.objects.filter(idFactura=factura)
-    pagos = Pago.objects.filter(idNota=nota)
+    pagos = Pago.objects.filter(idNota=nota).order_by('fechaPago')
     config = Configuracion.objects.order_by('-fechaConfiguracion').first()
 
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="factura_{factura.numeroFactura}.pdf"'
     p = canvas.Canvas(response, pagesize=letter)
-    p.setTitle("Reporte de Factura Indivual")
+    p.setTitle("Reporte de Factura Individual")
     width, height = letter
     logo_width, logo_height, logo_margin = 80, 80, 15
 
@@ -2392,12 +2391,66 @@ def factura_generar_pdf(request, pk):
     p.line(250, y, width - 30, y)
     y -= 18
     p.setFont("Helvetica-Bold", 11)
-    p.drawRightString(510, y, f"TOTAL:                {factura.totalVenta:.2f} {moneda_simbolo}")
-    y -= 20
-    p.line(30, y, width - 30, y)
-    y -= 20
+    p.drawRightString(510, y - 8, f"TOTAL:                {factura.totalVenta:.2f} {moneda_simbolo}")
+    y -= 16
 
-    # --- Pagos realizados ---
+    # --- CORRECCIÓN: USAR LA TASA DE LA NOTA PARA CONVERSIÓN A BOLÍVARES ---
+    # Usar la tasa histórica de la nota (no buscar tasas activas)
+    tasa_nota = nota.idTasa
+    if tasa_nota and tasa_nota.idMoneda.idMoneda != 1:  # Si no es bolívares
+        # Buscar tasa de bolívares en la fecha de emisión de la nota
+        tasa_bolivares = Tasa.objects.filter(
+            idMoneda__idMoneda=1,
+            fechaTasa__lte=nota.fechaEmision
+        ).order_by('-fechaTasa').first()
+        
+        if tasa_bolivares and to_decimal(tasa_bolivares.montoTasa) > Decimal('0'):
+            # Calcular total en bolívares usando la tasa histórica de la nota
+            total_bolivares = (factura.totalVenta * to_decimal(tasa_nota.montoTasa)) / to_decimal(tasa_bolivares.montoTasa)
+            p.drawRightString(510, y -12, f"TOTAL EN Bs:          {total_bolivares:.2f} Bs")
+            p.setFont("Helvetica-Oblique", 7.5)
+            p.drawString(40, y - 12, f"(**) Usando tasa histórica de la nota: {tasa_nota.idMoneda.nombreMoneda} = {to_decimal(tasa_nota.montoTasa):.2f} Bs (fecha: {tasa_nota.fechaTasa.strftime('%d/%m/%Y')})")
+            p.setFont("Helvetica", 10)
+            y -= 16
+    else:
+        # Si ya está en bolívares, mostrar el mismo monto
+        p.drawRightString(510, y - 14, f"TOTAL EN Bs:          {factura.totalVenta:.2f} Bs")
+        y -= 16
+
+    # --- CALCULAR TOTAL EN BOLÍVARES DE TODOS LOS PAGOS USANDO SUS TASAS HISTÓRICAS ---
+    total_pagado_bs = Decimal('0.00')
+    if pagos.exists():
+        for pago in pagos:
+            # USAR LA TASA HISTÓRICA DEL PAGO (pago.idTasa) - NO BUSCAR TASAS ACTIVAS
+            tasa_pago = pago.idTasa  # Esta es la tasa histórica registrada en el pago
+            
+            if tasa_pago.idMoneda.idMoneda != 1:  # Si no es bolívares
+                # Buscar tasa de bolívares en la fecha del pago
+                tasa_bolivares_pago = Tasa.objects.filter(
+                    idMoneda__idMoneda=1,
+                    fechaTasa__lte=pago.fechaPago
+                ).order_by('-fechaTasa').first()
+                
+                if tasa_bolivares_pago and to_decimal(tasa_bolivares_pago.montoTasa) > Decimal('0'):
+                    # Convertir a bolívares usando la tasa histórica del pago
+                    monto_pago_bs = (to_decimal(pago.monto) * to_decimal(tasa_pago.montoTasa)) / to_decimal(tasa_bolivares_pago.montoTasa)
+                    total_pagado_bs += monto_pago_bs
+            else:
+                # Si ya es bolívares, sumar directamente
+                total_pagado_bs += to_decimal(pago.monto)
+
+        # Mostrar el total acumulado de todos los pagos en bolívares
+        p.drawRightString(510, y -18, f"TOTAL PAGADO Bs:      {total_pagado_bs:.2f} Bs")
+        p.setFont("Helvetica-Oblique", 7.5)
+        p.drawString(40, y - 18, "(*) Incluye la suma de todos los pagos convertidos a Bs según tasa histórica de cada pago")
+        p.setFont("Helvetica", 10)
+        y -= 20
+
+    y -= 17.5
+    p.line(30, y, width - 30, y)
+    y -= 17.5
+
+    # --- Pagos realizados - USANDO TASAS HISTÓRICAS DE CADA PAGO ---
     p.setFont("Helvetica-Bold", 10)
     p.drawString(40, y, "Pagos realizados:")
     y -= 16
@@ -2440,37 +2493,23 @@ def factura_generar_pdf(request, pk):
         max_text_width = width - 100  # 50px izquierda + 50px derecha
         
         for pago in pagos:
-            moneda_simbolo = ""
+            # CORRECCIÓN: USAR LA TASA HISTÓRICA DEL PAGO (pago.idTasa)
+            tasa_pago = pago.idTasa  # Esta es la tasa histórica registrada en el pago
+            moneda_simbolo = tasa_pago.idMoneda.simboloMoneda if tasa_pago and tasa_pago.idMoneda else ""
+            tasa_pago_valor = to_decimal(tasa_pago.montoTasa) if tasa_pago else Decimal('0')
+            fecha_tasa_pago = tasa_pago.fechaTasa.strftime('%d/%m/%Y') if tasa_pago and tasa_pago.fechaTasa else "N/A"
+
+            # Calcular monto en bolívares usando la tasa histórica del pago
             monto_bolivares = ""
-            tasa_utilizada = ""
-            fecha_tasa = ""
-
-            # Buscar la tasa activa para la moneda del pago en la fecha de la nota
-            tasa_pago = Tasa.objects.filter(
-                idMoneda=pago.idTasa.idMoneda,
-                fechaTasa__lte=nota.fechaEmision
-            ).order_by('-fechaTasa').first()
-
-            if tasa_pago:
-                moneda_simbolo = getattr(tasa_pago.idMoneda, 'simboloMoneda', '')
-                # CORRECCIÓN: Usar to_decimal en lugar de float
-                tasa_pago_valor = to_decimal(getattr(tasa_pago, 'montoTasa', 0))
-                tasa_utilizada = f" | Tasa: {tasa_pago_valor:.2f}"
-                fecha_tasa = f" | Fecha tasa: {getattr(tasa_pago, 'fechaTasa', datetime.now()).strftime('%d/%m/%Y')}"
-            else:
-                tasa_utilizada = " | Tasa: N/A"
-                fecha_tasa = " | Fecha tasa: N/A"
-
-            # Calcular monto en bolívares usando la tasa activa en la fecha de la nota
             if tasa_pago and tasa_pago.idMoneda.idMoneda != 1:
+                # Buscar tasa de bolívares en la fecha del pago
                 tasa_bolivares = Tasa.objects.filter(
                     idMoneda__idMoneda=1,
-                    fechaTasa__lte=nota.fechaEmision
+                    fechaTasa__lte=pago.fechaPago
                 ).order_by('-fechaTasa').first()
+                
                 if tasa_bolivares:
-                    # CORRECCIÓN: Usar to_decimal en lugar de float
                     tasa_bolivares_valor = to_decimal(tasa_bolivares.montoTasa)
-                    # CORRECCIÓN: Usar to_decimal para el monto del pago también
                     monto_pago_valor = to_decimal(pago.monto)
                     if tasa_bolivares_valor > Decimal('0'):
                         monto_bolivares_valor = monto_pago_valor * tasa_pago_valor / tasa_bolivares_valor
@@ -2480,11 +2519,10 @@ def factura_generar_pdf(request, pk):
                 else:
                     monto_bolivares = " | Monto Bs: No hay tasa BS"
             else:
-                # CORRECCIÓN: Usar to_decimal para el monto del pago
                 monto_bolivares = f" | Monto Bs: {to_decimal(pago.monto):.2f}"
 
-            # Construir el texto completo del pago
-            texto_pago = f"Fecha: {pago.fechaPago.strftime('%d/%m/%Y')} | Monto: {pago.monto:.2f} {moneda_simbolo}{tasa_utilizada}{fecha_tasa} | Forma: {pago.formaPago} | Referencia: {pago.referencia or ''}{monto_bolivares}"
+            # Construir el texto completo del pago con la tasa histórica
+            texto_pago = f"Fecha: {pago.fechaPago.strftime('%d/%m/%Y')} | Monto: {pago.monto:.2f} {moneda_simbolo} | Tasa: {tasa_pago_valor:.2f} | Fecha tasa: {fecha_tasa_pago} | Forma: {pago.formaPago} | Referencia: {pago.referencia or ''}{monto_bolivares}"
             
             # Dibujar el texto con wrap automático
             y = draw_wrapped_text(texto_pago, 50, y, max_text_width)
