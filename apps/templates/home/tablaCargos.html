@@ -431,76 +431,138 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 <script>
-  document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener('DOMContentLoaded', function () {
+    // Obtener elementos clave
     const table = document.getElementById('cargosTable');
+    const rows = Array.from(table.querySelectorAll('tbody tr'));
+    const searchInput = document.getElementById('searchInput');
+    
+    // Crear contenedor de paginación
     const paginationContainer = document.createElement('div');
     paginationContainer.className = 'pagination-container mt-3';
     table.parentNode.insertBefore(paginationContainer, table.nextSibling);
-
+    
     const pagination = document.createElement('ul');
     pagination.className = 'pagination justify-content-center';
     paginationContainer.appendChild(pagination);
-
-    const rowsPerPage = 10;
+    
+    // Configuración
+    const rowsPerPage = 5;
     let currentPage = 1;
-
-    function displayRows() {
-        const rows = table.getElementsByTagName('tr');
-        const start = (currentPage - 1) * rowsPerPage + 1;
-        const end = start + rowsPerPage;
-
-        for (let i = 1; i < rows.length; i++) {
-            rows[i].style.display = i >= start && i < end ? '' : 'none';
+    let filteredRows = rows;
+    
+    // Función para renderizar la tabla
+    function render() {
+        // Ocultar todas las filas
+        rows.forEach(row => row.style.display = 'none');
+        
+        // Calcular rango para la página actual
+        const startIndex = (currentPage - 1) * rowsPerPage;
+        const endIndex = Math.min(startIndex + rowsPerPage, filteredRows.length);
+        
+        // Mostrar solo las filas de la página actual
+        for (let i = startIndex; i < endIndex; i++) {
+            filteredRows[i].style.display = '';
         }
+        
+        // Actualizar paginación
+        setupPagination();
     }
-
+    
+    // Función para filtrar filas
+    function filterRows() {
+        const query = searchInput.value.trim().toUpperCase();
+        
+        if (!query) {
+            filteredRows = rows;
+            return;
+        }
+        
+        filteredRows = rows.filter(row => {
+            const cells = row.querySelectorAll('td');
+            let rowText = '';
+            
+            // Concatenar todo el texto de la fila
+            cells.forEach(cell => {
+                rowText += cell.textContent.toUpperCase() + ' ';
+            });
+            
+            return rowText.includes(query);
+        });
+    }
+    
+    // Función para configurar la paginación
     function setupPagination() {
-        const rows = table.getElementsByTagName('tr');
-        const totalPages = Math.ceil((rows.length - 1) / rowsPerPage);
-
+        const totalPages = Math.ceil(filteredRows.length / rowsPerPage);
         pagination.innerHTML = '';
-
+        
         // Botón Anterior
         const prevLi = document.createElement('li');
         prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
         prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Anterior">&laquo;</a>`;
         prevLi.addEventListener('click', (e) => {
             e.preventDefault();
-            if (currentPage > 1) currentPage--;
-            displayRows();
-            setupPagination();
+            if (currentPage > 1) {
+                currentPage--;
+                render();
+            }
         });
         pagination.appendChild(prevLi);
-
+        
         // Botones de Páginas
-        for (let i = 1; i <= totalPages; i++) {
+        const maxVisiblePages = 5;
+        let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+        let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+        
+        // Ajustar si no hay suficientes páginas al inicio
+        if (endPage - startPage + 1 < maxVisiblePages) {
+            startPage = Math.max(1, endPage - maxVisiblePages + 1);
+        }
+        
+        for (let i = startPage; i <= endPage; i++) {
             const li = document.createElement('li');
             li.className = `page-item ${i === currentPage ? 'active' : ''}`;
             li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
             li.addEventListener('click', (e) => {
                 e.preventDefault();
                 currentPage = i;
-                displayRows();
-                setupPagination();
+                render();
             });
             pagination.appendChild(li);
         }
-
+        
         // Botón Siguiente
         const nextLi = document.createElement('li');
         nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
         nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Siguiente">&raquo;</a>`;
         nextLi.addEventListener('click', (e) => {
             e.preventDefault();
-            if (currentPage < totalPages) currentPage++;
-            displayRows();
-            setupPagination();
+            if (currentPage < totalPages) {
+                currentPage++;
+                render();
+            }
         });
         pagination.appendChild(nextLi);
     }
-
-    displayRows();
-    setupPagination();
+    
+    // Evento de búsqueda
+    searchInput.addEventListener('input', function() {
+        filterRows();
+        currentPage = 1;
+        render();
+    });
+    
+    // Scroll horizontal con rueda
+    const wrapper = document.querySelector('.table-responsive');
+    if (wrapper) {
+        wrapper.addEventListener('wheel', e => {
+            if (e.deltaY) {
+                e.preventDefault();
+                wrapper.scrollLeft += e.deltaY;
+            }
+        });
+    }
+    render();
 });
 </script>
 
