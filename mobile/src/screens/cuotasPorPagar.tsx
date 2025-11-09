@@ -19,21 +19,9 @@ import { AuthContext } from '../contexts/AuthContext';
 import api from '../api/api';
 import { useNavigation } from '@react-navigation/native';
 
+// --- Tipos (relajados) ---
+type CuotaLite = any;
 type InscripcionLite = any;
-type CuotaLite = {
-  idCuota?: number; // cuota formacion id
-  inscripcionCuotaId?: number; // PK de InscripcionCuota (si viene)
-  nombreCuota: string;
-  valorCuota: number;
-  estadoPago?: string;
-  orden?: number;
-  // campos extra que usaremos en UI
-  disabled?: boolean;
-  pendingPayment?: boolean;      // true si hay un PagoTemporal no confirmado sobre la cuota
-  pagoConfirmado?: boolean;      // true si el PagoTemporal resultó confirmado por admin
-  pagoTemporalId?: number | null;
-  [k: string]: any;
-};
 type ModalPayload = { inscripcion?: InscripcionLite; cuota?: CuotaLite } | null;
 
 const fmtMoney = (v: any) => {
@@ -43,33 +31,50 @@ const fmtMoney = (v: any) => {
 
 const normalizeCedula = (ced: any) => String(ced ?? '').replace(/\D/g, '');
 
-// Mejorada: guardamos inscripcionCuotaId (pk) y cuotaFormacionId (idCuota)
-const normalizeInscripcionCuotas = (ins: any): CuotaLite[] => {
-  const cuotasRelacionadas = ins?.inscripcioncuota_set ?? ins?.inscripcion_cuotas ?? ins?.inscripcionCuotas;
-  if (Array.isArray(cuotasRelacionadas) && cuotasRelacionadas.length > 0) {
-    return cuotasRelacionadas
-      .map((ic: any) => {
-        // 'master' representa la cuotaFormacion si existe
-        const master = ic.idCuota ?? ic.cuota ?? ic.cuota_detail ?? {};
-        const cuotaFormacionId = typeof master === 'object' ? (master.idCuota ?? master.id ?? undefined) : master;
-        const inscripcionCuotaId = ic.id ?? ic.pk ?? ic.idInscripcionCuota ?? undefined;
-        const nombreCuota =
-          (master && (master.nombreCuota ?? master.nombre)) || ic.nombreCuota || ic.nombre || `Cuota ${cuotaFormacionId ?? ''}`;
-        const valorCuota =
-          Number((master && (master.valorCuota ?? master.valor)) ?? ic.valor ?? ic.monto ?? ic.amount ?? 0) || 0;
-        const orden = Number((master && master.orden) ?? ic.orden ?? 0) || 0;
-        const estadoPago = (ic.pagado ? 'PAGADO' : (ic.estadoPago ?? ic.estado ?? 'EN ESPERA'));
-        return {
-          ...ic,
-          idCuota: cuotaFormacionId,
-          inscripcionCuotaId,
-          nombreCuota,
-          valorCuota,
-          orden,
-          estadoPago,
-        } as CuotaLite;
-      })
-      .sort((a: CuotaLite, b: CuotaLite) => (a.orden ?? 0) - (b.orden ?? 0));
+const extractCuotasFromInscripcion = (ins: any): CuotaLite[] => {
+  const sources = [
+    ins.cuotas,
+    ins.inscripcioncuota_set,
+    ins.inscripcion_cuotas,
+    ins.inscripcionCuotas,
+    ins.idFormacion_detail?.cuotas,
+    ins.idFormacion_detail?.prefetched_cuotas,
+    ins.idFormacion_detail?.cuotas_json,
+  ];
+
+  for (const s of sources) {
+    if (!s) continue;
+    try {
+      if (typeof s === 'string') {
+        const parsed = JSON.parse(s);
+        if (Array.isArray(parsed)) return parsed;
+        continue;
+      }
+      if (Array.isArray(s) && s.length > 0) {
+        const mapped = s.map((ic: any) => {
+          const idInscripcionCuota = ic.id ?? ic.pk ?? null;
+          const idCuotaObj = ic.idCuota ?? ic.cuota ?? ic.cuota_detail ?? ic.idCuota_id ?? null;
+          const idCuota =
+            typeof idCuotaObj === 'object' ? (idCuotaObj.idCuota ?? idCuotaObj.id ?? idCuotaObj.pk ?? null) : idCuotaObj;
+          const nombreCuota = (ic.nombreCuota ?? ic.nombre ?? (idCuotaObj && idCuotaObj.nombreCuota) ?? `Cuota ${idCuota ?? ''}`);
+          const valorCuota = Number(ic.valorCuota ?? ic.valor ?? ic.monto ?? (idCuotaObj && (idCuotaObj.valorCuota ?? idCuotaObj.valor)) ?? 0) || 0;
+          const orden = Number(ic.orden ?? (idCuotaObj && idCuotaObj.orden) ?? 0) || 0;
+          const estadoPago = ic.estadoPago ?? ic.estado ?? (ic.pagado ? 'PAGADO' : 'EN ESPERA');
+          return {
+            id: idInscripcionCuota,
+            idCuota,
+            nombreCuota,
+            valorCuota,
+            orden,
+            estadoPago: String(estadoPago).toUpperCase(),
+            __raw: ic,
+          };
+        });
+        return mapped.sort((a: any, b: any) => (a.orden ?? 0) - (b.orden ?? 0));
+      }
+    } catch (err) {
+      // seguir
+    }
   }
   return [];
 };
@@ -91,32 +96,60 @@ const CuotasPorPagarScreen = () => {
   const [observaciones, setObservaciones] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  // pagos locales pendientes (optimista) que aún no aparecen confirmados en backend
+  const [pendingLocalPayments, setPendingLocalPayments] = useState<any[]>([]);
+
   const detectPagoInscripcionConfirmado = (ins: any) => {
-    if (ins?.pagoInscripcionConfirmado === true || ins?.pago_inscripcion_confirmada === true) return true;
+    if (ins?.pago_inscripcion_confirmada === true || ins?.pagoInscripcionConfirmado === true || ins?.inscripcionPagoConfirmado === true) return true;
 
-    const nota =
-      ins?.nota_inscripcion_detail ??
-      ins?.nota_inscripcion ??
-      ins?.nota ??
-      (ins?.notas && Array.isArray(ins.notas) ? ins.notas[0] : null) ??
-      null;
-    if (nota && typeof nota.estado === 'string' && nota.estado.toUpperCase() === 'PAGADA') return true;
+    const pagos = ins?.pago_temporal_set ?? ins?.pagos ?? ins?.pagostemporales ?? ins?.pagos_temporales ?? [];
+    if (Array.isArray(pagos) && pagos.some((p: any) => p?.confirmado === true || String(p?.confirmado).toLowerCase() === 'true')) return true;
 
-    const pagos =
-      ins?.pago_temporal_set ??
-      ins?.pagos_temporales ??
-      ins?.pagostemporales ??
-      ins?.pago_temporales ??
-      ins?.pagos ??
-      null;
-    if (Array.isArray(pagos) && pagos.some((p: any) => p?.confirmado === true || String(p?.confirmado).toLowerCase() === 'true')) {
-      return true;
-    }
-
-    if (ins?.inscripcionPagoConfirmado === true) return true;
+    const notas = ins?.notas ?? ins?.nota_inscripcion_detail ?? [];
+    if (Array.isArray(notas) && notas.some((n: any) => (n?.tipoArticulo ?? '').toString().toUpperCase() === 'INSCRIPCION' && (n?.estado ?? '').toString().toUpperCase() === 'PAGADO')) return true;
 
     return false;
   };
+
+  // Reaplica pagos locales pendientes sobre el estado actual de inscripciones (para mantener "EN REVISIÓN")
+  const reapplyLocalPendings = useCallback((pendings: any[]) => {
+    if (!pendings || pendings.length === 0) return;
+    
+    console.log('[Cuotas-debug] Reaplicando', pendings.length, 'pagos locales pendientes');
+    
+    setInscripciones(current => current.map((ins: any) => {
+      const curInsId = ins.idInscripcion ?? ins.id ?? null;
+      const relatedPendings = pendings.filter(p => p.insId === curInsId);
+      
+      if (!relatedPendings.length) return ins;
+      
+      const cuotas = (ins.cuotas || []).map((c: any) => {
+        for (const p of relatedPendings) {
+          const sameName = String(c.nombreCuota ?? '').toLowerCase() === String(p.nombreCuota ?? '').toLowerCase();
+          const sameMonto = Number(c.valorCuota ?? 0) === Number(p.monto ?? 0);
+          const sameId = p.idCuota && (Number(c.idCuota) === Number(p.idCuota) || Number(c.id) === Number(p.idCuota));
+          
+          if (sameId || sameName) {
+            // 🔥 FORZAR ESTADO PENDIENTE SI ES UN PAGO LOCAL NO CONFIRMADO
+            if (!p.confirmado) {
+              console.log('[Cuotas-debug] Forzando estado PENDIENTE para:', c.nombreCuota);
+              return {
+                ...c,
+                estadoPago: 'PENDIENTE',
+                pendingPayment: true,
+                pagoConfirmado: false,
+                pagoTemporalId: p.pagoTemporalId ?? c.pagoTemporalId ?? null,
+                disabled: true,
+              };
+            }
+          }
+        }
+        return c;
+      });
+      
+      return { ...ins, cuotas };
+    }));
+  }, []);
 
   const loadInscripciones = useCallback(async () => {
     setLoading(true);
@@ -126,242 +159,416 @@ const CuotasPorPagarScreen = () => {
         return;
       }
 
+      // variantes de cédula
       const userCedRaw = (user.cedula ?? user.username ?? '').toString();
-      const userCed = normalizeCedula(userCedRaw);
+      const cedulaDigits = normalizeCedula(userCedRaw) || userCedRaw;
+      const candidates = [userCedRaw, cedulaDigits, `V-${cedulaDigits}`, `E-${cedulaDigits}`].filter(Boolean);
+      console.log('[Cuotas] probaré estas variantes de cédula:', candidates);
 
-      const candidateEndpoints = [
-        userCed ? `/api/inscripcion/usuario/?cedula=${encodeURIComponent(userCedRaw)}` : '/api/inscripcion/usuario/',
-        userCed ? `/api/inscripcion/?cedula=${encodeURIComponent(userCedRaw)}` : '/api/inscripcion/',
-        '/api/inscripcion/usuario/',
-      ];
+      // normalizador de respuestas (axios/fetch)
+      const normalizeResponse = (res: any) => {
+        if (!res) return [];
+        if (res.data !== undefined) {
+          if (Array.isArray(res.data)) return res.data;
+          if (Array.isArray(res.data.results)) return res.data.results;
+          if (Array.isArray(res.data.data)) return res.data.data;
+          return Array.isArray(res.data) ? res.data : [];
+        }
+        if (Array.isArray(res)) return res;
+        if (Array.isArray(res.results)) return res.results;
+        return [];
+      };
 
-      let res: any = null;
-      let todas: any[] = [];
-
-      for (const ep of candidateEndpoints) {
+      // fetch inscripciones probando variantes
+      const fetchInscripciones = async (ced: string) => {
         try {
-          res = await api.get(ep);
-          todas = Array.isArray(res.data) ? res.data : (Array.isArray(res.data?.results) ? res.data.results : []);
-          if (todas && todas.length > 0) break;
-        } catch (err) {
-          // seguir probando
+          const endpoint = `/api/inscripcion/usuario/?cedula=${encodeURIComponent(ced)}`;
+          console.log('[Cuotas] GET', endpoint);
+          const res = await api.get(endpoint);
+          const d = normalizeResponse(res);
+          console.log('[Cuotas-debug] respuesta inscripciones para', ced, '->', d.length);
+          return d;
+        } catch (err: any) {
+          console.warn('[Cuotas] error fetching inscripciones para', ced, err?.response?.data ?? err);
+          return [];
+        }
+      };
+
+      let insData: any[] = [];
+      for (const cand of candidates) {
+        insData = await fetchInscripciones(cand);
+        if (insData && insData.length > 0) { console.log('[Cuotas] encontrada inscripciones con variante:', cand); break; }
+      }
+
+      // fallback general
+      if (!insData || insData.length === 0) {
+        try {
+          const resAll = await api.get('/api/inscripcion/');
+          insData = normalizeResponse(resAll);
+          console.log('[Cuotas-debug] fallback /api/inscripcion/ ->', insData.length);
+        } catch (err: any) {
+          console.warn('[Cuotas] fallback /api/inscripcion/ falló', err?.response?.data ?? err);
+          insData = [];
         }
       }
 
-      if (!todas || todas.length === 0) {
-        setInscripciones([]);
-        return;
+      // traer notas y pagos separados
+      let notasResp: any[] = [];
+      let pagosResp: any[] = [];
+      try {
+        const r = await api.get('/api/notas/usuario/autenticado/');
+        notasResp = normalizeResponse(r);
+      } catch (err: any) {
+        console.warn('[Cuotas] error cargando notas:', err?.response?.data ?? err);
+        notasResp = [];
+      }
+      try {
+        const p = await api.get('/api/pagos/');
+        pagosResp = normalizeResponse(p);
+      } catch (err: any) {
+        console.warn('[Cuotas] error cargando pagos:', err?.response?.data ?? err);
+        pagosResp = [];
       }
 
-      const enriched = await Promise.all(
-        todas.map(async (ins: any) => {
-          let cuotas = normalizeInscripcionCuotas(ins);
+      console.log('[Cuotas-debug] counts -> ins:', insData.length, 'notas:', notasResp.length, 'pagos:', pagosResp.length);
 
-          // Si no hay cuotas, intentar otros lugares (fallback)
-          if ((!cuotas || cuotas.length === 0)) {
-            const possible =
-              ins.idFormacion_detail?.cuotas ??
-              ins.idFormacion_detail?.prefetched_cuotas ??
-              ins.idFormacion_detail?.cuotas_json ??
-              ins.idFormacion_detail?.cuotasData ??
-              ins.idFormacion_detail?.inscripcioncuota_set ??
-              ins.cuotas ??
-              null;
+      // helper: detectar confirmación robusta
+      const isConfirmed = (obj: any) => {
+        if (obj == null) return false;
 
-            if (possible) {
-              if (typeof possible === 'string' || !Array.isArray(possible)) {
-                try {
-                  const parsed = JSON.parse(possible);
-                  cuotas = Array.isArray(parsed) ? parsed.map((c: any) => ({ nombreCuota: c.nombreCuota ?? c.nombre, valorCuota: Number(c.valorCuota ?? c.valor ?? c.monto ?? 0) })) : [];
-                } catch {
-                  cuotas = [];
-                }
-              } else {
-                cuotas = (possible as any[]).map((c: any) => ({
-                  nombreCuota: c.nombreCuota ?? c.nombre ?? c.label ?? 'Cuota',
-                  valorCuota: Number(c.valorCuota ?? c.valor ?? c.monto ?? c.amount ?? 0) || 0,
-                  ...c,
-                }));
-              }
-            }
+        // Verificar si es un pago local pendiente
+        const objId = obj?.idNota ?? obj?.id ?? null;
+        const isPendingLocal = objId && pendingLocalPayments.some(p => 
+          p.idNota === objId || p.pagoTemporalId === objId
+        );
+
+        if (isPendingLocal) {
+          console.log('[Cuotas-debug] Detectado pago local pendiente, forzando no confirmado:', objId);
+          return false;
+        }
+
+        // Lógica normal de confirmación
+        if (obj === true) return true;
+        if (obj === 1 || obj === '1') return true;
+        const s = String(obj).toLowerCase();
+        if (s === 'true' || s === 't' || s === 'yes' || s === 'si') return true;
+
+        if (typeof obj === 'object') {
+          const candidates = [
+            obj?.confirmado,
+            obj?.confirmado_pago,
+            obj?.confirmadoPago,
+            obj?.estado,
+            obj?.estadoPago,
+            obj?.estado_nota,
+            obj?.status,
+            obj?.statusPago,
+          ];
+
+          for (const cand of candidates) {
+            if (cand === true) return true;
+            if (cand === 1 || cand === '1') return true;
+            const candS = String(cand ?? '').toUpperCase();
+            if (candS === 'PAGADO' || candS === 'PAGADA' || candS === 'CONFIRMADO' || candS === 'APROBADO') return true;
+            if (String(cand ?? '').toLowerCase() === 'true') return true;
           }
 
-          // fallback por idFormacion si todavía no hay cuotas
-          if ((!cuotas || cuotas.length === 0)) {
-            const rawForm = ins.idFormacion_detail ?? ins.idFormacion ?? ins.formacion ?? null;
-            const idFormacion = rawForm ? Number(rawForm.idFormacion ?? rawForm.id ?? rawForm.pk ?? 0) : null;
-            if (idFormacion) {
-              try {
-                const remote = await api.get(`/api/formaciones/${idFormacion}/cuotas/`);
-                const data = Array.isArray(remote.data) ? remote.data : remote.data?.results ?? [];
-                cuotas = data.map((c: any) => ({
-                  nombreCuota: c.nombreCuota ?? c.nombre ?? `Cuota ${c.id ?? ''}`,
-                  valorCuota: Number(c.valorCuota ?? c.valor ?? c.monto ?? 0) || 0,
-                  idCuota: c.idCuota ?? c.id ?? c.pk ?? undefined,
-                  ...c,
-                }));
-              } catch {
-                // ignore
-              }
+          const notaObj = obj?.idNota ?? obj?.nota ?? obj?.nota_detail ?? obj?.idNota_detail;
+          if (notaObj) {
+            const estadoNota = (notaObj?.estado ?? notaObj?.estadoNota ?? notaObj?.status ?? '').toString().toUpperCase();
+            if (estadoNota === 'PAGADO' || estadoNota === 'PAGADA') {
+              console.log('[Cuotas-debug] isConfirmed detectó estado PAGADO dentro de idNota/nota:', estadoNota, notaObj);
+              return true;
             }
+            if (notaObj?.confirmado === true || String(notaObj?.confirmado).toLowerCase() === 'true') return true;
+          }
+        }
+
+        return false;
+      };
+
+      const normalizeNumber = (v: any) => {
+        if (v == null || v === '') return null;
+        const x = typeof v === 'object' ? (v?.id ?? v?.pk ?? v?.idCuota ?? null) : v;
+        const n = Number(x);
+        return !isNaN(n) && n > 0 ? n : null;
+      };
+      const getAllIdsFromCuota = (c: any) => {
+        const ids = new Set<number>();
+        const cand = [
+          c.id, c.pk, c.idInscripcionCuota, c.idInscripcionCuota?.id,
+          c.idCuota, c.id_cuota, c.cuota,
+          c.__raw && (c.__raw.idCuota ?? c.__raw.cuota ?? c.__raw.idCuota_id),
+          c.__raw && (c.__raw.id ?? c.__raw.pk),
+          c.__raw && c.__raw.idCuota && (c.__raw.idCuota.idCuota ?? c.__raw.idCuota.id ?? c.__raw.idCuota.pk)
+        ];
+        for (const x of cand) {
+          const n = normalizeNumber(x);
+          if (n) ids.add(n);
+        }
+        return Array.from(ids);
+      };
+      const extractRelatedIdFromRel = (rel: any) => {
+        if (!rel) return null;
+        const rc = rel?.idCuota ?? rel?.idCuota_id ?? rel?.id ?? rel?.cuota ?? null;
+        return normalizeNumber(rc);
+      };
+
+      // marcar notas/pagos como unused para evitar reutilización
+      const unusedNotas = (Array.isArray(notasResp) ? notasResp.slice() : []).map(n => ({ ...n, __used: false }));
+      const unusedPagos = (Array.isArray(pagosResp) ? pagosResp.slice() : []).map(p => ({ ...p, __used: false }));
+
+      // si la propia cuota trae estadoPAGADO aplicarlo inmediatamente
+      const applyRawCuotaState = (c: any) => {
+        const rawEstado = (c.estadoPago ?? c.estado ?? (c.__raw && (c.__raw.estadoPago ?? c.__raw.estado)) ?? '').toString().toUpperCase();
+        if (rawEstado === 'PAGADO' || rawEstado === 'PAGADA' || rawEstado.includes('PAGAD')) {
+          c.estadoPago = 'PAGADO';
+          c.pagoConfirmado = true;
+          c.disabled = true;
+          return true;
+        }
+        return false;
+      };
+
+      // recorrer inscripciones y resolver cuotas
+      const enriched = (insData || []).map((ins: any) => {
+        const insId = normalizeNumber(ins?.idInscripcion ?? ins?.id ?? ins?.pk) ?? null;
+        const cuotasRaw = extractCuotasFromInscripcion(ins);
+        const notasIns = ins?.notas ?? ins?.notas_prefetch ?? ins?.nota_inscripcion_detail ?? [];
+        const cuotas = (cuotasRaw || []).map((c: any) => ({
+          ...c,
+          pendingPayment: false,
+          pagoConfirmado: false,
+          pagoTemporalId: null,
+          disabled: false,
+        }));
+
+        const usedRelatedIds = new Set<number>();
+        const usedMontoCount = new Map<number, number>();
+
+        for (let i = 0; i < cuotas.length; i++) {
+          const c = cuotas[i];
+          const cuotaIds = getAllIdsFromCuota(c);
+          const monto = Number(c.valorCuota ?? 0);
+
+          // 0) PRIORIDAD: estado en la propia cuota
+          if (applyRawCuotaState(c)) {
+            console.log('[Cuotas-debug] cuota marcada PAGADO por estado en la propia cuota:', insId, c.nombreCuota);
+            continue;
           }
 
-          // --- Detectar pagos temporales y relacionarlos con cuotas ---
-          const pagos =
-            ins?.pago_temporal_set ??
-            ins?.pagos_temporales ??
-            ins?.pagostemporales ??
-            ins?.pago_temporales ??
-            ins?.pagos ??
-            ins?.pagostemporales_prefetch ??
-            [];
-
-          // Construir copia inmuble de cuotas para no mutar la respuesta original
-          const cuotasCopy: CuotaLite[] = (cuotas || []).map((c: any) => ({ ...c }));
-
-          // intenta relacionar pagos con cuotas por: 
-          //  A) InscripcionCuota.id (si la nota/pago trae ese id)
-          //  B) CuotaFormacion.id (rel.idCuota.idCuota o rel.idCuota)
-          //  C) fallback por monto + nombre
-          for (const pago of pagos) {
+          // 1) NOTAS LOCALES
+          let matchedLocal = false;
+          for (const nota of (Array.isArray(notasIns) ? notasIns : [])) {
             try {
-              const confirmado = pago?.confirmado === true || String(pago?.confirmado).toLowerCase() === 'true';
-              const nota = pago?.idNota ?? pago?.nota ?? pago?.idNota_detail ?? pago?.nota_detail;
+              const tipo = String(nota?.tipoArticulo ?? nota?.tipo ?? '').toUpperCase();
+              const estado = String(nota?.estado ?? '').toUpperCase();
+              if (tipo !== 'CUOTA') continue;
+              const relatedId = extractRelatedIdFromRel(Array.isArray(nota?.relaciones) && nota.relaciones.length ? nota.relaciones[0] : (nota?.relaciones_detail?.[0] ?? null));
+              const montoNota = Number(nota?.totalNota ?? nota?.total ?? nota?.monto ?? 0);
+              const notaConfirmada = isConfirmed(nota);
 
-              let related_inscripcion_cuota_id: number | null = null;
-              let related_cf_id: number | null = null;
-
-              // A) revisar relaciones dentro de la nota
-              if (nota && Array.isArray(nota?.relaciones) && nota.relaciones.length > 0) {
-                // buscar la primera relación que tenga idCuota
-                for (const rel of nota.relaciones) {
-                  if (!rel) continue;
-                  // rel.idCuota puede venir como objeto (inscripcioncuota o cuotaformacion) o como id numérico
-                  const relCuota = rel?.idCuota ?? rel?.id_cuota ?? rel?.idCuota_id;
-                  if (relCuota) {
-                    if (typeof relCuota === 'object') {
-                      // si el objeto tiene 'id' -> probablemente InscripcionCuota
-                      if (relCuota.id) related_inscripcion_cuota_id = Number(relCuota.id);
-                      // si tiene 'idCuota' -> probablemente CuotaFormacion
-                      if (relCuota.idCuota) related_cf_id = Number(relCuota.idCuota);
-                      // a veces vienen con pk/id diferente
-                      if (!related_inscripcion_cuota_id && (relCuota.pk || relCuota.id_inscripcion_cuota)) {
-                        related_inscripcion_cuota_id = Number(relCuota.pk ?? relCuota.id_inscripcion_cuota);
-                      }
-                    } else {
-                      // es un id numérico -> intentar tratarlo como cuotaFormacion id (más frecuente)
-                      related_cf_id = Number(relCuota);
-                    }
-                  }
-                }
+              if (relatedId && cuotaIds.includes(relatedId) && !usedRelatedIds.has(relatedId)) {
+                c.estadoPago = notaConfirmada ? 'PAGADO' : 'PENDIENTE';
+                c.pagoConfirmado = !!notaConfirmada;
+                c.pendingPayment = !notaConfirmada;
+                c.disabled = true;
+                usedRelatedIds.add(relatedId);
+                matchedLocal = true; break;
+              } else if ((!relatedId) && montoNota && montoNota === monto && (usedMontoCount.get(montoNota) ?? 0) === 0) {
+                c.estadoPago = notaConfirmada ? 'PAGADO' : 'PENDIENTE';
+                c.pagoConfirmado = !!notaConfirmada;
+                c.pendingPayment = !notaConfirmada;
+                c.disabled = true;
+                usedMontoCount.set(montoNota, 1);
+                matchedLocal = true; break;
               }
-
-              // B) revisar si el pago trae un campo directo hacia la inscripcion_cuota o cuota
-              if (!related_inscripcion_cuota_id) {
-                related_inscripcion_cuota_id = Number(pago?.inscripcionCuotaId ?? pago?.idInscripcionCuota ?? pago?.inscripcion_cuota_id ?? NaN) || null;
-              }
-              if (!related_cf_id) {
-                related_cf_id = Number(pago?.idCuota?.idCuota ?? pago?.idCuota ?? pago?.cuota_id ?? NaN) || null;
-              }
-
-              // C) fallback por monto y (opcionalmente) nombre
-              let matchedIndex = -1;
-              if (related_inscripcion_cuota_id) {
-                matchedIndex = cuotasCopy.findIndex((c) => Number(c.inscripcionCuotaId || 0) === Number(related_inscripcion_cuota_id));
-              }
-              if (matchedIndex === -1 && related_cf_id) {
-                matchedIndex = cuotasCopy.findIndex((c) => Number(c.idCuota || 0) === Number(related_cf_id));
-              }
-              if (matchedIndex === -1) {
-                // por monto + nombre como último recurso
-                matchedIndex = cuotasCopy.findIndex((c) => {
-                  const sameAmount = Number(c.valorCuota || 0) === Number(pago?.monto ?? pago?.amount ?? 0);
-                  // si hay nombre en la nota/observaciones intentar matchear
-                  const obs = String(pago?.observaciones ?? pago?.observacion ?? '');
-                  const nameMatch = obs && String(c.nombreCuota ?? '').length > 0 ? obs.toLowerCase().includes(String(c.nombreCuota ?? '').toLowerCase()) : true;
-                  return sameAmount && nameMatch;
-                });
-              }
-
-              if (matchedIndex !== -1) {
-                const target = cuotasCopy[matchedIndex];
-                target.pendingPayment = !confirmado;
-                target.pagoConfirmado = confirmado;
-                target.disabled = !confirmado;
-                target.estadoPago = confirmado ? 'PAGADO' : 'PENDIENTE';
-                target.pagoTemporalId = pago?.idPagoTemporal ?? pago?.id ?? null;
-                cuotasCopy[matchedIndex] = target;
-              }
-            } catch (err) {
-              // no bloquear si hay datos raros
-              // console.warn('Error al relacionar pago -> cuota', err);
-            }
+            } catch { /* skip */ }
           }
+          if (matchedLocal) { console.log('[Cuotas-debug] cuota marcada por nota local:', insId, c.nombreCuota); continue; }
 
-          // Detectar confirmación del pago inicial (inscripción)
-          const pagoConfirmado = detectPagoInscripcionConfirmado(ins);
+          // 2) PAGOS LOCALES
+          let matchedPagoLocal = false;
+          for (const pago of unusedPagos) {
+            if (pago.__used) continue;
+            try {
+              const notaRel = pago?.idNota ?? pago?.nota ?? pago?.nota_detail ?? pago?.idNota_detail ?? null;
+              let relatedId = null;
+              if (notaRel && Array.isArray(notaRel?.relaciones) && notaRel.relaciones.length) {
+                relatedId = extractRelatedIdFromRel(notaRel.relaciones[0]);
+              }
+              if (!relatedId && (pago?.idCuota || pago?.cuota_id)) {
+                relatedId = normalizeNumber(pago?.idCuota ?? pago?.cuota_id);
+              }
 
-          return { ...ins, cuotas: cuotasCopy || [], pagoInscripcionConfirmado: pagoConfirmado };
-        }),
-      );
+              // intentar inscripcion asociada al pago
+              let pagoIns = null;
+              if (pago?.idInscripcion || pago?.inscripcion || pago?.inscripcion_id) {
+                pagoIns = normalizeNumber(pago?.idInscripcion ?? pago?.inscripcion ?? pago?.inscripcion_id);
+              } else if (notaRel && Array.isArray(notaRel?.relaciones) && notaRel.relaciones.length) {
+                pagoIns = normalizeNumber(notaRel.relaciones[0]?.idInscripcion ?? notaRel.relaciones[0]?.idInscripcion_id);
+              }
 
+              const montoPago = Number(pago?.monto ?? pago?.amount ?? 0);
+              const confirmado = isConfirmed(pago);
+
+              if (relatedId && cuotaIds.includes(relatedId) && (!pagoIns || pagoIns === insId)) {
+                pago.__used = true;
+                usedRelatedIds.add(relatedId);
+                c.estadoPago = confirmado ? 'PAGADO' : 'PENDIENTE';
+                c.pagoConfirmado = confirmado;
+                c.pendingPayment = !confirmado;
+                c.disabled = true;
+                matchedPagoLocal = true;
+                break;
+              }
+              if ((!relatedId) && montoPago && montoPago === monto && (usedMontoCount.get(montoPago) ?? 0) === 0) {
+                pago.__used = true;
+                usedMontoCount.set(montoPago, 1);
+                c.estadoPago = confirmado ? 'PAGADO' : 'PENDIENTE';
+                c.pagoConfirmado = confirmado;
+                c.pendingPayment = !confirmado;
+                c.disabled = true;
+                matchedPagoLocal = true;
+                break;
+              }
+            } catch { /* skip */ }
+          }
+          if (matchedPagoLocal) { console.log('[Cuotas-debug] cuota marcada por pago local:', insId, c.nombreCuota); continue; }
+
+          // 3) MATCH GLOBAL - notas
+          let matchedGlobal = false;
+          for (const nota of unusedNotas) {
+            if (nota.__used) continue;
+            try {
+              const tipo = String(nota?.tipoArticulo ?? nota?.tipo ?? '').toUpperCase();
+              if (tipo !== 'CUOTA') continue;
+              const relatedId = extractRelatedIdFromRel(Array.isArray(nota?.relaciones) && nota.relaciones.length ? nota.relaciones[0] : (nota?.relaciones_detail?.[0] ?? null));
+              const montoNota = Number(nota?.totalNota ?? nota?.total ?? nota?.monto ?? 0);
+              const notaConfirmada = isConfirmed(nota);
+
+              if (relatedId && cuotaIds.includes(relatedId) && !usedRelatedIds.has(relatedId)) {
+                nota.__used = true; usedRelatedIds.add(relatedId);
+                c.estadoPago = notaConfirmada ? 'PAGADO' : 'PENDIENTE';
+                c.pagoConfirmado = !!notaConfirmada;
+                c.pendingPayment = !notaConfirmada;
+                c.disabled = true;
+                matchedGlobal = true; break;
+              }
+              if ((!relatedId) && montoNota && montoNota === monto && (usedMontoCount.get(montoNota) ?? 0) === 0) {
+                nota.__used = true; usedMontoCount.set(montoNota, 1);
+                c.estadoPago = notaConfirmada ? 'PAGADO' : 'PENDIENTE';
+                c.pagoConfirmado = !!notaConfirmada;
+                c.pendingPayment = !notaConfirmada;
+                c.disabled = true;
+                matchedGlobal = true; break;
+              }
+            } catch { /* skip */ }
+          }
+          if (matchedGlobal) { console.log('[Cuotas-debug] cuota marcada por nota global:', insId, c.nombreCuota); continue; }
+
+          // pagos globales
+          for (const pago of unusedPagos) {
+            if (pago.__used) continue;
+            try {
+              const notaRel = pago?.idNota ?? pago?.nota ?? pago?.nota_detail ?? pago?.idNota_detail ?? null;
+              let relatedId = null;
+              if (notaRel && Array.isArray(notaRel?.relaciones) && notaRel.relaciones.length) {
+                relatedId = extractRelatedIdFromRel(notaRel.relaciones[0]);
+              }
+              if (!relatedId && (pago?.idCuota || pago?.cuota_id)) {
+                relatedId = normalizeNumber(pago?.idCuota ?? pago?.cuota_id);
+              }
+              const montoPago = Number(pago?.monto ?? pago?.amount ?? 0);
+              const confirmado = isConfirmed(pago);
+
+              if (relatedId && cuotaIds.includes(relatedId) && !usedRelatedIds.has(relatedId)) {
+                pago.__used = true; usedRelatedIds.add(relatedId);
+                c.estadoPago = confirmado ? 'PAGADO' : 'PENDIENTE';
+                c.pagoConfirmado = confirmado;
+                c.pendingPayment = !confirmado;
+                c.disabled = true;
+                matchedGlobal = true; break;
+              }
+              if ((!relatedId) && montoPago && montoPago === monto && (usedMontoCount.get(montoPago) ?? 0) === 0) {
+                pago.__used = true; usedMontoCount.set(montoPago, 1);
+                c.estadoPago = confirmado ? 'PAGADO' : 'PENDIENTE';
+                c.pagoConfirmado = confirmado;
+                c.pendingPayment = !confirmado;
+                c.disabled = true;
+                matchedGlobal = true; break;
+              }
+            } catch { /* skip */ }
+          }
+          if (matchedGlobal) { console.log('[Cuotas-debug] cuota marcada por pago global:', insId, c.nombreCuota); continue; }
+
+          // default: EN ESPERA
+          c.estadoPago = String(c.estadoPago ?? '').toUpperCase() || 'EN ESPERA';
+        } // end for cuotas
+
+        // --- PASADA DE CONSISTENCIA: asegurar que pagoConfirmado => estadoPago = 'PAGADO' ---
+        for (const c of cuotas) {
+          if (c.pagoConfirmado) {
+            // forzamos valores coherentes
+            c.estadoPago = 'PAGADO';
+            c.pendingPayment = false;
+            c.disabled = true;
+          } else if (String(c.estadoPago ?? '').toUpperCase() === 'PAGADO' && !c.pagoConfirmado) {
+            // si backend devolvió "PAGADO" pero no lo marcamos como confirmado, normalizamos
+            c.pagoConfirmado = true;
+            c.pendingPayment = false;
+            c.disabled = true;
+          }
+        }
+
+        // bloqueo por pago de inscripción
+        const pagoInscripcionConfirmado = detectPagoInscripcionConfirmado(ins);
+        if (!pagoInscripcionConfirmado) {
+          for (const q of cuotas) {
+            q.disabled = true; q._blockedByInscripcion = true;
+            q.estadoPago = String(q.estadoPago ?? '').toUpperCase() || 'BLOQUEADA';
+          }
+        } else {
+          // habilitar solo la primera EN ESPERA que no tenga pending ni pagoConfirmado
+          const firstUnpaidIndex = cuotas.findIndex((q: any) => {
+            const st = String(q.estadoPago ?? '').toUpperCase();
+            return (st === 'EN ESPERA' || st === '' ) && !q.pendingPayment && !q.pagoConfirmado;
+          });
+          for (let i = 0; i < cuotas.length; i++) {
+            const q = cuotas[i];
+            const estado = String(q.estadoPago ?? '').toUpperCase();
+            q.disabled = estado === 'PAGADO' || estado === 'PENDIENTE' || (firstUnpaidIndex !== -1 && i !== firstUnpaidIndex);
+          }
+        }
+
+        return {
+          ...ins,
+          cuotas,
+          pago_inscripcion_confirmada: detectPagoInscripcionConfirmado(ins),
+        };
+      });
+
+      console.log('[Cuotas-debug] enriched inscripciones (final):', enriched);
+
+      // aplicar enriched
       setInscripciones(enriched);
+
+      // reaplicar pagos locales pendientes (optimista) después de cargar desde backend
+      // usamos el estado actual de pendingLocalPayments
+      reapplyLocalPendings(pendingLocalPayments || []);
     } catch (e: any) {
-      console.error('Error cargando inscripciones en CuotasPorPagar', e, e?.response?.data ?? null);
+      console.error('Error cargando inscripciones en CuotasPorPagar', e?.response?.data ?? e);
       Alert.alert('Error', e?.response?.data?.detail ?? 'No se pudieron cargar las inscripciones');
       setInscripciones([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [user]);
+  }, [user, pendingLocalPayments, reapplyLocalPendings]);
 
   useEffect(() => {
     loadInscripciones();
   }, [loadInscripciones]);
-
-  const computeCuotasWithStatus = (ins: InscripcionLite) => {
-    const cuotas: CuotaLite[] = ins.cuotas ?? [];
-
-    // Requerimos pago de inscripción confirmado para habilitar pagos de cuotas
-    const pagoConfirmado = !!ins.pago_inscripcion_confirmada || !!ins.pagoInscripcionConfirmado || !!ins.pagoInscripcionConfirmado;
-
-    // Si la inscripción no está confirmada: bloqueamos todo
-    if (!pagoConfirmado) {
-      const resultBlocked = (cuotas || []).map((c: any) => ({
-        ...c,
-        estadoPago: (c.estadoPago ?? '').toUpperCase() || 'BLOQUEADA',
-        disabled: true,
-      }));
-      return { cuotas: resultBlocked, firstUnpaidIndex: -1, isPagada: false, pagoConfirmado: false };
-    }
-
-    // Normal: localizar la primera cuota que esté EN ESPERA y que no tenga pago pendiente
-    const normalized = (cuotas || []).map((c: any) => ({
-      ...c,
-      estadoPago: (c.estadoPago ?? '').toUpperCase(),
-      valorCuota: Number(c.valorCuota ?? c.valor ?? c.monto ?? 0) || 0,
-      pendingPayment: !!c.pendingPayment,
-      pagoConfirmado: !!c.pagoConfirmado,
-    }));
-
-    // Encontrar el primer índice que realmente se puede pagar (EN ESPERA y no pendingPayment)
-    const firstUnpaidIndex = normalized.findIndex((c: any) =>
-      (c.estadoPago === 'EN ESPERA' || c.estadoPago === '' || c.estadoPago === 'EN_ESPERA') && !c.pendingPayment
-    );
-
-    const final = normalized.map((r: any, idx: number) => {
-      const estado = r.estadoPago ?? '';
-      // disabled si:
-      // - ya está PAGADO
-      // - ya tiene un pago pendiente (PENDIENTE)
-      // - o no es la primera cuota pendiente (orden)
-      const disabled = estado === 'PAGADO' || r.pendingPayment === true || (firstUnpaidIndex !== -1 && idx !== firstUnpaidIndex);
-      return { ...r, estadoPago: estado, disabled };
-    });
-
-    return { cuotas: final, firstUnpaidIndex, isPagada: true, pagoConfirmado: true };
-  };
 
   const handleToggleAccordion = (insId: number) => {
     setExpandedId(prev => (prev === insId ? null : insId));
@@ -373,10 +580,13 @@ const CuotasPorPagarScreen = () => {
     setRefreshing(false);
   };
 
-  const openPagoModal = (inscripcion: InscripcionLite, cuota: any) => {
-    // Prevención: si esta cuota tiene pendingPayment -> no abrir modal
+  const openPagoModal = (inscripcion: InscripcionLite, cuota: CuotaLite) => {
     if (cuota.pendingPayment) {
       Alert.alert('Pago en revisión', 'Ya existe un pago en revisión para esta cuota. Espere la confirmación administrativa.');
+      return;
+    }
+    if (cuota.disabled) {
+      Alert.alert('No disponible', 'Esta cuota no está disponible para pago en este momento.');
       return;
     }
     setModalPayload({ inscripcion, cuota });
@@ -393,175 +603,249 @@ const CuotasPorPagarScreen = () => {
     setObservaciones('');
   };
 
-  const handleSolicitarPago = async () => {
-    if (!modalPayload || !modalPayload.inscripcion || !modalPayload.cuota) {
-      Alert.alert('Error', 'Datos de pago incompletos');
-      return;
-    }
-    if (!referencia.trim()) {
-      Alert.alert('Error', 'Ingrese número de referencia');
-      return;
-    }
+  // En handleSolicitarPago, modifica esta parte:
+const handleSolicitarPago = async () => {
+  if (!modalPayload || !modalPayload.inscripcion || !modalPayload.cuota) {
+    Alert.alert('Error', 'Datos de pago incompletos');
+    return;
+  }
+  if (!referencia.trim()) {
+    Alert.alert('Error', 'Ingrese número de referencia');
+    return;
+  }
 
-    setSubmitting(true);
-    try {
-      const payload = {
-        idInscripcion: modalPayload.inscripcion.idInscripcion,
-        nombreCuota: modalPayload.cuota.nombreCuota,
-        monto: modalPayload.cuota.valorCuota,
-        referencia: referencia.trim(),
-        observaciones: observaciones.trim(),
+  setSubmitting(true);
+  try {
+    const payload = {
+      idInscripcion: modalPayload.inscripcion.idInscripcion ?? modalPayload.inscripcion.id ?? modalPayload.inscripcion.pk,
+      nombreCuota: modalPayload.cuota.nombreCuota,
+      monto: modalPayload.cuota.valorCuota,
+      referencia: referencia.trim(),
+      observaciones: observaciones.trim(),
+    };
+
+    console.log('[Pago Cuota] Enviando payload:', payload);
+    const res = await api.post('/api/pagos/cuota/create/', payload);
+
+    if (res.status === 200 || res.status === 201) {
+      const data = res.data?.data ?? res.data;
+      const pagoTemporalId = data?.idPagoTemporal ?? data?.idPago ?? data?.id ?? null;
+      
+      // 🔥 USAR EL ESTADO REAL DEL BACKEND AHORA
+      const estadoNota = data?.estado_nota ?? 'PENDIENTE';
+      const confirmado = estadoNota === 'PAGADO' || data?.confirmado === true;
+
+      const insId = modalPayload?.inscripcion?.idInscripcion ?? modalPayload?.inscripcion?.id ?? modalPayload?.inscripcion?.pk;
+      const cuotaIdent = {
+        idCuota: modalPayload?.cuota?.idCuota ?? modalPayload?.cuota?.id ?? null,
+        nombreCuota: (modalPayload?.cuota?.nombreCuota ?? '').toString().trim(),
+        monto: Number(modalPayload?.cuota?.valorCuota ?? 0),
       };
 
-      console.log('[Pago Cuota] Enviando payload:', payload);
-
-      const res = await api.post('/api/pagos/cuota/create/', payload);
-
-      // Backend devuelve { success: True, message: ..., data: { idPagoTemporal, idNota, numeroNota, monto, confirmado } }
-      if (res.status === 200 || res.status === 201) {
-        const data = res.data?.data ?? res.data;
-        const confirmado = !!data?.confirmado;
-        // Mensajes UX
-        if (confirmado) {
-          Alert.alert('Pago confirmado', 'El pago fue confirmado. Ahora puedes pagar la siguiente cuota.');
-        } else {
-          Alert.alert('Solicitud enviada', 'Su pago ha sido enviado y queda pendiente de validación administrativa.');
-        }
-
-        // Actualización local optimista: marcar la cuota como PENDIENTE y deshabilitar / o PAGADO si confirmado
-        setInscripciones(prev => {
-          return prev.map((ins: any) => {
-            const targetInsId = modalPayload?.inscripcion?.idInscripcion ?? modalPayload?.inscripcion?.id ?? null;
-            if (targetInsId && ins.idInscripcion !== targetInsId) return ins;
-
-            const targetNombre = String(modalPayload?.cuota?.nombreCuota ?? modalPayload?.cuota?.nombre ?? '').toLowerCase();
-
-            const cuotas = (ins.cuotas || []).map((c: any) => {
-              const currentName = String(c.nombreCuota ?? c.nombre ?? '').toLowerCase();
-              if (targetNombre !== '' && currentName === targetNombre) {
-                return {
-                  ...c,
-                  estadoPago: confirmado ? 'PAGADO' : 'PENDIENTE',
-                  disabled: !confirmado,
-                  pendingPayment: !confirmado,
-                  pagoConfirmado: confirmado,
-                  pagoTemporalId: data?.idPagoTemporal ?? c.pagoTemporalId ?? null,
-                };
-              }
-              return c;
-            });
-            return { ...ins, cuotas };
-          });
+      // 1) ACTUALIZACIÓN OPTIMISTA BASADA EN RESPUESTA REAL DEL BACKEND
+      setInscripciones(prev => prev.map((ins: any) => {
+        const curInsId = ins.idInscripcion ?? ins.id ?? null;
+        if (insId && curInsId !== insId) return ins;
+        
+        const cuotas = (ins.cuotas || []).map((c: any) => {
+          const sameName = String(c.nombreCuota ?? '').toLowerCase() === String(cuotaIdent.nombreCuota ?? '').toLowerCase();
+          const sameMonto = Math.abs(Number(c.valorCuota ?? 0) - Number(cuotaIdent.monto ?? 0)) < 0.01;
+          const sameId = cuotaIdent.idCuota && (Number(c.idCuota) === Number(cuotaIdent.idCuota) || Number(c.id) === Number(cuotaIdent.idCuota));
+          
+          if (sameId || (sameName && sameMonto)) {
+            console.log('[Pago-debug] Marcando cuota con estado:', estadoNota, 'Confirmado:', confirmado);
+            return {
+              ...c,
+              estadoPago: estadoNota === 'PAGADO' ? 'PAGADO' : 'PENDIENTE',
+              pendingPayment: estadoNota !== 'PAGADO',
+              pagoConfirmado: confirmado,
+              pagoTemporalId: pagoTemporalId,
+              disabled: true,
+            };
+          }
+          return c;
         });
+        
+        return { ...ins, cuotas };
+      }));
 
-        closeModal();
-        // refrescar para traer datos "oficiales" del backend
-        await loadInscripciones();
-      } else {
-        const msg = res.data?.message || res.data?.error || 'No se pudo registrar la solicitud de pago.';
-        Alert.alert('Error', msg);
-      }
-    } catch (e: any) {
-      console.error('Error al solicitar pago de cuota', e.response?.data || e);
+      // 2) AGREGAR A PAGOS LOCALES PENDIENTES SOLO SI NO ESTÁ CONFIRMADO
+      if (!confirmado) {
+        const newPending = {
+          insId,
+          ...cuotaIdent,
+          pagoTemporalId,
+          idNota: data?.idNota ?? null,
+          confirmado: false,
+          referencia: referencia.trim(),
+          timestamp: Date.now(),
+        };
 
-      const errors = e?.response?.data?.errors ?? e?.response?.data?.error ?? null;
-      let msg = 'Error desconocido';
-      if (errors) {
-        if (typeof errors === 'string') msg = errors;
-        else if (typeof errors === 'object') {
-          msg = Object.keys(errors)
-            .map((key) => `${key}: ${Array.isArray(errors[key]) ? errors[key].join(', ') : String(errors[key])}`)
-            .join('\n');
-        } else msg = String(errors);
-      } else {
-        msg = e?.response?.data?.message || e?.response?.data?.detail || e?.message || 'Error desconocido';
+        setPendingLocalPayments(prev => {
+          const filtered = prev.filter(p => 
+            !(p.insId === insId && 
+              p.nombreCuota === cuotaIdent.nombreCuota)
+          );
+          return [...filtered, newPending];
+        });
       }
-      Alert.alert('Error al enviar el pago', msg);
-    } finally {
-      setSubmitting(false);
+
+      closeModal();
+
+      // 3) MENSAJE BASADO EN ESTADO REAL
+      if (confirmado) {
+        Alert.alert('Pago confirmado', 'El pago ha sido confirmado automáticamente por el sistema.');
+      } else {
+        Alert.alert(
+          'Solicitud enviada', 
+          'Pago pendiente de revisión administrativa. El estado se actualizará cuando sea procesado.'
+        );
+      }
+
+      // 4) RECARGAR PARA SINCRONIZAR
+      setTimeout(() => {
+        loadInscripciones();
+      }, 1500);
+
+    } else {
+      const msg = res.data?.message || res.data?.error || 'No se pudo registrar la solicitud.';
+      Alert.alert('Error', msg);
     }
-  };
+  } catch (e: any) {
+    console.error('Error al solicitar pago de cuota', e?.response?.data ?? e);
+    const errors = e?.response?.data?.errors ?? e?.response?.data?.error ?? e?.response?.data;
+    let msg = 'Error desconocido';
+    if (errors) {
+      if (typeof errors === 'string') msg = errors;
+      else if (typeof errors === 'object') {
+        try {
+          msg = Object.keys(errors).map(k => `${k}: ${Array.isArray(errors[k]) ? errors[k].join(', ') : String(errors[k])}`).join('\n');
+        } catch { msg = JSON.stringify(errors); }
+      } else msg = String(errors);
+    } else {
+      msg = e?.message ?? String(e);
+    }
+    Alert.alert('Error al enviar el pago', msg);
+    
+    // Revertir en caso de error
+    setTimeout(() => {
+      loadInscripciones();
+    }, 1000);
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   const renderInscripcionItem = ({ item }: { item: InscripcionLite }) => {
-    const idKey = item.idInscripcion ?? item.id ?? null;
-    const tituloForm = item.idFormacion_detail?.nombreFormacion ?? item.idFormacion_detail?.nombre ?? 'Sin nombre';
-    const cohName = item.idCohorte_detail?.nombreCohorte ?? item.idCohorte?.nombreCohorte ?? '—';
-    const fecha = item.fechaInscripcion ? new Date(item.fechaInscripcion).toLocaleDateString() : '—';
+  const idKey = item.idInscripcion ?? item.id ?? null;
+  const tituloForm = item.idFormacion_detail?.nombreFormacion ?? item.idFormacion_detail?.nombre ?? item.formacion?.nombre ?? 'Sin nombre';
+  const cohName = item.idCohorte_detail?.nombreCohorte ?? item.idCohorte?.nombreCohorte ?? '—';
+  const fecha = item.fechaInscripcion ? new Date(item.fechaInscripcion).toLocaleDateString() : '—';
 
-    const { cuotas: cuotasWithStatus, isPagada, pagoConfirmado } = computeCuotasWithStatus(item);
+  const cuotas: CuotaLite[] = item.cuotas ?? [];
 
-    return (
-      <View style={styles.card}>
-        <TouchableOpacity onPress={() => idKey && handleToggleAccordion(Number(idKey))} style={styles.cardHeader}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.cardTitle}>{tituloForm}</Text>
-            <Text style={styles.cardSubtitle}>{cohName} · Inscripción: {fecha}</Text>
-          </View>
-          <View style={styles.chevContainer}>
-            <Icon name={expandedId === idKey ? 'chevron-up' : 'chevron-down'} size={22} color="#4f8cff" />
-          </View>
-        </TouchableOpacity>
+  return (
+    <View style={styles.card}>
+      <TouchableOpacity onPress={() => idKey && handleToggleAccordion(Number(idKey))} style={styles.cardHeader}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.cardTitle}>{tituloForm}</Text>
+          <Text style={styles.cardSubtitle}>{cohName} · Inscripción: {fecha}</Text>
+        </View>
+        <View style={styles.chevContainer}>
+          <Icon name={expandedId === idKey ? 'chevron-up' : 'chevron-down'} size={22} color="#4f8cff" />
+        </View>
+      </TouchableOpacity>
 
-        {expandedId === idKey && (
-          <View style={styles.cardBody}>
-            {!pagoConfirmado && (
-              <View style={styles.emptyRow}>
-                <Icon name="alert-circle-outline" size={22} color="#856404" />
-                <Text style={styles.emptyText}>
-                  Las cuotas están visibles, pero no se pueden pagar hasta confirmar el pago de la inscripción.
-                </Text>
-              </View>
-            )}
+      {expandedId === idKey && (
+        <View style={styles.cardBody}>
+          {!item.pago_inscripcion_confirmada ? (
+            <View style={styles.emptyRow}>
+              <Icon name="alert-circle-outline" size={22} color="#856404" />
+              <Text style={styles.emptyText}>
+                Las cuotas están visibles, pero no se pueden pagar hasta confirmar el pago de la inscripción.
+              </Text>
+            </View>
+          ) : cuotas.length === 0 ? (
+            <View style={styles.emptyRow}>
+              <Icon name="calendar-remove" size={28} color="#dee2e6" />
+              <Text style={styles.emptyText}>No hay cuotas configuradas para esta inscripción.</Text>
+            </View>
+          ) : (
+            <>
+              {cuotas.map((c: CuotaLite, index: number) => {
+                const estado = String(c.estadoPago ?? '').toUpperCase();
+                const isPaid = estado === 'PAGADO' || c.pagoConfirmado === true;
+                const isPending = estado === 'PENDIENTE' || c.pendingPayment === true;
+                // 🔥 MEJORAR LÓGICA DE HABILITACIÓN
+                const canPay = !isPaid && !isPending && !c.disabled && 
+                              (c.estadoPago === 'EN ESPERA' || !c.estadoPago);
 
-            {cuotasWithStatus.length === 0 ? (
-              <View style={[styles.emptyRow, !pagoConfirmado ? {} : {}]}>
-                <Icon name="calendar-remove" size={28} color="#dee2e6" />
-                <Text style={styles.emptyText}>No hay cuotas configuradas para esta inscripción.</Text>
-              </View>
-            ) : (
-              <>
-                {cuotasWithStatus.map((c: CuotaLite, index: number) => (
-                  <View key={String(c.idCuota ?? c.inscripcionCuotaId ?? index)} style={styles.cuotaRow}>
+                console.log(`[UI-debug] Cuota ${c.nombreCuota}:`, {
+                  estado,
+                  isPaid,
+                  isPending,
+                  disabled: c.disabled,
+                  canPay,
+                  pagoConfirmado: c.pagoConfirmado,
+                  pendingPayment: c.pendingPayment
+                });
+
+                return (
+                  <View key={String(c.id ?? c.idCuota ?? index)} style={styles.cuotaRow}>
                     <View style={{ flex: 1 }}>
-                      <Text style={[styles.cuotaNombre, c.estadoPago === 'PAGADO' ? styles.cuotaPaidText : {}]}>
+                      <Text style={[styles.cuotaNombre, isPaid ? styles.cuotaPaidText : {}]}>
                         {c.nombreCuota}
                       </Text>
                       <Text style={styles.cuotaSub}>{fmtMoney(c.valorCuota)}</Text>
+                      {/* 🔥 MOSTRAR DEBUG INFO EN DESARROLLO */}
+                      {__DEV__ && (
+                        <Text style={styles.debugText}>
+                          Estado: {estado} | Confirmado: {c.pagoConfirmado ? 'Sí' : 'No'} | Pendiente: {c.pendingPayment ? 'Sí' : 'No'}
+                        </Text>
+                      )}
                     </View>
 
                     <View style={styles.cuotaActions}>
-                      {c.estadoPago === 'PAGADO' ? (
+                      {isPaid ? (
                         <View style={styles.paidBadge}>
+                          <Icon name="check-circle" size={16} color="#155724" />
                           <Text style={styles.paidBadgeText}>PAGADA</Text>
                         </View>
-                      ) : c.estadoPago === 'PENDIENTE' || c.pendingPayment ? (
+                      ) : isPending ? (
                         <View style={styles.pendingBadge}>
-                          <Text style={styles.paidBadgeText}>{c.pagoConfirmado ? 'CONFIRMADO' : 'EN REVISIÓN'}</Text>
+                          <Icon name="clock-outline" size={16} color="#856404" />
+                          <Text style={styles.pendingBadgeText}>
+                            {c.pagoConfirmado ? 'CONFIRMADO' : 'EN REVISIÓN'}
+                          </Text>
                         </View>
                       ) : (
                         <TouchableOpacity
-                          style={[styles.payButton, c.disabled ? styles.payButtonDisabled : {}]}
-                          disabled={c.disabled}
+                          style={[styles.payButton, !canPay ? styles.payButtonDisabled : {}]}
+                          disabled={!canPay}
                           onPress={() => openPagoModal(item, c)}
                         >
-                          <Text style={[styles.payButtonText, c.disabled ? styles.payButtonTextDisabled : {}]}>Pagar</Text>
+                          <Text style={[styles.payButtonText, !canPay ? styles.payButtonTextDisabled : {}]}>
+                            Pagar
+                          </Text>
                         </TouchableOpacity>
                       )}
                     </View>
                   </View>
-                ))}
-                <View style={styles.infoRow}>
-                  <Text style={styles.smallNote}>
-                    Solo puede pagar la primera cuota pendiente ('EN ESPERA'). Las demás se habilitan tras la confirmación.
-                  </Text>
-                </View>
-              </>
-            )}
-          </View>
-        )}
-      </View>
-    );
-  };
+                );
+              })}
+
+              <View style={styles.infoRow}>
+                <Text style={styles.smallNote}>
+                  Solo puede pagar la primera cuota pendiente. Las demás se habilitan tras la confirmación.
+                </Text>
+              </View>
+            </>
+          )}
+        </View>
+      )}
+    </View>
+  );
+};
 
   return (
     <View style={styles.container}>
@@ -638,7 +922,7 @@ const CuotasPorPagarScreen = () => {
                   <TouchableOpacity style={[styles.submit, submitting ? styles.submitDisabled : {}]} disabled={submitting} onPress={handleSolicitarPago}>
                     <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center' }}>
                       <Icon name="credit-card-check-outline" size={18} color="#fff" />
-                      <Text style={styles.submitText}>{submitting ? 'Enviando...' : 'Solicitar pago (quedará pendiente)'}</Text>
+                      <Text style={styles.submitText}>{submitting ? 'Enviando...' : 'Solicitar pago'}</Text>
                     </View>
                   </TouchableOpacity>
                 </>
@@ -655,7 +939,7 @@ const CuotasPorPagarScreen = () => {
 
 export default CuotasPorPagarScreen;
 
-/* estilos: pega tus estilos existentes (sin cambios) */
+/* estilos: pega los tuyos si prefieres */
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8f9fa' },
   header: { padding: 16, borderBottomWidth: 1, borderBottomColor: '#e9ecef', backgroundColor: '#fff' },
@@ -674,14 +958,16 @@ const styles = StyleSheet.create({
   cuotaNombre: { fontWeight: '600', color: '#2d3748' },
   cuotaPaidText: { color: '#6c757d', textDecorationLine: 'line-through' },
   cuotaSub: { fontSize: 13, color: '#6c757d', marginTop: 4 },
+  debugText: { fontSize: 11, color: '#6c757d', marginTop: 4 },
   cuotaActions: { minWidth: 110, alignItems: 'flex-end' },
   payButton: { backgroundColor: '#2b6cb0', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 },
   payButtonText: { color: '#fff', fontWeight: '700' },
   payButtonDisabled: { backgroundColor: '#cbd5e1' },
   payButtonTextDisabled: { color: '#7b8794' },
-  paidBadge: { backgroundColor: '#d4edda', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
-  pendingBadge: { backgroundColor: '#ffeeba', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
-  paidBadgeText: { color: '#155724', fontWeight: '700' },
+  paidBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#d4edda', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12 },
+  paidBadgeText: { color: '#155724', fontWeight: '700', marginLeft: 6 },
+  pendingBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#ffeeba', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12 },
+  pendingBadgeText: { color: '#856404', fontWeight: '700', marginLeft: 6 },
   infoRow: { marginTop: 10 },
   smallNote: { fontSize: 12, color: '#6c757d', fontStyle: 'italic' },
   emptyContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 },

@@ -642,18 +642,18 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
             # crear nota
             numero_nota = generar_numero_nota()
             nota = Nota.objects.create(
-                idAsiento=asiento,
-                idPersona=inscripcion.idPersona,
-                tipoArticulo='CUOTA',
-                numeroNota=numero_nota,
-                fechaEmision=now().date(),
-                fechaVencimiento=now().date() + timedelta(days=7),
-                formaPago='TRANSFERENCIA',
-                totalNota=validated_data['monto'],
-                idTasa=tasa,
-                estado='PENDIENTE',
-                observaciones=f"Nota para {getattr(cuota.idCuota, 'nombreCuota', 'Cuota')}"
-            )
+            idAsiento=asiento,
+            idPersona=inscripcion.idPersona,
+            tipoArticulo='CUOTA',
+            numeroNota=numero_nota,
+            fechaEmision=now().date(),
+            fechaVencimiento=now().date() + timedelta(days=7),
+            formaPago='TRANSFERENCIA',
+            totalNota=validated_data['monto'],
+            idTasa=tasa,
+            estado='PENDIENTE',
+            observaciones=f"Nota para {getattr(cuota.idCuota, 'nombreCuota', 'Cuota')}"
+        )
             debug_steps.append({"step": "crear_nota", "nota_id": getattr(nota, 'idNota', None)})
 
             # === Crear NotaRelacionada: intentar con InscripcionCuota primero, si falla intentar con CuotaFormacion ===
