@@ -151,6 +151,46 @@ const CuotasPorPagarScreen = () => {
     }));
   }, []);
 
+  // Agrega esta función para forzar estado PENDIENTE de manera más agresiva
+const forcePendingStateAggressive = useCallback((inscripcionesData: any[], pendings: any[]) => {
+  if (!pendings || pendings.length === 0) return inscripcionesData;
+  
+  console.log('[ForcePending-Aggressive] Aplicando estado PENDIENTE a', pendings.length, 'pagos locales');
+  
+  return inscripcionesData.map((ins: any) => {
+    const curInsId = ins.idInscripcion ?? ins.id ?? null;
+    const relatedPendings = pendings.filter(p => p.insId === curInsId);
+    
+    if (!relatedPendings.length) return ins;
+    
+    const cuotas = (ins.cuotas || []).map((c: any) => {
+      // Buscar si esta cuota tiene un pago local pendiente
+      for (const p of relatedPendings) {
+        const sameName = String(c.nombreCuota ?? '').toLowerCase() === String(p.nombreCuota ?? '').toLowerCase();
+        const sameMonto = Math.abs(Number(c.valorCuota ?? 0) - Number(p.monto ?? 0)) < 0.01;
+        const sameId = p.idCuota && (Number(c.idCuota) === Number(p.idCuota) || Number(c.id) === Number(p.idCuota));
+        
+        if (sameId || sameName) {
+          if (!p.confirmado) {
+            console.log('[ForcePending-Aggressive] Forzando estado PENDIENTE para:', c.nombreCuota, 'pagoId:', p.pagoTemporalId);
+            return {
+              ...c,
+              estadoPago: 'PENDIENTE', // 🔥 FORZAR PENDIENTE
+              pendingPayment: true,     // 🔥 FORZAR true
+              pagoConfirmado: false,    // 🔥 FORZAR false
+              pagoTemporalId: p.pagoTemporalId ?? c.pagoTemporalId ?? null,
+              disabled: true, // siempre deshabilitar
+            };
+          }
+        }
+      }
+      return c;
+    });
+    
+    return { ...ins, cuotas };
+  });
+}, []);
+
   const loadInscripciones = useCallback(async () => {
     setLoading(true);
     try {
@@ -548,18 +588,14 @@ const CuotasPorPagarScreen = () => {
         };
       });
 
-      console.log('[Cuotas-debug] enriched inscripciones (final):', enriched);
+    console.log('[Cuotas-debug] enriched inscripciones (final):', enriched);
 
-      // aplicar enriched
-      setInscripciones(enriched);
+    // 🔥 APLICAR FORZADO AGRESIVO DE ESTADO PENDIENTE
+    const forcedInscripciones = forcePendingStateAggressive(enriched, pendingLocalPayments || []);
+    console.log('[Cuotas-debug] inscripciones después de forzar pendientes:', forcedInscripciones);
 
-      // reaplicar pagos locales pendientes (optimista) después de cargar desde backend
-      // usamos el estado actual de pendingLocalPayments
-      reapplyLocalPendings(pendingLocalPayments || []);
-    } catch (e: any) {
-      console.error('Error cargando inscripciones en CuotasPorPagar', e?.response?.data ?? e);
-      Alert.alert('Error', e?.response?.data?.detail ?? 'No se pudieron cargar las inscripciones');
-      setInscripciones([]);
+    // aplicar al estado
+    setInscripciones(forcedInscripciones);
     } finally {
       setLoading(false);
       setRefreshing(false);
