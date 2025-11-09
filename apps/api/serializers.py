@@ -570,31 +570,13 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
             raise serializers.ValidationError("El pago de inscripción no está confirmado. Solo puede pagar cuotas después de la confirmación.")
 
         # 4) validar que exista la InscripcionCuota con estado EN ESPERA para ese nombre
-        # 4) validar que exista la InscripcionCuota que NO esté pagada
         try:
             cuota = inscripcion.inscripcioncuota_set.select_related('idCuota').get(
-                idCuota__nombreCuota__iexact=data['nombreCuota']
+                idCuota__nombreCuota__iexact=data['nombreCuota'],
+                estadoPago__iexact='EN ESPERA'
             )
-            
-            # Verificar que no esté pagada
-            if cuota.estadoPago.upper() in ['PAGADO', 'PAGADA']:
-                raise serializers.ValidationError({"cuota": "Esta cuota ya ha sido pagada."})
-            
-            # Si está pendiente, verificar que no haya otro pago temporal activo
-            if cuota.estadoPago.upper() == 'PENDIENTE':
-                # Buscar si ya existe un pago temporal pendiente para esta cuota
-                # Nota: Esta consulta puede variar según tu modelo de relaciones
-                pago_existente = PagoTemporal.objects.filter(
-                    idNota__relaciones__idInscripcion=inscripcion,
-                    idNota__relaciones__idCuota=cuota.idCuota,
-                    confirmado=False
-                ).exists()
-                
-                if pago_existente:
-                    raise serializers.ValidationError({"cuota": "Ya existe un pago en revisión para esta cuota."})
-
         except InscripcionCuota.DoesNotExist:
-            raise serializers.ValidationError({"cuota": "La cuota seleccionada no existe."})
+            raise serializers.ValidationError({"cuota": "La cuota seleccionada no está disponible para pago (ya fue pagada, está pendiente o no existe)."})
         except InscripcionCuota.MultipleObjectsReturned:
             raise serializers.ValidationError({"cuota": "Error de duplicidad de cuotas. Contacte a soporte."})
 

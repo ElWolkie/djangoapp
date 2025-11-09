@@ -551,7 +551,6 @@ class CuotaCobroCreateAPIView(APIView):
                 'numeroNota': getattr(nota, 'numeroNota', None) if nota else None,
                 'monto': float(getattr(pago_temporal, 'monto', 0)),
                 'confirmado': bool(getattr(pago_temporal, 'confirmado', False)),
-                'estado_nota': getattr(nota, 'estado', 'PENDIENTE'),
                 'idInscripcionCuota': id_inscripcion_cuota,
                 'idCuotaFormacion': id_cuota_formacion,
                 'debug_steps': serializer.context.get('debug_steps', [])
