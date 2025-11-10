@@ -1,274 +1,287 @@
+{% extends 'layouts/base2.html' %}
 {% load static %}
 
+{% block title %}Editar Banco{% endblock title %}
 {% block stylesheets %}
-<link rel="stylesheet" href="/static/assets/css/styleForms.css" />
-<link rel="stylesheet" href="/static/assets/css/argon.css" />
+<link rel="stylesheet" href="{% static 'assets/css/styleForms.css' %}" />
+<link rel="stylesheet" href="{% static 'assets/css/argon.css' %}" />
 <style>
-/* Contenedor estilo honorario (adaptado a banco) */
-.bank-container {
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-  border-radius: 1rem;
-  box-shadow: 0 0.5rem 1.5rem rgba(0,0,0,0.1);
-  padding: 1.5rem;
-  margin: 0.5rem auto;
-  max-width: 95%;
-  width: 100%;
-}
-.bank-header {
-  text-align: center;
-  margin-bottom: 1rem;
-  position: relative;
-  padding-bottom: 0.8rem;
-}
-.bank-header h2 {
-  color: #343a40;
-  font-weight: 700;
-  font-size: 1.25rem;
-  margin-bottom: 0.25rem;
-}
-.bank-header p { margin-bottom: 0; color: #6c757d; }
-.bank-header::after {
-  content: '';
-  position: absolute;
-  bottom: 0; left: 50%;
-  transform: translateX(-50%);
-  width: 80px; height: 4px;
-  background: linear-gradient(90deg, #ffc107, #fd7e14);
-  border-radius: 2px;
-}
-
-/* Form layout */
-.form-group { margin-bottom: 1.1rem; position: relative; }
-.form-label { font-weight: 600; color: #495057; margin-bottom: .4rem; display:flex; align-items:center; }
-.form-label i { margin-right: .6rem; color: #fd7e14; font-size: .95rem; }
-
-/* Inputs con icono a la izquierda */
-.input-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #6c757d; z-index:2; font-size: .95rem; }
-.input-with-icon { padding-left: 44px !important; }
-
-/* Control visual */
-.form-control {
-  border-radius: .5rem;
-  padding: .65rem 1.25rem;
-  border: 1px solid #ced4da;
-  background-color: #fff;
-  box-shadow: inset 0 1px 2px rgba(0,0,0,0.03);
-  transition: all .18s;
-  height: 48px;
-  font-size: .95rem;
-  color: #1f2937; /* texto más oscuro */
-}
-.form-control:focus {
-  border-color: #ffc107;
-  box-shadow: 0 0 0 0.22rem rgba(255,193,7,0.16);
-  outline: none;
-}
-
-/* Botones */
-.btn-submit {
-  background: linear-gradient(135deg,#ffc107 0%,#fd7e14 100%);
-  border: none;
-  color: #fff;
-  font-weight: 600;
-  padding: .65rem 1.6rem;
-  border-radius: .5rem;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.08);
-}
-.btn-submit:hover { transform: translateY(-2px); }
-
-/* Campo readonly estilo */
-.readonly-field {
-  display: block;
-  width: 100%;
-  height: 48px;
-  padding: .65rem 1.25rem;
-  font-size: .95rem;
-  color: #343a40;
-  background-color: #e9ecef;
-  border: 1px solid #ced4da;
-  border-radius: .5rem;
-  align-items: center;
-  display: flex;
-}
-
-/* Invalid feedback */
-.invalid-feedback { display: none; color: #dc3545; font-size: .85rem; margin-top: .25rem; }
-.was-validated .form-control:invalid + .invalid-feedback,
-.form-control.is-invalid + .invalid-feedback { display:block; }
-
-/* Modal table tweaks */
-.modal .table-hover tbody tr:hover { background: rgba(99,102,241,0.06); cursor:pointer; }
-
-/* Responsive */
-@media (max-width:575px) {
-  .form-control { height:42px; padding:.5rem .9rem; }
-  .input-icon { left:10px; font-size:.85rem; }
-}
-
- .btn-submit:focus {
-  outline: none;
-  box-shadow: none;
-}
-
-.btn-submit:focus-visible {
-  outline: 2px solid #fd7e14;
-  outline-offset: 2px;
-}
+  .banco-container {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 1rem;
+    box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.1);
+    padding: 2rem;
+    margin: 2rem auto;
+    max-width: 700px;
+  }
+  
+  .banco-header {
+    text-align: center;
+    margin-bottom: 2rem;
+    position: relative;
+    padding-bottom: 1rem;
+  }
+  
+  .banco-header h2 {
+    color: #343a40;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+  }
+  
+  .banco-header::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80px;
+    height: 4px;
+    background: linear-gradient(90deg, #ffc107, #fd7e14);
+    border-radius: 2px;
+  }
+  
+  .form-group {
+    margin-bottom: 1.5rem;
+    position: relative;
+  }
+  
+  .form-label {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+  }
+  
+  .form-label i {
+    margin-right: 8px;
+    color: #fd7e14;
+  }
+  
+  .form-control {
+    border-radius: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    border: 1px solid #ced4da;
+    background-color: #fff;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.075);
+    transition: all 0.3s;
+  }
+  
+  .form-control:focus {
+    border-color: #ffc107;
+    box-shadow: 0 0 0 0.25rem rgba(255,193,7,0.25);
+  }
+  
+  .input-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6c757d;
+    z-index: 2;
+  }
+  
+  .input-with-icon {
+    padding-left: 40px;
+  }
+  
+  .btn-submit {
+    background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+    border: none;
+    color: #fff;
+    font-weight: 600;
+    padding: 0.75rem 2rem;
+    border-radius: 0.5rem;
+    transition: all 0.3s;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+    width: 200px;
+  }
+  
+  .btn-submit:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    background: linear-gradient(135deg, #fd7e14 0%, #ffc107 100%);
+  }
+  
+  .btn-submit i {
+    margin-right: 8px;
+  }
+  
+  .input-group-btn .btn {
+    border-radius: 0 0.5rem 0.5rem 0;
+    background: #ffc107;
+    color: #343a40;
+    border: 1px solid #ced4da;
+    border-left: none;
+  }
 </style>
 {% endblock stylesheets %}
 
 {% block content %}
-<div class="bank-container">
-  <div class="bank-header">
-    <h2><i class="fas fa-university text-warning"></i> Editar Banco</h2>
-    <p class="text-muted">Actualiza la información del banco. Código local protegido.</p>
+<div class="mt-4">
+  <div class="banco-container">
+    <div class="banco-header">
+      <h2><i class="fas fa-university text-warning"></i> Editar Banco</h2>
+      <p class="text-muted">Modifique los campos que desee actualizar</p>
+    </div>
+
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+          <div class="d-flex align-items-center">
+            <i class="fas {% if message.tags == 'success' %}fa-check-circle{% else %}fa-exclamation-circle{% endif %} me-2"></i>
+            <div>{{ message }}</div>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+      {% endfor %}
+    {% endif %}
+
+    <form method="POST" autocomplete="off" id="editBancoForm" action="{% url 'banco_update' banco.idBanco %}" novalidate>
+      {% csrf_token %}
+      
+      <div class="form-group">
+        <label for="cuentaPadre" class="form-label">
+          <i class="fas fa-file-invoice-dollar"></i> Cuenta Contable Padre
+        </label>
+        <div class="input-group">
+          <i class="fas fa-search input-icon"></i>
+          <input type="text" id="cuentaPadre" class="form-control input-with-icon" 
+                 placeholder="Seleccione una cuenta contable" readonly required 
+                 value="{{ banco.cuentaPadre.codigoPlanCuenta }} - {{ banco.cuentaPadre.nombrePlanCuenta }}" />
+          <button type="button" id="buscarCuentaPadre" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#cuentaPadreModal">
+            <i class="fas fa-search"></i>
+          </button>  
+          <div class="invalid-feedback">
+          Por favor seleccione una cuenta contable válida.
+        </div>
+        </div>
+        <input type="hidden" id="cuentaPadreId" name="cuentaPadre" value="{{ banco.cuentaPadre.idPlanCuenta }}" />
+      
+      </div>
+
+      <div class="row">
+        <div class="col-md-6">
+          <div class="form-group">
+            <label for="codLocalBanco" class="form-label">
+              <i class="fas fa-hashtag"></i> Código Local
+            </label>
+            <div class="input-group">
+              <i class="fas fa-barcode input-icon"></i>
+              <input type="text" id="codLocalBanco" name="codLocalBanco" 
+                     class="form-control input-with-icon" 
+                     placeholder="Ej: 0102" maxlength="10" required 
+                     value="{{ banco.codLocalBanco }}" />
+             <div class="invalid-feedback">
+              Por favor ingrese un código local válido.
+            </div>
+          </div>
+          </div>
+        </div>
+        
+        <div class="col-md-6">
+          <div class="form-group">
+            <label for="codSwiftBanco" class="form-label">
+              <i class="fas fa-globe"></i> Código SWIFT
+            </label>
+            <div class="input-group">
+              <i class="fas fa-barcode input-icon"></i>
+              <input type="text" id="codSwiftBanco" name="codSwiftBanco" 
+                     class="form-control input-with-icon" 
+                     placeholder="Ej: BACVVEMM" maxlength="11" required 
+                     value="{{ banco.codSwiftBanco }}" />
+              <div class="invalid-feedback">
+                 Por favor ingrese un código SWIFT válido.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="nombreBanco" class="form-label">
+          <i class="fas fa-building"></i> Nombre del Banco
+        </label>
+        <div class="input-group">
+          <i class="fas fa-font input-icon"></i>
+          <input type="text" id="nombreBanco" name="nombreBanco" 
+                 class="form-control input-with-icon" 
+                 placeholder="Ej: Banco de Venezuela" maxlength="100" required 
+                 value="{{ banco.nombreBanco }}" />
+            <div class="invalid-feedback">
+            Por favor ingrese un nombre válido.
+          </div>
+        </div>
+      </div>
+
+      <div class="text-center mt-4">
+        <button type="submit" class="btn-submit">
+          <i class="fas fa-save me-2"></i> Actualizar
+        </button>
+      </div>
+    </form>
   </div>
-
-  <form method="POST"
-        id="editBancoForm"
-        class="needs-validation"
-        action="{% url 'banco_update' banco.idBanco %}"
-        novalidate
-        autocomplete="off">
-    {% csrf_token %}
-
-    <!-- Cuenta Padre -->
-    <div class="form-group">
-      <label class="form-label"><i class="fas fa-sitemap"></i> Cuenta Padre</label>
-      <div class="input-group position-relative">
-        <i class="fas fa-folder-open input-icon"></i>
-        <input type="text" id="cuentaPadreEdit" class="form-control input-with-icon" readonly required
-               value="{% if banco.cuentaPadre %}{{ banco.cuentaPadre.codigoPlanCuenta }} - {{ banco.cuentaPadre.nombrePlanCuenta }}{% endif %}">
-        <input type="hidden" id="cuentaPadreIdEdit" name="cuentaPadre" value="{% if banco.cuentaPadre %}{{ banco.cuentaPadre.idPlanCuenta }}{% endif %}">
-        <button type="button" class="btn btn-outline-warning ms-2" data-bs-toggle="modal" data-bs-target="#cuentaPadreModal">
-          <i class="fas fa-search"></i>
-        </button>
-        <div class="invalid-feedback">Seleccione una cuenta padre.</div>
-      </div>
-    </div>
-
-    <!-- Cuenta Contable Asociada -->
-    <div class="form-group">
-      <label class="form-label"><i class="fas fa-book"></i> Cuenta Contable Asociada</label>
-      <div class="input-group position-relative">
-        <i class="fas fa-file-alt input-icon"></i>
-        <input type="text" id="codigoPlanCuentaEdit" class="form-control input-with-icon" readonly required
-               value="{% if banco.codigoPlanCuenta %}{{ banco.codigoPlanCuenta.codigoPlanCuenta }} - {{ banco.codigoPlanCuenta.nombrePlanCuenta }}{% endif %}">
-        <input type="hidden" id="subcuentaIdEdit" name="codigoPlanCuenta" value="{% if banco.codigoPlanCuenta %}{{ banco.codigoPlanCuenta.idPlanCuenta }}{% endif %}">
-        <button type="button" class="btn btn-outline-warning ms-2" data-bs-toggle="modal" data-bs-target="#subcuentaModal">
-          <i class="fas fa-search"></i>
-        </button>
-        <div class="invalid-feedback">Seleccione una subcuenta.</div>
-      </div>
-    </div>
-
-    <div class="row">
-      <!-- Código Local (readonly) -->
-      <div class="col-md-6">
-        <div class="form-group">
-          <label class="form-label"><i class="fas fa-hashtag"></i> Código Local</label>
-          <div class="input-group position-relative">
-            <i class="fas fa-hashtag input-icon"></i>
-            <input type="text" id="codLocalBancoEdit" name="codLocalBanco" class="form-control input-with-icon" maxlength="10" required readonly
-                   value="{{ banco.codLocalBanco }}">
-            <div class="invalid-feedback">Código local obligatorio.</div>
-          </div>
-          <small class="text-muted">Campo protegido — no es editable.</small>
-        </div>
-      </div>
-
-      <!-- Código SWIFT (11 chars, uppercase) -->
-      <div class="col-md-6">
-        <div class="form-group">
-          <label class="form-label"><i class="fas fa-code-branch"></i> Código SWIFT</label>
-          <div class="input-group position-relative">
-            <i class="fas fa-code input-icon"></i>
-            <input type="text" id="codSwiftBancoEdit" name="codSwiftBanco" class="form-control input-with-icon"
-                   maxlength="11" minlength="11" required value="{{ banco.codSwiftBanco }}">
-          </div>
-          <div class="invalid-feedback" id="swiftFeedback">El código SWIFT debe tener 11 caracteres alfanuméricos.</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Nombre -->
-    <div class="form-group">
-      <label class="form-label"><i class="fas fa-building"></i> Nombre del Banco</label>
-      <div class="input-group position-relative">
-        <i class="fas fa-university input-icon"></i>
-        <input type="text" id="nombreBancoEdit" name="nombreBanco" class="form-control input-with-icon" maxlength="100" required
-               value="{{ banco.nombreBanco }}">
-        <div class="invalid-feedback">Nombre obligatorio.</div>
-      </div>
-    </div>
-
-    <div class="text-center mt-3">
-      <button type="submit" class="btn-submit">
-        <i class="fas fa-save me-2"></i> Guardar Cambios
-      </button>
-    </div>
-  </form>
 </div>
 
-<!-- Modal Cuenta Padre -->
-<div class="modal fade" id="cuentaPadreModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-lg modal-dialog-centered">
+<!-- Modal para buscar cuenta contable -->
+<div class="modal fade" id="cuentaPadreModal" tabindex="-1" role="dialog" aria-labelledby="cuentaPadreModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-xl mx-auto" role="document">
     <div class="modal-content">
       <div class="modal-header bg-primary text-white">
-        <h5 class="modal-title"><i class="fas fa-sitemap me-2"></i> Seleccionar Cuenta Padre</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        <h5 class="modal-title text-white" id="cuentaPadreModalLabel">
+          <i class="fas fa-search mr-2"></i> Seleccionar Cuenta Contable
+        </h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
+          <i class="fas fa-times"></i>
+        </button>
       </div>
       <div class="modal-body">
-        <div class="mb-2 input-group">
-          <span class="input-group-text"><i class="fas fa-search"></i></span>
-          <input id="searchPadre" class="form-control" placeholder="Buscar cuenta padre...">
+        <div class="input-group mb-3">
+          <div class="input-group-prepend">
+            <span class="input-group-text bg-light">
+              <i class="fas fa-search text-warning"></i>
+            </span>
+          </div>
+          <input class="form-control" id="searchModalInput" type="text" placeholder="Buscar cuenta...">
         </div>
-        <div class="table-responsive" style="max-height:380px; overflow:auto;">
-          <table class="table table-sm table-hover" id="tablaPadre">
-            <thead class="table-light"><tr><th>Código</th><th>Nombre</th><th>Nivel</th></tr></thead>
-            <tbody>
-              {% for p in planes %}
-              <tr class="select-padre-row" data-id="{{ p.idPlanCuenta }}" data-nombre="{{ p.codigoPlanCuenta }} - {{ p.nombrePlanCuenta }}">
-                <td>{{ p.codigoPlanCuenta }}</td>
-                <td>{{ p.nombrePlanCuenta }}</td>
-                <td>{{ p.nivelPlanCuenta }}</td>
+        <div class="table-responsive">
+          <table class="table table-sm table-striped table-hover" id="tablaCuentas">
+            <thead class="bg-light">
+              <tr>
+                <th style="width: 15%;">Código</th>
+                <th style="width: 60%;">Nombre</th>
+                <th style="width: 10%;">Nivel</th>
+                <th style="width: 15%;">Seleccionar</th>
               </tr>
+            </thead>
+            <tbody>
+              {% for cuenta in planes %}
+                <tr data-id="{{ cuenta.idPlanCuenta }}" data-nombre="{{ cuenta.codigoPlanCuenta }} - {{ cuenta.nombrePlanCuenta }}">
+                  <td>{{ cuenta.codigoPlanCuenta }}</td>
+                  <td>{{ cuenta.nombrePlanCuenta }}</td>
+                  <td>{{ cuenta.nivelPlanCuenta }}</td>
+                  <td>
+                    <button class="btn btn-sm btn-warning btn-select">
+                      <i class="fas fa-check"></i> Elegir
+                    </button>
+                  </td>
+                </tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
+         <!-- Contenedor para la paginación -->
+        <div class="pagination-container d-flex justify-content-center mt-3"></div>
+        <p id="mensajeSinRegistros" class="text-center text-muted my-4" style="display: none;">
+          <i class="fas fa-info-circle mr-2"></i> No se encontraron registros
+        </p>
       </div>
-    </div>
-  </div>
-</div>
-
-<!-- Modal Subcuenta -->
-<div class="modal fade" id="subcuentaModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-lg modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header bg-primary text-white">
-        <h5 class="modal-title"><i class="fas fa-book me-2"></i> Seleccionar Subcuenta</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-      </div>
-      <div class="modal-body">
-        <div class="mb-2 input-group">
-          <span class="input-group-text"><i class="fas fa-search"></i></span>
-          <input id="searchSub" class="form-control" placeholder="Buscar subcuenta...">
-        </div>
-        <div class="table-responsive" style="max-height:380px; overflow:auto;">
-          <table class="table table-sm table-hover" id="tablaSub">
-            <thead class="table-light"><tr><th>Código</th><th>Nombre</th><th>Nivel</th></tr></thead>
-            <tbody>
-              {% for p in planes %}
-              <tr class="select-sub-row" data-id="{{ p.idPlanCuenta }}" data-nombre="{{ p.codigoPlanCuenta }} - {{ p.nombrePlanCuenta }}">
-                <td>{{ p.codigoPlanCuenta }}</td>
-                <td>{{ p.nombrePlanCuenta }}</td>
-                <td>{{ p.nivelPlanCuenta }}</td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
       </div>
     </div>
   </div>
@@ -276,111 +289,223 @@
 {% endblock content %}
 
 {% block javascripts %}
-<script>
-document.addEventListener('DOMContentLoaded', function () {
+  <script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
+  <script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
+  <script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const cuentaPadreInput = document.getElementById('cuentaPadre');
+      const cuentaPadreIdInput = document.getElementById('cuentaPadreId');
+      const tablaCuentas = document.getElementById('tablaCuentas');
+      const searchModalInput = document.getElementById('searchModalInput');
+      const editBancoForm = document.getElementById('editBancoForm');
 
-  // Force uppercase (nombre y SWIFT)
-  function forceUpper(el) {
-    if (!el) return;
-    el.addEventListener('input', function () {
-      const s = this.selectionStart, e = this.selectionEnd;
-      this.value = this.value.toUpperCase();
-      try { this.setSelectionRange(s, e); } catch (err) {}
-    });
-  }
-  forceUpper(document.getElementById('nombreBancoEdit'));
-  forceUpper(document.getElementById('searchPadre'));
-  forceUpper(document.getElementById('searchSub'));
-
-  // SWIFT: uppercase + remove spaces on input
-  const swift = document.getElementById('codSwiftBancoEdit');
-  if (swift) {
-    swift.addEventListener('input', function () {
-      const s = this.selectionStart, e = this.selectionEnd;
-      this.value = this.value.toUpperCase().replace(/\s+/g,'');
-      try { this.setSelectionRange(s, e); } catch (err) {}
-    });
-  }
-
-  // CodLocal: ensure readonly & prevent paste/typing
-  const codLocal = document.getElementById('codLocalBancoEdit');
-  if (codLocal) {
-    codLocal.setAttribute('readonly','readonly');
-    codLocal.classList.add('readonly-field');
-    ['paste','cut'].forEach(evt => codLocal.addEventListener(evt, e => e.preventDefault()));
-    codLocal.addEventListener('keydown', function (evt) {
-      const allowed = ['Tab','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End'];
-      if (allowed.includes(evt.key)) return;
-      evt.preventDefault();
-    });
-  }
-
-  // Selection from modals
-  document.querySelectorAll('.select-padre-row').forEach(row => {
-    row.addEventListener('click', function () {
-      document.getElementById('cuentaPadreIdEdit').value = this.dataset.id;
-      document.getElementById('cuentaPadreEdit').value = this.dataset.nombre;
-      const modalEl = document.getElementById('cuentaPadreModal');
-      bootstrap.Modal.getInstance(modalEl).hide();
-    });
-  });
-
-  document.querySelectorAll('.select-sub-row').forEach(row => {
-    row.addEventListener('click', function () {
-      document.getElementById('subcuentaIdEdit').value = this.dataset.id;
-      document.getElementById('codigoPlanCuentaEdit').value = this.dataset.nombre;
-      const modalEl = document.getElementById('subcuentaModal');
-      bootstrap.Modal.getInstance(modalEl).hide();
-    });
-  });
-
-  // Filter inside modals
-  function filterTable(inputId, tableId) {
-    const q = document.getElementById(inputId).value.trim().toUpperCase();
-    document.querySelectorAll(`#${tableId} tbody tr`).forEach(tr => {
-      tr.style.display = tr.textContent.toUpperCase().includes(q) ? '' : 'none';
-    });
-  }
-  const sp = document.getElementById('searchPadre');
-  if (sp) sp.addEventListener('input', () => filterTable('searchPadre','tablaPadre'));
-  const ss = document.getElementById('searchSub');
-  if (ss) ss.addEventListener('input', () => filterTable('searchSub','tablaSub'));
-
-  // Form validation: bootstrap + SWIFT length check
-  const form = document.getElementById('editBancoForm');
-  if (form) {
-    form.addEventListener('submit', function (evt) {
-      // remove previous custom invalid states
-      if (swift) swift.classList.remove('is-invalid');
-
-      if (!form.checkValidity()) {
-        form.classList.add('was-validated');
-        evt.preventDefault();
-        evt.stopPropagation();
-        return;
-      }
-
-      // custom SWIFT validation (exactly 11 alnum chars)
-      if (swift) {
-        const v = swift.value.trim();
-        const ok = /^[A-Z0-9]{11}$/.test(v);
-        if (!ok) {
-          swift.classList.add('is-invalid');
-          const fb = document.getElementById('swiftFeedback');
-          if (fb) fb.textContent = 'El código SWIFT debe tener exactamente 11 caracteres alfanuméricos (A-Z, 0-9).';
-          form.classList.add('was-validated');
-          evt.preventDefault();
-          evt.stopPropagation();
-          return;
-        } else {
-          swift.classList.remove('is-invalid');
+      // Manejar clic en botón de selección
+      tablaCuentas.addEventListener('click', function (event) {
+        const fila = event.target.closest('tr');
+        if (fila && fila.dataset.id) {
+          const cuentaId = fila.getAttribute('data-id');
+          const cuentaNombre = fila.getAttribute('data-nombre');
+          
+          cuentaPadreInput.value = cuentaNombre;
+          cuentaPadreIdInput.value = cuentaId;
+          cuentaPadreInput.classList.remove('is-invalid');
+          cuentaPadreInput.classList.add('is-valid');
+          
+          // Cerrar el modal
+          const modal = bootstrap.Modal.getInstance(document.getElementById('cuentaPadreModal'));
+          modal.hide();
         }
+      });
+
+      // Filtrar cuentas en el modal
+      searchModalInput.addEventListener('keyup', function() {
+        const filter = this.value.toUpperCase();
+        const rows = tablaCuentas.getElementsByTagName('tr');
+        let visibleRows = 0;
+        
+        for (let i = 1; i < rows.length; i++) {
+          const cells = rows[i].getElementsByTagName('td');
+          const codigo = cells[0].textContent || cells[0].innerText;
+          const nombre = cells[1].textContent || cells[1].innerText;
+          
+          if (codigo.toUpperCase().indexOf(filter) > -1 || nombre.toUpperCase().indexOf(filter) > -1) {
+            rows[i].style.display = '';
+            visibleRows++;
+          } else {
+            rows[i].style.display = 'none';
+          }
+        }
+        
+        const mensaje = document.getElementById('mensajeSinRegistros');
+        mensaje.style.display = visibleRows === 0 ? 'block' : 'none';
+      });
+
+
+    // Paginación para la tabla del modal
+    const paginationContainer = document.querySelector('.pagination-container');
+    const rowsPerPage = 10; // Número de filas por página
+    const maxVisibleButtons = 5; // Máximo de botones visibles en la paginación
+    let currentPage = 1;
+
+    function displayRows() {
+      const rows = tablaCuentas.getElementsByTagName('tr');
+      const start = (currentPage - 1) * rowsPerPage + 1; // Ignorar encabezado
+      const end = start + rowsPerPage;
+      for (let i = 1; i < rows.length; i++) {
+        rows[i].style.display = i >= start && i < end ? '' : 'none';
+      }
+    }
+
+    function setupPagination() {
+      const rows = tablaCuentas.getElementsByTagName('tr');
+      const totalPages = Math.ceil((rows.length - 1) / rowsPerPage); // Ignorar encabezado
+      paginationContainer.innerHTML = '';
+
+      const prevLi = document.createElement('li');
+      prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+      prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Anterior">&laquo;</a>`;
+      prevLi.addEventListener('click', e => {
+        e.preventDefault();
+        if (currentPage > 1) currentPage--;
+        displayRows();
+        setupPagination();
+      });
+      paginationContainer.appendChild(prevLi);
+
+      const startPage = Math.max(1, currentPage - Math.floor(maxVisibleButtons / 2));
+      const endPage = Math.min(totalPages, startPage + maxVisibleButtons - 1);
+
+      for (let i = startPage; i <= endPage; i++) {
+        const li = document.createElement('li');
+        li.className = `page-item ${i === currentPage ? 'active' : ''}`;
+        li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+        li.addEventListener('click', e => {
+          e.preventDefault();
+          currentPage = i;
+          displayRows();
+          setupPagination();
+        });
+        paginationContainer.appendChild(li);
       }
 
-      // If everything OK, allow submit (standard POST)
-    }, false);
-  }
+      const nextLi = document.createElement('li');
+      nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+      nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Siguiente">&raquo;</a>`;
+      nextLi.addEventListener('click', e => {
+        e.preventDefault();
+        if (currentPage < totalPages) currentPage++;
+        displayRows();
+        setupPagination();
+      });
+      paginationContainer.appendChild(nextLi);
+    }
 
-});
-</script>
+      // Validar formulario antes de enviar
+      editBancoForm.addEventListener('submit', function (event) {
+        let valid = true;
+        
+        if (!cuentaPadreIdInput.value) {
+          cuentaPadreInput.classList.add('is-invalid');
+          valid = false;
+        }
+        
+        if (!document.getElementById('codLocalBanco').value) {
+          document.getElementById('codLocalBanco').classList.add('is-invalid');
+          valid = false;
+        }
+        
+        if (!document.getElementById('codSwiftBanco').value) {
+          document.getElementById('codSwiftBanco').classList.add('is-invalid');
+          valid = false;
+        }
+        
+        if (!document.getElementById('nombreBanco').value) {
+          document.getElementById('nombreBanco').classList.add('is-invalid');
+          valid = false;
+        }
+        
+        if (!valid) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      }, false);
+       displayRows();
+    setupPagination();
+
+    editBancoForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+
+      let valid = true;
+      const fields = [
+        { id: 'cuentaPadreId', msg: 'Por favor seleccione una cuenta contable válida.' },
+        { id: 'codLocalBanco', msg: 'Por favor ingrese un código local válido.' },
+        { id: 'codSwiftBanco', msg: 'Por favor ingrese un código SWIFT válido.' },
+        { id: 'nombreBanco', msg: 'Por favor ingrese un nombre válido.' }
+      ];
+
+      fields.forEach(field => {
+        const input = document.getElementById(field.id);
+        if (!input.value.trim()) {
+          input.classList.add('is-invalid');
+          const feedback = input.nextElementSibling;
+          if (feedback) feedback.textContent = field.msg;
+          valid = false;
+        } else {
+          input.classList.remove('is-invalid');
+          input.classList.add('is-valid');
+        }
+      });
+
+      if (!valid) return;
+
+      const formData = new FormData(editBancoForm);
+      const submitBtn = editBancoForm.querySelector('button[type="submit"]');
+      const originalBtnContent = submitBtn.innerHTML;
+      submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Actualizando...';
+      submitBtn.disabled = true;
+
+      fetch(editBancoForm.action, {
+        method: 'POST',
+        body: formData,
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            Swal.fire({
+              icon: 'success',
+              title: 'Éxito',
+              text: 'El banco ha sido actualizado correctamente.',
+              confirmButtonText: 'Aceptar',
+              customClass: { confirmButton: 'btn btn-warning' },
+
+            }).then(() => {
+              window.location.href = "{% url 'banco_list' %}"; // Redirigir a la lista de bancos
+            });
+          } else {
+            const errorMessage = data.errors ? Object.values(data.errors).join(' ') : (data.message || 'Ocurrió un error al actualizar el banco.');
+            Swal.fire({
+              icon: 'error',
+              title: 'Error',
+              text: errorMessage,
+              confirmButtonText: 'Aceptar'
+            });
+          }
+        })
+        .catch(error => {
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Ocurrió un error inesperado.',
+            confirmButtonText: 'Aceptar'
+          });
+        })
+        .finally(() => {
+          submitBtn.innerHTML = originalBtnContent;
+          submitBtn.disabled = false;
+        });
+    });
+    });
+  </script>
 {% endblock javascripts %}
