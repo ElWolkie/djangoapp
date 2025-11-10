@@ -8,12 +8,13 @@ import {
   FlatList,
   TouchableOpacity,
   Alert,
-  Modal,
   TextInput,
   ScrollView,
   Platform,
   KeyboardAvoidingView,
+  useWindowDimensions,
 } from 'react-native';
+import Modal from 'react-native-modal';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { AuthContext } from '../contexts/AuthContext';
 import api from '../api/api';
@@ -104,6 +105,9 @@ const extractCuotasFromInscripcion = (ins: any): CuotaLite[] => {
 const CuotasPorPagarScreen = () => {
   const navigation = useNavigation<any>();
   const { user } = useContext(AuthContext);
+  const { width, height } = useWindowDimensions();
+  const isSmallScreen = width <= 620;
+  const isLargeScreen = width >= 900;
 
   const [loading, setLoading] = useState<boolean>(true);
   const [inscripciones, setInscripciones] = useState<InscripcionLite[]>([]);
@@ -192,9 +196,6 @@ const CuotasPorPagarScreen = () => {
           break; 
         }
       }
-
-      // NOTA: Eliminamos el fallback general que traía todas las inscripciones
-      // para evitar mostrar inscripciones de otros usuarios
 
       let notasResp: any[] = [];
       let pagosResp: any[] = [];
@@ -671,81 +672,81 @@ const CuotasPorPagarScreen = () => {
     const todasPagadas = item.todasLasCuotasPagadas;
 
     return (
-      <View style={styles.card}>
-        <TouchableOpacity onPress={() => idKey && handleToggleAccordion(Number(idKey))} style={styles.cardHeader}>
+      <View style={[styles.card, isSmallScreen && styles.cardSmall]}>
+        <TouchableOpacity onPress={() => idKey && handleToggleAccordion(Number(idKey))} style={[styles.cardHeader, isSmallScreen && styles.cardHeaderSmall]}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.cardTitle}>{tituloForm}</Text>
-            <Text style={styles.cardSubtitle}>{cohName} · Inscripción: {fecha}</Text>
+            <Text style={[styles.cardTitle, isSmallScreen && styles.cardTitleSmall]}>{tituloForm}</Text>
+            <Text style={[styles.cardSubtitle, isSmallScreen && styles.cardSubtitleSmall]}>{cohName} · Inscripción: {fecha}</Text>
             {todasPagadas && (
-              <View style={styles.completamentePagadaBadge}>
-                <Icon name="check-all" size={14} color="#155724" />
-                <Text style={styles.completamentePagadaText}>COMPLETAMENTE PAGADA</Text>
+              <View style={[styles.completamentePagadaBadge, isSmallScreen && styles.completamentePagadaBadgeSmall]}>
+                <Icon name="check-all" size={isSmallScreen ? 12 : 14} color="#155724" />
+                <Text style={[styles.completamentePagadaText, isSmallScreen && styles.completamentePagadaTextSmall]}>COMPLETAMENTE PAGADA</Text>
               </View>
             )}
           </View>
-          <View style={styles.chevContainer}>
-            <Icon name={expandedId === idKey ? 'chevron-up' : 'chevron-down'} size={22} color="#4f8cff" />
+          <View style={[styles.chevContainer, isSmallScreen && styles.chevContainerSmall]}>
+            <Icon name={expandedId === idKey ? 'chevron-up' : 'chevron-down'} size={isSmallScreen ? 18 : 22} color="#4f8cff" />
           </View>
         </TouchableOpacity>
 
         {expandedId === idKey && (
-          <View style={styles.cardBody}>
+          <View style={[styles.cardBody, isSmallScreen && styles.cardBodySmall]}>
             {todasPagadas ? (
-              <View style={styles.completamentePagadaContainer}>
-                <Icon name="check-circle-outline" size={48} color="#28a745" />
-                <Text style={styles.completamentePagadaTitle}>Todas las cuotas pagadas</Text>
-                <Text style={styles.completamentePagadaSubtitle}>
+              <View style={[styles.completamentePagadaContainer, isSmallScreen && styles.completamentePagadaContainerSmall]}>
+                <Icon name="check-circle-outline" size={isSmallScreen ? 36 : 48} color="#28a745" />
+                <Text style={[styles.completamentePagadaTitle, isSmallScreen && styles.completamentePagadaTitleSmall]}>Todas las cuotas pagadas</Text>
+                <Text style={[styles.completamentePagadaSubtitle, isSmallScreen && styles.completamentePagadaSubtitleSmall]}>
                   Esta formación está completamente pagada. No hay cuotas pendientes.
                 </Text>
               </View>
             ) : !item.pago_inscripcion_confirmada ? (
-              <View style={styles.emptyRow}>
-                <Icon name="alert-circle-outline" size={22} color="#856404" />
-                <Text style={styles.emptyText}>
+              <View style={[styles.emptyRow, isSmallScreen && styles.emptyRowSmall]}>
+                <Icon name="alert-circle-outline" size={isSmallScreen ? 18 : 22} color="#856404" />
+                <Text style={[styles.emptyText, isSmallScreen && styles.emptyTextSmall]}>
                   Las cuotas están visibles, pero no se pueden pagar hasta confirmar el pago de la inscripción.
                 </Text>
               </View>
             ) : cuotas.length === 0 ? (
-              <View style={styles.emptyRow}>
-                <Icon name="calendar-remove" size={28} color="#dee2e6" />
-                <Text style={styles.emptyText}>No hay cuotas configuradas para esta inscripción.</Text>
+              <View style={[styles.emptyRow, isSmallScreen && styles.emptyRowSmall]}>
+                <Icon name="calendar-remove" size={isSmallScreen ? 22 : 28} color="#dee2e6" />
+                <Text style={[styles.emptyText, isSmallScreen && styles.emptyTextSmall]}>No hay cuotas configuradas para esta inscripción.</Text>
               </View>
             ) : (
               <>
                 {cuotas.map((c: CuotaLite, index: number) => (
-                  <View key={String(c.id ?? c.idCuota ?? index)} style={styles.cuotaRow}>
+                  <View key={String(c.id ?? c.idCuota ?? index)} style={[styles.cuotaRow, isSmallScreen && styles.cuotaRowSmall]}>
                     <View style={{ flex: 1 }}>
-                      <Text style={[styles.cuotaNombre, c.estadoPago === 'PAGADO' ? styles.cuotaPaidText : {}]}>
+                      <Text style={[styles.cuotaNombre, isSmallScreen && styles.cuotaNombreSmall, c.estadoPago === 'PAGADO' ? styles.cuotaPaidText : {}]}>
                         {c.nombreCuota}
                       </Text>
-                      <Text style={styles.cuotaSub}>{fmtMoney(c.valorCuota)}</Text>
+                      <Text style={[styles.cuotaSub, isSmallScreen && styles.cuotaSubSmall]}>{fmtMoney(c.valorCuota)}</Text>
                     </View>
 
-                    <View style={styles.cuotaActions}>
+                    <View style={[styles.cuotaActions, isSmallScreen && styles.cuotaActionsSmall]}>
                       {String(c.estadoPago ?? '').toUpperCase() === 'PAGADO' ? (
-                        <View style={styles.paidBadge}>
-                          <Icon name="check-circle" size={16} color="#155724" />
-                          <Text style={styles.paidBadgeText}>PAGADA</Text>
+                        <View style={[styles.paidBadge, isSmallScreen && styles.paidBadgeSmall]}>
+                          <Icon name="check-circle" size={isSmallScreen ? 14 : 16} color="#155724" />
+                          <Text style={[styles.paidBadgeText, isSmallScreen && styles.paidBadgeTextSmall]}>PAGADA</Text>
                         </View>
                       ) : (c.pendingPayment || String(c.estadoPago ?? '').toUpperCase() === 'PENDIENTE') ? (
-                        <View style={styles.pendingBadge}>
-                          <Icon name="clock-outline" size={16} color="#856404" />
-                          <Text style={styles.pendingBadgeText}>{c.pagoConfirmado ? 'CONFIRMADO' : 'EN REVISIÓN'}</Text>
+                        <View style={[styles.pendingBadge, isSmallScreen && styles.pendingBadgeSmall]}>
+                          <Icon name="clock-outline" size={isSmallScreen ? 14 : 16} color="#856404" />
+                          <Text style={[styles.pendingBadgeText, isSmallScreen && styles.pendingBadgeTextSmall]}>{c.pagoConfirmado ? 'CONFIRMADO' : 'EN REVISIÓN'}</Text>
                         </View>
                       ) : (
                         <TouchableOpacity
-                          style={[styles.payButton, c.disabled ? styles.payButtonDisabled : {}]}
+                          style={[styles.payButton, isSmallScreen && styles.payButtonSmall, c.disabled ? styles.payButtonDisabled : {}]}
                           disabled={c.disabled}
                           onPress={() => openPagoModal(item, c)}
                         >
-                          <Text style={[styles.payButtonText, c.disabled ? styles.payButtonTextDisabled : {}]}>Pagar</Text>
+                          <Text style={[styles.payButtonText, isSmallScreen && styles.payButtonTextSmall, c.disabled ? styles.payButtonTextDisabled : {}]}>Pagar</Text>
                         </TouchableOpacity>
                       )}
                     </View>
                   </View>
                 ))}
-                <View style={styles.infoRow}>
-                  <Text style={styles.smallNote}>
+                <View style={[styles.infoRow, isSmallScreen && styles.infoRowSmall]}>
+                  <Text style={[styles.smallNote, isSmallScreen && styles.smallNoteSmall]}>
                     Solo puede pagar la primera cuota pendiente ('EN ESPERA'). Las demás se habilitan tras la confirmación.
                   </Text>
                 </View>
@@ -759,18 +760,30 @@ const CuotasPorPagarScreen = () => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Cuotas por pagar</Text>
-        <Text style={styles.subtitle}>Paga tus cuotas en orden — la administración confirmará los pagos</Text>
+      {/* HEADER */}
+      <View style={[styles.header, isSmallScreen && styles.headerSmall]}>
+        <View style={styles.headerTitleContainer}>
+          <Text style={[styles.title, isSmallScreen && styles.titleSmall]}>Cuotas por Pagar</Text>
+          {user?.cedula && (
+            <Text style={[styles.userCedula, isSmallScreen && styles.userCedulaSmall]}>Cédula: {user.cedula}</Text>
+          )}
+        </View>
+      </View>
+
+      {/* SUBTITLE */}
+      <View style={[styles.subtitleContainer, isSmallScreen && styles.subtitleContainerSmall]}>
+        <Text style={[styles.subtitle, isSmallScreen && styles.subtitleSmall]}>
+          Paga tus cuotas en orden — la administración confirmará los pagos
+        </Text>
       </View>
 
       {loading ? (
         <View style={styles.center}><ActivityIndicator size="large" color="#4f8cff" /></View>
       ) : inscripciones.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Icon name="file-check" size={80} color="#e9ecef" />
-          <Text style={styles.emptyTitle}>No tienes cuotas pendientes</Text>
-          <Text style={styles.emptySubtitle}>
+          <Icon name="file-check" size={isSmallScreen ? 60 : 80} color="#e9ecef" />
+          <Text style={[styles.emptyTitle, isSmallScreen && styles.emptyTitleSmall]}>No tienes cuotas pendientes</Text>
+          <Text style={[styles.emptySubtitle, isSmallScreen && styles.emptySubtitleSmall]}>
             {user ? `Todas tus formaciones están completamente pagadas o no tienes inscripciones activas` : 'Inicia sesión para ver tus cuotas'}
           </Text>
         </View>
@@ -779,69 +792,111 @@ const CuotasPorPagarScreen = () => {
           data={inscripciones}
           keyExtractor={(i) => String(i.idInscripcion ?? i.id ?? Math.random())}
           renderItem={renderInscripcionItem}
-          contentContainerStyle={{ padding: 12, paddingBottom: 120 }}
+          contentContainerStyle={[styles.listContent, isSmallScreen && styles.listContentSmall]}
           refreshing={refreshing}
           onRefresh={onRefresh}
         />
       )}
 
-      {/* Modal de Pago */}
-      <Modal visible={modalVisible} animationType="slide" transparent>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Pagar cuota</Text>
-              <TouchableOpacity onPress={closeModal}>
-                <Icon name="close" size={22} color="#6c757d" />
+      {/* MODAL DE PAGO - IDÉNTICO AL DE INSCRIPCIÓN */}
+      <Modal
+        isVisible={modalVisible}
+        onBackdropPress={() => !submitting && closeModal()}
+        style={[styles.modal, styles.formModal, isSmallScreen && styles.modalSmall]}
+        avoidKeyboard
+      >
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[styles.keyboardAvoid, { minHeight: Math.min(height * 0.9, 900) }]}>
+          <View style={[styles.formModalContent, isSmallScreen ? styles.formModalContentSmall : {}, { maxHeight: Math.min(height * 0.95, 1000), width: isLargeScreen ? Math.min(720, width * 0.8) : undefined }]}>
+            <View style={[styles.modalHeader, isSmallScreen && styles.modalHeaderSmall]}>
+              <Text style={[styles.modalTitle, isSmallScreen && styles.modalTitleSmall]}>Pagar Cuota</Text>
+              <TouchableOpacity style={[styles.closeButton, isSmallScreen && styles.closeButtonSmall]} onPress={() => !submitting && closeModal()} disabled={submitting}>
+                <Icon name="close" size={isSmallScreen ? 20 : 22} color="#666" />
               </TouchableOpacity>
             </View>
 
-            <ScrollView contentContainerStyle={{ padding: 12 }}>
-              {modalPayload?.inscripcion && modalPayload?.cuota ? (
-                <>
-                  <View style={styles.infoBlock}>
-                    <Text style={styles.infoLabel}>Formación</Text>
-                    <Text style={styles.infoValue}>
-                      {modalPayload.inscripcion.idFormacion_detail?.nombreFormacion ?? '—'}
+            <ScrollView style={styles.formBody} showsVerticalScrollIndicator keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.formContent, isSmallScreen && styles.formContentSmall, { paddingBottom: 24 }]}>
+              {/* Información de la Cuota */}
+              <View style={styles.formSection}>
+                <View style={styles.sectionHeader}>
+                  <Icon name="cash" size={isSmallScreen ? 18 : 20} color="#4f8cff" />
+                  <Text style={[styles.sectionTitle, isSmallScreen && styles.sectionTitleSmall]}>Información de la Cuota</Text>
+                </View>
+
+                <View style={[styles.fieldContainer, isSmallScreen && styles.fieldContainerSmall]}>
+                  <Text style={[styles.label, isSmallScreen && styles.labelSmall]}>Formación</Text>
+                  <View style={[styles.cedulaFijaContainer, isSmallScreen && styles.cedulaFijaContainerSmall]}>
+                    <Text style={[styles.cedulaFijaText, isSmallScreen && styles.cedulaFijaTextSmall]}>
+                      {modalPayload?.inscripcion?.idFormacion_detail?.nombreFormacion ?? modalPayload?.inscripcion?.idFormacion_detail?.nombre ?? '—'}
                     </Text>
                   </View>
+                </View>
 
-                  <View style={styles.infoBlock}>
-                    <Text style={styles.infoLabel}>Cuota</Text>
-                    <Text style={styles.infoValue}>
-                      {modalPayload.cuota.nombreCuota} — {fmtMoney(modalPayload.cuota.valorCuota)}
+                <View style={[styles.fieldContainer, isSmallScreen && styles.fieldContainerSmall]}>
+                  <Text style={[styles.label, isSmallScreen && styles.labelSmall]}>Cuota</Text>
+                  <View style={[styles.cedulaFijaContainer, isSmallScreen && styles.cedulaFijaContainerSmall]}>
+                    <Text style={[styles.cedulaFijaText, isSmallScreen && styles.cedulaFijaTextSmall]}>
+                      {modalPayload?.cuota?.nombreCuota} — {fmtMoney(modalPayload?.cuota?.valorCuota)}
                     </Text>
                   </View>
+                </View>
+              </View>
 
-                  <View style={styles.field}>
-                    <Text style={styles.fieldLabel}>Número de referencia *</Text>
-                    <TextInput value={referencia} onChangeText={setReferencia} placeholder="Ej: 123456789" style={styles.input} />
+              {/* Información de Pago */}
+              <View style={styles.formSection}>
+                <View style={styles.sectionHeader}>
+                  <Icon name="credit-card" size={isSmallScreen ? 18 : 20} color="#4f8cff" />
+                  <Text style={[styles.sectionTitle, isSmallScreen && styles.sectionTitleSmall]}>Información de Pago</Text>
+                </View>
+
+                <View style={[styles.fieldContainer, isSmallScreen && styles.fieldContainerSmall]}>
+                  <Text style={[styles.label, isSmallScreen && styles.labelSmall]}>Número de Referencia *</Text>
+                  <TextInput 
+                    value={referencia} 
+                    onChangeText={setReferencia} 
+                    placeholder="Ej: 123456789" 
+                    style={[styles.input, isSmallScreen && styles.inputSmall]}
+                    placeholderTextColor="#999"
+                  />
+                  <Text style={[styles.helpText, isSmallScreen && styles.helpTextSmall]}>Ingrese el número de referencia de su transferencia o depósito</Text>
+                </View>
+
+                <View style={[styles.fieldContainer, isSmallScreen && styles.fieldContainerSmall]}>
+                  <Text style={[styles.label, isSmallScreen && styles.labelSmall]}>Fecha de Pago *</Text>
+                  <View style={[styles.fechaContainer, isSmallScreen && styles.fechaContainerSmall]}>
+                    <Text style={[styles.fechaText, isSmallScreen && styles.fechaTextSmall]}>{fechaPago}</Text>
                   </View>
+                  <Text style={[styles.helpText, isSmallScreen && styles.helpTextSmall]}>Fecha automática (solo lectura)</Text>
+                </View>
 
-                  <View style={styles.field}>
-                    <Text style={styles.fieldLabel}>Fecha de Pago *</Text>
-                    <TextInput value={fechaPago} onChangeText={setFechaPago} placeholder="AAAA-MM-DD" style={styles.input} />
-                    <Text style={styles.helper}>Formato: AAAA-MM-DD</Text>
-                  </View>
-
-                  <View style={styles.field}>
-                    <Text style={styles.fieldLabel}>Observaciones (Opcional)</Text>
-                    <TextInput value={observaciones} onChangeText={setObservaciones} placeholder="Ej: Pago cuota 1" style={styles.input} />
-                  </View>
-
-                  <View style={{ height: 12 }} />
-
-                  <TouchableOpacity style={[styles.submit, submitting ? styles.submitDisabled : {}]} disabled={submitting} onPress={handleSolicitarPago}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center' }}>
-                      <Icon name="credit-card-check-outline" size={18} color="#fff" />
-                      <Text style={styles.submitText}>{submitting ? 'Enviando...' : 'Solicitar pago'}</Text>
-                    </View>
-                  </TouchableOpacity>
-                </>
-              ) : (
-                <Text>Datos incompletos</Text>
-              )}
+                <View style={[styles.fieldContainer, isSmallScreen && styles.fieldContainerSmall]}>
+                  <Text style={[styles.label, isSmallScreen && styles.labelSmall]}>Observaciones (Opcional)</Text>
+                  <TextInput 
+                    value={observaciones} 
+                    onChangeText={setObservaciones} 
+                    placeholder="Ej: Pago cuota 1, transferencia bancaria" 
+                    style={[styles.input, isSmallScreen && styles.inputSmall]}
+                    placeholderTextColor="#999"
+                    multiline
+                    numberOfLines={3}
+                    textAlignVertical="top"
+                  />
+                  <Text style={[styles.helpText, isSmallScreen && styles.helpTextSmall]}>Información adicional sobre el pago</Text>
+                </View>
+              </View>
             </ScrollView>
+          
+            <View style={[styles.formFooter, isSmallScreen && styles.formFooterSmall]}>
+              <TouchableOpacity style={[styles.formButton, styles.cancelButton, isSmallScreen && styles.formButtonSmall]} onPress={closeModal} disabled={submitting}>
+                <Text style={[styles.cancelButtonText, isSmallScreen && styles.cancelButtonTextSmall]}>Cancelar</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={[styles.formButton, styles.submitButton, isSmallScreen && styles.submitButton, isSmallScreen && styles.formButtonSmall]} onPress={handleSolicitarPago} disabled={submitting || !referencia.trim()}>
+                {submitting ? <ActivityIndicator color="#fff" size="small" /> : <>
+                  <Icon name="credit-card-check-outline" size={isSmallScreen ? 16 : 18} color="#fff" />
+                  <Text style={[styles.submitButtonText, isSmallScreen && styles.submitButtonTextSmall]}>Solicitar Pago</Text>
+                </>}
+              </TouchableOpacity>
+            </View>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -849,19 +904,142 @@ const CuotasPorPagarScreen = () => {
   );
 };
 
-export default CuotasPorPagarScreen;
-
-/* Estilos actualizados */
+/* ESTILOS ACTUALIZADOS - IDÉNTICOS AL DE INSCRIPCIÓN */
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8f9fa' },
-  header: { padding: 16, borderBottomWidth: 1, borderBottomColor: '#e9ecef', backgroundColor: '#fff' },
-  title: { fontSize: 20, fontWeight: '700', color: '#343a40' },
-  subtitle: { fontSize: 13, color: '#6c757d', marginTop: 6 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 16 },
-  card: { backgroundColor: '#fff', borderRadius: 12, marginBottom: 12, overflow: 'hidden', borderWidth: 1, borderColor: '#eef2f6' },
-  cardHeader: { flexDirection: 'row', padding: 12, alignItems: 'center' },
-  cardTitle: { fontSize: 16, fontWeight: '700', color: '#1a365d' },
-  cardSubtitle: { fontSize: 13, color: '#6c757d', marginTop: 4 },
+  container: { flex: 1, backgroundColor: '#f5f7fa' },
+  
+  // Header
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e1e5e9',
+  },
+  headerSmall: {
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 6,
+  },
+  headerTitleContainer: {
+    flex: 1,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1a365d',
+    marginBottom: 2,
+  },
+  titleSmall: {
+    fontSize: 18,
+  },
+  userCedula: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '500',
+  },
+  userCedulaSmall: {
+    fontSize: 11,
+  },
+
+  // Subtitle
+  subtitleContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e1e5e9',
+  },
+  subtitleContainerSmall: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#666',
+    fontStyle: 'italic',
+  },
+  subtitleSmall: {
+    fontSize: 13,
+  },
+
+  center: { 
+    flex: 1, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    backgroundColor: '#f5f7fa',
+    padding: 20,
+  },
+
+  // List
+  listContent: {
+    padding: 12,
+    paddingTop: 8,
+    paddingBottom: 24,
+  },
+  listContentSmall: {
+    padding: 10,
+    paddingTop: 6,
+  },
+
+  // Cards
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#f1f3f4',
+  },
+  cardSmall: {
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 8,
+  },
+  cardHeader: {
+    marginBottom: 10,
+  },
+  cardHeaderSmall: {
+    marginBottom: 8,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1a365d',
+    flex: 1,
+    marginRight: 8,
+  },
+  cardTitleSmall: {
+    fontSize: 15,
+    marginRight: 0,
+  },
+  cardSubtitle: {
+    fontSize: 13,
+    color: '#6c757d',
+    marginTop: 4,
+  },
+  cardSubtitleSmall: {
+    fontSize: 12,
+  },
+  cardBody: {
+    padding: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f3f4',
+  },
+  cardBodySmall: {
+    padding: 10,
+  },
+
+  // Badges
   completamentePagadaBadge: { 
     flexDirection: 'row', 
     alignItems: 'center', 
@@ -872,14 +1050,25 @@ const styles = StyleSheet.create({
     marginTop: 4,
     alignSelf: 'flex-start'
   },
+  completamentePagadaBadgeSmall: {
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
   completamentePagadaText: { 
     color: '#155724', 
     fontWeight: '700', 
     fontSize: 11, 
     marginLeft: 4 
   },
+  completamentePagadaTextSmall: { 
+    fontSize: 10, 
+    marginLeft: 3 
+  },
   chevContainer: { paddingLeft: 8, paddingRight: 8 },
-  cardBody: { padding: 12, borderTopWidth: 1, borderTopColor: '#f1f3f4' },
+  chevContainerSmall: { paddingLeft: 6, paddingRight: 6 },
+
+  // Estados
   completamentePagadaContainer: {
     alignItems: 'center',
     padding: 20,
@@ -888,11 +1077,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#d4edda'
   },
+  completamentePagadaContainerSmall: {
+    padding: 16,
+    borderRadius: 6,
+  },
   completamentePagadaTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: '#155724',
     marginTop: 8
+  },
+  completamentePagadaTitleSmall: {
+    fontSize: 15,
+    marginTop: 6,
   },
   completamentePagadaSubtitle: {
     fontSize: 14,
@@ -900,38 +1097,422 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 4
   },
-  emptyRow: { alignItems: 'center', padding: 12, flexDirection: 'row', backgroundColor: '#fff8e1', borderRadius: 8 },
-  emptyText: { flex: 1, marginLeft: 10, color: '#856404' },
-  cuotaRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f4f6f8' },
-  cuotaNombre: { fontWeight: '600', color: '#2d3748' },
-  cuotaPaidText: { color: '#6c757d', textDecorationLine: 'line-through' },
-  cuotaSub: { fontSize: 13, color: '#6c757d', marginTop: 4 },
-  cuotaActions: { minWidth: 110, alignItems: 'flex-end' },
-  payButton: { backgroundColor: '#2b6cb0', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 },
-  payButtonText: { color: '#fff', fontWeight: '700' },
-  payButtonDisabled: { backgroundColor: '#cbd5e1' },
-  payButtonTextDisabled: { color: '#7b8794' },
-  paidBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#d4edda', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12 },
-  paidBadgeText: { color: '#155724', fontWeight: '700', marginLeft: 6 },
-  pendingBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#ffeeba', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12 },
-  pendingBadgeText: { color: '#856404', fontWeight: '700', marginLeft: 6 },
-  infoRow: { marginTop: 10 },
-  smallNote: { fontSize: 12, color: '#6c757d', fontStyle: 'italic' },
-  emptyContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: '#495057', marginTop: 12 },
-  emptySubtitle: { fontSize: 14, color: '#6c757d', marginTop: 6, textAlign: 'center' },
-  modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.45)' },
-  modalCard: { width: '92%', maxHeight: '85%', backgroundColor: '#fff', borderRadius: 12, overflow: 'hidden' },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: '#eef2f6' },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: '#1a365d' },
-  infoBlock: { paddingHorizontal: 4, paddingVertical: 8 },
-  infoLabel: { fontSize: 12, color: '#6c757d' },
-  infoValue: { fontSize: 15, color: '#2d3748', fontWeight: '600', marginTop: 4 },
-  field: { paddingHorizontal: 4, paddingVertical: 8 },
-  fieldLabel: { fontSize: 13, color: '#495057', marginBottom: 6, fontWeight: '600' },
-  input: { borderWidth: 1, borderColor: '#e6edf3', borderRadius: 8, paddingHorizontal: 12, paddingVertical: Platform.OS === 'ios' ? 12 : 8, backgroundColor: '#fff' },
-  helper: { fontSize: 12, color: '#6c757d', marginTop: 6 },
-  submit: { backgroundColor: '#2b6cb0', margin: 12, paddingVertical: 12, borderRadius: 10, alignItems: 'center' },
-  submitText: { color: '#fff', fontWeight: '700', marginLeft: 8 },
-  submitDisabled: { backgroundColor: '#6c757d' },
+  completamentePagadaSubtitleSmall: {
+    fontSize: 13,
+    marginTop: 3,
+  },
+  emptyRow: { 
+    alignItems: 'center', 
+    padding: 12, 
+    flexDirection: 'row', 
+    backgroundColor: '#fff8e1', 
+    borderRadius: 8 
+  },
+  emptyRowSmall: {
+    padding: 10,
+    borderRadius: 6,
+  },
+  emptyText: { 
+    flex: 1, 
+    marginLeft: 10, 
+    color: '#856404',
+    fontSize: 14,
+  },
+  emptyTextSmall: {
+    fontSize: 13,
+    marginLeft: 8,
+  },
+
+  // Cuotas
+  cuotaRow: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    paddingVertical: 10, 
+    borderBottomWidth: 1, 
+    borderBottomColor: '#f4f6f8' 
+  },
+  cuotaRowSmall: {
+    paddingVertical: 8,
+  },
+  cuotaNombre: { 
+    fontWeight: '600', 
+    color: '#2d3748',
+    fontSize: 14,
+  },
+  cuotaNombreSmall: {
+    fontSize: 13,
+  },
+  cuotaPaidText: { 
+    color: '#6c757d', 
+    textDecorationLine: 'line-through' 
+  },
+  cuotaSub: { 
+    fontSize: 13, 
+    color: '#6c757d', 
+    marginTop: 4 
+  },
+  cuotaSubSmall: {
+    fontSize: 12,
+    marginTop: 3,
+  },
+  cuotaActions: { 
+    minWidth: 110, 
+    alignItems: 'flex-end' 
+  },
+  cuotaActionsSmall: {
+    minWidth: 100,
+  },
+
+  // Botones de pago
+  payButton: { 
+    backgroundColor: '#2b6cb0', 
+    paddingHorizontal: 14, 
+    paddingVertical: 8, 
+    borderRadius: 8 
+  },
+  payButtonSmall: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  payButtonText: { 
+    color: '#fff', 
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  payButtonTextSmall: {
+    fontSize: 11,
+  },
+  payButtonDisabled: { 
+    backgroundColor: '#cbd5e1' 
+  },
+  payButtonTextDisabled: { 
+    color: '#7b8794' 
+  },
+
+  // Badges de estado
+  paidBadge: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    backgroundColor: '#d4edda', 
+    paddingHorizontal: 10, 
+    paddingVertical: 6, 
+    borderRadius: 12 
+  },
+  paidBadgeSmall: {
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 10,
+  },
+  paidBadgeText: { 
+    color: '#155724', 
+    fontWeight: '700', 
+    marginLeft: 6,
+    fontSize: 11,
+  },
+  paidBadgeTextSmall: {
+    fontSize: 10,
+    marginLeft: 4,
+  },
+  pendingBadge: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    backgroundColor: '#ffeeba', 
+    paddingHorizontal: 10, 
+    paddingVertical: 6, 
+    borderRadius: 12 
+  },
+  pendingBadgeSmall: {
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 10,
+  },
+  pendingBadgeText: { 
+    color: '#856404', 
+    fontWeight: '700', 
+    marginLeft: 6,
+    fontSize: 11,
+  },
+  pendingBadgeTextSmall: {
+    fontSize: 10,
+    marginLeft: 4,
+  },
+
+  // Información adicional
+  infoRow: { 
+    marginTop: 10 
+  },
+  infoRowSmall: {
+    marginTop: 8,
+  },
+  smallNote: { 
+    fontSize: 12, 
+    color: '#6c757d', 
+    fontStyle: 'italic' 
+  },
+  smallNoteSmall: {
+    fontSize: 11,
+  },
+
+  // Empty state
+  emptyContainer: { 
+    flex: 1, 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    padding: 20 
+  },
+  emptyTitle: { 
+    fontSize: 18, 
+    fontWeight: '700', 
+    color: '#495057', 
+    marginTop: 12 
+  },
+  emptyTitleSmall: {
+    fontSize: 16,
+    marginTop: 10,
+  },
+  emptySubtitle: { 
+    fontSize: 14, 
+    color: '#6c757d', 
+    marginTop: 6, 
+    textAlign: 'center' 
+  },
+  emptySubtitleSmall: {
+    fontSize: 13,
+    marginTop: 5,
+  },
+
+  // Modal (copiado de inscripciones)
+  modal: {
+    margin: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalSmall: {
+    paddingHorizontal: 8,
+  },
+  formModal: {
+    margin: 0,
+  },
+  keyboardAvoid: {
+    width: '100%',
+    alignItems: 'center',
+    flex: 1,
+  },
+  formModalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    width: '90%',
+    maxWidth: 500,
+    maxHeight: '90%',
+    overflow: 'hidden',
+  },
+  formModalContentSmall: {
+    width: '95%',
+    maxHeight: '95%',
+    borderRadius: 14,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e1e5e9',
+  },
+  modalHeaderSmall: {
+    padding: 14,
+    paddingBottom: 10,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1a365d',
+    flex: 1,
+  },
+  modalTitleSmall: {
+    fontSize: 16,
+  },
+  closeButton: {
+    padding: 4,
+  },
+  closeButtonSmall: {
+    padding: 2,
+  },
+  formBody: {
+    flex: 1,
+  },
+  formContent: {
+    paddingBottom: 16,
+  },
+  formContentSmall: {
+    paddingBottom: 14,
+  },
+
+  // Form sections
+  formSection: {
+    marginBottom: 8,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+    paddingHorizontal: 16,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#2d3748',
+  },
+  sectionTitleSmall: {
+    fontSize: 15,
+  },
+  fieldContainer: {
+    marginBottom: 14,
+    paddingHorizontal: 16,
+  },
+  fieldContainerSmall: {
+    marginBottom: 12,
+    paddingHorizontal: 14,
+  },
+  label: {
+    fontWeight: '600',
+    color: '#4a5568',
+    marginBottom: 6,
+    fontSize: 14,
+  },
+  labelSmall: {
+    fontSize: 13,
+    marginBottom: 4,
+  },
+
+  // Campos de solo lectura
+  cedulaFijaContainer: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#e1e5e9',
+  },
+  cedulaFijaContainerSmall: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  cedulaFijaText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#4a5568',
+  },
+  cedulaFijaTextSmall: {
+    fontSize: 13,
+  },
+  fechaContainer: {
+    backgroundColor: '#f0fff4',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#9ae6b4',
+  },
+  fechaContainerSmall: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  fechaText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#22543d',
+  },
+  fechaTextSmall: {
+    fontSize: 13,
+  },
+
+  // Inputs editables
+  input: {
+    borderWidth: 1,
+    borderColor: '#e1e5e9',
+    borderRadius: 10,
+    backgroundColor: '#fff',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#333',
+  },
+  inputSmall: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 8,
+    fontSize: 13,
+  },
+
+  // Texto de ayuda
+  helpText: {
+    fontSize: 11,
+    color: '#6c757d',
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
+  helpTextSmall: {
+    fontSize: 10,
+  },
+
+  // Footer del formulario
+  formFooter: {
+    flexDirection: 'row',
+    padding: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#e1e5e9',
+    gap: 10,
+  },
+  formFooterSmall: {
+    padding: 14,
+    paddingTop: 10,
+    gap: 8,
+  },
+  formButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 10,
+    gap: 6,
+  },
+  formButtonSmall: {
+    paddingVertical: 10,
+    borderRadius: 8,
+    gap: 4,
+  },
+  cancelButton: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e1e5e9',
+  },
+  cancelButtonText: {
+    color: '#4a5568',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  cancelButtonTextSmall: {
+    fontSize: 13,
+  },
+  submitButton: {
+    backgroundColor: '#4f8cff',
+  },
+  submitButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  submitButtonTextSmall: {
+    fontSize: 13,
+  },
 });
+
+export default CuotasPorPagarScreen;

@@ -14,10 +14,10 @@ import {
   Animated,
   ActivityIndicator,
   ScrollView,
+  useWindowDimensions,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import type { StackNavigationProp } from '@react-navigation/stack';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { AuthContext } from '../contexts/AuthContext';
 
@@ -49,9 +49,10 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
   const formAnim = useRef(new Animated.Value(0)).current;
   const logoAnim = useRef(new Animated.Value(0)).current;
 
-  const isSmallScreen = screenWidth < 375;
-  const isMediumScreen = screenWidth >= 375 && screenWidth < 768;
-  const isLargeScreen = screenWidth >= 768;
+  const { width, height } = useWindowDimensions();
+  const isSmallScreen = width < 375;
+  const isMediumScreen = width >= 375 && width < 768;
+  const isLargeScreen = width >= 768;
 
   useEffect(() => {
     Animated.parallel([
@@ -84,8 +85,6 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
     try {
       console.log('[login] 🔄 Iniciando proceso de login para cédula:', digits);
       
-      // PRIMERO: Obtener el idPersona del backend
-      console.log('[login] 1. Buscando idPersona...');
       let userInfo = null;
       
       try {
@@ -125,7 +124,6 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         };
       }
 
-      // SEGUNDO: Hacer login con el idPersona obtenido
       console.log('[login] 2. Haciendo login con idPersona...');
       const payload = {
         idPersona: userInfo.idPersona,
@@ -236,69 +234,131 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
     navigation.navigate('RegisterUser' as any, { person: { cedula: cedulaDigits } });
   };
 
-  // Cálculos responsivos
   const getFormWidth = () => {
-    if (isSmallScreen) return screenWidth * 0.92;
-    if (isMediumScreen) return Math.min(500, screenWidth * 0.85);
-    return Math.min(560, screenWidth * 0.8);
+    if (isSmallScreen) return width * 0.92;
+    if (isMediumScreen) return Math.min(500, width * 0.85);
+    if (isLargeScreen) return Math.min(560, width * 0.5);
+    return Math.min(560, width * 0.8);
   };
 
   const getLogoFontSize = () => {
     if (isSmallScreen) return { title: 22, subtitle: 14 };
     if (isMediumScreen) return { title: 24, subtitle: 15 };
+    if (isLargeScreen) return { title: 28, subtitle: 16 };
     return { title: 26, subtitle: 16 };
+  };
+
+  const getFormPadding = () => {
+    if (isSmallScreen) return 20;
+    if (isMediumScreen) return 24;
+    return 28;
   };
 
   const logoSize = getLogoFontSize();
   const formWidth = getFormWidth();
+  const formPadding = getFormPadding();
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <Image style={styles.bgImage} source={require('../../assets/frontImg.jpg')} blurRadius={3} />
+    <KeyboardAvoidingView 
+      style={styles.container} 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <Image 
+        style={styles.bgImage} 
+        source={require('../../assets/frontImg.jpg')} 
+        blurRadius={3} 
+      />
       <View style={styles.overlay} />
       
       <ScrollView 
-        contentContainerStyle={styles.scrollContainer}
+        contentContainerStyle={[
+          styles.scrollContainer,
+          isSmallScreen && styles.scrollContainerSmall,
+          isLargeScreen && styles.scrollContainerLarge
+        ]}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        style={isSmallScreen ? { flex: 1 } : undefined}
       >
         <Animated.View style={[
           styles.logoContainer, 
+          isSmallScreen && styles.logoContainerSmall,
+          isLargeScreen && styles.logoContainerLarge,
           { 
             transform: [
-              { scale: logoAnim.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] }) }, 
-              { translateY: logoAnim.interpolate({ inputRange: [0, 1], outputRange: [-40, 0] }) }
+              { 
+                scale: logoAnim.interpolate({ 
+                  inputRange: [0, 1], 
+                  outputRange: [0.7, 1] 
+                }) 
+              }, 
+              { 
+                translateY: logoAnim.interpolate({ 
+                  inputRange: [0, 1], 
+                  outputRange: isSmallScreen ? [-20, 0] : [-40, 0]
+                }) 
+              }
             ], 
             opacity: logoAnim 
           }
         ]}>
-          <Text style={[styles.logoTitle, { fontSize: logoSize.title }]}>FUNDACIÓN UPTYAB</Text>
-          <Text style={[styles.logoSubtitle, { fontSize: logoSize.subtitle }]}>Trámites académicos</Text>
+          <Text style={[
+            styles.logoTitle, 
+            { fontSize: logoSize.title },
+            isSmallScreen && styles.logoTitleSmall,
+            isLargeScreen && styles.logoTitleLarge
+          ]}>
+            FUNDACIÓN UPTYAB
+          </Text>
+          <Text style={[
+            styles.logoSubtitle, 
+            { fontSize: logoSize.subtitle },
+            isSmallScreen && styles.logoSubtitleSmall,
+            isLargeScreen && styles.logoSubtitleLarge
+          ]}>
+            Trámites académicos
+          </Text>
         </Animated.View>
 
         <Animated.View style={[
           styles.form, 
           { 
-            width: formWidth, 
+            width: formWidth,
+            padding: formPadding,
             opacity: formAnim, 
             transform: [
-              { translateY: formAnim.interpolate({ inputRange: [0,1], outputRange: [80,0] }) }
+              { 
+                translateY: formAnim.interpolate({ 
+                  inputRange: [0, 1], 
+                  outputRange: [80, 0] 
+                }) 
+              }
             ] 
-          }
+          },
+          isSmallScreen && styles.formSmall,
+          isLargeScreen && styles.formLarge
         ]}>
           {/* Campo Cédula */}
           <View style={[
             styles.inputContainer, 
             focusField === 'cedula' && styles.inputContainerFocused, 
-            errors.cedula && styles.inputContainerError
+            errors.cedula && styles.inputContainerError,
+            isSmallScreen && styles.inputContainerSmall,
+            isLargeScreen && styles.inputContainerLarge
           ]}>
             <Icon 
               name="card-account-details" 
-              size={isSmallScreen ? 20 : 24} 
+              size={isSmallScreen ? 18 : isLargeScreen ? 22 : 20} 
               color={focusField === 'cedula' ? '#4f8cff' : errors.cedula ? '#e63946' : '#aaa'} 
               style={styles.inputIcon} 
             />
             <TextInput
-              style={[styles.inputs, { fontSize: isSmallScreen ? 14 : 16 }]}
+              style={[
+                styles.inputs, 
+                { fontSize: isSmallScreen ? 14 : isLargeScreen ? 16 : 15 },
+                isSmallScreen && styles.inputsSmall,
+                isLargeScreen && styles.inputsLarge
+              ]}
               placeholder="Cédula (solo números)"
               keyboardType="numeric"
               placeholderTextColor="#aaa"
@@ -314,22 +374,37 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
               editable={!loading}
             />
           </View>
-          {errors.cedula && <Text style={styles.errorText}>{errors.cedula}</Text>}
+          {errors.cedula && (
+            <Text style={[
+              styles.errorText,
+              isSmallScreen && styles.errorTextSmall,
+              isLargeScreen && styles.errorTextLarge
+            ]}>
+              {errors.cedula}
+            </Text>
+          )}
 
           {/* Campo Contraseña */}
           <View style={[
             styles.inputContainer, 
             focusField === 'password' && styles.inputContainerFocused, 
-            errors.password && styles.inputContainerError
+            errors.password && styles.inputContainerError,
+            isSmallScreen && styles.inputContainerSmall,
+            isLargeScreen && styles.inputContainerLarge
           ]}>
             <Icon 
               name="lock" 
-              size={isSmallScreen ? 20 : 24} 
+              size={isSmallScreen ? 18 : isLargeScreen ? 22 : 20} 
               color={focusField === 'password' ? '#4f8cff' : errors.password ? '#e63946' : '#aaa'} 
               style={styles.inputIcon} 
             />
             <TextInput
-              style={[styles.inputs, { fontSize: isSmallScreen ? 14 : 16 }]}
+              style={[
+                styles.inputs, 
+                { fontSize: isSmallScreen ? 14 : isLargeScreen ? 16 : 15 },
+                isSmallScreen && styles.inputsSmall,
+                isLargeScreen && styles.inputsLarge
+              ]}
               placeholder="Contraseña"
               secureTextEntry
               placeholderTextColor="#aaa"
@@ -342,17 +417,35 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
               onBlur={() => setFocusField(null)}
               returnKeyType="done"
               editable={!loading}
+              onSubmitEditing={handleLogin}
             />
           </View>
-          {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
+          {errors.password && (
+            <Text style={[
+              styles.errorText,
+              isSmallScreen && styles.errorTextSmall,
+              isLargeScreen && styles.errorTextLarge
+            ]}>
+              {errors.password}
+            </Text>
+          )}
 
           {/* Olvidó contraseña */}
           <TouchableOpacity 
-            style={styles.btnForgotPassword} 
+            style={[
+              styles.btnForgotPassword,
+              isSmallScreen && styles.btnForgotPasswordSmall,
+              isLargeScreen && styles.btnForgotPasswordLarge
+            ]} 
             onPress={() => Alert.alert('Recuperar contraseña', 'Funcionalidad próximamente disponible')} 
             disabled={loading}
           >
-            <Text style={[styles.btnForgotText, { fontSize: isSmallScreen ? 12 : 14 }]}>
+            <Text style={[
+              styles.btnForgotText, 
+              { fontSize: isSmallScreen ? 12 : isLargeScreen ? 14 : 13 },
+              isSmallScreen && styles.btnForgotTextSmall,
+              isLargeScreen && styles.btnForgotTextLarge
+            ]}>
               ¿Olvidó su contraseña?
             </Text>
           </TouchableOpacity>
@@ -363,8 +456,10 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
               style={[
                 styles.buttonContainer, 
                 styles.loginButton, 
-                loading && { opacity: 0.8 },
-                { height: isSmallScreen ? 44 : 48 }
+                loading && styles.loginButtonDisabled,
+                { height: isSmallScreen ? 44 : isLargeScreen ? 52 : 48 },
+                isSmallScreen && styles.loginButtonSmall,
+                isLargeScreen && styles.loginButtonLarge
               ]} 
               onPress={handleLogin} 
               activeOpacity={0.85} 
@@ -373,26 +468,39 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
               {loading ? (
                 <>
                   <ActivityIndicator color="#fff" size="small" style={{ marginRight: 8 }} />
-                  <Text style={[styles.loginText, { fontSize: isSmallScreen ? 15 : 17 }]}>
+                  <Text style={[
+                    styles.loginText, 
+                    { fontSize: isSmallScreen ? 15 : isLargeScreen ? 17 : 16 },
+                    isSmallScreen && styles.loginTextSmall,
+                    isLargeScreen && styles.loginTextLarge
+                  ]}>
                     Entrando...
                   </Text>
                 </>
               ) : (
-                <Text style={[styles.loginText, { fontSize: isSmallScreen ? 15 : 17 }]}>
+                <Text style={[
+                  styles.loginText, 
+                  { fontSize: isSmallScreen ? 15 : isLargeScreen ? 17 : 16 },
+                  isSmallScreen && styles.loginTextSmall,
+                  isLargeScreen && styles.loginTextLarge
+                ]}>
                   Entrar
                 </Text>
               )}
             </TouchableOpacity>
           </Animated.View>
 
-          {/* Sección de Registro - MEJORADO Y RESPONSIVE */}
+          {/* Sección de Registro */}
           <View style={[
             styles.registerSection,
-            isSmallScreen && styles.registerSectionSmall
+            isSmallScreen && styles.registerSectionSmall,
+            isLargeScreen && styles.registerSectionLarge
           ]}>
             <Text style={[
               styles.registerHint,
-              { fontSize: isSmallScreen ? 13 : 14 }
+              { fontSize: isSmallScreen ? 13 : isLargeScreen ? 15 : 14 },
+              isSmallScreen && styles.registerHintSmall,
+              isLargeScreen && styles.registerHintLarge
             ]}>
               ¿No estás registrado?
             </Text>
@@ -400,29 +508,33 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
             <View style={[
               styles.registerButtonsGroup,
               isSmallScreen && styles.registerButtonsGroupSmall,
-              isMediumScreen && styles.registerButtonsGroupMedium
+              isMediumScreen && styles.registerButtonsGroupMedium,
+              isLargeScreen && styles.registerButtonsGroupLarge
             ]}>
               <TouchableOpacity 
                 style={[
                   styles.registerButton,
                   isSmallScreen && styles.registerButtonSmall,
-                  isMediumScreen && styles.registerButtonMedium
+                  isMediumScreen && styles.registerButtonMedium,
+                  isLargeScreen && styles.registerButtonLarge
                 ]} 
                 onPress={openRegister} 
                 activeOpacity={0.85}
+                disabled={loading}
               >
                 <Icon 
                   name="account-plus" 
-                  size={isSmallScreen ? 16 : 18} 
+                  size={isSmallScreen ? 16 : isLargeScreen ? 20 : 18} 
                   color="#fff" 
                   style={{ marginRight: 6 }} 
                 />
                 <Text style={[
                   styles.registerText,
                   isSmallScreen && styles.registerTextSmall,
-                  isMediumScreen && styles.registerTextMedium
+                  isMediumScreen && styles.registerTextMedium,
+                  isLargeScreen && styles.registerTextLarge
                 ]}>
-                   Registrarse
+                  Registrarse
                 </Text>
               </TouchableOpacity>
 
@@ -430,23 +542,26 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
                 style={[
                   styles.registerUserButton,
                   isSmallScreen && styles.registerUserButtonSmall,
-                  isMediumScreen && styles.registerUserButtonMedium
+                  isMediumScreen && styles.registerUserButtonMedium,
+                  isLargeScreen && styles.registerUserButtonLarge
                 ]} 
                 onPress={openRegisterUser} 
                 activeOpacity={0.85}
+                disabled={loading}
               >
                 <Icon 
                   name="account-key" 
-                  size={isSmallScreen ? 14 : 16} 
+                  size={isSmallScreen ? 14 : isLargeScreen ? 18 : 16} 
                   color="#fff" 
                   style={{ marginRight: 6 }} 
                 />
                 <Text style={[
                   styles.registerUserText,
                   isSmallScreen && styles.registerUserTextSmall,
-                  isMediumScreen && styles.registerUserTextMedium
+                  isMediumScreen && styles.registerUserTextMedium,
+                  isLargeScreen && styles.registerUserTextLarge
                 ]}>
-                   Registrar usuario
+                  Registrar usuario
                 </Text>
               </TouchableOpacity>
             </View>
@@ -467,6 +582,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 20,
+    minHeight: '100%',
+  },
+  scrollContainerSmall: {
+    paddingVertical: 16,
+    justifyContent: 'center',
+    paddingTop: 0,
+    minHeight: Math.max(screenHeight, 600),
+  },
+  scrollContainerLarge: {
+    paddingVertical: 40,
+    justifyContent: 'center',
   },
   bgImage: { 
     position: 'absolute', 
@@ -485,6 +611,15 @@ const styles = StyleSheet.create({
     marginBottom: 30,
     paddingHorizontal: 20,
   },
+  logoContainerSmall: {
+    marginBottom: 25,
+    paddingHorizontal: 16,
+    marginTop: 10,
+  },
+  logoContainerLarge: {
+    marginBottom: 40,
+    paddingHorizontal: 24,
+  },
   logoTitle: { 
     color: '#fff', 
     fontWeight: 'bold', 
@@ -493,6 +628,14 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(0,0,0,0.3)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 3,
+  },
+  logoTitleSmall: {
+    letterSpacing: 0.5,
+    textShadowRadius: 2,
+  },
+  logoTitleLarge: {
+    letterSpacing: 1.5,
+    textShadowRadius: 4,
   },
   logoSubtitle: { 
     color: '#fff', 
@@ -503,16 +646,33 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2,
   },
+  logoSubtitleSmall: {
+    marginTop: 2,
+    textShadowRadius: 1,
+  },
+  logoSubtitleLarge: {
+    marginTop: 6,
+    textShadowRadius: 3,
+  },
   form: { 
     backgroundColor: 'rgba(255,255,255,0.96)', 
     borderRadius: 22, 
-    padding: 26, 
     alignItems: 'center', 
     elevation: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
+  },
+  formSmall: {
+    borderRadius: 18,
+    elevation: 8,
+    shadowRadius: 6,
+  },
+  formLarge: {
+    borderRadius: 24,
+    elevation: 12,
+    shadowRadius: 12,
   },
   inputContainer: { 
     flexDirection: 'row', 
@@ -526,6 +686,18 @@ const styles = StyleSheet.create({
     borderWidth: 1.2, 
     borderColor: 'transparent' 
   },
+  inputContainerSmall: {
+    height: 44,
+    borderRadius: 22,
+    marginBottom: 8,
+    paddingHorizontal: 10,
+  },
+  inputContainerLarge: {
+    height: 54,
+    borderRadius: 27,
+    marginBottom: 12,
+    paddingHorizontal: 16,
+  },
   inputContainerFocused: { 
     borderColor: '#4f8cff' 
   },
@@ -538,6 +710,14 @@ const styles = StyleSheet.create({
     marginLeft: 10, 
     color: '#22223b',
   },
+  inputsSmall: {
+    height: 40,
+    marginLeft: 8,
+  },
+  inputsLarge: {
+    height: 50,
+    marginLeft: 12,
+  },
   inputIcon: { 
     marginLeft: 2, 
     marginRight: 2 
@@ -549,13 +729,33 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start', 
     marginLeft: 12 
   },
+  errorTextSmall: {
+    fontSize: 11,
+    marginLeft: 10,
+  },
+  errorTextLarge: {
+    fontSize: 13,
+    marginLeft: 14,
+  },
   btnForgotPassword: { 
     alignSelf: 'flex-end', 
     marginBottom: 10 
   },
+  btnForgotPasswordSmall: {
+    marginBottom: 8,
+  },
+  btnForgotPasswordLarge: {
+    marginBottom: 12,
+  },
   btnForgotText: { 
     color: '#4f8cff', 
     fontWeight: 'bold' 
+  },
+  btnForgotTextSmall: {
+    fontWeight: '600',
+  },
+  btnForgotTextLarge: {
+    fontWeight: '700',
   },
   buttonContainer: { 
     flexDirection: 'row', 
@@ -569,12 +769,25 @@ const styles = StyleSheet.create({
   loginButton: { 
     backgroundColor: '#4f8cff' 
   },
+  loginButtonDisabled: {
+    opacity: 0.7,
+  },
+  loginButtonSmall: {
+    borderRadius: 22,
+  },
+  loginButtonLarge: {
+    borderRadius: 27,
+  },
   loginText: { 
     color: 'white', 
     fontWeight: 'bold' 
   },
-  
-  // Sección de registro - Estilos base
+  loginTextSmall: {
+    fontWeight: '600',
+  },
+  loginTextLarge: {
+    fontWeight: '700',
+  },
   registerSection: {
     width: '100%',
     marginTop: 12,
@@ -583,13 +796,20 @@ const styles = StyleSheet.create({
   registerSectionSmall: {
     marginTop: 8,
   },
+  registerSectionLarge: {
+    marginTop: 16,
+  },
   registerHint: {
     color: '#555',
     marginBottom: 12,
     textAlign: 'center',
   },
-  
-  // Grupo de botones de registro
+  registerHintSmall: {
+    marginBottom: 10,
+  },
+  registerHintLarge: {
+    marginBottom: 14,
+  },
   registerButtonsGroup: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -605,8 +825,9 @@ const styles = StyleSheet.create({
   registerButtonsGroupMedium: {
     gap: 6,
   },
-  
-  // Botón Registrarse
+  registerButtonsGroupLarge: {
+    gap: 10,
+  },
   registerButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -628,6 +849,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     minWidth: 110,
   },
+  registerButtonLarge: {
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    minWidth: 140,
+    borderRadius: 26,
+  },
   registerText: {
     color: '#fff',
     fontWeight: '700',
@@ -638,12 +865,13 @@ const styles = StyleSheet.create({
   registerTextMedium: {
     fontSize: 13,
   },
-  
-  // Botón Registrar Usuario
+  registerTextLarge: {
+    fontSize: 15,
+  },
   registerUserButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#2b8cff', // Mismo color que Registrarse
+    backgroundColor: '#2b8cff',
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 24,
@@ -661,6 +889,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     minWidth: 130,
   },
+  registerUserButtonLarge: {
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    minWidth: 160,
+    borderRadius: 26,
+  },
   registerUserText: {
     color: '#fff',
     fontWeight: '700',
@@ -670,5 +904,8 @@ const styles = StyleSheet.create({
   },
   registerUserTextMedium: {
     fontSize: 13,
+  },
+  registerUserTextLarge: {
+    fontSize: 15,
   },
 });

@@ -1,4 +1,4 @@
-// src/screens/RegisterUserScreen.tsx - VERSIÓN COMPLETAMENTE RESPONSIVE
+// src/screens/RegisterUserScreen.tsx - VERSIÓN COMPLETA CON MODALES PARA SELECTS
 import React, { useEffect, useState, useLayoutEffect } from 'react';
 import {
   View,
@@ -13,11 +13,12 @@ import {
   ScrollView,
   Dimensions,
   Image,
+  useWindowDimensions,
+  Modal as RNModal, // 👈 NUEVO: Importar Modal
 } from 'react-native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp, useRoute } from '@react-navigation/native';
 import api from '../api/api';
-import { Picker } from '@react-native-picker/picker';
 
 type RootStackParamList = {
   Login: undefined;
@@ -52,25 +53,16 @@ type FormState = {
   nombres?: string;
 };
 
-const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
-const isSmallScreen = screenWidth < 375;
-const isMediumScreen = screenWidth >= 375 && screenWidth < 768;
-const isLargeScreen = screenWidth >= 768;
-
-function normalizeIncomingCedula(raw?: string): { tipo: 'V' | 'E' | 'P'; numero: string } {
-  if (!raw) return { tipo: 'V', numero: '' };
-  const s = String(raw).toUpperCase().replace(/\s+/g, '');
-  if (s.includes('-')) {
-    const [t, n] = s.split('-', 2);
-    return { tipo: (t === 'E' || t === 'P') ? t as 'E'|'P' : 'V', numero: n.replace(/\D+/g, '') };
-  }
-  if (s.length && isNaN(Number(s[0]))) {
-    return { tipo: (s[0] === 'E' || s[0] === 'P') ? s[0] as 'E'|'P' : 'V', numero: s.slice(1).replace(/\D+/g, '') };
-  }
-  return { tipo: 'V', numero: s.replace(/\D+/g, '') };
-}
-
 export default function RegisterUserScreen({ navigation }: Props) {
+  const { width, height } = useWindowDimensions();
+  const isSmallScreen = width < 375;
+  const isMediumScreen = width >= 375 && width < 768;
+  const isLargeScreen = width >= 768;
+
+  // 👇 NUEVOS ESTADOS PARA MODALES
+  const [showTipoCedulaModal, setShowTipoCedulaModal] = useState(false);
+  const [showPreguntaModal, setShowPreguntaModal] = useState(false);
+
   useLayoutEffect(() => {
     navigation.setOptions?.({ headerShown: false });
   }, [navigation]);
@@ -205,61 +197,45 @@ export default function RegisterUserScreen({ navigation }: Props) {
     setErrors({});
   };
 
-  // Cálculos responsivos
   const getCardWidth = () => {
     if (isSmallScreen) return '95%';
     if (isMediumScreen) return '90%';
-    return Math.min(920, screenWidth * 0.85);
+    if (isLargeScreen) return Math.min(920, width * 0.85);
+    return '90%';
   };
 
   const cardWidth = getCardWidth();
 
-  return (
-    <KeyboardAvoidingView style={styles.wrapper} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <Image style={styles.bgImage} source={require('../../assets/frontImg.jpg')} blurRadius={4} />
-      <View style={styles.overlay} />
-
-      <ScrollView 
-        contentContainerStyle={styles.container}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={[styles.card, { width: cardWidth }]}>
-          <Text style={[styles.title, isSmallScreen && styles.titleSmall]}>Crear Cuenta de Usuario</Text>
-
-          {form.nombres ? (
-            <Text style={[styles.subtitle, isSmallScreen && styles.subtitleSmall]}>
-              Estás creando una cuenta para: <Text style={styles.highlightedName}>{form.nombres}</Text>
-            </Text>
-          ) : (
-            <Text style={[styles.subtitle, isSmallScreen && styles.subtitleSmall]}>
-              Complete los campos para crear la cuenta de usuario.
-            </Text>
-          )}
-
-          <View style={[styles.formContent, isSmallScreen && styles.formContentSmall]}>
-            {/* Sección Información de Cédula */}
+  const renderFormContent = () => {
+    if (isLargeScreen) {
+      return (
+        <View style={styles.twoColumnsLayout}>
+          {/* Columna Izquierda */}
+          <View style={styles.column}>
             <View style={styles.formSection}>
               <Text style={[styles.sectionTitle, isSmallScreen && styles.sectionTitleSmall]}>
                 Información de Identificación
               </Text>
               
+              {/* 👇 SELECTOR DE TIPO CÉDULA CON MODAL */}
               <View style={styles.fieldContainer}>
                 <Text style={[styles.label, isSmallScreen && styles.labelSmall]}>Tipo de cédula *</Text>
-                <View style={[styles.pickerWrapInline, isSmallScreen && styles.pickerWrapInlineSmall]}>
-                  <Picker
-                    selectedValue={form.tipo_cedula}
-                    onValueChange={(itemValue) => changeField('tipo_cedula', itemValue as 'V'|'E'|'P')}
-                    mode="dropdown"
-                    enabled={!loading}
-                    dropdownIconColor="#4f8cff"
-                    style={[styles.pickerInner, isSmallScreen && styles.pickerInnerSmall]}
-                    itemStyle={isSmallScreen ? styles.pickerItemSmall : styles.pickerItem}
-                  >
-                    <Picker.Item label="Venezolano (V)" value="V" />
-                    <Picker.Item label="Extranjero (E)" value="E" />
-                    <Picker.Item label="Pasaporte (P)" value="P" />
-                  </Picker>
-                </View>
+                <TouchableOpacity 
+                  style={[styles.customSelectButton, isSmallScreen && styles.customSelectButtonSmall]}
+                  onPress={() => setShowTipoCedulaModal(true)}
+                  disabled={loading}
+                >
+                  <Text style={[
+                    styles.customSelectText, 
+                    isSmallScreen && styles.customSelectTextSmall,
+                    !form.tipo_cedula && styles.customSelectPlaceholder
+                  ]}>
+                    {form.tipo_cedula === 'V' ? 'Venezolano (V)' : 
+                     form.tipo_cedula === 'E' ? 'Extranjero (E)' : 
+                     form.tipo_cedula === 'P' ? 'Pasaporte (P)' : 'Seleccione tipo de cédula'}
+                  </Text>
+                  <Text style={[styles.customSelectArrow, isSmallScreen && styles.customSelectArrowSmall]}>▼</Text>
+                </TouchableOpacity>
               </View>
 
               <View style={styles.fieldContainer}>
@@ -294,8 +270,10 @@ export default function RegisterUserScreen({ navigation }: Props) {
                 </Text>
               </View>
             </View>
+          </View>
 
-            {/* Sección Contraseña */}
+          {/* Columna Derecha */}
+          <View style={styles.column}>
             <View style={styles.formSection}>
               <Text style={[styles.sectionTitle, isSmallScreen && styles.sectionTitleSmall]}>
                 Contraseña de Seguridad
@@ -341,30 +319,33 @@ export default function RegisterUserScreen({ navigation }: Props) {
               </View>
             </View>
 
-            {/* Sección Pregunta de Seguridad */}
             <View style={styles.formSection}>
               <Text style={[styles.sectionTitle, isSmallScreen && styles.sectionTitleSmall]}>
                 Pregunta de Seguridad
               </Text>
 
+              {/* 👇 SELECTOR DE PREGUNTA CON MODAL */}
               <View style={styles.fieldContainer}>
                 <Text style={[styles.label, isSmallScreen && styles.labelSmall]}>Pregunta de Seguridad *</Text>
-                <View style={[styles.pickerWrapInline, isSmallScreen && styles.pickerWrapInlineSmall]}>
-                  <Picker
-                    selectedValue={form.preguntaSeguridad}
-                    onValueChange={(itemValue) => changeField('preguntaSeguridad', itemValue)}
-                    mode="dropdown"
-                    enabled={!loading}
-                    dropdownIconColor="#4f8cff"
-                    style={[styles.pickerInner, isSmallScreen && styles.pickerInnerSmall]}
-                    itemStyle={isSmallScreen ? styles.pickerItemSmall : styles.pickerItem}
+                <TouchableOpacity 
+                  style={[styles.customSelectButton, isSmallScreen && styles.customSelectButtonSmall]}
+                  onPress={() => setShowPreguntaModal(true)}
+                  disabled={loading}
+                >
+                  <Text 
+                    style={[
+                      styles.customSelectText, 
+                      isSmallScreen && styles.customSelectTextSmall,
+                      !form.preguntaSeguridad && styles.customSelectPlaceholder,
+                      { flex: 1 }
+                    ]}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
                   >
-                    <Picker.Item label="-- Seleccione una pregunta --" value="" />
-                    {PREGUNTAS_SEGURIDAD.map(q => (
-                      <Picker.Item key={q} label={q} value={q} />
-                    ))}
-                  </Picker>
-                </View>
+                    {form.preguntaSeguridad || 'Seleccione una pregunta de seguridad'}
+                  </Text>
+                  <Text style={[styles.customSelectArrow, isSmallScreen && styles.customSelectArrowSmall]}>▼</Text>
+                </TouchableOpacity>
                 {errors.preguntaSeguridad && (
                   <Text style={[styles.errorSmall, isSmallScreen && styles.errorSmallText]}>
                     {errors.preguntaSeguridad}
@@ -393,10 +374,207 @@ export default function RegisterUserScreen({ navigation }: Props) {
               </View>
             </View>
           </View>
+        </View>
+      );
+    } else {
+      return (
+        <View style={[styles.formContent, isSmallScreen && styles.formContentSmall]}>
+          <View style={styles.formSection}>
+            <Text style={[styles.sectionTitle, isSmallScreen && styles.sectionTitleSmall]}>
+              Información de Identificación
+            </Text>
+            
+            {/* 👇 SELECTOR DE TIPO CÉDULA CON MODAL */}
+            <View style={styles.fieldContainer}>
+              <Text style={[styles.label, isSmallScreen && styles.labelSmall]}>Tipo de cédula *</Text>
+              <TouchableOpacity 
+                style={[styles.customSelectButton, isSmallScreen && styles.customSelectButtonSmall]}
+                onPress={() => setShowTipoCedulaModal(true)}
+                disabled={loading}
+              >
+                <Text style={[
+                  styles.customSelectText, 
+                  isSmallScreen && styles.customSelectTextSmall,
+                  !form.tipo_cedula && styles.customSelectPlaceholder
+                ]}>
+                  {form.tipo_cedula === 'V' ? 'Venezolano (V)' : 
+                   form.tipo_cedula === 'E' ? 'Extranjero (E)' : 
+                   form.tipo_cedula === 'P' ? 'Pasaporte (P)' : 'Seleccione tipo de cédula'}
+                </Text>
+                <Text style={[styles.customSelectArrow, isSmallScreen && styles.customSelectArrowSmall]}>▼</Text>
+              </TouchableOpacity>
+            </View>
 
-          <View style={[styles.buttonsRow, isSmallScreen && styles.buttonsRowSmall]}>
+            <View style={styles.fieldContainer}>
+              <Text style={[styles.label, isSmallScreen && styles.labelSmall]}>Número de cédula *</Text>
+              <TextInput
+                style={[styles.input, isSmallScreen && styles.inputSmall]}
+                placeholder="Ej: 12345678"
+                placeholderTextColor="#9aa"
+                value={form.numero_cedula}
+                onChangeText={(v) => changeField('numero_cedula', v.replace(/\D+/g, ''))}
+                editable={!loading}
+                keyboardType="numeric"
+                returnKeyType="next"
+                maxLength={20}
+              />
+              {errors.cedula && (
+                <Text style={[styles.errorSmall, isSmallScreen && styles.errorSmallText]}>
+                  {errors.cedula}
+                </Text>
+              )}
+            </View>
+
+            <View style={styles.fieldContainer}>
+              <Text style={[styles.label, isSmallScreen && styles.labelSmall]}>Cédula completa</Text>
+              <View style={[styles.cedulaCompletaContainer, isSmallScreen && styles.cedulaCompletaContainerSmall]}>
+                <Text style={[styles.cedulaCompleta, isSmallScreen && styles.cedulaCompletaSmall]}>
+                  {buildCedulaFormatted()}
+                </Text>
+              </View>
+              <Text style={[styles.helpText, isSmallScreen && styles.helpTextSmall]}>
+                Esta será su nombre de usuario para iniciar sesión
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.formSection}>
+            <Text style={[styles.sectionTitle, isSmallScreen && styles.sectionTitleSmall]}>
+              Contraseña de Seguridad
+            </Text>
+
+            <View style={styles.fieldContainer}>
+              <Text style={[styles.label, isSmallScreen && styles.labelSmall]}>Contraseña *</Text>
+              <TextInput
+                style={[styles.input, isSmallScreen && styles.inputSmall]}
+                placeholder="Mínimo 8 caracteres"
+                placeholderTextColor="#9aa"
+                value={form.password}
+                onChangeText={(v) => changeField('password', v)}
+                secureTextEntry
+                editable={!loading}
+              />
+              {errors.password && (
+                <Text style={[styles.errorSmall, isSmallScreen && styles.errorSmallText]}>
+                  {errors.password}
+                </Text>
+              )}
+              <Text style={[styles.helpText, isSmallScreen && styles.helpTextSmall]}>
+                La contraseña debe tener al menos 8 caracteres
+              </Text>
+            </View>
+
+            <View style={styles.fieldContainer}>
+              <Text style={[styles.label, isSmallScreen && styles.labelSmall]}>Confirmar Contraseña *</Text>
+              <TextInput
+                style={[styles.input, isSmallScreen && styles.inputSmall]}
+                placeholder="Repita la contraseña"
+                placeholderTextColor="#9aa"
+                value={form.confirmPassword}
+                onChangeText={(v) => changeField('confirmPassword', v)}
+                secureTextEntry
+                editable={!loading}
+              />
+              {errors.confirmPassword && (
+                <Text style={[styles.errorSmall, isSmallScreen && styles.errorSmallText]}>
+                  {errors.confirmPassword}
+                </Text>
+              )}
+            </View>
+          </View>
+
+          <View style={styles.formSection}>
+            <Text style={[styles.sectionTitle, isSmallScreen && styles.sectionTitleSmall]}>
+              Pregunta de Seguridad
+            </Text>
+
+            {/* 👇 SELECTOR DE PREGUNTA CON MODAL */}
+            <View style={styles.fieldContainer}>
+              <Text style={[styles.label, isSmallScreen && styles.labelSmall]}>Pregunta de Seguridad *</Text>
+              <TouchableOpacity 
+                style={[styles.customSelectButton, isSmallScreen && styles.customSelectButtonSmall]}
+                onPress={() => setShowPreguntaModal(true)}
+                disabled={loading}
+              >
+                <Text 
+                  style={[
+                    styles.customSelectText, 
+                    isSmallScreen && styles.customSelectTextSmall,
+                    !form.preguntaSeguridad && styles.customSelectPlaceholder,
+                    { flex: 1 }
+                  ]}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {form.preguntaSeguridad || 'Seleccione una pregunta de seguridad'}
+                </Text>
+                <Text style={[styles.customSelectArrow, isSmallScreen && styles.customSelectArrowSmall]}>▼</Text>
+              </TouchableOpacity>
+              {errors.preguntaSeguridad && (
+                <Text style={[styles.errorSmall, isSmallScreen && styles.errorSmallText]}>
+                  {errors.preguntaSeguridad}
+                </Text>
+              )}
+            </View>
+
+            <View style={styles.fieldContainer}>
+              <Text style={[styles.label, isSmallScreen && styles.labelSmall]}>Respuesta de Seguridad *</Text>
+              <TextInput
+                style={[styles.input, isSmallScreen && styles.inputSmall]}
+                placeholder="Su respuesta secreta"
+                placeholderTextColor="#9aa"
+                value={form.respuestaSeguridad}
+                onChangeText={(v) => changeField('respuestaSeguridad', v)}
+                editable={!loading}
+              />
+              {errors.respuestaSeguridad && (
+                <Text style={[styles.errorSmall, isSmallScreen && styles.errorSmallText]}>
+                  {errors.respuestaSeguridad}
+                </Text>
+              )}
+              <Text style={[styles.helpText, isSmallScreen && styles.helpTextSmall]}>
+                Esta respuesta le ayudará a recuperar su cuenta si olvida la contraseña
+              </Text>
+            </View>
+          </View>
+        </View>
+      );
+    }
+  };
+
+  return (
+    <KeyboardAvoidingView style={styles.wrapper} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <Image style={styles.bgImage} source={require('../../assets/frontImg.jpg')} blurRadius={4} />
+      <View style={styles.overlay} />
+
+      <ScrollView 
+        contentContainerStyle={[
+          styles.container,
+          isSmallScreen && styles.containerSmall,
+          isLargeScreen && styles.containerLarge
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={[styles.card, { width: cardWidth }, isLargeScreen && styles.cardLarge]}>
+          <Text style={[styles.title, isSmallScreen && styles.titleSmall, isLargeScreen && styles.titleLarge]}>
+            Crear Cuenta de Usuario
+          </Text>
+
+          {form.nombres ? (
+            <Text style={[styles.subtitle, isSmallScreen && styles.subtitleSmall, isLargeScreen && styles.subtitleLarge]}>
+              Estás creando una cuenta para: <Text style={styles.highlightedName}>{form.nombres}</Text>
+            </Text>
+          ) : (
+            <Text style={[styles.subtitle, isSmallScreen && styles.subtitleSmall, isLargeScreen && styles.subtitleLarge]}>
+              Complete los campos para crear la cuenta de usuario.
+            </Text>
+          )}
+
+          {renderFormContent()}
+
+          <View style={[styles.buttonsRow, isSmallScreen && styles.buttonsRowSmall, isLargeScreen && styles.buttonsRowLarge]}>
             <TouchableOpacity
-              style={[styles.btn, styles.btnPrimary, loading && styles.btnDisabled, isSmallScreen && styles.btnSmall]}
+              style={[styles.btn, styles.btnPrimary, loading && styles.btnDisabled, isSmallScreen && styles.btnSmall, isLargeScreen && styles.btnLarge]}
               onPress={handleRegisterUser}
               disabled={loading}
               activeOpacity={0.85}
@@ -404,37 +582,148 @@ export default function RegisterUserScreen({ navigation }: Props) {
               {loading ? (
                 <ActivityIndicator color="#fff" size={isSmallScreen ? 'small' : 'large'} />
               ) : (
-                <Text style={[styles.btnText, isSmallScreen && styles.btnTextSmall]}>
+                <Text style={[styles.btnText, isSmallScreen && styles.btnTextSmall, isLargeScreen && styles.btnTextLarge]}>
                   Crear Usuario
                 </Text>
               )}
             </TouchableOpacity>
           </View>
 
-          <View style={[styles.footerRow, isSmallScreen && styles.footerRowSmall]}>
+          <View style={[styles.footerRow, isSmallScreen && styles.footerRowSmall, isLargeScreen && styles.footerRowLarge]}>
             <TouchableOpacity onPress={goBackToLogin} style={styles.linkBtn}>
-              <Text style={[styles.linkText, isSmallScreen && styles.linkTextSmall]}>
+              <Text style={[styles.linkText, isSmallScreen && styles.linkTextSmall, isLargeScreen && styles.linkTextLarge]}>
                 Volver al inicio de sesión
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity onPress={clearForm} style={styles.linkBtn}>
-              <Text style={[styles.linkText, isSmallScreen && styles.linkTextSmall]}>
+              <Text style={[styles.linkText, isSmallScreen && styles.linkTextSmall, isLargeScreen && styles.linkTextLarge]}>
                 Limpiar formulario
               </Text>
             </TouchableOpacity>
           </View>
 
-          <Text style={[styles.requiredHint, isSmallScreen && styles.requiredHintSmall]}>
+          <Text style={[styles.requiredHint, isSmallScreen && styles.requiredHintSmall, isLargeScreen && styles.requiredHintLarge]}>
             * Campos obligatorios
           </Text>
         </View>
+
+        {/* 👇 MODAL PARA TIPO DE CÉDULA */}
+        <RNModal
+          visible={showTipoCedulaModal}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setShowTipoCedulaModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, isSmallScreen && styles.modalContentSmall]}>
+              <Text style={[styles.modalTitle, isSmallScreen && styles.modalTitleSmall]}>
+                Seleccionar Tipo de Cédula
+              </Text>
+              
+              {['V', 'E', 'P'].map((tipo) => (
+                <TouchableOpacity
+                  key={tipo}
+                  style={[
+                    styles.modalOption,
+                    isSmallScreen && styles.modalOptionSmall,
+                    form.tipo_cedula === tipo && styles.modalOptionSelected
+                  ]}
+                  onPress={() => {
+                    changeField('tipo_cedula', tipo as 'V' | 'E' | 'P');
+                    setShowTipoCedulaModal(false);
+                  }}
+                >
+                  <Text style={[
+                    styles.modalOptionText,
+                    isSmallScreen && styles.modalOptionTextSmall,
+                    form.tipo_cedula === tipo && styles.modalOptionTextSelected
+                  ]}>
+                    {tipo === 'V' ? 'Venezolano (V)' : 
+                     tipo === 'E' ? 'Extranjero (E)' : 'Pasaporte (P)'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+              
+              <TouchableOpacity
+                style={[styles.modalCloseButton, isSmallScreen && styles.modalCloseButtonSmall]}
+                onPress={() => setShowTipoCedulaModal(false)}
+              >
+                <Text style={[styles.modalCloseText, isSmallScreen && styles.modalCloseTextSmall]}>
+                  Cancelar
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </RNModal>
+
+        {/* 👇 MODAL PARA PREGUNTA DE SEGURIDAD */}
+        <RNModal
+          visible={showPreguntaModal}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setShowPreguntaModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, isSmallScreen && styles.modalContentSmall]}>
+              <Text style={[styles.modalTitle, isSmallScreen && styles.modalTitleSmall]}>
+                Seleccionar Pregunta de Seguridad
+              </Text>
+              
+              <ScrollView style={styles.modalScrollView}>
+                {PREGUNTAS_SEGURIDAD.map((pregunta, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={[
+                      styles.modalOption,
+                      isSmallScreen && styles.modalOptionSmall,
+                      form.preguntaSeguridad === pregunta && styles.modalOptionSelected
+                    ]}
+                    onPress={() => {
+                      changeField('preguntaSeguridad', pregunta);
+                      setShowPreguntaModal(false);
+                    }}
+                  >
+                    <Text style={[
+                      styles.modalOptionText,
+                      isSmallScreen && styles.modalOptionTextSmall,
+                      form.preguntaSeguridad === pregunta && styles.modalOptionTextSelected
+                    ]}>
+                      {pregunta}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+              
+              <TouchableOpacity
+                style={[styles.modalCloseButton, isSmallScreen && styles.modalCloseButtonSmall]}
+                onPress={() => setShowPreguntaModal(false)}
+              >
+                <Text style={[styles.modalCloseText, isSmallScreen && styles.modalCloseTextSmall]}>
+                  Cancelar
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </RNModal>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
-// ESTILOS COMPLETAMENTE RESPONSIVE
+function normalizeIncomingCedula(raw?: string): { tipo: 'V' | 'E' | 'P'; numero: string } {
+  if (!raw) return { tipo: 'V', numero: '' };
+  const s = String(raw).toUpperCase().replace(/\s+/g, '');
+  if (s.includes('-')) {
+    const [t, n] = s.split('-', 2);
+    return { tipo: (t === 'E' || t === 'P') ? t as 'E'|'P' : 'V', numero: n.replace(/\D+/g, '') };
+  }
+  if (s.length && isNaN(Number(s[0]))) {
+    return { tipo: (s[0] === 'E' || s[0] === 'P') ? s[0] as 'E'|'P' : 'V', numero: s.slice(1).replace(/\D+/g, '') };
+  }
+  return { tipo: 'V', numero: s.replace(/\D+/g, '') };
+}
+
 const styles = StyleSheet.create({
   wrapper: { 
     flex: 1, 
@@ -459,6 +748,14 @@ const styles = StyleSheet.create({
     paddingVertical: 26,
     minHeight: '100%',
   },
+  containerSmall: {
+    padding: 16,
+    paddingVertical: 20,
+  },
+  containerLarge: {
+    padding: 24,
+    paddingVertical: 30,
+  },
   card: {
     backgroundColor: 'rgba(255,255,255,0.94)', 
     borderRadius: 12, 
@@ -469,6 +766,11 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 8 },
     maxWidth: '100%',
   },
+  cardLarge: {
+    borderRadius: 16,
+    padding: 24,
+    maxWidth: 920,
+  },
   title: { 
     fontSize: 20, 
     fontWeight: '800', 
@@ -478,6 +780,10 @@ const styles = StyleSheet.create({
   },
   titleSmall: {
     fontSize: 18,
+  },
+  titleLarge: {
+    fontSize: 24,
+    marginBottom: 8,
   },
   subtitle: { 
     fontSize: 14, 
@@ -490,6 +796,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
   },
+  subtitleLarge: {
+    fontSize: 16,
+    lineHeight: 22,
+    marginBottom: 20,
+  },
   highlightedName: {
     fontWeight: '800',
     color: '#1f6fff',
@@ -499,6 +810,15 @@ const styles = StyleSheet.create({
   },
   formContentSmall: {
     marginBottom: 4,
+  },
+  twoColumnsLayout: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 24,
+    marginBottom: 8,
+  },
+  column: {
+    flex: 1,
   },
   formSection: {
     marginBottom: 16,
@@ -589,6 +909,9 @@ const styles = StyleSheet.create({
   buttonsRowSmall: {
     marginTop: 12,
   },
+  buttonsRowLarge: {
+    marginTop: 20,
+  },
   btn: { 
     paddingVertical: 12, 
     borderRadius: 10, 
@@ -598,6 +921,11 @@ const styles = StyleSheet.create({
   btnSmall: {
     paddingVertical: 10,
     minWidth: 160,
+  },
+  btnLarge: {
+    paddingVertical: 14,
+    minWidth: 220,
+    borderRadius: 12,
   },
   btnPrimary: { 
     backgroundColor: '#1f6fff' 
@@ -614,6 +942,9 @@ const styles = StyleSheet.create({
   btnTextSmall: {
     fontSize: 14,
   },
+  btnTextLarge: {
+    fontSize: 17,
+  },
   footerRow: { 
     flexDirection: 'row', 
     justifyContent: 'space-between', 
@@ -625,6 +956,9 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 12,
   },
+  footerRowLarge: {
+    marginTop: 20,
+  },
   linkBtn: { 
     padding: 6 
   },
@@ -634,6 +968,9 @@ const styles = StyleSheet.create({
   },
   linkTextSmall: {
     fontSize: 12,
+  },
+  linkTextLarge: {
+    fontSize: 14,
   },
   requiredHint: { 
     fontSize: 12, 
@@ -645,33 +982,118 @@ const styles = StyleSheet.create({
   requiredHintSmall: {
     fontSize: 11,
   },
-  pickerWrapInline: {
-    borderWidth: 1, 
-    borderColor: '#eef2ff', 
-    borderRadius: 8, 
-    overflow: 'hidden',
-    backgroundColor: '#fff', 
-    height: 46, 
-    justifyContent: 'center',
+  requiredHintLarge: {
+    fontSize: 13,
   },
-  pickerWrapInlineSmall: {
-    height: 42,
-  },
-  pickerInner: { 
+  // 👇 NUEVOS ESTILOS PARA SELECTS PERSONALIZADOS
+  customSelectButton: {
+    borderWidth: 1,
+    borderColor: '#eef2ff',
+    borderRadius: 8,
+    paddingHorizontal: 12,
     height: 46,
-    color: '#222',
-    fontSize: 16,
+    backgroundColor: '#fff',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  pickerInnerSmall: {
+  customSelectButtonSmall: {
     height: 42,
+    paddingHorizontal: 10,
+  },
+  customSelectText: {
+    fontSize: 16,
+    color: '#222',
+    flex: 1,
+  },
+  customSelectTextSmall: {
     fontSize: 14,
   },
-  pickerItem: {
+  customSelectPlaceholder: {
+    color: '#9aa',
+  },
+  customSelectArrow: {
+    fontSize: 12,
+    color: '#4f8cff',
+    marginLeft: 8,
+  },
+  customSelectArrowSmall: {
+    fontSize: 10,
+  },
+  // 👇 ESTILOS PARA MODALES
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 20,
+    width: '90%',
+    maxHeight: '80%',
+  },
+  modalContentSmall: {
+    padding: 16,
+    width: '95%',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 16,
+    textAlign: 'center',
+    color: '#222',
+  },
+  modalTitleSmall: {
+    fontSize: 16,
+    marginBottom: 12,
+  },
+  modalScrollView: {
+    maxHeight: 300,
+  },
+  modalOption: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  modalOptionSmall: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  modalOptionSelected: {
+    backgroundColor: '#eef2ff',
+  },
+  modalOptionText: {
     fontSize: 16,
     color: '#222',
-    backgroundColor: '#fff',
   },
-  pickerItemSmall: {
+  modalOptionTextSmall: {
+    fontSize: 14,
+    lineHeight: 18,
+  },
+  modalOptionTextSelected: {
+    color: '#1f6fff',
+    fontWeight: '600',
+  },
+  modalCloseButton: {
+    marginTop: 16,
+    paddingVertical: 12,
+    backgroundColor: '#6c757d',
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modalCloseButtonSmall: {
+    paddingVertical: 10,
+  },
+  modalCloseText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modalCloseTextSmall: {
     fontSize: 14,
   },
 });
