@@ -38,9 +38,11 @@ def libro_diario(request):
     start_date = request.GET.get('start_date')  # Obtener la fecha de inicio
     end_date = request.GET.get('end_date')  # Obtener la fecha de fin
     periodo_id = request.GET.get('periodo')  # Obtener el ID del período contable
-   # Obtener símbolo de la moneda desde la configuración
-    config = Configuracion.objects.first()
-    simbolo = config.moneda.simboloMoneda if config and getattr(config, 'moneda', '$') else '$'
+     # Usar la moneda con idMoneda = 1 en lugar de la configuracion
+    moneda_nacional = Moneda.objects.filter(idMoneda=1).first()
+    simbolo = moneda_nacional.simboloMoneda if moneda_nacional and getattr(moneda_nacional, 'simboloMoneda', None) else 'Bs'
+    print(f"[libro_mayor] Moneda nacional seleccionada: id=1 simbolo={simbolo}")
+
     asientos = AsientoContable.objects.prefetch_related('detalles').order_by('fechaAsiento', 'numeroAsiento')
 
     # Filtrar por el término de búsqueda si existe
@@ -65,22 +67,113 @@ def libro_diario(request):
     if periodo_id:
         asientos = asientos.filter(idPeriodo__idPeriodo=periodo_id)
 
-    # Calcular los totales de debe y haber
-    totales = asientos.aggregate(
-        total_debe=Sum('detalles__debe'),
-        total_haber=Sum('detalles__haber')
-    )
+    def convertir_a_moneda_nacional(detalle_asiento):
+        """
+        Convierte los montos de un detalle asiento a la moneda nacional.
+        Si el detalle tiene idMoneda=1, no necesita conversión.
+        Si tiene otro idMoneda, busca la tasa de cambio a través del pago relacionado.
+        """
+        # Si la moneda es la nacional (idMoneda=1), no hay conversión necesaria
+        if detalle_asiento.idMoneda_id == 1:
+            return {
+                'debe': detalle_asiento.debe,
+                'haber': detalle_asiento.haber,
+                'tasa_aplicada': decimal.Decimal('1.00')
+            }
+        
+        # Si tiene moneda diferente a 1, buscar el pago relacionado
+        pago = Pago.objects.filter(idAsiento=detalle_asiento.idAsiento).first()
+        
+        if pago and pago.idTasa:
+            # Obtener la tasa de cambio del pago
+            tasa_cambio = Tasa.objects.filter(idTasa=pago.idTasa_id).first()
+            if tasa_cambio and hasattr(tasa_cambio, 'montoTasa'):
+                # Convertir la tasa del formato español
+                try:
+                    # Manejar formato español: "10.800,23" -> 10800.23
+                    tasa_str = str(tasa_cambio.montoTasa).replace('.', '').replace(',', '.')
+                    tasa_valor = decimal.Decimal(tasa_str)
+                except (decimal.InvalidOperation, ValueError):
+                    tasa_valor = decimal.Decimal('1.00')
+                
+                # Convertir los montos usando la tasa de cambio
+                return {
+                    'debe': detalle_asiento.debe * tasa_valor,
+                    'haber': detalle_asiento.haber * tasa_valor,
+                    'tasa_aplicada': tasa_valor
+                }
+        
+        # Si no se encuentra tasa de cambio, usar los valores originales
+        return {
+            'debe': detalle_asiento.debe,
+            'haber': detalle_asiento.haber,
+            'tasa_aplicada': decimal.Decimal('1.00')
+        }
 
-    paginator = Paginator(asientos, 10)  # 10 asientos por página
+    def formatear_a_dos_decimales(valor):
+        """
+        Formatea un valor Decimal a 2 decimales para mostrar en el frontend.
+        Los cálculos internos mantienen máxima precisión.
+        """
+        if isinstance(valor, decimal.Decimal):
+            return valor.quantize(decimal.Decimal('0.01'), rounding=decimal.ROUND_HALF_UP)
+        return decimal.Decimal(str(valor)).quantize(decimal.Decimal('0.01'), rounding=decimal.ROUND_HALF_UP)
+
+    # Procesar asientos para convertir a moneda nacional
+    asientos_procesados = []
+    total_debe_global = decimal.Decimal('0.00')
+    total_haber_global = decimal.Decimal('0.00')
+
+    for asiento in asientos:
+        detalles_procesados = []
+        total_debe_asiento = decimal.Decimal('0.00')
+        total_haber_asiento = decimal.Decimal('0.00')
+        
+        for detalle in asiento.detalles.all():
+            # Convertir montos a moneda nacional
+            montos_convertidos = convertir_a_moneda_nacional(detalle)
+            debe_convertido = montos_convertidos['debe']
+            haber_convertido = montos_convertidos['haber']
+            
+            # Acumular totales con máxima precisión
+            total_debe_asiento += debe_convertido
+            total_haber_asiento += haber_convertido
+            total_debe_global += debe_convertido
+            total_haber_global += haber_convertido
+            
+            # Formatear a 2 decimales solo para display
+            detalles_procesados.append({
+                'id': detalle.idDetalle,
+                'cuenta': detalle.idPlanCuenta,
+                'debe': formatear_a_dos_decimales(debe_convertido),
+                'haber': formatear_a_dos_decimales(haber_convertido),
+                'moneda_original': detalle.idMoneda_id,
+                'tasa_aplicada': formatear_a_dos_decimales(montos_convertidos['tasa_aplicada'])
+            })
+        
+        asientos_procesados.append({
+            'id': asiento.idAsiento,
+            'numeroAsiento': asiento.numeroAsiento,
+            'fechaAsiento': asiento.fechaAsiento,
+            'conceptoAsiento': asiento.conceptoAsiento,
+            'periodo': asiento.idPeriodo,
+            'detalles': detalles_procesados,
+            'total_debe': formatear_a_dos_decimales(total_debe_asiento),
+            'total_haber': formatear_a_dos_decimales(total_haber_asiento)
+        })
+
+    # Paginación con asientos procesados
+    paginator = Paginator(asientos_procesados, 10)  # 10 asientos por página
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
-    print("=== Libro Diario: Datos de Asientos ===")
-    for asiento in asientos:
-        print(f"Asiento #{asiento.numeroAsiento} | Fecha: {asiento.fechaAsiento} | Concepto: {asiento.conceptoAsiento}")
-        for detalle in asiento.detalles.all():
-            print(f"  Cuenta: {detalle.idPlanCuenta.codigoPlanCuenta} - {detalle.idPlanCuenta.nombrePlanCuenta} | Debe: {detalle.debe} | Haber: {detalle.haber}")
-    print(f"Total Debe: {totales['total_debe'] or 0}")
-    print(f"Total Haber: {totales['total_haber'] or 0}")
+
+    print("=== Libro Diario: Datos de Asientos (Moneda Nacional) ===")
+    for asiento in asientos_procesados:
+        print(f"Asiento #{asiento['numeroAsiento']} | Fecha: {asiento['fechaAsiento']} | Concepto: {asiento['conceptoAsiento']}")
+        for detalle in asiento['detalles']:
+            print(f"  Cuenta: {detalle['cuenta'].codigoPlanCuenta} - {detalle['cuenta'].nombrePlanCuenta} | Debe: {detalle['debe']} | Haber: {detalle['haber']} | Moneda Original: {detalle['moneda_original']} | Tasa: {detalle['tasa_aplicada']}")
+        print(f"  Total Asiento - Debe: {asiento['total_debe']} | Haber: {asiento['total_haber']}")
+    print(f"Total Global - Debe: {formatear_a_dos_decimales(total_debe_global)} | Haber: {formatear_a_dos_decimales(total_haber_global)}")
     print("=======================================")
 
     # Obtener el objeto del período contable seleccionado
@@ -90,15 +183,13 @@ def libro_diario(request):
 
     return render(request, 'librosContables/libroDiario.html', {
         'asientos': page_obj,
-        'total_debe': totales['total_debe'] or 0,
-        'total_haber': totales['total_haber'] or 0,
+        'total_debe': formatear_a_dos_decimales(total_debe_global),
+        'total_haber': formatear_a_dos_decimales(total_haber_global),
         'periodos': periodoContable.objects.all(),  # Lista de períodos contables
         'periodo_seleccionado': periodo_seleccionado,  # Objeto del período seleccionado
         'search_query': search_query,
         'simbolo': simbolo,
-
     })
-
 def libro_mayor(request):
         """
         Vista para generar el Libro Mayor con estructura jerárquica.
