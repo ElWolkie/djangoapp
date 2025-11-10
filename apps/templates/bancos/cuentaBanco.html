@@ -355,7 +355,7 @@
 
 <!-- Modal para seleccionar Plan de Cuenta -->
 <div class="modal fade" id="planCuentaModal" tabindex="-1" role="dialog" aria-labelledby="planCuentaModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+  <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
     <div class="modal-content">
       <div class="modal-header bg-primary text-white">
         <h5 class="modal-title text-white" id="planCuentaModalLabel">Seleccionar Plan de Cuenta</h5>
@@ -390,6 +390,7 @@
             </tbody>
           </table>
         </div>
+      <div class="pagination-container-plan d-flex justify-content-center mt-3"></div>
         <p id="mensajeSinRegistrosPlanCuenta" class="text-center text-muted" style="display: none;">No hay registros disponibles</p>
       </div>
       <div class="modal-footer">
@@ -758,7 +759,15 @@ if (numeroCuentaEl) {
       });
       paginationContainer.appendChild(prevLi);
 
-      for (let i = 1; i <= totalPages; i++) {
+      const maxVisiblePages = 5;
+      let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+      let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+      if (endPage - startPage + 1 < maxVisiblePages) {
+        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+      }
+
+      for (let i = startPage; i <= endPage; i++) {
         const li = document.createElement('li');
         li.className = `page-item ${i === currentPage ? 'active' : ''}`;
         li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
@@ -785,6 +794,124 @@ if (numeroCuentaEl) {
 
     displayRows();
     setupPagination();
+
+    // Corregir buscador
+    const searchBancoInput = document.getElementById('searchBancoInput');
+    searchBancoInput.addEventListener('keyup', function () {
+      const filter = this.value.toUpperCase();
+      const rows = tablaBancos.getElementsByTagName('tr');
+      let visibleRows = 0;
+
+      for (let i = 1; i < rows.length; i++) {
+        const cells = rows[i].getElementsByTagName('td');
+        const codigo = cells[0].textContent || cells[0].innerText;
+        const nombre = cells[1].textContent || cells[1].innerText;
+
+        if (codigo.toUpperCase().indexOf(filter) > -1 || nombre.toUpperCase().indexOf(filter) > -1) {
+          rows[i].style.display = '';
+          visibleRows++;
+        } else {
+          rows[i].style.display = 'none';
+        }
+      }
+
+      const mensaje = document.getElementById('mensajeSinRegistros');
+      mensaje.style.display = visibleRows === 0 ? 'block' : 'none';
+    });
+  });
+</script>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const tablaPlanesCuenta = document.getElementById('tablaPlanesCuenta');
+    const paginationContainerPlan = document.querySelector('.pagination-container-plan');
+    const rowsPerPagePlan = 10; // Número de filas por página
+    let currentPagePlan = 1;
+
+    function displayRowsPlan() {
+      const rows = tablaPlanesCuenta.getElementsByTagName('tr');
+      const start = (currentPagePlan - 1) * rowsPerPagePlan + 1; // Ignorar encabezado
+      const end = start + rowsPerPagePlan;
+      for (let i = 1; i < rows.length; i++) {
+        rows[i].style.display = i >= start && i < end ? '' : 'none';
+      }
+    }
+
+    function setupPaginationPlan() {
+      const rows = tablaPlanesCuenta.getElementsByTagName('tr');
+      const totalPages = Math.ceil((rows.length - 1) / rowsPerPagePlan); // Ignorar encabezado
+      paginationContainerPlan.innerHTML = '';
+
+      const prevLi = document.createElement('li');
+      prevLi.className = `page-item ${currentPagePlan === 1 ? 'disabled' : ''}`;
+      prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Anterior">&laquo;</a>`;
+      prevLi.addEventListener('click', e => {
+        e.preventDefault();
+        if (currentPagePlan > 1) currentPagePlan--;
+        displayRowsPlan();
+        setupPaginationPlan();
+      });
+      paginationContainerPlan.appendChild(prevLi);
+
+      const maxVisiblePages = 5;
+      let startPage = Math.max(1, currentPagePlan - Math.floor(maxVisiblePages / 2));
+      let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+      if (endPage - startPage + 1 < maxVisiblePages) {
+        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+      }
+
+      for (let i = startPage; i <= endPage; i++) {
+        const li = document.createElement('li');
+        li.className = `page-item ${i === currentPagePlan ? 'active' : ''}`;
+        li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+        li.addEventListener('click', e => {
+          e.preventDefault();
+          currentPagePlan = i;
+          displayRowsPlan();
+          setupPaginationPlan();
+        });
+        paginationContainerPlan.appendChild(li);
+      }
+
+      const nextLi = document.createElement('li');
+      nextLi.className = `page-item ${currentPagePlan === totalPages ? 'disabled' : ''}`;
+      nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Siguiente">&raquo;</a>`;
+      nextLi.addEventListener('click', e => {
+        e.preventDefault();
+        if (currentPagePlan < totalPages) currentPagePlan++;
+        displayRowsPlan();
+        setupPaginationPlan();
+      });
+      paginationContainerPlan.appendChild(nextLi);
+    }
+
+    displayRowsPlan();
+    setupPaginationPlan();
+
+    // Corregir buscador
+    const searchPlanCuentaInput = document.getElementById('searchPlanCuentaInput');
+    searchPlanCuentaInput.addEventListener('keyup', function () {
+      const filter = this.value.toUpperCase();
+      const rows = tablaPlanesCuenta.getElementsByTagName('tr');
+      let visibleRows = 0;
+
+      for (let i = 1; i < rows.length; i++) {
+        const cells = rows[i].getElementsByTagName('td');
+        const codigo = cells[0].textContent || cells[0].innerText;
+        const nombre = cells[1].textContent || cells[1].innerText;
+
+        if (codigo.toUpperCase().indexOf(filter) > -1 || nombre.toUpperCase().indexOf(filter) > -1) {
+          rows[i].style.display = '';
+          visibleRows++;
+        } else {
+          rows[i].style.display = 'none';
+        }
+      }
+
+      const mensaje = document.getElementById('mensajeSinRegistrosPlanCuenta');
+      mensaje.style.display = visibleRows === 0 ? 'block' : 'none';
+    });
   });
 </script>
 

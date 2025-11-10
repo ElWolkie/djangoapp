@@ -255,6 +255,9 @@ def nota_create(request):
     honorarios = Honorario.objects.filter(estadoHonorario='ACTIVO').order_by('idHonorario')
     inscripciones = Inscripcion.objects.filter(is_active=True).order_by('idInscripcion')
     descuento= Configuracion.objects.first().descuento if Configuracion.objects.exists() else 0
+
+    # Si necesitas el objeto Moneda a partir del id:
+    # moneda_seleccionada = Moneda.objects.filter(pk=idMoneda).first() if idMoneda else None
     # Obtener la moneda de configuración
     configuracion = Configuracion.objects.first()
     if not configuracion:
@@ -347,12 +350,14 @@ def nota_create(request):
                     # Crear los detalles del asiento contable usando los registros encontrados
                     DetalleAsiento.objects.create(
                         idAsiento=asiento,
+                        idMoneda=moneda_configuracion,
                         idPlanCuenta=plan_articulo_debe.idPlanCuenta,
                         debe=nota.totalNota,
                         haber=0.00
                     )
                     DetalleAsiento.objects.create(
                         idAsiento=asiento,
+                        idMoneda=moneda_configuracion,
                         idPlanCuenta=plan_articulo_haber.idPlanCuenta,
                         debe=0.00,
                         haber=nota.totalNota
@@ -1100,7 +1105,21 @@ def pago_create(request, pk=None):
     Vista para crear un nuevo pago y generar un asiento contable asociado.
     """
     print("=== INICIANDO VISTA PAGO_CREATE ===")
-    
+    # Obtener idTasa desde el formulario y consultar la moneda relacionada
+    id_tasa = request.POST.get('idTasa')
+    moneda_pago = None
+    id_moneda_pago = None
+    if id_tasa:
+        try:
+            tasa_obj = Tasa.objects.select_related('idMoneda').filter(pk=id_tasa).first()
+            if tasa_obj and tasa_obj.idMoneda:
+                moneda_pago = tasa_obj.idMoneda              # objeto Moneda relacionado
+                id_moneda_pago = tasa_obj.idMoneda.idMoneda  # id de la moneda
+            else:
+                print(f"No se encontró tasa o moneda para idTasa={id_tasa}")
+        except Exception as e:
+            print(f"Error al obtener tasa/moneda para idTasa={id_tasa}: {e}")
+
     # Filtrar notas según el estado y el ID proporcionado
     if pk:
         notas = Nota.objects.filter(idNota=pk, estado__in=['PENDIENTE', 'PARCIAL']).order_by('numeroNota')
@@ -1482,11 +1501,11 @@ def pago_create(request, pk=None):
                                 raise ValueError("No se encontró la cuenta contable para 'GASTOS POR REDONDEO DE CONVERSIÓN MONETARIA' (COD: 52000104).")
 
                             # Detalle 1: Ingreso a Caja/Banco (DEBE)
-                            DetalleAsiento.objects.create(idAsiento=asiento_pago, idPlanCuenta=plan_cuenta_debe, debe=float(monto_pago_convertido), haber=0.00)
+                            DetalleAsiento.objects.create(idAsiento=asiento_pago, idMoneda=moneda_pago, idPlanCuenta=plan_cuenta_debe, debe=float(monto_pago_convertido), haber=0.00)
                             # Detalle 2: Pérdida por Redondeo (DEBE) - ¡ESTA ES LA CORRECCIÓN CLAVE!
-                            DetalleAsiento.objects.create(idAsiento=asiento_pago, idPlanCuenta=cuenta_ajuste_gasto, debe=float(diferencia_final), haber=0.00)
+                            DetalleAsiento.objects.create(idAsiento=asiento_pago, idMoneda=moneda_pago, idPlanCuenta=cuenta_ajuste_gasto, debe=float(diferencia_final), haber=0.00)
                             # Detalle 3: Cancelación total de la Cuenta por Cobrar (HABER)
-                            DetalleAsiento.objects.create(idAsiento=asiento_pago, idPlanCuenta=plan_cuenta_haber, debe=0.00, haber=float(saldo_nota))
+                            DetalleAsiento.objects.create(idAsiento=asiento_pago, idMoneda=moneda_pago, idPlanCuenta=plan_cuenta_haber, debe=0.00, haber=float(saldo_nota))
 
                             print(f"Asiento compuesto cuadrado. Total Debe: {monto_pago_convertido + diferencia_final}, Total Haber: {saldo_nota}")
                             pago.idNota.estado = 'PAGADO'
@@ -1496,9 +1515,9 @@ def pago_create(request, pk=None):
                             print("PAGO EXACTO: La nota se considera saldada.")
 
                             # Detalle 1: Ingreso a Caja/Banco (DEBE)
-                            DetalleAsiento.objects.create(idAsiento=asiento_pago, idPlanCuenta=plan_cuenta_debe, debe=float(monto_pago_convertido), haber=0.00)
+                            DetalleAsiento.objects.create(idAsiento=asiento_pago, idMoneda=moneda_pago, idPlanCuenta=plan_cuenta_debe, debe=float(monto_pago_convertido), haber=0.00)
                             # Detalle 2: Cancelación de la Cuenta por Cobrar (HABER)
-                            DetalleAsiento.objects.create(idAsiento=asiento_pago, idPlanCuenta=plan_cuenta_haber, debe=0.00, haber=float(monto_pago_convertido))
+                            DetalleAsiento.objects.create(idAsiento=asiento_pago, idMoneda=moneda_pago, idPlanCuenta=plan_cuenta_haber, debe=0.00, haber=float(monto_pago_convertido))
 
                             pago.idNota.estado = 'PAGADO'
 
@@ -1507,9 +1526,9 @@ def pago_create(request, pk=None):
                             print("PAGO PARCIAL: Aún queda saldo pendiente.")
 
                             # Detalle 1: Ingreso a Caja/Banco (DEBE)
-                            DetalleAsiento.objects.create(idAsiento=asiento_pago, idPlanCuenta=plan_cuenta_debe, debe=float(monto_pago_convertido), haber=0.00)
+                            DetalleAsiento.objects.create(idAsiento=asiento_pago, idMoneda=moneda_pago, idPlanCuenta=plan_cuenta_debe, debe=float(monto_pago_convertido), haber=0.00)
                             # Detalle 2: Abono a la Cuenta por Cobrar (HABER)
-                            DetalleAsiento.objects.create(idAsiento=asiento_pago, idPlanCuenta=plan_cuenta_haber, debe=0.00, haber=float(monto_pago_convertido))
+                            DetalleAsiento.objects.create(idAsiento=asiento_pago, idMoneda=moneda_pago, idPlanCuenta=plan_cuenta_haber, debe=0.00, haber=float(monto_pago_convertido))
 
                             pago.idNota.estado = 'PARCIAL'
 

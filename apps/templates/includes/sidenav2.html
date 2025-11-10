@@ -285,18 +285,19 @@
           </a>
           <div id="parametroTributarioMenu" class="collapse ml-3">
               <ul class="nav flex-column">
+                 <li class="nav-item">
+                      <a class="nav-link" href="{% url 'parametro_tributario_create' %}" style="padding-left: 15px;">
+                          <i class="ni ni-fat-add text-orange"></i>
+                          <span class="nav-link-text">Registrar</span>
+                      </a>
+                  </li>
                   <li class="nav-item">
                       <a class="nav-link" href="{% url 'parametro_tributario_list' %}" style="padding-left: 15px;">
                           <i class="ni ni-bullet-list-67 text-orange"></i>
                           <span class="nav-link-text">Consultar</span>
                       </a>
                   </li>
-                  <li class="nav-item">
-                      <a class="nav-link" href="{% url 'parametro_tributario_create' %}" style="padding-left: 15px;">
-                          <i class="ni ni-fat-add text-orange"></i>
-                          <span class="nav-link-text">Registrar</span>
-                      </a>
-                  </li>
+                 
               </ul>
           </div>
         </li>

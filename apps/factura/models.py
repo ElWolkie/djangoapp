@@ -184,6 +184,7 @@ class FacturaDetalle(models.Model):
 
     def __str__(self):
         return f"Detalle {self.idDetalle} de Factura {self.idFactura.numeroFactura} relacionado con Nota {self.idNota.numeroNota}"
+
 class Pago(models.Model):
     idPago = models.AutoField(primary_key=True)
     idNota = models.ForeignKey(Nota, on_delete=models.CASCADE, related_name='pagos')
@@ -286,12 +287,14 @@ class PagoTemporal(models.Model):
         # Crear los detalles del asiento contable
         DetalleAsiento.objects.create(
             idAsiento=asiento_pago,
+            idMoneda= '1',  # Asumiendo moneda local con ID 1
             idPlanCuenta=plan_cuenta_debe,
             debe=float(self.monto),
             haber=0.00
         )
         DetalleAsiento.objects.create(
             idAsiento=asiento_pago,
+            idMoneda= '1',  # Asumiendo moneda local con ID 1
             idPlanCuenta=plan_cuenta_haber,
             debe=0.00,
             haber=float(self.monto)
