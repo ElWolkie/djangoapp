@@ -297,7 +297,7 @@
       <div class="col-md-4">
         <div class="input-group">
           <span class="input-group-text"><i class="fas fa-search"></i></span>
-          <input id="searchInput" name="search" class="form-control" type="text" placeholder="Buscar..." value="{{ request.GET.search|default:'' }}" title="La busqueda afecta los calculos totales debe/haber. Para restablecer los resultados, borre el texto y presione filtrar.">
+          <input id="searchInput" name="search" class="form-control" type="text" placeholder="Buscar..." value="{{ search_query|default:'' }}" title="La búsqueda afecta los cálculos totales debe/haber. Para restablecer los resultados, borre el texto y presione filtrar.">
         </div>
       </div>
       <div class="col-md-3">
@@ -313,16 +313,16 @@
         </div>
       </div>
       <div class="col-md-3 d-flex align-items-center" style="margin-top: 1px;">
-  <button id="filterButton" class="btn btn-warning me-2" type="submit" style="white-space: nowrap;">
-    <i class="fas fa-filter me-1"></i> Filtrar
-  </button>
-  <a href="{% url 'balance_cuentas_pdf' %}?{{ request.GET.urlencode }}" class="btn btn-danger me-2" style="white-space: nowrap;" target="_blank">
-    <i class="fas fa-file-pdf me-1"></i> PDF
-  </a>
-  <a href="{% url 'balance_cuentas_excel' %}?{{ request.GET.urlencode }}" class="btn btn-success" style="white-space: nowrap;">
-    <i class="fas fa-file-excel me-1"></i> Excel
-  </a>
-</div>
+        <button id="filterButton" class="btn btn-warning me-2" type="submit" style="white-space: nowrap;">
+          <i class="fas fa-filter me-1"></i> Filtrar
+        </button>
+        <a href="{% url 'balance_cuentas_pdf' %}?{{ request.GET.urlencode }}" class="btn btn-danger me-2" style="white-space: nowrap;" target="_blank">
+          <i class="fas fa-file-pdf me-1"></i> PDF
+        </a>
+        <a href="{% url 'balance_cuentas_excel' %}?{{ request.GET.urlencode }}" class="btn btn-success" style="white-space: nowrap;">
+          <i class="fas fa-file-excel me-1"></i> Excel
+        </a>
+      </div>
     </form>
   </div>
 
@@ -341,216 +341,214 @@
       <h5>Total Debe General</h5>
       <div class="total-value">{{ total_general_debe|floatformat:2 }}{{ simbolo }}</div>
     </div>
-    
+
     <div class="total-card total-haber">
       <h5>Total Haber General</h5>
       <div class="total-value">{{ total_general_haber|floatformat:2 }}{{ simbolo }}</div>
     </div>
-    
-    
   </div>
 
   <div class="table-container">
     <table id="balanceCuentasTable" class="table-balance">
-     <thead>
-      <tr>
-        <th width="12%">Código</th>
-        <th width="33%">Nombre de Cuenta</th>
-        <th width="11%" class="text-end">Saldo Anterior</th>
-        <th width="11%" class="text-end">Total Débe</th>
-        <th width="11%" class="text-end">Total Haber</th>
-        <th width="11%" class="text-end">Saldo Actual</th>
-        <th width="11%" class="text-end">Saldo Acumulado</th>
-      </tr>
-    </thead>
-    <tbody>
-  {% for cuenta_data in cuentas_data %}
-    <tr class="{% if cuenta_data.es_cuenta_principal %}cuenta-principal{% else %}subcuenta subcuenta-level-{{ cuenta_data.nivel }}{% endif %}">
-      <td>
-        <span class="codigo-indent indent-{{ cuenta_data.nivel }}">
-          {% if cuenta_data.nivel > 0 %}↳{% endif %}
-          {{ cuenta_data.cuenta.codigoPlanCuenta }}
-        </span>
-      </td>
-      <td class="text-start">
-        {% if cuenta_data.tiene_subcuentas %}
-          <strong>{{ cuenta_data.cuenta.nombrePlanCuenta }}</strong>
-        {% else %}
-          {{ cuenta_data.cuenta.nombrePlanCuenta }}
-        {% endif %}
-      </td>
-      <td class="text-end highlight-saldo-anterior">
-        {% if cuenta_data.saldo_anterior_acumulado > 0 %}
-          <span class="saldo-anterior-badge saldo-anterior-deudor">
-            {{ cuenta_data.saldo_anterior_acumulado|floatformat:2 }}{{ simbolo }}
-          </span>
-        {% elif cuenta_data.saldo_anterior_acumulado < 0 %}
-          <span class="saldo-anterior-badge saldo-anterior-acreedor">
-            {{ cuenta_data.saldo_anterior_acumulado|floatformat:2 }}{{ simbolo }}
-          </span>
-        {% else %}
-          <span class="saldo-anterior-badge saldo-anterior-cero">0.00{{ simbolo }}</span>
-        {% endif %}
-      </td>
-      <td class="text-end highlight-debe">
-        {{ cuenta_data.total_debe_acumulado|floatformat:2 }}{{ simbolo }}
-      </td>
-      <td class="text-end highlight-haber">
-        {{ cuenta_data.total_haber_acumulado|floatformat:2 }}{{ simbolo }}
-      </td>
-      <td class="text-end">
-        {% if cuenta_data.saldo_actual > 0 %}
-          <span class="saldo-badge saldo-deudor">
-            {{ cuenta_data.saldo_actual|floatformat:2 }}{{ simbolo }}
-          </span>
-        {% elif cuenta_data.saldo_actual < 0 %}
-          <span class="saldo-badge saldo-acreedor">
-            {{ cuenta_data.saldo_actual|floatformat:2 }}{{ simbolo }}
-          </span>
-        {% else %}
-          <span class="saldo-badge saldo-cero">0.00{{ simbolo }}</span>
-        {% endif %}
-      </td>
-      <td class="text-end">
-        {% if cuenta_data.saldo_acumulado > 0 %}
-          <span class="saldo-badge saldo-deudor">
-            {{ cuenta_data.saldo_acumulado|floatformat:2 }}{{ simbolo }}
-          </span>
-        {% elif cuenta_data.saldo_acumulado < 0 %}
-          <span class="saldo-badge saldo-acreedor">
-            {{ cuenta_data.saldo_acumulado|floatformat:2 }}{{ simbolo }}
-          </span>
-        {% else %}
-          <span class="saldo-badge saldo-cero">0.00{{ simbolo }}</span>
-        {% endif %}
-      </td>
-    </tr>
-  {% empty %}
-    <tr>
-      <td colspan="7" class="text-center py-4 text-muted">
-        <i class="fas fa-info-circle me-2"></i>
-        No hay movimientos en el período seleccionado
-      </td>
-    </tr>
-  {% endfor %}
-</tbody>
-<tfoot class="table-dark">
-  <tr>
-    <th colspan="2" class="text-end">TOTALES GENERALES:</th>
-    <th class="text-end">
-      {% if total_general_saldo_anterior > 0 %}
-        <span class="text-success">{{ total_general_saldo_anterior|floatformat:2 }}{{ simbolo }}</span>
-      {% elif total_general_saldo_anterior < 0 %}
-        <span class="text-danger">{{ total_general_saldo_anterior|floatformat:2 }}{{ simbolo }}</span>
-      {% else %}
-        {{ total_general_saldo_anterior|floatformat:2 }}{{ simbolo }}
-      {% endif %}
-    </th>
-    <th class="text-end">{{ total_general_debe|floatformat:2 }}{{ simbolo }}</th>
-    <th class="text-end">{{ total_general_haber|floatformat:2 }}{{ simbolo }}</th>
-    <th class="text-end">
-      {% if total_general_saldo_actual > 0 %}
-        <span class="text-success">{{ total_general_saldo_actual|floatformat:2 }}{{ simbolo }}</span>
-      {% elif total_general_saldo_actual < 0 %}
-        <span class="text-danger">{{ total_general_saldo_actual|floatformat:2 }}{{ simbolo }}</span>
-      {% else %}
-        {{ total_general_saldo_actual|floatformat:2 }}{{ simbolo }}
-      {% endif %}
-    </th>
-    <th class="text-end">
-      {% if total_general_saldo_acumulado > 0 %}
-        <span class="text-success">{{ total_general_saldo_acumulado|floatformat:2 }}{{ simbolo }}</span>
-      {% elif total_general_saldo_acumulado < 0 %}
-        <span class="text-danger">{{ total_general_saldo_acumulado|floatformat:2 }}{{ simbolo }}</span>
-      {% else %}
-        {{ total_general_saldo_acumulado|floatformat:2 }}{{ simbolo }}
-      {% endif %}
-    </th>
-  </tr>
-</tfoot>
+      <thead>
+        <tr>
+          <th width="12%">Código</th>
+          <th width="33%">Nombre de Cuenta</th>
+          <th width="11%" class="text-end">Saldo Anterior</th>
+          <th width="11%" class="text-end">Total Débe</th>
+          <th width="11%" class="text-end">Total Haber</th>
+          <th width="11%" class="text-end">Saldo Actual</th>
+          <th width="11%" class="text-end">Saldo Acumulado</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for cuenta_data in cuentas_data %}
+          <tr class="{% if cuenta_data.es_cuenta_principal %}cuenta-principal{% else %}subcuenta subcuenta-level-{{ cuenta_data.nivel }}{% endif %}">
+            <td>
+              <span class="codigo-indent indent-{{ cuenta_data.nivel }}">
+                {% if cuenta_data.nivel > 0 %}↳{% endif %}
+                {{ cuenta_data.cuenta.codigoPlanCuenta }}
+              </span>
+            </td>
+            <td class="text-start">
+              {% if cuenta_data.tiene_subcuentas %}
+                <strong>{{ cuenta_data.cuenta.nombrePlanCuenta }}</strong>
+              {% else %}
+                {{ cuenta_data.cuenta.nombrePlanCuenta }}
+              {% endif %}
+            </td>
+            <td class="text-end">
+              {% if cuenta_data.saldo_anterior_acumulado > 0 %}
+                <span class="saldo-badge saldo-deudor">
+                  {{ cuenta_data.saldo_anterior_acumulado|floatformat:2 }}{{ simbolo }}
+                </span>
+              {% elif cuenta_data.saldo_anterior_acumulado < 0 %}
+                <span class="saldo-badge saldo-acreedor">
+                  {{ cuenta_data.saldo_anterior_acumulado|floatformat:2 }}{{ simbolo }}
+                </span>
+              {% else %}
+                <span class="saldo-badge saldo-cero">0.00{{ simbolo }}</span>
+              {% endif %}
+            </td>
+            <td class="text-end highlight-debe">
+              {{ cuenta_data.total_debe_acumulado|floatformat:2 }}{{ simbolo }}
+            </td>
+            <td class="text-end highlight-haber">
+              {{ cuenta_data.total_haber_acumulado|floatformat:2 }}{{ simbolo }}
+            </td>
+            <td class="text-end">
+              {% if cuenta_data.saldo_actual > 0 %}
+                <span class="saldo-badge saldo-deudor">
+                  {{ cuenta_data.saldo_actual|floatformat:2 }}{{ simbolo }}
+                </span>
+              {% elif cuenta_data.saldo_actual < 0 %}
+                <span class="saldo-badge saldo-acreedor">
+                  {{ cuenta_data.saldo_actual|floatformat:2 }}{{ simbolo }}
+                </span>
+              {% else %}
+                <span class="saldo-badge saldo-cero">0.00{{ simbolo }}</span>
+              {% endif %}
+            </td>
+            <td class="text-end">
+              {% if cuenta_data.saldo_acumulado > 0 %}
+                <span class="saldo-badge saldo-deudor">
+                  {{ cuenta_data.saldo_acumulado|floatformat:2 }}{{ simbolo }}
+                </span>
+              {% elif cuenta_data.saldo_acumulado < 0 %}
+                <span class="saldo-badge saldo-acreedor">
+                  {{ cuenta_data.saldo_acumulado|floatformat:2 }}{{ simbolo }}
+                </span>
+              {% else %}
+                <span class="saldo-badge saldo-cero">0.00{{ simbolo }}</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="7" class="text-center py-4 text-muted">
+              <i class="fas fa-info-circle me-2"></i>
+              No hay movimientos en el período seleccionado
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot class="table-dark">
+        <tr>
+          <th colspan="2" class="text-end">TOTALES GENERALES:</th>
+          <th class="text-end">
+            {% if total_general_saldo_anterior > 0 %}
+              <span class="text-success">{{ total_general_saldo_anterior|floatformat:2 }}{{ simbolo }}</span>
+            {% elif total_general_saldo_anterior < 0 %}
+              <span class="text-danger">{{ total_general_saldo_anterior|floatformat:2 }}{{ simbolo }}</span>
+            {% else %}
+              {{ total_general_saldo_anterior|floatformat:2 }}{{ simbolo }}
+            {% endif %}
+          </th>
+          <th class="text-end">{{ total_general_debe|floatformat:2 }}{{ simbolo }}</th>
+          <th class="text-end">{{ total_general_haber|floatformat:2 }}{{ simbolo }}</th>
+          <th class="text-end">
+            {% if total_general_saldo_actual > 0 %}
+              <span class="text-success">{{ total_general_saldo_actual|floatformat:2 }}{{ simbolo }}</span>
+            {% elif total_general_saldo_actual < 0 %}
+              <span class="text-danger">{{ total_general_saldo_actual|floatformat:2 }}{{ simbolo }}</span>
+            {% else %}
+              {{ total_general_saldo_actual|floatformat:2 }}{{ simbolo }}
+            {% endif %}
+          </th>
+          <th class="text-end">
+            {% if total_general_saldo_acumulado > 0 %}
+              <span class="text-success">{{ total_general_saldo_acumulado|floatformat:2 }}{{ simbolo }}</span>
+            {% elif total_general_saldo_acumulado < 0 %}
+              <span class="text-danger">{{ total_general_saldo_acumulado|floatformat:2 }}{{ simbolo }}</span>
+            {% else %}
+              {{ total_general_saldo_acumulado|floatformat:2 }}{{ simbolo }}
+            {% endif %}
+          </th>
+        </tr>
+      </tfoot>
     </table>
   </div>
 
-{% if paginator.num_pages > 1 %}
-<div class="pagination-container">
-  <nav aria-label="Paginación del balance">
-    <ul class="pagination justify-content-center">
-      {% if cuentas_data.has_previous %}
-        <li class="page-item">
-          <a class="page-link" href="?page=1{% if periodo_seleccionado %}&periodo={{ periodo_seleccionado.idPeriodo }}{% endif %}" aria-label="Primera">
-            <i class="fas fa-angle-double-left"></i>
-          </a>
-        </li>
-        <li class="page-item">
-          <a class="page-link" href="?page={{ cuentas_data.previous_page_number }}{% if periodo_seleccionado %}&periodo={{ periodo_seleccionado.idPeriodo }}{% endif %}" aria-label="Anterior">
-            <i class="fas fa-angle-left"></i>
-          </a>
-        </li>
-      {% else %}
-        <li class="page-item disabled">
-          <span class="page-link">
-            <i class="fas fa-angle-double-left"></i>
-          </span>
-        </li>
-        <li class="page-item disabled">
-          <span class="page-link">
-            <i class="fas fa-angle-left"></i>
-          </span>
-        </li>
-      {% endif %}
-
-      {% for num in cuentas_data.paginator.page_range %}
-        {% if num == cuentas_data.number %}
-          <li class="page-item active">
-            <span class="page-link">{{ num }}</span>
-          </li>
-        {% elif num > cuentas_data.number|add:'-3' and num < cuentas_data.number|add:'3' %}
+  {% if paginator.num_pages > 1 %}
+  <div class="pagination-container">
+    <nav aria-label="Paginación del balance">
+      <ul class="pagination justify-content-center">
+        {% if cuentas_data.has_previous %}
           <li class="page-item">
-            <a class="page-link" href="?page={{ num }}{% if periodo_seleccionado %}&periodo={{ periodo_seleccionado.idPeriodo }}{% endif %}">{{ num }}</a>
+            <a class="page-link" href="?page=1{% if periodo_seleccionado %}&periodo={{ periodo_seleccionado.idPeriodo }}{% endif %}" aria-label="Primera">
+              <i class="fas fa-angle-double-left"></i>
+            </a>
           </li>
-        {% elif num == cuentas_data.number|add:'-3' or num == cuentas_data.number|add:'3' %}
+          <li class="page-item">
+            <a class="page-link" href="?page={{ cuentas_data.previous_page_number }}{% if periodo_seleccionado %}&periodo={{ periodo_seleccionado.idPeriodo }}{% endif %}" aria-label="Anterior">
+              <i class="fas fa-angle-left"></i>
+            </a>
+          </li>
+        {% else %}
           <li class="page-item disabled">
-            <span class="page-link">...</span>
+            <span class="page-link">
+              <i class="fas fa-angle-double-left"></i>
+            </span>
+          </li>
+          <li class="page-item disabled">
+            <span class="page-link">
+              <i class="fas fa-angle-left"></i>
+            </span>
           </li>
         {% endif %}
-      {% endfor %}
 
-      {% if cuentas_data.has_next %}
-        <li class="page-item">
-          <a class="page-link" href="?page={{ cuentas_data.next_page_number }}{% if periodo_seleccionado %}&periodo={{ periodo_seleccionado.idPeriodo }}{% endif %}" aria-label="Siguiente">
-            <i class="fas fa-angle-right"></i>
-          </a>
-        </li>
-        <li class="page-item">
-          <a class="page-link" href="?page={{ paginator.num_pages }}{% if periodo_seleccionado %}&periodo={{ periodo_seleccionado.idPeriodo }}{% endif %}" aria-label="Última">
-            <i class="fas fa-angle-double-right"></i>
-          </a>
-        </li>
-      {% else %}
-        <li class="page-item disabled">
-          <span class="page-link">
-            <i class="fas fa-angle-right"></i>
-          </span>
-        </li>
-        <li class="page-item disabled">
-          <span class="page-link">
-            <i class="fas fa-angle-double-right"></i>
-          </span>
-        </li>
-      {% endif %}
-    </ul>
-    
-    <div class="text-center mt-2">
-      <small class="text-muted">
-        Página {{ cuentas_data.number }} de {{ paginator.num_pages }}
-        {% if periodo_seleccionado %}
-          - Período: {{ periodo_seleccionado.nombrePeriodo }}
+        {% for num in cuentas_data.paginator.page_range %}
+          {% if num == cuentas_data.number %}
+            <li class="page-item active">
+              <span class="page-link">{{ num }}</span>
+            </li>
+          {% elif num > cuentas_data.number|add:'-3' and num < cuentas_data.number|add:'3' %}
+            <li class="page-item">
+              <a class="page-link" href="?page={{ num }}{% if periodo_seleccionado %}&periodo={{ periodo_seleccionado.idPeriodo }}{% endif %}">{{ num }}</a>
+            </li>
+          {% elif num == cuentas_data.number|add:'-3' or num == cuentas_data.number|add:'3' %}
+            <li class="page-item disabled">
+              <span class="page-link">...</span>
+            </li>
+          {% endif %}
+        {% endfor %}
+
+        {% if cuentas_data.has_next %}
+          <li class="page-item">
+            <a class="page-link" href="?page={{ cuentas_data.next_page_number }}{% if periodo_seleccionado %}&periodo={{ periodo_seleccionado.idPeriodo }}{% endif %}" aria-label="Siguiente">
+              <i class="fas fa-angle-right"></i>
+            </a>
+          </li>
+          <li class="page-item">
+            <a class="page-link" href="?page={{ paginator.num_pages }}{% if periodo_seleccionado %}&periodo={{ periodo_seleccionado.idPeriodo }}{% endif %}" aria-label="Última">
+              <i class="fas fa-angle-double-right"></i>
+            </a>
+          </li>
+        {% else %}
+          <li class="page-item disabled">
+            <span class="page-link">
+              <i class="fas fa-angle-right"></i>
+            </span>
+          </li>
+          <li class="page-item disabled">
+            <span class="page-link">
+              <i class="fas fa-angle-double-right"></i>
+            </span>
+          </li>
         {% endif %}
-      </small>
-    </div>
-  </nav>
-</div>
-{% endif %}
+      </ul>
+
+      <div class="text-center mt-2">
+        <small class="text-muted">
+          Página {{ cuentas_data.number }} de {{ paginator.num_pages }}
+          {% if periodo_seleccionado %}
+            - Período: {{ periodo_seleccionado.nombrePeriodo }}
+          {% endif %}
+        </small>
+      </div>
+    </nav>
+  </div>
+  {% endif %}
 
   {% endif %}
 </div>
@@ -558,80 +556,63 @@
 
 {% block javascripts %}
 <script>
-document.addEventListener('DOMContentLoaded', function () {
-  // Actualizar el color del saldo neto general
-  const saldoNetoGeneral = document.getElementById('saldoNetoGeneral');
-  const saldoValue = parseFloat('{{ total_general_saldo }}');
-  
-  if (saldoValue > 0) {
-    saldoNetoGeneral.style.color = 'var(--success-color)';
-  } else if (saldoValue < 0) {
-    saldoNetoGeneral.style.color = 'var(--danger-color)';
-  }
+  document.addEventListener('DOMContentLoaded', function () {
+    // Actualizar el color del saldo neto general
+    const saldoNetoGeneral = document.getElementById('saldoNetoGeneral');
+    const saldoValue = parseFloat('{{ total_general_saldo }}');
 
-  // Función para formatear números con separadores de miles
-  function formatNumber(number) {
-    return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  }
+    if (saldoValue > 0) {
+      saldoNetoGeneral.style.color = 'var(--success-color)';
+    } else if (saldoValue < 0) {
+      saldoNetoGeneral.style.color = 'var(--danger-color)';
+    }
 
-  // Animación para los totales
-  function animateValue(element, start, end, duration) {
-    let startTimestamp = null;
-    const step = (timestamp) => {
-      if (!startTimestamp) startTimestamp = timestamp;
-      const progress = Math.min((timestamp - startTimestamp) / duration, 1);
-      const value = Math.floor(progress * (end - start) + start);
-      element.textContent = formatNumber(value.toFixed(2)) + '{{ simbolo }}';
-      if (progress < 1) {
-        window.requestAnimationFrame(step);
-      }
-    };
-    window.requestAnimationFrame(step);
-  }
+    // Función para formatear números con separadores de miles
+    function formatNumber(number) {
+      return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    }
 
-  // Animar los totales si la página se carga sin filtros
-  if (window.location.search === '' || window.location.search.includes('page=1')) {
+    // Mostrar los totales directamente sin animación
     const totalDebeElements = document.querySelectorAll('.total-debe .total-value');
     const totalHaberElements = document.querySelectorAll('.total-haber .total-value');
-    
+
     if (totalDebeElements.length > 0) {
       const totalDebeValue = parseFloat('{{ total_general_debe }}') || 0;
-      animateValue(totalDebeElements[0], 0, totalDebeValue, 1500);
+      totalDebeElements[0].textContent = formatNumber(totalDebeValue) + '{{ simbolo }}';
     }
-    
+
     if (totalHaberElements.length > 0) {
       const totalHaberValue = parseFloat('{{ total_general_haber }}') || 0;
-      animateValue(totalHaberElements[0], 0, totalHaberValue, 1500);
+      totalHaberElements[0].textContent = formatNumber(totalHaberValue) + '{{ simbolo }}';
     }
-  }
 
-  // Procesar los saldos negativos para mostrar valores absolutos
-  const saldoBadges = document.querySelectorAll('.saldo-acreedor');
-  saldoBadges.forEach(badge => {
-    const text = badge.textContent;
-    // Extraer el número y mostrar el valor absoluto
-    const match = text.match(/Acreedor: \$(.+)/);
-    if (match) {
-      const valor = match[1];
-      badge.textContent = 'Acreedor: $' + valor;
+    // Procesar los saldos negativos para mostrar valores absolutos
+    const saldoBadges = document.querySelectorAll('.saldo-acreedor');
+    saldoBadges.forEach(badge => {
+      const text = badge.textContent;
+      // Extraer el número y mostrar el valor absoluto
+      const match = text.match(/Acreedor: \$(.+)/);
+      if (match) {
+        const valor = match[1];
+        badge.textContent = 'Acreedor: $' + valor;
+      }
+    });
+
+    // Mejorar la experiencia en móviles
+    if (window.innerWidth <= 768) {
+      const table = document.getElementById('balanceCuentasTable');
+      const headers = Array.from(table.querySelectorAll('thead th')).map(th => th.textContent.trim());
+      const rows = table.querySelectorAll('tbody tr');
+
+      rows.forEach(row => {
+        const cells = row.querySelectorAll('td');
+        cells.forEach((cell, index) => {
+          if (index < headers.length) {
+            cell.setAttribute('data-label', headers[index]);
+          }
+        });
+      });
     }
   });
-
-  // Mejorar la experiencia en móviles
-  if (window.innerWidth <= 768) {
-    const table = document.getElementById('balanceCuentasTable');
-    const headers = Array.from(table.querySelectorAll('thead th')).map(th => th.textContent.trim());
-    const rows = table.querySelectorAll('tbody tr');
-    
-    rows.forEach(row => {
-      const cells = row.querySelectorAll('td');
-      cells.forEach((cell, index) => {
-        if (index < headers.length) {
-          cell.setAttribute('data-label', headers[index]);
-        }
-      });
-    });
-  }
-});
 </script>
 {% endblock javascripts %}

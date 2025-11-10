@@ -517,9 +517,11 @@ def balance_cuentas(request):
     periodo_id = request.GET.get('periodo')
     page_number = request.GET.get('page', 1)
     items_per_page = 20
-    # Obtener símbolo de la moneda desde la configuración
-    config = Configuracion.objects.first()
-    simbolo = config.moneda.simboloMoneda if config and getattr(config, 'moneda', '$') else '$'
+    # Usar la moneda con idMoneda = 1 en lugar de la configuracion
+    moneda_nacional = Moneda.objects.filter(idMoneda=1).first()
+    simbolo = moneda_nacional.simboloMoneda if moneda_nacional and getattr(moneda_nacional, 'simboloMoneda', None) else 'Bs'
+    print(f"[libro_mayor] Moneda nacional seleccionada: id=1 simbolo={simbolo}")
+
     search_query = request.GET.get('search', '').strip()
 
     # Obtener período contable
@@ -540,53 +542,135 @@ def balance_cuentas(request):
         fechaFinPeriodo__lt=periodo.fechaInicioPeriodo
     ).order_by('-fechaFinPeriodo').first()
 
-    # OBTENER TODOS LOS MOVIMIENTOS DEL PERÍODO ACTUAL EN UNA SOLA CONSULTA
-    movimientos_actual = DetalleAsiento.objects.filter(
+    # Función para convertir formato de números
+    def convertir_formato_numero(valor):
+        """
+        Convierte un string en formato español (1.234,56) a Decimal para máxima precisión.
+        """
+        if valor is None:
+            return decimal.Decimal('0.00')
+        
+        if isinstance(valor, (int, float, decimal.Decimal)):
+            return decimal.Decimal(str(valor)).quantize(decimal.Decimal('0.0000000001'))
+        
+        if isinstance(valor, str):
+            valor_limpio = valor.strip().replace('.', '').replace(',', '.')
+            try:
+                return decimal.Decimal(valor_limpio).quantize(decimal.Decimal('0.0000000001'))
+            except (decimal.InvalidOperation, ValueError):
+                try:
+                    return decimal.Decimal(valor).quantize(decimal.Decimal('0.0000000001'))
+                except (decimal.InvalidOperation, ValueError):
+                    return decimal.Decimal('0.00')
+        
+        try:
+            return decimal.Decimal(str(valor)).quantize(decimal.Decimal('0.0000000001'))
+        except (decimal.InvalidOperation, ValueError, TypeError):
+            return decimal.Decimal('0.00')
+
+    def formatear_a_dos_decimales(valor):
+        """
+        Formatea un valor Decimal a 2 decimales para mostrar en el frontend.
+        """
+        if isinstance(valor, decimal.Decimal):
+            return float(valor.quantize(decimal.Decimal('0.01'), rounding=decimal.ROUND_HALF_UP))
+        return float(decimal.Decimal(str(valor)).quantize(decimal.Decimal('0.01'), rounding=decimal.ROUND_HALF_UP))
+
+    def convertir_a_moneda_nacional(detalle_asiento):
+        """
+        Convierte los montos de un detalle asiento a la moneda nacional.
+        """
+        # Convertir valores a Decimal usando el formato correcto
+        debe_original = convertir_formato_numero(detalle_asiento.debe)
+        haber_original = convertir_formato_numero(detalle_asiento.haber)
+        
+        # Si la moneda es la nacional (idMoneda=1), no hay conversión necesaria
+        if detalle_asiento.idMoneda_id == 1:
+            return {
+                'debe': debe_original,
+                'haber': haber_original
+            }
+        
+        # Si tiene moneda diferente a 1, buscar el pago relacionado
+        pago = Pago.objects.filter(idAsiento=detalle_asiento.idAsiento).first()
+        
+        if pago and pago.idTasa:
+            # Obtener la tasa de cambio del pago
+            tasa_cambio = Tasa.objects.filter(idTasa=pago.idTasa_id).first()
+            if tasa_cambio and hasattr(tasa_cambio, 'montoTasa'):
+                # Convertir la tasa del formato español
+                tasa_valor = convertir_formato_numero(tasa_cambio.montoTasa)
+                
+                # Convertir los montos usando la tasa de cambio
+                return {
+                    'debe': debe_original * tasa_valor,
+                    'haber': haber_original * tasa_valor
+                }
+        
+        # Si no se encuentra tasa de cambio, usar los valores originales
+        return {
+            'debe': debe_original,
+            'haber': haber_original
+        }
+
+    # OBTENER TODOS LOS MOVIMIENTOS DEL PERÍODO ACTUAL Y CONVERTIRLOS
+    movimientos_actual_raw = DetalleAsiento.objects.filter(
         idAsiento__idPeriodo=periodo
-    ).select_related('idPlanCuenta').values(
-        'idPlanCuenta',
-        'idPlanCuenta__codigoPlanCuenta',
-        'idPlanCuenta__nombrePlanCuenta',
-        'idPlanCuenta__cuentaPadre_id'
-    ).annotate(
-        total_debe=Sum('debe'),
-        total_haber=Sum('haber')
-    )
+    ).select_related('idPlanCuenta', 'idMoneda')
 
-    print("=== Movimientos del periodo actual ===")
-    for mov in movimientos_actual:
-        print(f"Cuenta: {mov['idPlanCuenta__codigoPlanCuenta']} - {mov['idPlanCuenta__nombrePlanCuenta']}, Debe: {mov['total_debe']}, Haber: {mov['total_haber']}")
+    # Procesar movimientos y convertir a moneda nacional
+    movimientos_actual_convertidos = {}
+    for detalle in movimientos_actual_raw:
+        montos_convertidos = convertir_a_moneda_nacional(detalle)
+        cuenta_id = detalle.idPlanCuenta_id
+        
+        if cuenta_id not in movimientos_actual_convertidos:
+            movimientos_actual_convertidos[cuenta_id] = {
+                'total_debe': decimal.Decimal('0.00'),
+                'total_haber': decimal.Decimal('0.00'),
+                'codigo': detalle.idPlanCuenta.codigoPlanCuenta,
+                'nombre': detalle.idPlanCuenta.nombrePlanCuenta,
+                'cuentaPadre_id': detalle.idPlanCuenta.cuentaPadre_id
+            }
+        
+        movimientos_actual_convertidos[cuenta_id]['total_debe'] += montos_convertidos['debe']
+        movimientos_actual_convertidos[cuenta_id]['total_haber'] += montos_convertidos['haber']
 
-    # OBTENER MOVIMIENTOS DEL PERÍODO ANTERIOR (SALDO ANTERIOR)
+    print("=== Movimientos del periodo actual (Moneda Nacional) ===")
+    for cuenta_id, mov in movimientos_actual_convertidos.items():
+        print(f"Cuenta: {mov['codigo']} - {mov['nombre']}, Debe: {mov['total_debe']}, Haber: {mov['total_haber']}")
+
+    # OBTENER MOVIMIENTOS DEL PERÍODO ANTERIOR Y CONVERTIRLOS
     movimientos_anterior = {}
     if periodo_anterior:
-        movimientos_anterior_query = DetalleAsiento.objects.filter(
+        movimientos_anterior_raw = DetalleAsiento.objects.filter(
             idAsiento__idPeriodo=periodo_anterior
-        ).select_related('idPlanCuenta').values(
-            'idPlanCuenta'
-        ).annotate(
-            total_debe=Sum('debe'),
-            total_haber=Sum('haber')
-        )
+        ).select_related('idPlanCuenta', 'idMoneda')
 
-        print("=== Movimientos del periodo anterior ===")
-        for mov in movimientos_anterior_query:
-            cuenta_id = mov['idPlanCuenta']
-            saldo_anterior = (mov['total_debe'] or 0) - (mov['total_haber'] or 0)
-            movimientos_anterior[cuenta_id] = saldo_anterior
-            print(f"Cuenta ID: {cuenta_id}, Saldo anterior: {saldo_anterior}")
+        for detalle in movimientos_anterior_raw:
+            montos_convertidos = convertir_a_moneda_nacional(detalle)
+            cuenta_id = detalle.idPlanCuenta_id
+            saldo_anterior = montos_convertidos['debe'] - montos_convertidos['haber']
+            
+            if cuenta_id not in movimientos_anterior:
+                movimientos_anterior[cuenta_id] = decimal.Decimal('0.00')
+            
+            movimientos_anterior[cuenta_id] += saldo_anterior
+
+        print("=== Movimientos del periodo anterior (Moneda Nacional) ===")
+        for cuenta_id, saldo in movimientos_anterior.items():
+            print(f"Cuenta ID: {cuenta_id}, Saldo anterior: {saldo}")
 
     # Crear diccionario de saldos por cuenta ID
     saldos_por_cuenta = {}
-    for mov in movimientos_actual:
-        cuenta_id = mov['idPlanCuenta']
-        saldo_anterior = movimientos_anterior.get(cuenta_id, 0)
-        total_debe = mov['total_debe'] or 0
-        total_haber = mov['total_haber'] or 0
+    for cuenta_id, mov in movimientos_actual_convertidos.items():
+        saldo_anterior = movimientos_anterior.get(cuenta_id, decimal.Decimal('0.00'))
+        total_debe = mov['total_debe']
+        total_haber = mov['total_haber']
         saldo_actual = total_debe - total_haber
         saldo_acumulado = saldo_anterior + saldo_actual
 
-        print(f"Cuenta: {mov['idPlanCuenta__codigoPlanCuenta']} - {mov['idPlanCuenta__nombrePlanCuenta']}, "
+        print(f"Cuenta: {mov['codigo']} - {mov['nombre']}, "
               f"Debe: {total_debe}, Haber: {total_haber}, Saldo anterior: {saldo_anterior}, "
               f"Saldo actual: {saldo_actual}, Saldo acumulado: {saldo_acumulado}")
 
@@ -596,9 +680,9 @@ def balance_cuentas(request):
             'saldo_actual': saldo_actual,
             'saldo_anterior': saldo_anterior,
             'saldo_acumulado': saldo_acumulado,
-            'codigo': mov['idPlanCuenta__codigoPlanCuenta'],
-            'nombre': mov['idPlanCuenta__nombrePlanCuenta'],
-            'cuentaPadre_id': mov['idPlanCuenta__cuentaPadre_id']
+            'codigo': mov['codigo'],
+            'nombre': mov['nombre'],
+            'cuentaPadre_id': mov['cuentaPadre_id']
         }
 
     # OBTENER TODAS LAS CUENTAS EN ORDEN JERÁRQUICO
@@ -630,11 +714,11 @@ def balance_cuentas(request):
         for cuenta in hijos_por_padre[cuenta_padre_id]:
             # Obtener saldos de esta cuenta
             saldo_data = saldos_por_cuenta.get(cuenta.idPlanCuenta, {
-                'total_debe': 0,
-                'total_haber': 0,
-                'saldo_actual': 0,
-                'saldo_anterior': 0,
-                'saldo_acumulado': 0
+                'total_debe': decimal.Decimal('0.00'),
+                'total_haber': decimal.Decimal('0.00'),
+                'saldo_actual': decimal.Decimal('0.00'),
+                'saldo_anterior': decimal.Decimal('0.00'),
+                'saldo_acumulado': decimal.Decimal('0.00')
             })
 
             # Obtener subcuentas recursivamente
@@ -701,7 +785,7 @@ def balance_cuentas(request):
     total_general_saldo_actual = sum(item['saldo_actual_acumulado'] for item in arbol_cuentas)
     total_general_saldo_acumulado = sum(item['saldo_acumulado_total'] for item in arbol_cuentas)
 
-    print("=== Totales generales del balance ===")
+    print("=== Totales generales del balance (Moneda Nacional) ===")
     print(f"Total Debe: {total_general_debe}")
     print(f"Total Haber: {total_general_haber}")
     print(f"Total Saldo Anterior: {total_general_saldo_anterior}")
@@ -723,11 +807,11 @@ def balance_cuentas(request):
         'periodos': periodoContable.objects.all().order_by('-fechaInicioPeriodo'),
         'periodo_seleccionado': periodo,
         'periodo_anterior': periodo_anterior,
-        'total_general_debe': total_general_debe,
-        'total_general_haber': total_general_haber,
-        'total_general_saldo_anterior': total_general_saldo_anterior,
-        'total_general_saldo_actual': total_general_saldo_actual,
-        'total_general_saldo_acumulado': total_general_saldo_acumulado,
+        'total_general_debe': formatear_a_dos_decimales(total_general_debe),
+        'total_general_haber': formatear_a_dos_decimales(total_general_haber),
+        'total_general_saldo_anterior': formatear_a_dos_decimales(total_general_saldo_anterior),
+        'total_general_saldo_actual': formatear_a_dos_decimales(total_general_saldo_actual),
+        'total_general_saldo_acumulado': formatear_a_dos_decimales(total_general_saldo_acumulado),
         'paginator': paginator,
         'mostrando_total': f"Mostrando {len(cuentas_aplanadas)} cuentas",
         'search_query': search_query,
@@ -735,6 +819,7 @@ def balance_cuentas(request):
     }
 
     return render(request, 'librosContables/balanceCuentas.html', context)
+    
 def paginate_cuentas_data(cuentas_data, page_number, items_per_page):
     """
     Función para paginar los datos de cuentas tratándolos como una lista plana.
