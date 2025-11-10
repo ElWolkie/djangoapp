@@ -200,14 +200,9 @@
                 </button>
 
                 {% if perms.cuentaBanco.change_banco %}
-                <!-- Editar (carga form por AJAX) -->
-                <button class="btn btn-primary btn-sm"
-                        data-bs-toggle="modal"
-                        data-bs-target="#editBancoModal"
-                        data-url="{% url 'banco_update' banco.idBanco %}"
-                        title="Editar banco">
-                  <i class="fas fa-edit"></i>
-                </button>
+                <a href="{% url 'banco_update' banco.idBanco %}" class="btn btn-primary btn-sm " title="Editar banco">
+                  <i class="fas fa-edit"></i> 
+                </a>
                 {% endif %}
 
                 {% if banco.estadoBanco and perms.cuentaBanco.change_banco %}
@@ -296,21 +291,6 @@
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Modal Editar Banco (contenido cargado por AJAX) -->
-<div class="modal fade" id="editBancoModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-md">
-    <div class="modal-content">
-      <div class="modal-header bg-primary text-white">
-        <h5 class="modal-title text-white"><i class="fas fa-edit me-2"></i> Editar Banco</h5>
-        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal"><i class="fas fa-times"></i></button>
-      </div>
-      <div class="modal-body" id="editBancoContent">
-        <div class="text-center py-4"><p class="text-muted">Cargando formulario…</p></div>
       </div>
     </div>
   </div>

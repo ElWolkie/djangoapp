@@ -1,159 +1,511 @@
-<form method="POST"
-      id="editBancoForm"
-      class="mt-3 text-dark needs-validation"
-      autocomplete="off"
-      style="font-weight:bold; max-width:600px; margin:0 auto;"
-      action="{% url 'banco_update' banco.idBanco %}"
-      novalidate>
-  {% csrf_token %}
+{% extends 'layouts/base2.html' %}
+{% load static %}
 
-  <!-- Cuenta Padre Selector -->
-  <div class="form-group">
-    <label for="cuentaPadreEdit">Cuenta Padre:</label>
-    <div class="input-group">
-      <input type="text"
-             id="cuentaPadreEdit"
-             class="form-control text-dark"
-             readonly required
-             placeholder="Seleccione cuenta padre"
-             value="{{ banco.cuentaPadre.codigoPlanCuenta }} - {{ banco.cuentaPadre.nombrePlanCuenta }}">
-      <button type="button"
-              class="btn btn-warning"
-              data-bs-toggle="modal"
-              data-bs-target="#cuentaPadreModal">
-        <i class="fas fa-search"></i>
-      </button>
+{% block title %}Editar Banco{% endblock title %}
+{% block stylesheets %}
+<link rel="stylesheet" href="{% static 'assets/css/styleForms.css' %}" />
+<link rel="stylesheet" href="{% static 'assets/css/argon.css' %}" />
+<style>
+  .banco-container {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 1rem;
+    box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.1);
+    padding: 2rem;
+    margin: 2rem auto;
+    max-width: 700px;
+  }
+  
+  .banco-header {
+    text-align: center;
+    margin-bottom: 2rem;
+    position: relative;
+    padding-bottom: 1rem;
+  }
+  
+  .banco-header h2 {
+    color: #343a40;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+  }
+  
+  .banco-header::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80px;
+    height: 4px;
+    background: linear-gradient(90deg, #ffc107, #fd7e14);
+    border-radius: 2px;
+  }
+  
+  .form-group {
+    margin-bottom: 1.5rem;
+    position: relative;
+  }
+  
+  .form-label {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+  }
+  
+  .form-label i {
+    margin-right: 8px;
+    color: #fd7e14;
+  }
+  
+  .form-control {
+    border-radius: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    border: 1px solid #ced4da;
+    background-color: #fff;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.075);
+    transition: all 0.3s;
+  }
+  
+  .form-control:focus {
+    border-color: #ffc107;
+    box-shadow: 0 0 0 0.25rem rgba(255,193,7,0.25);
+  }
+  
+  .input-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6c757d;
+    z-index: 2;
+  }
+  
+  .input-with-icon {
+    padding-left: 40px;
+  }
+  
+  .btn-submit {
+    background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+    border: none;
+    color: #fff;
+    font-weight: 600;
+    padding: 0.75rem 2rem;
+    border-radius: 0.5rem;
+    transition: all 0.3s;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+    width: 200px;
+  }
+  
+  .btn-submit:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    background: linear-gradient(135deg, #fd7e14 0%, #ffc107 100%);
+  }
+  
+  .btn-submit i {
+    margin-right: 8px;
+  }
+  
+  .input-group-btn .btn {
+    border-radius: 0 0.5rem 0.5rem 0;
+    background: #ffc107;
+    color: #343a40;
+    border: 1px solid #ced4da;
+    border-left: none;
+  }
+</style>
+{% endblock stylesheets %}
+
+{% block content %}
+<div class="mt-4">
+  <div class="banco-container">
+    <div class="banco-header">
+      <h2><i class="fas fa-university text-warning"></i> Editar Banco</h2>
+      <p class="text-muted">Modifique los campos que desee actualizar</p>
     </div>
-    <input type="hidden"
-           id="cuentaPadreIdEdit"
-           name="cuentaPadre"
-           value="{{ banco.cuentaPadre.idPlanCuenta }}">
-    <div class="invalid-feedback">Seleccione una cuenta padre válida.</div>
-  </div>
 
-  <!-- Cuenta Contable Asociada Selector -->
-  <div class="form-group mt-3">
-    <label for="codigoPlanCuentaEdit">Cuenta Contable Asociada:</label>
-    <div class="input-group">
-      <input type="text"
-             id="codigoPlanCuentaEdit"
-             class="form-control text-dark"
-             readonly required
-             placeholder="Seleccione subcuenta"
-             value="{{ banco.codigoPlanCuenta.codigoPlanCuenta }} - {{ banco.codigoPlanCuenta.nombrePlanCuenta }}">
-      <button type="button"
-              class="btn btn-warning"
-              data-bs-toggle="modal"
-              data-bs-target="#subcuentaModal">
-        <i class="fas fa-search"></i>
-      </button>
-    </div>
-    <input type="hidden"
-           id="subcuentaIdEdit"
-           name="codigoPlanCuenta"
-           value="{{ banco.codigoPlanCuenta.idPlanCuenta }}">
-    <div class="invalid-feedback">Seleccione una subcuenta válida.</div>
-  </div>
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+          <div class="d-flex align-items-center">
+            <i class="fas {% if message.tags == 'success' %}fa-check-circle{% else %}fa-exclamation-circle{% endif %} me-2"></i>
+            <div>{{ message }}</div>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+      {% endfor %}
+    {% endif %}
 
-  <!-- Campos restantes -->
-  <div class="row mt-3">
-    <div class="col-md-6 form-group">
-      <label for="codLocalBancoEdit">Código Local:</label>
-      <input type="text"
-             id="codLocalBancoEdit"
-             name="codLocalBanco"
-             class="form-control text-dark"
-             maxlength="10"
-             required
-             value="{{ banco.codLocalBanco }}">
-      <div class="invalid-feedback">Código local obligatorio.</div>
-    </div>
-    <div class="col-md-6 form-group">
-      <label for="codSwiftBancoEdit">Código SWIFT:</label>
-      <input type="text"
-             id="codSwiftBancoEdit"
-             name="codSwiftBanco"
-             class="form-control text-dark"
-             maxlength="11"
-             required
-             value="{{ banco.codSwiftBanco }}">
-      <div class="invalid-feedback">Código SWIFT obligatorio.</div>
-    </div>
-  </div>
+    <form method="POST" autocomplete="off" id="editBancoForm" action="{% url 'banco_update' banco.idBanco %}" novalidate>
+      {% csrf_token %}
+      
+      <div class="form-group">
+        <label for="cuentaPadre" class="form-label">
+          <i class="fas fa-file-invoice-dollar"></i> Cuenta Contable Padre
+        </label>
+        <div class="input-group">
+          <i class="fas fa-search input-icon"></i>
+          <input type="text" id="cuentaPadre" class="form-control input-with-icon" 
+                 placeholder="Seleccione una cuenta contable" readonly required 
+                 value="{{ banco.cuentaPadre.codigoPlanCuenta }} - {{ banco.cuentaPadre.nombrePlanCuenta }}" />
+          <button type="button" id="buscarCuentaPadre" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#cuentaPadreModal">
+            <i class="fas fa-search"></i>
+          </button>  
+          <div class="invalid-feedback">
+          Por favor seleccione una cuenta contable válida.
+        </div>
+        </div>
+        <input type="hidden" id="cuentaPadreId" name="cuentaPadre" value="{{ banco.cuentaPadre.idPlanCuenta }}" />
+      
+      </div>
 
-  <div class="form-group mt-3">
-    <label for="nombreBancoEdit">Nombre del Banco:</label>
-    <input type="text"
-           id="nombreBancoEdit"
-           name="nombreBanco"
-           class="form-control text-dark"
-           maxlength="100"
-           required
-           value="{{ banco.nombreBanco }}">
-    <div class="invalid-feedback">Nombre obligatorio.</div>
-  </div>
+      <div class="row">
+        <div class="col-md-6">
+          <div class="form-group">
+            <label for="codLocalBanco" class="form-label">
+              <i class="fas fa-hashtag"></i> Código Local
+            </label>
+            <div class="input-group">
+              <i class="fas fa-barcode input-icon"></i>
+              <input type="text" id="codLocalBanco" name="codLocalBanco" 
+                     class="form-control input-with-icon" 
+                     placeholder="Ej: 0102" maxlength="10" required 
+                     value="{{ banco.codLocalBanco }}" />
+             <div class="invalid-feedback">
+              Por favor ingrese un código local válido.
+            </div>
+          </div>
+          </div>
+        </div>
+        
+        <div class="col-md-6">
+          <div class="form-group">
+            <label for="codSwiftBanco" class="form-label">
+              <i class="fas fa-globe"></i> Código SWIFT
+            </label>
+            <div class="input-group">
+              <i class="fas fa-barcode input-icon"></i>
+              <input type="text" id="codSwiftBanco" name="codSwiftBanco" 
+                     class="form-control input-with-icon" 
+                     placeholder="Ej: BACVVEMM" maxlength="11" required 
+                     value="{{ banco.codSwiftBanco }}" />
+              <div class="invalid-feedback">
+                 Por favor ingrese un código SWIFT válido.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
-  <div class="text-center mt-4">
-    <button type="submit" class="btn btn-warning">
-      <i class="fas fa-save me-1"></i> Guardar Cambios
-    </button>
-  </div>
-</form>
+      <div class="form-group">
+        <label for="nombreBanco" class="form-label">
+          <i class="fas fa-building"></i> Nombre del Banco
+        </label>
+        <div class="input-group">
+          <i class="fas fa-font input-icon"></i>
+          <input type="text" id="nombreBanco" name="nombreBanco" 
+                 class="form-control input-with-icon" 
+                 placeholder="Ej: Banco de Venezuela" maxlength="100" required 
+                 value="{{ banco.nombreBanco }}" />
+            <div class="invalid-feedback">
+            Por favor ingrese un nombre válido.
+          </div>
+        </div>
+      </div>
 
-<!-- Modal Cuenta Padre -->
-<div class="modal fade" id="cuentaPadreModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
+      <div class="text-center mt-4">
+        <button type="submit" class="btn-submit">
+          <i class="fas fa-save me-2"></i> Actualizar
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal para buscar cuenta contable -->
+<div class="modal fade" id="cuentaPadreModal" tabindex="-1" role="dialog" aria-labelledby="cuentaPadreModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-xl mx-auto" role="document">
     <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Seleccionar Cuenta Padre</h5>
-        <button type="button" class="btn btn-sm btn-icon-only text-dark" data-bs-dismiss="modal">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title text-white" id="cuentaPadreModalLabel">
+          <i class="fas fa-search mr-2"></i> Seleccionar Cuenta Contable
+        </h5>
+        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
           <i class="fas fa-times"></i>
         </button>
       </div>
       <div class="modal-body">
-        <input id="searchPadre" class="form-control text-dark mb-2" placeholder="Buscar..." onkeyup="filterTable('searchPadre','tablaPadre')">
-        <table class="table table-sm table-hover" id="tablaPadre">
-          <thead><tr><th>Código</th><th>Nombre</th><th>Nivel</th></tr></thead>
-          <tbody>
-            {% for p in planes %}
-            <tr data-id="{{ p.idPlanCuenta }}" data-nombre="{{ p.codigoPlanCuenta }} - {{ p.nombrePlanCuenta }}">
-              <td>{{ p.codigoPlanCuenta }}</td>
-              <td>{{ p.nombrePlanCuenta }}</td>
-              <td>{{ p.nivelPlanCuenta }}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+        <div class="input-group mb-3">
+          <div class="input-group-prepend">
+            <span class="input-group-text bg-light">
+              <i class="fas fa-search text-warning"></i>
+            </span>
+          </div>
+          <input class="form-control" id="searchModalInput" type="text" placeholder="Buscar cuenta...">
+        </div>
+        <div class="table-responsive">
+          <table class="table table-sm table-striped table-hover" id="tablaCuentas">
+            <thead class="bg-light">
+              <tr>
+                <th style="width: 15%;">Código</th>
+                <th style="width: 60%;">Nombre</th>
+                <th style="width: 10%;">Nivel</th>
+                <th style="width: 15%;">Seleccionar</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for cuenta in planes %}
+                <tr data-id="{{ cuenta.idPlanCuenta }}" data-nombre="{{ cuenta.codigoPlanCuenta }} - {{ cuenta.nombrePlanCuenta }}">
+                  <td>{{ cuenta.codigoPlanCuenta }}</td>
+                  <td>{{ cuenta.nombrePlanCuenta }}</td>
+                  <td>{{ cuenta.nivelPlanCuenta }}</td>
+                  <td>
+                    <button class="btn btn-sm btn-warning btn-select">
+                      <i class="fas fa-check"></i> Elegir
+                    </button>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+         <!-- Contenedor para la paginación -->
+        <div class="pagination-container d-flex justify-content-center mt-3"></div>
+        <p id="mensajeSinRegistros" class="text-center text-muted my-4" style="display: none;">
+          <i class="fas fa-info-circle mr-2"></i> No se encontraron registros
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
       </div>
     </div>
   </div>
 </div>
+{% endblock content %}
 
-<!-- Modal Subcuenta -->
-<div class="modal fade" id="subcuentaModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Seleccionar Subcuenta</h5>
-       <button type="button" class="btn btn-sm btn-icon-only text-dark" data-bs-dismiss="modal">
-          <i class="fas fa-times"></i>
-        </button>
-      </div>
-      <div class="modal-body">
-        <input id="searchSub" class="form-control text-dark mb-2" placeholder="Buscar..." onkeyup="filterTable('searchSub','tablaSub')">
-        <table class="table table-sm table-hover" id="tablaSub">
-          <thead><tr><th>Código</th><th>Nombre</th><th>Nivel</th></tr></thead>
-          <tbody>
-            {% for p in planes %}
-            <tr data-id="{{ p.idPlanCuenta }}" data-nombre="{{ p.codigoPlanCuenta }} - {{ p.nombrePlanCuenta }}">
-              <td>{{ p.codigoPlanCuenta }}</td>
-              <td>{{ p.nombrePlanCuenta }}</td>
-              <td>{{ p.nivelPlanCuenta }}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-</div>
+{% block javascripts %}
+  <script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
+  <script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
+  <script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const cuentaPadreInput = document.getElementById('cuentaPadre');
+      const cuentaPadreIdInput = document.getElementById('cuentaPadreId');
+      const tablaCuentas = document.getElementById('tablaCuentas');
+      const searchModalInput = document.getElementById('searchModalInput');
+      const editBancoForm = document.getElementById('editBancoForm');
+
+      // Manejar clic en botón de selección
+      tablaCuentas.addEventListener('click', function (event) {
+        const fila = event.target.closest('tr');
+        if (fila && fila.dataset.id) {
+          const cuentaId = fila.getAttribute('data-id');
+          const cuentaNombre = fila.getAttribute('data-nombre');
+          
+          cuentaPadreInput.value = cuentaNombre;
+          cuentaPadreIdInput.value = cuentaId;
+          cuentaPadreInput.classList.remove('is-invalid');
+          cuentaPadreInput.classList.add('is-valid');
+          
+          // Cerrar el modal
+          const modal = bootstrap.Modal.getInstance(document.getElementById('cuentaPadreModal'));
+          modal.hide();
+        }
+      });
+
+      // Filtrar cuentas en el modal
+      searchModalInput.addEventListener('keyup', function() {
+        const filter = this.value.toUpperCase();
+        const rows = tablaCuentas.getElementsByTagName('tr');
+        let visibleRows = 0;
+        
+        for (let i = 1; i < rows.length; i++) {
+          const cells = rows[i].getElementsByTagName('td');
+          const codigo = cells[0].textContent || cells[0].innerText;
+          const nombre = cells[1].textContent || cells[1].innerText;
+          
+          if (codigo.toUpperCase().indexOf(filter) > -1 || nombre.toUpperCase().indexOf(filter) > -1) {
+            rows[i].style.display = '';
+            visibleRows++;
+          } else {
+            rows[i].style.display = 'none';
+          }
+        }
+        
+        const mensaje = document.getElementById('mensajeSinRegistros');
+        mensaje.style.display = visibleRows === 0 ? 'block' : 'none';
+      });
+
+
+    // Paginación para la tabla del modal
+    const paginationContainer = document.querySelector('.pagination-container');
+    const rowsPerPage = 10; // Número de filas por página
+    const maxVisibleButtons = 5; // Máximo de botones visibles en la paginación
+    let currentPage = 1;
+
+    function displayRows() {
+      const rows = tablaCuentas.getElementsByTagName('tr');
+      const start = (currentPage - 1) * rowsPerPage + 1; // Ignorar encabezado
+      const end = start + rowsPerPage;
+      for (let i = 1; i < rows.length; i++) {
+        rows[i].style.display = i >= start && i < end ? '' : 'none';
+      }
+    }
+
+    function setupPagination() {
+      const rows = tablaCuentas.getElementsByTagName('tr');
+      const totalPages = Math.ceil((rows.length - 1) / rowsPerPage); // Ignorar encabezado
+      paginationContainer.innerHTML = '';
+
+      const prevLi = document.createElement('li');
+      prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+      prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Anterior">&laquo;</a>`;
+      prevLi.addEventListener('click', e => {
+        e.preventDefault();
+        if (currentPage > 1) currentPage--;
+        displayRows();
+        setupPagination();
+      });
+      paginationContainer.appendChild(prevLi);
+
+      const startPage = Math.max(1, currentPage - Math.floor(maxVisibleButtons / 2));
+      const endPage = Math.min(totalPages, startPage + maxVisibleButtons - 1);
+
+      for (let i = startPage; i <= endPage; i++) {
+        const li = document.createElement('li');
+        li.className = `page-item ${i === currentPage ? 'active' : ''}`;
+        li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+        li.addEventListener('click', e => {
+          e.preventDefault();
+          currentPage = i;
+          displayRows();
+          setupPagination();
+        });
+        paginationContainer.appendChild(li);
+      }
+
+      const nextLi = document.createElement('li');
+      nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+      nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Siguiente">&raquo;</a>`;
+      nextLi.addEventListener('click', e => {
+        e.preventDefault();
+        if (currentPage < totalPages) currentPage++;
+        displayRows();
+        setupPagination();
+      });
+      paginationContainer.appendChild(nextLi);
+    }
+
+      // Validar formulario antes de enviar
+      editBancoForm.addEventListener('submit', function (event) {
+        let valid = true;
+        
+        if (!cuentaPadreIdInput.value) {
+          cuentaPadreInput.classList.add('is-invalid');
+          valid = false;
+        }
+        
+        if (!document.getElementById('codLocalBanco').value) {
+          document.getElementById('codLocalBanco').classList.add('is-invalid');
+          valid = false;
+        }
+        
+        if (!document.getElementById('codSwiftBanco').value) {
+          document.getElementById('codSwiftBanco').classList.add('is-invalid');
+          valid = false;
+        }
+        
+        if (!document.getElementById('nombreBanco').value) {
+          document.getElementById('nombreBanco').classList.add('is-invalid');
+          valid = false;
+        }
+        
+        if (!valid) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      }, false);
+       displayRows();
+    setupPagination();
+
+    editBancoForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+
+      let valid = true;
+      const fields = [
+        { id: 'cuentaPadreId', msg: 'Por favor seleccione una cuenta contable válida.' },
+        { id: 'codLocalBanco', msg: 'Por favor ingrese un código local válido.' },
+        { id: 'codSwiftBanco', msg: 'Por favor ingrese un código SWIFT válido.' },
+        { id: 'nombreBanco', msg: 'Por favor ingrese un nombre válido.' }
+      ];
+
+      fields.forEach(field => {
+        const input = document.getElementById(field.id);
+        if (!input.value.trim()) {
+          input.classList.add('is-invalid');
+          const feedback = input.nextElementSibling;
+          if (feedback) feedback.textContent = field.msg;
+          valid = false;
+        } else {
+          input.classList.remove('is-invalid');
+          input.classList.add('is-valid');
+        }
+      });
+
+      if (!valid) return;
+
+      const formData = new FormData(editBancoForm);
+      const submitBtn = editBancoForm.querySelector('button[type="submit"]');
+      const originalBtnContent = submitBtn.innerHTML;
+      submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Actualizando...';
+      submitBtn.disabled = true;
+
+      fetch(editBancoForm.action, {
+        method: 'POST',
+        body: formData,
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            Swal.fire({
+              icon: 'success',
+              title: 'Éxito',
+              text: 'El banco ha sido actualizado correctamente.',
+              confirmButtonText: 'Aceptar',
+              customClass: { confirmButton: 'btn btn-warning' },
+
+            }).then(() => {
+              window.location.href = "{% url 'banco_list' %}"; // Redirigir a la lista de bancos
+            });
+          } else {
+            const errorMessage = data.errors ? Object.values(data.errors).join(' ') : (data.message || 'Ocurrió un error al actualizar el banco.');
+            Swal.fire({
+              icon: 'error',
+              title: 'Error',
+              text: errorMessage,
+              confirmButtonText: 'Aceptar'
+            });
+          }
+        })
+        .catch(error => {
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Ocurrió un error inesperado.',
+            confirmButtonText: 'Aceptar'
+          });
+        })
+        .finally(() => {
+          submitBtn.innerHTML = originalBtnContent;
+          submitBtn.disabled = false;
+        });
+    });
+    });
+  </script>
+{% endblock javascripts %}
