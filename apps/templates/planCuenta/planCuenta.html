@@ -102,6 +102,42 @@
     padding: 0.25rem 0.5rem;
     font-size: 0.8rem;
   }
+  .pagination-container {
+    margin-top: 1rem;
+    text-align: center;
+  }
+  .pagination {
+    display: inline-block;
+    padding-left: 0;
+    margin: 0;
+    list-style: none;
+  }
+  .pagination li {
+    display: inline;
+  }
+  .pagination li a, .pagination li span {
+    display: inline-block;
+    padding: 0.5rem 0.75rem;
+    margin: 0 0.1rem;
+    line-height: 1.25;
+    color: #007bff;
+    text-decoration: none;
+    border: 1px solid transparent;
+    border-radius: 0.25rem;
+  }
+  .pagination li a:hover {
+    text-decoration: none;
+    background-color: #e9ecef;
+  }
+  .pagination li.active a {
+    background-color: #007bff;
+    color: white;
+    border-color: #007bff;
+  }
+  .pagination li.disabled span {
+    color: #6c757d;
+    pointer-events: none;
+  }
 </style>
 {% endblock stylesheets %}
 
@@ -227,10 +263,10 @@
 
 <!-- Modal -->
 <div class="modal fade" id="cuentaPadreModal" tabindex="-1" role="dialog" aria-labelledby="cuentaPadreModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+  <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
     <div class="modal-content">
-      <div class="modal-header bg-orange text-white">
-        <h5 class="modal-title" id="cuentaPadreModalLabel">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title text-white" id="cuentaPadreModalLabel">
           <i class="fas fa-search mr-2"></i> Seleccionar Cuenta Padre
         </h5>
         <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
@@ -274,6 +310,7 @@
             </tbody>
           </table>
         </div>
+        <div class="pagination-container d-flex justify-content-center mt-3"></div>
         <p id="mensajeSinRegistros" class="text-center text-muted my-4" style="display: none;">
           <i class="fas fa-info-circle mr-2"></i> No se encontraron registros
         </p>
@@ -543,6 +580,67 @@
           });
         });
     });
+
+    const paginationContainer = document.querySelector('.pagination-container');
+    const rowsPerPage = 10; // Número de filas por página
+    const maxVisibleButtons = 5; // Máximo de botones visibles en la paginación
+    let currentPage = 1;
+
+    function displayRows() {
+      const rows = tablaCuentas.querySelectorAll('tbody tr');
+      const start = (currentPage - 1) * rowsPerPage;
+      const end = start + rowsPerPage;
+      rows.forEach((row, index) => {
+        row.style.display = index >= start && index < end ? '' : 'none';
+      });
+    }
+
+    function setupPagination() {
+      const rows = tablaCuentas.querySelectorAll('tbody tr');
+      const totalPages = Math.ceil(rows.length / rowsPerPage);
+      paginationContainer.innerHTML = '';
+
+      const prevLi = document.createElement('li');
+      prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+      prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Anterior">&laquo;</a>`;
+      prevLi.addEventListener('click', e => {
+        e.preventDefault();
+        if (currentPage > 1) currentPage--;
+        displayRows();
+        setupPagination();
+      });
+      paginationContainer.appendChild(prevLi);
+
+      const startPage = Math.max(1, currentPage - Math.floor(maxVisibleButtons / 2));
+      const endPage = Math.min(totalPages, startPage + maxVisibleButtons - 1);
+
+      for (let i = startPage; i <= endPage; i++) {
+        const li = document.createElement('li');
+        li.className = `page-item ${i === currentPage ? 'active' : ''}`;
+        li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+        li.addEventListener('click', e => {
+          e.preventDefault();
+          currentPage = i;
+          displayRows();
+          setupPagination();
+        });
+        paginationContainer.appendChild(li);
+      }
+
+      const nextLi = document.createElement('li');
+      nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+      nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Siguiente">&raquo;</a>`;
+      nextLi.addEventListener('click', e => {
+        e.preventDefault();
+        if (currentPage < totalPages) currentPage++;
+        displayRows();
+        setupPagination();
+      });
+      paginationContainer.appendChild(nextLi);
+    }
+
+    displayRows();
+    setupPagination();
   });
   // Activar mayúsculas en inputs
 function activarMayusculasInputs() {

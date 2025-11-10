@@ -340,6 +340,7 @@
     // Paginación para la tabla del modal
     const paginationContainer = document.querySelector('.pagination-container');
     const rowsPerPage = 10; // Número de filas por página
+    const maxVisibleButtons = 5; // Máximo de botones visibles en la paginación
     let currentPage = 1;
 
     function displayRows() {
@@ -367,7 +368,10 @@
       });
       paginationContainer.appendChild(prevLi);
 
-      for (let i = 1; i <= totalPages; i++) {
+      const startPage = Math.max(1, currentPage - Math.floor(maxVisibleButtons / 2));
+      const endPage = Math.min(totalPages, startPage + maxVisibleButtons - 1);
+
+      for (let i = startPage; i <= endPage; i++) {
         const li = document.createElement('li');
         li.className = `page-item ${i === currentPage ? 'active' : ''}`;
         li.innerHTML = `<a class="page-link" href="#">${i}</a>`;

@@ -385,6 +385,7 @@ def cuenta_banco_detail(request, pk):
 def cuenta_banco_create(request):
     if request.method == 'POST':
         form = CuentaBancoForm(request.POST)
+        idMonedaCuenta = request.POST.get('moneda')
         if form.is_valid():
             with transaction.atomic():
                 cuenta = form.save(commit=False)
@@ -430,6 +431,7 @@ def cuenta_banco_create(request):
 
                             DetalleAsiento.objects.create(
                                 idAsiento=asiento,
+                                idMoneda=idMonedaCuenta,
                                 idPlanCuenta_id=cuenta.planCuenta.idPlanCuenta,
                                 debe=cuenta.saldoDisponible,
                                 haber=0.00
@@ -437,6 +439,7 @@ def cuenta_banco_create(request):
 
                             DetalleAsiento.objects.create(
                                 idAsiento=asiento,
+                                idMoneda=idMonedaCuenta,
                                 idPlanCuenta_id=plan_cuenta_credito,
                                 debe=0.00,
                                 haber=cuenta.saldoDisponible

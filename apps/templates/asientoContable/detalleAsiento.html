@@ -100,7 +100,7 @@
 
 <!-- Modal -->
 <div class="modal fade" id="planCuentaModal" tabindex="-1" role="dialog" aria-labelledby="planCuentaModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered" role="document">
+  <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title" id="planCuentaModalLabel">Seleccionar Plan de Cuenta</h5>
@@ -128,6 +128,8 @@
                 <th style="width: 10%;">Código</th>
                 <th style="width: 20%;">Nombre</th>
                 <th style="width: 10%;">Nivel</th>
+                <th style="width: 10%;">Seleccionar</th>
+
               </tr>
             </thead>
             <tbody>
@@ -136,6 +138,11 @@
                 <td>{{ cuenta.codigoPlanCuenta }}</td>
                 <td>{{ cuenta.nombrePlanCuenta }}</td>
                 <td>{{ cuenta.nivelPlanCuenta }}</td>
+                <td>
+                  <button class="btn btn-sm btn-warning btn-select">
+                    <i class="fas fa-check"></i> Elegir
+                  </button>
+                </td>
               </tr>
               {% endfor %}
             </tbody>
@@ -374,6 +381,7 @@
     // Paginación en la tabla del modal
     const paginationContainer = document.querySelector('.pagination-container');
     const rowsPerPage = 8; // Número de filas por página
+    const maxVisibleButtons = 5; // Máximo de botones visibles en la paginación
     let currentPage = 1;
 
     function displayRows() {
@@ -401,7 +409,10 @@
       });
       paginationContainer.appendChild(prevLi);
 
-      for (let i = 1; i <= totalPages; i++) {
+      const startPage = Math.max(1, currentPage - Math.floor(maxVisibleButtons / 2));
+      const endPage = Math.min(totalPages, startPage + maxVisibleButtons - 1);
+
+      for (let i = startPage; i <= endPage; i++) {
         const li = document.createElement('li');
         li.className = `page-item ${i === currentPage ? 'active' : ''}`;
         li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
