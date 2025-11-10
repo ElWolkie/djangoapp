@@ -216,7 +216,8 @@ class UsuarioCreateSerializer(serializers.Serializer):
                         idPersona=persona_obj.idPersona,
                         password=validated_data['password'],
                         preguntaSeguridad=validated_data['preguntaSeguridad'],
-                        respuestaSeguridad=validated_data['respuestaSeguridad']
+                        respuestaSeguridad=validated_data['respuestaSeguridad'],
+                        coloresUsuario='UsuariosApp'  # 👈 AQUÍ AGREGO EL CAMPO - LÍNEA CLAVE
                     )
                 except TypeError:
                     # fallback si la firma usa idPersona_id u otro nombre
@@ -224,10 +225,13 @@ class UsuarioCreateSerializer(serializers.Serializer):
                         idPersona_id=persona_obj.idPersona,
                         password=validated_data['password'],
                         preguntaSeguridad=validated_data['preguntaSeguridad'],
-                        respuestaSeguridad=validated_data['respuestaSeguridad']
+                        respuestaSeguridad=validated_data['respuestaSeguridad'],
+                        coloresUsuario='UsuariosApp'  # 👈 AQUÍ TAMBIÉN EN EL FALLBACK
                     )
 
-                logger.info(f"✅ Usuario creado exitosamente para la persona: {persona_obj.cedula} (idUsuario={getattr(user, 'idUsuario', None)})")
+                logger.info(f"✅ Usuario creado exitosamente para la persona: {persona_obj.cedula} "
+                           f"(idUsuario={getattr(user, 'idUsuario', None)}, "
+                           f"tipo=UsuariosApp)")  # 👈 ACTUALIZO EL LOG
 
                 # --- ASIGNAR SOLO GRUPOS EXISTENTES (NO CREAR) ---
                 nombres_grupos = ['Clientes-Proveedores', 'Inscripciones']  # ajusta si necesitas otros nombres
@@ -249,6 +253,21 @@ class UsuarioCreateSerializer(serializers.Serializer):
         except Exception as e:
             logger.exception("Error creando usuario y asignando grupos existentes.")
             raise serializers.ValidationError(f"No se pudo crear el usuario: {e}")
+
+    def to_representation(self, instance):
+        """
+        Representación personalizada para la respuesta
+        """
+        return {
+            'idUsuario': instance.idUsuario,
+            'usuario': instance.usuario,
+            'idPersona': instance.idPersona.idPersona,
+            'cedula': instance.idPersona.cedula,
+            'nombres': instance.idPersona.nombres,
+            'apellidos': instance.idPersona.apellidos,
+            'coloresUsuario': instance.coloresUsuario,  # 👈 INCLUYO EL CAMPO EN LA RESPUESTA
+            'mensaje': 'Usuario creado exitosamente'
+        }
 
 
 
