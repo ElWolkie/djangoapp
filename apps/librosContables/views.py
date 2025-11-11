@@ -910,42 +910,112 @@ def balance_cuentas_pdf(request):
         fechaFinPeriodo__lt=periodo.fechaInicioPeriodo
     ).order_by('-fechaFinPeriodo').first()
 
-    # OBTENER TODOS LOS MOVIMIENTOS DEL PERÍODO ACTUAL
-    movimientos_actual = DetalleAsiento.objects.filter(
-        idAsiento__idPeriodo=periodo
-    ).select_related('idPlanCuenta').values(
-        'idPlanCuenta',
-        'idPlanCuenta__codigoPlanCuenta',
-        'idPlanCuenta__nombrePlanCuenta',
-        'idPlanCuenta__cuentaPadre_id'
-    ).annotate(
-        total_debe=Sum('debe'),
-        total_haber=Sum('haber')
-    )
+    # Obtener símbolo de moneda nacional
+    moneda_nacional = Moneda.objects.filter(idMoneda=1).first()
+    simbolo = moneda_nacional.simboloMoneda if moneda_nacional and getattr(moneda_nacional, 'simboloMoneda', None) else 'Bs'
 
-    # OBTENER MOVIMIENTOS DEL PERÍODO ANTERIOR (SALDO ANTERIOR)
+    # FUNCIONES DE CONVERSIÓN (copiadas de balance_cuentas)
+    def convertir_formato_numero(valor):
+        if valor is None:
+            return decimal.Decimal('0.00')
+        
+        if isinstance(valor, (int, float, decimal.Decimal)):
+            return decimal.Decimal(str(valor)).quantize(decimal.Decimal('0.0000000001'))
+        
+        if isinstance(valor, str):
+            valor_limpio = valor.strip().replace('.', '').replace(',', '.')
+            try:
+                return decimal.Decimal(valor_limpio).quantize(decimal.Decimal('0.0000000001'))
+            except (decimal.InvalidOperation, ValueError):
+                try:
+                    return decimal.Decimal(valor).quantize(decimal.Decimal('0.0000000001'))
+                except (decimal.InvalidOperation, ValueError):
+                    return decimal.Decimal('0.00')
+        
+        try:
+            return decimal.Decimal(str(valor)).quantize(decimal.Decimal('0.0000000001'))
+        except (decimal.InvalidOperation, ValueError, TypeError):
+            return decimal.Decimal('0.00')
+
+    def convertir_a_moneda_nacional(detalle_asiento):
+        debe_original = convertir_formato_numero(detalle_asiento.debe)
+        haber_original = convertir_formato_numero(detalle_asiento.haber)
+        
+        # Si la moneda es la nacional (idMoneda=1), no hay conversión necesaria
+        if detalle_asiento.idMoneda_id == 1:
+            return {
+                'debe': debe_original,
+                'haber': haber_original
+            }
+        
+        # Si tiene moneda diferente a 1, buscar el pago relacionado
+        pago = Pago.objects.filter(idAsiento=detalle_asiento.idAsiento).first()
+        
+        if pago and pago.idTasa:
+            # Obtener la tasa de cambio del pago
+            tasa_cambio = Tasa.objects.filter(idTasa=pago.idTasa_id).first()
+            if tasa_cambio and hasattr(tasa_cambio, 'montoTasa'):
+                # Convertir la tasa del formato español
+                tasa_valor = convertir_formato_numero(tasa_cambio.montoTasa)
+                
+                # Convertir los montos usando la tasa de cambio
+                return {
+                    'debe': debe_original * tasa_valor,
+                    'haber': haber_original * tasa_valor
+                }
+        
+        # Si no se encuentra tasa de cambio, usar los valores originales
+        return {
+            'debe': debe_original,
+            'haber': haber_original
+        }
+
+    # OBTENER TODOS LOS MOVIMIENTOS DEL PERÍODO ACTUAL Y CONVERTIRLOS
+    movimientos_actual_raw = DetalleAsiento.objects.filter(
+        idAsiento__idPeriodo=periodo
+    ).select_related('idPlanCuenta', 'idMoneda')
+
+    # Procesar movimientos y convertir a moneda nacional
+    movimientos_actual_convertidos = {}
+    for detalle in movimientos_actual_raw:
+        montos_convertidos = convertir_a_moneda_nacional(detalle)
+        cuenta_id = detalle.idPlanCuenta_id
+        
+        if cuenta_id not in movimientos_actual_convertidos:
+            movimientos_actual_convertidos[cuenta_id] = {
+                'total_debe': decimal.Decimal('0.00'),
+                'total_haber': decimal.Decimal('0.00'),
+                'codigo': detalle.idPlanCuenta.codigoPlanCuenta,
+                'nombre': detalle.idPlanCuenta.nombrePlanCuenta,
+                'cuentaPadre_id': detalle.idPlanCuenta.cuentaPadre_id
+            }
+        
+        movimientos_actual_convertidos[cuenta_id]['total_debe'] += montos_convertidos['debe']
+        movimientos_actual_convertidos[cuenta_id]['total_haber'] += montos_convertidos['haber']
+
+    # OBTENER MOVIMIENTOS DEL PERÍODO ANTERIOR Y CONVERTIRLOS
     movimientos_anterior = {}
     if periodo_anterior:
-        movimientos_anterior_query = DetalleAsiento.objects.filter(
+        movimientos_anterior_raw = DetalleAsiento.objects.filter(
             idAsiento__idPeriodo=periodo_anterior
-        ).select_related('idPlanCuenta').values(
-            'idPlanCuenta'
-        ).annotate(
-            total_debe=Sum('debe'),
-            total_haber=Sum('haber')
-        )
-        for mov in movimientos_anterior_query:
-            cuenta_id = mov['idPlanCuenta']
-            saldo_anterior = (mov['total_debe'] or 0) - (mov['total_haber'] or 0)
-            movimientos_anterior[cuenta_id] = saldo_anterior
+        ).select_related('idPlanCuenta', 'idMoneda')
+
+        for detalle in movimientos_anterior_raw:
+            montos_convertidos = convertir_a_moneda_nacional(detalle)
+            cuenta_id = detalle.idPlanCuenta_id
+            saldo_anterior = montos_convertidos['debe'] - montos_convertidos['haber']
+            
+            if cuenta_id not in movimientos_anterior:
+                movimientos_anterior[cuenta_id] = decimal.Decimal('0.00')
+            
+            movimientos_anterior[cuenta_id] += saldo_anterior
 
     # Crear diccionario de saldos por cuenta ID
     saldos_por_cuenta = {}
-    for mov in movimientos_actual:
-        cuenta_id = mov['idPlanCuenta']
-        saldo_anterior = movimientos_anterior.get(cuenta_id, 0)
-        total_debe = mov['total_debe'] or 0
-        total_haber = mov['total_haber'] or 0
+    for cuenta_id, mov in movimientos_actual_convertidos.items():
+        saldo_anterior = movimientos_anterior.get(cuenta_id, decimal.Decimal('0.00'))
+        total_debe = mov['total_debe']
+        total_haber = mov['total_haber']
         saldo_actual = total_debe - total_haber
         saldo_acumulado = saldo_anterior + saldo_actual
 
@@ -955,9 +1025,9 @@ def balance_cuentas_pdf(request):
             'saldo_actual': saldo_actual,
             'saldo_anterior': saldo_anterior,
             'saldo_acumulado': saldo_acumulado,
-            'codigo': mov['idPlanCuenta__codigoPlanCuenta'],
-            'nombre': mov['idPlanCuenta__nombrePlanCuenta'],
-            'cuentaPadre_id': mov['idPlanCuenta__cuentaPadre_id']
+            'codigo': mov['codigo'],
+            'nombre': mov['nombre'],
+            'cuentaPadre_id': mov['cuentaPadre_id']
         }
 
     # OBTENER TODAS LAS CUENTAS EN ORDEN JERÁRQUICO
@@ -970,9 +1040,7 @@ def balance_cuentas_pdf(request):
         )
 
     # Crear estructuras para el árbol
-    cuentas_por_id = {cuenta.idPlanCuenta: cuenta for cuenta in todas_las_cuentas}
     hijos_por_padre = {}
-
     for cuenta in todas_las_cuentas:
         padre_id = cuenta.cuentaPadre_id if cuenta.cuentaPadre else None
         if padre_id not in hijos_por_padre:
@@ -987,11 +1055,11 @@ def balance_cuentas_pdf(request):
         resultado = []
         for cuenta in hijos_por_padre[cuenta_padre_id]:
             saldo_data = saldos_por_cuenta.get(cuenta.idPlanCuenta, {
-                'total_debe': 0,
-                'total_haber': 0,
-                'saldo_actual': 0,
-                'saldo_anterior': 0,
-                'saldo_acumulado': 0
+                'total_debe': decimal.Decimal('0.00'),
+                'total_haber': decimal.Decimal('0.00'),
+                'saldo_actual': decimal.Decimal('0.00'),
+                'saldo_anterior': decimal.Decimal('0.00'),
+                'saldo_acumulado': decimal.Decimal('0.00')
             })
 
             subcuentas = construir_arbol_cuentas(cuenta.idPlanCuenta, nivel + 1)
@@ -1060,7 +1128,7 @@ def balance_cuentas_pdf(request):
     p.setTitle("Reporte de balance de cuentas.")
     width, height = landscape(letter)
     
-    # Configuración de márgenes y estilos basados en reporte_inscripcion_pdf
+    # Configuración de márgenes y estilos
     logo_width, logo_height, logo_margin = 80, 80, 15
     min_margin = 30
     safe_left = min_margin
@@ -1106,11 +1174,14 @@ def balance_cuentas_pdf(request):
         p.setFont("Helvetica", 10)
         periodo_info = f"Período: {periodo.nombrePeriodo} - Del {periodo.fechaInicioPeriodo.strftime('%d/%m/%Y')} al {periodo.fechaFinPeriodo.strftime('%d/%m/%Y')}"
         p.drawCentredString(safe_center, text_top - 105, periodo_info)
+        
+        # Información de moneda
+        p.setFont("Helvetica", 9)
+        p.drawCentredString(safe_center, text_top - 120, f"Todos los montos en {simbolo} (Moneda Nacional)")
 
     def draw_footer():
         # Firma centrada en el pie de página
         if firma_path and os.path.exists(firma_path):
-           
             p.setFont("Helvetica-Oblique", 9)
             p.drawCentredString(width/2, 35, "Firma autorizada")
         
@@ -1132,23 +1203,26 @@ def balance_cuentas_pdf(request):
         data.append([
             codigo,
             nombre,
-            f"${cuenta_data['saldo_anterior_acumulado']:,.2f}",
-            f"${cuenta_data['total_debe_acumulado']:,.2f}",
-            f"${cuenta_data['total_haber_acumulado']:,.2f}",
-            f"${cuenta_data['saldo_actual_acumulado']:,.2f}",
-            f"${cuenta_data['saldo_acumulado_total']:,.2f}"
+            f"{simbolo} {cuenta_data['saldo_anterior_acumulado']:,.2f}",
+            f"{simbolo} {cuenta_data['total_debe_acumulado']:,.2f}",
+            f"{simbolo} {cuenta_data['total_haber_acumulado']:,.2f}",
+            f"{simbolo} {cuenta_data['saldo_actual_acumulado']:,.2f}",
+            f"{simbolo} {cuenta_data['saldo_acumulado_total']:,.2f}"
         ])
 
     # Totales generales
     data.append([
         'TOTALES GENERALES:',
         '',
-        f"${total_general_saldo_anterior:,.2f}",
-        f"${total_general_debe:,.2f}",
-        f"${total_general_haber:,.2f}",
-        f"${total_general_saldo_actual:,.2f}",
-        f"${total_general_saldo_acumulado:,.2f}"
+        f"{simbolo} {total_general_saldo_anterior:,.2f}",
+        f"{simbolo} {total_general_debe:,.2f}",
+        f"{simbolo} {total_general_haber:,.2f}",
+        f"{simbolo} {total_general_saldo_actual:,.2f}",
+        f"{simbolo} {total_general_saldo_acumulado:,.2f}"
     ])
+
+    # Resto del código de configuración de la tabla y generación del PDF permanece igual...
+    # ... (mantener el mismo código de configuración de tabla, estilos, paginación, etc.)
 
     # Configuración de la tabla
     col_widths = [120, 200, 80, 80, 80, 80, 80]
@@ -1253,42 +1327,112 @@ def balance_cuentas_excel(request):
         fechaFinPeriodo__lt=periodo.fechaInicioPeriodo
     ).order_by('-fechaFinPeriodo').first()
 
-    # OBTENER TODOS LOS MOVIMIENTOS DEL PERÍODO ACTUAL
-    movimientos_actual = DetalleAsiento.objects.filter(
-        idAsiento__idPeriodo=periodo
-    ).select_related('idPlanCuenta').values(
-        'idPlanCuenta',
-        'idPlanCuenta__codigoPlanCuenta',
-        'idPlanCuenta__nombrePlanCuenta',
-        'idPlanCuenta__cuentaPadre_id'
-    ).annotate(
-        total_debe=Sum('debe'),
-        total_haber=Sum('haber')
-    )
+    # Obtener símbolo de moneda nacional
+    moneda_nacional = Moneda.objects.filter(idMoneda=1).first()
+    simbolo = moneda_nacional.simboloMoneda if moneda_nacional and getattr(moneda_nacional, 'simboloMoneda', None) else 'Bs'
 
-    # OBTENER MOVIMIENTOS DEL PERÍODO ANTERIOR (SALDO ANTERIOR)
+    # FUNCIONES DE CONVERSIÓN (igual que en balance_cuentas_pdf)
+    def convertir_formato_numero(valor):
+        if valor is None:
+            return decimal.Decimal('0.00')
+        
+        if isinstance(valor, (int, float, decimal.Decimal)):
+            return decimal.Decimal(str(valor)).quantize(decimal.Decimal('0.0000000001'))
+        
+        if isinstance(valor, str):
+            valor_limpio = valor.strip().replace('.', '').replace(',', '.')
+            try:
+                return decimal.Decimal(valor_limpio).quantize(decimal.Decimal('0.0000000001'))
+            except (decimal.InvalidOperation, ValueError):
+                try:
+                    return decimal.Decimal(valor).quantize(decimal.Decimal('0.0000000001'))
+                except (decimal.InvalidOperation, ValueError):
+                    return decimal.Decimal('0.00')
+        
+        try:
+            return decimal.Decimal(str(valor)).quantize(decimal.Decimal('0.0000000001'))
+        except (decimal.InvalidOperation, ValueError, TypeError):
+            return decimal.Decimal('0.00')
+
+    def convertir_a_moneda_nacional(detalle_asiento):
+        debe_original = convertir_formato_numero(detalle_asiento.debe)
+        haber_original = convertir_formato_numero(detalle_asiento.haber)
+        
+        # Si la moneda es la nacional (idMoneda=1), no hay conversión necesaria
+        if detalle_asiento.idMoneda_id == 1:
+            return {
+                'debe': debe_original,
+                'haber': haber_original
+            }
+        
+        # Si tiene moneda diferente a 1, buscar el pago relacionado
+        pago = Pago.objects.filter(idAsiento=detalle_asiento.idAsiento).first()
+        
+        if pago and pago.idTasa:
+            # Obtener la tasa de cambio del pago
+            tasa_cambio = Tasa.objects.filter(idTasa=pago.idTasa_id).first()
+            if tasa_cambio and hasattr(tasa_cambio, 'montoTasa'):
+                # Convertir la tasa del formato español
+                tasa_valor = convertir_formato_numero(tasa_cambio.montoTasa)
+                
+                # Convertir los montos usando la tasa de cambio
+                return {
+                    'debe': debe_original * tasa_valor,
+                    'haber': haber_original * tasa_valor
+                }
+        
+        # Si no se encuentra tasa de cambio, usar los valores originales
+        return {
+            'debe': debe_original,
+            'haber': haber_original
+        }
+
+    # OBTENER TODOS LOS MOVIMIENTOS DEL PERÍODO ACTUAL Y CONVERTIRLOS
+    movimientos_actual_raw = DetalleAsiento.objects.filter(
+        idAsiento__idPeriodo=periodo
+    ).select_related('idPlanCuenta', 'idMoneda')
+
+    # Procesar movimientos y convertir a moneda nacional
+    movimientos_actual_convertidos = {}
+    for detalle in movimientos_actual_raw:
+        montos_convertidos = convertir_a_moneda_nacional(detalle)
+        cuenta_id = detalle.idPlanCuenta_id
+        
+        if cuenta_id not in movimientos_actual_convertidos:
+            movimientos_actual_convertidos[cuenta_id] = {
+                'total_debe': decimal.Decimal('0.00'),
+                'total_haber': decimal.Decimal('0.00'),
+                'codigo': detalle.idPlanCuenta.codigoPlanCuenta,
+                'nombre': detalle.idPlanCuenta.nombrePlanCuenta,
+                'cuentaPadre_id': detalle.idPlanCuenta.cuentaPadre_id
+            }
+        
+        movimientos_actual_convertidos[cuenta_id]['total_debe'] += montos_convertidos['debe']
+        movimientos_actual_convertidos[cuenta_id]['total_haber'] += montos_convertidos['haber']
+
+    # OBTENER MOVIMIENTOS DEL PERÍODO ANTERIOR Y CONVERTIRLOS
     movimientos_anterior = {}
     if periodo_anterior:
-        movimientos_anterior_query = DetalleAsiento.objects.filter(
+        movimientos_anterior_raw = DetalleAsiento.objects.filter(
             idAsiento__idPeriodo=periodo_anterior
-        ).select_related('idPlanCuenta').values(
-            'idPlanCuenta'
-        ).annotate(
-            total_debe=Sum('debe'),
-            total_haber=Sum('haber')
-        )
-        for mov in movimientos_anterior_query:
-            cuenta_id = mov['idPlanCuenta']
-            saldo_anterior = (mov['total_debe'] or 0) - (mov['total_haber'] or 0)
-            movimientos_anterior[cuenta_id] = saldo_anterior
+        ).select_related('idPlanCuenta', 'idMoneda')
+
+        for detalle in movimientos_anterior_raw:
+            montos_convertidos = convertir_a_moneda_nacional(detalle)
+            cuenta_id = detalle.idPlanCuenta_id
+            saldo_anterior = montos_convertidos['debe'] - montos_convertidos['haber']
+            
+            if cuenta_id not in movimientos_anterior:
+                movimientos_anterior[cuenta_id] = decimal.Decimal('0.00')
+            
+            movimientos_anterior[cuenta_id] += saldo_anterior
 
     # Crear diccionario de saldos por cuenta ID
     saldos_por_cuenta = {}
-    for mov in movimientos_actual:
-        cuenta_id = mov['idPlanCuenta']
-        saldo_anterior = movimientos_anterior.get(cuenta_id, 0)
-        total_debe = mov['total_debe'] or 0
-        total_haber = mov['total_haber'] or 0
+    for cuenta_id, mov in movimientos_actual_convertidos.items():
+        saldo_anterior = movimientos_anterior.get(cuenta_id, decimal.Decimal('0.00'))
+        total_debe = mov['total_debe']
+        total_haber = mov['total_haber']
         saldo_actual = total_debe - total_haber
         saldo_acumulado = saldo_anterior + saldo_actual
 
@@ -1298,9 +1442,9 @@ def balance_cuentas_excel(request):
             'saldo_actual': saldo_actual,
             'saldo_anterior': saldo_anterior,
             'saldo_acumulado': saldo_acumulado,
-            'codigo': mov['idPlanCuenta__codigoPlanCuenta'],
-            'nombre': mov['idPlanCuenta__nombrePlanCuenta'],
-            'cuentaPadre_id': mov['idPlanCuenta__cuentaPadre_id']
+            'codigo': mov['codigo'],
+            'nombre': mov['nombre'],
+            'cuentaPadre_id': mov['cuentaPadre_id']
         }
 
     # OBTENER TODAS LAS CUENTAS EN ORDEN JERÁRQUICO
@@ -1313,9 +1457,7 @@ def balance_cuentas_excel(request):
         )
 
     # Crear estructuras para el árbol
-    cuentas_por_id = {cuenta.idPlanCuenta: cuenta for cuenta in todas_las_cuentas}
     hijos_por_padre = {}
-
     for cuenta in todas_las_cuentas:
         padre_id = cuenta.cuentaPadre_id if cuenta.cuentaPadre else None
         if padre_id not in hijos_por_padre:
@@ -1331,11 +1473,11 @@ def balance_cuentas_excel(request):
         for cuenta in hijos_por_padre[cuenta_padre_id]:
             # Obtener saldos de esta cuenta
             saldo_data = saldos_por_cuenta.get(cuenta.idPlanCuenta, {
-                'total_debe': 0,
-                'total_haber': 0,
-                'saldo_actual': 0,
-                'saldo_anterior': 0,
-                'saldo_acumulado': 0
+                'total_debe': decimal.Decimal('0.00'),
+                'total_haber': decimal.Decimal('0.00'),
+                'saldo_actual': decimal.Decimal('0.00'),
+                'saldo_anterior': decimal.Decimal('0.00'),
+                'saldo_acumulado': decimal.Decimal('0.00')
             })
 
             # Obtener subcuentas recursivamente
@@ -1401,10 +1543,10 @@ def balance_cuentas_excel(request):
     worksheet = workbook.active
     worksheet.title = f"Balance Cuentas {periodo.nombrePeriodo}"[:31]  # Máximo 31 caracteres
 
-    # Estilos mejorados basados en reporte_inscripcion_pdf
+    # Estilos mejorados
     header_font = Font(bold=True, color="FFFFFF", size=12)
-    header_fill = PatternFill(start_color="fe8330", end_color="fe8330", fill_type="solid")  # Naranja como en PDF
-    total_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")  # Azul como en PDF
+    header_fill = PatternFill(start_color="fe8330", end_color="fe8330", fill_type="solid")
+    total_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
     total_font = Font(bold=True, color="FFFFFF")
     border = Border(left=Side(style='thin'), right=Side(style='thin'), 
                    top=Side(style='thin'), bottom=Side(style='thin'))
@@ -1413,10 +1555,10 @@ def balance_cuentas_excel(request):
     cuenta_principal_fill = PatternFill(start_color="FFE699", end_color="FFE699", fill_type="solid")
     # Estilo para subcuentas según nivel
     subcuenta_fills = [
-        PatternFill(start_color="E2EFDA", end_color="E2EFDA", fill_type="solid"),  # Nivel 1
-        PatternFill(start_color="DDEBF7", end_color="DDEBF7", fill_type="solid"),  # Nivel 2
-        PatternFill(start_color="FCE4D6", end_color="FCE4D6", fill_type="solid"),  # Nivel 3
-        PatternFill(start_color="EDEDED", end_color="EDEDED", fill_type="solid"),  # Nivel 4+
+        PatternFill(start_color="E2EFDA", end_color="E2EFDA", fill_type="solid"),
+        PatternFill(start_color="DDEBF7", end_color="DDEBF7", fill_type="solid"),
+        PatternFill(start_color="FCE4D6", end_color="FCE4D6", fill_type="solid"),
+        PatternFill(start_color="EDEDED", end_color="EDEDED", fill_type="solid"),
     ]
 
     # Obtener configuración institucional
@@ -1440,12 +1582,15 @@ def balance_cuentas_excel(request):
     worksheet.cell(row=5, column=1, value=f"Del {periodo.fechaInicioPeriodo.strftime('%d/%m/%Y')} al {periodo.fechaFinPeriodo.strftime('%d/%m/%Y')}")
     worksheet.merge_cells('A5:G5')
     
+    worksheet.cell(row=6, column=1, value=f"Moneda: {simbolo} (Moneda Nacional)").font = Font(bold=True)
+    worksheet.merge_cells('A6:G6')
+    
     if periodo_anterior:
-        worksheet.cell(row=6, column=1, value=f"Período Anterior: {periodo_anterior.nombrePeriodo}")
-        worksheet.merge_cells('A6:G6')
-        row_num = 8  # Empezar después del título y período anterior
+        worksheet.cell(row=7, column=1, value=f"Período Anterior: {periodo_anterior.nombrePeriodo}")
+        worksheet.merge_cells('A7:G7')
+        row_num = 9
     else:
-        row_num = 7  # Empezar después del título
+        row_num = 8
 
     # Encabezados
     headers = ['Código', 'Nombre de Cuenta', 'Saldo Anterior', 'Total Débe', 'Total Haber', 'Saldo Actual', 'Saldo Acumulado']
@@ -1505,13 +1650,13 @@ def balance_cuentas_excel(request):
 
     # Ajustar anchos de columna
     column_widths = {
-        'A': 15,  # Código
-        'B': 50,  # Nombre de Cuenta
-        'C': 15,  # Saldo Anterior
-        'D': 15,  # Total Débe
-        'E': 15,  # Total Haber
-        'F': 15,  # Saldo Actual
-        'G': 15   # Saldo Acumulado
+        'A': 15,
+        'B': 50,
+        'C': 15,
+        'D': 15,
+        'E': 15,
+        'F': 15,
+        'G': 15
     }
     
     for col_letter, width in column_widths.items():
@@ -1521,7 +1666,7 @@ def balance_cuentas_excel(request):
     for row in worksheet.iter_rows(min_row=row_num - len(cuentas_aplanadas), max_row=worksheet.max_row, min_col=3, max_col=7):
         for cell in row:
             if isinstance(cell.value, (int, float)):
-                cell.number_format = '#,##0.00'
+                cell.number_format = f'#,##0.00"{simbolo}"'
 
     # Información adicional al final
     info_row = total_row + 2
@@ -1529,6 +1674,7 @@ def balance_cuentas_excel(request):
     worksheet.cell(row=info_row + 1, column=1, value="- Saldo Deudor: Positivo")
     worksheet.cell(row=info_row + 2, column=1, value="- Saldo Acreedor: Negativo")
     worksheet.cell(row=info_row + 3, column=1, value=f"- Generado el: {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+    worksheet.cell(row=info_row + 4, column=1, value=f"- Todos los montos en {simbolo} (Moneda Nacional)")
 
     # Preparar respuesta
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
@@ -1545,6 +1691,10 @@ def libro_diario_pdf(request):
     start_date = request.GET.get('start_date')
     end_date = request.GET.get('end_date')
     periodo_id = request.GET.get('periodo')
+
+    # Obtener símbolo de moneda nacional
+    moneda_nacional = Moneda.objects.filter(idMoneda=1).first()
+    simbolo = moneda_nacional.simboloMoneda if moneda_nacional and getattr(moneda_nacional, 'simboloMoneda', None) else 'Bs'
 
     asientos = AsientoContable.objects.prefetch_related('detalles').order_by('fechaAsiento', 'numeroAsiento')
 
@@ -1566,10 +1716,97 @@ def libro_diario_pdf(request):
     if periodo_id:
         asientos = asientos.filter(idPeriodo__idPeriodo=periodo_id)
 
-    totales = asientos.aggregate(
-        total_debe=Sum('detalles__debe'),
-        total_haber=Sum('detalles__haber')
-    )
+    # Funciones de conversión (copiadas de libro_diario)
+    def convertir_formato_numero(valor):
+        if valor is None:
+            return decimal.Decimal('0.00')
+        
+        if isinstance(valor, (int, float, decimal.Decimal)):
+            return decimal.Decimal(str(valor)).quantize(decimal.Decimal('0.0000000001'))
+        
+        if isinstance(valor, str):
+            valor_limpio = valor.strip().replace('.', '').replace(',', '.')
+            try:
+                return decimal.Decimal(valor_limpio).quantize(decimal.Decimal('0.0000000001'))
+            except (decimal.InvalidOperation, ValueError):
+                try:
+                    return decimal.Decimal(valor).quantize(decimal.Decimal('0.0000000001'))
+                except (decimal.InvalidOperation, ValueError):
+                    return decimal.Decimal('0.00')
+        
+        try:
+            return decimal.Decimal(str(valor)).quantize(decimal.Decimal('0.0000000001'))
+        except (decimal.InvalidOperation, ValueError, TypeError):
+            return decimal.Decimal('0.00')
+
+    def convertir_a_moneda_nacional(detalle_asiento):
+        debe_original = convertir_formato_numero(detalle_asiento.debe)
+        haber_original = convertir_formato_numero(detalle_asiento.haber)
+        
+        # Si la moneda es la nacional (idMoneda=1), no hay conversión necesaria
+        if detalle_asiento.idMoneda_id == 1:
+            return {
+                'debe': debe_original,
+                'haber': haber_original
+            }
+        
+        # Si tiene moneda diferente a 1, buscar el pago relacionado
+        pago = Pago.objects.filter(idAsiento=detalle_asiento.idAsiento).first()
+        
+        if pago and pago.idTasa:
+            # Obtener la tasa de cambio del pago
+            tasa_cambio = Tasa.objects.filter(idTasa=pago.idTasa_id).first()
+            if tasa_cambio and hasattr(tasa_cambio, 'montoTasa'):
+                # Convertir la tasa del formato español
+                tasa_valor = convertir_formato_numero(tasa_cambio.montoTasa)
+                
+                # Convertir los montos usando la tasa de cambio
+                return {
+                    'debe': debe_original * tasa_valor,
+                    'haber': haber_original * tasa_valor
+                }
+        
+        # Si no se encuentra tasa de cambio, usar los valores originales
+        return {
+            'debe': debe_original,
+            'haber': haber_original
+        }
+
+    # Procesar asientos para convertir a moneda nacional
+    asientos_procesados = []
+    total_debe_global = decimal.Decimal('0.00')
+    total_haber_global = decimal.Decimal('0.00')
+
+    for asiento in asientos:
+        for detalle in asiento.detalles.all():
+            montos_convertidos = convertir_a_moneda_nacional(detalle)
+            debe_convertido = montos_convertidos['debe']
+            haber_convertido = montos_convertidos['haber']
+            
+            total_debe_global += debe_convertido
+            total_haber_global += haber_convertido
+
+    # Reconstruir la lista de asientos con los montos convertidos para el PDF
+    # Nota: En el PDF, vamos a mostrar los detalles convertidos, pero no tenemos una estructura de asientos_procesados como en la vista HTML.
+    # Para no complicar, vamos a generar el PDF con los datos originales pero convertidos. Sin embargo, el código anterior ya calcula los totales convertidos.
+
+    # Pero para mostrar cada detalle convertido, necesitamos procesar cada asiento y detalle again. Para evitar duplicación, podemos crear una estructura similar a la vista HTML.
+
+    # Vamos a crear una lista de datos para el PDF que incluya los detalles convertidos.
+    data_detalles = []
+    for asiento in asientos:
+        for detalle in asiento.detalles.all():
+            montos_convertidos = convertir_a_moneda_nacional(detalle)
+            data_detalles.append({
+                'numeroAsiento': asiento.numeroAsiento,
+                'fechaAsiento': asiento.fechaAsiento,
+                'conceptoAsiento': asiento.conceptoAsiento,
+                'cuenta': detalle.idPlanCuenta,
+                'debe': montos_convertidos['debe'],
+                'haber': montos_convertidos['haber']
+            })
+
+    # Ahora, usamos data_detalles para construir el PDF.
 
     periodo_seleccionado = None
     if periodo_id:
@@ -1627,6 +1864,10 @@ def libro_diario_pdf(request):
             periodo_info = "Período: Todos los movimientos"
         p.drawCentredString(safe_center, text_top - 105, periodo_info)
 
+        # Agregar información de moneda
+        p.setFont("Helvetica", 9)
+        p.drawCentredString(safe_center, text_top - 120, f"Todos los montos en {simbolo} (Moneda Nacional)")
+
     def draw_footer():
         if firma_path and os.path.exists(firma_path):
             p.setFont("Helvetica-Oblique", 9)
@@ -1639,24 +1880,24 @@ def libro_diario_pdf(request):
     headers = ["N° Asiento", "Fecha", "Concepto", "Cuenta", "Debe", "Haber"]
     data = [headers]
 
-    for asiento in asientos:
-        for detalle in asiento.detalles.all():
-            data.append([
-                asiento.numeroAsiento,
-                asiento.fechaAsiento.strftime("%d/%m/%Y"),
-                asiento.conceptoAsiento[:50] + "..." if len(asiento.conceptoAsiento) > 50 else asiento.conceptoAsiento,
-                f"{detalle.idPlanCuenta.codigoPlanCuenta} - {detalle.idPlanCuenta.nombrePlanCuenta}",
-                f"${detalle.debe:,.2f}" if detalle.debe else "",
-                f"${detalle.haber:,.2f}" if detalle.haber else ""
-            ])
+    # Llenar la tabla con los detalles convertidos
+    for detalle_data in data_detalles:
+        data.append([
+            detalle_data['numeroAsiento'],
+            detalle_data['fechaAsiento'].strftime("%d/%m/%Y"),
+            detalle_data['conceptoAsiento'][:50] + "..." if len(detalle_data['conceptoAsiento']) > 50 else detalle_data['conceptoAsiento'],
+            f"{detalle_data['cuenta'].codigoPlanCuenta} - {detalle_data['cuenta'].nombrePlanCuenta}",
+            f"{simbolo} {detalle_data['debe']:,.2f}" if detalle_data['debe'] else "",
+            f"{simbolo} {detalle_data['haber']:,.2f}" if detalle_data['haber'] else ""
+        ])
 
     data.append([
         'TOTALES:',
         '',
         '',
         '',
-        f"${totales['total_debe'] or 0:,.2f}",
-        f"${totales['total_haber'] or 0:,.2f}"
+        f"{simbolo} {total_debe_global:,.2f}",
+        f"{simbolo} {total_haber_global:,.2f}"
     ])
 
     col_widths = [120, 80, 200, 120, 80, 80]
@@ -1735,11 +1976,15 @@ def libro_diario_excel(request):
     """
     Vista para generar Excel del Libro Diario
     """
-    # Obtener parámetros de filtrado (misma lógica que libro_diario)
+    # Obtener parámetros de filtrado
     search_query = request.GET.get('search', '').strip()
     start_date = request.GET.get('start_date')
     end_date = request.GET.get('end_date')
     periodo_id = request.GET.get('periodo')
+
+    # Obtener símbolo de moneda nacional
+    moneda_nacional = Moneda.objects.filter(idMoneda=1).first()
+    simbolo = moneda_nacional.simboloMoneda if moneda_nacional and getattr(moneda_nacional, 'simboloMoneda', None) else 'Bs'
 
     asientos = AsientoContable.objects.prefetch_related('detalles').order_by('fechaAsiento', 'numeroAsiento')
 
@@ -1762,11 +2007,96 @@ def libro_diario_excel(request):
     if periodo_id:
         asientos = asientos.filter(idPeriodo__idPeriodo=periodo_id)
 
-    # Calcular totales
-    totales = asientos.aggregate(
-        total_debe=Sum('detalles__debe'),
-        total_haber=Sum('detalles__haber')
-    )
+    # FUNCIONES DE CONVERSIÓN
+    def convertir_formato_numero(valor):
+        if valor is None:
+            return decimal.Decimal('0.00')
+        
+        if isinstance(valor, (int, float, decimal.Decimal)):
+            return decimal.Decimal(str(valor)).quantize(decimal.Decimal('0.0000000001'))
+        
+        if isinstance(valor, str):
+            valor_limpio = valor.strip().replace('.', '').replace(',', '.')
+            try:
+                return decimal.Decimal(valor_limpio).quantize(decimal.Decimal('0.0000000001'))
+            except (decimal.InvalidOperation, ValueError):
+                try:
+                    return decimal.Decimal(valor).quantize(decimal.Decimal('0.0000000001'))
+                except (decimal.InvalidOperation, ValueError):
+                    return decimal.Decimal('0.00')
+        
+        try:
+            return decimal.Decimal(str(valor)).quantize(decimal.Decimal('0.0000000001'))
+        except (decimal.InvalidOperation, ValueError, TypeError):
+            return decimal.Decimal('0.00')
+
+    def convertir_a_moneda_nacional(detalle_asiento):
+        debe_original = convertir_formato_numero(detalle_asiento.debe)
+        haber_original = convertir_formato_numero(detalle_asiento.haber)
+        
+        # Si la moneda es la nacional (idMoneda=1), no hay conversión necesaria
+        if detalle_asiento.idMoneda_id == 1:
+            return {
+                'debe': debe_original,
+                'haber': haber_original
+            }
+        
+        # Si tiene moneda diferente a 1, buscar el pago relacionado
+        pago = Pago.objects.filter(idAsiento=detalle_asiento.idAsiento).first()
+        
+        if pago and pago.idTasa:
+            # Obtener la tasa de cambio del pago
+            tasa_cambio = Tasa.objects.filter(idTasa=pago.idTasa_id).first()
+            if tasa_cambio and hasattr(tasa_cambio, 'montoTasa'):
+                # Convertir la tasa del formato español
+                tasa_valor = convertir_formato_numero(tasa_cambio.montoTasa)
+                
+                # Convertir los montos usando la tasa de cambio
+                return {
+                    'debe': debe_original * tasa_valor,
+                    'haber': haber_original * tasa_valor
+                }
+        
+        # Si no se encuentra tasa de cambio, usar los valores originales
+        return {
+            'debe': debe_original,
+            'haber': haber_original
+        }
+
+    # Procesar asientos para convertir a moneda nacional
+    asientos_procesados = []
+    total_debe_global = decimal.Decimal('0.00')
+    total_haber_global = decimal.Decimal('0.00')
+
+    for asiento in asientos:
+        detalles_procesados = []
+        total_debe_asiento = decimal.Decimal('0.00')
+        total_haber_asiento = decimal.Decimal('0.00')
+        
+        for detalle in asiento.detalles.all():
+            # Convertir montos a moneda nacional
+            montos_convertidos = convertir_a_moneda_nacional(detalle)
+            debe_convertido = montos_convertidos['debe']
+            haber_convertido = montos_convertidos['haber']
+            
+            # Acumular totales
+            total_debe_asiento += debe_convertido
+            total_haber_asiento += haber_convertido
+            total_debe_global += debe_convertido
+            total_haber_global += haber_convertido
+            
+            detalles_procesados.append({
+                'detalle': detalle,
+                'debe_convertido': debe_convertido,
+                'haber_convertido': haber_convertido
+            })
+        
+        asientos_procesados.append({
+            'asiento': asiento,
+            'detalles': detalles_procesados,
+            'total_debe': total_debe_asiento,
+            'total_haber': total_haber_asiento
+        })
 
     # Obtener período seleccionado para el nombre del archivo
     periodo_seleccionado = None
@@ -1785,48 +2115,82 @@ def libro_diario_excel(request):
     border = Border(left=Side(style='thin'), right=Side(style='thin'), 
                    top=Side(style='thin'), bottom=Side(style='thin'))
 
-    # Título e información
-    worksheet.cell(row=1, column=1, value="LIBRO DIARIO").font = Font(bold=True, size=16)
-    worksheet.merge_cells('A1:F1')
-    
-    row_num = 2
-    if periodo_seleccionado:
-        worksheet.cell(row=row_num, column=1, value=f"Período: {periodo_seleccionado.nombrePeriodo}")
-        worksheet.merge_cells('A2:F2')
-        row_num += 1
-        worksheet.cell(row=row_num, column=1, value=f"Fecha: {periodo_seleccionado.fechaInicioPeriodo} - {periodo_seleccionado.fechaFinPeriodo}")
-        worksheet.merge_cells('A3:F3')
-        row_num += 1
-    
-    row_num += 1  # Espacio
+    # CORRECCIÓN: Calcular row_num correctamente sin conflictos con celdas combinadas
+    current_row = 1
 
-    # Encabezados de la tabla
+    # Título e información - SIN COMBINAR CELDAS
+    title_cell = worksheet.cell(row=current_row, column=1, value="LIBRO DIARIO")
+    title_cell.font = Font(bold=True, size=16)
+    title_cell.alignment = Alignment(horizontal='center')
+    # Aplicar el estilo a todas las celdas del título manualmente
+    for col in range(1, 7):  # Columnas A-F
+        cell = worksheet.cell(row=current_row, column=col)
+        cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+        cell.font = Font(bold=True, color="FFFFFF", size=16)
+        cell.alignment = Alignment(horizontal='center')
+    current_row += 1
+
+    if periodo_seleccionado:
+        periodo_cell = worksheet.cell(row=current_row, column=1, value=f"Período: {periodo_seleccionado.nombrePeriodo}")
+        periodo_cell.font = Font(bold=True)
+        periodo_cell.alignment = Alignment(horizontal='center')
+        # Aplicar a todas las celdas de la fila
+        for col in range(1, 7):
+            cell = worksheet.cell(row=current_row, column=col)
+            cell.font = Font(bold=True)
+            cell.alignment = Alignment(horizontal='center')
+        current_row += 1
+        
+        fecha_cell = worksheet.cell(row=current_row, column=1, value=f"Fecha: {periodo_seleccionado.fechaInicioPeriodo} - {periodo_seleccionado.fechaFinPeriodo}")
+        fecha_cell.alignment = Alignment(horizontal='center')
+        # Aplicar a todas las celdas de la fila
+        for col in range(1, 7):
+            cell = worksheet.cell(row=current_row, column=col)
+            cell.alignment = Alignment(horizontal='center')
+        current_row += 1
+
+    moneda_cell = worksheet.cell(row=current_row, column=1, value=f"Moneda: {simbolo} (Moneda Nacional)")
+    moneda_cell.font = Font(bold=True)
+    moneda_cell.alignment = Alignment(horizontal='center')
+    # Aplicar a todas las celdas de la fila
+    for col in range(1, 7):
+        cell = worksheet.cell(row=current_row, column=col)
+        cell.font = Font(bold=True)
+        cell.alignment = Alignment(horizontal='center')
+    current_row += 1
+
+    current_row += 1  # Espacio
+
+    # Encabezados de la tabla - ESTA ES LA LÍNEA QUE CAUSABA EL ERROR
     headers = ['N° Asiento', 'Fecha', 'Concepto', 'Cuenta', 'Debe', 'Haber']
     for col_num, header in enumerate(headers, 1):
-        cell = worksheet.cell(row=row_num, column=col_num, value=header)
+        # CORRECCIÓN: Usar current_row que sabemos que no está en un rango combinado
+        cell = worksheet.cell(row=current_row, column=col_num, value=header)
         cell.font = header_font
         cell.fill = header_fill
         cell.border = border
         cell.alignment = Alignment(horizontal='center')
     
-    row_num += 1
+    current_row += 1
 
     # Datos
-    for asiento in asientos:
-        for detalle in asiento.detalles.all():
-            worksheet.cell(row=row_num, column=1, value=asiento.numeroAsiento).border = border
-            worksheet.cell(row=row_num, column=2, value=asiento.fechaAsiento.strftime("%d/%m/%Y")).border = border
-            worksheet.cell(row=row_num, column=3, value=asiento.conceptoAsiento).border = border
-            worksheet.cell(row=row_num, column=4, value=f"{detalle.idPlanCuenta.codigoPlanCuenta} - {detalle.idPlanCuenta.nombrePlanCuenta}").border = border
-            worksheet.cell(row=row_num, column=5, value=float(detalle.debe) if detalle.debe else 0).border = border
-            worksheet.cell(row=row_num, column=6, value=float(detalle.haber) if detalle.haber else 0).border = border
-            row_num += 1
+    for asiento_data in asientos_procesados:
+        asiento = asiento_data['asiento']
+        for detalle_data in asiento_data['detalles']:
+            detalle = detalle_data['detalle']
+            worksheet.cell(row=current_row, column=1, value=asiento.numeroAsiento).border = border
+            worksheet.cell(row=current_row, column=2, value=asiento.fechaAsiento.strftime("%d/%m/%Y")).border = border
+            worksheet.cell(row=current_row, column=3, value=asiento.conceptoAsiento).border = border
+            worksheet.cell(row=current_row, column=4, value=f"{detalle.idPlanCuenta.codigoPlanCuenta} - {detalle.idPlanCuenta.nombrePlanCuenta}").border = border
+            worksheet.cell(row=current_row, column=5, value=float(detalle_data['debe_convertido']) if detalle_data['debe_convertido'] else 0).border = border
+            worksheet.cell(row=current_row, column=6, value=float(detalle_data['haber_convertido']) if detalle_data['haber_convertido'] else 0).border = border
+            current_row += 1
 
     # Totales
-    total_row = row_num
+    total_row = current_row
     worksheet.cell(row=total_row, column=3, value="TOTALES:").font = Font(bold=True)
-    worksheet.cell(row=total_row, column=5, value=float(totales['total_debe'] or 0)).fill = total_fill
-    worksheet.cell(row=total_row, column=6, value=float(totales['total_haber'] or 0)).fill = total_fill
+    worksheet.cell(row=total_row, column=5, value=float(total_debe_global)).fill = total_fill
+    worksheet.cell(row=total_row, column=6, value=float(total_haber_global)).fill = total_fill
     
     # Aplicar bordes a las celdas de totales
     for col in range(1, 7):
@@ -1849,10 +2213,15 @@ def libro_diario_excel(request):
         worksheet.column_dimensions[col_letter].width = width
 
     # Formato de números para columnas monetarias
-    for row in worksheet.iter_rows(min_row=row_num - len(list(asientos)) + 1, max_row=worksheet.max_row, min_col=5, max_col=6):
+    for row in worksheet.iter_rows(min_row=current_row - len(list(asientos)) + 1, max_row=worksheet.max_row, min_col=5, max_col=6):
         for cell in row:
             if isinstance(cell.value, (int, float)):
-                cell.number_format = '#,##0.00'
+                cell.number_format = f'#,##0.00"{simbolo}"'
+
+    # Información adicional
+    info_row = total_row + 2
+    worksheet.cell(row=info_row, column=1, value=f"Generado el: {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+    worksheet.cell(row=info_row + 1, column=1, value=f"Todos los montos en {simbolo} (Moneda Nacional)")
 
     # Preparar respuesta
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
@@ -1868,7 +2237,6 @@ def libro_diario_excel(request):
 
     return response
 
-
 def libro_mayor_pdf(request):
     """
     Vista para generar PDF del Libro Mayor con texto responsive
@@ -1877,6 +2245,10 @@ def libro_mayor_pdf(request):
     periodo_id = request.GET.get('periodo')
     start_date = request.GET.get('start_date')
     end_date = request.GET.get('end_date')
+
+    # Obtener símbolo de moneda nacional
+    moneda_nacional = Moneda.objects.filter(idMoneda=1).first()
+    simbolo = moneda_nacional.simboloMoneda if moneda_nacional and getattr(moneda_nacional, 'simboloMoneda', None) else 'Bs'
 
     if start_date or end_date:
         periodo = None
@@ -1891,8 +2263,64 @@ def libro_mayor_pdf(request):
 
     cuentas = PlanCuenta.objects.prefetch_related('subcuentas').filter(cuentaPadre__isnull=True).order_by('codigoPlanCuenta')
 
-    global_total_debe = 0
-    global_total_haber = 0
+    global_total_debe = decimal.Decimal('0.00')
+    global_total_haber = decimal.Decimal('0.00')
+
+    # FUNCIONES DE CONVERSIÓN (copiadas de libro_mayor)
+    def convertir_formato_numero(valor):
+        if valor is None:
+            return decimal.Decimal('0.00')
+        
+        if isinstance(valor, (int, float, decimal.Decimal)):
+            return decimal.Decimal(str(valor)).quantize(decimal.Decimal('0.0000000001'))
+        
+        if isinstance(valor, str):
+            valor_limpio = valor.strip().replace('.', '').replace(',', '.')
+            try:
+                return decimal.Decimal(valor_limpio).quantize(decimal.Decimal('0.0000000001'))
+            except (decimal.InvalidOperation, ValueError):
+                try:
+                    return decimal.Decimal(valor).quantize(decimal.Decimal('0.0000000001'))
+                except (decimal.InvalidOperation, ValueError):
+                    return decimal.Decimal('0.00')
+        
+        try:
+            return decimal.Decimal(str(valor)).quantize(decimal.Decimal('0.0000000001'))
+        except (decimal.InvalidOperation, ValueError, TypeError):
+            return decimal.Decimal('0.00')
+
+    def convertir_a_moneda_nacional(detalle_asiento):
+        debe_original = convertir_formato_numero(detalle_asiento.debe)
+        haber_original = convertir_formato_numero(detalle_asiento.haber)
+        
+        # Si la moneda es la nacional (idMoneda=1), no hay conversión necesaria
+        if detalle_asiento.idMoneda_id == 1:
+            return {
+                'debe': debe_original,
+                'haber': haber_original
+            }
+        
+        # Si tiene moneda diferente a 1, buscar el pago relacionado
+        pago = Pago.objects.filter(idAsiento=detalle_asiento.idAsiento).first()
+        
+        if pago and pago.idTasa:
+            # Obtener la tasa de cambio del pago
+            tasa_cambio = Tasa.objects.filter(idTasa=pago.idTasa_id).first()
+            if tasa_cambio and hasattr(tasa_cambio, 'montoTasa'):
+                # Convertir la tasa del formato español
+                tasa_valor = convertir_formato_numero(tasa_cambio.montoTasa)
+                
+                # Convertir los montos usando la tasa de cambio
+                return {
+                    'debe': debe_original * tasa_valor,
+                    'haber': haber_original * tasa_valor
+                }
+        
+        # Si no se encuentra tasa de cambio, usar los valores originales
+        return {
+            'debe': debe_original,
+            'haber': haber_original
+        }
 
     def calcular_saldos(cuenta, nivel=0):
         nonlocal global_total_debe, global_total_haber
@@ -1908,10 +2336,10 @@ def libro_mayor_pdf(request):
 
         movimientos = movimientos.order_by('idAsiento__fechaAsiento', 'idAsiento__numeroAsiento')
 
-        saldo_inicial = 0
+        saldo_inicial = decimal.Decimal('0.00')
         saldo_final = saldo_inicial
-        total_debe = 0
-        total_haber = 0
+        total_debe = decimal.Decimal('0.00')
+        total_haber = decimal.Decimal('0.00')
         detalles = []
 
         asientos_ids = movimientos.values_list('idAsiento__idAsiento', flat=True)
@@ -1928,10 +2356,15 @@ def libro_mayor_pdf(request):
                 movimientos_relacionados[mov.idAsiento.idAsiento].append(mov)
 
         for movimiento in movimientos:
+            # Convertir montos a moneda nacional
+            montos_convertidos = convertir_a_moneda_nacional(movimiento)
+            debe_convertido = montos_convertidos['debe']
+            haber_convertido = montos_convertidos['haber']
+            
             saldo_anterior = saldo_final
-            saldo_final += movimiento.debe - movimiento.haber
-            total_debe += movimiento.debe
-            total_haber += movimiento.haber
+            saldo_final += debe_convertido - haber_convertido
+            total_debe += debe_convertido
+            total_haber += haber_convertido
 
             movimientos_asiento_completo = movimientos_relacionados.get(movimiento.idAsiento.idAsiento, [])
             
@@ -1947,7 +2380,6 @@ def libro_mayor_pdf(request):
 
             beneficiario = None
             try:
-                from apps.factura.models import Pago
                 pago = Pago.objects.filter(idAsiento=movimiento.idAsiento).first()
                 if pago and pago.idNota:
                     nota = pago.idNota
@@ -1962,8 +2394,8 @@ def libro_mayor_pdf(request):
                 'fecha': movimiento.idAsiento.fechaAsiento,
                 'concepto': movimiento.idAsiento.conceptoAsiento,
                 'beneficiario': beneficiario,
-                'debe': movimiento.debe,
-                'haber': movimiento.haber,
+                'debe': debe_convertido,
+                'haber': haber_convertido,
                 'saldo': saldo_final,
                 'id_asiento': movimiento.idAsiento.idAsiento,
                 'movimientos_completos': movimientos_completos_json
@@ -2071,6 +2503,10 @@ def libro_mayor_pdf(request):
             else:
                 periodo_info = "Período: Todos los movimientos"
         p.drawCentredString(safe_center, text_top - 105, periodo_info)
+        
+        # Información de moneda
+        p.setFont("Helvetica", 9)
+        p.drawCentredString(safe_center, text_top - 120, f"Todos los montos en {simbolo} (Moneda Nacional)")
 
     def draw_footer():
         if firma_path and os.path.exists(firma_path):
@@ -2135,7 +2571,7 @@ def libro_mayor_pdf(request):
             Paragraph("", normal_style),
             Paragraph("", normal_style),
             Paragraph("", normal_style),
-            Paragraph(f"${cuenta_data['saldo_inicial']:,.2f}", normal_style)
+            Paragraph(f"{simbolo} {cuenta_data['saldo_inicial']:,.2f}", normal_style)
         ])
         
         # Movimientos/detalles
@@ -2148,9 +2584,9 @@ def libro_mayor_pdf(request):
                 Paragraph(f"{indent}&nbsp;&nbsp;{cuenta.nombrePlanCuenta}", normal_style),
                 Paragraph(detalle['fecha'].strftime("%d/%m/%Y"), center_style),
                 Paragraph(concepto, normal_style),
-                Paragraph(f"${detalle['debe']:,.2f}" if detalle['debe'] else "", center_style),
-                Paragraph(f"${detalle['haber']:,.2f}" if detalle['haber'] else "", center_style),
-                Paragraph(f"${detalle['saldo']:,.2f}", normal_style)
+                Paragraph(f"{simbolo} {detalle['debe']:,.2f}" if detalle['debe'] else "", center_style),
+                Paragraph(f"{simbolo} {detalle['haber']:,.2f}" if detalle['haber'] else "", center_style),
+                Paragraph(f"{simbolo} {detalle['saldo']:,.2f}", normal_style)
             ])
         
         # Saldo final
@@ -2162,7 +2598,7 @@ def libro_mayor_pdf(request):
             Paragraph("", normal_style),
             Paragraph("", normal_style),
             Paragraph("", normal_style),
-            Paragraph(f"${cuenta_data['saldo_final']:,.2f} ({naturaleza})", normal_style)
+            Paragraph(f"{simbolo} {cuenta_data['saldo_final']:,.2f} ({naturaleza})", normal_style)
         ])
         
         # Espacio entre cuentas
@@ -2201,8 +2637,8 @@ def libro_mayor_pdf(request):
         Paragraph('', normal_style),
         Paragraph('', normal_style),
         Paragraph('', normal_style),
-        Paragraph(f"${global_total_debe:,.2f}", center_style),
-        Paragraph(f"${global_total_haber:,.2f}", center_style),
+        Paragraph(f"{simbolo} {global_total_debe:,.2f}", center_style),
+        Paragraph(f"{simbolo} {global_total_haber:,.2f}", center_style),
         Paragraph('', normal_style)
     ])
 
@@ -2223,7 +2659,7 @@ def libro_mayor_pdf(request):
     total_rows = len(data) - 1
     page = 0
 
-    for start_row in range(0, total_rows, 15):  # 15 filas por página (más complejo)
+    for start_row in range(0, total_rows, 15):  # 15 filas por página
         end_row = min(start_row + 15, total_rows)
         page_data = [data[0]] + data[start_row + 1:end_row + 1]
         
@@ -2291,7 +2727,11 @@ def libro_mayor_excel(request):
     start_date = request.GET.get('start_date')
     end_date = request.GET.get('end_date')
 
-    # Lógica para obtener el período (igual que en libro_mayor)
+    # Obtener símbolo de moneda nacional
+    moneda_nacional = Moneda.objects.filter(idMoneda=1).first()
+    simbolo = moneda_nacional.simboloMoneda if moneda_nacional and getattr(moneda_nacional, 'simboloMoneda', None) else 'Bs'
+
+    # Lógica para obtener el período
     if start_date or end_date:
         periodo = None
     else:
@@ -2307,8 +2747,64 @@ def libro_mayor_excel(request):
     cuentas = PlanCuenta.objects.prefetch_related('subcuentas').filter(cuentaPadre__isnull=True).order_by('codigoPlanCuenta')
 
     # Variables globales para acumular totales
-    global_total_debe = 0
-    global_total_haber = 0
+    global_total_debe = decimal.Decimal('0.00')
+    global_total_haber = decimal.Decimal('0.00')
+
+    # FUNCIONES DE CONVERSIÓN
+    def convertir_formato_numero(valor):
+        if valor is None:
+            return decimal.Decimal('0.00')
+        
+        if isinstance(valor, (int, float, decimal.Decimal)):
+            return decimal.Decimal(str(valor)).quantize(decimal.Decimal('0.0000000001'))
+        
+        if isinstance(valor, str):
+            valor_limpio = valor.strip().replace('.', '').replace(',', '.')
+            try:
+                return decimal.Decimal(valor_limpio).quantize(decimal.Decimal('0.0000000001'))
+            except (decimal.InvalidOperation, ValueError):
+                try:
+                    return decimal.Decimal(valor).quantize(decimal.Decimal('0.0000000001'))
+                except (decimal.InvalidOperation, ValueError):
+                    return decimal.Decimal('0.00')
+        
+        try:
+            return decimal.Decimal(str(valor)).quantize(decimal.Decimal('0.0000000001'))
+        except (decimal.InvalidOperation, ValueError, TypeError):
+            return decimal.Decimal('0.00')
+
+    def convertir_a_moneda_nacional(detalle_asiento):
+        debe_original = convertir_formato_numero(detalle_asiento.debe)
+        haber_original = convertir_formato_numero(detalle_asiento.haber)
+        
+        # Si la moneda es la nacional (idMoneda=1), no hay conversión necesaria
+        if detalle_asiento.idMoneda_id == 1:
+            return {
+                'debe': debe_original,
+                'haber': haber_original
+            }
+        
+        # Si tiene moneda diferente a 1, buscar el pago relacionado
+        pago = Pago.objects.filter(idAsiento=detalle_asiento.idAsiento).first()
+        
+        if pago and pago.idTasa:
+            # Obtener la tasa de cambio del pago
+            tasa_cambio = Tasa.objects.filter(idTasa=pago.idTasa_id).first()
+            if tasa_cambio and hasattr(tasa_cambio, 'montoTasa'):
+                # Convertir la tasa del formato español
+                tasa_valor = convertir_formato_numero(tasa_cambio.montoTasa)
+                
+                # Convertir los montos usando la tasa de cambio
+                return {
+                    'debe': debe_original * tasa_valor,
+                    'haber': haber_original * tasa_valor
+                }
+        
+        # Si no se encuentra tasa de cambio, usar los valores originales
+        return {
+            'debe': debe_original,
+            'haber': haber_original
+        }
 
     def calcular_saldos(cuenta, nivel=0):
         nonlocal global_total_debe, global_total_haber
@@ -2325,10 +2821,10 @@ def libro_mayor_excel(request):
 
         movimientos = movimientos.order_by('idAsiento__fechaAsiento', 'idAsiento__numeroAsiento')
 
-        saldo_inicial = 0
+        saldo_inicial = decimal.Decimal('0.00')
         saldo_final = saldo_inicial
-        total_debe = 0
-        total_haber = 0
+        total_debe = decimal.Decimal('0.00')
+        total_haber = decimal.Decimal('0.00')
         detalles = []
 
         # Obtener movimientos relacionados para contrapartidas
@@ -2347,10 +2843,15 @@ def libro_mayor_excel(request):
 
         # Procesar cada movimiento
         for movimiento in movimientos:
+            # Convertir montos a moneda nacional
+            montos_convertidos = convertir_a_moneda_nacional(movimiento)
+            debe_convertido = montos_convertidos['debe']
+            haber_convertido = montos_convertidos['haber']
+            
             saldo_anterior = saldo_final
-            saldo_final += movimiento.debe - movimiento.haber
-            total_debe += movimiento.debe
-            total_haber += movimiento.haber
+            saldo_final += debe_convertido - haber_convertido
+            total_debe += debe_convertido
+            total_haber += haber_convertido
 
             # Obtener movimientos completos del asiento para contrapartidas
             movimientos_asiento_completo = movimientos_relacionados.get(movimiento.idAsiento.idAsiento, [])
@@ -2383,8 +2884,8 @@ def libro_mayor_excel(request):
                 'fecha': movimiento.idAsiento.fechaAsiento,
                 'concepto': movimiento.idAsiento.conceptoAsiento,
                 'beneficiario': beneficiario,
-                'debe': movimiento.debe,
-                'haber': movimiento.haber,
+                'debe': debe_convertido,
+                'haber': haber_convertido,
                 'saldo': saldo_final,
                 'id_asiento': movimiento.idAsiento.idAsiento,
                 'movimientos_completos': movimientos_completos_json
@@ -2454,14 +2955,41 @@ def libro_mayor_excel(request):
     # Estilo para subcuentas
     subcuenta_fill = PatternFill(start_color="E2EFDA", end_color="E2EFDA", fill_type="solid")
 
+    # Título e información
+    worksheet.cell(row=1, column=1, value="LIBRO MAYOR").font = Font(bold=True, size=16)
+    worksheet.merge_cells('A1:I1')
+    
+    row_num = 2
+    if periodo:
+        worksheet.cell(row=row_num, column=1, value=f"Período: {periodo.nombrePeriodo}")
+        worksheet.merge_cells('A2:I2')
+        row_num += 1
+    else:
+        if start_date and end_date:
+            worksheet.cell(row=row_num, column=1, value=f"Período: Del {start_date} al {end_date}")
+            worksheet.merge_cells('A2:I2')
+            row_num += 1
+        else:
+            worksheet.cell(row=row_num, column=1, value="Período: Todos los movimientos")
+            worksheet.merge_cells('A2:I2')
+            row_num += 1
+
+    worksheet.cell(row=row_num, column=1, value=f"Moneda: {simbolo} (Moneda Nacional)")
+    worksheet.merge_cells('A3:I3')
+    row_num += 1
+    
+    row_num += 1  # Espacio
+
     # Encabezados
     headers = ['Código', 'Nombre', 'Fecha', 'Concepto', 'Beneficiario', 'Debe', 'Haber', 'Saldo', 'Naturaleza']
     for col_num, header in enumerate(headers, 1):
-        cell = worksheet.cell(row=1, column=col_num, value=header)
+        cell = worksheet.cell(row=row_num, column=col_num, value=header)
         cell.font = header_font
         cell.fill = header_fill
         cell.border = border
         cell.alignment = Alignment(horizontal='center')
+
+    row_num += 1
 
     # Función recursiva para escribir datos en Excel
     def escribir_cuenta_excel(worksheet, cuenta_data, row_num):
@@ -2488,7 +3016,7 @@ def libro_mayor_excel(request):
         # Escribir saldos inicial y final como filas especiales
         # Saldo inicial
         worksheet.cell(row=row_num, column=2, value=f"{indent}  Saldo Inicial")
-        worksheet.cell(row=row_num, column=8, value=cuenta_data['saldo_inicial'])
+        worksheet.cell(row=row_num, column=8, value=float(cuenta_data['saldo_inicial']))
         naturaleza_inicial = "Deudor" if cuenta_data['saldo_inicial'] > 0 else "Acreedor" if cuenta_data['saldo_inicial'] < 0 else "Saldado"
         worksheet.cell(row=row_num, column=9, value=naturaleza_inicial)
         
@@ -2518,7 +3046,7 @@ def libro_mayor_excel(request):
 
         # Escribir saldo final
         worksheet.cell(row=row_num, column=2, value=f"{indent}  Saldo Final")
-        worksheet.cell(row=row_num, column=8, value=cuenta_data['saldo_final'])
+        worksheet.cell(row=row_num, column=8, value=float(cuenta_data['saldo_final']))
         naturaleza_final = "Deudor" if cuenta_data['saldo_final'] > 0 else "Acreedor" if cuenta_data['saldo_final'] < 0 else "Saldado"
         worksheet.cell(row=row_num, column=9, value=naturaleza_final)
         
@@ -2538,7 +3066,7 @@ def libro_mayor_excel(request):
         return row_num
 
     # Escribir datos en Excel
-    row_num = 2
+    row_num = 6  # Después de encabezados y espacio
     for cuenta_data in cuentas_data:
         row_num = escribir_cuenta_excel(worksheet, cuenta_data, row_num)
 
@@ -2567,10 +3095,15 @@ def libro_mayor_excel(request):
         worksheet.column_dimensions[col_letter].width = width
 
     # Formato de números para columnas monetarias
-    for row in worksheet.iter_rows(min_row=2, max_row=worksheet.max_row, min_col=6, max_col=8):
+    for row in worksheet.iter_rows(min_row=6, max_row=worksheet.max_row, min_col=6, max_col=8):
         for cell in row:
             if isinstance(cell.value, (int, float)):
-                cell.number_format = '#,##0.00'
+                cell.number_format = f'#,##0.00"{simbolo}"'
+
+    # Información adicional
+    info_row = row_num + 2
+    worksheet.cell(row=info_row, column=1, value=f"Generado el: {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+    worksheet.cell(row=info_row + 1, column=1, value=f"Todos los montos en {simbolo} (Moneda Nacional)")
 
     # Preparar respuesta
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
