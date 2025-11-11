@@ -12,11 +12,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
-  StyleSheet, // <-- IMPORTANTE: agregado
+  StyleSheet,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import Modal from 'react-native-modal';
-import { Picker } from '@react-native-picker/picker';
 import { useNavigation } from '@react-navigation/native';
 import api from '../api/api';
 import { AuthContext } from '../contexts/AuthContext';
@@ -109,7 +108,6 @@ const cuotasFromFormacionObj = (f: any): Cuota[] => {
 const parseToDate = (v: any): Date | null => {
   if (!v) return null;
   try {
-    // soporta timestamps, 'YYYY-MM-DD', ISO strings, numbers
     const d = new Date(String(v));
     if (!isNaN(d.getTime())) return d;
     return null;
@@ -118,8 +116,6 @@ const parseToDate = (v: any): Date | null => {
   }
 };
 
-// Determina si una cohorte está "activa" para inscripción en la fecha actual.
-// Acepta varios formatos de fecha, usa lapsoInscripcion si no hay fechaFin.
 const isCohorteActiva = (coh: any) => {
   if (!coh) return false;
 
@@ -127,11 +123,9 @@ const isCohorteActiva = (coh: any) => {
   const start = parseToDate(fechaInicioRaw);
   if (!start) return false;
 
-  // If explicit fechaFin use it
   const fechaFinRaw = coh.fechaFin ?? coh.end_date ?? coh.endDate ?? coh.raw?.fechaFin ?? coh.raw?.end_date ?? null;
   let end = parseToDate(fechaFinRaw);
 
-  // If no end, try lapsoInscripcion (days)
   if (!end) {
     const lapso = Number(coh.lapsoInscripcion ?? coh.lapso ?? coh.lap ?? coh.raw?.lapsoInscripcion ?? 0);
     if (isFinite(lapso) && lapso > 0) {
@@ -143,7 +137,6 @@ const isCohorteActiva = (coh: any) => {
   }
 
   const now = new Date();
-  // normalizar solo fecha (evita problema horas)
   const startDay = new Date(start.getFullYear(), start.getMonth(), start.getDate()).getTime();
   const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate()).getTime();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
@@ -181,17 +174,15 @@ const InscripcionesScreen = () => {
 
   // Datos del formulario
   const [tiposFormacion, setTiposFormacion] = useState<TipoFormacion[]>([]);
-  const [formaciones, setFormaciones] = useState<Formacion[]>([]); // todas las formaciones traídas
-  const [availableFormaciones, setAvailableFormaciones] = useState<Formacion[]>([]); // solo las que tienen cohorte activa
-  const [formacionesFiltradas, setFormacionesFiltradas] = useState<Formacion[]>([]); // disponibles + filtradas por tipo
+  const [formaciones, setFormaciones] = useState<Formacion[]>([]);
+  const [availableFormaciones, setAvailableFormaciones] = useState<Formacion[]>([]);
+  const [formacionesFiltradas, setFormacionesFiltradas] = useState<Formacion[]>([]);
   const [cohortes, setCohortes] = useState<Cohorte[]>([]);
 
-  // usa null en vez de undefined para compatibilidad de Picker
   const [selectedTipoFormacion, setSelectedTipoFormacion] = useState<number | null>(null);
   const [selectedFormacion, setSelectedFormacion] = useState<number | null>(null);
   const [selectedCohorte, setSelectedCohorte] = useState<number | null>(null);
 
-  // Cost summary
   const [valorInscripcion, setValorInscripcion] = useState(0);
   const [cuotas, setCuotas] = useState<Cuota[]>([]);
   const [totalCuotas, setTotalCuotas] = useState(0);
@@ -200,6 +191,24 @@ const InscripcionesScreen = () => {
   const [fechaInscripcion, setFechaInscripcion] = useState<string>('');
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [formacionDetailsMap, setFormacionDetailsMap] = useState<Record<number, any>>({});
+
+  // --- Selecciones con modal (reemplazan los Pickers)
+  const [showTipoModal, setShowTipoModal] = useState(false);
+  const [showFormacionModal, setShowFormacionModal] = useState(false);
+  const [searchFormacionModal, setSearchFormacionModal] = useState('');
+
+  const handleTipoSelect = (idTF: number | null) => {
+    setSelectedTipoFormacion(idTF);
+    setShowTipoModal(false);
+  };
+
+  const handleFormacionSelect = (idForm: number | null) => {
+    setSelectedFormacion(idForm);
+    setShowFormacionModal(false);
+    const coh = findActiveCohorteForFormacion(idForm ?? undefined);
+    if (coh) setSelectedCohorte(Number(coh.idCohorte));
+    else setSelectedCohorte(null);
+  };
 
   // ---------- API helpers ----------
   const fetchCuotasForFormacion = async (idFormacion: number): Promise<Cuota[]> => {
@@ -230,7 +239,7 @@ const InscripcionesScreen = () => {
     }
   };
 
-  // ---------- Inscripciones ----------
+  // ---------- Inscripciones (mejorada: chequeo pago temporal) ----------
   const fetchInscripciones = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -244,6 +253,17 @@ const InscripcionesScreen = () => {
       const cedulaUsuarioNormalizada = normalizarCedula(user.cedula);
       const res = await api.get('/api/inscripcion/');
       const todas = Array.isArray(res.data) ? res.data : (res.data.results ?? []);
+
+      // Intentar obtener pagos temporales (si existe endpoint). Si falla, seguimos sin esa info.
+      let pagosTemp: any[] = [];
+      try {
+        const rPago = await api.get('/api/pago-temporal/'); // <--- ajusta si tu endpoint se llama distinto
+        pagosTemp = Array.isArray(rPago.data) ? rPago.data : (rPago.data.results ?? []);
+      } catch (err: any) {
+        console.warn('No se pudo obtener pago-temporal (se ignorará):', err?.message ?? err);
+        pagosTemp = [];
+      }
+
       const inscripcionesUsuario = todas.filter((ins: any) => {
         const cedulaInscripcion = ins.idPersona_detail?.cedula || ins.idPersona?.cedula;
         if (!cedulaInscripcion) return false;
@@ -278,13 +298,36 @@ const InscripcionesScreen = () => {
         const montoTot = Number(ins.montoTotal ?? ins.total ?? ins.monto ?? ins.valor ?? 0);
         const montoPag = Number(ins.montoPagado ?? ins.pagado ?? 0);
 
+        // --- comprobar pagos temporales: si existe uno confirmado para esta inscripcion => marcar PAGADO
+        let estadoPagoFinal = ins.estadoPago ?? 'PENDIENTE';
+        let montoPagFinal = montoPag;
+        try {
+          if (pagosTemp && pagosTemp.length) {
+            const match = pagosTemp.find((pt: any) => {
+              const ptIns = pt.idInscripcion ?? pt.inscripcion ?? pt.inscripcion_id ?? pt.related_inscripcion ?? pt.id_inscripcion ?? null;
+              const confirmado = !!(pt.confirmado || pt.confirmado === true || pt.confirmado === 'true' || pt.confirmado === '1' || String(pt.estado || '').toUpperCase() === 'CONFIRMADO' || String(pt.is_confirmed || '').toLowerCase() === 'true' || pt.confirmation === true);
+              if (!ptIns) return false;
+              const ptInsNum = Number(ptIns);
+              const insId = Number(ins.idInscripcion ?? ins.id ?? ins.pk ?? 0);
+              return ptInsNum === insId && confirmado;
+            });
+            if (match) {
+              estadoPagoFinal = 'PAGADO';
+              montoPagFinal = montoTot;
+            }
+          }
+        } catch (e) {
+          console.warn('Error evaluando pagoTemporal para inscripcion', ins.idInscripcion, e);
+        }
+
         return {
           ...ins,
           fechaInscripcion: fecha,
           montoTotal: montoTot,
-          montoPagado: montoPag,
+          montoPagado: montoPagFinal,
           idCohorte_detail: cohNormalized,
           idFormacion_detail: formNormalized,
+          estadoPago: estadoPagoFinal
         } as Inscripcion;
       });
 
@@ -324,8 +367,6 @@ const InscripcionesScreen = () => {
       const tiposArr = toArray(tiposData);
       const formsArr = toArray(formacionesData);
       const cohortesArr = toArray(cohortesData);
-
-      console.log('[fetchDatosFormulario] counts -> tipos:', tiposArr.length, 'formaciones:', formsArr.length, 'cohortes:', cohortesArr.length);
 
       const extract = (items: any[], tipo: string) => items.map((item: any) => {
         if (tipo === 'tipos') {
@@ -367,8 +408,6 @@ const InscripcionesScreen = () => {
             : (idFormRaw ? { idFormacion: Number(idFormRaw) } : null);
 
           const idCohorte = Number(item.idCohorte ?? item.id ?? item.pk ?? 0);
-
-          // normalizamos y agregamos idFormacionId para facilitar búsquedas
           const idFormacionId = idFormacionObj ? Number(idFormacionObj.idFormacion ?? 0) : (typeof idFormRaw === 'number' ? Number(idFormRaw) : 0);
 
           return {
@@ -379,7 +418,7 @@ const InscripcionesScreen = () => {
             fechaFin: item.fechaFin ?? item.end_date ?? item.endDate ?? item.raw?.fechaFin ?? null,
             estadoCohorte: item.estadoCohorte ?? item.estado ?? 'INACTIVO',
             idFormacion: idFormacionObj,
-            idFormacionId, // <-- campo explícito para match rápido
+            idFormacionId,
             raw: item
           };
         }
@@ -389,10 +428,6 @@ const InscripcionesScreen = () => {
       const tipos = extract(tiposArr, 'tipos');
       const forms = extract(formsArr, 'formaciones');
       const cohorts = extract(cohortesArr, 'cohortes');
-
-      console.log('[fetchDatosFormulario] tipos sample:', tipos.slice(0,3));
-      console.log('[fetchDatosFormulario] forms sample:', forms.slice(0,3));
-      console.log('[fetchDatosFormulario] cohorts sample:', cohorts.slice(0,6));
 
       setTiposFormacion(tipos);
       setFormaciones(forms);
@@ -425,11 +460,9 @@ const InscripcionesScreen = () => {
 
   // ---------- Calcular formaciones disponibles (solo las que tengan cohorte activa) ----------
   useEffect(() => {
-    // Construir mapa formacionId -> cohorte activa (puede haber >1, tomamos la que esté abierta hoy)
     const activeCohortesByFormacion: Record<number, Cohorte[]> = {};
 
     cohortes.forEach((coh: any) => {
-      // obtener idFormacionNum de varias ubicaciones
       let idFormacionNum = 0;
       if (coh.idFormacionId) idFormacionNum = Number(coh.idFormacionId);
       else if (coh.idFormacion && typeof coh.idFormacion === 'object') idFormacionNum = Number(coh.idFormacion.idFormacion ?? coh.idFormacion.id ?? 0);
@@ -444,19 +477,12 @@ const InscripcionesScreen = () => {
       }
     });
 
-    const keys = Object.keys(activeCohortesByFormacion);
-    console.log('[available] cohortes total:', cohortes.length, 'active map keys:', keys.length);
-    console.log('[available] mapa activeCohortesByFormacion keys:', keys);
-
-    // Filtrar formaciones que tengan al menos una cohorte activa
     const available = formaciones.filter(f => {
       const idF = Number((f as any).idFormacion ?? (f as any).id ?? 0);
       return Boolean(activeCohortesByFormacion[idF] && activeCohortesByFormacion[idF].length > 0);
     });
 
     if (available.length === 0) {
-      console.log('[available] No se encontraron formaciones con cohorte activa — aplicando fallback para mostrar todas las formaciones.');
-      // fallback: mostrar todas las formaciones (pero el usuario verá nota en el UI)
       setAvailableFormaciones(formaciones);
     } else {
       setAvailableFormaciones(available);
@@ -472,9 +498,7 @@ const InscripcionesScreen = () => {
 
     if (selectedTipoFormacion !== null && selectedTipoFormacion !== undefined) {
       const selectedTipoNum = Number(selectedTipoFormacion);
-      console.log('[filter] selectedTipoFormacion =>', selectedTipoNum);
       const filtradas = availableFormaciones.filter(f => Number((f as any).idTF) === selectedTipoNum);
-      console.log('[filter] formaciones filtradas count:', filtradas.length);
       setFormacionesFiltradas(filtradas);
       setSelectedFormacion(null);
 
@@ -489,11 +513,8 @@ const InscripcionesScreen = () => {
     }
   }, [selectedTipoFormacion, availableFormaciones]);
 
-  // Helper: encontrar cohorte activa (si hay varias devuelve la "mejor")
-  // <-- important: explicit return type any to avoid strict Cohorte typing issues
   const findActiveCohorteForFormacion = (idFormacion: number | undefined | null): any => {
     if (!idFormacion) return null;
-    // buscar en cohortes la que esté activa y pertenezca a idFormacion
     const matches = cohortes
       .filter((c: any) => {
         let idF = 0;
@@ -526,8 +547,7 @@ const InscripcionesScreen = () => {
         return;
       }
 
-      // autoseleccionar cohorte activa para esta formacion (si existe)
-      const coh: any = findActiveCohorteForFormacion(selectedFormacion); // <-- casteado a any
+      const coh: any = findActiveCohorteForFormacion(selectedFormacion);
       if (coh) {
         setSelectedCohorte(Number(coh.idCohorte));
         const idFormObj = (coh.idFormacion && typeof coh.idFormacion === 'object') ? coh.idFormacion : null;
@@ -542,7 +562,6 @@ const InscripcionesScreen = () => {
       const formacionLocal = formaciones.find(f => Number(f.idFormacion) === Number(selectedFormacion)) as any;
       let valorMatricula = Number(formacionLocal?.valorInscripcion ?? 0);
 
-      // primero intentar obtener cuotas por endpoint
       let cuotasData: Cuota[] = [];
       try {
         cuotasData = await fetchCuotasForFormacion(Number(selectedFormacion));
@@ -550,7 +569,6 @@ const InscripcionesScreen = () => {
         cuotasData = [];
       }
 
-      // si no hay valor en la lista, pedir detalle
       if ((!valorMatricula || valorMatricula === 0) && selectedFormacion) {
         try {
           const detalle = await api.get(`/api/formaciones/${selectedFormacion}/`);
@@ -578,9 +596,7 @@ const InscripcionesScreen = () => {
               }
             }
           }
-        } catch (e) {
-          // ignore - use what we have
-        }
+        } catch (e) { /* ignore - use what we have */ }
       }
 
       const totalCtas = cuotasData.reduce((sum, c) => sum + (Number(c.valorCuota) || 0), 0);
@@ -708,7 +724,7 @@ const InscripcionesScreen = () => {
             });
             Alert.alert('Éxito', 'Inscripción y nota de cobro creadas correctamente. Proceda al pago.');
           } else {
-            throw new Error(notaResponse.data.message);
+            throw new Error(notaResponse.data.message || 'Error creando nota');
           }
         } catch (notaError) {
           Alert.alert('Atención', 'Inscripción creada pero hubo un error al generar la nota de cobro. Contacte al administrador.');
@@ -774,11 +790,16 @@ const InscripcionesScreen = () => {
   const handleSelectFormacion = (v: any) => {
     const id = (v === undefined || v === null) ? null : Number(v);
     setSelectedFormacion(id);
-    console.log('handleSelectFormacion -> selectedFormacion:', id);
     const coh = findActiveCohorteForFormacion(id ?? undefined);
     if (coh) setSelectedCohorte(Number(coh.idCohorte));
     else setSelectedCohorte(null);
   };
+
+  // Filtrado de formaciones en modal por búsqueda
+  const formacionesFiltradasParaModal = formacionesFiltradas.filter((f: any) => {
+    if (!searchFormacionModal) return true;
+    return (f.nombreFormacion || '').toLowerCase().includes(searchFormacionModal.toLowerCase());
+  });
 
   return (
     <View style={styles.container}>
@@ -1003,7 +1024,11 @@ const InscripcionesScreen = () => {
         style={[styles.modal, styles.formModal, isSmallScreen && styles.modalSmall]}
         avoidKeyboard
       >
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[styles.keyboardAvoid, { minHeight: Math.min(height * 0.9, 900) }]}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
+          style={[styles.keyboardAvoid, { minHeight: Math.min(height * 0.9, 900) }]}
+        >
           <View style={[styles.formModalContent, isSmallScreen ? styles.formModalContentSmall : {}, { maxHeight: Math.min(height * 0.95, 1000), width: isLargeScreen ? Math.min(720, width * 0.8) : undefined }]}>
             <View style={[styles.modalHeader, isSmallScreen && styles.modalHeaderSmall]}>
               <Text style={[styles.modalTitle, isSmallScreen && styles.modalTitleSmall]}>Nueva Inscripción</Text>
@@ -1042,40 +1067,45 @@ const InscripcionesScreen = () => {
                     <Text style={[styles.sectionTitle, isSmallScreen && styles.sectionTitleSmall]}>Información Académica</Text>
                   </View>
 
+                  {/* Tipo de Formación (custom select) */}
                   <View style={[styles.fieldContainer, isSmallScreen && styles.fieldContainerSmall]}>
                     <Text style={[styles.label, isSmallScreen && styles.labelSmall]}>Tipo de Formación *</Text>
-                    <View style={[styles.pickerContainer, isSmallScreen && styles.pickerContainerSmall]}>
-                      <Picker
-                        selectedValue={selectedTipoFormacion ?? null}
-                        onValueChange={(v) => setSelectedTipoFormacion(v === null ? null : Number(v))}
-                        style={[styles.picker, isSmallScreen && styles.pickerSmall, { width: '100%' }]}
-                        dropdownIconColor="#666"
-                        mode="dropdown"
-                      >
-                        <Picker.Item label="Seleccione tipo..." value={null} />
-                        {tiposFormacion.map(tf => <Picker.Item key={tf.idTF} label={tf.nombreTipoFormacion} value={tf.idTF} />)}
-                      </Picker>
-                    </View>
+
+                    <TouchableOpacity
+                      style={[styles.customSelectButton, isSmallScreen && styles.customSelectButtonSmall]}
+                      onPress={() => setShowTipoModal(true)}
+                      disabled={formDataLoading}
+                    >
+                      <Text style={[styles.customSelectText, isSmallScreen && styles.customSelectTextSmall]}>
+                        {selectedTipoFormacion
+                          ? (tiposFormacion.find(t => Number(t.idTF) === Number(selectedTipoFormacion))?.nombreTipoFormacion ?? `Tipo ${selectedTipoFormacion}`)
+                          : 'Seleccione tipo...'}
+                      </Text>
+                      <Text style={[styles.customSelectArrow, isSmallScreen && styles.customSelectArrowSmall]}>▾</Text>
+                    </TouchableOpacity>
+
                     {formErrors.tipoFormacion && <Text style={[styles.errorText, isSmallScreen && styles.errorTextSmall]}>{formErrors.tipoFormacion}</Text>}
                   </View>
 
+                  {/* Formación (custom select) */}
                   <View style={[styles.fieldContainer, isSmallScreen && styles.fieldContainerSmall]}>
                     <Text style={[styles.label, isSmallScreen && styles.labelSmall]}>Formación *</Text>
-                    <View style={[styles.pickerContainer, isSmallScreen && styles.pickerContainerSmall]}>
-                      <Picker
-                        selectedValue={selectedFormacion ?? null}
-                        onValueChange={(v) => handleSelectFormacion(v)}
-                        style={[styles.picker, isSmallScreen && styles.pickerSmall, { width: '100%' }]}
-                        enabled={formacionesFiltradas.length > 0}
-                        dropdownIconColor="#666"
-                        mode="dropdown"
-                      >
-                        <Picker.Item label={formacionesFiltradas.length === 0 ? "No hay formaciones disponibles" : "Seleccione formación..."} value={null} />
-                        {formacionesFiltradas.map((f: any) => (
-                          <Picker.Item key={f.idFormacion} label={`${f.nombreFormacion} - ${fmtMoney(f.valorInscripcion)}`} value={f.idFormacion} />
-                        ))}
-                      </Picker>
-                    </View>
+
+                    <TouchableOpacity
+                      style={[styles.customSelectButton, isSmallScreen && styles.customSelectButtonSmall, (formacionesFiltradas.length === 0) && { opacity: 0.7 }]}
+                      onPress={() => {
+                        if (formacionesFiltradas.length > 0) setShowFormacionModal(true);
+                      }}
+                      disabled={formacionesFiltradas.length === 0 || formDataLoading}
+                    >
+                      <Text numberOfLines={1} style={[styles.customSelectText, isSmallScreen && styles.customSelectTextSmall]}>
+                        {selectedFormacion
+                          ? (formacionesFiltradas.find(f => Number(f.idFormacion) === Number(selectedFormacion))?.nombreFormacion ?? `Formación ${selectedFormacion}`)
+                          : (formacionesFiltradas.length === 0 ? 'No hay formaciones disponibles' : 'Seleccione formación...')}
+                      </Text>
+                      <Text style={[styles.customSelectArrow, isSmallScreen && styles.customSelectArrowSmall]}>▾</Text>
+                    </TouchableOpacity>
+
                     {formErrors.formacion && <Text style={[styles.errorText, isSmallScreen && styles.errorTextSmall]}>{formErrors.formacion}</Text>}
                     {formErrors.cohorte && <Text style={[styles.errorText, isSmallScreen && styles.errorTextSmall]}>{formErrors.cohorte}</Text>}
                     <Text style={[styles.helpText, isSmallScreen && styles.helpTextSmall]}>
@@ -1139,7 +1169,7 @@ const InscripcionesScreen = () => {
                 </View>
               </ScrollView>
             )}
-          
+
             <View style={[styles.formFooter, isSmallScreen && styles.formFooterSmall]}>
               <TouchableOpacity style={[styles.formButton, styles.cancelButton, isSmallScreen && styles.formButtonSmall]} onPress={() => setFormModalVisible(false)} disabled={creating}>
                 <Text style={[styles.cancelButtonText, isSmallScreen && styles.cancelButtonTextSmall]}>Cancelar</Text>
@@ -1155,11 +1185,94 @@ const InscripcionesScreen = () => {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Modal Tipo de Formación */}
+      <Modal
+        isVisible={showTipoModal}
+        onBackdropPress={() => setShowTipoModal(false)}
+        backdropOpacity={0.4}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, isSmallScreen && styles.modalContentSmall]}>
+            <Text style={[styles.modalTitle, isSmallScreen && styles.modalTitleSmall]}>Seleccionar Tipo de Formación</Text>
+            <ScrollView style={styles.modalScrollView}>
+              {tiposFormacion.map(tf => (
+                <TouchableOpacity
+                  key={tf.idTF}
+                  style={[
+                    styles.modalOption,
+                    selectedTipoFormacion === Number(tf.idTF) && styles.modalOptionSelected
+                  ]}
+                  onPress={() => handleTipoSelect(Number(tf.idTF))}
+                >
+                  <Text style={[styles.modalOptionText, selectedTipoFormacion === Number(tf.idTF) && styles.modalOptionTextSelected]}>
+                    {tf.nombreTipoFormacion}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity style={[styles.modalCloseButton, isSmallScreen && styles.modalCloseButtonSmall]} onPress={() => setShowTipoModal(false)}>
+              <Text style={[styles.modalCloseText, isSmallScreen && styles.modalCloseTextSmall]}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal Formaciones (filtradas) */}
+      <Modal
+        isVisible={showFormacionModal}
+        onBackdropPress={() => setShowFormacionModal(false)}
+        backdropOpacity={0.4}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, isSmallScreen && styles.modalContentSmall, { maxHeight: '80%' }]}>
+            <Text style={[styles.modalTitle, isSmallScreen && styles.modalTitleSmall]}>Seleccionar Formación</Text>
+
+            <View style={{ paddingHorizontal: 8, paddingBottom: 8 }}>
+              <TextInput
+                placeholder="Buscar formación..."
+                value={searchFormacionModal}
+                onChangeText={setSearchFormacionModal}
+                style={{ borderWidth: 1, borderColor: '#eef2ff', borderRadius: 8, paddingHorizontal: 10, height: 40 }}
+                placeholderTextColor="#999"
+              />
+            </View>
+
+            <ScrollView style={styles.modalScrollView}>
+              {formacionesFiltradasParaModal.length === 0 ? (
+                <View style={{ padding: 16 }}>
+                  <Text style={{ color: '#666' }}>No se encontraron formaciones</Text>
+                </View>
+              ) : (
+                formacionesFiltradasParaModal.map((f: any) => (
+                  <TouchableOpacity
+                    key={f.idFormacion}
+                    style={[
+                      styles.modalOption,
+                      selectedFormacion === Number(f.idFormacion) && styles.modalOptionSelected
+                    ]}
+                    onPress={() => handleFormacionSelect(Number(f.idFormacion))}
+                  >
+                    <Text style={[styles.modalOptionText, selectedFormacion === Number(f.idFormacion) && styles.modalOptionTextSelected]}>
+                      {`${f.nombreFormacion} — ${fmtMoney(f.valorInscripcion)}`}
+                    </Text>
+                    <Text style={styles.modalOptionSub}>{f.tieneCuotas ? `${f.cantidad_cuotas} cuotas` : 'Sin cuotas'}</Text>
+                  </TouchableOpacity>
+                ))
+              )}
+            </ScrollView>
+
+            <TouchableOpacity style={[styles.modalCloseButton, isSmallScreen && styles.modalCloseButtonSmall]} onPress={() => setShowFormacionModal(false)}>
+              <Text style={[styles.modalCloseText, isSmallScreen && styles.modalCloseTextSmall]}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
 
-// ESTILOS (los mismos que tenías; no los modifiqué funcionalmente)
+// ESTILOS (los tuyos + estilos nuevos para selects y modales)
 const styles = StyleSheet.create({
   center: {
     flex: 1,
@@ -1884,6 +1997,56 @@ const styles = StyleSheet.create({
   submitButtonTextSmall: {
     fontSize: 13,
   },
+
+  // ---- estilos añadidos: selects personalizados y modales ----
+  customSelectButton: {
+    borderWidth: 1,
+    borderColor: '#eef2ff',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    height: 46,
+    backgroundColor: '#fff',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  customSelectButtonSmall: { height: 42, paddingHorizontal: 10 },
+  customSelectText: { fontSize: 15, color: '#222', flex: 1 },
+  customSelectTextSmall: { fontSize: 14 },
+  customSelectPlaceholder: { color: '#9aa' },
+  customSelectArrow: { fontSize: 12, color: '#4f8cff', marginLeft: 8 },
+  customSelectArrowSmall: { fontSize: 10 },
+
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalScrollView: { maxHeight: 350 },
+
+  modalOption: {
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  modalOptionSmall: { paddingVertical: 10, paddingHorizontal: 12 },
+  modalOptionSelected: { backgroundColor: '#eef2ff' },
+  modalOptionText: { fontSize: 15, color: '#222' },
+  modalOptionTextSelected: { color: '#1f6fff', fontWeight: '600' },
+  modalOptionSub: { fontSize: 12, color: '#666', marginTop: 4 },
+
+  modalCloseButton: {
+    marginTop: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#6c757d',
+    alignItems: 'center',
+  },
+  modalCloseButtonSmall: { paddingVertical: 10 },
+  modalCloseText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  modalCloseTextSmall: { fontSize: 14 },
 });
 
 export default InscripcionesScreen;

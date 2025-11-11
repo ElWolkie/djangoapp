@@ -223,7 +223,7 @@ class CuotasFormacionAPIView(APIView):
 class NotaCobroCreateAPIView(APIView):
     @transaction.atomic
     def post(self, request):
-        id_inscripcion = request.data.get('idInscripcion')
+        id_inscripcion = request.data.get('idInscripcion')  # usar request.data consistentemente
         if not id_inscripcion:
             return Response({
                 'success': False,
@@ -231,7 +231,8 @@ class NotaCobroCreateAPIView(APIView):
             }, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            inscripcion = Inscripcion.objects.filter(idInscripcion=id_inscripcion, is_active=True).select_related('idFormacion').first()
+            # Obtener inscripción (la usaremos en todo el método)
+            inscripcion = Inscripcion.objects.filter(idInscripcion=id_inscripcion, is_active=True).select_related('idFormacion', 'idPersona').first()
             if not inscripcion:
                 return Response({
                     'success': False,
@@ -250,13 +251,13 @@ class NotaCobroCreateAPIView(APIView):
             if not tasa_configuracion:
                 return Response({
                     'success': False,
-                    'message': f'No se encontró una tasa registrada para la moneda de configuración ({moneda_configuracion.nombreMoneda}).'
+                    'message': f'No se encontró una tasa registrada para la moneda de configuración ({getattr(moneda_configuracion, "nombreMoneda", moneda_configuracion)}).'
                 }, status=status.HTTP_400_BAD_REQUEST)
 
             tasa_configuracion_valor = to_decimal(tasa_configuracion.montoTasa)
             numero_nota = generar_numero_nota()
 
-            # Verificar si hay un periodo contable activo
+            # Verificar periodo contable
             periodo_activo = periodoContable.objects.filter(estadoPeriodo=True).first()
             if not periodo_activo:
                 periodo_activo = periodoContable.objects.order_by('-idPeriodo').first()
@@ -266,60 +267,51 @@ class NotaCobroCreateAPIView(APIView):
                     'message': 'No hay ningún periodo contable registrado o activo en el sistema. Por favor, registre o active un periodo contable antes de continuar.'
                 }, status=status.HTTP_400_BAD_REQUEST)
 
-            # Obtener el valor de la inscripción desde la formación asociada
+            # Valor de inscripción desde la formación asociada
             valor_inscripcion = inscripcion.idFormacion.valorInscripcion
 
-            # Verificar si la persona está relacionada con TipoPersona id=3
+            # verificar descuento por TipoPersona (idTP=3)
             persona = inscripcion.idPersona
             tiene_descuento = PersonaTP.objects.filter(idPersona=persona, idTP=3).exists()
 
-            # Calcular montos
             subtotal_gravado = Decimal('0.00')
-            subtotal_exento = Decimal('0')
+            subtotal_exento = Decimal('0.00')
 
-            # Obtener parámetros tributarios
             parametros_tributarios = ParametroTributario.objects.filter(activo=True)
 
             def obtener_parametro(tipo, aplica_a):
                 return parametros_tributarios.filter(tipo=tipo, aplica_a=aplica_a).first()
 
-            # Calcular IVA respetando exenciones
             parametro_iva_exento = obtener_parametro('IVA_EXENTO', 'INSCRIPCION')
             if parametro_iva_exento and parametro_iva_exento.porcentaje == Decimal('0.00'):
-                subtotal_exento = valor_inscripcion
+                subtotal_exento = to_decimal(valor_inscripcion)
                 subtotal_gravado = Decimal('0.00')
-                iva = Decimal('0.00')  # No aplica IVA si es exento
+                iva = Decimal('0.00')
             else:
-                subtotal_gravado = valor_inscripcion
+                subtotal_gravado = to_decimal(valor_inscripcion)
                 subtotal_exento = Decimal('0.00')
                 parametro_iva = obtener_parametro('IVA_GENERAL', 'INSCRIPCION')
                 porcentaje_iva = parametro_iva.porcentaje if parametro_iva else Decimal('16')
                 iva = subtotal_gravado * (porcentaje_iva / Decimal('100'))
 
-            # Calcular retenciones (si aplica)
             iva_retenido = Decimal('0.00')
             islr_retenido = Decimal('0.00')
 
-            # Calcular descuento
-            descuento = Decimal('0')
+            descuento = Decimal('0.00')
             if tiene_descuento:
                 descuento = (subtotal_gravado + subtotal_exento) * (to_decimal(configuracion.descuento) / Decimal('100'))
 
-            # Calcular total
             total_nota = subtotal_gravado + subtotal_exento + iva - descuento
 
-            # El idPersona se obtiene del registro de inscripción
-            persona = inscripcion.idPersona
-
-             # Crear el asiento contable
+            # Crear asiento contable
             asiento = AsientoContable.objects.create(
                 numeroAsiento=f"NOTA-{numero_nota}",
                 fechaAsiento=now().date(),
                 conceptoAsiento=f"Asiento para la nota {numero_nota}",
                 idPeriodo=periodo_activo
             )
-            asiento.save()
-            # Crear la nota de cobro
+
+            # Crear nota de cobro
             nota = Nota.objects.create(
                 idAsiento=asiento,
                 idPersona=persona,
@@ -342,34 +334,28 @@ class NotaCobroCreateAPIView(APIView):
                 observaciones='NOTA AUTOMATIZADA POR LA APP'
             )
 
-            # Crear la relación en NotaRelacionada si se proporciona idInscripcion
-            id_inscripcion = request.POST.get('idInscripcion')
-            if id_inscripcion:
-                inscripcion = Inscripcion.objects.filter(idInscripcion=id_inscripcion).first()
-                if inscripcion:
-                    NotaRelacionada.objects.create(
-                        idNota=nota,
-                        idInscripcion=inscripcion
-                    )
-                    inscripcion.estadoPago = 'PENDIENTE'
-                    inscripcion.save()
-                else:
-                    print("No se encontró una inscripción con el ID proporcionado.")
-            else:
-                print("ID Inscripcion no proporcionado en el formulario.")
+            # Si tenemos la inscripción (ya la tenemos), crear la relación
+            NotaRelacionada.objects.create(
+                idNota=nota,
+                idInscripcion=inscripcion
+            )
+            # marcar estado pago de inscripción
+            inscripcion.estadoPago = 'PENDIENTE'
+            inscripcion.save()
 
-            # Crear los detalles del asiento contable
+            # Crear detalles del asiento
             plan_articulos = PlanArticulo.objects.filter(tipoArticulo='INSCRIPCION').order_by('-fecha')
             plan_articulo_debe = plan_articulos.filter(tipo=1).first()
             plan_articulo_haber = plan_articulos.filter(tipo=0).first()
 
             if not plan_articulo_debe or not plan_articulo_haber:
+                # si falta alguna cuenta, marcar rollback y devolver error
+                transaction.set_rollback(True)
                 return Response({
                     'success': False,
                     'message': 'No se encontraron cuentas contables válidas para el tipo de artículo seleccionado.'
                 }, status=status.HTTP_400_BAD_REQUEST)
 
-            # Crear los detalles del asiento contable usando los registros encontrados
             DetalleAsiento.objects.create(
                 idAsiento=asiento,
                 idPlanCuenta=plan_articulo_debe.idPlanCuenta,
@@ -383,8 +369,10 @@ class NotaCobroCreateAPIView(APIView):
                 haber=to_decimal(nota.totalNota)
             )
 
-            inscripcion.estadoPago = 'PENDIENTE'
-            inscripcion.save()
+            # responder con datos (usar campos existentes del modelo)
+            persona_nombre = getattr(persona, 'nombres', None) or getattr(persona, 'nombre', '')
+            persona_apellido = getattr(persona, 'apellidos', None) or getattr(persona, 'apellido', '')
+            nombre_completo = f"{persona_nombre} {persona_apellido}".strip()
 
             return Response({
                 'success': True,
@@ -404,7 +392,7 @@ class NotaCobroCreateAPIView(APIView):
                     'persona': {
                         'idPersona': persona.idPersona,
                         'cedula': persona.cedula,
-                        'nombre': f"{persona.nombre} {persona.apellido}"
+                        'nombre': nombre_completo
                     },
                     'formacion': {
                         'idFormacion': inscripcion.idFormacion.idFormacion,
@@ -414,10 +402,26 @@ class NotaCobroCreateAPIView(APIView):
             }, status=status.HTTP_201_CREATED)
 
         except Exception as e:
+            # Importante: marcar rollback para la transacción si ocurre un error
+            try:
+                transaction.set_rollback(True)
+            except Exception:
+                # si por alguna razón falla, al menos logueamos
+                logger.exception("No se pudo marcar rollback en transacción: %s", e)
+
+            # registrar traza completa para debug en servidor
+            logger.exception("Error creando nota de cobro para inscripcion %s: %s", id_inscripcion, e)
+
             return Response({
                 'success': False,
-                'message': f'Ocurrió un error inesperado: {str(e)}.'
+                'message': 'Ocurrió un error inesperado al crear la nota de cobro. Revisa los logs del servidor.'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+def generar_numero_nota():
+    fecha_actual = now().strftime('%Y%m%d')
+    numero_unico = uuid.uuid4().hex[:6].upper()
+    return f"NOTA-{fecha_actual}-{numero_unico}"
         
 def generar_numero_nota():
     # Generar un número único basado en la fecha y un UUID
