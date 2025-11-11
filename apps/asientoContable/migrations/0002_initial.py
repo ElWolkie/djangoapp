@@ -9,20 +9,20 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('cuentaBanco', '0001_initial'),
+        ('asientoContable', '0001_initial'),
         ('home', '0001_initial'),
         ('planCuenta', '0001_initial'),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='cuentabanco',
-            name='moneda',
+            model_name='detalleasiento',
+            name='idMoneda',
             field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='home.moneda', verbose_name='Moneda'),
         ),
         migrations.AddField(
-            model_name='cuentabanco',
-            name='planCuenta',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='planCuenta.plancuenta', verbose_name='Cuenta Contable Asociada'),
+            model_name='detalleasiento',
+            name='idPlanCuenta',
+            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='planCuenta.plancuenta', verbose_name='Plan de Cuenta'),
         ),
     ]
