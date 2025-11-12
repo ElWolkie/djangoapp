@@ -144,7 +144,6 @@ class InscripcionListCreate(generics.ListCreateAPIView):
                 cuotas_qs = CuotaFormacion.objects.filter(idFormacion=formacion, is_active=True).order_by('orden')
 
             for cuota in cuotas_qs:
-                # Crea la instancia (puedes ajustar campos iniciales según tu modelo)
                 cuotas_para_crear.append(
                     InscripcionCuota(
                         idInscripcion=inscripcion,
@@ -155,13 +154,12 @@ class InscripcionListCreate(generics.ListCreateAPIView):
                 )
 
             if cuotas_para_crear:
-                # Bulk create para eficiencia
                 InscripcionCuota.objects.bulk_create(cuotas_para_crear)
                 logger.debug(f"Se crearon {len(cuotas_para_crear)} InscripcionCuota(s) para Inscripcion {inscripcion.idInscripcion}")
             else:
                 logger.debug(f"No se encontraron cuotas activas para la formación asociada a Inscripcion {inscripcion.idInscripcion}")
 
-            # 4) Obtener periodo contable y tasa (como antes)
+            # 4) Obtener periodo contable, configuración y tasa
             periodo_activo = periodoContable.objects.filter(estadoPeriodo=True).first()
             if not periodo_activo:
                 periodo_activo = periodoContable.objects.order_by('-idPeriodo').first()
@@ -172,7 +170,10 @@ class InscripcionListCreate(generics.ListCreateAPIView):
             if not configuracion:
                 raise ValueError('Configuración del sistema no encontrada')
 
-            moneda_configuracion = configuracion.moneda
+            moneda_configuracion = getattr(configuracion, 'moneda', None)
+            if not moneda_configuracion:
+                raise ValueError('No hay moneda configurada en Configuracion')
+
             tasa = Tasa.objects.filter(idMoneda=moneda_configuracion).order_by('-idTasa').first()
             if not tasa:
                 raise ValueError(f'No se encontró tasa para la moneda {moneda_configuracion}')
@@ -213,12 +214,25 @@ class InscripcionListCreate(generics.ListCreateAPIView):
                 idInscripcion=inscripcion
             )
 
-            # 8) Crear detalles de asiento
+            # 8) Crear detalles de asiento (IMPORTANTE: pasar idMoneda)
             plan_debe = PlanArticulo.objects.filter(tipoArticulo='INSCRIPCION', tipo=1).order_by('-fecha').first()
             plan_haber = PlanArticulo.objects.filter(tipoArticulo='INSCRIPCION', tipo=0).order_by('-fecha').first()
             if plan_debe and plan_haber:
-                DetalleAsiento.objects.create(idAsiento=asiento, idPlanCuenta=plan_debe.idPlanCuenta, debe=nota.totalNota, haber=Decimal('0.00'))
-                DetalleAsiento.objects.create(idAsiento=asiento, idPlanCuenta=plan_haber.idPlanCuenta, debe=Decimal('0.00'), haber=nota.totalNota)
+                # aquí es donde antes fallaba: faltaba idMoneda
+                DetalleAsiento.objects.create(
+                    idAsiento=asiento,
+                    idPlanCuenta=plan_debe.idPlanCuenta,
+                    idMoneda=moneda_configuracion,     # <<< -- agregado: moneda de configuración
+                    debe=Decimal(str(nota.totalNota)),
+                    haber=Decimal('0.00')
+                )
+                DetalleAsiento.objects.create(
+                    idAsiento=asiento,
+                    idPlanCuenta=plan_haber.idPlanCuenta,
+                    idMoneda=moneda_configuracion,     # <<< -- agregado: moneda de configuración
+                    debe=Decimal('0.00'),
+                    haber=Decimal(str(nota.totalNota))
+                )
             else:
                 raise ValueError('No cuentas contables para INSCRIPCION')
 
@@ -243,6 +257,7 @@ class InscripcionListCreate(generics.ListCreateAPIView):
         except Exception as e:
             logger.exception("Error en InscripcionListCreate.post: %s", e)
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 class InscripcionUsuarioList(generics.ListAPIView):
