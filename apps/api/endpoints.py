@@ -227,99 +227,98 @@ class NotaCobroCreateAPIView(APIView):
         if not id_inscripcion:
             return Response({
                 'success': False,
-                'message': 'Inscripcion no encontrada.'
+                'message': 'Inscripcion no encontrada. (idInscripcion faltante en request)'
             }, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            inscripcion = Inscripcion.objects.filter(idInscripcion=id_inscripcion, is_active=True).select_related('idFormacion').first()
+            # obtener inscripción (ya con select_related si lo necesitas)
+            inscripcion = Inscripcion.objects.filter(idInscripcion=id_inscripcion, is_active=True).select_related('idFormacion', 'idPersona').first()
             if not inscripcion:
                 return Response({
                     'success': False,
                     'message': 'No se encontró una inscripción activa con el ID proporcionado.'
                 }, status=status.HTTP_404_NOT_FOUND)
 
+            # obtener configuración (moneda por defecto)
             configuracion = Configuracion.objects.first()
-            if not configuracion:
+            if not configuracion or not getattr(configuracion, 'moneda', None):
                 return Response({
                     'success': False,
-                    'message': 'No se encontró una configuración activa en el sistema.'
+                    'message': 'No se encontró una configuración activa o moneda en la configuración.'
                 }, status=status.HTTP_400_BAD_REQUEST)
 
             moneda_configuracion = configuracion.moneda
+
+            # obtener tasa asociada a la moneda de configuración
             tasa_configuracion = Tasa.objects.filter(idMoneda=moneda_configuracion).order_by('-idTasa').first()
             if not tasa_configuracion:
                 return Response({
                     'success': False,
-                    'message': f'No se encontró una tasa registrada para la moneda de configuración ({moneda_configuracion.nombreMoneda}).'
+                    'message': f'No se encontró una tasa registrada para la moneda de configuración ({getattr(moneda_configuracion, "nombreMoneda", moneda_configuracion)}).'
                 }, status=status.HTTP_400_BAD_REQUEST)
 
             tasa_configuracion_valor = to_decimal(tasa_configuracion.montoTasa)
             numero_nota = generar_numero_nota()
 
-            # Verificar si hay un periodo contable activo
+            # periodo contable
             periodo_activo = periodoContable.objects.filter(estadoPeriodo=True).first()
             if not periodo_activo:
                 periodo_activo = periodoContable.objects.order_by('-idPeriodo').first()
             if not periodo_activo:
                 return Response({
                     'success': False,
-                    'message': 'No hay ningún periodo contable registrado o activo en el sistema. Por favor, registre o active un periodo contable antes de continuar.'
+                    'message': 'No hay ningún periodo contable registrado o activo en el sistema.'
                 }, status=status.HTTP_400_BAD_REQUEST)
 
-            # Obtener el valor de la inscripción desde la formación asociada
-            valor_inscripcion = inscripcion.idFormacion.valorInscripcion
+            # valor inscripción desde la formación asociada
+            # (asegúrate que select_related('idFormacion') esté presente o usa inscripcion.idFormacion)
+            valor_inscripcion = getattr(inscripcion.idFormacion, 'valorInscripcion', None)
+            if valor_inscripcion is None:
+                # fallback: intenta obtener desde DB
+                valor_inscripcion = getattr(Formacion.objects.filter(idFormacion=getattr(inscripcion.idFormacion, 'idFormacion', None)).first(), 'valorInscripcion', Decimal('0.00'))
 
-            # Verificar si la persona está relacionada con TipoPersona id=3
+            # descuento por tipo de persona
             persona = inscripcion.idPersona
             tiene_descuento = PersonaTP.objects.filter(idPersona=persona, idTP=3).exists()
 
-            # Calcular montos
+            # cálculos tributos
             subtotal_gravado = Decimal('0.00')
-            subtotal_exento = Decimal('0')
+            subtotal_exento = Decimal('0.00')
 
-            # Obtener parámetros tributarios
             parametros_tributarios = ParametroTributario.objects.filter(activo=True)
-
             def obtener_parametro(tipo, aplica_a):
                 return parametros_tributarios.filter(tipo=tipo, aplica_a=aplica_a).first()
 
-            # Calcular IVA respetando exenciones
             parametro_iva_exento = obtener_parametro('IVA_EXENTO', 'INSCRIPCION')
             if parametro_iva_exento and parametro_iva_exento.porcentaje == Decimal('0.00'):
-                subtotal_exento = valor_inscripcion
+                subtotal_exento = to_decimal(valor_inscripcion)
                 subtotal_gravado = Decimal('0.00')
-                iva = Decimal('0.00')  # No aplica IVA si es exento
+                iva = Decimal('0.00')
             else:
-                subtotal_gravado = valor_inscripcion
+                subtotal_gravado = to_decimal(valor_inscripcion)
                 subtotal_exento = Decimal('0.00')
                 parametro_iva = obtener_parametro('IVA_GENERAL', 'INSCRIPCION')
                 porcentaje_iva = parametro_iva.porcentaje if parametro_iva else Decimal('16')
                 iva = subtotal_gravado * (porcentaje_iva / Decimal('100'))
 
-            # Calcular retenciones (si aplica)
             iva_retenido = Decimal('0.00')
             islr_retenido = Decimal('0.00')
 
-            # Calcular descuento
-            descuento = Decimal('0')
+            descuento = Decimal('0.00')
             if tiene_descuento:
                 descuento = (subtotal_gravado + subtotal_exento) * (to_decimal(configuracion.descuento) / Decimal('100'))
 
-            # Calcular total
             total_nota = subtotal_gravado + subtotal_exento + iva - descuento
 
-            # El idPersona se obtiene del registro de inscripción
-            persona = inscripcion.idPersona
-
-             # Crear el asiento contable
+            # crear asiento contable (si tu modelo AsientoContable requiere moneda, añádela también aquí)
             asiento = AsientoContable.objects.create(
                 numeroAsiento=f"NOTA-{numero_nota}",
                 fechaAsiento=now().date(),
                 conceptoAsiento=f"Asiento para la nota {numero_nota}",
                 idPeriodo=periodo_activo
             )
-            asiento.save()
-            # Crear la nota de cobro
+
+            # crear nota de cobro
             nota = Nota.objects.create(
                 idAsiento=asiento,
                 idPersona=persona,
@@ -342,49 +341,39 @@ class NotaCobroCreateAPIView(APIView):
                 observaciones='NOTA AUTOMATIZADA POR LA APP'
             )
 
-            # Crear la relación en NotaRelacionada si se proporciona idInscripcion
-            id_inscripcion = request.POST.get('idInscripcion')
-            if id_inscripcion:
-                inscripcion = Inscripcion.objects.filter(idInscripcion=id_inscripcion).first()
-                if inscripcion:
-                    NotaRelacionada.objects.create(
-                        idNota=nota,
-                        idInscripcion=inscripcion
-                    )
-                    inscripcion.estadoPago = 'PENDIENTE'
-                    inscripcion.save()
-                else:
-                    print("No se encontró una inscripción con el ID proporcionado.")
-            else:
-                print("ID Inscripcion no proporcionado en el formulario.")
+            # crear la relación NotaRelacionada usando el id_inscripcion original (no request.POST)
+            # ya tenemos la variable inscripcion actual que es la misma, así que la usamos.
+            NotaRelacionada.objects.create(
+                idNota=nota,
+                idInscripcion=inscripcion
+            )
+            inscripcion.estadoPago = 'PENDIENTE'
+            inscripcion.save()
 
-            # Crear los detalles del asiento contable
+            # obtener cuentas para asiento
             plan_articulos = PlanArticulo.objects.filter(tipoArticulo='INSCRIPCION').order_by('-fecha')
             plan_articulo_debe = plan_articulos.filter(tipo=1).first()
             plan_articulo_haber = plan_articulos.filter(tipo=0).first()
 
             if not plan_articulo_debe or not plan_articulo_haber:
-                return Response({
-                    'success': False,
-                    'message': 'No se encontraron cuentas contables válidas para el tipo de artículo seleccionado.'
-                }, status=status.HTTP_400_BAD_REQUEST)
+                # si falla, forzamos rollback por raise
+                raise Exception('No se encontraron cuentas contables válidas para el tipo de artículo seleccionado.')
 
-            # Crear los detalles del asiento contable usando los registros encontrados
+            # ---- IMPORTANTE: pasar idMoneda = moneda_configuracion aquí ----
             DetalleAsiento.objects.create(
                 idAsiento=asiento,
                 idPlanCuenta=plan_articulo_debe.idPlanCuenta,
+                idMoneda=moneda_configuracion,         # <--- fijar la moneda desde configuracion
                 debe=to_decimal(nota.totalNota),
                 haber=Decimal('0.00')
             )
             DetalleAsiento.objects.create(
                 idAsiento=asiento,
                 idPlanCuenta=plan_articulo_haber.idPlanCuenta,
+                idMoneda=moneda_configuracion,         # <--- fijar la moneda desde configuracion
                 debe=Decimal('0.00'),
                 haber=to_decimal(nota.totalNota)
             )
-
-            inscripcion.estadoPago = 'PENDIENTE'
-            inscripcion.save()
 
             return Response({
                 'success': True,
@@ -404,19 +393,20 @@ class NotaCobroCreateAPIView(APIView):
                     'persona': {
                         'idPersona': persona.idPersona,
                         'cedula': persona.cedula,
-                        'nombre': f"{persona.nombre} {persona.apellido}"
+                        'nombre': f"{persona.nombre} {getattr(persona, 'apellido', '')}"
                     },
                     'formacion': {
-                        'idFormacion': inscripcion.idFormacion.idFormacion,
-                        'nombreFormacion': inscripcion.idFormacion.nombreFormacion
+                        'idFormacion': getattr(inscripcion.idFormacion, 'idFormacion', None),
+                        'nombreFormacion': getattr(inscripcion.idFormacion, 'nombreFormacion', None)
                     }
                 }
             }, status=status.HTTP_201_CREATED)
 
         except Exception as e:
+            # transaction.atomic() hará rollback automático si hay excepción
             return Response({
                 'success': False,
-                'message': f'Ocurrió un error inesperado: {str(e)}.'
+                'message': f'Ocurrió un error inesperado: {str(e)}'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 def generar_numero_nota():
