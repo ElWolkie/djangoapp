@@ -274,6 +274,8 @@ class PagoTemporal(models.Model):
             idPeriodo=periodo_activo
         )
 
+        moneda_local = Moneda.objects.get(idMoneda=1)  # Asumiendo moneda local con ID 1
+        
         # Obtener la cuenta del Plan de Cuenta usada en el Debe del asiento principal de la nota
         asiento_principal = self.idNota.idAsiento
         detalle_debe = DetalleAsiento.objects.filter(idAsiento=asiento_principal, debe__gt=0).first()
@@ -287,14 +289,14 @@ class PagoTemporal(models.Model):
         # Crear los detalles del asiento contable
         DetalleAsiento.objects.create(
             idAsiento=asiento_pago,
-            idMoneda= '1',  # Asumiendo moneda local con ID 1
+            idMoneda= moneda_local,  # Asumiendo moneda local con ID 1
             idPlanCuenta=plan_cuenta_debe,
             debe=float(self.monto),
             haber=0.00
         )
         DetalleAsiento.objects.create(
             idAsiento=asiento_pago,
-            idMoneda= '1',  # Asumiendo moneda local con ID 1
+            idMoneda= moneda_local,  # Asumiendo moneda local con ID 1
             idPlanCuenta=plan_cuenta_haber,
             debe=0.00,
             haber=float(self.monto)
