@@ -111,18 +111,24 @@ class InscripcionListCreate(generics.ListCreateAPIView):
 
     @transaction.atomic
     def perform_create(self, serializer):
-        # 1) Guardar inscripción (ya activa)
+        """
+        Crea solamente la inscripción y (si aplica) sus InscripcionCuota asociadas.
+        Ya NO se crea la Nota/Asiento/DetalleAsiento aquí: ese trabajo lo hará exclusivamente
+        el endpoint /api/nota-cobro/create/.
+        """
+        # 1) Guardar inscripción
         inscripcion = serializer.save()
+
         try:
-            # Marcar activa si tu modelo la requiere
+            # Intentar marcar is_active si el modelo lo soporta
             try:
                 inscripcion.is_active = True
                 inscripcion.save(update_fields=['is_active'])
             except Exception:
-                # No todos los modelos tienen is_active; ignorar si falla
+                # Ignorar si no existe el campo
                 pass
 
-            # 2) Determinar la formación y valor de inscripción (defensivo)
+            # 2) Determinar formación asociada (defensivo)
             formacion = None
             valor_inscripcion = None
             cohorte = getattr(inscripcion, 'idCohorte', None)
@@ -133,15 +139,20 @@ class InscripcionListCreate(generics.ListCreateAPIView):
                 valor_inscripcion = getattr(formacion, 'valorInscripcion', None)
 
             if valor_inscripcion is None:
-                raise ValueError('No se pudo determinar valor_inscripcion desde la cohorte/formación.')
+                # No lanzamos error porque la nota la creará el endpoint de notas,
+                # y allí se realizará la validación del monto. Aquí sólo avisamos en log.
+                logger.debug("perform_create: no se pudo determinar valor_inscripcion para Inscripcion %s", getattr(inscripcion, 'idInscripcion', None))
 
-            # 3) Crear inscripcion-cuotas: usar prefetched_cuotas si existe (mejor rendimiento)
+            # 3) Crear InscripcionCuota(s) si existen cuotas activas (usar prefetched si viene)
             cuotas_para_crear = []
             prefetched = getattr(formacion, 'prefetched_cuotas', None)
             if prefetched and isinstance(prefetched, (list, tuple)):
                 cuotas_qs = prefetched
             else:
-                cuotas_qs = CuotaFormacion.objects.filter(idFormacion=formacion, is_active=True).order_by('orden')
+                if formacion:
+                    cuotas_qs = CuotaFormacion.objects.filter(idFormacion=formacion, is_active=True).order_by('orden')
+                else:
+                    cuotas_qs = CuotaFormacion.objects.none()
 
             for cuota in cuotas_qs:
                 cuotas_para_crear.append(
@@ -155,110 +166,34 @@ class InscripcionListCreate(generics.ListCreateAPIView):
 
             if cuotas_para_crear:
                 InscripcionCuota.objects.bulk_create(cuotas_para_crear)
-                logger.debug(f"Se crearon {len(cuotas_para_crear)} InscripcionCuota(s) para Inscripcion {inscripcion.idInscripcion}")
+                logger.debug("Se crearon %d InscripcionCuota(s) para Inscripcion %s", len(cuotas_para_crear), inscripcion.idInscripcion)
             else:
-                logger.debug(f"No se encontraron cuotas activas para la formación asociada a Inscripcion {inscripcion.idInscripcion}")
+                logger.debug("No se encontraron cuotas activas para la Inscripcion %s", inscripcion.idInscripcion)
 
-            # 4) Obtener periodo contable, configuración y tasa
-            periodo_activo = periodoContable.objects.filter(estadoPeriodo=True).first()
-            if not periodo_activo:
-                periodo_activo = periodoContable.objects.order_by('-idPeriodo').first()
-            if not periodo_activo:
-                raise ValueError('No hay periodo contable activo')
+            # 4) Marcar estadoPago como PENDIENTE por defecto (si aplica)
+            try:
+                inscripcion.estadoPago = 'PENDIENTE'
+                inscripcion.save(update_fields=['estadoPago'])
+            except Exception:
+                # Si el campo no existe, ignorar
+                pass
 
-            configuracion = Configuracion.objects.first()
-            if not configuracion:
-                raise ValueError('Configuración del sistema no encontrada')
-
-            moneda_configuracion = getattr(configuracion, 'moneda', None)
-            if not moneda_configuracion:
-                raise ValueError('No hay moneda configurada en Configuracion')
-
-            tasa = Tasa.objects.filter(idMoneda=moneda_configuracion).order_by('-idTasa').first()
-            if not tasa:
-                raise ValueError(f'No se encontró tasa para la moneda {moneda_configuracion}')
-
-            # 5) Crear asiento contable
-            numero_asiento = f"ASIENTO-{now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
-            asiento = AsientoContable.objects.create(
-                numeroAsiento=numero_asiento,
-                fechaAsiento=now().date(),
-                conceptoAsiento=f"Asiento para inscripción {inscripcion.idInscripcion}",
-                idPeriodo=periodo_activo
-            )
-
-            # 6) Crear Nota de Cobro
-            numero_nota = f"NOTA-{now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
-            nota = Nota.objects.create(
-                idAsiento=asiento,
-                idPersona=inscripcion.idPersona,
-                numeroNota=numero_nota,
-                tipoOperacion='COBRO',
-                tipoArticulo='INSCRIPCION',
-                fechaEmision=now().date(),
-                fechaVencimiento=now().date() + timedelta(days=1),
-                formaPago='CONTADO',
-                subtotalExento=Decimal('0.00'),
-                subtotalGravado=Decimal(str(valor_inscripcion)),
-                iva=Decimal('0.00'),
-                descuento=Decimal('0.00'),
-                totalNota=Decimal(str(valor_inscripcion)),
-                idTasa=tasa,
-                estado='PENDIENTE',
-                observaciones='NOTA AUTOMÁTICA POR INSCRIPCIÓN'
-            )
-
-            # 7) Relacionar nota <-> inscripción
-            NotaRelacionada.objects.create(
-                idNota=nota,
-                idInscripcion=inscripcion
-            )
-
-            # 8) Crear detalles de asiento (IMPORTANTE: pasar idMoneda)
-            plan_debe = PlanArticulo.objects.filter(tipoArticulo='INSCRIPCION', tipo=1).order_by('-fecha').first()
-            plan_haber = PlanArticulo.objects.filter(tipoArticulo='INSCRIPCION', tipo=0).order_by('-fecha').first()
-            if plan_debe and plan_haber:
-                # aquí es donde antes fallaba: faltaba idMoneda
-                DetalleAsiento.objects.create(
-                    idAsiento=asiento,
-                    idPlanCuenta=plan_debe.idPlanCuenta,
-                    idMoneda=moneda_configuracion,     # <<< -- agregado: moneda de configuración
-                    debe=Decimal(str(nota.totalNota)),
-                    haber=Decimal('0.00')
-                )
-                DetalleAsiento.objects.create(
-                    idAsiento=asiento,
-                    idPlanCuenta=plan_haber.idPlanCuenta,
-                    idMoneda=moneda_configuracion,     # <<< -- agregado: moneda de configuración
-                    debe=Decimal('0.00'),
-                    haber=Decimal(str(nota.totalNota))
-                )
-            else:
-                raise ValueError('No cuentas contables para INSCRIPCION')
-
-            # 9) Actualizar estado de inscripción y guardar
-            inscripcion.estadoPago = 'PENDIENTE'
-            inscripcion.save()
-
-            # 10) Guardar nota creada para devolverla en la respuesta POST
-            self.nota_creada = nota
+            # NOTA: ya NO se crea la Nota/Asiento/DetalleAsiento aquí.
+            # El endpoint /api/nota-cobro/create/ es el responsable de crear la nota
+            # y los registros contables asociados (Asiento/DetalleAsiento).
 
         except Exception as e:
-            logger.exception(f"Error creando nota/cuotas para inscripción {getattr(inscripcion, 'idInscripcion', 'unknown')}: {e}")
-            # Propagar excepción para que transaction.atomic haga rollback
+            logger.exception("Error en perform_create Inscripcion %s: %s", getattr(inscripcion, 'idInscripcion', 'unknown'), e)
+            # Propagar para que transaction.atomic haga rollback
             raise
 
     def post(self, request, *args, **kwargs):
-        try:
-            response = super().post(request, *args, **kwargs)
-            if hasattr(self, 'nota_creada'):
-                response.data['nota'] = NotaSerializer(self.nota_creada).data
-            return response
-        except Exception as e:
-            logger.exception("Error en InscripcionListCreate.post: %s", e)
-            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-
+        """
+        Usamos el comportamiento por defecto de ListCreateAPIView.
+        No intentamos adjuntar una nota a la respuesta (ya que la nota
+        debe crearse explícitamente mediante /api/nota-cobro/create/).
+        """
+        return super().post(request, *args, **kwargs)
 
 class InscripcionUsuarioList(generics.ListAPIView):
     """
