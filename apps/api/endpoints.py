@@ -248,7 +248,7 @@ class NotaCobroCreateAPIView(APIView):
             # Obtener inscripción (defensivo)
             inscripcion = Inscripcion.objects.filter(
                 idInscripcion=id_inscripcion, is_active=True
-            ).select_related('idFormacion', 'idPersona').first()
+                ).select_related('idPersona', 'idCohorte__idFormacion').first()
 
             if not inscripcion:
                 return Response({
