@@ -715,20 +715,26 @@ const InscripcionesScreen = () => {
 
       const res = await api.post('/api/inscripcion/', payload);
       if (res.status === 201 || res.status === 200) {
+        // Intentar crear la nota, pero NO navegamos a la pantalla de pago
         try {
           const notaResponse = await api.post('/api/nota-cobro/create/', { idInscripcion: res.data.idInscripcion });
           if (notaResponse.data.success) {
-            navigation.navigate('pago', {
-              notaData: notaResponse.data.data,
-              inscripcionId: res.data.idInscripcion
-            });
-            Alert.alert('Éxito', 'Inscripción y nota de cobro creadas correctamente. Proceda al pago.');
+            // Mostrar mensaje claro al usuario para que vaya a la sección de pagos
+            Alert.alert(
+              'Inscripción creada',
+              'Inscripción y nota de cobro creadas correctamente. Permanezca en esta pantalla y diríjase a la sección de pagos para completar la inscripción.'
+            );
           } else {
-            throw new Error(notaResponse.data.message || 'Error creando nota');
+            // Nota falló pero inscripción fue creada
+            Alert.alert('Atención', 'Inscripción creada pero hubo un error al generar la nota de cobro. Contacte al administrador.');
           }
         } catch (notaError) {
+          // Si el endpoint de nota devolvió error (500 u otro), avisamos pero no navegamos
+          console.warn('Error al crear nota de cobro:', notaError);
           Alert.alert('Atención', 'Inscripción creada pero hubo un error al generar la nota de cobro. Contacte al administrador.');
         }
+
+        // Cerrar modal, resetear formulario y recargar listado (permanece en la pantalla actual)
         setFormModalVisible(false);
         resetForm();
         await fetchInscripciones();
@@ -756,6 +762,7 @@ const InscripcionesScreen = () => {
       setCreating(false);
     }
   };
+
 
   const resetForm = () => {
     setSelectedTipoFormacion(null);

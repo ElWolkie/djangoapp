@@ -245,10 +245,12 @@ class NotaCobroCreateAPIView(APIView):
             }, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            # Obtener inscripción (defensivo)
+            # -------------------------
+            # 1) Obtener inscripción
+            # -------------------------
             inscripcion = Inscripcion.objects.filter(
                 idInscripcion=id_inscripcion, is_active=True
-                ).select_related('idPersona', 'idCohorte__idFormacion').first()
+            ).select_related('idPersona', 'idCohorte__idFormacion').first()
 
             if not inscripcion:
                 return Response({
@@ -256,7 +258,42 @@ class NotaCobroCreateAPIView(APIView):
                     'message': 'No se encontró una inscripción activa con el ID proporcionado.'
                 }, status=status.HTTP_404_NOT_FOUND)
 
-            # Configuración y moneda por defecto
+            # -------------------------
+            # 2) Evitar duplicados: si ya existe una nota relacionada devolverla
+            # -------------------------
+            nota_rel = NotaRelacionada.objects.filter(idInscripcion=inscripcion).select_related('idNota').first()
+            if nota_rel and nota_rel.idNota:
+                nota_existente = nota_rel.idNota
+                logger.info("Nota existente encontrada para inscripcion %s -> nota %s", id_inscripcion, getattr(nota_existente, 'idNota', None))
+                # Construir payload de respuesta consistente con el original
+                persona = inscripcion.idPersona
+                data = {
+                    'idNota': getattr(nota_existente, 'idNota', None),
+                    'numeroNota': getattr(nota_existente, 'numeroNota', None),
+                    'tipoOperacion': getattr(nota_existente, 'tipoOperacion', None),
+                    'tipoArticulo': getattr(nota_existente, 'tipoArticulo', None),
+                    'totalNota': float(to_decimal_safe(getattr(nota_existente, 'totalNota', 0))),
+                    'subtotalGravado': float(to_decimal_safe(getattr(nota_existente, 'subtotalGravado', 0))),
+                    'subtotalExento': float(to_decimal_safe(getattr(nota_existente, 'subtotalExento', 0))),
+                    'iva': float(to_decimal_safe(getattr(nota_existente, 'iva', 0))),
+                    'descuento': float(to_decimal_safe(getattr(nota_existente, 'descuento', 0))),
+                    'estado': getattr(nota_existente, 'estado', None),
+                    'fechaEmision': getattr(nota_existente, 'fechaEmision', None),
+                    'persona': {
+                        'idPersona': getattr(persona, 'idPersona', None),
+                        'cedula': getattr(persona, 'cedula', None),
+                        'nombre': f"{getattr(persona, 'nombre', '')} {getattr(persona, 'apellido', getattr(persona, 'apellidos', ''))}".strip()
+                    },
+                    'formacion': {
+                        'idFormacion': getattr(getattr(inscripcion, 'idFormacion', None), 'idFormacion', None),
+                        'nombreFormacion': getattr(getattr(inscripcion, 'idFormacion', None), 'nombreFormacion', None)
+                    }
+                }
+                return Response({'success': True, 'message': 'Nota ya existente para esta inscripción.', 'data': data}, status=status.HTTP_200_OK)
+
+            # -------------------------
+            # 3) Configuración y moneda/tasa
+            # -------------------------
             configuracion = Configuracion.objects.first()
             if not configuracion or not getattr(configuracion, 'moneda', None):
                 return Response({
@@ -265,16 +302,16 @@ class NotaCobroCreateAPIView(APIView):
                 }, status=status.HTTP_400_BAD_REQUEST)
 
             moneda_configuracion = configuracion.moneda
-
-            # Tasa para esa moneda
             tasa_configuracion = Tasa.objects.filter(idMoneda=moneda_configuracion).order_by('-idTasa').first()
             if not tasa_configuracion:
                 return Response({
                     'success': False,
-                    'message': f'No se encontró una tasa para la moneda de configuración ({safe_str(getattr(moneda_configuracion, "nombreMoneda", moneda_configuracion))}).'
+                    'message': f'No se encontró una tasa para la moneda de configuración ({getattr(moneda_configuracion, "nombreMoneda", moneda_configuracion)}).'
                 }, status=status.HTTP_400_BAD_REQUEST)
 
-            # Periodo contable
+            # -------------------------
+            # 4) Periodo contable
+            # -------------------------
             periodo_activo = periodoContable.objects.filter(estadoPeriodo=True).first()
             if not periodo_activo:
                 periodo_activo = periodoContable.objects.order_by('-idPeriodo').first()
@@ -284,28 +321,37 @@ class NotaCobroCreateAPIView(APIView):
                     'message': 'No hay ningún periodo contable registrado o activo en el sistema.'
                 }, status=status.HTTP_400_BAD_REQUEST)
 
-            # Valor inscripción (defensivo)
+            # -------------------------
+            # 5) Valor de inscripción (defensivo)
+            # -------------------------
             valor_inscripcion = None
-            if getattr(inscripcion, 'idFormacion', None):
-                valor_inscripcion = getattr(inscripcion.idFormacion, 'valorInscripcion', None)
+            # intentamos desde la formación relacionada (select_related en la consulta)
+            formacion_obj = getattr(getattr(inscripcion, 'idCohorte', None), 'idFormacion', None) or getattr(inscripcion, 'idFormacion', None)
+            if formacion_obj:
+                valor_inscripcion = getattr(formacion_obj, 'valorInscripcion', None)
             if valor_inscripcion is None:
-                # fallback a consulta por id (si idFormacion viene como int o FK incompleto)
-                formacion_fk = getattr(inscripcion.idFormacion, 'idFormacion', None) if getattr(inscripcion, 'idFormacion', None) else getattr(inscripcion, 'idFormacion_id', None)
-                form_obj = None
-                if formacion_fk:
-                    form_obj = Formacion.objects.filter(idFormacion=formacion_fk).first()
-                if form_obj:
-                    valor_inscripcion = getattr(form_obj, 'valorInscripcion', None)
+                # fallback por FK / consulta
+                form_fk = None
+                coh = getattr(inscripcion, 'idCohorte', None)
+                if coh:
+                    form_fk = getattr(coh, 'idFormacion_id', None) or getattr(coh, 'idFormacion', None)
+                if not form_fk:
+                    form_fk = getattr(inscripcion, 'idFormacion_id', None)
+                if form_fk:
+                    f = Formacion.objects.filter(idFormacion=form_fk).first()
+                    if f:
+                        valor_inscripcion = getattr(f, 'valorInscripcion', None)
             if valor_inscripcion is None:
                 valor_inscripcion = Decimal('0.00')
 
             valor_inscripcion = to_decimal_safe(valor_inscripcion)
 
-            # Descuento tipo persona
+            # -------------------------
+            # 6) Descuentos / tributos
+            # -------------------------
             persona = inscripcion.idPersona
             tiene_descuento = PersonaTP.objects.filter(idPersona=persona, idTP=3).exists()
 
-            # Cálculo tributos (defensivo)
             parametros_tributarios = ParametroTributario.objects.filter(activo=True)
             def obtener_parametro(tipo, aplica_a):
                 return parametros_tributarios.filter(tipo=tipo, aplica_a=aplica_a).first()
@@ -331,7 +377,9 @@ class NotaCobroCreateAPIView(APIView):
 
             total_nota = (subtotal_gravado + subtotal_exento + iva - descuento).quantize(Decimal('0.01'))
 
-            # Crear asiento contable
+            # -------------------------
+            # 7) Crear asiento y nota
+            # -------------------------
             numero_nota = generar_numero_nota()
             asiento = AsientoContable.objects.create(
                 numeroAsiento=f"NOTA-{numero_nota}",
@@ -340,7 +388,6 @@ class NotaCobroCreateAPIView(APIView):
                 idPeriodo=periodo_activo
             )
 
-            # Crear nota
             nota = Nota.objects.create(
                 idAsiento=asiento,
                 idPersona=persona,
@@ -363,12 +410,16 @@ class NotaCobroCreateAPIView(APIView):
                 observaciones='NOTA AUTOMATIZADA POR LA APP'
             )
 
-            # Relacionar
+            # -------------------------
+            # 8) Relacionar nota <-> inscripción
+            # -------------------------
             NotaRelacionada.objects.create(idNota=nota, idInscripcion=inscripcion)
             inscripcion.estadoPago = 'PENDIENTE'
-            inscripcion.save()
+            inscripcion.save(update_fields=['estadoPago'])
 
-            # Obtener cuentas para asiento
+            # -------------------------
+            # 9) Detalles contables (usar moneda de configuración)
+            # -------------------------
             plan_articulos = PlanArticulo.objects.filter(tipoArticulo='INSCRIPCION').order_by('-fecha')
             plan_articulo_debe = plan_articulos.filter(tipo=1).first()
             plan_articulo_haber = plan_articulos.filter(tipo=0).first()
@@ -376,7 +427,6 @@ class NotaCobroCreateAPIView(APIView):
             if not plan_articulo_debe or not plan_articulo_haber:
                 raise Exception('No se encontraron cuentas contables válidas para el tipo de artículo seleccionado.')
 
-            # Crear detalles (asegurando idMoneda desde configuración)
             DetalleAsiento.objects.create(
                 idAsiento=asiento,
                 idPlanCuenta=plan_articulo_debe.idPlanCuenta,
@@ -392,7 +442,10 @@ class NotaCobroCreateAPIView(APIView):
                 haber=to_decimal_safe(nota.totalNota)
             )
 
-            # Respuesta: build seguro (evitar float(None) etc.)
+            # -------------------------
+            # 10) Responder
+            # -------------------------
+            persona = inscripcion.idPersona
             data = {
                 'idNota': getattr(nota, 'idNota', None),
                 'numeroNota': getattr(nota, 'numeroNota', None),
@@ -419,15 +472,11 @@ class NotaCobroCreateAPIView(APIView):
             return Response({'success': True, 'message': 'Nota de cobro creada exitosamente.', 'data': data}, status=status.HTTP_201_CREATED)
 
         except Exception as e:
-            # Log completo con traceback para que puedas ver la causa exacta
+            # registro completo para debugging; no devolvemos traceback al cliente
             logger.exception("Error en NotaCobroCreateAPIView.post: %s", e)
-            tb = traceback.format_exc()
-            # Opcional: también escribir en stdout para render logs (si necesitas)
-            logger.error("TRACEBACK:\n%s", tb)
             return Response({
                 'success': False,
-                'message': f'Ocurrió un error inesperado: {safe_str(e)}',
-                'traceback': tb  # quítalo en producción si no quieres exponer trazas en respuesta
+                'message': 'Ocurrió un error inesperado al crear la nota de cobro. Consulte logs del servidor.'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 def generar_numero_nota():
