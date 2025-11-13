@@ -405,6 +405,29 @@ class PagoCreateAPIView(APIView):
                 "error": str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+# --- ¡NUEVA VISTA DE PAGOS PARA CONFIRMAR LOS PAGOS! ---
+class PagoConfirmAPIView(APIView):
+    @transaction.atomic
+    def post(self, request, pk):
+        try:
+            pago = PagoTemporal.objects.select_related('idNota').get(pk=pk)
+            if pago.confirmado:
+                return Response({'success': False, 'message': 'Pago ya confirmado.'}, status=400)
+
+            pago.confirmado = True
+            pago.save(update_fields=['confirmado'])
+
+            # devolver nota actualizada para que el frontend admin/usuario la consulte inmediatamente
+            nota = getattr(pago, 'idNota', None)
+            nota_data = NotaSerializer(nota).data if nota else None
+
+            return Response({'success': True, 'message': 'Pago confirmado.', 'nota': nota_data})
+        except PagoTemporal.DoesNotExist:
+            return Response({'success': False, 'message': 'Pago no encontrado.'}, status=404)
+        except Exception as e:
+            return Response({'success': False, 'message': str(e)}, status=500)
+
+
 # --- ¡NUEVA VISTA DE PAGOS PARA DASHBOARD! ---
 class PagoUsuarioListView(generics.ListAPIView):
     serializer_class = PagoSerializer
