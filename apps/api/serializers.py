@@ -795,25 +795,59 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
             debug_steps.append({"step": "cuota_actualizada", "estadoPago": cuota.estadoPago})
 
             # detalles de asiento (PlanArticulo)
+                        # detalles de asiento (PlanArticulo) - REVISADO: incluir idMoneda obligatorio
             plan_articulos = PlanArticulo.objects.filter(tipoArticulo='CUOTA').order_by('-fecha')
             plan_debe = plan_articulos.filter(tipo=True).first() or plan_articulos.filter(tipo=1).first()
             plan_haber = plan_articulos.filter(tipo=False).first() or plan_articulos.filter(tipo=0).first()
             debug_steps.append({"step": "plan_articulos", "plan_debe": getattr(plan_debe, 'pk', None), "plan_haber": getattr(plan_haber, 'pk', None)})
 
+            # --- NUEVO: resolver moneda para DetalleAsiento (campo obligatorio en DB) ---
+            moneda_obj = None
+            # tasa fue resuelta arriba; preferimos la moneda de la tasa
+            moneda_obj = getattr(tasa, 'idMoneda', None) or getattr(tasa, 'moneda', None)
+            # fallback a la configuración (si contiene objeto o id)
+            if not moneda_obj:
+                moneda_obj = getattr(configuracion, 'moneda', None) or getattr(configuracion, 'idMoneda', None)
+
+            if not moneda_obj:
+                # abortar con mensaje claro en vez de provocar IntegrityError en BD
+                debug_steps.append({"step": "detalle_asiento_error", "reason": "no_moneda_disponible"})
+                raise serializers.ValidationError({
+                    "error": "No se pudo determinar la moneda para los DetalleAsiento (idMoneda). Revise la configuración/tasa.",
+                    "debug": debug_steps
+                })
+
+            # obtener id numérico de la moneda (soporta tanto instancia como entero)
+            moneda_id = None
+            try:
+                moneda_id = getattr(moneda_obj, 'pk', None) or getattr(moneda_obj, 'id', None) or int(moneda_obj)
+            except Exception:
+                moneda_id = None
+
+            if not moneda_id:
+                debug_steps.append({"step": "detalle_asiento_error", "reason": "moneda_id_no_valida", "moneda_obj": str(moneda_obj)})
+                raise serializers.ValidationError({
+                    "error": "La moneda determinada no tiene una PK válida (idMoneda).",
+                    "debug": debug_steps
+                })
+
+            # crear los DetalleAsiento incluyendo idMoneda_id para satisfacer la constraint NOT NULL
             if plan_debe and plan_haber:
                 DetalleAsiento.objects.create(
                     idAsiento=asiento,
                     idPlanCuenta=plan_debe.idPlanCuenta,
+                    idMoneda_id=moneda_id,
                     debe=Decimal(validated_data['monto']),
                     haber=Decimal('0.00')
                 )
                 DetalleAsiento.objects.create(
                     idAsiento=asiento,
                     idPlanCuenta=plan_haber.idPlanCuenta,
+                    idMoneda_id=moneda_id,
                     debe=Decimal('0.00'),
                     haber=Decimal(validated_data['monto'])
                 )
-                debug_steps.append({"step": "detalle_asiento_creado"})
+                debug_steps.append({"step": "detalle_asiento_creado", "moneda_id": moneda_id})
             else:
                 debug_steps.append({"step": "detalle_asiento_omitido", "reason": "PlanArticulo no encontrado"})
 
