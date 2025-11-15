@@ -111,24 +111,41 @@ class InscripcionListCreate(generics.ListCreateAPIView):
 
     @transaction.atomic
     def perform_create(self, serializer):
-        """
-        Crea solamente la inscripción y (si aplica) sus InscripcionCuota asociadas.
-        Ya NO se crea la Nota/Asiento/DetalleAsiento aquí: ese trabajo lo hará exclusivamente
-        el endpoint /api/nota-cobro/create/.
-        """
-        # 1) Guardar inscripción
+
+        try:
+            validated = getattr(serializer, 'validated_data', None) or {}
+            id_persona = validated.get('idPersona') or serializer.initial_data.get('idPersona')
+            id_cohorte = validated.get('idCohorte') or serializer.initial_data.get('idCohorte')
+            if id_persona and id_cohorte:
+                coh = Cohorte.objects.select_related('idFormacion').filter(pk=id_cohorte).first()
+                form_id = getattr(getattr(coh, 'idFormacion', None), 'idFormacion', None) or getattr(coh, 'idFormacion_id', None) if coh else None
+
+                qs_prev = Inscripcion.objects.filter(idPersona_id=id_persona).filter(
+                    Q(idCohorte_id=id_cohorte) | Q(idCohorte__idFormacion_id=form_id)
+                )
+
+                if qs_prev.exists():
+                    notas_qs = Nota.objects.filter(tipoArticulo='INSCRIPCION', relaciones__idInscripcion__in=qs_prev).distinct()
+                    if notas_qs.filter(estado__iexact='PAGADA').exists() or PagoTemporal.objects.filter(idNota__in=notas_qs, confirmado=True).exists():
+                        raise serializers.ValidationError("No se puede crear la inscripción: ya existe una inscripción para esta formación/cohorte con pago confirmado.")
+        except serializers.ValidationError:
+            # propaga el error para que DRF devuelva 400 con el mensaje
+            raise
+        except Exception as e:
+            logger.exception("perform_create: validación duplicidad falló: %s", e)
+            # en caso de error no bloqueamos la creación aquí (pero lo logueamos).
+            # Si prefieres ser estricto, puedes levantar error y abortar.
+
+        # si todo bien, guardamos la inscripción (tu lógica original)
         inscripcion = serializer.save()
 
         try:
-            # Intentar marcar is_active si el modelo lo soporta
             try:
                 inscripcion.is_active = True
                 inscripcion.save(update_fields=['is_active'])
             except Exception:
-                # Ignorar si no existe el campo
                 pass
 
-            # 2) Determinar formación asociada (defensivo)
             formacion = None
             valor_inscripcion = None
             cohorte = getattr(inscripcion, 'idCohorte', None)
@@ -139,11 +156,8 @@ class InscripcionListCreate(generics.ListCreateAPIView):
                 valor_inscripcion = getattr(formacion, 'valorInscripcion', None)
 
             if valor_inscripcion is None:
-                # No lanzamos error porque la nota la creará el endpoint de notas,
-                # y allí se realizará la validación del monto. Aquí sólo avisamos en log.
                 logger.debug("perform_create: no se pudo determinar valor_inscripcion para Inscripcion %s", getattr(inscripcion, 'idInscripcion', None))
 
-            # 3) Crear InscripcionCuota(s) si existen cuotas activas (usar prefetched si viene)
             cuotas_para_crear = []
             prefetched = getattr(formacion, 'prefetched_cuotas', None)
             if prefetched and isinstance(prefetched, (list, tuple)):
@@ -170,21 +184,14 @@ class InscripcionListCreate(generics.ListCreateAPIView):
             else:
                 logger.debug("No se encontraron cuotas activas para la Inscripcion %s", inscripcion.idInscripcion)
 
-            # 4) Marcar estadoPago como PENDIENTE por defecto (si aplica)
             try:
                 inscripcion.estadoPago = 'PENDIENTE'
                 inscripcion.save(update_fields=['estadoPago'])
             except Exception:
-                # Si el campo no existe, ignorar
                 pass
-
-            # NOTA: ya NO se crea la Nota/Asiento/DetalleAsiento aquí.
-            # El endpoint /api/nota-cobro/create/ es el responsable de crear la nota
-            # y los registros contables asociados (Asiento/DetalleAsiento).
 
         except Exception as e:
             logger.exception("Error en perform_create Inscripcion %s: %s", getattr(inscripcion, 'idInscripcion', 'unknown'), e)
-            # Propagar para que transaction.atomic haga rollback
             raise
 
     def post(self, request, *args, **kwargs):

@@ -72,13 +72,12 @@ interface Configuracion {
 }
 
 interface Requisito {
-    idRequisito: number;
-    nombreRequisito: string;
-    app: boolean; // Campo clave para el filtro
-    estadoRequisito: string;
-    fechaRequisito: string;
+  idRequisito: number;
+  nombreRequisito: string;
+  app: boolean; // Campo clave para el filtro
+  estadoRequisito: string;
+  fechaRequisito: string;
 }
-
 
 const PagoScreen: React.FC = () => {
   const navigation = useNavigation<any>();
@@ -93,7 +92,6 @@ const PagoScreen: React.FC = () => {
 
   const [requisitosData, setRequisitosData] = useState<Requisito[]>([]);
   const [loadingRequisitos, setLoadingRequisitos] = useState(false);
-
 
   const toBackendDecimal = (v: number | string) => {
     const n = Number(String(v).replace(',', '.')) || 0;
@@ -130,7 +128,6 @@ const PagoScreen: React.FC = () => {
     try {
       const response = await api.get('/api/configuracion/');
       if (response.data && (response.data.success === undefined || response.data.success === true)) {
-        // soportar { success:true, data:... } o directamente data
         setConfiguracion(response.data.data ?? response.data);
         console.log('✅ Configuración cargada:', response.data.data ?? response.data);
       } else {
@@ -149,25 +146,21 @@ const PagoScreen: React.FC = () => {
   const cargarRequisitos = useCallback(async () => {
     setLoadingRequisitos(true);
     try {
-      // Asume que tu endpoint es /api/requisito/
       const response = await api.get('/api/requisito/');
       const payload = response.data?.data ?? response.data?.results ?? response.data;
-      
+
       let items: Requisito[] = [];
 
       if (Array.isArray(payload)) items = payload;
       else if (payload && Array.isArray(payload.results)) items = payload.results;
       else if (payload && Array.isArray(payload.data)) items = payload.data;
 
-      // FILTRADO CLAVE: Solo guardar los requisitos con app=true
       const requisitosFisicos = items.filter(req => req.app === true);
       console.log(`✅ Requisitos cargados y filtrados. Total: ${items.length}, Físicos (app: true): ${requisitosFisicos.length}`);
-      
-      setRequisitosData(requisitosFisicos);
 
+      setRequisitosData(requisitosFisicos);
     } catch (error: any) {
       console.error('Error cargando requisitos:', error?.response ?? error);
-      // Opcional: Mostrar un mensaje de error si la lista de requisitos falla en cargar
     } finally {
       setLoadingRequisitos(false);
     }
@@ -247,27 +240,25 @@ const PagoScreen: React.FC = () => {
   };
 
   // Determinar estado y color de la nota
-const getEstadoNota = (nota: NotaItem) => {
-  if (!nota || nota.estado === null || nota.estado === undefined) {
-    return { texto: 'Por pagar', color: '#dc3545', esPorPagar: true };
-  }
+  const getEstadoNota = (nota: NotaItem) => {
+    if (!nota || nota.estado === null || nota.estado === undefined) {
+      return { texto: 'Por pagar', color: '#dc3545', esPorPagar: true };
+    }
 
-  const estado = String(nota.estado).toUpperCase();
+    const estado = String(nota.estado).toUpperCase();
 
-  if (estado === 'PAGADA') {
-    return { texto: 'Pagada', color: '#28a745', esPagada: true };
-  } else if (estado === 'PARCIAL') {
-    return { texto: 'Parcial', color: '#ffc107', esParcial: true };
-  } else if (estado === 'PENDIENTE') {
-    return { texto: 'Por pagar', color: '#dc3545', esPorPagar: true };
-  } else if (estado === 'EN_PROCESO' || estado === 'EN_VALIDACION' || estado === 'EN_PROCESAMIENTO') {
-    // Nuevo estado: pago pendiente / en verificación
-    return { texto: 'En proceso', color: '#ffc107', esParcial: true, esEnProceso: true };
-  } else {
-    return { texto: 'Por pagar', color: '#dc3545', esPorPagar: true };
-  }
-};
-
+    if (estado === 'PAGADA') {
+      return { texto: 'Pagada', color: '#28a745', esPagada: true };
+    } else if (estado === 'PARCIAL') {
+      return { texto: 'Parcial', color: '#ffc107', esParcial: true };
+    } else if (estado === 'PENDIENTE') {
+      return { texto: 'Por pagar', color: '#dc3545', esPorPagar: true };
+    } else if (estado === 'EN_PROCESO' || estado === 'EN_VALIDACION' || estado === 'EN_PROCESAMIENTO') {
+      return { texto: 'En proceso', color: '#ffc107', esParcial: true, esEnProceso: true };
+    } else {
+      return { texto: 'Por pagar', color: '#dc3545', esPorPagar: true };
+    }
+  };
 
   // Cargar inscripciones del usuario
   const cargarInscripcionesUsuario = useCallback(async () => {
@@ -302,7 +293,6 @@ const getEstadoNota = (nota: NotaItem) => {
     try {
       const response = await api.get('/api/notas/usuario/autenticado/');
       const d = response.data ?? {};
-      // Normalizar distintas envolturas
       let items: NotaItem[] = [];
       if (Array.isArray(d)) {
         items = d;
@@ -311,7 +301,6 @@ const getEstadoNota = (nota: NotaItem) => {
       } else if (Array.isArray(d.results)) {
         items = d.results;
       } else if (d && d.data && typeof d.data === 'object') {
-        // casos raros: { data: { items: [...] } }
         const maybe = d.data.items ?? d.data.results ?? [];
         if (Array.isArray(maybe)) items = maybe;
       } else if (d && d.results && typeof d.results === 'object') {
@@ -326,8 +315,7 @@ const getEstadoNota = (nota: NotaItem) => {
     }
   }, []);
 
-   useEffect(() => {
-    // Un único useEffect para evitar doble llamadas
+  useEffect(() => {
     cargarConfiguracion();
     cargarRequisitos();
     if (modoDirecto && user) {
@@ -352,7 +340,7 @@ const getEstadoNota = (nota: NotaItem) => {
   const seleccionarNota = async (nota: NotaItem) => {
     setNotaSeleccionada(nota);
     const estado = getEstadoNota(nota);
-    
+
     if (estado.esPorPagar) {
       setFormData(prev => ({ ...prev, idNota: String(nota.idNota ?? ''), monto: toBackendDecimal(nota.totalNota ?? 0) }));
       setErrors({});
@@ -447,16 +435,24 @@ const getEstadoNota = (nota: NotaItem) => {
         console.log('[Pago] response.data (json):', body);
 
         if ((response.status === 201 || response.status === 200) && body?.success) {
-          Alert.alert(
-            'Pago registrado', 
-            `✅ Su pago ha sido registrado exitosamente y está pendiente de confirmación.\n\n📋 Referencia: ${payload.referencia}\n💰 Monto: $${payload.monto}\n\nLe notificaremos cuando sea confirmado.`,
-            [{ text: 'OK' }]
-          );
-          
-          // refrescar notas e inscripciones para que la UI se actualice correctamente
-          await Promise.all([cargarNotasUsuario(), cargarInscripcionesUsuario()]);
+          // PRIMERO: recargar notas e inscripciones para que la UI refleje el cambio
+          try {
+            await Promise.all([cargarNotasUsuario(), cargarInscripcionesUsuario()]);
+          } catch (e) {
+            console.warn('[Pago] error recargando datos después de crear pago:', e);
+          }
+
+          // CERRAR modal y limpiar selección / formulario mínimo
           setShowPaymentModal(false);
           setNotaSeleccionada(null);
+          setFormData(prev => ({ ...prev, referencia: '', observaciones: '' }));
+
+          // MENSAJE claro al usuario (confirmando que la lista se actualizó)
+          Alert.alert(
+            'Pago registrado',
+            `✅ Su pago fue registrado correctamente y la lista se actualizó.`,
+            [{ text: 'OK' }]
+          );
         } else {
           const msg = body.message ?? JSON.stringify(body);
           Alert.alert('Error', `Servidor: ${msg}`);
@@ -508,7 +504,7 @@ const getEstadoNota = (nota: NotaItem) => {
   const renderNotaItem = ({ item }: { item: NotaItem }) => {
     const estado = getEstadoNota(item);
     const formacionName = getFormacionNameFromNota(item);
-    
+
     return (
       <TouchableOpacity
         style={[styles.notaItem, notaSeleccionada?.idNota === item.idNota && styles.notaItemSeleccionada]}
@@ -549,32 +545,32 @@ const getEstadoNota = (nota: NotaItem) => {
         <Icon name="bank" size={20} color="#2dce89" />
         <Text style={styles.cuentaTitle}>Información para Transferencia</Text>
       </View>
-      
+
       <View style={styles.cuentaGrid}>
         <View style={styles.cuentaItem}>
           <Text style={styles.cuentaLabel}>Banco:</Text>
           <Text style={styles.cuentaValue}>{configuracion?.nombre_banco || 'No especificado'}</Text>
         </View>
-        
+
         <View style={styles.cuentaItem}>
           <Text style={styles.cuentaLabel}>Tipo de Cuenta:</Text>
           <Text style={styles.cuentaValue}>{configuracion?.tipo_cuenta || 'No especificado'}</Text>
         </View>
-        
+
         <View style={styles.cuentaItem}>
           <Text style={styles.cuentaLabel}>Número de Cuenta:</Text>
           <Text style={[styles.cuentaValue, styles.cuentaDestacado]}>
             {configuracion?.numero_cuenta || 'No especificado'}
           </Text>
         </View>
-        
+
         <View style={styles.cuentaItem}>
           <Text style={styles.cuentaLabel}>Cédula/RIF:</Text>
           <Text style={[styles.cuentaValue, styles.cuentaDestacado]}>
             {configuracion?.cedulaCuenta || 'No especificado'}
           </Text>
         </View>
-        
+
         <View style={styles.cuentaItem}>
           <Text style={styles.cuentaLabel}>Titular:</Text>
           <Text style={styles.cuentaValue}>{configuracion?.nombreInstitucion || 'Institución'}</Text>
@@ -593,7 +589,7 @@ const getEstadoNota = (nota: NotaItem) => {
     </View>
   );
 
- // Modal de Requisitos (ACTUALIZADO para usar requisitosData)
+  // Modal de Requisitos (ACTUALIZADO para usar requisitosData)
   const ModalRequisitos = () => (
     <Modal
       visible={showRequisitosModal}
@@ -618,39 +614,38 @@ const getEstadoNota = (nota: NotaItem) => {
               <Icon name="check-circle" size={50} color="#28a745" />
               <Text style={styles.successTitle}>¡Pago Confirmado!</Text>
               <Text style={styles.successSubtitle}>
-                Su pago ha sido confirmado exitosamente. Para completar su inscripción, 
+                Su pago ha sido confirmado exitosamente. Para completar su inscripción,
                 por favor acérquese a la institución con los siguientes documentos físicos:
               </Text>
             </View>
 
             <View style={styles.requisitosList}>
               <Text style={styles.requisitosTitle}>Documentos Requeridos:</Text>
-              
-              {/* LÓGICA DE CARGA Y VISUALIZACIÓN DE REQUISITOS FILTRADOS */}
+
               {loadingRequisitos ? (
-                  <ActivityIndicator size="large" color="#007bff" style={{ marginVertical: 20 }} />
+                <ActivityIndicator size="large" color="#007bff" style={{ marginVertical: 20 }} />
               ) : requisitosData.length > 0 ? (
-                  requisitosData.map((req) => (
-                      <View key={req.idRequisito} style={styles.requisitoItem}>
-                          <Icon name="checkbox-marked-circle" size={20} color="#28a745" />
-                          <Text style={styles.requisitoText}>{req.nombreRequisito}</Text>
-                      </View>
-                  ))
-              ) : (
-                  <View style={styles.requisitoItem}>
-                      <Icon name="information-outline" size={20} color="#ffc107" />
-                      <Text style={[styles.requisitoText, { color: '#ffc107' }]}>
-                          No se encontraron requisitos físicos (app: true) para consignar.
-                      </Text>
+                requisitosData.map((req) => (
+                  <View key={req.idRequisito} style={styles.requisitoItem}>
+                    <Icon name="checkbox-marked-circle" size={20} color="#28a745" />
+                    <Text style={styles.requisitoText}>{req.nombreRequisito}</Text>
                   </View>
+                ))
+              ) : (
+                <View style={styles.requisitoItem}>
+                  <Icon name="information-outline" size={20} color="#ffc107" />
+                  <Text style={[styles.requisitoText, { color: '#ffc107' }]}>
+                    No se encontraron requisitos físicos (app: true) para consignar.
+                  </Text>
+                </View>
               )}
             </View>
 
             <View style={styles.infoCard}>
               <Text style={styles.infoTitle}>📍 Dirección de la Institución:</Text>
               <Text style={styles.infoText}>
-                {configuracion?.nombreInstitucion || 'Institución Educativa'}\n
-                Av. Principal, Edificio Central
+                {configuracion?.nombreInstitucion || 'Institución Educativa'}{'\n'}
+                Av. Principal, Edificio Central{'\n'}
                 Horario de atención: Martes a Jueves 8:00 AM - 3:00 PM
               </Text>
             </View>
@@ -691,7 +686,7 @@ const getEstadoNota = (nota: NotaItem) => {
               <Icon name="clock" size={50} color="#ffc107" />
               <Text style={styles.warningTitle}>Pago Pendiente de Confirmación</Text>
               <Text style={styles.warningSubtitle}>
-                Su pago se encuentra en proceso de verificación por nuestra administración. 
+                Su pago se encuentra en proceso de verificación por nuestra administración.
                 Una vez confirmado, recibirá una notificación y podrá proceder con la entrega de documentos.
               </Text>
             </View>
@@ -794,7 +789,7 @@ const getEstadoNota = (nota: NotaItem) => {
                 <View style={styles.infoCard}>
                   <Text style={styles.infoTitle}>💡 Siguiente Paso:</Text>
                   <Text style={styles.infoText}>
-                    Al continuar, podrá registrar los datos de su transferencia. 
+                    Al continuar, podrá registrar los datos de su transferencia.
                     Asegúrese de tener a mano el comprobante de pago con el número de referencia.
                   </Text>
                 </View>
@@ -856,7 +851,7 @@ const getEstadoNota = (nota: NotaItem) => {
 
                 <View style={styles.formSection}>
                   <Text style={styles.sectionTitle}>Datos del Pago</Text>
-                  
+
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>Forma de Pago</Text>
                     <View style={styles.readOnlyField}>
@@ -867,13 +862,13 @@ const getEstadoNota = (nota: NotaItem) => {
 
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>Número de Referencia *</Text>
-                    <TextInput 
-                      style={[styles.input, errors.referencia && styles.inputError]} 
-                      value={formData.referencia} 
-                      onChangeText={(v) => handleInputChange('referencia', v)} 
-                      placeholder="Ingrese el número de referencia de la transferencia" 
-                      maxLength={40} 
-                      placeholderTextColor="#6c757d" 
+                    <TextInput
+                      style={[styles.input, errors.referencia && styles.inputError]}
+                      value={formData.referencia}
+                      onChangeText={(v) => handleInputChange('referencia', v)}
+                      placeholder="Ingrese el número de referencia de la transferencia"
+                      maxLength={40}
+                      placeholderTextColor="#6c757d"
                       editable={!submitting}
                     />
                     {errors.referencia && (
@@ -888,12 +883,12 @@ const getEstadoNota = (nota: NotaItem) => {
                     <Text style={styles.label}>Fecha de Pago *</Text>
                     <View style={styles.inputContainer}>
                       <Icon name="calendar" size={20} color="#6c757d" style={styles.inputIcon} />
-                      <TextInput 
-                        style={[styles.input, errors.fechaPago && styles.inputError]} 
-                        value={formData.fechaPago} 
-                        onChangeText={(v) => handleInputChange('fechaPago', v)} 
-                        placeholder="AAAA-MM-DD" 
-                        placeholderTextColor="#6c757d" 
+                      <TextInput
+                        style={[styles.input, errors.fechaPago && styles.inputError]}
+                        value={formData.fechaPago}
+                        onChangeText={(v) => handleInputChange('fechaPago', v)}
+                        placeholder="AAAA-MM-DD"
+                        placeholderTextColor="#6c757d"
                         editable={!submitting}
                       />
                     </View>
@@ -907,15 +902,15 @@ const getEstadoNota = (nota: NotaItem) => {
 
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>Observaciones (Opcional)</Text>
-                    <TextInput 
-                      style={[styles.input, styles.textArea]} 
-                      value={formData.observaciones} 
-                      onChangeText={(v) => handleInputChange('observaciones', v)} 
-                      placeholder="Observaciones adicionales sobre el pago..." 
-                      multiline 
-                      numberOfLines={3} 
-                      textAlignVertical="top" 
-                      placeholderTextColor="#6c757d" 
+                    <TextInput
+                      style={[styles.input, styles.textArea]}
+                      value={formData.observaciones}
+                      onChangeText={(v) => handleInputChange('observaciones', v)}
+                      placeholder="Observaciones adicionales sobre el pago..."
+                      multiline
+                      numberOfLines={3}
+                      textAlignVertical="top"
+                      placeholderTextColor="#6c757d"
                       editable={!submitting}
                     />
                   </View>
@@ -936,9 +931,9 @@ const getEstadoNota = (nota: NotaItem) => {
               </ScrollView>
 
               <View style={styles.modalFooter}>
-                <TouchableOpacity 
-                  style={[styles.primaryButton, submitting && styles.buttonDisabled]} 
-                  onPress={handleProcesarPago} 
+                <TouchableOpacity
+                  style={[styles.primaryButton, submitting && styles.buttonDisabled]}
+                  onPress={handleProcesarPago}
                   disabled={submitting}
                 >
                   <View style={styles.buttonContent}>
@@ -997,32 +992,32 @@ const getEstadoNota = (nota: NotaItem) => {
               <Icon name="bank" size={20} color="#2dce89" />
               <Text style={styles.cuentaTitle}>Información para Transferencia</Text>
             </View>
-            
+
             <View style={styles.cuentaGrid}>
               <View style={styles.cuentaItem}>
                 <Text style={styles.cuentaLabel}>Banco:</Text>
                 <Text style={styles.cuentaValue}>{configuracion.nombre_banco || 'No especificado'}</Text>
               </View>
-              
+
               <View style={styles.cuentaItem}>
                 <Text style={styles.cuentaLabel}>Tipo de Cuenta:</Text>
                 <Text style={styles.cuentaValue}>{configuracion.tipo_cuenta || 'No especificado'}</Text>
               </View>
-              
+
               <View style={styles.cuentaItem}>
                 <Text style={styles.cuentaLabel}>Número de Cuenta:</Text>
                 <Text style={[styles.cuentaValue, styles.cuentaDestacado]}>
                   {configuracion.numero_cuenta || 'No especificado'}
                 </Text>
               </View>
-              
+
               <View style={styles.cuentaItem}>
                 <Text style={styles.cuentaLabel}>Cédula/RIF:</Text>
                 <Text style={[styles.cuentaValue, styles.cuentaDestacado]}>
                   {configuracion.cedulaCuenta || 'No especificado'}
                 </Text>
               </View>
-              
+
               <View style={styles.cuentaItem}>
                 <Text style={styles.cuentaLabel}>Titular:</Text>
                 <Text style={styles.cuentaValue}>{configuracion.nombreInstitucion || 'Institución'}</Text>
@@ -1034,7 +1029,7 @@ const getEstadoNota = (nota: NotaItem) => {
         <View style={[styles.formCard, { maxWidth: Math.min(920, width - 48), alignSelf: 'center' }]}>
           <View style={styles.formSection}>
             <Text style={styles.sectionTitle}>Datos del Pago</Text>
-            
+
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Forma de Pago</Text>
               <View style={styles.readOnlyField}>
@@ -1045,12 +1040,12 @@ const getEstadoNota = (nota: NotaItem) => {
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Número de Referencia *</Text>
-              <TextInput 
-                style={[styles.input, errors.referencia && styles.inputError]} 
-                value={formData.referencia} 
-                onChangeText={(v) => handleInputChange('referencia', v)} 
-                placeholder="Ingrese el número de referencia" 
-                maxLength={40} 
+              <TextInput
+                style={[styles.input, errors.referencia && styles.inputError]}
+                value={formData.referencia}
+                onChangeText={(v) => handleInputChange('referencia', v)}
+                placeholder="Ingrese el número de referencia"
+                maxLength={40}
                 placeholderTextColor="#6c757d"
                 editable={!submitting}
               />
@@ -1061,11 +1056,11 @@ const getEstadoNota = (nota: NotaItem) => {
               <Text style={styles.label}>Fecha de Pago *</Text>
               <View style={styles.inputContainer}>
                 <Icon name="calendar" size={20} color="#6c757d" style={styles.inputIcon} />
-                <TextInput 
-                  style={[styles.input, errors.fechaPago && styles.inputError]} 
-                  value={formData.fechaPago} 
-                  onChangeText={(v) => handleInputChange('fechaPago', v)} 
-                  placeholder="AAAA-MM-DD" 
+                <TextInput
+                  style={[styles.input, errors.fechaPago && styles.inputError]}
+                  value={formData.fechaPago}
+                  onChangeText={(v) => handleInputChange('fechaPago', v)}
+                  placeholder="AAAA-MM-DD"
                   placeholderTextColor="#6c757d"
                   editable={!submitting}
                 />
@@ -1075,23 +1070,23 @@ const getEstadoNota = (nota: NotaItem) => {
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Observaciones</Text>
-              <TextInput 
-                style={[styles.input, styles.textArea]} 
-                value={formData.observaciones} 
-                onChangeText={(v) => handleInputChange('observaciones', v)} 
-                placeholder="Observaciones adicionales..." 
-                multiline 
-                numberOfLines={3} 
-                textAlignVertical="top" 
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                value={formData.observaciones}
+                onChangeText={(v) => handleInputChange('observaciones', v)}
+                placeholder="Observaciones adicionales..."
+                multiline
+                numberOfLines={3}
+                textAlignVertical="top"
                 placeholderTextColor="#6c757d"
                 editable={!submitting}
               />
             </View>
           </View>
 
-          <TouchableOpacity 
-            style={[styles.primaryButton, submitting && styles.buttonDisabled]} 
-            onPress={handleProcesarPago} 
+          <TouchableOpacity
+            style={[styles.primaryButton, submitting && styles.buttonDisabled]}
+            onPress={handleProcesarPago}
             disabled={submitting}
           >
             <View style={styles.buttonContent}>
@@ -1140,8 +1135,7 @@ const styles = StyleSheet.create({
 
   formularioOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   formScrollContent: { paddingBottom: 40 },
-  
-  // Modal Styles
+
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   modalContent: { backgroundColor: '#fff', borderRadius: 16, width: '100%', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 8 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: '#e9ecef' },
@@ -1151,7 +1145,6 @@ const styles = StyleSheet.create({
   modalBody: { padding: 20 },
   modalFooter: { padding: 20, borderTopWidth: 1, borderTopColor: '#e9ecef', flexDirection: 'row', justifyContent: 'flex-end' },
 
-  // Card Styles
   infoCard: { backgroundColor: '#f8f9fa', borderRadius: 12, padding: 16, marginBottom: 16, borderLeftWidth: 4, borderLeftColor: '#4f8cff' },
   infoHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   infoTitle: { marginLeft: 8, fontWeight: '700', color: '#343a40', fontSize: 16 },
@@ -1163,7 +1156,6 @@ const styles = StyleSheet.create({
   totalLabel: { color: '#495057', fontWeight: '700', fontSize: 15 },
   totalValue: { color: '#212529', fontWeight: '900', fontSize: 18 },
 
-  // Cuenta Bancaria Styles
   cuentaBancariaCard: { backgroundColor: '#e8f5e8', borderRadius: 12, padding: 16, marginBottom: 16, borderLeftWidth: 4, borderLeftColor: '#2dce89' },
   cuentaHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   cuentaTitle: { marginLeft: 8, fontWeight: '700', color: '#155724', fontSize: 16 },
@@ -1176,7 +1168,6 @@ const styles = StyleSheet.create({
   instruccionesTitle: { color: '#155724', fontWeight: '700', fontSize: 14, marginBottom: 8 },
   instruccionesText: { color: '#155724', fontSize: 13, lineHeight: 18 },
 
-  // Form Styles
   formSection: {  },
   sectionTitle: { fontSize: 18, fontWeight: '700', color: '#495057', marginBottom: 16, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: '#e9ecef' },
   inputGroup: { marginBottom: 20 },
@@ -1190,7 +1181,6 @@ const styles = StyleSheet.create({
   inputError: { borderColor: '#dc3545' },
   textArea: { minHeight: 100, textAlignVertical: 'top' },
 
-  // Button Styles
   primaryButton: { backgroundColor: '#4f8cff', paddingVertical: 16, borderRadius: 12, alignItems: 'center', justifyContent: 'center', shadowColor: '#4f8cff', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
   secondaryButton: { backgroundColor: '#6c757d', paddingVertical: 16, borderRadius: 12, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
   buttonDisabled: { opacity: 0.6 },
@@ -1198,11 +1188,9 @@ const styles = StyleSheet.create({
   primaryButtonText: { color: '#fff', marginLeft: 8, fontWeight: '700', fontSize: 16 },
   secondaryButtonText: { color: '#fff', fontWeight: '700', fontSize: 16 },
 
-  // Error Styles
   errorContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
   errorText: { color: '#dc3545', marginLeft: 6, fontSize: 14 },
 
-  // Success/Warning Cards
   successCard: { backgroundColor: '#d4edda', padding: 20, borderRadius: 12, alignItems: 'center', marginBottom: 20, borderLeftWidth: 4, borderLeftColor: '#28a745' },
   successTitle: { fontSize: 20, fontWeight: '700', color: '#155724', marginTop: 12, textAlign: 'center' },
   successSubtitle: { color: '#155724', textAlign: 'center', marginTop: 8, lineHeight: 22, fontSize: 15 },
@@ -1210,13 +1198,11 @@ const styles = StyleSheet.create({
   warningTitle: { fontSize: 20, fontWeight: '700', color: '#856404', marginTop: 12, textAlign: 'center' },
   warningSubtitle: { color: '#856404', textAlign: 'center', marginTop: 8, lineHeight: 22, fontSize: 15 },
 
-  // Requisitos
   requisitosList: { marginBottom: 20 },
   requisitosTitle: { fontSize: 18, fontWeight: '700', color: '#212529', marginBottom: 16 },
   requisitoItem: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12, paddingHorizontal: 8 },
   requisitoText: { marginLeft: 12, color: '#495057', fontSize: 15, flex: 1, lineHeight: 22 },
 
-  // Loading & Empty States
   loadingContainer: { padding: 40, alignItems: 'center' },
   loadingText: { color: '#6c757d', marginTop: 12, fontSize: 16 },
   emptyContainer: { alignItems: 'center', padding: 40 },

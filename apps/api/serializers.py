@@ -8,7 +8,7 @@ import traceback
 from django.contrib.auth import get_user_model
 from django.utils.timezone import now
 from django.db import IntegrityError, transaction
-from django.db.models import Sum
+from django.db.models import Sum, Q
 
 from requests import Response
 from rest_framework import serializers
@@ -316,7 +316,61 @@ class InscripcionSerializer(serializers.ModelSerializer):
         except Exception:
             return 0.0
 
+    def validate(self, data):
+        """
+        Evita crear una nueva inscripción para la misma persona + misma cohorte/formación
+        si ya existe una inscripción relacionada con pago confirmado (PagoTemporal.confirmado=True)
+        o con nota en estado 'PAGADA'.
+        """
+        try:
+            # obtener los ids (puede venir en validated_data o en initial_data si write_only)
+            id_persona = data.get('idPersona') or self.initial_data.get('idPersona')
+            id_cohorte = data.get('idCohorte') or self.initial_data.get('idCohorte')
+
+            # si no están ambos, dejamos que la validación normal lo maneje más adelante
+            if not id_persona or not id_cohorte:
+                return data
+
+            # resolver cohorte y su formacion (defensivo)
+            coh = Cohorte.objects.select_related('idFormacion').filter(pk=id_cohorte).first()
+            if not coh:
+                # si la cohorte no existe no nos metemos; la creación fallará en create()
+                return data
+            form_id = getattr(getattr(coh, 'idFormacion', None), 'idFormacion', None) or getattr(coh, 'idFormacion_id', None)
+
+            # buscar inscripciones previas de la misma persona y:
+            # - que sean de la misma cohorte, o
+            # - que pertenezcan a la misma formación (misma idFormacion)
+            from apps.inscripcion.models import Inscripcion as InscripcionModel  # ajusta import si hace falta
+            q_ins = InscripcionModel.objects.filter(idPersona_id=id_persona).filter(
+                Q(idCohorte_id=id_cohorte) | Q(idCohorte__idFormacion_id=form_id)
+            )
+
+            if not q_ins.exists():
+                return data
+
+            # buscar notas de tipo INSCRIPCION relacionadas con esas inscripciones
+            notas_qs = Nota.objects.filter(tipoArticulo='INSCRIPCION', relaciones__idInscripcion__in=q_ins).distinct()
+
+            # 1) ¿alguna nota ya está en estado PAGADA?
+            if notas_qs.filter(estado__iexact='PAGADA').exists():
+                raise serializers.ValidationError("Ya existe una inscripción para esta formación/cohorte con pago confirmado (nota PAGADA). No se permiten nuevas inscripciones.")
+
+            # 2) ¿alguna nota tiene PagoTemporal confirmado?
+            if PagoTemporal.objects.filter(idNota__in=notas_qs, confirmado=True).exists():
+                raise serializers.ValidationError("Ya existe una inscripción para esta formación/cohorte con pago confirmado. No se permiten nuevas inscripciones.")
+
+        except serializers.ValidationError:
+            raise
+        except Exception as e:
+            # si hay un problema al validar, lo registramos y permitimos seguir
+            # (no lanzamos error duro para no bloquear otras validaciones)
+            logger.exception("Error validando duplicidad de inscripción: %s", e)
+
+        return data
+
     def create(self, validated_data):
+        # tu create original (sin cambios)
         id_persona = validated_data.pop('idPersona', None)
         id_cohorte = validated_data.pop('idCohorte', None)
         if not id_persona or not id_cohorte:
