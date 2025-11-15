@@ -8,6 +8,7 @@ import traceback
 from django.contrib.auth import get_user_model
 from django.utils.timezone import now
 from django.db import IntegrityError, transaction
+from django.db.models import Sum
 
 from requests import Response
 from rest_framework import serializers
@@ -475,64 +476,79 @@ class PagoCreateSerializer(serializers.ModelSerializer):
         except Nota.DoesNotExist:
             raise serializers.ValidationError({"idNota": "La nota especificada no existe."})
 
-        # Validaciones de negocio
-        if nota.estado == 'PAGADA':
+        # Si la nota ya está pagada, bloquear
+        if (nota.estado or '').upper() == 'PAGADA':
             raise serializers.ValidationError("Esta nota ya ha sido pagada completamente.")
 
-        if data['monto'] > nota.totalNota:
+        # Evitar pagos duplicados: si ya existe un PagoTemporal no confirmado para la nota
+        if PagoTemporal.objects.filter(idNota=nota, confirmado=False).exists():
+            raise serializers.ValidationError("Ya existe un pago pendiente para esta nota. Espere confirmación antes de enviar otro pago.")
+
+        # Comprobar que la suma de pagos confirmados + monto propuesto no exceda el total de la nota
+        pagos_confirmados = Pago.objects.filter(idNota=nota).aggregate(suma=Sum('monto'))['suma'] or Decimal('0.00')
+        # (además podríamos sumar pagos temporales confirmados, pero esos no deberían existir si la lógica es correcta)
+        if (pagos_confirmados + Decimal(data['monto'])) > Decimal(nota.totalNota):
             raise serializers.ValidationError({
-                "monto": f"El monto no puede exceder el total de la nota (${nota.totalNota})."
+                "monto": f"El monto total de pagos excede el total de la nota (${nota.totalNota}). Pagos confirmados actuales: ${pagos_confirmados}."
             })
 
         # Validar que existe configuración con cuenta bancaria
         configuracion = Configuracion.objects.first()
-        if not configuracion or not configuracion.idCuentaBanco:
+        if not configuracion or not getattr(configuracion, 'idCuentaBanco', None):
             raise serializers.ValidationError("No hay cuenta bancaria configurada en el sistema.")
 
-        # Guardar la nota y configuración en el contexto
+        # Guardar la nota y configuración en el contexto para usar en create()
         self.context['nota'] = nota
         self.context['configuracion'] = configuracion
         return data
 
     def create(self, validated_data):
         """
-        Crea un PagoTemporal usando la cuenta bancaria de la configuración.
+        Crea un PagoTemporal y marca la nota como 'EN_PROCESO' en la misma transacción.
+        Evita race conditions con select_for_update().
         """
         nota = self.context.get('nota')
         configuracion = self.context.get('configuracion')
-        
+
         if nota is None:
             raise serializers.ValidationError("Nota no encontrada en contexto.")
         if configuracion is None or configuracion.idCuentaBanco is None:
             raise serializers.ValidationError("Configuración de cuenta bancaria no encontrada.")
 
-        # Obtener moneda/tasa
-        moneda = None
-        if configuracion and getattr(configuracion, 'moneda', None):
-            moneda = configuracion.moneda
-        else:
-            moneda = Moneda.objects.filter(idMoneda=1).first()
-
-        if not moneda:
-            raise serializers.ValidationError("No se pudo determinar la moneda del sistema.")
-
+        # Determinar tasa (ejemplo: la más reciente para la moneda del sistema)
+        moneda = getattr(configuracion, 'moneda', None) or Moneda.objects.filter(idMoneda=1).first()
         tasa = Tasa.objects.filter(idMoneda=moneda).order_by('-idTasa').first()
         if not tasa:
-            raise serializers.ValidationError(f"No se encontró tasa para la moneda {moneda}.")
+            raise serializers.ValidationError("No se encontró una tasa válida para la moneda del sistema.")
 
-        # Crear PagoTemporal con la cuenta bancaria de la configuración
-        pago_temporal = PagoTemporal.objects.create(
-            idNota=nota,
-            idCuentaBanco=configuracion.idCuentaBanco,  # Usamos la cuenta de la configuración
-            idTasa=tasa,
-            monto=validated_data['monto'],
-            referencia=validated_data.get('referencia', '') or '',
-            observaciones=validated_data.get('observaciones', '') or '',
-            fechaPago=validated_data['fechaPago'],
-            confirmado=False
-        )
+        with transaction.atomic():
+            # Bloquear fila de nota para evitar condiciones de carrera
+            nota_locked = Nota.objects.select_for_update().get(pk=nota.pk)
 
-        return pago_temporal
+            # Re-checks dentro de la transacción
+            if (nota_locked.estado or '').upper() == 'PAGADA':
+                raise serializers.ValidationError("La nota ya fue pagada (re-check).")
+
+            if PagoTemporal.objects.filter(idNota=nota_locked, confirmado=False).exists():
+                raise serializers.ValidationError("Ya existe un pago pendiente para esta nota (re-check).")
+
+            # Crear pago temporal usando la cuenta configurada
+            pago_temporal = PagoTemporal.objects.create(
+                idNota=nota_locked,
+                idCuentaBanco=configuracion.idCuentaBanco,
+                idTasa=tasa,
+                monto=validated_data['monto'],
+                referencia=validated_data.get('referencia', '') or '',
+                observaciones=validated_data.get('observaciones', '') or '',
+                fechaPago=validated_data['fechaPago'],
+                confirmado=False
+            )
+
+            # Marcar la nota como 'EN_PROCESO' para bloquear UI hasta confirmación
+            nota_locked.estado = 'EN_PROCESO'   # O 'EN_VALIDACION' si prefieres
+            nota_locked.save(update_fields=['estado'])
+
+            return pago_temporal
 
 def generar_numero_nota():
     fecha_actual = now().strftime('%Y%m%d')

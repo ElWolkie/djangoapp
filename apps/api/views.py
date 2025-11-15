@@ -359,46 +359,56 @@ class PagoCreateAPIView(APIView):
     """
     Endpoint para crear un nuevo Pago Temporal.
     """
-    permission_classes = [IsAuthenticated] 
+    permission_classes = [IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
         logger.info(f"📥 Petición de pago temporal recibida: {request.data}")
-        
-        serializer = PagoCreateSerializer(data=request.data)
-        
+
+        # pasar request en context para que el serializer tenga contexto si lo necesita
+        serializer = PagoCreateSerializer(data=request.data, context={'request': request})
+
         try:
-            serializer.is_valid(raise_exception=True)
-            pago_temporal = serializer.save()
-            
+            with transaction.atomic():
+                serializer.is_valid(raise_exception=True)
+                pago_temporal = serializer.save()
+
             # Respuesta adaptada para PagoTemporal
             response_data = {
                 'success': True,
                 'message': '¡Pago temporal registrado exitosamente! 🎉',
                 'data': {
-                    'idPagoTemporal': pago_temporal.idPagoTemporal,
+                    'idPagoTemporal': getattr(pago_temporal, 'idPagoTemporal', pago_temporal.pk),
                     'monto': float(pago_temporal.monto),
-                    'fechaPago': pago_temporal.fechaPago.isoformat(),
+                    'fechaPago': pago_temporal.fechaPago.isoformat() if pago_temporal.fechaPago else None,
                     'confirmado': pago_temporal.confirmado,
                     'nota': {
                         'idNota': pago_temporal.idNota.idNota,
                         'numeroNota': pago_temporal.idNota.numeroNota,
-                        'estado': pago_temporal.idNota.estado,  # Estado permanece igual hasta confirmación
+                        'estado': pago_temporal.idNota.estado,  # debería ser 'EN_PROCESO' tras la creación
                     }
                 }
             }
             logger.info(f"🎊 Pago temporal creado exitosamente: {pago_temporal.idPagoTemporal}")
             return Response(response_data, status=status.HTTP_201_CREATED)
-            
-        except serializers.ValidationError as e:
+
+        except drf_serializers.ValidationError as e:
             logger.warning(f"Error de validación de pago temporal: {e.detail}")
             return Response({
                 "success": False,
                 "message": "Datos inválidos. Por favor revise los errores.",
                 "errors": e.detail
             }, status=status.HTTP_400_BAD_REQUEST)
-            
+
+        except IntegrityError as e:
+            # Si agregas un índice parcial único en BD podrías atrapar este error
+            logger.error("IntegrityError creando PagoTemporal: %s", str(e))
+            return Response({
+                "success": False,
+                "message": "No se pudo crear el pago: posible pago duplicado o conflicto de integridad."
+            }, status=status.HTTP_409_CONFLICT)
+
         except Exception as e:
-            logger.error(f"Error crítico en la creación del pago temporal: {str(e)}")
+            logger.exception("Error crítico en la creación del pago temporal")
             return Response({
                 "success": False,
                 "message": "Ocurrió un error inesperado al procesar el pago temporal.",
@@ -407,25 +417,49 @@ class PagoCreateAPIView(APIView):
 
 # --- ¡NUEVA VISTA DE PAGOS PARA CONFIRMAR LOS PAGOS! ---
 class PagoConfirmAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
     @transaction.atomic
     def post(self, request, pk):
         try:
-            pago = PagoTemporal.objects.select_related('idNota', 'idCuentaBanco').get(pk=pk)
+            # bloquear filas para evitar condiciones de carrera
+            pago = PagoTemporal.objects.select_for_update().select_related('idNota', 'idCuentaBanco').get(pk=pk)
+        except PagoTemporal.DoesNotExist:
+            return Response({'success': False, 'message': 'Pago no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
             if pago.confirmado:
-                return Response({'success': False, 'message': 'Pago ya confirmado.'}, status=400)
+                return Response({'success': False, 'message': 'Pago ya confirmado.'}, status=status.HTTP_400_BAD_REQUEST)
 
             # Llamar al método que hace toda la lógica contable
-            try:
-                pago_principal = pago.confirmar_pago()
-            except Exception as e:
-                # si falla, retornamos la excepción y rollback por transaction.atomic
-                return Response({'success': False, 'message': str(e)}, status=400)
+            pago_principal = pago.confirmar_pago()  # si lanza excepción, hacemos rollback por transaction.atomic
 
-            return Response({'success': True, 'message': 'Pago confirmado y registrado.', 'pago_id': getattr(pago_principal,'idPago', None)})
-        except PagoTemporal.DoesNotExist:
-            return Response({'success': False, 'message': 'Pago no encontrado.'}, status=404)
+            # refrescar nota y pago temporal para datos consistentes
+            pago.refresh_from_db()
+            pago.idNota.refresh_from_db()
+
+            return Response({
+                'success': True,
+                'message': 'Pago confirmado y registrado.',
+                'pago_id': getattr(pago_principal, 'idPago', None),
+                'nota_estado': pago.idNota.estado
+            }, status=status.HTTP_200_OK)
+
         except Exception as e:
-            return Response({'success': False, 'message': str(e)}, status=500)
+            logger.exception("Error confirmando pago temporal pk=%s: %s", pk, str(e))
+
+            # Opcional: revertir estado de nota a 'PENDIENTE' si quieres permitir reintento automático.
+            # Atención: esto debe hacerse sólo si estás seguro. A veces es mejor dejar EN_PROCESO
+            # y que un administrador revise el fallo.
+            #
+            # try:
+            #     nota = pago.idNota
+            #     nota.estado = 'PENDIENTE'
+            #     nota.save(update_fields=['estado'])
+            # except Exception:
+            #     logger.exception("No se pudo revertir estado de nota tras fallo de confirmación.")
+
+            return Response({'success': False, 'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 # --- ¡NUEVA VISTA DE PAGOS PARA DASHBOARD! ---

@@ -247,23 +247,27 @@ const PagoScreen: React.FC = () => {
   };
 
   // Determinar estado y color de la nota
-  const getEstadoNota = (nota: NotaItem) => {
-    if (!nota || nota.estado === null || nota.estado === undefined) {
-      return { texto: 'Por pagar', color: '#dc3545', esPorPagar: true };
-    }
+const getEstadoNota = (nota: NotaItem) => {
+  if (!nota || nota.estado === null || nota.estado === undefined) {
+    return { texto: 'Por pagar', color: '#dc3545', esPorPagar: true };
+  }
 
-    const estado = nota.estado.toUpperCase();
-    
-    if (estado === 'PAGADA') {
-      return { texto: 'Pagada', color: '#28a745', esPagada: true };
-    } else if (estado === 'PARCIAL') {
-      return { texto: 'Parcial', color: '#ffc107', esParcial: true };
-    } else if (estado === 'PENDIENTE') {
-      return { texto: 'Por pagar', color: '#dc3545', esPorPagar: true };
-    } else {
-      return { texto: 'Por pagar', color: '#dc3545', esPorPagar: true };
-    }
-  };
+  const estado = String(nota.estado).toUpperCase();
+
+  if (estado === 'PAGADA') {
+    return { texto: 'Pagada', color: '#28a745', esPagada: true };
+  } else if (estado === 'PARCIAL') {
+    return { texto: 'Parcial', color: '#ffc107', esParcial: true };
+  } else if (estado === 'PENDIENTE') {
+    return { texto: 'Por pagar', color: '#dc3545', esPorPagar: true };
+  } else if (estado === 'EN_PROCESO' || estado === 'EN_VALIDACION' || estado === 'EN_PROCESAMIENTO') {
+    // Nuevo estado: pago pendiente / en verificación
+    return { texto: 'En proceso', color: '#ffc107', esParcial: true, esEnProceso: true };
+  } else {
+    return { texto: 'Por pagar', color: '#dc3545', esPorPagar: true };
+  }
+};
+
 
   // Cargar inscripciones del usuario
   const cargarInscripcionesUsuario = useCallback(async () => {
