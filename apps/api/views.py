@@ -410,18 +410,18 @@ class PagoConfirmAPIView(APIView):
     @transaction.atomic
     def post(self, request, pk):
         try:
-            pago = PagoTemporal.objects.select_related('idNota').get(pk=pk)
+            pago = PagoTemporal.objects.select_related('idNota', 'idCuentaBanco').get(pk=pk)
             if pago.confirmado:
                 return Response({'success': False, 'message': 'Pago ya confirmado.'}, status=400)
 
-            pago.confirmado = True
-            pago.save(update_fields=['confirmado'])
+            # Llamar al método que hace toda la lógica contable
+            try:
+                pago_principal = pago.confirmar_pago()
+            except Exception as e:
+                # si falla, retornamos la excepción y rollback por transaction.atomic
+                return Response({'success': False, 'message': str(e)}, status=400)
 
-            # devolver nota actualizada para que el frontend admin/usuario la consulte inmediatamente
-            nota = getattr(pago, 'idNota', None)
-            nota_data = NotaSerializer(nota).data if nota else None
-
-            return Response({'success': True, 'message': 'Pago confirmado.', 'nota': nota_data})
+            return Response({'success': True, 'message': 'Pago confirmado y registrado.', 'pago_id': getattr(pago_principal,'idPago', None)})
         except PagoTemporal.DoesNotExist:
             return Response({'success': False, 'message': 'Pago no encontrado.'}, status=404)
         except Exception as e:

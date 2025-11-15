@@ -129,11 +129,12 @@ const PagoScreen: React.FC = () => {
     setLoadingConfig(true);
     try {
       const response = await api.get('/api/configuracion/');
-      if (response.data.success) {
-        setConfiguracion(response.data.data);
-        console.log('✅ Configuración cargada:', response.data.data);
+      if (response.data && (response.data.success === undefined || response.data.success === true)) {
+        // soportar { success:true, data:... } o directamente data
+        setConfiguracion(response.data.data ?? response.data);
+        console.log('✅ Configuración cargada:', response.data.data ?? response.data);
       } else {
-        console.warn('No se pudo cargar la configuración:', response.data.message);
+        console.warn('No se pudo cargar la configuración:', response.data?.message);
         Alert.alert('Advertencia', 'No se pudo cargar la configuración del sistema');
       }
     } catch (error: any) {
@@ -273,8 +274,8 @@ const PagoScreen: React.FC = () => {
       let items: Inscripcion[] = [];
 
       if (Array.isArray(data)) items = data;
-      else if (data.results && Array.isArray(data.results)) items = data.results;
-      else if (data.data && Array.isArray(data.data)) items = data.data;
+      else if (data && Array.isArray(data.results)) items = data.results;
+      else if (data && Array.isArray(data.data)) items = data.data;
 
       const cedulaUsuario = user?.cedula ? normalizarCedula(user.cedula) : null;
       if (cedulaUsuario) {
@@ -296,19 +297,23 @@ const PagoScreen: React.FC = () => {
     setCargandoNotas(true);
     try {
       const response = await api.get('/api/notas/usuario/autenticado/');
-      const payload = response.data ?? {};
+      const d = response.data ?? {};
+      // Normalizar distintas envolturas
       let items: NotaItem[] = [];
-
-      if (payload && typeof payload === 'object' && Array.isArray(payload.data)) items = payload.data;
-      else if (Array.isArray(response.data)) items = response.data;
-      else {
-        if (payload.success === false) throw new Error(payload.message || 'No se pudieron cargar las notas');
-        if (payload && payload.data && !Array.isArray(payload.data)) {
-          const maybe = payload.data.items ?? payload.data.results ?? [];
-          if (Array.isArray(maybe)) items = maybe;
-        }
+      if (Array.isArray(d)) {
+        items = d;
+      } else if (Array.isArray(d.data)) {
+        items = d.data;
+      } else if (Array.isArray(d.results)) {
+        items = d.results;
+      } else if (d && d.data && typeof d.data === 'object') {
+        // casos raros: { data: { items: [...] } }
+        const maybe = d.data.items ?? d.data.results ?? [];
+        if (Array.isArray(maybe)) items = maybe;
+      } else if (d && d.results && typeof d.results === 'object') {
+        const maybe = d.results.items ?? [];
+        if (Array.isArray(maybe)) items = maybe;
       }
-
       setNotasUsuario(items);
     } catch (error: any) {
       console.error('Error cargando notas:', error?.response ?? error);
@@ -318,9 +323,9 @@ const PagoScreen: React.FC = () => {
   }, []);
 
    useEffect(() => {
-    // Se agregan cargarRequisitos al inicio
+    // Un único useEffect para evitar doble llamadas
     cargarConfiguracion();
-    cargarRequisitos(); // <--- LLAMADA A CARGAR REQUISITOS
+    cargarRequisitos();
     if (modoDirecto && user) {
       cargarInscripcionesUsuario();
       cargarNotasUsuario();
@@ -333,21 +338,6 @@ const PagoScreen: React.FC = () => {
       }
     }
   }, [modoDirecto, user, notaData, cargarNotasUsuario, cargarInscripcionesUsuario, cargarConfiguracion, cargarRequisitos]);
-
-  useEffect(() => {
-    cargarConfiguracion();
-    if (modoDirecto && user) {
-      cargarInscripcionesUsuario();
-      cargarNotasUsuario();
-    }
-    if (notaData) {
-      setNotaSeleccionada(notaData);
-      setFormData(prev => ({ ...prev, idNota: String(notaData.idNota ?? ''), monto: toBackendDecimal(notaData.totalNota ?? 0) }));
-      if (!modoDirecto) {
-        setShowPaymentModal(true);
-      }
-    }
-  }, [modoDirecto, user, notaData, cargarNotasUsuario, cargarInscripcionesUsuario, cargarConfiguracion]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -459,7 +449,8 @@ const PagoScreen: React.FC = () => {
             [{ text: 'OK' }]
           );
           
-          await cargarNotasUsuario();
+          // refrescar notas e inscripciones para que la UI se actualice correctamente
+          await Promise.all([cargarNotasUsuario(), cargarInscripcionesUsuario()]);
           setShowPaymentModal(false);
           setNotaSeleccionada(null);
         } else {
@@ -746,7 +737,7 @@ const PagoScreen: React.FC = () => {
             <FlatList
               data={notasUsuario}
               renderItem={renderNotaItem}
-              keyExtractor={(item) => String(item.idNota ?? 'nota-' + Math.random().toString(36).slice(2, 9))}
+              keyExtractor={(item) => String(item.idNota ?? item.numeroNota ?? `nota-${item.numeroNota ?? Math.random().toString(36).slice(2,9)}`)}
               refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#4f8cff']} tintColor="#4f8cff" />}
               contentContainerStyle={styles.listaContent}
               showsVerticalScrollIndicator={false}
@@ -879,6 +870,7 @@ const PagoScreen: React.FC = () => {
                       placeholder="Ingrese el número de referencia de la transferencia" 
                       maxLength={40} 
                       placeholderTextColor="#6c757d" 
+                      editable={!submitting}
                     />
                     {errors.referencia && (
                       <View style={styles.errorContainer}>
@@ -898,6 +890,7 @@ const PagoScreen: React.FC = () => {
                         onChangeText={(v) => handleInputChange('fechaPago', v)} 
                         placeholder="AAAA-MM-DD" 
                         placeholderTextColor="#6c757d" 
+                        editable={!submitting}
                       />
                     </View>
                     {errors.fechaPago && (
@@ -919,6 +912,7 @@ const PagoScreen: React.FC = () => {
                       numberOfLines={3} 
                       textAlignVertical="top" 
                       placeholderTextColor="#6c757d" 
+                      editable={!submitting}
                     />
                   </View>
 
@@ -1053,7 +1047,8 @@ const PagoScreen: React.FC = () => {
                 onChangeText={(v) => handleInputChange('referencia', v)} 
                 placeholder="Ingrese el número de referencia" 
                 maxLength={40} 
-                placeholderTextColor="#6c757d" 
+                placeholderTextColor="#6c757d"
+                editable={!submitting}
               />
               {errors.referencia && <View style={styles.errorContainer}><Icon name="alert-circle" size={16} color="#dc3545" /><Text style={styles.errorText}>{errors.referencia}</Text></View>}
             </View>
@@ -1067,7 +1062,8 @@ const PagoScreen: React.FC = () => {
                   value={formData.fechaPago} 
                   onChangeText={(v) => handleInputChange('fechaPago', v)} 
                   placeholder="AAAA-MM-DD" 
-                  placeholderTextColor="#6c757d" 
+                  placeholderTextColor="#6c757d"
+                  editable={!submitting}
                 />
               </View>
               {errors.fechaPago && <View style={styles.errorContainer}><Icon name="alert-circle" size={16} color="#dc3545" /><Text style={styles.errorText}>{errors.fechaPago}</Text></View>}
@@ -1083,7 +1079,8 @@ const PagoScreen: React.FC = () => {
                 multiline 
                 numberOfLines={3} 
                 textAlignVertical="top" 
-                placeholderTextColor="#6c757d" 
+                placeholderTextColor="#6c757d"
+                editable={!submitting}
               />
             </View>
           </View>
@@ -1113,7 +1110,7 @@ const PagoScreen: React.FC = () => {
   );
 };
 
-// Estilos mejorados con información de cuenta bancaria
+// Estilos (idénticos a los tuyos)
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8f9fa' },
   scrollView: { flex: 1 },

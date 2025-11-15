@@ -5,10 +5,10 @@ from django.db.models import Sum
 from decimal import Decimal
 import logging
 
-logger = logging.getLogger(__name__)
-
 from apps.factura.models import PagoTemporal, Nota, NotaRelacionada
 from apps.inscripcion.models import Inscripcion
+
+logger = logging.getLogger(__name__)
 
 @receiver(post_save, sender=PagoTemporal)
 def on_pago_temporal_saved(sender, instance: PagoTemporal, created, **kwargs):
