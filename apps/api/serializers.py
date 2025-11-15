@@ -741,15 +741,24 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
                 # Fallback: la BD probablemente tenga la FK apuntando a CuotaFormacion.
                 logger.warning("IntegrityError creando NotaRelacionada con InscripcionCuota pk=%s: %s", getattr(cuota,'pk',None), ie)
                 # obtener la FK real hacia CuotaFormacion desde la InscripcionCuota
+                # obtener la PK de la CuotaFormacion desde la InscripcionCuota
                 cf = getattr(cuota, 'idCuota', None)
-                cf_pk = getattr(cf, 'idCuota', None) or getattr(cf, 'pk', None)
+                cf_pk = getattr(cf, 'idCuota', None) or getattr(cf, 'pk', None) or getattr(cf, 'id', None)
                 if not cf_pk:
-                    # no podemos resolver la cuota_formacion -> error claro para el cliente
                     raise serializers.ValidationError({
-                        "error": "No se pudo resolver la CuotaFormacion desde la InscripcionCuota para crear la relación (fallback).",
-                        "detail": str(ie),
-                        "debug": debug_steps
+                        "error": "No se pudo resolver la CuotaFormacion desde la InscripcionCuota."
                     })
+
+                # crear NotaRelacionada apuntando a la CuotaFormacion de forma consistente:
+                created_nr = NotaRelacionada.objects.create(
+                    idNota=nota,
+                    idInscripcion=inscripcion,
+                    idCuota_id=cf_pk   # <-- uso explícito del _id a la CuotaFormacion
+                )
+                # guardar en contextos para debug
+                self.context['created_nr_id'] = getattr(created_nr, 'id', None)
+                self.context['created_nr_raw_idCuota'] = getattr(created_nr, 'idCuota_id', None)
+
                 # crear usando idCuota_id (pasa la PK directamente)
                 try:
                     with transaction.atomic():
