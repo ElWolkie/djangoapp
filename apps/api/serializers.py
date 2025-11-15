@@ -750,30 +750,29 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
                     })
 
                 # crear NotaRelacionada apuntando a la CuotaFormacion de forma consistente:
-                created_nr = NotaRelacionada.objects.create(
-                    idNota=nota,
-                    idInscripcion=inscripcion,
-                    idCuota_id=cf_pk   # <-- uso explícito del _id a la CuotaFormacion
-                )
-                # guardar en contextos para debug
-                self.context['created_nr_id'] = getattr(created_nr, 'id', None)
-                self.context['created_nr_raw_idCuota'] = getattr(created_nr, 'idCuota_id', None)
-
-                # crear usando idCuota_id (pasa la PK directamente)
-                try:
-                    with transaction.atomic():
-                        created_nr = NotaRelacionada.objects.create(
-                            idNota=nota,
-                            idInscripcion=inscripcion,
-                            idCuota_id=cf_pk  # <- uso explícito del _id para saltar la validación de instancia
-                        )
-                    debug_steps.append({"step": "nota_relacionada", "method": "cuotaformacion_fallback", "idCuota_used": cf_pk})
-                except IntegrityError as ie2:
-                    # fallback también falló -> devolvemos error con info de debug
-                    logger.exception("Fallback también fallo creando NotaRelacionada con idCuota_id=%s: %s", cf_pk, ie2)
+                created_nr = None
+                # obtener la PK de la CuotaFormacion desde la InscripcionCuota
+                cf = getattr(cuota, 'idCuota', None)
+                cf_pk = getattr(cf, 'idCuota', None) or getattr(cf, 'pk', None) or getattr(cf, 'id', None)
+                if not cf_pk:
+                    logger.exception("No se pudo resolver PK de CuotaFormacion desde InscripcionCuota (inscripcion=%s, cuota_pk=%s)", getattr(inscripcion,'idInscripcion',None), getattr(cuota,'pk',None))
                     raise serializers.ValidationError({
-                        "error": "Error de integridad creando NotaRelacionada (fallback a CuotaFormacion).",
-                        "detail": str(ie2),
+                        "error": "No se pudo resolver la CuotaFormacion desde la InscripcionCuota."
+                    })
+
+                # crear NotaRelacionada de forma consistente apuntando a la CuotaFormacion
+                try:
+                    created_nr = NotaRelacionada.objects.create(
+                        idNota=nota,
+                        idInscripcion=inscripcion,
+                        idCuota_id=cf_pk  # <- referenciamos siempre la CuotaFormacion
+                    )
+                    debug_steps.append({"step": "nota_relacionada", "method": "cuotaformacion_direct", "idCuota_used": cf_pk})
+                except IntegrityError as ie:
+                    logger.exception("IntegrityError creando NotaRelacionada apuntando a CuotaFormacion id=%s: %s", cf_pk, ie)
+                    raise serializers.ValidationError({
+                        "error": "Error creando NotaRelacionada (integridad).",
+                        "detail": str(ie),
                         "debug": debug_steps
                     })
 
