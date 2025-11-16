@@ -28,6 +28,7 @@ type RootStackParamList = {
   RegisterPerson: { form?: any } | undefined;
   RegisterScreen: { form?: any } | undefined;
   RegisterUser: { person: any } | undefined;
+  ForgotPassword: undefined;
 };
 type LoginScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Login'>;
 
@@ -437,7 +438,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
               isSmallScreen && styles.btnForgotPasswordSmall,
               isLargeScreen && styles.btnForgotPasswordLarge
             ]} 
-            onPress={() => Alert.alert('Recuperar contraseña', 'Funcionalidad próximamente disponible')} 
+            onPress={() => navigation.navigate('ForgotPassword')}
             disabled={loading}
           >
             <Text style={[

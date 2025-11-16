@@ -25,6 +25,7 @@ import PantallaTasas from './src/screens/tasas';
 import PagoScreen from './src/screens/pago';
 import PagoMovilFicticioScreen from './src/screens/PagoMovilFicticioScreen';
 import cuotasPorPagar from './src/screens/cuotasPorPagar';
+import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
 import { AuthProvider } from './src/contexts/AuthContext';
 import { ReloadProvider } from './src/contexts/ReloadContext';
 
@@ -55,6 +56,7 @@ export type RootStackParamList = {
   };
   PagoMovilFicticio: undefined;
   cuotasPorPagar: undefined;
+  ForgotPassword: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -99,6 +101,7 @@ export default function App() {
             <Stack.Screen name="pago" component={PagoScreen} options={{ title: 'Procesar Pago' }} />
             <Stack.Screen name="PagoMovilFicticio" component={PagoMovilFicticioScreen} options={{ title: 'Pago Móvil', headerShown: true }} />
             <Stack.Screen name="cuotasPorPagar" component={cuotasPorPagar} options={{ title: 'Cuotas por Pagar' }} />
+            <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ title: 'Recuperar Contraseña' }} />
           </Stack.Navigator>
         </NavigationContainer>
       </ReloadProvider>

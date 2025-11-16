@@ -21,7 +21,8 @@ import PantallaMonedas from './src/screens/monedas';
 import PantallaTasas from './src/screens/tasas';
 import PagoScreen from './src/screens/pago';
 import PagoMovilFicticioScreen from './src/screens/PagoMovilFicticioScreen';
-import CuotasPorPagarScreen from './src/screens/cuotasPorPagar'; // asegúrate que la ruta y el nombre coincidan
+import CuotasPorPagarScreen from './src/screens/cuotasPorPagar';
+import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
 import {
   View,
   Text,
@@ -202,6 +203,7 @@ export default function AppNavigator() {
       <Drawer.Screen name="Monedas" component={PantallaMonedas} options={{ title: 'Monedas' }} />
       <Drawer.Screen name="Tasas" component={PantallaTasas} options={{ title: 'Tasas' }} />
       <Drawer.Screen name="PagoMovilFicticio" component={PagoMovilFicticioScreen} options={{ title: 'Pago Móvil' }} />
+      <Drawer.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ title: 'Recuperar Contraseña' }} />
     </Drawer.Navigator>
   );
 }
