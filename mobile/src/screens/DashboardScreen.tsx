@@ -1,5 +1,5 @@
 // src/screens/DashboardScreen.tsx
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
@@ -10,8 +10,9 @@ import {
   StatusBar,
   ActivityIndicator,
   TouchableOpacity,
+  RefreshControl,
 } from 'react-native';
-import { useNavigation, NavigationProp } from '@react-navigation/native';
+import { useNavigation, NavigationProp, useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../api/api';
@@ -119,6 +120,9 @@ export default function DashboardScreen() {
   // Loading / error
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Refresh control
+  const [refreshing, setRefreshing] = useState(false);
   
   // Datos
   const [misInscripciones, setMisInscripciones] = useState<Inscripcion[]>([]);
@@ -266,7 +270,7 @@ export default function DashboardScreen() {
   };
 
   // Cargar datos reales de notas y pagos
-  const loadNotasAndPagos = async (cedulaUsuarioNormalizada: string) => {
+  const loadNotasAndPagos = useCallback(async (cedulaUsuarioNormalizada: string) => {
     try {
       // Cargar notas reales del endpoint específico para usuario autenticado
       const notasResult = await safeApiCall('/api/notas/usuario/autenticado/');
@@ -330,10 +334,10 @@ export default function DashboardScreen() {
       setMisPagos([]);
       return { misNotas: [], misPagos: [], notasPendientes: [] };
     }
-  };
+  }, []);
 
   // Cargar TODOS los datos en una sola función
-  const loadAllData = async () => {
+  const loadAllData = useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -442,21 +446,33 @@ export default function DashboardScreen() {
       setLoading(false);
       console.log('🏁 Carga de datos finalizada');
     }
-  };
+  }, [user, loadNotasAndPagos]);
 
   useEffect(() => {
     Animated.stagger(90, cardsAnim.map(a => Animated.spring(a, { toValue: 1, useNativeDriver: true }))).start();
   }, []);
 
-  useEffect(() => {
-    if (user) {
-      console.log('👤 Usuario disponible en contexto, cargando datos...');
+  // Recargar al entrar / enfocar la pantalla
+  useFocusEffect(
+    useCallback(() => {
+      // cuando la pantalla gana foco
       loadAllData();
-    } else {
-      console.log('⏳ Esperando usuario en contexto...');
-      setLoading(true);
+      // no hay cleanup necesario
+      return () => {};
+    }, [loadAllData])
+  );
+
+  // También expone un botón de recarga manual y pull-to-refresh
+  const onRefresh = useCallback(async () => {
+    try {
+      setRefreshing(true);
+      await loadAllData();
+    } catch (e) {
+      console.warn('Error en onRefresh:', e);
+    } finally {
+      setRefreshing(false);
     }
-  }, [user]);
+  }, [loadAllData]);
 
   // Stats
   const ultimaInscripcion = misInscripciones.length ? misInscripciones[0] : null;
@@ -546,6 +562,9 @@ export default function DashboardScreen() {
         <View style={styles.header}>
           <Text style={styles.headerTitle}>{greeting.emoji} {greeting.title}</Text>
           <Text style={styles.headerSubtitle}>Mi panel personal • {formatDate(new Date().toISOString())}</Text>
+          <TouchableOpacity style={styles.headerRefreshButton} onPress={onRefresh}>
+            <Icon name="refresh" size={20} color="#fff" />
+          </TouchableOpacity>
         </View>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <ActivityIndicator size="large" color="#4f8cff" />
@@ -564,12 +583,23 @@ export default function DashboardScreen() {
           {user?.displayName ? ` — ${user.displayName}` : ''}
         </Text>
         <Text style={styles.headerSubtitle}>Mi panel personal • {formatDate(new Date().toISOString())}</Text>
+        <TouchableOpacity style={styles.headerRefreshButton} onPress={onRefresh}>
+          <Icon name="refresh" size={20} color="#fff" />
+        </TouchableOpacity>
       </View>
 
       <ScrollView 
         contentContainerStyle={styles.scrollContent} 
         showsVerticalScrollIndicator={false}
         style={styles.responsiveScrollView}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#4f8cff']}
+            tintColor="#4f8cff"
+          />
+        }
       >
         <View style={styles.cardsRow}>
           {stats.map((item, idx) => (
@@ -746,6 +776,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 6,
     fontWeight: '600',
+  },
+  // botón de recarga en el header (top-right)
+  headerRefreshButton: {
+    position: 'absolute',
+    right: 16,
+    top: 30,
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'transparent',
   },
   scrollContent: {
     alignItems: 'center',

@@ -17,6 +17,10 @@ urlpatterns = [
     path('registrar_usuario/', UsuarioPublicRegisterView.as_view(), name='registrar_usuario_public'),
     path('obtener-persona-login/', obtener_persona_login, name='obtener-persona-login'),
     
+    path('usuarios/validar_respuesta/', views.ValidarRespuestaSeguridadAPIView.as_view(), name='validar-respuesta'),
+    path('usuarios/reset_password/', views.ResetPasswordAPIView.as_view(), name='reset-password'),
+    path('usuarios/por_cedula/', views.UsuarioPorCedulaAPIView.as_view(), name='usuario-por-cedula'),
+
     path('pagos/create/', views.PagoCreateAPIView.as_view(), name='api-pagos-create'),
     path('notas/usuario/autenticado/', views.NotasUsuarioAutenticadoView.as_view(), name='notas-usuario-autenticado'),
 

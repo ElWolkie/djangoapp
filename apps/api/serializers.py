@@ -971,9 +971,8 @@ class CedulaTokenObtainSerializer(serializers.Serializer):
 
 class UsuarioSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Banco  # Usa el modelo de home
-        fields = ['idUsuario', 'idPersona', 'preguntaSeguridad', 'respuestaSeguridad', 'coloresUsuario', 'fechaUsuario', 'is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions']
-
+        model = Usuarios  # Usa el modelo de home
+        fields = ['idUsuario', 'idPersona', 'preguntaSeguridad', 'coloresUsuario', 'fechaUsuario', 'is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions']
 
 # Serializers para contabilidad
 class PeriodoContableSerializer(serializers.ModelSerializer):
@@ -1025,3 +1024,25 @@ class ConfiguracionSerializer(serializers.ModelSerializer):
             'numero_cuenta',
             'tipo_cuenta'
         ]
+
+class SecurityAnswerSerializer(serializers.Serializer):
+    cedula = serializers.CharField()
+    respuesta = serializers.CharField()
+
+    def validate_cedula(self, value):
+        return normalize_cedula(value)
+
+class PasswordResetSerializer(serializers.Serializer):
+    cedula = serializers.CharField()
+    password = serializers.CharField(min_length=8)
+
+    def validate_cedula(self, value):
+        return normalize_cedula(value)
+
+    def validate_password(self, value):
+        # Validación simple de complejidad: mínimo 8, letras + números
+        if len(value) < 8:
+            raise serializers.ValidationError("La contraseña debe tener al menos 8 caracteres.")
+        if not re.search(r'[0-9]', value) or not re.search(r'[A-Za-zÁÉÍÓÚáéíóúÑñ]', value):
+            raise serializers.ValidationError("La contraseña debe contener letras y números.")
+        return value

@@ -4,20 +4,21 @@ import traceback
 import uuid
 
 from django.db.models import Prefetch, Q
-from rest_framework import generics, status
+from rest_framework import generics, status, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from django.utils.timezone import now
 from decimal import Decimal
 from rest_framework import status as drf_status
+from django.contrib.auth.hashers import check_password as dj_check_password, make_password
 
 from apps.api import serializers
 from rest_framework import serializers as drf_serializers
 from rest_framework.permissions import AllowAny
 from django.db.models import Sum
 from apps.home.models import Personas, Materia, Cohorte, Cargo, Requisito, Servicio, Tramite, Moneda, Tasa, Formacion, TipoFormacion, Usuarios, CuotaFormacion
-from .serializers import PagoSerializer, PersonaSerializer, CedulaTokenObtainSerializer, TipoPersonaSerializer, PersonaTPSerializer, FormacionSerializer, TPFormacionSerializer, MateriaSerializer, CohorteSerializer, CargoSerializer, HonorarioSerializer, InscripcionSerializer, RequisitoSerializer, ServicioSerializer, TramiteSerializer, SolicitudSerializer, BancoSerializer, MonedaSerializer, TasaSerializer, UsuarioSerializer, AsientoContableSerializer, PlanCuentaSerializer, CuotaFormacionSerializer, NotaSerializer, ConfiguracionSerializer, CuotaPagoTemporalSerializer  # Importa ambos serializadores
+from .serializers import PagoSerializer, PersonaSerializer, CedulaTokenObtainSerializer, TipoPersonaSerializer, PersonaTPSerializer, FormacionSerializer, TPFormacionSerializer, MateriaSerializer, CohorteSerializer, CargoSerializer, HonorarioSerializer, InscripcionSerializer, RequisitoSerializer, ServicioSerializer, TramiteSerializer, SolicitudSerializer, BancoSerializer, MonedaSerializer, TasaSerializer, UsuarioSerializer, AsientoContableSerializer, PlanCuentaSerializer, CuotaFormacionSerializer, NotaSerializer, ConfiguracionSerializer, CuotaPagoTemporalSerializer, SecurityAnswerSerializer, PasswordResetSerializer  # Importa ambos serializadores
 from apps.persona.models import PersonaTP, TipoPersona
 from apps.honorario.models import Honorario
 from apps.inscripcion.models import Inscripcion, InscripcionCuota
@@ -742,3 +743,128 @@ class ConfiguracionAPIView(APIView):
                 'success': False,
                 'message': f'Error al obtener configuración: {str(e)}'
             }, status=500)
+
+def normalize_cedula_digits(s: str) -> str:
+    if not s:
+        return ''
+    return re.sub(r'\D', '', str(s))
+
+def find_persona_by_cedula_digits(cedula_raw: str):
+    ced_norm = normalize_cedula_digits(cedula_raw)
+    if not ced_norm:
+        return None
+    # buscar exacto o por final de string (si en BD hay prefijos)
+    qs = Personas.objects.filter(cedula__iregex=rf"{ced_norm}$")
+    if qs.exists():
+        return qs.first()
+    # fallback: buscar por contains (últimos dígitos)
+    qs2 = Personas.objects.filter(cedula__icontains=ced_norm)[:50]
+    for p in qs2:
+        if normalize_cedula_digits(p.cedula) == ced_norm:
+            return p
+    return None
+
+class UsuarioPorCedulaAPIView(APIView):
+    """
+    GET /api/usuarios/por_cedula/?cedula=...
+    Devuelve preguntaSeguridad (si existe usuario) sin exponer la respuesta.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, *args, **kwargs):
+        cedula = request.query_params.get('cedula', '') or ''
+        ced_norm = normalize_cedula_digits(cedula)
+        if not ced_norm:
+            return Response({'exists': False, 'message': 'Cédula no proporcionada'}, status=status.HTTP_200_OK)
+        persona = find_persona_by_cedula_digits(cedula)
+        if not persona:
+            return Response({'exists': False}, status=status.HTTP_200_OK)
+
+        try:
+            usuario = persona.usuario  # related_name='usuario'
+        except Usuarios.DoesNotExist:
+            usuario = None
+
+        if usuario:
+            return Response({
+                'exists': True,
+                'idPersona': persona.idPersona,
+                'idUsuario': usuario.idUsuario,
+                'nombres': persona.nombres,
+                'apellidos': persona.apellidos,
+                'preguntaSeguridad': usuario.preguntaSeguridad or '',
+            }, status=status.HTTP_200_OK)
+        else:
+            return Response({'exists': False, 'message': 'Usuario no encontrado para esta cédula'}, status=status.HTTP_200_OK)
+        
+class ValidarRespuestaSeguridadAPIView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        serializer = SecurityAnswerSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+        cedula = serializer.validated_data['cedula']
+        respuesta = serializer.validated_data['respuesta'].strip()
+
+        persona = find_persona_by_cedula_digits(cedula)
+        if not persona:
+            return Response({'success': False, 'message': 'Cédula no encontrada'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            usuario = persona.usuario
+        except Usuarios.DoesNotExist:
+            return Response({'success': False, 'message': 'Usuario no encontrado'}, status=status.HTTP_400_BAD_REQUEST)
+
+        stored = (usuario.respuestaSeguridad or '').strip()
+        ok = False
+        try:
+            ok = dj_check_password(respuesta, stored)
+        except Exception:
+            ok = False
+
+        # fallback (compatibilidad): solo si stored NO parece estar hasheado
+        if not ok:
+            if stored and not stored.startswith('pbkdf2_'):
+                if stored.strip().lower() == respuesta.strip().lower():
+                    ok = True
+
+        if ok:
+            return Response({'success': True}, status=status.HTTP_200_OK)
+        else:
+            return Response({'success': False, 'message': 'Respuesta incorrecta'}, status=status.HTTP_400_BAD_REQUEST)
+
+class ResetPasswordAPIView(APIView):
+    """
+    POST /api/usuarios/reset_password/
+    payload: { cedula, password }
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        serializer = PasswordResetSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+        cedula = serializer.validated_data['cedula']
+        password = serializer.validated_data['password']
+
+        persona = find_persona_by_cedula_digits(cedula)
+        if not persona:
+            return Response({'success': False, 'message': 'Cédula no encontrada'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            usuario = persona.usuario
+        except Usuarios.DoesNotExist:
+            return Response({'success': False, 'message': 'Usuario no encontrado'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # set_password y save
+        try:
+            with transaction.atomic():
+                usuario.set_password(password)
+                usuario.save(update_fields=['password'])
+        except Exception as e:
+            return Response({'success': False, 'message': 'No se pudo cambiar la contraseña'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        return Response({'success': True, 'message': 'Contraseña actualizada'}, status=status.HTTP_200_OK)

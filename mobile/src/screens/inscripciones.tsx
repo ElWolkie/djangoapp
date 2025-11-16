@@ -197,6 +197,9 @@ const InscripcionesScreen = () => {
   const [showFormacionModal, setShowFormacionModal] = useState(false);
   const [searchFormacionModal, setSearchFormacionModal] = useState('');
 
+  // --- Pull to refresh state
+  const [refreshing, setRefreshing] = useState(false);
+
   const handleTipoSelect = (idTF: number | null) => {
     setSelectedTipoFormacion(idTF);
     setShowTipoModal(false);
@@ -339,6 +342,18 @@ const InscripcionesScreen = () => {
       setLoading(false);
     }
   }, [user?.cedula]);
+
+  // Pull-to-refresh handler
+  const onRefresh = useCallback(async () => {
+    try {
+      setRefreshing(true);
+      await fetchInscripciones();
+    } catch (err) {
+      console.warn('Error en onRefresh inscripciones:', err);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [fetchInscripciones]);
 
   // ---------- Fetch tipos/formaciones/cohortes ----------
   const fetchDatosFormulario = useCallback(async () => {
@@ -763,7 +778,6 @@ const InscripcionesScreen = () => {
     }
   };
 
-
   const resetForm = () => {
     setSelectedTipoFormacion(null);
     setSelectedFormacion(null);
@@ -930,6 +944,10 @@ const InscripcionesScreen = () => {
             </TouchableOpacity>
           </View>
         }
+
+        // pull-to-refresh props
+        refreshing={refreshing}
+        onRefresh={onRefresh}
       />
 
       {/* DETAIL MODAL */}
@@ -2056,4 +2074,4 @@ const styles = StyleSheet.create({
   modalCloseTextSmall: { fontSize: 14 },
 });
 
-export default InscripcionesScreen;
+export default InscripcionesScreen;;

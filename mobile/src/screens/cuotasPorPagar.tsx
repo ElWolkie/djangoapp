@@ -18,7 +18,7 @@ import Modal from 'react-native-modal';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { AuthContext } from '../contexts/AuthContext';
 import api from '../api/api';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 
 // --- Tipos (relajados) ---
 type CuotaLite = any;
@@ -35,9 +35,9 @@ const normalizeCedula = (ced: any) => String(ced ?? '').replace(/\D/g, '');
 // Función mejorada para verificar si el usuario actual es el dueño de la inscripción
 const isUserInscripcionOwner = (inscripcion: any, userCedula: string) => {
   if (!userCedula || !inscripcion) return false;
-  
+
   const userCedNormalized = normalizeCedula(userCedula);
-  
+
   // Verificar diferentes campos donde puede estar la cédula en la inscripción
   const cedulaCandidates = [
     inscripcion.idPersona?.cedula,
@@ -47,7 +47,7 @@ const isUserInscripcionOwner = (inscripcion: any, userCedula: string) => {
     inscripcion.idPersona_detail?.cedula,
     inscripcion.idPersona_detail?.cedulaPersona,
   ];
-  
+
   return cedulaCandidates.some(ced => {
     if (!ced) return false;
     return normalizeCedula(ced) === userCedNormalized;
@@ -176,11 +176,11 @@ const CuotasPorPagarScreen = () => {
           const res = await api.get(endpoint);
           const d = normalizeResponse(res);
           console.log('[Cuotas-debug] respuesta inscripciones para', ced, '->', d.length);
-          
+
           // Filtrar solo las inscripciones que pertenecen al usuario actual
           const filtered = d.filter((ins: any) => isUserInscripcionOwner(ins, userCedRaw));
           console.log('[Cuotas-debug] inscripciones después del filtro:', filtered.length);
-          
+
           return filtered;
         } catch (err: any) {
           console.warn('[Cuotas] error fetching inscripciones para', ced, err?.response?.data ?? err);
@@ -263,7 +263,7 @@ const CuotasPorPagarScreen = () => {
         const n = Number(x);
         return !isNaN(n) && n > 0 ? n : null;
       };
-      
+
       const getAllIdsFromCuota = (c: any) => {
         const ids = new Set<number>();
         const cand = [
@@ -279,7 +279,7 @@ const CuotasPorPagarScreen = () => {
         }
         return Array.from(ids);
       };
-      
+
       const extractRelatedIdFromRel = (rel: any) => {
         if (!rel) return null;
         const rc = rel?.idCuota ?? rel?.idCuota_id ?? rel?.id ?? rel?.cuota ?? null;
@@ -508,12 +508,12 @@ const CuotasPorPagarScreen = () => {
       });
 
       console.log('[Cuotas-debug] enriched inscripciones (final):', enriched);
-      
+
       // Filtrar inscripciones: mostrar solo las que tienen cuotas pendientes O no tienen pago de inscripción confirmado
       const filteredInscripciones = enriched.filter(ins => 
         !ins.todasLasCuotasPagadas || !ins.pago_inscripcion_confirmada
       );
-      
+
       setInscripciones(filteredInscripciones);
     } catch (e: any) {
       console.error('Error cargando inscripciones en CuotasPorPagar', e?.response?.data ?? e);
@@ -525,7 +525,17 @@ const CuotasPorPagarScreen = () => {
     }
   }, [user]);
 
+  // Recargar cuando la pantalla recibe foco
+  useFocusEffect(
+    useCallback(() => {
+      // recarga cada vez que la pantalla se enfoca
+      loadInscripciones();
+      return () => { /* cleanup si se necesitara */ };
+    }, [loadInscripciones])
+  );
+
   useEffect(() => {
+    // carga inicial (queda, pero useFocusEffect también la cubrirá)
     loadInscripciones();
   }, [loadInscripciones]);
 
@@ -534,9 +544,14 @@ const CuotasPorPagarScreen = () => {
   };
 
   const onRefresh = async () => {
-    setRefreshing(true);
-    await loadInscripciones();
-    setRefreshing(false);
+    try {
+      setRefreshing(true);
+      await loadInscripciones();
+    } catch (e) {
+      console.warn('[Cuotas] onRefresh error', e);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const openPagoModal = (inscripcion: InscripcionLite, cuota: CuotaLite) => {
@@ -588,13 +603,13 @@ const CuotasPorPagarScreen = () => {
       if (res.status === 200 || res.status === 201) {
         const data = res.data?.data ?? res.data;
         const confirmado = !!data?.confirmado;
-        
+
         // Actualización optimista más robusta
         setInscripciones(prev => {
           const nuevasInscripciones = prev.map((ins: any) => {
             const insId = modalPayload?.inscripcion?.idInscripcion ?? modalPayload?.inscripcion?.id;
             if (insId && ins.idInscripcion !== insId && ins.id !== insId) return ins;
-            
+
             const cuotasActualizadas = (ins.cuotas || []).map((c: any) => {
               if ((String(c.nombreCuota ?? '').toLowerCase() === String(modalPayload?.cuota?.nombreCuota ?? '').toLowerCase()) || 
                   Number(c.idCuota) === Number(modalPayload?.cuota?.idCuota) || 
@@ -610,17 +625,17 @@ const CuotasPorPagarScreen = () => {
               }
               return c;
             });
-            
+
             // Verificar si después de este pago todas las cuotas están pagadas
             const todasPagadas = areAllCuotasPaid(cuotasActualizadas);
-            
+
             return { 
               ...ins, 
               cuotas: cuotasActualizadas,
               todasLasCuotasPagadas: todasPagadas
             };
           });
-          
+
           // Filtrar para remover inscripciones que ya tienen todas las cuotas pagadas
           return nuevasInscripciones.filter(ins => 
             !ins.todasLasCuotasPagadas || !ins.pago_inscripcion_confirmada
@@ -628,12 +643,12 @@ const CuotasPorPagarScreen = () => {
         });
 
         closeModal();
-        
+
         // Recargar para sincronizar con backend (pero ya tenemos la actualización optimista)
         setTimeout(() => {
           loadInscripciones();
         }, 1000);
-        
+
         Alert.alert(
           confirmado ? 'Pago confirmado' : 'Solicitud enviada', 
           confirmado ? 'Pago confirmado por el sistema.' : 'Pago pendiente de revisión administrativa.'
@@ -768,6 +783,15 @@ const CuotasPorPagarScreen = () => {
             <Text style={[styles.userCedula, isSmallScreen && styles.userCedulaSmall]}>Cédula: {user.cedula}</Text>
           )}
         </View>
+
+        {/* Botón de recarga manual */}
+        <TouchableOpacity
+          style={[styles.headerRefreshButton, isSmallScreen && { right: 10, top: 12 }]}
+          onPress={onRefresh}
+          disabled={refreshing || loading}
+        >
+          <Icon name="refresh" size={20} color={refreshing || loading ? '#cbd5e1' : '#4f8cff'} />
+        </TouchableOpacity>
       </View>
 
       {/* SUBTITLE */}
@@ -884,7 +908,7 @@ const CuotasPorPagarScreen = () => {
                 </View>
               </View>
             </ScrollView>
-          
+
             <View style={[styles.formFooter, isSmallScreen && styles.formFooterSmall]}>
               <TouchableOpacity style={[styles.formButton, styles.cancelButton, isSmallScreen && styles.formButtonSmall]} onPress={closeModal} disabled={submitting}>
                 <Text style={[styles.cancelButtonText, isSmallScreen && styles.cancelButtonTextSmall]}>Cancelar</Text>
@@ -907,7 +931,7 @@ const CuotasPorPagarScreen = () => {
 /* ESTILOS ACTUALIZADOS - IDÉNTICOS AL DE INSCRIPCIÓN */
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f7fa' },
-  
+
   // Header
   header: {
     flexDirection: 'row',
@@ -946,6 +970,12 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
 
+  // Header refresh button
+  headerRefreshButton: {
+    padding: 8,
+    alignSelf: 'center',
+  },
+
   // Subtitle
   subtitleContainer: {
     paddingHorizontal: 16,
@@ -967,10 +997,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
 
-  center: { 
-    flex: 1, 
-    justifyContent: 'center', 
-    alignItems: 'center', 
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
     backgroundColor: '#f5f7fa',
     padding: 20,
   },
@@ -1040,12 +1070,12 @@ const styles = StyleSheet.create({
   },
 
   // Badges
-  completamentePagadaBadge: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    backgroundColor: '#d4edda', 
-    paddingHorizontal: 8, 
-    paddingVertical: 4, 
+  completamentePagadaBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#d4edda',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: 8,
     marginTop: 4,
     alignSelf: 'flex-start'
@@ -1055,15 +1085,15 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 6,
   },
-  completamentePagadaText: { 
-    color: '#155724', 
-    fontWeight: '700', 
-    fontSize: 11, 
-    marginLeft: 4 
+  completamentePagadaText: {
+    color: '#155724',
+    fontWeight: '700',
+    fontSize: 11,
+    marginLeft: 4
   },
-  completamentePagadaTextSmall: { 
-    fontSize: 10, 
-    marginLeft: 3 
+  completamentePagadaTextSmall: {
+    fontSize: 10,
+    marginLeft: 3
   },
   chevContainer: { paddingLeft: 8, paddingRight: 8 },
   chevContainerSmall: { paddingLeft: 6, paddingRight: 6 },
@@ -1101,20 +1131,20 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: 3,
   },
-  emptyRow: { 
-    alignItems: 'center', 
-    padding: 12, 
-    flexDirection: 'row', 
-    backgroundColor: '#fff8e1', 
-    borderRadius: 8 
+  emptyRow: {
+    alignItems: 'center',
+    padding: 12,
+    flexDirection: 'row',
+    backgroundColor: '#fff8e1',
+    borderRadius: 8
   },
   emptyRowSmall: {
     padding: 10,
     borderRadius: 6,
   },
-  emptyText: { 
-    flex: 1, 
-    marginLeft: 10, 
+  emptyText: {
+    flex: 1,
+    marginLeft: 10,
     color: '#856404',
     fontSize: 14,
   },
@@ -1124,89 +1154,89 @@ const styles = StyleSheet.create({
   },
 
   // Cuotas
-  cuotaRow: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    paddingVertical: 10, 
-    borderBottomWidth: 1, 
-    borderBottomColor: '#f4f6f8' 
+  cuotaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f4f6f8'
   },
   cuotaRowSmall: {
     paddingVertical: 8,
   },
-  cuotaNombre: { 
-    fontWeight: '600', 
+  cuotaNombre: {
+    fontWeight: '600',
     color: '#2d3748',
     fontSize: 14,
   },
   cuotaNombreSmall: {
     fontSize: 13,
   },
-  cuotaPaidText: { 
-    color: '#6c757d', 
-    textDecorationLine: 'line-through' 
+  cuotaPaidText: {
+    color: '#6c757d',
+    textDecorationLine: 'line-through'
   },
-  cuotaSub: { 
-    fontSize: 13, 
-    color: '#6c757d', 
-    marginTop: 4 
+  cuotaSub: {
+    fontSize: 13,
+    color: '#6c757d',
+    marginTop: 4
   },
   cuotaSubSmall: {
     fontSize: 12,
     marginTop: 3,
   },
-  cuotaActions: { 
-    minWidth: 110, 
-    alignItems: 'flex-end' 
+  cuotaActions: {
+    minWidth: 110,
+    alignItems: 'flex-end'
   },
   cuotaActionsSmall: {
     minWidth: 100,
   },
 
   // Botones de pago
-  payButton: { 
-    backgroundColor: '#2b6cb0', 
-    paddingHorizontal: 14, 
-    paddingVertical: 8, 
-    borderRadius: 8 
+  payButton: {
+    backgroundColor: '#2b6cb0',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8
   },
   payButtonSmall: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 6,
   },
-  payButtonText: { 
-    color: '#fff', 
+  payButtonText: {
+    color: '#fff',
     fontWeight: '700',
     fontSize: 12,
   },
   payButtonTextSmall: {
     fontSize: 11,
   },
-  payButtonDisabled: { 
-    backgroundColor: '#cbd5e1' 
+  payButtonDisabled: {
+    backgroundColor: '#cbd5e1'
   },
-  payButtonTextDisabled: { 
-    color: '#7b8794' 
+  payButtonTextDisabled: {
+    color: '#7b8794'
   },
 
   // Badges de estado
-  paidBadge: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    backgroundColor: '#d4edda', 
-    paddingHorizontal: 10, 
-    paddingVertical: 6, 
-    borderRadius: 12 
+  paidBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#d4edda',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12
   },
   paidBadgeSmall: {
     paddingHorizontal: 8,
     paddingVertical: 5,
     borderRadius: 10,
   },
-  paidBadgeText: { 
-    color: '#155724', 
-    fontWeight: '700', 
+  paidBadgeText: {
+    color: '#155724',
+    fontWeight: '700',
     marginLeft: 6,
     fontSize: 11,
   },
@@ -1214,22 +1244,22 @@ const styles = StyleSheet.create({
     fontSize: 10,
     marginLeft: 4,
   },
-  pendingBadge: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    backgroundColor: '#ffeeba', 
-    paddingHorizontal: 10, 
-    paddingVertical: 6, 
-    borderRadius: 12 
+  pendingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffeeba',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12
   },
   pendingBadgeSmall: {
     paddingHorizontal: 8,
     paddingVertical: 5,
     borderRadius: 10,
   },
-  pendingBadgeText: { 
-    color: '#856404', 
-    fontWeight: '700', 
+  pendingBadgeText: {
+    color: '#856404',
+    fontWeight: '700',
     marginLeft: 6,
     fontSize: 11,
   },
@@ -1239,43 +1269,43 @@ const styles = StyleSheet.create({
   },
 
   // Información adicional
-  infoRow: { 
-    marginTop: 10 
+  infoRow: {
+    marginTop: 10
   },
   infoRowSmall: {
     marginTop: 8,
   },
-  smallNote: { 
-    fontSize: 12, 
-    color: '#6c757d', 
-    fontStyle: 'italic' 
+  smallNote: {
+    fontSize: 12,
+    color: '#6c757d',
+    fontStyle: 'italic'
   },
   smallNoteSmall: {
     fontSize: 11,
   },
 
   // Empty state
-  emptyContainer: { 
-    flex: 1, 
-    alignItems: 'center', 
-    justifyContent: 'center', 
-    padding: 20 
+  emptyContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20
   },
-  emptyTitle: { 
-    fontSize: 18, 
-    fontWeight: '700', 
-    color: '#495057', 
-    marginTop: 12 
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#495057',
+    marginTop: 12
   },
   emptyTitleSmall: {
     fontSize: 16,
     marginTop: 10,
   },
-  emptySubtitle: { 
-    fontSize: 14, 
-    color: '#6c757d', 
-    marginTop: 6, 
-    textAlign: 'center' 
+  emptySubtitle: {
+    fontSize: 14,
+    color: '#6c757d',
+    marginTop: 6,
+    textAlign: 'center'
   },
   emptySubtitleSmall: {
     fontSize: 13,
