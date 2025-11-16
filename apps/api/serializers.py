@@ -682,7 +682,7 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
 
             debug_steps.append({"step": "context_loaded", "inscripcion": getattr(inscripcion, 'idInscripcion', None), "cuota_pk": getattr(cuota, 'pk', None)})
 
-            # tasa (ya validada en validate)
+            # tasa
             tasa = None
             moneda = getattr(configuracion, 'moneda', None) or getattr(configuracion, 'idMoneda', None)
             if moneda:
@@ -726,24 +726,55 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
             )
             debug_steps.append({"step": "crear_nota", "nota_id": getattr(nota, 'idNota', None)})
 
-            # === Crear NotaRelacionada apuntando a la InscripcionCuota (NO a CuotaFormacion) ===
+            # === Crear NotaRelacionada: intentar con InscripcionCuota primero, si falla intentar con CuotaFormacion ===
+            created_nr = None
             try:
-                if not getattr(cuota, 'pk', None):
-                    raise serializers.ValidationError({"error": "InscripcionCuota inválida."})
-
-                created_nr = NotaRelacionada.objects.create(
-                    idNota=nota,
-                    idInscripcion=inscripcion,
-                    idCuota=cuota   # <- apunta a InscripcionCuota según tu modelo actual
-                )
-                debug_steps.append({"step": "nota_relacionada", "method": "inscripcioncuota", "idInscripcionCuota": getattr(cuota, 'pk', None)})
+                # intento normal: pasar la instancia InscripcionCuota
+                with transaction.atomic():
+                    created_nr = NotaRelacionada.objects.create(
+                        idNota=nota,
+                        idInscripcion=inscripcion,
+                        idCuota=cuota  # intenta insertar la FK como InscripcionCuota
+                    )
+                debug_steps.append({"step": "nota_relacionada", "method": "inscripcioncuota", "idCuota_used": getattr(cuota, 'pk', None)})
             except IntegrityError as ie:
-                logger.exception("IntegrityError creando NotaRelacionada apuntando a InscripcionCuota pk=%s: %s", getattr(cuota,'pk',None), ie)
-                raise serializers.ValidationError({
-                    "error": "Error de integridad creando NotaRelacionada (idCuota -> InscripcionCuota).",
-                    "detail": str(ie),
-                    "debug": debug_steps
-                })
+                # Fallback: la BD probablemente tenga la FK apuntando a CuotaFormacion.
+                logger.warning("IntegrityError creando NotaRelacionada con InscripcionCuota pk=%s: %s", getattr(cuota,'pk',None), ie)
+                # obtener la FK real hacia CuotaFormacion desde la InscripcionCuota
+                # obtener la PK de la CuotaFormacion desde la InscripcionCuota
+                cf = getattr(cuota, 'idCuota', None)
+                cf_pk = getattr(cf, 'idCuota', None) or getattr(cf, 'pk', None) or getattr(cf, 'id', None)
+                if not cf_pk:
+                    raise serializers.ValidationError({
+                        "error": "No se pudo resolver la CuotaFormacion desde la InscripcionCuota."
+                    })
+
+                # crear NotaRelacionada apuntando a la CuotaFormacion de forma consistente:
+                created_nr = None
+                # obtener la PK de la CuotaFormacion desde la InscripcionCuota
+                cf = getattr(cuota, 'idCuota', None)
+                cf_pk = getattr(cf, 'idCuota', None) or getattr(cf, 'pk', None) or getattr(cf, 'id', None)
+                if not cf_pk:
+                    logger.exception("No se pudo resolver PK de CuotaFormacion desde InscripcionCuota (inscripcion=%s, cuota_pk=%s)", getattr(inscripcion,'idInscripcion',None), getattr(cuota,'pk',None))
+                    raise serializers.ValidationError({
+                        "error": "No se pudo resolver la CuotaFormacion desde la InscripcionCuota."
+                    })
+
+                # crear NotaRelacionada de forma consistente apuntando a la CuotaFormacion
+                try:
+                    created_nr = NotaRelacionada.objects.create(
+                        idNota=nota,
+                        idInscripcion=inscripcion,
+                        idCuota_id=cf_pk  # <- referenciamos siempre la CuotaFormacion
+                    )
+                    debug_steps.append({"step": "nota_relacionada", "method": "cuotaformacion_direct", "idCuota_used": cf_pk})
+                except IntegrityError as ie:
+                    logger.exception("IntegrityError creando NotaRelacionada apuntando a CuotaFormacion id=%s: %s", cf_pk, ie)
+                    raise serializers.ValidationError({
+                        "error": "Error creando NotaRelacionada (integridad).",
+                        "detail": str(ie),
+                        "debug": debug_steps
+                    })
 
             # pago temporal
             cuenta_banco_val = getattr(configuracion, 'idCuentaBanco', getattr(configuracion, 'id_cuenta_banco', getattr(configuracion, 'cuenta_banco', None)))
@@ -758,43 +789,74 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
             )
             debug_steps.append({"step": "pago_temporal_created", "idPagoTemporal": getattr(pago_temporal, 'idPagoTemporal', None)})
 
-            # actualizar InscripcionCuota -> marcar PENDIENTE (esperando confirmación)
+            # actualizar cuota (InscripcionCuota)
             cuota.estadoPago = 'PENDIENTE'
             cuota.save(update_fields=['estadoPago'])
             debug_steps.append({"step": "cuota_actualizada", "estadoPago": cuota.estadoPago})
 
-            # detalles de asiento: incluir idMoneda (evita NOT NULL en detalle)
+            # detalles de asiento (PlanArticulo)
+                        # detalles de asiento (PlanArticulo) - REVISADO: incluir idMoneda obligatorio
             plan_articulos = PlanArticulo.objects.filter(tipoArticulo='CUOTA').order_by('-fecha')
             plan_debe = plan_articulos.filter(tipo=True).first() or plan_articulos.filter(tipo=1).first()
             plan_haber = plan_articulos.filter(tipo=False).first() or plan_articulos.filter(tipo=0).first()
             debug_steps.append({"step": "plan_articulos", "plan_debe": getattr(plan_debe, 'pk', None), "plan_haber": getattr(plan_haber, 'pk', None)})
 
-            if plan_debe and plan_haber:
-                moneda_para_detalle = getattr(tasa, 'idMoneda', None)
-                if not moneda_para_detalle:
-                    raise serializers.ValidationError({"error": "Tasa sin idMoneda asociado (impide crear DetalleAsiento)", "debug": debug_steps})
+            # --- NUEVO: resolver moneda para DetalleAsiento (campo obligatorio en DB) ---
+            moneda_obj = None
+            # tasa fue resuelta arriba; preferimos la moneda de la tasa
+            moneda_obj = getattr(tasa, 'idMoneda', None) or getattr(tasa, 'moneda', None)
+            # fallback a la configuración (si contiene objeto o id)
+            if not moneda_obj:
+                moneda_obj = getattr(configuracion, 'moneda', None) or getattr(configuracion, 'idMoneda', None)
 
+            if not moneda_obj:
+                # abortar con mensaje claro en vez de provocar IntegrityError en BD
+                debug_steps.append({"step": "detalle_asiento_error", "reason": "no_moneda_disponible"})
+                raise serializers.ValidationError({
+                    "error": "No se pudo determinar la moneda para los DetalleAsiento (idMoneda). Revise la configuración/tasa.",
+                    "debug": debug_steps
+                })
+
+            # obtener id numérico de la moneda (soporta tanto instancia como entero)
+            moneda_id = None
+            try:
+                moneda_id = getattr(moneda_obj, 'pk', None) or getattr(moneda_obj, 'id', None) or int(moneda_obj)
+            except Exception:
+                moneda_id = None
+
+            if not moneda_id:
+                debug_steps.append({"step": "detalle_asiento_error", "reason": "moneda_id_no_valida", "moneda_obj": str(moneda_obj)})
+                raise serializers.ValidationError({
+                    "error": "La moneda determinada no tiene una PK válida (idMoneda).",
+                    "debug": debug_steps
+                })
+
+            # crear los DetalleAsiento incluyendo idMoneda_id para satisfacer la constraint NOT NULL
+            if plan_debe and plan_haber:
                 DetalleAsiento.objects.create(
                     idAsiento=asiento,
                     idPlanCuenta=plan_debe.idPlanCuenta,
+                    idMoneda_id=moneda_id,
                     debe=Decimal(validated_data['monto']),
-                    haber=Decimal('0.00'),
-                    idMoneda=moneda_para_detalle
+                    haber=Decimal('0.00')
                 )
                 DetalleAsiento.objects.create(
                     idAsiento=asiento,
                     idPlanCuenta=plan_haber.idPlanCuenta,
+                    idMoneda_id=moneda_id,
                     debe=Decimal('0.00'),
-                    haber=Decimal(validated_data['monto']),
-                    idMoneda=moneda_para_detalle
+                    haber=Decimal(validated_data['monto'])
                 )
-                debug_steps.append({"step": "detalle_asiento_creado"})
+                debug_steps.append({"step": "detalle_asiento_creado", "moneda_id": moneda_id})
             else:
                 debug_steps.append({"step": "detalle_asiento_omitido", "reason": "PlanArticulo no encontrado"})
 
-            # metadata de debug
-            self.context['created_nr_id'] = getattr(created_nr, 'id', None)
-            self.context['created_nr_raw_idCuota'] = getattr(created_nr, 'idCuota_id', None)
+            # Guardar meta para la vista: id de la nota relacionada y el raw idCuota guardado en DB
+            if created_nr:
+                self.context['created_nr_id'] = getattr(created_nr, 'id', None)
+                # _id raw es el entero que está en la columna idCuota_id (puede ser id InscripcionCuota o id CuotaFormacion)
+                self.context['created_nr_raw_idCuota'] = getattr(created_nr, 'idCuota_id', None)
+
             self.context['debug_steps'] = debug_steps
             return pago_temporal
 
@@ -805,10 +867,9 @@ class CuotaPagoTemporalSerializer(serializers.Serializer):
             logger.exception("Error en create() CuotaPagoTemporalSerializer: %s", tb)
             raise serializers.ValidationError({
                 "error": str(exc),
-            "traceback": tb,
-            "debug_steps": debug_steps
-        })
-
+                "traceback": tb,
+                "debug_steps": debug_steps
+            })
 
 class RequisitoSerializer(serializers.ModelSerializer):
     class Meta:
