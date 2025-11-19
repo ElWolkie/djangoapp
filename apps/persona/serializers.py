@@ -131,27 +131,14 @@ class UsuarioCreateSerializer(serializers.Serializer):
     respuestaSeguridad = serializers.CharField(max_length=255)
 
     def _normalize_cedula_input(self, raw: str) -> str:
-        """
-        Normaliza la entrada:
-        - quita espacios
-        - convierte a mayúsculas
-        - si falta el guion entre tipo y número, lo añade
-        - si recibieron sólo dígitos intenta no modificar (se manejará en la búsqueda)
-        """
         if not raw:
             return ''
-
-        s = str(raw).upper().strip()
-        s = s.replace(' ', '')
-
-        # Si tiene guion, respetarlo (pero normalizar)
+        s = str(raw).upper().strip().replace(' ', '')
         if '-' in s:
             parts = s.split('-', 1)
             return f"{parts[0]}-{parts[1]}"
-        # Si empieza con letra seguida de dígitos, añadir guion
         if len(s) >= 2 and s[0].isalpha() and s[1:].isdigit():
             return f"{s[0]}-{s[1:]}"
-        # si solo son dígitos, devolverlos (la búsqueda probará prefijos)
         return s
 
     def validate_cedula(self, value):
@@ -159,16 +146,14 @@ class UsuarioCreateSerializer(serializers.Serializer):
         logger.debug(f"🔎 Validando cédula (raw): '{value}' -> normalizada: '{raw_norm}'")
 
         persona = None
-
-        # 1) Si la normalizada tiene formato T-NNN..., buscar exacto primero
         if '-' in raw_norm:
             try:
                 persona = Personas.objects.get(cedula=raw_norm)
             except Personas.DoesNotExist:
                 persona = None
-        # 2) Si no la encontramos, si raw_norm son sólo dígitos o no exacto, probar con prefijos comunes
+
         if persona is None:
-            digits = raw_norm.replace('-', '')  # elimina guion por si acaso
+            digits = raw_norm.replace('-', '')
             if digits.isdigit():
                 for pref in ('V', 'E', 'P'):
                     try:
@@ -176,13 +161,11 @@ class UsuarioCreateSerializer(serializers.Serializer):
                         break
                     except Personas.DoesNotExist:
                         continue
-                # si todavía no se encuentra, intentar buscar por sufijo (casos edge)
                 if persona is None:
                     posibles = Personas.objects.filter(cedula__endswith=digits)
                     if posibles.exists():
                         persona = posibles.first()
             else:
-                # no son sólo dígitos y no tienen guion: buscar por coincidencia (tolerante)
                 try:
                     persona = Personas.objects.get(cedula__iexact=raw_norm)
                 except Personas.DoesNotExist:
@@ -191,15 +174,14 @@ class UsuarioCreateSerializer(serializers.Serializer):
         if persona is None:
             raise serializers.ValidationError("La cédula indicada no corresponde a ninguna persona registrada.")
 
-        # 2. Comprobar que la persona NO tenga ya un usuario
+        # Verificar que NO exista usuario
         if Usuarios.objects.filter(idPersona=persona).exists():
             raise serializers.ValidationError("Esta persona ya tiene una cuenta de usuario asociada.")
 
-        # 3. Comprobar que la persona tenga el tipo 'Usuario' asignado (singular)
+        # Verificar que la persona tenga tipo 'Usuario'
         if not persona.personatp_set.filter(idTP__nombreTP='Usuario').exists():
             raise serializers.ValidationError("Esta persona no tiene permisos para crear una cuenta de usuario.")
 
-        # Guardamos el objeto persona en el contexto para create()
         self.context['persona_obj'] = persona
         return value
 
@@ -210,40 +192,33 @@ class UsuarioCreateSerializer(serializers.Serializer):
 
         try:
             with transaction.atomic():
-                # Crear usuario (intentamos pasar idPersona como entero)
                 try:
                     user = Usuarios.objects.create_user(
                         idPersona=persona_obj.idPersona,
                         password=validated_data['password'],
                         preguntaSeguridad=validated_data['preguntaSeguridad'],
                         respuestaSeguridad=validated_data['respuestaSeguridad'],
-                        coloresUsuario='UsuariosApp'  # 👈 AQUÍ AGREGO EL CAMPO - LÍNEA CLAVE
+                        coloresUsuario='UsuariosApp'
                     )
                 except TypeError:
-                    # fallback si la firma usa idPersona_id u otro nombre
                     user = Usuarios.objects.create_user(
                         idPersona_id=persona_obj.idPersona,
                         password=validated_data['password'],
                         preguntaSeguridad=validated_data['preguntaSeguridad'],
                         respuestaSeguridad=validated_data['respuestaSeguridad'],
-                        coloresUsuario='UsuariosApp'  # 👈 AQUÍ TAMBIÉN EN EL FALLBACK
+                        coloresUsuario='UsuariosApp'
                     )
 
                 logger.info(f"✅ Usuario creado exitosamente para la persona: {persona_obj.cedula} "
-                           f"(idUsuario={getattr(user, 'idUsuario', None)}, "
-                           f"tipo=UsuariosApp)")  # 👈 ACTUALIZO EL LOG
+                            f"(idUsuario={getattr(user, 'idUsuario', None)}, tipo=UsuariosApp)")
 
-                # --- ASIGNAR SOLO GRUPOS EXISTENTES (NO CREAR) ---
-                nombres_grupos = ['Clientes-Proveedores', 'Inscripciones']  # ajusta si necesitas otros nombres
-
+                nombres_grupos = ['Clientes-Proveedores', 'Inscripciones']
                 for nombre in nombres_grupos:
                     try:
                         grupo = Group.objects.get(name=nombre)
                     except Group.DoesNotExist:
                         logger.warning(f"⚠️ Grupo '{nombre}' no existe — se omite la asignación a ese grupo.")
                         continue
-
-                    # No modificamos los permisos del grupo aquí — solo añadimos el usuario al grupo existing
                     user.groups.add(grupo)
                     logger.info(f"🔐 Usuario añadido al grupo existente: '{nombre}'")
 
@@ -256,18 +231,23 @@ class UsuarioCreateSerializer(serializers.Serializer):
 
     def to_representation(self, instance):
         """
-        Representación personalizada para la respuesta
+        Representación robusta cuando `instance` es un objeto Usuarios.
+        No asumimos atributos que no existen en Usuarios.
         """
+        # proteger accesos por si falta idPersona
+        persona = getattr(instance, 'idPersona', None)
+        cedula = getattr(persona, 'cedula', None) if persona else None
+        nombres = getattr(persona, 'nombres', '') if persona else ''
+        apellidos = getattr(persona, 'apellidos', '') if persona else ''
+
         return {
-            'idUsuario': instance.idUsuario,
-            'usuario': instance.usuario,
-            'idPersona': instance.idPersona.idPersona,
-            'cedula': instance.idPersona.cedula,
-            'nombres': instance.idPersona.nombres,
-            'apellidos': instance.idPersona.apellidos,
-            'coloresUsuario': instance.coloresUsuario,  # 👈 INCLUYO EL CAMPO EN LA RESPUESTA
+            'idUsuario': getattr(instance, 'idUsuario', None),
+            # Para mantener compatibilidad con frontend, devolvemos 'usuario' como la cédula o el idUsuario si no existe cédula
+            'usuario': cedula if cedula else getattr(instance, 'idUsuario', None),
+            'idPersona': getattr(persona, 'idPersona', None) if persona else None,
+            'cedula': cedula,
+            'nombres': nombres,
+            'apellidos': apellidos,
+            'coloresUsuario': getattr(instance, 'coloresUsuario', None),
             'mensaje': 'Usuario creado exitosamente'
         }
-
-
-

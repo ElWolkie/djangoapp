@@ -154,7 +154,7 @@ def obtener_persona_login(request):
     
     return Response({
         'error': 'No se encontró persona con esta cédula',
-        'sugerencia': 'Intente con el formato completo (ej: V-30895206)',
+        'sugerencia': 'Intente con el formato completo (ej: V-00000000)',
         'debug_similares': [{'cedula': p.cedula, 'id': p.idPersona} for p in similares]
     }, status=status.HTTP_404_NOT_FOUND)
 
