@@ -30,6 +30,7 @@ import { AuthProvider } from './src/contexts/AuthContext';
 import { ReloadProvider } from './src/contexts/ReloadContext';
 
 import { loadTokensToApi } from './src/api/auth';
+import { initAuthHeader } from './src/api/api';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -72,6 +73,7 @@ export default function App() {
       }
       // Luego la inicialización específica
       initializeApp();
+      initAuthHeader();
     })();
   }, []);
 

@@ -4,7 +4,7 @@
     "module": "es2015",
     "strict": true,
     "jsx": "react-jsx",
-    "types": ["nativewind/types"],
+    "types": ["node", "react", "react-native", "nativewind/types"],
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
