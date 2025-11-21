@@ -99,8 +99,9 @@
               </a>
             </li>
             {% endif %}
+
       {% if user.is_authenticated %}
-        {% if user.is_superuser or perms.home.view_formacion or perms.home.add_formacion or perms.home.view_materia or perms.home.add_materia or perms.home.view_cohorte or perms.home.add_cohorte or perms.home.view_cargo or perms.home.add_cargo or perms.home.view_honorario or perms.home.add_honorario or perms.inscripcion.view_inscripcion or perms.inscripcion.add_inscripcion %}
+        {% if user.is_superuser or perms.home.view_formacion or perms.home.add_formacion or perms.home.view_tipoformacion or perms.home.add_tipoformacion or perms.home.view_cuotaformacion or perms.home.add_cuotaformacion or perms.home.view_materia or perms.home.add_materia or perms.home.view_cohorte or perms.home.add_cohorte or perms.home.view_cargo or perms.home.add_cargo or perms.honorario.view_honorario or perms.honorario.add_honorario or perms.inscripcion.view_inscripcion or perms.inscripcion.add_inscripcion %}
             <li class="nav-item">
                   <a class="nav-link menu2" href="#" id="academiaDropdownTrigger" data-toggle="collapse" data-target="#menu2" aria-expanded="false" aria-controls="menu2">  
                     <i class="ni ni-hat-3 text-orange"></i>  
@@ -108,7 +109,7 @@
                   </a> 
                 <div id="menu2" class="collapse ml-3">
                   <ul class="nav flex-column">
-                    {% if perms.home.view_formacion or perms.home.add_formacion or perms.home.view_tipoformacion or perms.home.add_tipoformacion %}
+                    {% if perms.home.view_formacion or perms.home.add_formacion or perms.home.view_tipoformacion or perms.home.add_tipoformacion or perms.home.view_cuotaformacion or perms.home.add_cuotaformacion %}
                       <li class="nav-item">  
                         <a class="nav-link" href="#" id="formacionSubTrigger" data-toggle="collapse" data-target="#ofertasMenu" aria-expanded="false" aria-controls="ofertasMenu" style="padding-left: 15px;">  
                           <i class="ni ni-ruler-pencil text-orange"></i>
@@ -261,7 +262,7 @@
 
       {# --- GESTIONAR FINANZA (Ejemplo: Visible para Staff y Superusers) --- #}
       {% if user.is_authenticated %}
-        {% if user.is_superuser or perms.home.view_movimiento or perms.home.add_movimiento or perms.home.view_tipoingreso or perms.home.add_tipoingreso or perms.home.view_tipomovimiento or perms.home.add_tipomovimiento or perms.home.view_banco or perms.home.add_banco or perms.home.view_denominacion or perms.home.add_denominacion or perms.home.view_moneda or perms.home.add_moneda or perms.home.view_tasa or perms.home.add_tasa %}
+        {% if user.is_superuser or perms.home.view_moneda or perms.home.add_moneda or perms.home.view_tasa or perms.home.add_tasa %}
               <li class="nav-item">
                   <a class="nav-link menu4" href="#" id="ingresoDropdown" data-toggle="collapse" data-target="#menu4" aria-expanded="false" aria-controls="menu4">
                     <i class="ni ni-credit-card text-orange"></i>
@@ -292,6 +293,8 @@
           {% endif %}
       {% endif %}
 
+      {% if user.is_authenticated %}
+        {% if user.is_superuser or perms.factura.add_nota or perms.factura.view_nota or perms.factura.change_nota or perms.factura.add_factura or perms.factura.view_factura or perms.factura.change_factura or perms.factura.view_notarelacionada or perms.factura.add_notarelacionada or perms.factura.change_notarelacionada %}
             <li class="nav-item">
               <a class="nav-link" href="#" id="facturaDropdown" data-toggle="collapse" data-target="#facturaMenu" aria-expanded="false" aria-controls="facturaMenu">
                 <i class="ni ni-single-copy-04 text-orange"></i>
@@ -300,27 +303,39 @@
               <div id="facturaMenu" class="collapse ml-3">
                 <ul class="nav flex-column">
                   <!-- Facturas -->
-                  <li class="nav-item">
-                    <a class="nav-link" href="{% url 'nota_create' %}" style="padding-left: 15px;">
-                      <i class="ni ni-fat-add text-orange"></i>
-                      <span class="nav-link-text">Registrar Nota</span>
-                    </a>
-                  </li>
-                  <li class="nav-item">
-                    <a class="nav-link" href="{% url 'nota_list' %}" style="padding-left: 15px;">
-                      <i class="ni ni-bullet-list-67 text-orange"></i>
-                      <span class="nav-link-text">Consultar Nota</span>
-                    </a>
-                  </li>
-                  <li class="nav-item">
-                    <a class="nav-link" href="{% url 'factura_list' %}" style="padding-left: 15px;">
-                      <i class="ni ni-bullet-list-67 text-orange"></i>
-                      <span class="nav-link-text">Consultar Factura</span>
-                    </a>
-                  </li>
+                   {% if user.is_superuser or perms.factura.add_nota or perms.factura.add_notarelacionada %}
+                      <li class="nav-item">
+                        <a class="nav-link" href="{% url 'nota_create' %}" style="padding-left: 15px;">
+                          <i class="ni ni-fat-add text-orange"></i>
+                          <span class="nav-link-text">Registrar Nota</span>
+                        </a>
+                      </li>
+                    {% endif %}
+
+                  {% if user.is_superuser or perms.factura.view_nota or perms.factura.change_nota or perms.factura.view_notarelacionada or perms.factura.change_notarelacionada %}
+                    <li class="nav-item">
+                      <a class="nav-link" href="{% url 'nota_list' %}" style="padding-left: 15px;">
+                        <i class="ni ni-bullet-list-67 text-orange"></i>
+                        <span class="nav-link-text">Consultar Nota</span>
+                      </a>
+                    </li>
+                  {% endif %}
+                  
+                  
+                  {% if user.is_superuser or perms.factura.add_factura or perms.factura.view_factura or perms.factura.change_factura %}
+                    <li class="nav-item">
+                      <a class="nav-link" href="{% url 'factura_list' %}" style="padding-left: 15px;">
+                        <i class="ni ni-bullet-list-67 text-orange"></i>
+                        <span class="nav-link-text">Consultar Factura</span>
+                      </a>
+                    </li>
+                  {% endif %}
                 </ul>
               </div>
             </li>
+        {% endif %}
+      {% endif %}
+
               <!-- Pagos -->
             <li class="nav-item">
               <a class="nav-link" href="#" id="pagoDropdown" data-toggle="collapse" data-target="#pagoMenu" aria-expanded="false" aria-controls="pagoMenu">
@@ -351,7 +366,7 @@
       {# --- GESTIONAR USUARIO (Visible según permisos) --- #}
         {% if user.is_authenticated %}
         {# Verificar si tiene alguno de estos permisos: is_superuser o permisos de usuarios #}
-        {% if user.is_superuser or perms.home.view_usuarios or perms.home.add_usuarios or perms.home.change_usuarios or perms.home.delete_usuarios or perms.persona.view_personas or perms.persona.add_personas or perms.persona.change_personas or perms.persona.delete_personas %}
+        {% if user.is_superuser or perms.home.view_usuarios or perms.home.add_usuarios or perms.home.change_usuarios or perms.home.delete_usuarios %}
         <li class="nav-item">
             <a class="nav-link usuarioMenu {% if 'usuario' in segment %} active {% endif %}" 
               href="#" 
@@ -435,7 +450,7 @@
 
         {# --- CONFIGURAR (Visible para superusuarios y administradores con permiso de vista) ---#}
         {% if user.is_authenticated %}
-          {% if user.is_superuser or perms.persona.view_tipopersona or perms.home.view_configuracion %}
+          {% if user.is_superuser or perms.persona.view_tipopersona or perms.persona.add_tipopersona or perms.home.view_configuracion %}
             <li class="nav-item">
               <a class="nav-link menu1" href="#" id="configuracionDropdown" data-toggle="collapse" data-target="#configuracionMenu" aria-expanded="false" aria-controls="configuracionMenu">
                 <i class="ni ni-settings-gear-65 text-default"></i>
@@ -444,7 +459,7 @@
               <div id="configuracionMenu" class="collapse">
                 <ul class="nav flex-column ml-3">
                   {# “Tipo Persona” sólo para superuser o quien tenga permiso view_tipopersona #}
-                  {% if user.is_superuser or perms.persona.view_tipopersona %}
+                  {% if user.is_superuser or perms.persona.view_tipopersona or perms.persona.add_tipopersona %}
                     <li class="nav-item">
                       <a class="nav-link" 
                         href="{% url 'listado_tipos_persona' %}" 
@@ -516,5 +531,3 @@
     </div>
   </div>
 </nav>
-
-{% comment %} <script src="{% static 'assets/js/sidenav.js' %}" defer></script> {% endcomment %}

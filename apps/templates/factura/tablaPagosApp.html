@@ -108,26 +108,33 @@
             <td class="actions-column">
               <div class="d-flex gap-2">
                 {% if not pago.confirmado %}
-                <form method="post" action="{% url 'pago_confirmar' pago.idPagoTemporal %}">
-                  {% csrf_token %}
-                  <button type="submit" class="btn btn-success btn-sm" title="Confirmar Pago">
-                    <i class="fas fa-check"></i>
-                  </button>
-                </form>
-                <form method="post" action="{% url 'pago_cancelar' pago.idPagoTemporal %}">
-                  {% csrf_token %}
-                  <button type="submit" class="btn btn-danger btn-sm" title="Cancelar Pago">
-                    <i class="fas fa-times"></i>
-                  </button>
-                </form>
-                {% endif %}
-                 {% if  pago.confirmado == 1 %}
-                  <button class="btn btn-secondary btn-sm" disabled>
+                  <form method="post" action="{% url 'pago_confirmar' pago.idPagoTemporal %}">
+                    {% csrf_token %}
+                    {% if perms.factura.change_pagotemporal %}
+                      <button type="submit" class="btn btn-success btn-sm" title="Confirmar Pago">
+                        <i class="fas fa-check"></i>
+                      </button>
+                    {% endif %}
+                  </form>
+
+                  <form method="post" action="{% url 'pago_cancelar' pago.idPagoTemporal %}">
+                    {% csrf_token %}
+                    {% if perms.factura.change_pagotemporal and perms.factura.delete_pagotemporal %}
+                      <button type="submit" class="btn btn-danger btn-sm" title="Cancelar Pago">
+                        <i class="fas fa-times"></i>
+                      </button>
+                    {% endif %}
+                  </form>
+
+                {% else %}
+                  {# Si ya está confirmado, mostramos el icono deshabilitado #}
+                  <button class="btn btn-secondary btn-sm" disabled title="Ya confirmado">
                     <i class="fas fa-check-circle"></i>
                   </button>
                 {% endif %}
               </div>
             </td>
+
           </tr>
           {% empty %}
           <tr>
