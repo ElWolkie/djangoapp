@@ -2,6 +2,7 @@ import json
 import os
 from pyexpat.errors import messages
 import re
+import traceback
 import uuid
 import random
 from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
@@ -37,7 +38,7 @@ from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.db.models import Q
 
 from .models import (
-    TIPOS_ARTICULO, Factura, FacturaDetalle, NotaRelacionada, Pago, ParametroTributario, Nota, PlanArticulo, PagoTemporal
+    TIPOS_ARTICULO, Factura, FacturaDetalle, NotaRelacionada, Pago, PagoIGTF, ParametroTributario, Nota, PlanArticulo, PagoTemporal
 )
 from .forms import (
     FacturaForm, FacturaDetalleForm, PagoForm, ParametroTributarioForm, NotaForm, PlanArticuloForm, 
@@ -250,7 +251,11 @@ def nota_create(request):
     cuentas_plan = PlanCuenta.objects.filter(estadoPlanCuenta=True).order_by('codigoPlanCuenta')
     numero_nota = generar_numero_nota()  # Generar el número de nota
     empresas = empresa.objects.all()
-    cuotas = InscripcionCuota.objects.filter(estadoPago='EN ESPERA').order_by('idCuota')
+    cuotas = InscripcionCuota.objects.filter(
+        estadoPago='EN ESPERA'
+    ).exclude(
+        idCuota__in=NotaRelacionada.objects.values_list('idCuota', flat=True)
+    ).order_by('idCuota')
     solicitudes = Solicitud.objects.filter(estadoSolicitud='ACTIVO').order_by('idSoli')
     honorarios = Honorario.objects.filter(estadoHonorario='ACTIVO').order_by('idHonorario')
     inscripciones = Inscripcion.objects.filter(is_active=True).order_by('idInscripcion')
@@ -1107,6 +1112,7 @@ def pago_create(request, pk=None):
     print("=== INICIANDO VISTA PAGO_CREATE ===")
     # Obtener idTasa desde el formulario y consultar la moneda relacionada
     id_tasa = request.POST.get('idTasa')
+    IGTFF = request.POST.get('montoIGTF')
     moneda_pago = None
     id_moneda_pago = None
     if id_tasa:
@@ -1176,7 +1182,7 @@ def pago_create(request, pk=None):
     for nota in notas:
         print(f"\n--- Procesando nota {nota.numeroNota} ---")
         
-        pagos_relacionados = Pago.objects.filter(idNota=nota)
+        pagos_relacionados = Pago.objects.filter(idNota=nota, igtf=False)
         print(f"Pagos relacionados: {pagos_relacionados.count()}")
         
         total_pagado = calcular_total_pagado_preciso(pagos_relacionados, moneda_configuracion, tasa_configuracion_valor)
@@ -1311,7 +1317,7 @@ def pago_create(request, pk=None):
                     print(f"Periodo contable: {periodo_activo}")
 
                     # Verificar los pagos relacionados a la nota
-                    pagos_relacionados = Pago.objects.filter(idNota=pago.idNota)
+                    pagos_relacionados = Pago.objects.filter(idNota=pago.idNota, igtf=False)
                     print(f"Pagos existentes para la nota: {pagos_relacionados.count()}")
                     
                     total_pagado = calcular_total_pagado_preciso(pagos_relacionados, moneda_configuracion, tasa_configuracion_valor)
@@ -1487,13 +1493,106 @@ def pago_create(request, pk=None):
                         es_pago_final_con_ajuste = Decimal('0.0') < diferencia_final <= TOLERANCIA_REDONDEO
                         es_pago_final_exacto = es_cero_con_tolerancia(diferencia_final)
                         es_pago_parcial = diferencia_final > TOLERANCIA_REDONDEO
+                       #=================================================================
+                        #@@@@LOGICA IGTF CORREGIDA@@@@
+                        #=================================================================
+                        # Calcular y registrar IGTF de forma segura y precisa
+                        try:
+                            nota = pago.idNota
+                            tipo_operacion = nota.tipoOperacion if nota else None
 
-                        # Limpiamos cualquier detalle por si acaso, para asegurar que el asiento se cree desde cero.
+                            # Determinar si la moneda es nacional (idMoneda == 1)
+                            moneda_pago = getattr(pago.idTasa, 'idMoneda', None)
+                            moneda_nota = getattr(nota.idTasa, 'idMoneda', None)
+                            es_nacional = False
+                            if moneda_pago and getattr(moneda_pago, 'idMoneda', None) == 1:
+                                es_nacional = True
+                            elif moneda_nota and getattr(moneda_nota, 'idMoneda', None) == 1:
+                                es_nacional = True
+
+                            # Determinar tipo IGTF según operación y forma de pago
+                            if tipo_operacion == 'COBRO':
+                                if pago.formaPago == 'EFECTIVO':
+                                    tipo_igtf = 'IGTF_NACIONAL_VENTAS_EFECTIVO' if es_nacional else 'IGTF_DIVISA_VENTAS_EFECTIVO'
+                                else:
+                                    tipo_igtf = 'IGTF_NACIONAL_VENTAS_DIGITAL' if es_nacional else 'IGTF_DIVISA_VENTAS_DIGITAL'
+                            elif tipo_operacion == 'PAGO':
+                                if pago.formaPago == 'EFECTIVO':
+                                    tipo_igtf = 'IGTF_NACIONAL_COMPRAS_EFECTIVO' if es_nacional else 'IGTF_DIVISA_COMPRAS_EFECTIVO'
+                                else:
+                                    tipo_igtf = 'IGTF_NACIONAL_COMPRAS_DIGITAL' if es_nacional else 'IGTF_DIVISA_COMPRAS_DIGITAL'
+                            else:
+                                tipo_igtf = None
+
+                            if not tipo_igtf:
+                                # No hay tipo IGTF determinado; continuar sin IGTF
+                                tipo_igtf = None
+
+                            if tipo_igtf:
+                                parametro_igtf = ParametroTributario.objects.filter(tipo=tipo_igtf, activo=True).first()
+                            else:
+                                parametro_igtf = None
+
+                            if not parametro_igtf:
+                                # No hay parámetro activo para este tipo; no aplicar IGTF
+                                parametro_igtf = None
+
+                            if parametro_igtf:
+                                # Convertir valores a Decimal de forma segura
+                                monto_pago_dec = to_decimal_precise(pago.monto)
+                                porcentaje_dec = to_decimal_precise(parametro_igtf.porcentaje)
+
+                                # monto_igtf en moneda del pago
+                                monto_igtf = (monto_pago_dec * porcentaje_dec / Decimal('100')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+                                # Si la nota tiene otra moneda y necesitamos convertir, usar tasas históricas
+                                monto_igtf_convertido = monto_igtf
+                                try:
+                                    tasa_pago_obj = pago.idTasa
+                                    tasa_nota_obj = nota.idTasa
+                                    if tasa_pago_obj and tasa_nota_obj:
+                                        tasa_pago_val = to_decimal_precise(tasa_pago_obj.montoTasa)
+                                        tasa_nota_val = to_decimal_precise(tasa_nota_obj.montoTasa)
+                                        if tasa_nota_val > Decimal('0'):
+                                            monto_igtf_convertido = (monto_igtf * tasa_pago_val / tasa_nota_val).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                                except Exception:
+                                    # Si falla la conversión de tasas, mantener monto_igtf en moneda original
+                                    monto_igtf_convertido = monto_igtf
+
+                                # ✅ CORRECCIÓN: SIEMPRE sumar al igtfAplicado, excepto cuando ya está PAGADO
+                                if nota.estadoIGTF != 'PAGADO':
+                                    try:
+                                        nota_igtf_actual = to_decimal_precise(nota.igtfAplicado)
+                                    except Exception:
+                                        nota_igtf_actual = Decimal('0.00')
+                                    
+                                    # Sumar el nuevo IGTF al acumulado
+                                    nota.igtfAplicado = (nota_igtf_actual + monto_igtf_convertido).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                                    
+                                    # ✅ CORRECCIÓN: Actualizar estado IGTF según corresponda
+                                    if monto_igtf_convertido > Decimal('0.00'):
+                                        # Si hay IGTF aplicado, el estado debe ser PENDIENTE (a menos que ya esté PAGADO)
+                                        if nota.estadoIGTF != 'PAGADO':
+                                            nota.estadoIGTF = 'PENDIENTE'
+                                    else:
+                                        # Si no hay IGTF, marcar como NO_APLICA
+                                        if nota.estadoIGTF in [None, '']:
+                                            nota.estadoIGTF = 'NO_APLICA'
+                                
+                                nota.save()
+                                print(f"[IGTF] Aplicado: {monto_igtf_convertido} | Acumulado: {nota.igtfAplicado} | Estado: {nota.estadoIGTF}")
+
+                        except Exception as ex:
+                            # No interrumpir el flujo por errores en IGTF; registrar en consola para debugging
+                            print(f"Advertencia: error al calcular/registrar IGTF: {ex}")
+                            import traceback
+                            print(traceback.format_exc())
+                        #===============================================FIN===============
                         DetalleAsiento.objects.filter(idAsiento=asiento_pago).delete()
 
                         if es_pago_final_con_ajuste:
                             # --- CASO 1: PAGO FINAL CON AJUSTE POR REDONDEO (Asiento Compuesto de 3 líneas) ---
-                            print(f"AJUSTE: La diferencia {diferencia_final} está dentro de la tolerancia. Se considera pago final.")
+                            print(f"AJUSTE: La diferencia {diferencia_final} está dentro de la tol=erancia. Se considera pago final.")
 
                             # ¡IMPORTANTE! Debes crear esta cuenta en tu plan de cuentas y usar el código correcto aquí.
                             cuenta_ajuste_gasto = PlanCuenta.objects.filter(codigoPlanCuenta='52000104').first()
@@ -1508,7 +1607,13 @@ def pago_create(request, pk=None):
                             DetalleAsiento.objects.create(idAsiento=asiento_pago, idMoneda=moneda_pago, idPlanCuenta=plan_cuenta_haber, debe=0.00, haber=float(saldo_nota))
 
                             print(f"Asiento compuesto cuadrado. Total Debe: {monto_pago_convertido + diferencia_final}, Total Haber: {saldo_nota}")
-                            pago.idNota.estado = 'PAGADO'
+                            # ✅ MODIFICACIÓN: Verificar estado IGTF antes de marcar como PAGADO
+                            if pago.idNota.estadoIGTF in ['NO_APLICA', 'PAGADO']:
+                                pago.idNota.estado = 'PAGADO'
+                                print("Nota marcada como PAGADO (saldo e IGTF cubiertos)")
+                            else:
+                                pago.idNota.estado = 'PARCIAL'
+                                print(f"Nota marcada como PARCIAL (saldo cubierto pero IGTF pendiente: {pago.idNota.estadoIGTF})")
 
                         elif es_pago_final_exacto:
                             # --- CASO 2: PAGO FINAL EXACTO (Asiento Simple de 2 líneas) ---
@@ -1519,7 +1624,13 @@ def pago_create(request, pk=None):
                             # Detalle 2: Cancelación de la Cuenta por Cobrar (HABER)
                             DetalleAsiento.objects.create(idAsiento=asiento_pago, idMoneda=moneda_pago, idPlanCuenta=plan_cuenta_haber, debe=0.00, haber=float(monto_pago_convertido))
 
-                            pago.idNota.estado = 'PAGADO'
+                             # ✅ MODIFICACIÓN: Verificar estado IGTF antes de marcar como PAGADO
+                            if pago.idNota.estadoIGTF in ['NO_APLICA', 'PAGADO']:
+                                pago.idNota.estado = 'PAGADO'
+                                print("Nota marcada como PAGADO (saldo e IGTF cubiertos)")
+                            else:
+                                pago.idNota.estado = 'PARCIAL'
+                                print(f"Nota marcada como PARCIAL (saldo cubierto pero IGTF pendiente: {pago.idNota.estadoIGTF})")
 
                         elif es_pago_parcial:
                             # --- CASO 3: PAGO PARCIAL (Asiento Simple de 2 líneas) ---
@@ -1544,11 +1655,94 @@ def pago_create(request, pk=None):
                         pago.idAsiento = asiento_pago
                         pago.save()
                         pago.idNota.save() # Guardar el nuevo estado de la nota ('PAGADO' o 'PARCIAL')
+                        try:
+                            if IGTFF:
+                                monto_igtf_dec = to_decimal_precise(IGTFF)
+                                if monto_igtf_dec > Decimal('0'):
+                                    # Reutilizar valores calculados anteriormente si existen
+                                    tipo = locals().get('tipo_igtf') or request.POST.get('tipoIGTF')
+                                    porcentaje = locals().get('porcentaje_dec')
+                                    # Si no tenemos porcentaje, intentar obtenerlo desde ParametroTributario
+                                    if porcentaje is None:
+                                        parametro = ParametroTributario.objects.filter(tipo=tipo, activo=True).first() if tipo else None
+                                        porcentaje = to_decimal_precise(parametro.porcentaje) if parametro and parametro.porcentaje is not None else Decimal('0.00')
 
+                                    PagoIGTF.objects.create(
+                                        idPago=pago,
+                                        tipoIGTF=tipo,
+                                        montoIGTF=monto_igtf_dec,
+                                        porcentajeIGTF=porcentaje
+                                    )
+
+                        except Exception as e:
+                            # No interrumpir el flujo; registrar para depuración
+                            print(f"Advertencia: error creando PagoIGTF: {e}")
                         # --- LÓGICA POST-PAGO ---
                         # Ahora, basado en el estado final de la nota, ejecutamos las acciones correspondientes.
 
                         if pago.idNota.estado == 'PARCIAL':
+                            # Determinar el motivo del estado PARCIAL
+                            motivo_parcial = ""
+                            if es_pago_parcial:
+                                motivo_parcial = "aún posee deuda financiera"
+                                pagar_igtf = False
+                            else:
+                                motivo_parcial = f"aún posee IGTF pendiente (estado: {pago.idNota.estadoIGTF})"
+                                pagar_igtf = True
+
+                                # Consultar el PlanArticulo para determinar las cuentas contables
+                                plan_articulos = PlanArticulo.objects.filter(tipoArticulo='IGTF')
+                                if not plan_articulos.exists():
+                                    # Si no se encuentran planes de artículo para IGTF, no se realiza ninguna acción
+                                    return
+
+                                # Determinar las cuentas contables para el Debe y el Haber
+                                cuenta_debe = plan_articulos.filter(tipo=True).first()  # `tipo=True` indica que es Debe
+                                cuenta_haber = plan_articulos.filter(tipo=False).first()  # `tipo=False` indica que es Haber
+
+                                if not cuenta_debe or not cuenta_haber:
+                                    # Si no se encuentran las cuentas contables, no se realiza ninguna acción
+                                    return
+                                if monto_igtf > Decimal('0.00'):
+                                    # 1. Crear NUEVO asiento para IGTF
+                                    asiento_igtf = AsientoContable.objects.create(
+                                        numeroAsiento=f"IGTF-{nota.numeroNota}",
+                                        fechaAsiento=pago.fechaPago,  # o fecha actual
+                                        conceptoAsiento=f"Pago IGTF - Nota {nota.numeroNota}",
+                                        idPeriodo=periodo_activo
+                                    )
+
+                                    # 2.Crear los detalles en el NUEVO asiento
+                                    plan_articulos = PlanArticulo.objects.filter(tipoArticulo='IGTF')
+                                    if plan_articulos.exists():
+                                        cuenta_debe = plan_articulos.filter(tipo=True).first()
+                                        cuenta_haber = plan_articulos.filter(tipo=False).first()
+                                        # Obtener el ID del asiento IGTF de manera segura
+                                        asiento_igtf_id = getattr(asiento_igtf, 'idAsiento', None) or getattr(asiento_igtf, 'pk', None)
+
+                                        if cuenta_debe and cuenta_haber:
+                                            DetalleAsiento.objects.create(
+                                                idAsiento_id=asiento_igtf_id,
+                                                idMoneda=nota.idTasa.idMoneda,
+                                                idPlanCuenta=cuenta_debe.idPlanCuenta,
+                                                debe=float(monto_igtf),
+                                                haber=0.00
+                                            )
+
+                                            DetalleAsiento.objects.create(
+                                                idAsiento_id=asiento_igtf_id,
+                                                idMoneda=nota.idTasa.idMoneda,
+                                                idPlanCuenta=cuenta_haber.idPlanCuenta,
+                                                debe=0.00,
+                                                haber=float(monto_igtf)
+                                            )
+
+                                            # 3. Asociar el asiento IGTF a la nota
+                                            IDasiento_igtf = AsientoContable.objects.get(pk=asiento_igtf_id)  # Obtén la instancia
+                                            nota.asiento_igtf = IDasiento_igtf  # Asigna la instancia
+                                            nota.save()
+                                            
+
                             # Actualizar estado de entidades relacionadas a 'PARCIAL'
                             nota_relacionada = NotaRelacionada.objects.filter(idNota=pago.idNota).first()
                             if nota_relacionada:
@@ -1566,9 +1760,10 @@ def pago_create(request, pk=None):
                                         nota_relacionada.idHonorario.estadoPago = 'PARCIAL'
                                         nota_relacionada.idHonorario.save()
 
+    
                             return JsonResponse({
                                 'success': True,
-                                'message': 'El pago fue exitoso, aun posee deuda ¿Desea realizar otro pago adicional?',
+                                'message': f'El pago fue exitoso, {motivo_parcial} ¿Desea realizar otro pago adicional?',
                                 'redirect_url': f"{reverse('pago_create')}?nota={pago.idNota.idNota}",
                                 'pago': {
                                     'idPago': pago.idPago,
@@ -1576,8 +1771,13 @@ def pago_create(request, pk=None):
                                     'monto': f"{float(monto_pago_decimal):.2f} {pago.idTasa.idMoneda.simboloMoneda}",
                                     'fechaPago': pago.fechaPago.strftime('%d/%m/%Y'),
                                     'formaPago': pago.formaPago,
-                                    'referencia': pago.referencia
-                                }
+                                    'referencia': pago.referencia,
+                                    'estado_igtf': pago.idNota.estadoIGTF,
+                                    'pagar_igtf': pagar_igtf,
+                                    'monto_igtf': f"{float(monto_igtf):.2f} {pago.idTasa.idMoneda.simboloMoneda}"
+                                },
+                                'IGTF': pago.idNota.estadoIGTF,
+                                'url_igtf': f"{reverse('pago_createigtf')}?nota={pago.idNota.idNota}"
                             })
                         
                         elif pago.idNota.estado == 'PAGADO':
@@ -1615,7 +1815,8 @@ def pago_create(request, pk=None):
                                     'monto': f"{float(monto_pago_decimal):.2f} {pago.idTasa.idMoneda.simboloMoneda}",
                                     'fechaPago': pago.fechaPago.strftime('%d/%m/%Y'),
                                     'formaPago': pago.formaPago,
-                                    'referencia': pago.referencia
+                                    'referencia': pago.referencia,
+                                    'IGTF': pago.idNota.estadoIGTF
                                 }
                             })
 
@@ -1667,6 +1868,641 @@ def pago_create(request, pk=None):
         'monedas': tasas_activas,
         'notas_json': json.dumps(notas_data, cls=DecimalEncoder) 
     })
+
+def pago_createigtf(request, pk=None):
+    """
+    Vista para crear un nuevo pago y generar un asiento contable asociado.
+    """
+    print("=== INICIANDO VISTA PAGO_CREATE ===")
+    # Obtener idTasa desde el formulario y consultar la moneda relacionada
+    id_tasa = request.POST.get('idTasa')
+    IGTFF = request.POST.get('montoIGTF')
+    moneda_pago = None
+    id_moneda_pago = None
+    if id_tasa:
+        try:
+            tasa_obj = Tasa.objects.select_related('idMoneda').filter(pk=id_tasa).first()
+            if tasa_obj and tasa_obj.idMoneda:
+                moneda_pago = tasa_obj.idMoneda              # objeto Moneda relacionado
+                id_moneda_pago = tasa_obj.idMoneda.idMoneda  # id de la moneda
+            else:
+                print(f"No se encontró tasa o moneda para idTasa={id_tasa}")
+        except Exception as e:
+            print(f"Error al obtener tasa/moneda para idTasa={id_tasa}: {e}")
+
+    # Filtrar notas según el estado y el ID proporcionado
+    if pk:
+        notas = Nota.objects.filter(idNota=pk, estado__in=['PENDIENTE', 'PARCIAL']).order_by('numeroNota')
+        print(f"Filtrando notas por ID específico: {pk}")
+    else:
+        # Traer las notas excluyendo las pagadas y agregando el símbolo de la moneda
+        notas = Nota.objects.select_related('idTasa__idMoneda').exclude(estado__in=['PAGADO', 'FACTURADO']).order_by('numeroNota')
+        print(f"Obteniendo todas las notas pendientes/parciales: {notas.count()} notas encontradas")
+        
+        # Agregar el símbolo de la moneda a cada nota con más información
+        for nota in notas:
+            simbolo_original = nota.idTasa.idMoneda.simboloMoneda if hasattr(nota.idTasa, 'idMoneda') and hasattr(nota.idTasa.idMoneda, 'simboloMoneda') else ""
+            nombre_moneda_original = nota.idTasa.idMoneda.nombreMoneda if hasattr(nota.idTasa, 'idMoneda') and hasattr(nota.idTasa.idMoneda, 'nombreMoneda') else ""
+            print(f"Nota {nota.numeroNota} - Moneda original: {nombre_moneda_original} ({simbolo_original}), Total Original: {nota.igtfAplicado}")
+
+    cuentas_banco = CuentaBanco.objects.filter(estado=True).order_by('idCuentaBanco')
+    print(f"Cuentas bancarias activas: {cuentas_banco.count()}")
+    
+    tasas_activas = obtener_tasas_activas()
+    print(f"Tasas activas disponibles: {len(tasas_activas)} monedas")
+    for tasa in tasas_activas:
+        print(f"  - {tasa['idMoneda__nombreMoneda']} ({tasa['idMoneda__simboloMoneda']}): {tasa['ultima_tasa']}")
+    
+    cuentas_plan = PlanCuenta.objects.filter(estadoPlanCuenta=True).order_by('codigoPlanCuenta')
+    print(f"Plan de cuentas activos: {cuentas_plan.count()}")
+
+    # Obtener la moneda de configuración
+    configuracion = Configuracion.objects.first()
+    if not configuracion:
+        print("ERROR: No se encontró configuración activa")
+        return JsonResponse({
+            'success': False,
+            'message': 'No se encontró una configuración activa en el sistema.'
+        }, status=400)
+    
+    moneda_configuracion = configuracion.moneda
+    print(f"Moneda de configuración: {moneda_configuracion.nombreMoneda} ({moneda_configuracion.simboloMoneda})")
+    
+    tasa_configuracion = Tasa.objects.filter(idMoneda=moneda_configuracion).order_by('-idTasa').first()
+    if not tasa_configuracion:
+        print(f"ERROR: No se encontró tasa para moneda de configuración: {moneda_configuracion.nombreMoneda}")
+        return JsonResponse({
+            'success': False,
+            'message': f'No se encontró una tasa registrada para la moneda de configuración ({moneda_configuracion.nombreMoneda}).'
+        }, status=400)
+
+    tasa_configuracion_valor = to_decimal_precise(tasa_configuracion.montoTasa)
+    print(f"Tasa de configuración ({moneda_configuracion.nombreMoneda}): {tasa_configuracion_valor}")
+
+
+    # Calcular el saldo pendiente de cada nota con conversiones multimoneda
+    print("\n=== CALCULANDO SALDOS PENDIENTES CON CONVERSIONES MULTIMONEDA ===")
+    notas_data = []
+    for nota in notas:
+        print(f"\n--- Procesando nota {nota.numeroNota} ---")
+        
+        pagos_relacionados = Pago.objects.filter(idNota=nota, igtf=True)
+        print(f"Pagos relacionados: {pagos_relacionados.count()}")
+        
+        total_pagado = calcular_total_pagado_preciso(pagos_relacionados, moneda_configuracion, tasa_configuracion_valor)
+        print(f"Total pagado (moneda base): {total_pagado}")
+        
+        # Convertir el total de la nota a moneda base
+        print(f"Total nota original: {nota.igtfAplicado} ({nota.idTasa.idMoneda.nombreMoneda})")
+        total_nota_base = convertir_a_moneda_base(
+            nota.igtfAplicado, 
+            nota.idTasa.idMoneda, 
+            moneda_configuracion, 
+            tasa_configuracion_valor
+        )
+        print(f"Total nota convertido a base: {total_nota_base} ({moneda_configuracion.nombreMoneda})")
+        
+        saldo_pendiente = (total_nota_base - total_pagado).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        print(f"Saldo pendiente calculado: {saldo_pendiente}")
+        
+        # CALCULAR CONVERSIONES MULTIMONEDA (Asumiendo que esta función ya devuelve los montos redondeados a 2 decimales, 
+        # excepto que sean tasas o valores intermedios, como corregimos en la respuesta anterior)
+        print(f"Calculando conversiones multimoneda para saldo: {saldo_pendiente}")
+        conversiones = calcular_conversiones_multimoneda(
+            saldo_pendiente, 
+            moneda_configuracion, 
+            tasa_configuracion_valor,
+            tasas_activas
+        )
+        
+        # Log de conversiones calculadas
+        print(f"CONVERSIONES CALCULADAS:")
+        print(f"  - Base: {conversiones['moneda_base']['monto']} {conversiones['moneda_base']['simbolo']}")
+        if conversiones['moneda_nacional']:
+            print(f"  - Nacional: {conversiones['moneda_nacional']['monto']} {conversiones['moneda_nacional']['simbolo']}")
+        for conv in conversiones['otras_monedas']:
+            print(f"  - {conv['nombre']}: {conv['monto']} {conv['simbolo']} (tasa: {conv['tasa_aplicada']})")
+        
+        # CORRECCIÓN CLAVE: Usar str() en todos los montos Decimal para evitar float()
+        print(f"ENVIANDO AL FRONTEND - Total: {total_nota_base}, Saldo: {saldo_pendiente}, Símbolo: {moneda_configuracion.simboloMoneda}")
+        
+        notas_data.append({
+            'idNota': nota.idNota,
+            'numeroNota': nota.numeroNota,
+            # ✅ CORRECCIÓN 1: Convertir Decimal a str
+            'igtfAplicado': str(total_nota_base),  # En moneda base, como string preciso
+            # ✅ CORRECCIÓN 1: Convertir Decimal a str
+            'saldoPendiente': str(saldo_pendiente),  # En moneda base, como string preciso
+            'idPersona': nota.idPersona.cedula if nota.idPersona else "N/A",
+            'idEmpresa': nota.idEmpresa.nombreEmpresa if nota.idEmpresa else "N/A",
+            'estado': nota.estado,
+            'simbolo_moneda': moneda_configuracion.simboloMoneda,  # Símbolo de moneda base
+            'conversiones_multimoneda': {
+                'moneda_base': {
+                    # ✅ CORRECCIÓN 1: Convertir Decimal a str
+                    'monto': str(conversiones['moneda_base']['monto']),
+                    'moneda_id': conversiones['moneda_base']['moneda_id'],
+                    'nombre': conversiones['moneda_base']['nombre'],
+                    'simbolo': conversiones['moneda_base']['simbolo']
+                },
+                'moneda_nacional': {
+                    # ✅ CORRECCIÓN 1: Convertir Decimal a str (con manejo de None)
+                    'monto': str(conversiones['moneda_nacional']['monto']) if conversiones['moneda_nacional'] else '0.00',
+                    'moneda_id': conversiones['moneda_nacional']['moneda_id'] if conversiones['moneda_nacional'] else None,
+                    'nombre': conversiones['moneda_nacional']['nombre'] if conversiones['moneda_nacional'] else '',
+                    'simbolo': conversiones['moneda_nacional']['simbolo'] if conversiones['moneda_nacional'] else ''
+                },
+                'otras_monedas': [
+                    {
+                        # ✅ CORRECCIÓN 1: Convertir Decimal a str
+                        'monto': str(conv['monto']),
+                        'moneda_id': conv['moneda_id'],
+                        'nombre': conv['nombre'],
+                        'simbolo': conv['simbolo'],
+                        # ✅ CORRECCIÓN 1: Convertir Decimal a str
+                        'tasa_aplicada': str(conv['tasa_aplicada']) 
+                    }
+                    for conv in conversiones['otras_monedas']
+                ]
+            }
+        })
+
+
+    print(f"\n=== RESUMEN NOTAS PROCESADAS ===")
+    
+    # 📝 Bucle de resumen corregido: Itera una sola vez sobre notas_data para el log.
+    for nota_data in notas_data:
+        # Los valores se acceden directamente del diccionario, ya sean str o float (para el log)
+        print(f"Nota {nota_data['numeroNota']}: Total={nota_data['igtfAplicado']} {nota_data['simbolo_moneda']}, Saldo={nota_data['saldoPendiente']} {nota_data['simbolo_moneda']}")
+        
+        # Accedemos a la estructura de conversiones para el log
+        conversiones = nota_data['conversiones_multimoneda']
+        
+        if conversiones['moneda_nacional']:
+            nacional = conversiones['moneda_nacional']
+            print(f"  - Nacional: {nacional['monto']} {nacional['simbolo']}")
+            
+        for conv in conversiones['otras_monedas']:
+            print(f"  - {conv['nombre']}: {conv['monto']} {conv['simbolo']}")
+
+    if request.method == 'POST':
+        print("\n=== PROCESANDO SOLICITUD POST ===")
+        # Procesar el campo monto para convertirlo a formato decimal
+        post_data = request.POST.copy()
+        monto_str = post_data.get('monto', '')
+        print(f"Monto recibido del formulario: '{monto_str}'")
+        
+        if monto_str:
+            # Usar la función precisa de conversión
+            monto_decimal = to_decimal_precise(monto_str)
+            post_data['monto'] = str(monto_decimal)
+            print(f"Monto convertido a decimal: {monto_decimal}")
+
+        form = PagoForm(post_data)        
+        if form.is_valid():
+            print("Formulario válido, iniciando procesamiento...")
+            try:
+                # Iniciar una transacción atómica
+                with transaction.atomic():
+                    pago = form.save(commit=False)
+                    print(f"Pago creado para nota: {pago.idNota.numeroNota}")
+
+                    # Verificar si hay un periodo contable activo
+                    periodo_activo = periodoContable.objects.filter(estadoPeriodo=True).first()
+                    if not periodo_activo:
+                        periodo_activo = periodoContable.objects.order_by('-idPeriodo').first()
+                    if not periodo_activo:
+                        print("ERROR: No hay periodo contable activo")
+                        return JsonResponse({
+                            'success': False,
+                            'message': 'No hay ningún periodo contable registrado o activo en el sistema. '
+                                       'Por favor, registre o active un periodo contable antes de continuar.'
+                        }, status=400)
+                    print(f"Periodo contable: {periodo_activo}")
+
+                    # Verificar los pagos relacionados a la nota
+                    pagos_relacionados = Pago.objects.filter(idNota=pago.idNota, igtf=True)
+                    print(f"Pagos existentes para la nota: {pagos_relacionados.count()}")
+                    
+                    total_pagado = calcular_total_pagado_preciso(pagos_relacionados, moneda_configuracion, tasa_configuracion_valor)
+                    print(f"Total pagado acumulado: {total_pagado}")
+                    
+                    # CORRECCIÓN: Usar la conversión a moneda base también aquí
+                    total_nota_base = convertir_a_moneda_base(
+                        pago.idNota.igtfAplicado, 
+                        pago.idNota.idTasa.idMoneda, 
+                        moneda_configuracion, 
+                        tasa_configuracion_valor
+                    )
+                    saldo_nota = (total_nota_base - total_pagado).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                    
+                    print(f"RESUMEN CÁLCULO SALDO:")
+                    print(f"  - Total nota (base): {total_nota_base}")
+                    print(f"  - Total pagado: {total_pagado}")
+                    print(f"  - Saldo nota: {saldo_nota}")
+
+                    # Convertir el monto del pago a la moneda de configuración
+                    tasa_pago = Tasa.objects.filter(idMoneda=pago.idTasa.idMoneda).order_by('-idTasa').first()
+                    if not tasa_pago:
+                        print(f"ERROR: No se encontró tasa para moneda del pago: {pago.idTasa.idMoneda.nombreMoneda}")
+                        return JsonResponse({
+                            'success': False,
+                            'message': f'No se encontró una tasa registrada para la moneda del pago ({pago.idTasa.idMoneda.nombreMoneda}).'
+                        }, status=400)
+
+                    print(f"Tasa del pago: {tasa_pago.montoTasa} ({pago.idTasa.idMoneda.nombreMoneda})")
+
+                    # Validar tasas antes de realizar cálculos
+                    try:
+                        tasa_pago_valor = to_decimal_precise(tasa_pago.montoTasa)
+                        print(f"Validando tasas - Config: {tasa_configuracion_valor}, Pago: {tasa_pago_valor}")
+                        validar_tasas(tasa_configuracion_valor, tasa_pago_valor)
+                        print("Tasas validadas correctamente")
+                    except ValueError as e:
+                        print(f"ERROR en validación de tasas: {e}")
+                        return JsonResponse({
+                            'success': False,
+                            'message': str(e)
+                        }, status=400)
+
+                    # Asegurar precisión en la conversión de monedas
+                    try:
+                        monto_pago_decimal = to_decimal_precise(pago.monto)
+                        tasa_pago_monto = to_decimal_precise(tasa_pago.montoTasa)
+                        
+                        print(f"CONVERSIÓN DE MONEDA:")
+                        print(f"  - Monto pago original: {monto_pago_decimal} ({pago.idTasa.idMoneda.nombreMoneda})")
+                        print(f"  - Tasa pago: {tasa_pago_monto}")
+                        print(f"  - Tasa configuración: {tasa_configuracion_valor}")
+                        
+                        if pago.idTasa.idMoneda != moneda_configuracion:
+                            monto_pago_convertido = (monto_pago_decimal * tasa_pago_monto / tasa_configuracion_valor)
+                            print(f"  - Conversión necesaria: {monto_pago_decimal} * {tasa_pago_monto} / {tasa_configuracion_valor}")
+                        else:
+                            monto_pago_convertido = monto_pago_decimal
+                            print(f"  - Sin conversión (misma moneda)")
+                        
+                        monto_pago_convertido = monto_pago_convertido.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                        print(f"  - Monto convertido: {monto_pago_convertido} ({moneda_configuracion.nombreMoneda})")
+                    except (InvalidOperation, ZeroDivisionError) as e:
+                        print(f"ERROR en conversión de moneda: {e}")
+                        return JsonResponse({
+                            'success': False,
+                            'message': f'Error en la conversión de monedas: {str(e)}. Verifique las tasas de cambio y los montos ingresados.'
+                        }, status=400)
+                    
+                    # Validaciones de saldo
+                    print(f"VALIDACIONES:")
+                    print(f"  - Saldo nota: {saldo_nota}")
+                    print(f"  - Monto pago convertido: {monto_pago_convertido}")
+                    
+                    if saldo_nota <= Decimal('0.0'):
+                        print("ERROR: Nota ya está solvente")
+                        return JsonResponse({
+                            'success': False,
+                            'message': 'El pago no se registró porque la nota ya está solvente.'
+                        }, status=400)
+
+                    if monto_pago_convertido > saldo_nota:
+                        print(f"ERROR: Monto excede saldo. Saldo: {saldo_nota}, Pago: {monto_pago_convertido}")
+                        return JsonResponse({
+                            'success': False,
+                            'message': f'El monto del pago excede el saldo pendiente de la nota. '
+                                       f'Saldo pendiente: {saldo_nota:.2f}.'
+                        }, status=400)
+                    
+                    print("VALIDACIONES PASADAS - Continuando con creación de asiento...")
+
+                    print(f"Monto del Pago: {monto_pago_decimal}")
+                    print(f"Tasa de Pago: {tasa_pago_monto}")
+                    print(f"Tasa de Configuración: {tasa_configuracion_valor}")
+                    print(f"Total Nota (base): {total_nota_base}")
+                    print(f"Total Pagado: {total_pagado}")
+                    print(f"Saldo Nota: {saldo_nota}")
+                    print(f"Monto Pago Convertido: {monto_pago_convertido}")
+                    
+                    # Obtener la cuenta del Plan de Cuenta usada en el Debe del asiento principal de la nota
+                    try:
+                        # Obtener la cuenta del Plan de Cuenta usada en el Debe del asiento principal de la nota (la cuenta por cobrar)
+                        try:
+                            asiento_principal = pago.idNota.asiento_igtf
+                            detalle_debe = DetalleAsiento.objects.filter(idAsiento=asiento_principal, debe__gt=0).first()
+                            if not detalle_debe:
+                                return JsonResponse({'success': False, 'message': 'No se encontró la cuenta por cobrar en el asiento principal de la nota.'}, status=400)
+                            plan_cuenta_haber = detalle_debe.idPlanCuenta
+                        except Exception as e:
+                            raise ValueError(f'Error al obtener la cuenta por cobrar del asiento principal: {str(e)}')
+
+                        # Crear el asiento contable para el pago
+                        try:
+                            pagos_existentes = Pago.objects.filter(idNota=pago.idNota).exclude(pk=pago.pk).count()
+                            base_numero_asiento = f"PAGO-{pago.idNota.numeroNota}"
+
+                            # Buscar todos los asientos con ese prefijo
+                            asientos_similares = AsientoContable.objects.filter(
+                                numeroAsiento__startswith=base_numero_asiento
+                            ).values_list('numeroAsiento', flat=True)
+
+                            # Inicialmente, intentamos el nombre base
+                            if base_numero_asiento not in asientos_similares:
+                                numero_asiento_pago = base_numero_asiento
+                            else:
+                                # Buscar todos los sufijos -N existentes
+                                sufijos = []
+                                patron = re.compile(rf"^{re.escape(base_numero_asiento)}-(\d+)$")
+                                for n in asientos_similares:
+                                    match = patron.match(n)
+                                    if match:
+                                        sufijos.append(int(match.group(1)))
+                                if sufijos:
+                                    nuevo_sufijo = max(sufijos) + 1
+                                else:
+                                    nuevo_sufijo = 1
+                                numero_asiento_pago = f"{base_numero_asiento}-{nuevo_sufijo}"
+
+                            asiento_pago = AsientoContable.objects.create(
+                                numeroAsiento=numero_asiento_pago,
+                                fechaAsiento=pago.fechaPago,
+                                conceptoAsiento=f"Pago de IGTF - {pago.idNota.numeroNota}",
+                                idPeriodo=periodo_activo
+                            )
+                        except Exception as e:
+                            raise ValueError(f'Error al crear el asiento contable: {str(e)}')
+
+                        # Obtener el plan de cuenta para el Debe (Caja/Banco) según la forma de pago
+                        plan_cuenta_debe = None
+                        if pago.formaPago == 'EFECTIVO':
+                            plan_cuenta_debe = PlanCuenta.objects.filter(codigoPlanCuenta='11000101').first()
+                            if not plan_cuenta_debe:
+                                return JsonResponse({'success': False, 'message': 'No se encontró el plan de cuenta con código 11000101 para Caja.'}, status=400)
+                        else:
+                            # Asegúrate de que 'idPlanCuentaDebe' se envíe en el POST cuando la forma de pago no es EFECTIVO
+                            plan_cuenta_debe_id = request.POST.get('idPlanCuentaDebe')
+                            if not plan_cuenta_debe_id:
+                                return JsonResponse({'success': False, 'message': 'Debe seleccionar una cuenta bancaria para esta forma de pago.'}, status=400)
+                            plan_cuenta_debe = PlanCuenta.objects.get(pk=plan_cuenta_debe_id)
+
+                        # ==================================================================
+                        # ### INICIO DE LA LÓGICA CONTABLE CORREGIDA ###
+                        # ==================================================================
+
+                        # 1. Definir la tolerancia para el ajuste por redondeo.
+                        TOLERANCIA_REDONDEO = Decimal('0.05')  # Puedes ajustar este valor según tus políticas
+
+                        # 2. Calcular la diferencia. Si es positiva, es un saldo pendiente.
+                        diferencia_final = saldo_nota - monto_pago_convertido
+                        print(f"Diferencia final calculada: {diferencia_final} (Saldo: {saldo_nota} - Pago: {monto_pago_convertido})")
+
+                        # 3. Determinar el tipo de pago para crear el asiento correcto.
+                        es_pago_final_con_ajuste = Decimal('0.0') < diferencia_final <= TOLERANCIA_REDONDEO
+                        es_pago_final_exacto = es_cero_con_tolerancia(diferencia_final)
+                        es_pago_parcial = diferencia_final > TOLERANCIA_REDONDEO
+
+                        DetalleAsiento.objects.filter(idAsiento=asiento_pago).delete()
+
+                        if es_pago_final_con_ajuste:
+                            # --- CASO 1: PAGO FINAL CON AJUSTE POR REDONDEO (Asiento Compuesto de 3 líneas) ---
+                            print(f"AJUSTE: La diferencia {diferencia_final} está dentro de la tolerancia. Se considera pago final.")
+
+                            # ¡IMPORTANTE! Debes crear esta cuenta en tu plan de cuentas y usar el código correcto aquí.
+                            cuenta_ajuste_gasto = PlanCuenta.objects.filter(codigoPlanCuenta='52000104').first()
+                            if not cuenta_ajuste_gasto:
+                                raise ValueError("No se encontró la cuenta contable para 'GASTOS POR REDONDEO DE CONVERSIÓN MONETARIA' (COD: 52000104).")
+
+                            # Detalle 1: Ingreso a Caja/Banco (DEBE)
+                            DetalleAsiento.objects.create(idAsiento=asiento_pago, idMoneda=moneda_pago, idPlanCuenta=plan_cuenta_debe, debe=float(monto_pago_convertido), haber=0.00)
+                            # Detalle 2: Pérdida por Redondeo (DEBE) - ¡ESTA ES LA CORRECCIÓN CLAVE!
+                            DetalleAsiento.objects.create(idAsiento=asiento_pago, idMoneda=moneda_pago, idPlanCuenta=cuenta_ajuste_gasto, debe=float(diferencia_final), haber=0.00)
+                            # Detalle 3: Cancelación total de la Cuenta por Cobrar (HABER)
+                            DetalleAsiento.objects.create(idAsiento=asiento_pago, idMoneda=moneda_pago, idPlanCuenta=plan_cuenta_haber, debe=0.00, haber=float(saldo_nota))
+
+                            print(f"Asiento compuesto cuadrado. Total Debe: {monto_pago_convertido + diferencia_final}, Total Haber: {saldo_nota}")
+                            
+                            # ✅ CORRECCIÓN: Como es un pago de IGTF, siempre marcamos el estado IGTF como PAGADO
+                            pago.idNota.estadoIGTF = 'PAGADO'
+                            pago.idNota.estado = 'PAGADO'  # También podemos marcar la nota principal como pagada si corresponde
+                            print("Nota marcada como PAGADO (IGTF completamente pagado)")
+
+                        elif es_pago_final_exacto:
+                            # --- CASO 2: PAGO FINAL EXACTO (Asiento Simple de 2 líneas) ---
+                            print("PAGO EXACTO: La nota se considera saldada.")
+
+                            # Detalle 1: Ingreso a Caja/Banco (DEBE)
+                            DetalleAsiento.objects.create(idAsiento=asiento_pago, idMoneda=moneda_pago, idPlanCuenta=plan_cuenta_debe, debe=float(monto_pago_convertido), haber=0.00)
+                            # Detalle 2: Cancelación de la Cuenta por Cobrar (HABER)
+                            DetalleAsiento.objects.create(idAsiento=asiento_pago, idMoneda=moneda_pago, idPlanCuenta=plan_cuenta_haber, debe=0.00, haber=float(monto_pago_convertido))
+
+                            # ✅ CORRECCIÓN: Como es un pago de IGTF, siempre marcamos el estado IGTF como PAGADO
+                            pago.idNota.estadoIGTF = 'PAGADO'
+                            pago.idNota.estado = 'PAGADO'
+                            print("Nota marcada como PAGADO (IGTF completamente pagado)")
+
+                        elif es_pago_parcial:
+                            # --- CASO 3: PAGO PARCIAL (Asiento Simple de 2 líneas) ---
+                            print("PAGO PARCIAL: Aún queda saldo pendiente.")
+
+                            # Detalle 1: Ingreso a Caja/Banco (DEBE)
+                            DetalleAsiento.objects.create(idAsiento=asiento_pago, idMoneda=moneda_pago, idPlanCuenta=plan_cuenta_debe, debe=float(monto_pago_convertido), haber=0.00)
+                            # Detalle 2: Abono a la Cuenta por Cobrar (HABER)
+                            DetalleAsiento.objects.create(idAsiento=asiento_pago, idMoneda=moneda_pago, idPlanCuenta=plan_cuenta_haber, debe=0.00, haber=float(monto_pago_convertido))
+
+                            # ✅ CORRECCIÓN: Para pagos parciales de IGTF, mantenemos el estado como PENDIENTE
+                            pago.idNota.estadoIGTF = 'PARCIAL'
+
+                        else:
+                            # Caso de sobrepago (diferencia_final es negativa), que la validación inicial debería prevenir.
+                            return JsonResponse({'success': False, 'message': f'Error: El monto del pago {monto_pago_convertido} excede el saldo de la deuda {saldo_nota}.'}, status=400)
+
+                        # ==================================================================
+                        # ### FIN DE LA LÓGICA CONTABLE CORREGIDA ###
+                        # ==================================================================
+
+                        # Asociar el asiento contable al pago y guardar cambios
+                        pago.idAsiento = asiento_pago
+                        pago.save()
+                        pago.idNota.save() # Guardar el nuevo estado de la nota
+
+                        # --- LÓGICA POST-PAGO ---
+                        # Ahora, basado en el estado final de la nota, ejecutamos las acciones correspondientes.
+
+                        if pago.idNota.estadoIGTF == 'PARCIAL':
+                            return JsonResponse({
+                                'success': True,
+                                'message': f'El pago de IGTF fue exitoso, pero queda saldo pendiente. ¿Desea realizar otro pago adicional?',
+                                'redirect_url': f"{reverse('pago_createigtf')}?nota={pago.idNota.idNota}",
+                                'pago': {
+                                    'idPago': pago.idPago,
+                                    'idNota': pago.idNota.numeroNota,
+                                    'monto': f"{float(monto_pago_decimal):.2f} {pago.idTasa.idMoneda.simboloMoneda}",
+                                    'fechaPago': pago.fechaPago.strftime('%d/%m/%Y'),
+                                    'formaPago': pago.formaPago,
+                                    'referencia': pago.referencia,
+                                    'estado_igtf': pago.idNota.estadoIGTF
+                                }
+                            })
+                        
+                        elif pago.idNota.estado == 'PAGADO' or pago.idNota.estadoIGTF == 'PAGADO':
+                            return JsonResponse({
+                                'success': True,
+                                'message': 'Pago de IGTF creado exitosamente. El IGTF ha sido pagado en su totalidad.',
+                                'redirect_url': reverse('nota_list'),
+                                'pago': {
+                                    'idPago': pago.idPago,
+                                    'idNota': pago.idNota.numeroNota,
+                                    'monto': f"{float(monto_pago_decimal):.2f} {pago.idTasa.idMoneda.simboloMoneda}",
+                                    'fechaPago': pago.fechaPago.strftime('%d/%m/%Y'),
+                                    'formaPago': pago.formaPago,
+                                    'referencia': pago.referencia,
+                                    'estado_igtf': pago.idNota.estadoIGTF
+                                }
+                            })
+
+                        else:
+                            # Caso donde el pago es mayor al saldo (no debería ocurrir por validación previa)
+                            return JsonResponse({
+                                'success': False,
+                                'message': 'Error inesperado en el cálculo del saldo.'
+                            }, status=400)
+                    except ValueError as e:
+                        print(f"Error de valor: {e}")
+                        return JsonResponse({
+                            'success': False,
+                            'message': str(e)
+                        }, status=500)
+                    except Exception as e:
+                        import traceback
+                        print(f"Error inesperado: {e}")
+                        print(traceback.format_exc())
+                        return JsonResponse({
+                            'success': False,
+                            'message': f'Ocurrió un error inesperado: {str(e)}. '
+                                       'Por favor, contacte al administrador del sistema si el problema persiste.'
+                        }, status=500)
+            except Exception as e:
+                import traceback
+                print(f"Error inesperado: {e}")
+                print(traceback.format_exc())
+                return JsonResponse({
+                    'success': False,
+                    'message': f'Ocurrió un error inesperado: {str(e)}. '
+                               'Por favor, contacte al administrador del sistema si el problema persiste.'
+                }, status=500)
+        else:
+            print(f"Errores en el formulario: {form.errors}")
+            return JsonResponse({
+                'success': False,
+                'message': 'El formulario contiene errores. Por favor, corríjalos e inténtelo nuevamente.',
+                'errors': form.errors
+            }, status=400)
+    else:
+        form = PagoForm()
+
+    return render(request, 'factura/pago_IGTF.html', {
+        'form': form,
+        'notas': notas_data, 
+        'cuentas_banco': cuentas_banco,
+        'cuentas_plan': cuentas_plan,
+        'monedas': tasas_activas,
+        'notas_json': json.dumps(notas_data, cls=DecimalEncoder) 
+    })
+
+def obtener_tipo_igtf(request):
+    """
+    Vista para obtener el tipo de IGTF basado en la nota, la forma de pago y la moneda/tasa seleccionada.
+    CORREGIDA: Ahora busca correctamente en ParametroTributario
+    """
+    id_nota = request.GET.get('idNota')
+    forma_pago = request.GET.get('formaPago')
+    id_tasa_param = request.GET.get('idTasa')
+    moneda_id_param = request.GET.get('monedaId')
+    es_nacional_param = request.GET.get('esNacional')
+
+    print(f"[obtener_tipo_igtf] Parámetros recibidos -> idNota: {id_nota}, formaPago: {forma_pago}, idTasa: {id_tasa_param}, monedaId: {moneda_id_param}, esNacional: {es_nacional_param}")
+
+    if not id_nota or not forma_pago:
+        return JsonResponse({'error': 'Faltan parámetros idNota o formaPago'}, status=400)
+
+    try:
+        nota = get_object_or_404(Nota, idNota=id_nota)
+        print(f"[obtener_tipo_igtf] Nota -> idNota: {nota.idNota}, numeroNota: {nota.numeroNota}, tipoOperacion: {nota.tipoOperacion}")
+
+        # DETERMINAR SI ES NACIONAL O DIVISA
+        es_nacional = False
+        
+        # 1. Prioridad: parámetro esNacional explícito
+        if es_nacional_param is not None:
+            es_nacional = str(es_nacional_param).strip().lower() in ('1', 'true', 't', 'yes', 'y')
+        
+        # 2. Parámetro monedaId
+        elif moneda_id_param and moneda_id_param.isdigit():
+            es_nacional = (int(moneda_id_param) == 1)
+        
+        # 3. Parámetro idTasa
+        elif id_tasa_param and id_tasa_param.isdigit():
+            if id_tasa_param == '1':
+                es_nacional = True
+            else:
+                tasa_obj = Tasa.objects.filter(idTasa=id_tasa_param).select_related('idMoneda').first()
+                if tasa_obj and tasa_obj.idMoneda:
+                    es_nacional = (tasa_obj.idMoneda.idMoneda == 1)
+        
+        # 4. Fallback a moneda de la nota
+        else:
+            try:
+                if nota.idTasa and nota.idTasa.idMoneda:
+                    es_nacional = (nota.idTasa.idMoneda.idMoneda == 1)
+            except Exception:
+                es_nacional = False
+
+        print(f"[obtener_tipo_igtf] es_nacional determinado: {es_nacional}")
+
+        # DETERMINAR TIPO IGTF
+        tipo_operacion = nota.tipoOperacion
+        tipo_igtf = None
+        
+        if tipo_operacion == 'COBRO':
+            if forma_pago == 'EFECTIVO':
+                tipo_igtf = 'IGTF_NACIONAL_VENTAS_EFECTIVO' if es_nacional else 'IGTF_DIVISA_VENTAS_EFECTIVO'
+            else:
+                tipo_igtf = 'IGTF_NACIONAL_VENTAS_DIGITAL' if es_nacional else 'IGTF_DIVISA_VENTAS_DIGITAL'
+        elif tipo_operacion == 'PAGO':
+            if forma_pago == 'EFECTIVO':
+                tipo_igtf = 'IGTF_NACIONAL_COMPRAS_EFECTIVO' if es_nacional else 'IGTF_DIVISA_COMPRAS_EFECTIVO'
+            else:
+                tipo_igtf = 'IGTF_NACIONAL_COMPRAS_DIGITAL' if es_nacional else 'IGTF_DIVISA_COMPRAS_DIGITAL'
+        else:
+            return JsonResponse({'error': 'Tipo de operación desconocido'}, status=400)
+
+        print(f"[obtener_tipo_igtf] Tipo IGTF determinado: {tipo_igtf}")
+
+        # BUSCAR PARÁMETRO TRIBUTARIO - CORRECCIÓN CLAVE
+        parametro = ParametroTributario.objects.filter(tipo=tipo_igtf, activo=True).first()
+        
+        if parametro:
+            porcentaje = float(parametro.porcentaje)
+            print(f"[obtener_tipo_igtf] Parámetro encontrado: {parametro.tipo}, porcentaje: {porcentaje}%")
+        else:
+            porcentaje = 0.0
+            print(f"[obtener_tipo_igtf] NO se encontró parámetro activo para: {tipo_igtf}")
+
+        # Información de debug adicional
+        print(f"[obtener_tipo_igtf] Parámetros buscados en DB: tipo={tipo_igtf}, activo=True")
+        print(f"[obtener_tipo_igtf] Todos los parámetros activos:")
+        for p in ParametroTributario.objects.filter(activo=True):
+            print(f"  - {p.tipo}: {p.porcentaje}%")
+
+        return JsonResponse({
+            'tipoIGTF': tipo_igtf,
+            'porcentaje': porcentaje,
+            'esNacional': es_nacional,
+            'monedaId': moneda_id_param
+        })
+
+    except Exception as e:
+        print(f"[obtener_tipo_igtf] Error inesperado: {e}")
+        import traceback
+        print(traceback.format_exc())
+        return JsonResponse({'error': 'Error interno del servidor'}, status=500)
 
 @transaction.atomic
 def pago_edit(request, pk):

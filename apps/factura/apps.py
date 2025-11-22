@@ -6,9 +6,4 @@ class FacturaConfig(AppConfig):
     name = 'apps.factura'
 
     def ready(self):
-        # registrar señales
-        try:
-            import apps.factura.signals  # noqa: F401
-        except Exception:
-            import logging
-            logging.exception("No se pudo cargar apps.factura.signals")
+        import apps.factura.signals  # Registrar los signals para IGTF

@@ -23,6 +23,8 @@ class NotaForm(forms.ModelForm):
             'ivaRetenido': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'islrRetenido': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'descuento': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'igtfAplicado': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'estadoIGTF': forms.Select(attrs={'class': 'form-control'}),
             'totalNota': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'estado': forms.Select(attrs={'class': 'form-control'}),
             'observaciones': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
@@ -120,6 +122,7 @@ class PagoForm(forms.ModelForm):
             'idCuentaBanco': forms.Select(attrs={'class': 'form-control'}),
             'formaPago': forms.TextInput(attrs={'class': 'form-control'}),
             'referencia': forms.TextInput(attrs={'class': 'form-control'}),
+            'igtf': forms.TextInput(attrs={'class': 'form-control'}),
             'monto': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'observaciones': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
