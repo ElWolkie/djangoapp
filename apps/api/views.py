@@ -722,27 +722,23 @@ class EgresosAPIView(APIView):
 
 class ConfiguracionAPIView(APIView):
     permission_classes = [AllowAny]
-    
+
     def get(self, request):
         try:
             configuracion = Configuracion.objects.first()
-            if configuracion:
-                serializer = ConfiguracionSerializer(configuracion)
-                return Response({
-                    'success': True,
-                    'data': serializer.data
-                })
-            else:
-                return Response({
-                    'success': False,
-                    'message': 'No hay configuración registrada en el sistema'
-                }, status=404)
-                
+            if not configuracion:
+                return Response({'success': False, 'message': 'No hay configuración registrada en el sistema'}, status=404)
+
+            serializer = ConfiguracionSerializer(configuracion)
+            # devolver el objeto directamente (no wrapper) para simplicidad en el frontend
+            return Response(serializer.data, status=200)
+
         except Exception as e:
             return Response({
                 'success': False,
                 'message': f'Error al obtener configuración: {str(e)}'
             }, status=500)
+
 
 def normalize_cedula_digits(s: str) -> str:
     if not s:

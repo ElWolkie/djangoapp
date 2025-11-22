@@ -122,6 +122,10 @@ const CuotasPorPagarScreen = () => {
   const [observaciones, setObservaciones] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  // Configuración de cuenta bancaria (cargada desde API)
+  const [configuracion, setConfiguracion] = useState<any>(null);
+  const [loadingConfig, setLoadingConfig] = useState<boolean>(false);
+
   const detectPagoInscripcionConfirmado = (ins: any) => {
     if (ins?.pago_inscripcion_confirmada === true || ins?.pagoInscripcionConfirmado === true || ins?.inscripcionPagoConfirmado === true) return true;
 
@@ -142,6 +146,41 @@ const CuotasPorPagarScreen = () => {
       c.pagoConfirmado === true
     );
   };
+
+  // Cargar configuración (cuenta bancaria) al montar
+  useEffect(() => {
+    let mounted = true;
+    const loadConfig = async () => {
+      setLoadingConfig(true);
+      try {
+        const res = await api.get('/api/configuracion/');
+        // soportar varias formas de respuesta:
+        // - res.data puede ser directamente el objeto config
+        // - res.data puede ser wrapper { success: true, data: {...} }
+        // - o el servidor puede devolver el objeto directamente (res.data === {...})
+        let cfg: any = null;
+        if (res && res.data) {
+          if (res.data.data) cfg = res.data.data;     // wrapper { success: true, data: {...} }
+          else cfg = res.data;                       // objeto directo
+        } else if (res) {
+          cfg = res;
+        }
+        // Si accidentalmente recibes { success:true, data:{data:...} } esta línea intenta destripar más
+        if (cfg && cfg.data && typeof cfg.data === 'object' && Object.keys(cfg).length === 1) {
+          cfg = cfg.data;
+        }
+
+        if (mounted) setConfiguracion(cfg);
+      } catch (e: any) {
+        console.warn('[Cuotas] No se pudo cargar configuracion de cuenta bancaria', e?.response?.data ?? e);
+        if (mounted) setConfiguracion(null);
+      } finally {
+        if (mounted) setLoadingConfig(false);
+      }
+    };
+    loadConfig();
+    return () => { mounted = false; };
+  }, []);
 
   const loadInscripciones = useCallback(async () => {
     setLoading(true);
@@ -598,7 +637,14 @@ const CuotasPorPagarScreen = () => {
       };
 
       console.log('[Pago Cuota] Enviando payload:', payload);
-      const res = await api.post('/api/pagos/cuota/create/', payload);
+      // Ajusta el endpoint si tu backend usa otro path para pagos de cuota
+      const res = await api.post('/api/cuota/pago/create/', payload).catch(async (e) => {
+        // si tu API anterior era /api/pagos/cuota/create/ intenta ese fallback
+        if (e?.response?.status === 404) {
+          return await api.post('/api/pagos/cuota/create/', payload);
+        }
+        throw e;
+      });
 
       if (res.status === 200 || res.status === 201) {
         const data = res.data?.data ?? res.data;
@@ -675,6 +721,97 @@ const CuotasPorPagarScreen = () => {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  // Componente reutilizable de cuenta bancaria (sólo dentro del modal)
+  const InfoCuentaBancaria = () => {
+    // Fallbacks múltiples por nombres distintos que puede devolver el serializer/backend
+    const banco = configuracion?.nombre_banco
+      || configuracion?.idCuentaBanco?.banco
+      || configuracion?.banco
+      || configuracion?.nombreBanco
+      || '';
+
+    const tipoCuenta = configuracion?.tipo_cuenta
+      || configuracion?.idCuentaBanco?.tipoProducto
+      || configuracion?.tipoCuenta
+      || configuracion?.tipo_cuenta
+      || '';
+
+    const numeroCuenta = configuracion?.numero_cuenta
+      || configuracion?.idCuentaBanco?.numeroCuentaBanco
+      || configuracion?.numero_cuenta
+      || configuracion?.numeroCuenta
+      || '';
+
+    const cedulaRif = configuracion?.cedulaCuenta || configuracion?.rif || configuracion?.rifCuenta || '';
+
+    const titular = configuracion?.nombreInstitucion || configuracion?.institucion || '';
+
+    if (loadingConfig) {
+      return (
+        <View style={styles.cuentaBancariaCard}>
+          <View style={styles.cuentaHeader}>
+            <Icon name="bank" size={20} color="#2dce89" />
+            <Text style={styles.cuentaTitle}>Información para Transferencia</Text>
+          </View>
+          <View style={{ padding: 12 }}>
+            <ActivityIndicator size="small" />
+            <Text style={{ marginTop: 8, color: '#666' }}>Cargando cuenta bancaria...</Text>
+          </View>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.cuentaBancariaCard}>
+        <View style={styles.cuentaHeader}>
+          <Icon name="bank" size={20} color="#2dce89" />
+          <Text style={styles.cuentaTitle}>Información para Transferencia</Text>
+        </View>
+
+        <View style={styles.cuentaGrid}>
+          <View style={styles.cuentaItem}>
+            <Text style={styles.cuentaLabel}>Banco:</Text>
+            <Text style={styles.cuentaValue}>{banco || 'No especificado'}</Text>
+          </View>
+
+          <View style={styles.cuentaItem}>
+            <Text style={styles.cuentaLabel}>Tipo de Cuenta:</Text>
+            <Text style={styles.cuentaValue}>{tipoCuenta || 'No especificado'}</Text>
+          </View>
+
+          <View style={styles.cuentaItem}>
+            <Text style={styles.cuentaLabel}>Número de Cuenta:</Text>
+            <Text style={[styles.cuentaValue, styles.cuentaDestacado]}>
+              {numeroCuenta || 'No especificado'}
+            </Text>
+          </View>
+
+          <View style={styles.cuentaItem}>
+            <Text style={styles.cuentaLabel}>Cédula/RIF:</Text>
+            <Text style={[styles.cuentaValue, styles.cuentaDestacado]}>
+              {cedulaRif || 'No especificado'}
+            </Text>
+          </View>
+
+          <View style={styles.cuentaItem}>
+            <Text style={styles.cuentaLabel}>Titular:</Text>
+            <Text style={styles.cuentaValue}>{titular || 'Institución'}</Text>
+          </View>
+        </View>
+
+        <View style={styles.cuentaInstrucciones}>
+          <Text style={styles.instruccionesTitle}>📋 Instrucciones:</Text>
+          <Text style={styles.instruccionesText}>
+            1. Realice la transferencia a la cuenta mostrada arriba{'\n'}
+            2. Guarde el número de referencia de la transferencia{'\n'}
+            3. Complete el formulario con la referencia y fecha{'\n'}
+            4. Envíe el comprobante por correo si es requerido
+          </Text>
+        </View>
+      </View>
+    );
   };
 
   const renderInscripcionItem = ({ item }: { item: InscripcionLite }) => {
@@ -822,7 +959,7 @@ const CuotasPorPagarScreen = () => {
         />
       )}
 
-      {/* MODAL DE PAGO - IDÉNTICO AL DE INSCRIPCIÓN */}
+      {/* MODAL DE PAGO - ahora contiene InfoCuentaBancaria */}
       <Modal
         isVisible={modalVisible}
         onBackdropPress={() => !submitting && closeModal()}
@@ -864,6 +1001,9 @@ const CuotasPorPagarScreen = () => {
                   </View>
                 </View>
               </View>
+
+              {/* INFO DE CUENTA BANCARIA DENTRO DEL MODAL */}
+              <InfoCuentaBancaria />
 
               {/* Información de Pago */}
               <View style={styles.formSection}>
@@ -928,7 +1068,7 @@ const CuotasPorPagarScreen = () => {
   );
 };
 
-/* ESTILOS ACTUALIZADOS - IDÉNTICOS AL DE INSCRIPCIÓN */
+/* ESTILOS ACTUALIZADOS - IDÉNTICOS AL DE INSCRIPCIÓN + estilos de cuenta bancaria */
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f7fa' },
 
@@ -1542,6 +1682,68 @@ const styles = StyleSheet.create({
   },
   submitButtonTextSmall: {
     fontSize: 13,
+  },
+
+  // ===== estilos de cuenta bancaria =====
+  cuentaBancariaCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 12,
+    marginVertical: 10,
+    borderWidth: 1,
+    borderColor: '#eef2f6',
+  },
+  cuentaHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  cuentaTitle: {
+    marginLeft: 8,
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1f3b6e',
+  },
+  cuentaGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 6,
+  },
+  cuentaItem: {
+    width: '50%',
+    paddingVertical: 6,
+  },
+  cuentaLabel: {
+    fontSize: 12,
+    color: '#6c757d',
+    marginBottom: 2,
+  },
+  cuentaValue: {
+    fontSize: 14,
+    color: '#213547',
+    fontWeight: '600',
+  },
+  cuentaDestacado: {
+    fontWeight: '800',
+    color: '#0b2545',
+  },
+  cuentaInstrucciones: {
+    marginTop: 10,
+    backgroundColor: '#f8fafc',
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#eef6f8',
+  },
+  instruccionesTitle: {
+    fontWeight: '700',
+    color: '#0b3b2f',
+    marginBottom: 6,
+  },
+  instruccionesText: {
+    color: '#495057',
+    fontSize: 13,
+    lineHeight: 18,
   },
 });
 

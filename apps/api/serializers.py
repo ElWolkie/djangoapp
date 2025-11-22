@@ -20,7 +20,7 @@ from apps.solicitud.models import Solicitud
 from apps.asientoContable.models import AsientoContable, DetalleAsiento
 from apps.planCuenta.models import PlanCuenta
 from apps.periodoContable.models import periodoContable
-from apps.cuentaBanco.models import Banco
+from apps.cuentaBanco.models import Banco, CuentaBanco
 from rest_framework_simplejwt.tokens import RefreshToken
 from apps.factura.models import Nota, NotaRelacionada, Pago, PlanArticulo, PagoTemporal
 from apps.factura.utils import create_nota_relacionada_robusta
@@ -1001,11 +1001,30 @@ class AsientoContableSerializer(serializers.ModelSerializer):
         fields = ['idAsiento', 'numeroAsiento', 'fechaAsiento', 'conceptoAsiento', 'idPeriodo', 'fechaAsientoDigital', 'detalles']
 
 
+# Si tienes modelo CuentaBanco, mejor serializarlo anidado:
+class CuentaBancoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CuentaBanco  # ajusta si tu clase se llama distinto
+        fields = ('idCuentaBanco', 'banco', 'numeroCuentaBanco', 'tipoProducto')
+
 class ConfiguracionSerializer(serializers.ModelSerializer):
-    nombre_banco = serializers.CharField(source='idCuentaBanco.banco', read_only=True)
-    numero_cuenta = serializers.CharField(source='idCuentaBanco.numeroCuentaBanco', read_only=True)
-    tipo_cuenta = serializers.CharField(source='idCuentaBanco.tipoProducto', read_only=True)
-    
+    # Exponer idCuentaBanco como objeto anidado
+    idCuentaBanco = CuentaBancoSerializer(read_only=True)
+
+    # Campos "derivados" para compatibilidad con frontend
+    nombre_banco = serializers.SerializerMethodField(read_only=True)
+    numero_cuenta = serializers.SerializerMethodField(read_only=True)
+    tipo_cuenta = serializers.SerializerMethodField(read_only=True)
+
+    def get_nombre_banco(self, obj):
+        return getattr(obj.idCuentaBanco, 'banco', None) or getattr(obj, 'nombre_banco', None) or ''
+
+    def get_numero_cuenta(self, obj):
+        return getattr(obj.idCuentaBanco, 'numeroCuentaBanco', None) or getattr(obj, 'numero_cuenta', None) or ''
+
+    def get_tipo_cuenta(self, obj):
+        return getattr(obj.idCuentaBanco, 'tipoProducto', None) or getattr(obj, 'tipo_cuenta', None) or ''
+
     class Meta:
         model = Configuracion
         fields = [
@@ -1017,13 +1036,14 @@ class ConfiguracionSerializer(serializers.ModelSerializer):
             'firma',
             'moneda',
             'descuento',
-            'idCuentaBanco',
+            'idCuentaBanco',   # ahora será el objeto anidado
             'cedulaCuenta',
             'fechaConfiguracion',
             'nombre_banco',
             'numero_cuenta',
             'tipo_cuenta'
         ]
+
 
 class SecurityAnswerSerializer(serializers.Serializer):
     cedula = serializers.CharField()
