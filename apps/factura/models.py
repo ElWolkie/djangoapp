@@ -23,6 +23,7 @@ TIPOS_ARTICULO = [
         ('INSCRIPCION', 'Ingresos de Estudiantes - Inscripción'), # esto es un cobro
         ('CUOTA', 'Ingresos de Estudiantes - Cuota'), # esto es un cobro
         ('SOLICITUD', 'Ingresos de Estudiantes - Solicitud de Trámites'), # esto es un cobro
+        ('IGTF', 'Impuesto a las Grandes Transacciones Financieras (IGTF)'), # esto puede ser cobro o pago
     ]
 
 
@@ -55,9 +56,12 @@ class Nota(models.Model):
     ivaRetenido = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     islrRetenido = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     descuento = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
-    totalNota = models.DecimalField(max_digits=10, decimal_places=2)  # Renombrado desde totalVenta
+    igtfAplicado = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, verbose_name="IGTF Aplicado") #No se suma al total hasta que esta saldado todoS
+    asiento_igtf = models.ForeignKey(AsientoContable, on_delete=models.SET_NULL, null=True, blank=True, related_name='asiento_igtf', verbose_name="Asiento Contable IGTF")
+    totalNota = models.DecimalField(max_digits=10, decimal_places=2)  # Renombrado desde 
     idTasa = models.ForeignKey(Tasa, on_delete=models.CASCADE)
     estado = models.CharField(max_length=20, default='PENDIENTE')
+    estadoIGTF= models.CharField(max_length=20, default='NO_APLICA')
     observaciones = models.TextField(blank=True, null=True)
     fechaCreacion = models.DateTimeField(auto_now_add=True)
     fechaActualizacion = models.DateTimeField(auto_now=True)
@@ -80,6 +84,7 @@ class Nota(models.Model):
 
     def __str__(self):
         return f"Nota {self.numeroNota} - {self.tipoOperacion}"
+   
 class NotaRelacionada(models.Model):
     idNota = models.ForeignKey(Nota, on_delete=models.CASCADE, related_name='relaciones')
     idInscripcion = models.ForeignKey(Inscripcion, on_delete=models.SET_NULL, null=True, blank=True, related_name='notas')
@@ -190,6 +195,7 @@ class Pago(models.Model):
     idNota = models.ForeignKey(Nota, on_delete=models.CASCADE, related_name='pagos')
     idAsiento = models.ForeignKey(AsientoContable, on_delete=models.CASCADE)
     idCuentaBanco = models.ForeignKey(CuentaBanco, on_delete=models.CASCADE, null=True, blank=True)
+    igtf = models.BooleanField(default=False)
     monto = models.DecimalField(max_digits=60, decimal_places=4)
     fechaPago = models.DateField()
     formaPago = models.CharField(max_length=50)
@@ -233,11 +239,6 @@ class PagoTemporal(models.Model):
         # Validar que la cuenta bancaria exista y tenga un plan de cuenta asociado
         if not self.idCuentaBanco:
             raise ValueError("Debe seleccionar una cuenta bancaria válida.")
-
-        # Debugging: Verificar el tipo y atributos de idCuentaBanco
-        print(f"idCuentaBanco: {self.idCuentaBanco}")
-        print(f"idCuentaBanco type: {type(self.idCuentaBanco)}")
-        print(f"idCuentaBanco attributes: {dir(self.idCuentaBanco)}")
 
         if not self.idCuentaBanco.planCuenta:
             raise ValueError("La cuenta bancaria seleccionada no tiene un plan de cuenta asociado.")
@@ -287,14 +288,14 @@ class PagoTemporal(models.Model):
         # Crear los detalles del asiento contable
         DetalleAsiento.objects.create(
             idAsiento=asiento_pago,
-            idMoneda= '1',  # Asumiendo moneda local con ID 1
+            idMoneda='1',  # Asumiendo moneda local con ID 1
             idPlanCuenta=plan_cuenta_debe,
             debe=float(self.monto),
             haber=0.00
         )
         DetalleAsiento.objects.create(
             idAsiento=asiento_pago,
-            idMoneda= '1',  # Asumiendo moneda local con ID 1
+            idMoneda='1',  # Asumiendo moneda local con ID 1
             idPlanCuenta=plan_cuenta_haber,
             debe=0.00,
             haber=float(self.monto)
@@ -310,25 +311,69 @@ class PagoTemporal(models.Model):
             formaPago="TRANSFERENCIA",  # Siempre será transferencia
             referencia=self.referencia,
             idTasa=self.idTasa,
-            observaciones=self.observaciones
+            observaciones=self.observaciones,
+            igtf=self.idNota.estadoIGTF != "NO_APLICA"
         )
 
+        # Calcular deuda y deuda IGTF
+        pagos_normales = Pago.objects.filter(idNota=self.idNota, igtf=False).aggregate(total=models.Sum('monto'))['total'] or 0
+        pagos_igtf = Pago.objects.filter(idNota=self.idNota, igtf=True).aggregate(total=models.Sum('monto'))['total'] or 0
+        deuda = self.idNota.totalNota - pagos_normales
+        deuda_igtf = self.idNota.igtfAplicado - pagos_igtf
+
+        # Validar pagos IGTF
+        if pago.igtf and self.monto > deuda_igtf:
+            raise ValueError("El monto del pago IGTF no puede superar la deuda IGTF.")
+
         # Actualizar el estado de la nota
-        self.idNota.estado = 'PAGADO'
+        if deuda > 0 or (self.idNota.estadoIGTF not in ["PAGADO", "NO_APLICA"] and deuda_igtf > 0):
+            self.idNota.estado = "PARCIAL"
+        elif deuda == 0 and deuda_igtf == 0 and self.idNota.estadoIGTF == "PAGADO":
+            self.idNota.estado = "PAGADO"
+        else:
+            self.idNota.estado = "PARCIAL"
+
         self.idNota.save()
 
         # Marcar el pago temporal como confirmado
         self.confirmado = True
         self.save()
 
+        # Devolver respuesta si la nota aún tiene deuda IGTF
+        if self.idNota.estado == "PARCIAL" and deuda_igtf > 0:
+            return {
+                "IGTF": True,
+                "montoIGTF": deuda_igtf
+            }
+
         return pago
 
     def __str__(self):
         return f"Pago Temporal {self.idPagoTemporal} - {'Confirmado' if self.confirmado else 'Pendiente'}"
-      
+ 
+class PagoIGTF(models.Model):
+    idPagoIGTF = models.AutoField(primary_key=True)
+    idPago = models.ForeignKey(Pago, on_delete=models.CASCADE, related_name='igtf_pago')
+    tipoIGTF = models.CharField(max_length=50, choices=[('IGTF_NACIONAL_VENTAS_EFECTIVO', 'IGTF Nacional Ventas Efectivo'),
+                                                        ('IGTF_NACIONAL_VENTAS_DIGITAL', 'IGTF Nacional Ventas Digital'),
+                                                        ('IGTF_NACIONAL_COMPRAS_EFECTIVO', 'IGTF Nacional Compras Efectivo'),
+                                                        ('IGTF_NACIONAL_COMPRAS_DIGITAL', 'IGTF Nacional Compras Digital'),
+                                                        ('IGTF_DIVISA_COMPRAS_EFECTIVO', 'IGTF Divisa Compras Efectivo'),
+                                                        ('IGTF_DIVISA_COMPRAS_DIGITAL', 'IGTF Divisa Compras Digital'),
+                                                        ('IGTF_DIVISA_VENTAS_EFECTIVO', 'IGTF Divisa Ventas Efectivo'),
+                                                        ('IGTF_DIVISA_VENTAS_DIGITAL', 'IGTF Divisa Ventas Digital')])
+    montoIGTF = models.DecimalField(max_digits=10, decimal_places=2)
+    porcentajeIGTF = models.DecimalField(max_digits=5, decimal_places=2)
+    fecha = models.DateField(auto_now_add=True)
+
+    def __str__(self):
+        return f"IGTF {self.tipoIGTF} para Nota {self.idNota.numeroNota}"
+
 class ParametroTributario(models.Model):
     # Opciones para tipos de factura (consistentes con tu formulario)
     TIPOS_APLICABLES = [
+        ('PAGO', 'Pago'),
+        ('COBRO', 'Cobro'),
         ('HONORARIO_PROFESOR', 'Honorarios Profesionales'),
         ('SERVICIO_GENERAL', 'Servicios Generales'),
         ('COMPRA_BIENES', 'Compra de Bienes'),
@@ -351,9 +396,15 @@ class ParametroTributario(models.Model):
         ('ISLR_SERVICIOS', 'Retención ISLR servicios generales'),
         ('ISLR_COMPRAS', 'Retención ISLR compras'),
         
-        # Exenciones
+        # Exenciones / Montos mínimos
         ('MONTO_EXENCION_ISLR', 'Monto mínimo para retención ISLR'),
         ('MONTO_EXENCION_IVA', 'Monto mínimo para aplicación de IVA'),
+        
+        # IGTF (Impuesto a las Grandes Transacciones Financieras)
+        ('IGTF_NACIONAL_VENTAS_EFECTIVO', 'IGTF Nacional - Ventas en efectivo'),
+        ('IGTF_NACIONAL_VENTAS_DIGITAL', 'IGTF Nacional - Ventas digitales'),
+        ('IGTF_DIVISA_COMPRAS_EFECTIVO', 'IGTF Divisa - Compras en efectivo'),
+        ('IGTF_DIVISA_COMPRAS_DIGITAL', 'IGTF Divisa - Compras digitales'),
         
         # Otros
         ('TASA_MUNICIPAL', 'Tasa municipal'),

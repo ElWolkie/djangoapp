@@ -478,6 +478,9 @@
             <input type="number" id="totalNota" name="totalNota" class="form-control text-dark" placeholder="Ingrese el total de la venta" step="0.01" min="0" required />
             <div class="invalid-feedback">Por favor ingrese un total de venta válido.</div>
           </div>
+          <input type="hidden" id="igtfAplicado" name="igtfAplicado" class="form-control text-dark" placeholder="IGTF" step="0.01" min="0" value="0.00" required />
+          <input type="hidden" id="estadoIGTF" name="estadoIGTF" class="form-control text-dark" placeholder="IGTF ESTADO" step="0.01" min="0" value="NO_APLICA" required />
+
         </div>
       </div>
 
@@ -740,7 +743,7 @@
                 <tr data-id="{{ inscripcion.idInscripcion }}" data-valor="{{ inscripcion.idCohorte.idFormacion.valorInscripcion }}" data-nombre="{{ inscripcion.idTF.nombreTipoFormacion }} {{ inscripcion.idCohorte.idFormacion.nombreFormacion }}" data-persona-id="{{ inscripcion.idPersona.idPersona }}">
                   <td>{{ inscripcion.idInscripcion }}</td>
                   <td>{{ inscripcion.idPersona.idPersona }}</td>
-                  <td>{{ inscripcion.idTF.nombreTipoFormacion }}</td>
+                  <td>{{ inscripcion.idCohorte.idFormacion.idTF.nombreTipoFormacion }}</td>
                   <td>{{ inscripcion.idCohorte.idFormacion.nombreFormacion }}</td>
                   <td>{{ inscripcion.idCohorte.idFormacion.valorInscripcion }}</td>
                   <td>{{ inscripcion.idCohorte.nombreCohorte }}</td>

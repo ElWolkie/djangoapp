@@ -566,8 +566,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Botón "Anterior"
     const prevLi = document.createElement('li');
-    prevLi.className = 'page-item' + (currentPage === 1 ? ' disabled' : '');
-    prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Anterior"><span aria-hidden="true">&laquo;</span></a>`;
+    prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+    prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Anterior">&laquo;</a>`;
     prevLi.addEventListener('click', function (e) {
       e.preventDefault();
       if (currentPage > 1) {
@@ -578,10 +578,19 @@ document.addEventListener('DOMContentLoaded', function () {
     });
     pagination.appendChild(prevLi);
 
+    // Calcular rango de páginas visibles
+    const maxVisiblePages = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+    if (endPage - startPage + 1 < maxVisiblePages) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+
     // Botones de páginas
-    for (let i = 1; i <= totalPages; i++) {
+    for (let i = startPage; i <= endPage; i++) {
       const li = document.createElement('li');
-      li.className = 'page-item' + (i === currentPage ? ' active' : '');
+      li.className = `page-item ${i === currentPage ? 'active' : ''}`;
       li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
       li.addEventListener('click', function (e) {
         e.preventDefault();
@@ -594,8 +603,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Botón "Siguiente"
     const nextLi = document.createElement('li');
-    nextLi.className = 'page-item' + (currentPage === totalPages ? ' disabled' : '');
-    nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Siguiente"><span aria-hidden="true">&raquo;</span></a>`;
+    nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+    nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Siguiente">&raquo;</a>`;
     nextLi.addEventListener('click', function (e) {
       e.preventDefault();
       if (currentPage < totalPages) {

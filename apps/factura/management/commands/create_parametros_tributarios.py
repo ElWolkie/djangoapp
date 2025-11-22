@@ -18,95 +18,160 @@ class Command(BaseCommand):
         parametros = [
             # IVA General
             {
-                'tipo': 'IVA_GENERAL',
-                'aplica_a': 'HONORARIO_PROFESOR',
-                'porcentaje': 16.00,
-                'fecha_inicio': fecha_inicio,
-                'descripcion': 'IVA general aplicable a honorarios profesionales'
+            'tipo': 'IVA_GENERAL',
+            'aplica_a': 'HONORARIO_PROFESOR',
+            'porcentaje': 16.00,
+            'fecha_inicio': fecha_inicio,
+            'descripcion': 'IVA general aplicable a honorarios profesionales'
             },
             {
-                'tipo': 'IVA_GENERAL',
-                'aplica_a': 'SERVICIO_GENERAL',
-                'porcentaje': 16.00,
-                'fecha_inicio': fecha_inicio,
-                'descripcion': 'IVA general aplicable a servicios generales'
+            'tipo': 'IVA_GENERAL',
+            'aplica_a': 'SERVICIO_GENERAL',
+            'porcentaje': 16.00,
+            'fecha_inicio': fecha_inicio,
+            'descripcion': 'IVA general aplicable a servicios generales'
             },
             {
-                'tipo': 'IVA_GENERAL',
-                'aplica_a': 'COMPRA_BIENES',
-                'porcentaje': 16.00,
-                'fecha_inicio': fecha_inicio,
-                'descripcion': 'IVA general aplicable a compra de bienes'
+            'tipo': 'IVA_GENERAL',
+            'aplica_a': 'COMPRA_BIENES',
+            'porcentaje': 16.00,
+            'fecha_inicio': fecha_inicio,
+            'descripcion': 'IVA general aplicable a compra de bienes'
             },
             # Exenciones de IVA
             {
-                'tipo': 'IVA_EXENTO',
-                'aplica_a': 'INSCRIPCION',
-                'porcentaje': 0.00,
-                'fecha_inicio': fecha_inicio,
-                'descripcion': 'Exención de IVA para inscripciones'
+            'tipo': 'IVA_EXENTO',
+            'aplica_a': 'INSCRIPCION',
+            'porcentaje': 0.00,
+            'fecha_inicio': fecha_inicio,
+            'descripcion': 'Exención de IVA para inscripciones'
             },
             {
-                'tipo': 'IVA_EXENTO',
-                'aplica_a': 'SOLICITUD',
-                'porcentaje': 0.00,
-                'fecha_inicio': fecha_inicio,
-                'descripcion': 'Exención de IVA para solicitudes de trámites'
+            'tipo': 'IVA_EXENTO',
+            'aplica_a': 'SOLICITUD',
+            'porcentaje': 0.00,
+            'fecha_inicio': fecha_inicio,
+            'descripcion': 'Exención de IVA para solicitudes de trámites'
             },
             # Retenciones de IVA
             {
-                'tipo': 'IVA_RETENIDO_SERVICIOS',
-                'aplica_a': 'HONORARIO_PROFESOR',
-                'porcentaje': 75.00,
-                'fecha_inicio': fecha_inicio,
-                'descripcion': 'Porcentaje de retención de IVA para honorarios profesionales'
+            'tipo': 'IVA_RETENIDO_SERVICIOS',
+            'aplica_a': 'HONORARIO_PROFESOR',
+            'porcentaje': 75.00,
+            'fecha_inicio': fecha_inicio,
+            'descripcion': 'Porcentaje de retención de IVA para honorarios profesionales'
             },
             {
-                'tipo': 'IVA_RETENIDO_SERVICIOS',
-                'aplica_a': 'SERVICIO_GENERAL',
-                'porcentaje': 75.00,
-                'fecha_inicio': fecha_inicio,
-                'descripcion': 'Porcentaje de retención de IVA para servicios generales'
+            'tipo': 'IVA_RETENIDO_SERVICIOS',
+            'aplica_a': 'SERVICIO_GENERAL',
+            'porcentaje': 75.00,
+            'fecha_inicio': fecha_inicio,
+            'descripcion': 'Porcentaje de retención de IVA para servicios generales'
             },
             # Retenciones de ISLR
             {
-                'tipo': 'ISLR_HONORARIOS',
-                'aplica_a': 'HONORARIO_PROFESOR',
-                'porcentaje': 10.00,
-                'fecha_inicio': fecha_inicio,
-                'descripcion': 'Retención de ISLR para honorarios profesionales'
+            'tipo': 'ISLR_HONORARIOS',
+            'aplica_a': 'HONORARIO_PROFESOR',
+            'porcentaje': 10.00,
+            'fecha_inicio': fecha_inicio,
+            'descripcion': 'Retención de ISLR para honorarios profesionales'
             },
             {
-                'tipo': 'ISLR_SERVICIOS',
-                'aplica_a': 'SERVICIO_GENERAL',
-                'porcentaje': 3.00,
-                'fecha_inicio': fecha_inicio,
-                'descripcion': 'Retención de ISLR para servicios generales'
+            'tipo': 'ISLR_SERVICIOS',
+            'aplica_a': 'SERVICIO_GENERAL',
+            'porcentaje': 3.00,
+            'fecha_inicio': fecha_inicio,
+            'descripcion': 'Retención de ISLR para servicios generales'
             },
             {
-                'tipo': 'ISLR_COMPRAS',
-                'aplica_a': 'COMPRA_BIENES',
-                'porcentaje': 1.00,
-                'fecha_inicio': fecha_inicio,
-                'descripcion': 'Retención de ISLR para compras de bienes'
+            'tipo': 'ISLR_COMPRAS',
+            'aplica_a': 'COMPRA_BIENES',
+            'porcentaje': 1.00,
+            'fecha_inicio': fecha_inicio,
+            'descripcion': 'Retención de ISLR para compras de bienes'
             },
             # Montos mínimos para exenciones
             {
-                'tipo': 'MONTO_EXENCION_ISLR',
-                'aplica_a': 'HONORARIO_PROFESOR',
-                'valor_fijo': 1000.00,
-                'porcentaje': 0.00,
-                'fecha_inicio': fecha_inicio,
-                'descripcion': 'Monto mínimo para aplicar retención de ISLR en honorarios'
+            'tipo': 'MONTO_EXENCION_ISLR',
+            'aplica_a': 'HONORARIO_PROFESOR',
+            'valor_fijo': 1000.00,
+            'porcentaje': 0.00,
+            'fecha_inicio': fecha_inicio,
+            'descripcion': 'Monto mínimo para aplicar retención de ISLR en honorarios'
             },
             {
-                'tipo': 'MONTO_EXENCION_IVA',
-                'aplica_a': 'COMPRA_BIENES',
-                'valor_fijo': 200.00,
-                'porcentaje': 0.00,
-                'fecha_inicio': fecha_inicio,
-                'descripcion': 'Monto mínimo para aplicar IVA en compras'
+            'tipo': 'MONTO_EXENCION_IVA',
+            'aplica_a': 'COMPRA_BIENES',
+            'valor_fijo': 200.00,
+            'porcentaje': 0.00,
+            'fecha_inicio': fecha_inicio,
+            'descripcion': 'Monto mínimo para aplicar IVA en compras'
+            },
+            {
+            'tipo': 'IGTF_NACIONAL_VENTAS_EFECTIVO',
+            'aplica_a': 'PAGO',
+            'valor_fijo': 0.00,
+            'porcentaje': 0.00,
+            'fecha_inicio': fecha_inicio,
+            'descripcion': 'Monto mínimo para aplicar IGTF en ventas nacionales en efectivo'
+            }, 
+            {
+            'tipo': 'IGTF_NACIONAL_VENTAS_DIGITAL',
+            'aplica_a': 'COBRO',
+            'valor_fijo': 0.00,
+            'porcentaje': 0.00,
+            'fecha_inicio': fecha_inicio,
+            'descripcion': 'Monto mínimo para aplicar IGTF en ventas nacionales digitales'
+            },
+            {
+            'tipo': 'IGTF_NACIONAL_COMPRAS_EFECTIVO',
+            'aplica_a': 'PAGO',
+            'valor_fijo': 0.00,
+            'porcentaje': 0.00,
+            'fecha_inicio': fecha_inicio,
+            'descripcion': 'Monto mínimo para aplicar IGTF en compras nacionales en efectivo'
+            },
+            {
+            'tipo': 'IGTF_NACIONAL_COMPRAS_DIGITAL',
+            'aplica_a': 'COBRO',
+            'valor_fijo': 0.00,
+            'porcentaje': 0.00,
+            'fecha_inicio': fecha_inicio,
+            'descripcion': 'Monto mínimo para aplicar IGTF en compras nacionales digitales'
+            },
+            {
+            'tipo': 'IGTF_DIVISA_COMPRAS_EFECTIVO',
+            'aplica_a': 'PAGO',
+            'valor_fijo': 0.00,
+            'porcentaje': 3.00,
+            'fecha_inicio': fecha_inicio,
+            'descripcion': 'Monto mínimo para aplicar IGTF en compras en divisa (efectivo)'
+            },
+            {
+            'tipo': 'IGTF_DIVISA_COMPRAS_DIGITAL',
+            'aplica_a': 'COBRO',
+            'valor_fijo': 0.00,
+            'porcentaje': 3.00,
+            'fecha_inicio': fecha_inicio,
+            'descripcion': 'Monto mínimo para aplicar IGTF en compras en divisa (digital)'
+            },
+            {
+            'tipo': 'IGTF_DIVISA_VENTAS_EFECTIVO',
+            'aplica_a': 'PAGO',
+            'valor_fijo': 0.00,
+            'porcentaje': 3.00,
+            'fecha_inicio': fecha_inicio,
+            'descripcion': 'Monto mínimo para aplicar IGTF en ventas en divisa (efectivo)'
+            },
+            {
+            'tipo': 'IGTF_DIVISA_VENTAS_DIGITAL',
+            'aplica_a': 'COBRO',
+            'valor_fijo': 0.00,
+            'porcentaje': 3.00,
+            'fecha_inicio': fecha_inicio,
+            'descripcion': 'Monto mínimo para aplicar IGTF en ventas en divisa (digital)'
             }
+
         ]
 
         # Crear los parámetros en la base de datos

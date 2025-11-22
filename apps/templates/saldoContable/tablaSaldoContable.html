@@ -159,8 +159,17 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     pagination.appendChild(prevLi);
 
-    // Botones de páginas
-    for (let i = 1; i <= totalPages; i++) {
+    // Calcular rango de páginas visibles
+    const maxVisiblePages = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+    if (endPage - startPage + 1 < maxVisiblePages) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+
+    // Botones de números de página
+    for (let i = startPage; i <= endPage; i++) {
       const li = document.createElement('li');
       li.className = 'page-item' + (i === currentPage ? ' active' : '');
       li.innerHTML = `<a class="page-link" href="#">${i}</a>`;

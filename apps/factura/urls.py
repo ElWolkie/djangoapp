@@ -42,11 +42,14 @@ urlpatterns = [
     path('pagos/<int:pk>/', views.pago_detail, name='pago_detail'),
     path('pagos/nuevo/', views.pago_create, name='pago_create'),
     path('pagos/nuevo/<int:pk>/', views.pago_create, name='pago_create'),
+    path('pagos/nuevoigtf/<int:pk>/', views.pago_createigtf, name='pago_createigtf'),
+    path('pagos/nuevoigtf/', views.pago_createigtf, name='pago_createigtf'),
     path('pagos/editar/<int:pk>/', views.pago_edit, name='pago_edit'),
     path('pagos/eliminar/<int:pk>/', views.pago_delete, name='pago_delete'),
     path('pagos/confirmar/<int:pk>/', views.pago_confirmar, name='pago_confirmar'),
     path('pagos/cancelar/<int:pk>/', views.pago_cancelar, name='pago_cancelar'),
     path('pagosApp/', views.pagoApp_list, name='pago_App_list'),
+    path('pagos/obtener-tipo-igtf/', views.obtener_tipo_igtf, name='obtener_tipo_igtf'),
 
 
     # Parámetros Tributarios
@@ -57,4 +60,5 @@ urlpatterns = [
     path('parametros/eliminar/<int:pk>/', views.parametro_tributario_eliminar, name='parametro_tributario_eliminar'),
     path('parametros/reactivar/<int:pk>/', views.parametro_tributario_reactivar, name='parametro_tributario_reactivar'),
     path('obtener-parametros-tributarios/', views.obtener_parametros_tributarios, name='obtener_parametros_tributarios'),
+
 ]

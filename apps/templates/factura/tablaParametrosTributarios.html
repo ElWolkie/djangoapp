@@ -46,11 +46,19 @@
   }
   .modal-dialog { max-width: 700px; }
   .modal.fade.show { background-color: rgba(0,0,0,0.5); }
+  .container-balance {
+    max-width: 1500px;
+    margin: 2rem auto;
+    padding: 2rem;
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  }
 </style>
 {% endblock stylesheets %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="container-balance mt-4">
   <h2 class="text-center mb-4">Lista de Parámetros Tributarios</h2>
 
   <div class="row mb-3">
@@ -79,7 +87,6 @@
             <th>Valor Fijo</th>
             <th>Fecha Inicio</th>
             <th>Fecha Fin</th>
-            <th>Activo</th>
             <th class="actions-column">Acciones</th>
           </tr>
         </thead>
@@ -93,17 +100,6 @@
             <td class="text-center" >{{ parametro.valor_fijo|default:"-" }}</td>
             <td class="text-center" >{{ parametro.fecha_inicio|date:"d/m/Y" }}</td>
             <td class="text-center" >{{ parametro.fecha_fin|default:"-" }}</td>
-            <td>
-              {% if parametro.activo %}
-                <span class="badge bg-success">
-                  <i class="fas fa-check-circle me-1"></i> Sí
-                </span>
-              {% else %}
-                <span class="badge bg-danger">
-                  <i class="fas fa-times-circle me-1"></i> No
-                </span>
-              {% endif %}
-            </td>
             <td class="actions-column">
               <div class="d-flex gap-2">
                 <a href="{% url 'parametro_tributario_edit' parametro.idPT %}" class="btn btn-primary btn-sm">
