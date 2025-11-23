@@ -74,103 +74,98 @@
                 </a>
             </li> -->
       
-            
-
-            {% if perms.cuentaBanco.add_banco or perms.cuentaBanco.view_banco or perms.cuentaBanco.change_banco or perms.cuentaBanco.delete_banco %}
-            <li class="nav-item">
-              <a class="nav-link" href="#" id="bancoDropdown" data-toggle="collapse" data-target="#bancoMenu" aria-expanded="false" aria-controls="bancoMenu">
-                <i class="ni ni-credit-card text-orange"></i>
-                <span class="nav-link-text">Gestionar Banco</span>
-              </a>
-              <div id="bancoMenu" class="collapse ml-3">
-                <ul class="nav flex-column">
-              {% if perms.cuentaBanco.add_banco %}
+            {% if perms.cuentaBanco.add_banco or perms.cuentaBanco.view_banco or perms.cuentaBanco.change_banco or perms.cuentaBanco.delete_banco or perms.cuentaBanco.add_cuentabanco or perms.cuentaBanco.view_cuentabanco or perms.cuentaBanco.change_cuentabanco or perms.cuentaBanco.delete_cuentabanco %}
               <li class="nav-item">
-                <a class="nav-link" href="{% url 'banco_create' %}" style="padding-left: 15px;">
-                  <i class="ni ni-fat-add text-orange"></i>
-                  <span class="nav-link-text">Registrar
+                <a class="nav-link" href="#" id="bancoDropdown" data-toggle="collapse" data-target="#bancoMenu" aria-expanded="false" aria-controls="bancoMenu">
+                  <i class="ni ni-credit-card text-orange"></i>
+                  <span class="nav-link-text">Gestionar Banco</span>
                 </a>
-              </li>
-              {% endif %}
-      
-              {% if perms.cuentaBanco.add_banco or perms.cuentaBanco.view_banco or perms.cuentaBanco.change_banco or perms.cuentaBanco.delete_banco %}
-              <li class="nav-item">
-                <a class="nav-link" href="{% url 'banco_list' %}" style="padding-left: 15px;">
-                  <i class="ni ni-bullet-list-67 text-orange"></i>
-                  <span class="nav-link-text">Consultar
-                </a>
-              </li>
-              {% endif %}
+                <div id="bancoMenu" class="collapse ml-3">
+                  <ul class="nav flex-column">
+                {% if perms.cuentaBanco.add_banco %}
+                <li class="nav-item">
+                  <a class="nav-link" href="{% url 'banco_create' %}" style="padding-left: 15px;">
+                    <i class="ni ni-fat-add text-orange"></i>
+                    <span class="nav-link-text">Registrar
+                  </a>
+                </li>
+                {% endif %}
+        
+                {% if perms.cuentaBanco.view_banco or perms.cuentaBanco.change_banco or perms.cuentaBanco.delete_banco %}
+                <li class="nav-item">
+                  <a class="nav-link" href="{% url 'banco_list' %}" style="padding-left: 15px;">
+                    <i class="ni ni-bullet-list-67 text-orange"></i>
+                    <span class="nav-link-text">Consultar
+                  </a>
+                </li>
+                {% endif %}
 
               <!-- Divider -->
               <hr class="my-1">
               <!-- Divider -->
 
-              {% if perms.cuentaBanco.add_cuentabanco or perms.cuentaBanco.view_cuentabanco or perms.cuentaBanco.change_cuentabanco or perms.cuentaBanco.delete_cuentabanco %}
-              <li class="nav-item">
-                <a class="nav-link" href="#" id="cuentaBancoDropdown" data-toggle="collapse" data-target="#cuentaBancoMenu" aria-expanded="false" aria-controls="cuentaBancoMenu" style="padding-left: 15px;">
-                  <i class="ni ni-archive-2 text-orange"></i>
-                  <span class="nav-link-text">Gestionar Cuentas</span>
-                </a>
-                <div id="cuentaBancoMenu" class="collapse ml-3">
-                  <ul class="nav flex-column">
-        
-                  {% if perms.cuentaBanco.add_cuentabanco %}
-                    <li class="nav-item">
-                      <a class="nav-link" href="{% url 'cuenta_banco_create' %}" style="padding-left: 15px;">
-                        <i class="ni ni-fat-add text-orange"></i>
-                        <span class="nav-link-text">Registrar
-                      </a>
-                    </li>
-                  {% endif %}
-        
-                  {% if perms.cuentaBanco.add_cuentabanco or perms.cuentaBanco.view_cuentabanco or perms.cuentaBanco.change_cuentabanco or perms.cuentaBanco.delete_cuentabanco %}
-                    <li class="nav-item">
-                      <a class="nav-link" href="{% url 'cuenta_banco_list' %}" style="padding-left: 15px;">
-                        <i class="ni ni-bullet-list-67 text-orange"></i>
-                        <span class="nav-link-text">Consultar
-                      </a>
-                    </li>
-                  {% endif %}
+                <li class="nav-item">
+                  <a class="nav-link" href="#" id="cuentaBancoDropdown" data-toggle="collapse" data-target="#cuentaBancoMenu" aria-expanded="false" aria-controls="cuentaBancoMenu" style="padding-left: 15px;">
+                    <i class="ni ni-archive-2 text-orange"></i>
+                    <span class="nav-link-text">Gestionar Cuentas</span>
+                  </a>
+                  <div id="cuentaBancoMenu" class="collapse ml-3">
+                    <ul class="nav flex-column">
+          
+                    {% if perms.cuentaBanco.add_cuentabanco %}
+                      <li class="nav-item">
+                        <a class="nav-link" href="{% url 'cuenta_banco_create' %}" style="padding-left: 15px;">
+                          <i class="ni ni-fat-add text-orange"></i>
+                          <span class="nav-link-text">Registrar
+                        </a>
+                      </li>
+                    {% endif %}
+          
+                    {% if perms.cuentaBanco.view_cuentabanco or perms.cuentaBanco.change_cuentabanco or perms.cuentaBanco.delete_cuentabanco %}
+                      <li class="nav-item">
+                        <a class="nav-link" href="{% url 'cuenta_banco_list' %}" style="padding-left: 15px;">
+                          <i class="ni ni-bullet-list-67 text-orange"></i>
+                          <span class="nav-link-text">Consultar
+                        </a>
+                      </li>
+                    {% endif %}
+                    </ul>
+                  </div>
+                </li>
                   </ul>
                 </div>
               </li>
-              {% endif %}
-                </ul>
-              </div>
-            </li>
             {% endif %}
-      
           
       {% if perms.planCuenta.add_plancuenta or perms.planCuenta.view_plancuenta or perms.planCuenta.change_plancuenta or perms.planCuenta.delete_plancuenta %}
-      <li class="nav-item">
-        <a class="nav-link" href="#" id="planCuentaDropdown" data-toggle="collapse" data-target="#planCuentaMenu" aria-expanded="false" aria-controls="planCuentaMenu">
-          <i class="ni ni-folder-17 text-orange"></i>
-          <span class="nav-link-text">Gestionar Plan <br>de Cuenta</span>
-        </a>
-        <div id="planCuentaMenu" class="collapse ml-3">
-          <ul class="nav flex-column">
-
-        {% if perms.planCuenta.add_plancuenta %}
-        <li class="nav-item"></li>
-          <a class="nav-link" {% if request.path == 'plan_cuenta_create' %}active{% endif %} href="{% url 'plan_cuenta_create' %}" style="padding-left: 15px;">
-            <i class="ni ni-fat-add text-orange"></i>
-            <span class="nav-link-text">Registrar
-          </a>
-        </li>
-        {% endif %}
-
-        {% if perms.planCuenta.add_plancuenta or perms.planCuenta.view_plancuenta or perms.planCuenta.change_plancuenta or perms.planCuenta.delete_plancuenta %}
         <li class="nav-item">
-          <a class="nav-link" href="{% url 'plan_cuenta_list' %}" style="padding-left: 15px;">
-            <i class="ni ni-bullet-list-67 text-orange"></i>
-            <span class="nav-link-text">Consultar
+          <a class="nav-link" href="#" id="planCuentaDropdown" data-toggle="collapse" data-target="#planCuentaMenu" aria-expanded="false" aria-controls="planCuentaMenu">
+            <i class="ni ni-folder-17 text-orange"></i>
+            <span class="nav-link-text">Gestionar Plan <br>de Cuenta</span>
           </a>
+          <div id="planCuentaMenu" class="collapse ml-3">
+            <ul class="nav flex-column">
+
+          {% if perms.planCuenta.add_plancuenta %}
+          <li class="nav-item"></li>
+            <a class="nav-link" {% if request.path == 'plan_cuenta_create' %}active{% endif %} href="{% url 'plan_cuenta_create' %}" style="padding-left: 15px;">
+              <i class="ni ni-fat-add text-orange"></i>
+              <span class="nav-link-text">Registrar
+            </a>
+          </li>
+          {% endif %}
+
+          {% if perms.planCuenta.view_plancuenta or perms.planCuenta.change_plancuenta or perms.planCuenta.delete_plancuenta %}
+          <li class="nav-item">
+            <a class="nav-link" href="{% url 'plan_cuenta_list' %}" style="padding-left: 15px;">
+              <i class="ni ni-bullet-list-67 text-orange"></i>
+              <span class="nav-link-text">Consultar
+            </a>
+          </li>
+          {% endif %}
+            </ul>
+          </div>
         </li>
-        {% endif %}
-          </ul>
-        </div>
-      </li>
       {% endif %} 
 
       {% if perms.periodoContable.add_periodocontable or perms.periodoContable.view_periodocontable or perms.periodoContable.change_periodocontable or perms.periodoContable.delete_periodocontable %}
@@ -183,101 +178,141 @@
       {% endif %} 
 
       {% if perms.asientoContable.add_asientocontable or perms.asientoContable.view_asientocontable or perms.asientoContable.change_asientocontable or perms.asientoContable.delete_asientocontable %}
-      <li class="nav-item">
-        <a class="nav-link" href="#" id="asientoContableDropdown" data-toggle="collapse" data-target="#asientoContableMenu" aria-expanded="false" aria-controls="asientoContableMenu">
-          <i class="ni ni-single-copy-04 text-orange"></i>
-          <span class="nav-link-text">Gestionar Asiento <br>Contable</span>
-        </a>
-        <div id="asientoContableMenu" class="collapse ml-3">
-          <ul class="nav flex-column">
+        <li class="nav-item">
+          <a class="nav-link" href="#" id="asientoContableDropdown" data-toggle="collapse" data-target="#asientoContableMenu" aria-expanded="false" aria-controls="asientoContableMenu">
+            <i class="ni ni-single-copy-04 text-orange"></i>
+            <span class="nav-link-text">Gestionar Asiento <br>Contable</span>
+          </a>
+          <div id="asientoContableMenu" class="collapse ml-3">
+            <ul class="nav flex-column">
 
-            {% if perms.asientoContable.add_asientocontable %}
+              {% if perms.asientoContable.add_asientocontable %}
+              <li class="nav-item">
+                <a class="nav-link" href="{% url 'asiento_contable_create' %}" style="padding-left: 15px;">
+                  <i class="ni ni-fat-add text-orange"></i>
+                  <span class="nav-link-text">Registrar
+                </a>
+              </li>
+              {% endif %}
+
+              {% if perms.asientoContable.view_asientocontable or perms.asientoContable.change_asientocontable or perms.asientoContable.delete_asientocontable %}
+              <li class="nav-item">
+                <a class="nav-link" href="{% url 'asiento_contable_list' %}" style="padding-left: 15px;">
+                  <i class="ni ni-bullet-list-67 text-orange"></i>
+                  <span class="nav-link-text">Consultar
+                </a>
+              </li>
+              {% endif %}
+            </ul>
+          </div>
+        </li>
+      {% endif %}
+
+      {% if perms.saldoContable.add_saldocontable or perms.saldoContable.view_saldocontable or perms.saldoContable.change_saldocontable or perms.saldoContable.delete_saldocontable %}
+        <li class="nav-item">
+          <a class="nav-link" href="#" id="saldoContableDropdown" data-toggle="collapse" data-target="#saldoContableMenu" aria-expanded="false" aria-controls="saldoContableMenu">
+            <i class="ni ni-chart-bar-32 text-orange"></i>
+            <span class="nav-link-text">Gestionar Saldo <br> Contable</span>
+          </a>
+          <div id="saldoContableMenu" class="collapse ml-3">
+            <ul class="nav flex-column">
+          {% if perms.saldoContable.add_saldocontable %}
             <li class="nav-item">
-              <a class="nav-link" href="{% url 'asiento_contable_create' %}" style="padding-left: 15px;">
+              <a class="nav-link" href="{% url 'saldo_contable_create' %}" style="padding-left: 15px;">
                 <i class="ni ni-fat-add text-orange"></i>
                 <span class="nav-link-text">Registrar
               </a>
             </li>
-            {% endif %}
+          {% endif %}
 
-            {% if perms.asientoContable.add_asientocontable or perms.asientoContable.view_asientocontable or perms.asientoContable.change_asientocontable or perms.asientoContable.delete_asientocontable %}
+          {% if perms.saldoContable.view_saldocontable or perms.saldoContable.change_saldocontable or perms.saldoContable.delete_saldocontable %}
             <li class="nav-item">
-              <a class="nav-link" href="{% url 'asiento_contable_list' %}" style="padding-left: 15px;">
+              <a class="nav-link" href="{% url 'saldo_contable_list' %}" style="padding-left: 15px;">
                 <i class="ni ni-bullet-list-67 text-orange"></i>
                 <span class="nav-link-text">Consultar
               </a>
             </li>
-            {% endif %}
-          </ul>
-        </div>
-      </li>
+          {% endif %}
+            </ul>
+          </div>
+        </li>
       {% endif %}
 
-      {% if perms.saldoContable.add_saldocontable or perms.saldoContable.view_saldocontable or perms.saldoContable.change_saldocontable or perms.saldoContable.delete_saldocontable %}
+     {% if user.is_superuser %}
       <li class="nav-item">
-        <a class="nav-link" href="#" id="saldoContableDropdown" data-toggle="collapse" data-target="#saldoContableMenu" aria-expanded="false" aria-controls="saldoContableMenu">
-          <i class="ni ni-chart-bar-32 text-orange"></i>
-          <span class="nav-link-text">Gestionar Saldo <br> Contable</span>
-        </a>
-        <div id="saldoContableMenu" class="collapse ml-3">
-          <ul class="nav flex-column">
-        {% if perms.saldoContable.add_saldocontable %}
-        <li class="nav-item">
-          <a class="nav-link" href="{% url 'saldo_contable_create' %}" style="padding-left: 15px;">
-            <i class="ni ni-fat-add text-orange"></i>
-            <span class="nav-link-text">Registrar
+          <a class="nav-link" href="#" id="librosContablesDropdown" data-toggle="collapse" data-target="#librosContablesMenu" aria-expanded="false" aria-controls="librosContablesMenu">
+            <i class="ni ni-books text-orange"></i>
+            <span class="nav-link-text">Gestionar Libros <br> Contables</span>
           </a>
+          <div id="librosContablesMenu" class="collapse ml-3">
+            <ul class="nav flex-column">
+              <li class="nav-item">
+                <a class="nav-link" href="{% url 'balance_cuentas' %}" style="padding-left: 15px;">
+                  <i class="ni ni-chart-bar-32 text-orange"></i>
+                  <span class="nav-link-text">Balance de Cuentas</span>
+                </a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="{% url 'libro_mayor' %}" style="padding-left: 15px;">
+                  <i class="ni ni-single-copy-04 text-orange"></i>
+                  <span class="nav-link-text">Libro Mayor</span>
+                </a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="{% url 'libro_diario' %}" style="padding-left: 15px;">
+                  <i class="ni ni-calendar-grid-58 text-orange"></i>
+                  <span class="nav-link-text">Diario Contable</span>
+                </a>
+              </li>
+            </ul>
+          </div>
         </li>
-        {% endif %}
 
-        {% if perms.saldoContable.add_saldocontable or perms.saldoContable.view_saldocontable or perms.saldoContable.change_saldocontable or perms.saldoContable.delete_saldocontable %}
-        <li class="nav-item">
-          <a class="nav-link" href="{% url 'saldo_contable_list' %}" style="padding-left: 15px;">
-            <i class="ni ni-bullet-list-67 text-orange"></i>
-            <span class="nav-link-text">Consultar
-          </a>
-        </li>
+    {% else %}
+      {% for group in user.groups.all %}
+        {% if group.name == 'Contable' %}
+          <li class="nav-item">
+              <a class="nav-link" href="#" id="librosContablesDropdown" data-toggle="collapse" data-target="#librosContablesMenu" aria-expanded="false" aria-controls="librosContablesMenu">
+                <i class="ni ni-books text-orange"></i>
+                <span class="nav-link-text">Gestionar Libros <br> Contables</span>
+              </a>
+              <div id="librosContablesMenu" class="collapse ml-3">
+                <ul class="nav flex-column">
+                  <li class="nav-item">
+                    <a class="nav-link" href="{% url 'balance_cuentas' %}" style="padding-left: 15px;">
+                      <i class="ni ni-chart-bar-32 text-orange"></i>
+                      <span class="nav-link-text">Balance de Cuentas</span>
+                    </a>
+                  </li>
+                  <li class="nav-item">
+                    <a class="nav-link" href="{% url 'libro_mayor' %}" style="padding-left: 15px;">
+                      <i class="ni ni-single-copy-04 text-orange"></i>
+                      <span class="nav-link-text">Libro Mayor</span>
+                    </a>
+                  </li>
+                  <li class="nav-item">
+                    <a class="nav-link" href="{% url 'libro_diario' %}" style="padding-left: 15px;">
+                      <i class="ni ni-calendar-grid-58 text-orange"></i>
+                      <span class="nav-link-text">Diario Contable</span>
+                    </a>
+                  </li>
+                </ul>
+              </div>
+          </li>
         {% endif %}
-        {% endif %}
-          </ul>
-        </div>
-      </li>
+      {% endfor %}
+    {% endif %}
 
-      <li class="nav-item">
-        <a class="nav-link" href="#" id="librosContablesDropdown" data-toggle="collapse" data-target="#librosContablesMenu" aria-expanded="false" aria-controls="librosContablesMenu">
-          <i class="ni ni-books text-orange"></i>
-          <span class="nav-link-text">Gestionar Libros <br> Contables</span>
-        </a>
-        <div id="librosContablesMenu" class="collapse ml-3">
-          <ul class="nav flex-column">
-            <li class="nav-item">
-              <a class="nav-link" href="{% url 'balance_cuentas' %}" style="padding-left: 15px;">
-                <i class="ni ni-chart-bar-32 text-orange"></i>
-                <span class="nav-link-text">Balance de Cuentas</span>
-              </a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="{% url 'libro_mayor' %}" style="padding-left: 15px;">
-                <i class="ni ni-single-copy-04 text-orange"></i>
-                <span class="nav-link-text">Libro Mayor</span>
-              </a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="{% url 'libro_diario' %}" style="padding-left: 15px;">
-                <i class="ni ni-calendar-grid-58 text-orange"></i>
-                <span class="nav-link-text">Diario Contable</span>
-              </a>
-            </li>
-          </ul>
-        </div>
-      </li>
-      <li class="nav-item">
-        <a class="nav-link"  href="{% url 'plan_articulo_list' %}">
-          <i class="ni ni-bullet-list-67 text-orange"></i>
-          <span class="nav-link-text">Gestionar Articulos</span>
-        </a>
-      </li>
+       {% if perms.factura.view_planarticulo or perms.factura.view_planarticulo or perms.factura.view_planarticulo %}
+          <li class="nav-item">
+            <a class="nav-link"  href="{% url 'plan_articulo_list' %}">
+              <i class="ni ni-bullet-list-67 text-orange"></i>
+              <span class="nav-link-text">Gestionar Articulos</span>
+            </a>
+          </li>
+      {% endif %}
      
+      {% if perms.factura.add_parametrotributario or perms.factura.view_parametrotributario or pperms.factura.change_parametrotributario or perms.factura.delete_parametrotributario %}
         <li class="nav-item">
           <a class="nav-link" href="#" id="parametroTributarioDropdown" data-toggle="collapse" data-target="#parametroTributarioMenu" aria-expanded="false" aria-controls="parametroTributarioMenu">
               <i class="ni ni-settings text-orange"></i>
@@ -285,22 +320,27 @@
           </a>
           <div id="parametroTributarioMenu" class="collapse ml-3">
               <ul class="nav flex-column">
+                {% if  perms.factura.add_parametrotributario %}
                  <li class="nav-item">
                       <a class="nav-link" href="{% url 'parametro_tributario_create' %}" style="padding-left: 15px;">
                           <i class="ni ni-fat-add text-orange"></i>
                           <span class="nav-link-text">Registrar</span>
                       </a>
                   </li>
+                {% endif %}
+
+                {% if perms.factura.view_parametrotributario or pperms.factura.change_parametrotributario or perms.factura.delete_parametrotributario %}
                   <li class="nav-item">
                       <a class="nav-link" href="{% url 'parametro_tributario_list' %}" style="padding-left: 15px;">
                           <i class="ni ni-bullet-list-67 text-orange"></i>
                           <span class="nav-link-text">Consultar</span>
                       </a>
                   </li>
-                 
+                {% endif %}
               </ul>
           </div>
         </li>
+      {% endif %}
                     
         {# --- CERRAR SESIÓN (Visible para todos los autenticados) --- #}
         {% if user.is_authenticated %}
@@ -319,7 +359,6 @@
         <!-- Divider -->
         <hr class="my-3">
         <!-- Heading -->
-     
       </div>
     </div>
   </div>
