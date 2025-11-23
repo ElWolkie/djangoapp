@@ -224,139 +224,132 @@ class PagoTemporal(models.Model):
         """
         Confirma el pago temporal, lo mueve a la tabla principal `Pago` y realiza los registros dependientes.
         """
-        # Validar si el pago ya fue confirmado
-        if self.confirmado:
-            raise ValueError("El pago ya ha sido confirmado.")
+        try:
+            # Validar si el pago ya fue confirmado
+            if self.confirmado:
+                raise ValueError("El pago ya ha sido confirmado.")
 
-        # Validar que el monto sea positivo
-        if self.monto <= 0:
-            raise ValueError("El monto del pago debe ser mayor a cero.")
+            # Validar que el monto sea positivo
+            if self.monto <= 0:
+                raise ValueError("El monto del pago debe ser mayor a cero.")
 
-        # Validar que la nota asociada exista
-        if not self.idNota:
-            raise ValueError("Debe asociar una nota válida al pago.")
+            # Validar que la nota asociada exista
+            if not self.idNota:
+                raise ValueError("Debe asociar una nota válida al pago.")
 
-        # Validar que la cuenta bancaria exista y tenga un plan de cuenta asociado
-        if not self.idCuentaBanco:
-            raise ValueError("Debe seleccionar una cuenta bancaria válida.")
+            # Validar que la cuenta bancaria exista y tenga un plan de cuenta asociado
+            if not self.idCuentaBanco:
+                raise ValueError("Debe seleccionar una cuenta bancaria válida.")
 
-        if not self.idCuentaBanco.planCuenta:
-            raise ValueError("La cuenta bancaria seleccionada no tiene un plan de cuenta asociado.")
+            if not self.idCuentaBanco.planCuenta:
+                raise ValueError("La cuenta bancaria seleccionada no tiene un plan de cuenta asociado.")
 
-        # Verificar si hay un periodo contable activo
-        periodo_activo = periodoContable.objects.filter(estadoPeriodo=True).first()
-        if not periodo_activo:
-            raise ValueError("No hay ningún periodo contable registrado o activo en el sistema.")
+            # Verificar si hay un periodo contable activo
+            periodo_activo = periodoContable.objects.filter(estadoPeriodo=True).first()
+            if not periodo_activo:
+                raise ValueError("No hay ningún periodo contable registrado o activo en el sistema.")
 
-        # Evitar duplicados en el nombre del asiento contable
-        base_numero_asiento = f"PAGO-{self.idNota.numeroNota}"
-        asientos_similares = AsientoContable.objects.filter(
-            numeroAsiento__startswith=base_numero_asiento
-        ).values_list('numeroAsiento', flat=True)
+            # Evitar duplicados en el nombre del asiento contable
+            base_numero_asiento = f"PAGO-{self.idNota.numeroNota}"
+            asientos_similares = AsientoContable.objects.filter(
+                numeroAsiento__startswith=base_numero_asiento
+            ).values_list('numeroAsiento', flat=True)
 
-        # Determinar número de asiento único
-        if base_numero_asiento not in asientos_similares:
-            numero_asiento_pago = base_numero_asiento
-        else:
-            sufijos = []
-            patron = re.compile(rf"^{re.escape(base_numero_asiento)}-(\d+)$")
-            for n in asientos_similares:
-                match = patron.match(n)
-                if match:
-                    sufijos.append(int(match.group(1)))
-            nuevo_sufijo = max(sufijos) + 1 if sufijos else 1
-            numero_asiento_pago = f"{base_numero_asiento}-{nuevo_sufijo}"
+            # Determinar número de asiento único
+            if base_numero_asiento not in asientos_similares:
+                numero_asiento_pago = base_numero_asiento
+            else:
+                sufijos = []
+                patron = re.compile(rf"^{re.escape(base_numero_asiento)}-(\d+)$")
+                for n in asientos_similares:
+                    match = patron.match(n)
+                    if match:
+                        sufijos.append(int(match.group(1)))
+                nuevo_sufijo = max(sufijos) + 1 if sufijos else 1
+                numero_asiento_pago = f"{base_numero_asiento}-{nuevo_sufijo}"
 
-        # Crear el asiento contable para el pago
-        asiento_pago = AsientoContable.objects.create(
-            numeroAsiento=numero_asiento_pago,
-            fechaAsiento=self.fechaPago,
-            conceptoAsiento=f"Pago de {self.idNota.numeroNota}",
-            idPeriodo=periodo_activo
-        )
+            # Crear el asiento contable para el pago
+            asiento_pago = AsientoContable.objects.create(
+                numeroAsiento=numero_asiento_pago,
+                fechaAsiento=self.fechaPago,
+                conceptoAsiento=f"Pago de {self.idNota.numeroNota}",
+                idPeriodo=periodo_activo
+            )
 
-        # Obtener la cuenta del Plan de Cuenta usada en el Debe del asiento principal de la nota
-        asiento_principal = self.idNota.idAsiento
-        detalle_debe = DetalleAsiento.objects.filter(idAsiento=asiento_principal, debe__gt=0).first()
-        if not detalle_debe:
-            raise ValueError("No se encontró la cuenta por cobrar en el asiento principal de la nota.")
-        plan_cuenta_haber = detalle_debe.idPlanCuenta
+            # Obtener la cuenta del Plan de Cuenta usada en el Debe del asiento principal de la nota
+            asiento_principal = self.idNota.idAsiento
+            detalle_debe = DetalleAsiento.objects.filter(idAsiento=asiento_principal, debe__gt=0).first()
+            if not detalle_debe:
+                raise ValueError("No se encontró la cuenta por cobrar en el asiento principal de la nota.")
+            plan_cuenta_haber = detalle_debe.idPlanCuenta
 
-        # Obtener el plan de cuenta para el Debe (Caja/Banco) según la cuenta bancaria
-        plan_cuenta_debe = self.idCuentaBanco.planCuenta
+            # Obtener el plan de cuenta para el Debe (Caja/Banco) según la cuenta bancaria
+            if not self.idCuentaBanco or not self.idCuentaBanco.planCuenta:
+                raise ValueError("No se encontró el plan de cuenta asociado a la cuenta bancaria seleccionada.")
+            plan_cuenta_debe = self.idCuentaBanco.planCuenta
 
-        # Crear los detalles del asiento contable
-        # Asignar el id directamente usando el campo *_id para referenciar la Moneda por su PK
-        DetalleAsiento.objects.create(
-            idAsiento=asiento_pago,
-            idMoneda_id=1,  # Asumiendo moneda local con ID 1
-            idPlanCuenta=plan_cuenta_debe,
-            debe=float(self.monto),
-            haber=0.00
-        )
-        DetalleAsiento.objects.create(
-            idAsiento=asiento_pago,
-            idMoneda_id=1,  # Asumiendo moneda local con ID 1
-            idPlanCuenta=plan_cuenta_haber,
-            debe=0.00,
-            haber=float(self.monto)
-        )
+            # Crear los detalles del asiento contable
+            DetalleAsiento.objects.create(
+                idAsiento=asiento_pago,
+                idMoneda_id=1,  # Asumiendo moneda local con ID 1
+                idPlanCuenta=plan_cuenta_debe,
+                debe=float(self.monto),
+                haber=0.00
+            )
+            DetalleAsiento.objects.create(
+                idAsiento=asiento_pago,
+                idMoneda_id=1,  # Asumiendo moneda local con ID 1
+                idPlanCuenta=plan_cuenta_haber,
+                debe=0.00,
+                haber=float(self.monto)
+            )
 
-        # Crear el registro en la tabla principal `Pago`
-        pago = Pago.objects.create(
-            idNota=self.idNota,
-            idAsiento=asiento_pago,  # Asignar el asiento contable creado
-            idCuentaBanco=self.idCuentaBanco,
-            monto=self.monto,
-            fechaPago=self.fechaPago,
-            formaPago="TRANSFERENCIA",  # Siempre será transferencia
-            referencia=self.referencia,
-            idTasa=self.idTasa,
-            observaciones=self.observaciones,
-            igtf=self.idNota.estadoIGTF != "NO_APLICA"
-        )
+            # Crear el registro en la tabla principal `Pago`
+            pago = Pago.objects.create(
+                idNota=self.idNota,
+                idAsiento=asiento_pago,  # Asignar el asiento contable creado
+                idCuentaBanco=self.idCuentaBanco,
+                monto=self.monto,
+                fechaPago=self.fechaPago,
+                formaPago="TRANSFERENCIA",  # Siempre será transferencia
+                referencia=self.referencia,
+                idTasa=self.idTasa,
+                observaciones=self.observaciones,
+            )
 
-        # Calcular deuda y deuda IGTF
-        pagos_normales = Pago.objects.filter(idNota=self.idNota, igtf=False).aggregate(total=models.Sum('monto'))['total'] or 0
-        pagos_igtf = Pago.objects.filter(idNota=self.idNota, igtf=True).aggregate(total=models.Sum('monto'))['total'] or 0
-        deuda = self.idNota.totalNota - pagos_normales
-        deuda_igtf = self.idNota.igtfAplicado - pagos_igtf
+          # Obtener el tipo de artículo desde la nota y la nota relacionada correspondiente
+            tipo_articulo = self.idNota.tipoArticulo if self.idNota else None
+            nota_rel = NotaRelacionada.objects.filter(idNota=self.idNota).first()
+            relacion_id = None
 
-        # Validar pagos IGTF
-        if pago.igtf and self.monto > deuda_igtf:
-            raise ValueError("El monto del pago IGTF no puede superar la deuda IGTF.")
+            if nota_rel:
+                if tipo_articulo == 'INSCRIPCION' and nota_rel.idInscripcion:
+                    relacion_id = nota_rel.idInscripcion.idInscripcion
+                    if hasattr(nota_rel.idInscripcion, 'estadoPago'):
+                        nota_rel.idInscripcion.estadoPago = 'PAGADO'
+                        nota_rel.idInscripcion.save()
+                elif tipo_articulo == 'CUOTA' and nota_rel.idCuota:
+                    relacion_id = nota_rel.idCuota.idCuota
+                    # Cambiar el estadoPago del modelo InscripcionCuota
+                    if hasattr(nota_rel.idCuota, 'estadoPago'):
+                        nota_rel.idCuota.estadoPago = 'PAGADO'
+                        nota_rel.idCuota.save()
+            if not nota_rel:
+                raise ValueError(f"No se encontró una relación para la nota con ID {self.idNota.idNota}")
+    
+            # Actualizar el estado de la nota
+            self.idNota.estado = 'PAGADO'
+            self.idNota.save()
+            print(f"Tipo de artículo: {tipo_articulo}")
+            print(f"ID de la relación actualizada: {relacion_id}")
+            # Marcar el pago temporal como confirmado
+            self.confirmado = True
+            self.save()
 
-        # Actualizar el estado de la nota (con prints para verificar)
-        print(f"[DEBUG] PagoTemporal.confirmar_pago: nota_id={self.idNota.idNota if self.idNota else None}, "
-              f"monto_pago={self.monto}, deuda={deuda}, deuda_igtf={deuda_igtf}, "
-              f"estadoIGTF={self.idNota.estadoIGTF if self.idNota else None}, estado_actual={self.idNota.estado if self.idNota else None}")
+            return pago
 
-        if deuda > 0 and deuda_igtf > 0:
-            nuevo_estado = "PARCIAL"
-        elif deuda == 0 and deuda_igtf == 0 and (self.idNota.estadoIGTF == "PAGADO" or self.idNota.estadoIGTF == "NO_APLICA"):
-            nuevo_estado = "PAGADO"
-        else:
-            nuevo_estado = "PARCIAL"
-        print(f"[DEBUG] PagoTemporal.confirmar_pago: asignando estado='{nuevo_estado}' a nota_id={self.idNota.idNota}")
-        self.idNota.estado = nuevo_estado
-        self.idNota.save()
-        print(f"[DEBUG] PagoTemporal.confirmar_pago: nota guardada id={self.idNota.idNota} estado={self.idNota.estado}")
-
-        # Marcar el pago temporal como confirmado
-        self.confirmado = True
-        self.save()
-
-        # Devolver respuesta si la nota aún tiene deuda IGTF
-        if self.idNota.estado == "PARCIAL" and deuda_igtf > 0:
-            return {
-                "IGTF": True,
-                "montoIGTF": deuda_igtf
-            }
-
-        return pago
-
-    def __str__(self):
-        return f"Pago Temporal {self.idPagoTemporal} - {'Confirmado' if self.confirmado else 'Pendiente'}"
+        except Exception as e:
+            raise ValueError(f"Error al confirmar el pago: {str(e)}")
  
 class PagoIGTF(models.Model):
     idPagoIGTF = models.AutoField(primary_key=True)
