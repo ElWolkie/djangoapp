@@ -54,11 +54,19 @@
     background-color: #fb6340;
     border-color: #fb6340;
 }
+   .container-balance {
+    max-width: 1500px;
+    margin: 2rem auto;
+    padding: 2rem;
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  }
 </style>
 {% endblock stylesheets %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="container-balance mt-4">
   <h2 class="text-center mb-4">Lista de Cargos</h2>
 
   <div class="row mb-3">
@@ -138,7 +146,7 @@
               {% endif %}
             </td>
             <td class="actions-column">
-              <div class="d-flex gap-2">
+              <div class="d-flex gap-2 justify-content-center align-items-center">
                 {% if perms.home.change_cargo %}
                   <button class="btn btn-primary btn-sm"
                           data-bs-toggle="modal"

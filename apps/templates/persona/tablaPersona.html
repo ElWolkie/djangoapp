@@ -79,11 +79,19 @@
   color: #8898aa;
   flex-grow: 1;
 }
+.container-balance {
+  max-width: 1500px;
+  margin: 2rem auto;
+  padding: 2rem;
+  background: white;
+  border-radius: 15px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+}
 </style>
 {% endblock stylesheets %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="container-balance mt-4">
   <h2 class="text-center mb-4">Lista de {{ tipo_texto }}</h2>
 
   <div class="row mb-3">
@@ -136,30 +144,30 @@
       <table id="personasTable" class="table table-striped table-hover align-middle text-gray-dark">
         <thead class="table-light">
           <tr>
-            <th>Cédula</th>
-            <th>Nombres</th>
-            <th>Apellidos</th>
-            <th>Teléfono</th>
-            <th>Tipos</th>
-            <th>Estado</th>
-            <th class="actions-column">Acciones</th>
+            <th class="align-self-start text-left">Cédula</th>
+            <th class="align-self-start text-left">Nombres</th>
+            <th class="align-self-start text-left">Apellidos</th>
+            <th class="align-self-start text-left">Teléfono</th>
+            <th class="text-center">Tipos</th>
+            <th class="align-self-start text-left">Estado</th>
+            <th class="actions-column ">Acciones</th>
           </tr>
         </thead>
         <tbody>
           {% for persona in personas %}
           <tr>
-            <td class="text-center">{{ persona.cedula }}</td>
-            <td class=" text-center">{{ persona.nombres }}</td>
-            <td class=" text-center"> {{ persona.apellidos }}</td>
-            <td>{{ persona.telefono|default:"—" }}</td>
-            <td>
+            <td class="align-self-start text-left">{{ persona.cedula }}</td>
+            <td class="align-self-start text-left">{{ persona.nombres }}</td>
+            <td class="align-self-start text-left"> {{ persona.apellidos }}</td>
+            <td class="align-self-start text-left">{{ persona.telefono|default:"—" }}</td>
+            <td class="text-center  ">
               {% for tp in persona.personatp_set.all %}
                 <span class="badge bg-info text-dark">{{ tp.idTP.nombreTP }}</span>
               {% empty %}
                 <span class="text-muted">—</span>
               {% endfor %}
             </td>
-            <td>
+            <td class="align-self-start text-left">
               {% if persona.estadoPersona == "ACTIVO" %}
                 <span class="badge bg-success text-white">
                   <i class="fas fa-check-circle me-1"></i> Activo
@@ -171,8 +179,8 @@
               {% endif %}
             </td>
                 <!-- En la columna de acciones (td class="actions-column") -->
-              <td class="actions-column">
-                <div class="d-flex gap-2">
+              <td class="actions-column justify-content-center align-items-center">
+                <div class="d-flex gap-2 justify-content-center align-items-center">
                   {# Botón Ver mas #}
                   {% if perms.persona.view_personas %}
                     {% if not persona.es_superuser or persona.es_superuser and user.is_superuser and user.idPersona.id == persona.idPersona %}
