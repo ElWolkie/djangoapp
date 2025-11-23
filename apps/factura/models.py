@@ -288,16 +288,17 @@ class PagoTemporal(models.Model):
         plan_cuenta_debe = self.idCuentaBanco.planCuenta
 
         # Crear los detalles del asiento contable
+        # Asignar el id directamente usando el campo *_id para referenciar la Moneda por su PK
         DetalleAsiento.objects.create(
             idAsiento=asiento_pago,
-            idMoneda='1',  # Asumiendo moneda local con ID 1
+            idMoneda_id=1,  # Asumiendo moneda local con ID 1
             idPlanCuenta=plan_cuenta_debe,
             debe=float(self.monto),
             haber=0.00
         )
         DetalleAsiento.objects.create(
             idAsiento=asiento_pago,
-            idMoneda='1',  # Asumiendo moneda local con ID 1
+            idMoneda_id=1,  # Asumiendo moneda local con ID 1
             idPlanCuenta=plan_cuenta_haber,
             debe=0.00,
             haber=float(self.monto)
