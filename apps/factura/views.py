@@ -253,8 +253,6 @@ def nota_create(request):
     empresas = empresa.objects.all()
     cuotas = InscripcionCuota.objects.filter(
         estadoPago='EN ESPERA'
-    ).exclude(
-        idCuota__in=NotaRelacionada.objects.values_list('idCuota', flat=True)
     ).order_by('idCuota')
     solicitudes = Solicitud.objects.filter(estadoSolicitud='ACTIVO').order_by('idSoli')
     honorarios = Honorario.objects.filter(estadoHonorario='ACTIVO').order_by('idHonorario')
@@ -1795,16 +1793,19 @@ def pago_create(request, pk=None):
                                      
                                     case _ if nota_relacionada.idCuota:
                                         # Si la nota está relacionada a una cuota, actualizamos su estado a pagado
-                                        nota_relacionada.idCuota.estadoPago = 'PAGADO'
-                                        nota_relacionada.idCuota.save()
+                                        cuota = nota_relacionada.idCuota
+                                        cuota.estadoPago = 'PAGADO'
+                                        cuota.save()
                                     case _ if nota_relacionada.idSolicitud:
                                         # Si la nota está relacionada a una solicitud, actualizamos su estado a pagado
-                                        nota_relacionada.idSolicitud.estadoPago = 'PAGADO'
-                                        nota_relacionada.idSolicitud.save()
+                                        solicitud = nota_relacionada.idSolicitud
+                                        solicitud.estadoPago = 'PAGADO'
+                                        solicitud.save()
                                     case _ if nota_relacionada.idHonorario:
                                         # Si la nota está relacionada a un honorario, actualizamos su estado a pagado
-                                        nota_relacionada.idHonorario.estadoPago = 'PAGADO'
-                                        nota_relacionada.idHonorario.save()
+                                        honorario = nota_relacionada.idHonorario
+                                        honorario.estadoPago = 'PAGADO'
+                                        honorario.save()
 
                             return JsonResponse({
                                 'success': True,
@@ -2343,6 +2344,33 @@ def pago_createigtf(request, pk=None):
                             })
                         
                         elif pago.idNota.estado == 'PAGADO' or pago.idNota.estadoIGTF == 'PAGADO':
+                                                      # Actualizar estado de entidades relacionadas a 'PAGADO'
+                            nota_relacionada = NotaRelacionada.objects.filter(idNota=pago.idNota).first()
+                            if nota_relacionada:
+                                # Usamos pattern matching para actualizar el estado de la entidad relacionada a 'PAGADO'
+                                match nota_relacionada:
+                                    case _ if nota_relacionada.idInscripcion:
+                                        # Si la nota está relacionada a una inscripción, actualizamos su estado y el de sus cuotas pendientes
+                                        inscripcion = nota_relacionada.idInscripcion
+                                        inscripcion.estadoPago = 'PAGADO'
+                                        inscripcion.save()
+                                     
+                                    case _ if nota_relacionada.idCuota:
+                                        # Si la nota está relacionada a una cuota, actualizamos su estado a pagado
+                                        cuota = nota_relacionada.idCuota
+                                        cuota.estadoPago = 'PAGADO'
+                                        cuota.save()
+                                    case _ if nota_relacionada.idSolicitud:
+                                        # Si la nota está relacionada a una solicitud, actualizamos su estado a pagado
+                                        solicitud = nota_relacionada.idSolicitud
+                                        solicitud.estadoPago = 'PAGADO'
+                                        solicitud.save()
+                                    case _ if nota_relacionada.idHonorario:
+                                        # Si la nota está relacionada a un honorario, actualizamos su estado a pagado
+                                        honorario = nota_relacionada.idHonorario
+                                        honorario.estadoPago = 'PAGADO'
+                                        honorario.save()
+
                             return JsonResponse({
                                 'success': True,
                                 'message': 'Pago de IGTF creado exitosamente. El IGTF ha sido pagado en su totalidad.',

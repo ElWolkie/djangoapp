@@ -35,7 +35,7 @@ def solicitud_modal(request):
             return JsonResponse({
                     'success': True,
                     'message': 'Registro exitoso.',
-                    'redirect_url': reverse('nota_administrativa_create') + f"?solicitud={solicitud.montoTotal}&idP={solicitud.idPersona.idPersona}&idS={idSolicitud}"
+                    'redirect_url': reverse('nota_create') + f"?solicitud={solicitud.montoTotal}&idP={solicitud.idPersona.idPersona}&idS={idSolicitud}"
                 })
         else:
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
