@@ -54,17 +54,22 @@ def plan_cuenta_create(request):
     Excluye los registros de PlanCuenta que ya están referenciados en CuentaBanco
     o que están relacionados con los bancos.
     """
+    print("plan_cuenta_create: request.method =", request.method)
     if request.method == 'POST':
+        print("POST data:", dict(request.POST))
         form = PlanCuentaForm(request.POST)
         if form.is_valid():
+            print("Form válido. Guardando nuevo PlanCuenta...")
             with transaction.atomic():
                 plan = form.save()
+                print("Plan creado con id:", getattr(plan, 'idPlanCuenta', None))
                 return JsonResponse({
                     'success': True,
                     'message': 'Plan de Cuenta creado exitosamente!',
                     'redirect_url': reverse('plan_cuenta_list')
                 })
         else:
+            print("Form inválido. Errores:", form.errors)
             return JsonResponse({
                 'success': False,
                 'errors': form.errors
@@ -78,12 +83,39 @@ def plan_cuenta_create(request):
         # Subconsulta para obtener los IDs de PlanCuenta relacionados con los bancos
         bancos_referenciados = Banco.objects.values('codigoPlanCuenta_id')
         
+        # Imprimo información de depuración sobre lo que se obtiene
+        try:
+            print("SQL cuentas_referenciadas:", str(cuentas_referenciadas.query))
+        except Exception as e:
+            print("No se pudo obtener SQL de cuentas_referenciadas:", e)
+        try:
+            print("SQL bancos_referenciados:", str(bancos_referenciados.query))
+        except Exception as e:
+            print("No se pudo obtener SQL de bancos_referenciados:", e)
+
+        # Muestras limitadas para no traer todo a memoria
+        try:
+            cuentas_muestra = list(CuentaBanco.objects.values_list('planCuenta_id', flat=True)[:20])
+            bancos_muestra = list(Banco.objects.values_list('codigoPlanCuenta_id', flat=True)[:20])
+            print("Muestra cuentas_referenciadas (hasta 20 ids):", cuentas_muestra)
+            print("Muestra bancos_referenciados (hasta 20 ids):", bancos_muestra)
+        except Exception as e:
+            print("Error al obtener muestras de ids:", e)
+        
         # Excluir los registros de PlanCuenta que están referenciados en CuentaBanco o relacionados con los bancos
         cuentas_padre = PlanCuenta.objects.filter(
             estadoPlanCuenta=True
         ).exclude(
             Q(idPlanCuenta__in=Subquery(cuentas_referenciadas)) | Q(idPlanCuenta__in=Subquery(bancos_referenciados))
         ).order_by('codigoPlanCuenta')
+        
+        try:
+            print("Query cuentas_padre (SQL):", str(cuentas_padre.query))
+            print("Cantidad cuentas_padre resultantes:", cuentas_padre.count())
+            print("Primeras 10 cuentas_padre (id, codigo, nombre):",
+                  list(cuentas_padre.values_list('idPlanCuenta', 'codigoPlanCuenta', 'nombrePlanCuenta')[:10]))
+        except Exception as e:
+            print("Error al evaluar cuentas_padre:", e)
         
         return render(request, 'planCuenta/planCuenta.html', {
             'form': form,
