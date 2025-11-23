@@ -328,15 +328,21 @@ class PagoTemporal(models.Model):
         if pago.igtf and self.monto > deuda_igtf:
             raise ValueError("El monto del pago IGTF no puede superar la deuda IGTF.")
 
-        # Actualizar el estado de la nota
-        if deuda > 0 or (self.idNota.estadoIGTF not in ["PAGADO", "NO_APLICA"] and deuda_igtf > 0):
-            self.idNota.estado = "PARCIAL"
-        elif deuda == 0 and deuda_igtf == 0 and self.idNota.estadoIGTF == "PAGADO":
-            self.idNota.estado = "PAGADO"
-        else:
-            self.idNota.estado = "PARCIAL"
+        # Actualizar el estado de la nota (con prints para verificar)
+        print(f"[DEBUG] PagoTemporal.confirmar_pago: nota_id={self.idNota.idNota if self.idNota else None}, "
+              f"monto_pago={self.monto}, deuda={deuda}, deuda_igtf={deuda_igtf}, "
+              f"estadoIGTF={self.idNota.estadoIGTF if self.idNota else None}, estado_actual={self.idNota.estado if self.idNota else None}")
 
+        if deuda > 0 and deuda_igtf > 0:
+            nuevo_estado = "PARCIAL"
+        elif deuda == 0 and deuda_igtf == 0 and (self.idNota.estadoIGTF == "PAGADO" or self.idNota.estadoIGTF == "NO_APLICA"):
+            nuevo_estado = "PAGADO"
+        else:
+            nuevo_estado = "PARCIAL"
+        print(f"[DEBUG] PagoTemporal.confirmar_pago: asignando estado='{nuevo_estado}' a nota_id={self.idNota.idNota}")
+        self.idNota.estado = nuevo_estado
         self.idNota.save()
+        print(f"[DEBUG] PagoTemporal.confirmar_pago: nota guardada id={self.idNota.idNota} estado={self.idNota.estado}")
 
         # Marcar el pago temporal como confirmado
         self.confirmado = True
