@@ -932,7 +932,7 @@ def pago_list(request):
     """
     Vista para listar todos los pagos.
     """
-    pagos = Pago.objects.all()
+    pagos = Pago.objects.all().order_by('-idPago')
     return render(request, 'factura/tablaPago.html', {'pagos': pagos})
 
 def pago_detail(request, pk):

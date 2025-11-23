@@ -44,11 +44,19 @@
     .compact-table th, .compact-table td { padding: 0.5rem 0.75rem; font-size: 0.875rem; }
     .compact-table th, .compact-table td { text-align: left; }
     .table-actions .btn { padding: 0.25rem 0.5rem; font-size: 0.75rem; }
+        .container-balance {
+    max-width: 1500px;
+    margin: 2rem auto;
+    padding: 2rem;
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  } 
   </style>
 {% endblock stylesheets %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="container-balance mt-4">
   <h2 class="text-center mb-4">Lista de Pagos App </h2>
 
   <div class="row mb-3">
@@ -56,7 +64,7 @@
       <div class="input-group">
         <form onsubmit="updateSearchParam(event)" class="d-flex w-100">
           <span class="input-group-text"><i class="fas fa-search"></i></span>
-          <input type="text" id="searchInput" name="search" class="form-control" placeholder="Buscar..." value="{{ search_query|default:'' }}">
+          <input type="text" id="searchInput" name="search" class="form-control" placeholder="Buscar..." value="{{ search_query|default:'' }}" title="Presiona Enter para buscar. Limpía para mostrar todos los registros." />
           <button type="submit" style="display:none" tabindex="-1" aria-hidden="true"></button>
         </form>
       </div>
@@ -88,7 +96,7 @@
             <th>Monto</th>
             <th>Referencia</th>
             <th>Estado</th>
-            <th class="actions-column">Acciones</th>
+            <th class="align-self-start text-left">Acciones</th>
           </tr>
         </thead>
         <tbody>
@@ -106,7 +114,7 @@
               {% endif %}
             </td>
             <td class="actions-column">
-              <div class="d-flex gap-2">
+              <div class="d-flex gap-2 ">
                 {% if not pago.confirmado %}
                   <form method="post" action="{% url 'pago_confirmar' pago.idPagoTemporal %}">
                     {% csrf_token %}

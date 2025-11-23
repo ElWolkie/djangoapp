@@ -51,11 +51,19 @@
     background-color: #fb6340;
     border-color: #fb6340;
 }
+    .container-balance {
+    max-width: 1500px;
+    margin: 2rem auto;
+    padding: 2rem;
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  } 
 </style>
 {% endblock stylesheets %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="container-balance mt-4">
   <h2 class="text-center mb-4">Lista de Monedas</h2>
 
   <div class="row mb-3">
@@ -117,7 +125,7 @@
         <thead class="table-light">
           <tr>
             <th>ID</th>
-            <th>Nombre</th>
+            <th class="align-self-start text-left">Nombre</th>
             <th>Símbolo</th>
             <th>Fecha</th>
             <th>Estado</th>
@@ -128,7 +136,7 @@
           {% for moneda in monedas %}
           <tr>
             <td class="text-center">{{ forloop.counter }}</td>
-            <td class="text-center">{{ moneda.nombreMoneda }}</td>
+            <td class="align-self-start text-left">{{ moneda.nombreMoneda }}</td>
             <td class="text-center">{{ moneda.simboloMoneda }}</td>
             <td class="text-center">{{ moneda.fechaMoneda|date:"d/m/Y" }}</td>
             <td>

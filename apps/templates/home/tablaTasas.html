@@ -50,11 +50,19 @@
     background-color: #fb6340;
     border-color: #fb6340;
 }
+    .container-balance {
+    max-width: 1500px;
+    margin: 2rem auto;
+    padding: 2rem;
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  } 
 </style>
 {% endblock stylesheets %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="container-balance mt-4">
   <h2 class="text-center mb-4">Lista de Tasas Cambiarias</h2>
 
   <div class="row mb-3">
@@ -63,7 +71,7 @@
         <!-- Buscador directo del bakend NO BORRAR -->
           <form onsubmit="updateSearchParam(event)" class="d-flex w-100">
             <span class="input-group-text"><i class="fas fa-search"></i></span>
-            <input type="text" id="searchInput" name="search" class="form-control" placeholder="Buscar..." value="{{ search_query|default:'' }}">
+            <input type="text" id="searchInput" name="search" class="form-control" placeholder="Buscar..." value="{{ search_query|default:'' }}" title="Presiona Enter para buscar. Limpia el campo y presiona Enter para ver todos los registros.">
             <button type="submit" style="display:none" tabindex="-1" aria-hidden="true"></button>
           </form>
       </div>
@@ -108,8 +116,8 @@
         <thead class="table-light">
           <tr>
             <th>ID</th>
-            <th>Moneda</th>
-            <th>Monto</th>
+            <th class="align-self-start text-left">Moneda</th>
+            <th class="align-self-start text-left">Monto</th>
             <th>Fecha | Hora</th>
             <th>Estado</th>
             <th>Registros Asociados</th>
@@ -120,8 +128,8 @@
           {% for tasa in tasas %}
           <tr>
             <td class="text-center">{{ tasa.idTasa }}</td>
-            <td class="text-center">{{ tasa.idMoneda.nombreMoneda }} {{ tasa.idMoneda.simboloMoneda }}</td>
-            <td class="text-center">{{ tasa.montoTasa }}</td>
+            <td class="align-self-start text-left">{{ tasa.idMoneda.nombreMoneda }} {{ tasa.idMoneda.simboloMoneda }}</td>
+            <td class="align-self-start text-left">{{ tasa.montoTasa }}</td>
             <td class="text-center">{{ tasa.fechaTasa|date:"d/m/Y | h:i A" }}</td>
             <td>
               {% if tasa.estadoTasa|upper == "ACTIVO" %}
@@ -146,7 +154,7 @@
 
             <!-- En las acciones, deshabilitar edición si tiene registros -->
             <td class="actions-column">
-            <div class="d-flex gap-2">
+            <div class="d-flex gap-2 justify-content-center">
               <!-- EDITAR - OCULTAR completamente si tiene registros asociados -->
               {% if perms.home.change_tasa and not tasa.tiene_registros_asociados %}
                 <button class="btn btn-primary btn-sm"
