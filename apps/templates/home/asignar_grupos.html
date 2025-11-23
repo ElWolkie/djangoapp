@@ -98,32 +98,75 @@
                 <div class="card mb-3 shadow-sm permission-category" data-category="{{ categoria|slugify }}">
                     <div class="card-header bg-light">
                         <h5 class="mb-0 text-dark">
-                            {% if categoria == "Asiento Contables" %}<i class="fas fa-university me-2 text-primary" style="padding: 0px 2px 0px 2px"></i>{% endif %}
-                            {% if categoria == "Bancos" %}<i class="fas fa-university me-2 text-primary" style="padding: 0px 2px 0px 2px"></i>{% endif %}
-                            {% if categoria == "Cargos" %}<i class="fas fa-user me-2 text-primary" style="padding: 0px 2px 0px 2px"></i>{% endif %}
-                            {% if categoria == "Clientes-Proveedores" %}<i class="fas fa-user me-2 text-primary" style="padding: 0px 2px 0px 2px"></i>{% endif %}
-                            {% if categoria == "Cohortes" %}<i class="fas fa-university me-2 text-info" style="padding: 0px 2px 0px 2px"></i>{% endif %}
-                            {% if categoria == "Configuracion" %}<i class="fas fa-chart-line me-2 text-success" style="padding: 0px 2px 0px 2px"></i>{% endif %}
-                            {% if categoria == "Cuenta Bancarias" %}<i class="fas fa-chart-line me-2 text-success" style="padding: 0px 2px 0px 2px"></i>{% endif %}
-                            {% if categoria == "Empresas" %}<i class="fas fa-user me-2 text-success" style="padding: 0px 2px 0px 2px"></i>{% endif %}
-                            {% if categoria == "Formaciones" %}<i class="fas fa-university me-2 text-info" style="padding: 0px 2px 0px 2px"></i>{% endif %}
-                            {% if categoria == "Honorarios" %}<i class="fas fa-university me-2 text-info" style="padding: 0px 2px 0px 2px"></i>{% endif %}
-                            {% if categoria == "Inscripciones" %}<i class="fas fa-user me-2 text-info" style="padding: 0px 2px 0px 2px"></i>{% endif %}
-                            {% if categoria == "Materias" %}<i class="fas fa-university me-2 text-success" style="padding: 0px 2px 0px 2px"></i>{% endif %}
-                            {% if categoria == "Monedas" %}<i class="fas fa-university me-2 text-success" style="padding: 0px 2px 0px 2px"></i>{% endif %}
-                            {% if categoria == "Periodo Contables" %}<i class="fas fa-university me-2 text-success" style="padding: 0px 2px 0px 2px"></i>{% endif %}
-                            {% if categoria == "Plan Cuentas" %}<i class="fas fa-university me-2 text-success" style="padding: 0px 2px 0px 2px"></i>{% endif %}
-                            {% if categoria == "Requisitos" %}<i class="fas fa-university me-2 text-success" style="padding: 0px 2px 0px 2px"></i>{% endif %}
-                            {% if categoria == "Saldos Contable" %}<i class="fas fa-university me-2 text-success" style="padding: 0px 2px 0px 2px"></i>{% endif %}
-                            {% if categoria == "Servicios" %}<i class="fas fa-university me-2 text-success" style="padding: 0px 2px 0px 2px"></i>{% endif %}
-                            {% if categoria == "Solicitudes" %}<i class="fas fa-university me-2 text-success" style="padding: 0px 2px 0px 2px"></i>{% endif %}
-                            {% if categoria == "Tasas" %}<i class="fas fa-university me-2 text-success" style="padding: 0px 2px 0px 2px"></i>{% endif %}
-                            {% if categoria == "Tramites" %}<i class="fas fa-university me-2 text-success" style="padding: 0px 2px 0px 2px"></i>{% endif %}
-                            {% if categoria == "Tipo Formaciones" %}<i class="fas fa-university me-2 text-success" style="padding: 0px 2px 0px 2px"></i>{% endif %}
-                            {% if categoria == "Tipo Personas" %}<i class="fas fa-university me-2 text-success" style="padding: 0px 2px 0px 2px"></i>{% endif %}
-                            {% if categoria == "Asignacion Tipo Personas" %}<i class="fas fa-university me-2 text-success" style="padding: 0px 2px 0px 2px"></i>{% endif %}
-                            {% if categoria == "Usuarios" %}<i class="fas fa-users me-2 text-info" style="padding: 0px 2px 0px 2px"></i>{% endif %}
-                            {% if categoria == "Otros" %}<i class="fas fa-cogs me-2 text-secondary" style="padding: 0px 2px 0px 2px"></i>{% endif %}
+                            {# Iconos por categoría (Font Awesome) #}
+                            {% if categoria == "Asiento Contables" %}
+                                <i class="fas fa-file-invoice-dollar me-2 text-primary" style="padding: 0px 2px 0px 2px"></i>
+                            {% elif categoria == "Bancos" %}
+                                <i class="fas fa-university me-2 text-primary" style="padding: 0px 2px 0px 2px"></i>
+                            {% elif categoria == "Cargos" %}
+                                <i class="fas fa-briefcase me-2 text-info" style="padding: 0px 2px 0px 2px"></i>
+                            {% elif categoria == "Clientes-Proveedores" %}
+                                <i class="fas fa-handshake me-2 text-info" style="padding: 0px 2px 0px 2px"></i>
+                            {% elif categoria == "Cohortes" %}
+                                <i class="fas fa-users me-2 text-info" style="padding: 0px 2px 0px 2px"></i>
+                            {% elif categoria == "Configuracion" %}
+                                <i class="fas fa-cogs me-2 text-warning" style="padding: 0px 2px 0px 2px"></i>
+                            {% elif categoria == "Cuenta Bancarias" %}
+                                <i class="fas fa-credit-card me-2 text-primary" style="padding: 0px 2px 0px 2px"></i>
+                            {% elif categoria == "Cuotas" %}
+                                <i class="fas fa-money-bill text-success" style="padding: 0px 2px 0px 2px"></i>
+                            {% elif categoria == "Empresas" %}
+                                <i class="fas fa-credit-card me-2 text-primary" style="padding: 0px 2px 0px 2px"></i>
+                            {% elif categoria == "Facturas" %}
+                                <i class="fas fa-file-invoice me-2 text-success" style="padding: 0px 2px 0px 2px"></i>
+                            {% elif categoria == "Formaciones" %}
+                                <i class="fas fa-graduation-cap me-2 text-info" style="padding: 0px 2px 0px 2px"></i>
+                            {% elif categoria == "Honorarios" %}
+                                <i class="ni ni-money-coins text-orange" style="padding: 0px 2px 0px 2px"></i>
+                            {% elif categoria == "Inscripciones" %}
+                                <i class="fas fa-clipboard-list me-2 text-info" style="padding: 0px 2px 0px 2px"></i>
+                            {% elif categoria == "Materias" %}
+                                <i class="fas fa-book me-2 text-success" style="padding: 0px 2px 0px 2px"></i>
+                            {% elif categoria == "Monedas" %}
+                                <i class="fas fa-coins me-2 text-warning" style="padding: 0px 2px 0px 2px"></i>
+                            {% elif categoria == "Notas" %}
+                                <i class="fas fa-sticky-note me-2 text-muted" style="padding: 0px 2px 0px 2px"></i>
+                            {% elif categoria == "Pagos Temporal" %}
+                                <i class="fas fa-clock me-2 text-warning" style="padding: 0px 2px 0px 2px"></i>
+                            {% elif categoria == "Pagos" %}
+                                <i class="fas fa-clock me-2 text-warning" style="padding: 0px 2px 0px 2px"></i>
+                            {% elif categoria == "Parametros Tributarios" %}
+                                <i class="fas fa-balance-scale me-2 text-warning" style="padding: 0px 2px 0px 2px"></i>
+                            {% elif categoria == "Periodo Contables" %}
+                                <i class="fas fa-calendar-alt me-2 text-primary" style="padding: 0px 2px 0px 2px"></i>
+                            {% elif categoria == "Plan Articulos" %}
+                                <i class="fas fa-boxes me-2 text-primary" style="padding: 0px 2px 0px 2px"></i>
+                            {% elif categoria == "Plan Cuentas" %}
+                                <i class="fas fa-sitemap me-2 text-primary" style="padding: 0px 2px 0px 2px"></i>
+                            {% elif categoria == "Requisitos" %}
+                                <i class="fas fa-clipboard-check me-2 text-info" style="padding: 0px 2px 0px 2px"></i>
+                            {% elif categoria == "Saldos Contable" %}
+                                <i class="fas fa-calculator me-2 text-success" style="padding: 0px 2px 0px 2px"></i>
+                            {% elif categoria == "Servicios" %}
+                                <i class="fas fa-concierge-bell me-2 text-secondary" style="padding: 0px 2px 0px 2px"></i>
+                            {% elif categoria == "Solicitudes" %}
+                                <i class="fas fa-paper-plane me-2 text-info" style="padding: 0px 2px 0px 2px"></i>
+                            {% elif categoria == "Tasas" %}
+                                <i class="fas fa-percentage me-2 text-warning" style="padding: 0px 2px 0px 2px"></i>
+                            {% elif categoria == "Tramites" %}
+                                <i class="fas fa-file-alt me-2 text-secondary" style="padding: 0px 2px 0px 2px"></i>
+                            {% elif categoria == "Tipo Formaciones" %}
+                                <i class="fas fa-tags me-2 text-info" style="padding: 0px 2px 0px 2px"></i>
+                            {% elif categoria == "Tipo Personas" %}
+                                <i class="fas fa-id-badge me-2 text-info" style="padding: 0px 2px 0px 2px"></i>
+                            {% elif categoria == "Asignacion Tipo Personas" %}
+                                <i class="fas fa-user-check me-2 text-info" style="padding: 0px 2px 0px 2px"></i>
+                            {% elif categoria == "Usuarios" %}
+                                <i class="fas fa-users me-2 text-info" style="padding: 0px 2px 0px 2px"></i>
+                            {% else %}
+                                {# Default / Otros #}
+                                <i class="fas fa-cogs me-2 text-secondary" style="padding: 0px 2px 0px 2px"></i>
+                            {% endif %}
                             {{ categoria }}
                         </h5>
                     </div>

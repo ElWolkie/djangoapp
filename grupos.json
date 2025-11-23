@@ -2938,5 +2938,777 @@
       ]
     ]
   }
+},
+{
+  "model": "auth.group",
+  "pk": 144,
+  "fields": {
+    "name": "Saldos Contable",
+    "permissions": [
+      [
+        "add_saldocontable",
+        "saldoContable",
+        "saldocontable"
+      ],
+      [
+        "change_saldocontable",
+        "saldoContable",
+        "saldocontable"
+      ],
+      [
+        "delete_saldocontable",
+        "saldoContable",
+        "saldocontable"
+      ],
+      [
+        "view_saldocontable",
+        "saldoContable",
+        "saldocontable"
+      ]
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 145,
+  "fields": {
+    "name": "Saldo ContableRegistrar",
+    "permissions": [
+      [
+        "add_saldocontable",
+        "saldoContable",
+        "saldocontable"
+      ]
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 146,
+  "fields": {
+    "name": "Saldo ContableVisualizar",
+    "permissions": [
+      [
+        "view_saldocontable",
+        "saldoContable",
+        "saldocontable"
+      ]
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 147,
+  "fields": {
+    "name": "Notas",
+    "permissions": [
+      [
+        "add_nota",
+        "factura",
+        "nota"
+      ],
+      [
+        "change_nota",
+        "factura",
+        "nota"
+      ],
+      [
+        "delete_nota",
+        "factura",
+        "nota"
+      ],
+      [
+        "view_nota",
+        "factura",
+        "nota"
+      ],
+      [
+        "add_notarelacionada",
+        "factura",
+        "notarelacionada"
+      ],
+      [
+        "change_notarelacionada",
+        "factura",
+        "notarelacionada"
+      ],
+      [
+        "delete_notarelacionada",
+        "factura",
+        "notarelacionada"
+      ],
+      [
+        "view_notarelacionada",
+        "factura",
+        "notarelacionada"
+      ]
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 148,
+  "fields": {
+    "name": "NotaRegistrar",
+    "permissions": [
+      [
+        "add_nota",
+        "factura",
+        "nota"
+      ],
+      [
+        "add_notarelacionada",
+        "factura",
+        "notarelacionada"
+      ]
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 149,
+  "fields": {
+    "name": "NotaEditar",
+    "permissions": [
+      [
+        "change_nota",
+        "factura",
+        "nota"
+      ],
+      [
+        "change_notarelacionada",
+        "factura",
+        "notarelacionada"
+      ]
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 150,
+  "fields": {
+    "name": "NotaVisualizar",
+    "permissions": [
+      [
+        "view_nota",
+        "factura",
+        "nota"
+      ],
+      [
+        "view_notarelacionada",
+        "factura",
+        "notarelacionada"
+      ]
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 151,
+  "fields": {
+    "name": "NotaEliminar",
+    "permissions": [
+      [
+        "delete_nota",
+        "factura",
+        "nota"
+      ],
+      [
+        "delete_notarelacionada",
+        "factura",
+        "notarelacionada"
+      ]
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 152,
+  "fields": {
+    "name": "Pagos",
+    "permissions": [
+      [
+        "add_pago",
+        "factura",
+        "pago"
+      ],
+      [
+        "change_pago",
+        "factura",
+        "pago"
+      ],
+      [
+        "delete_pago",
+        "factura",
+        "pago"
+      ],
+      [
+        "view_pago",
+        "factura",
+        "pago"
+      ]
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 153,
+  "fields": {
+    "name": "PagoRegistrar",
+    "permissions": [
+      [
+        "add_pago",
+        "factura",
+        "pago"
+      ]
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 154,
+  "fields": {
+    "name": "PagoEditar",
+    "permissions": [
+      [
+        "change_pago",
+        "factura",
+        "pago"
+      ]
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 155,
+  "fields": {
+    "name": "PagoEliminar",
+    "permissions": [
+      [
+        "delete_pago",
+        "factura",
+        "pago"
+      ]
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 156,
+  "fields": {
+    "name": "PagoVisualizar",
+    "permissions": [
+      [
+        "view_pago",
+        "factura",
+        "pago"
+      ]
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 157,
+  "fields": {
+    "name": "Pagos Temporal",
+    "permissions": [
+      [
+        "add_pagotemporal",
+        "factura",
+        "pagotemporal"
+      ],
+      [
+        "change_pagotemporal",
+        "factura",
+        "pagotemporal"
+      ],
+      [
+        "delete_pagotemporal",
+        "factura",
+        "pagotemporal"
+      ],
+      [
+        "view_pagotemporal",
+        "factura",
+        "pagotemporal"
+      ]
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 158,
+  "fields": {
+    "name": "Pago TemporalRegistrar",
+    "permissions": [
+      [
+        "add_pagotemporal",
+        "factura",
+        "pagotemporal"
+      ]
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 159,
+  "fields": {
+    "name": "Pago TemporalEditar",
+    "permissions": [
+      [
+        "change_pagotemporal",
+        "factura",
+        "pagotemporal"
+      ]
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 160,
+  "fields": {
+    "name": "Pago TemporalVisualizar",
+    "permissions": [
+      [
+        "view_pagotemporal",
+        "factura",
+        "pagotemporal"
+      ]
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 161,
+  "fields": {
+    "name": "Pago TemporalEliminar",
+    "permissions": [
+      [
+        "delete_pagotemporal",
+        "factura",
+        "pagotemporal"
+      ]
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 162,
+  "fields": {
+    "name": "Facturas",
+    "permissions": [
+      [
+        "add_factura",
+        "factura",
+        "factura"
+      ],
+      [
+        "change_factura",
+        "factura",
+        "factura"
+      ],
+      [
+        "delete_factura",
+        "factura",
+        "factura"
+      ],
+      [
+        "view_factura",
+        "factura",
+        "factura"
+      ],
+      [
+        "add_facturadetalle",
+        "factura",
+        "facturadetalle"
+      ],
+      [
+        "change_facturadetalle",
+        "factura",
+        "facturadetalle"
+      ],
+      [
+        "delete_facturadetalle",
+        "factura",
+        "facturadetalle"
+      ],
+      [
+        "view_facturadetalle",
+        "factura",
+        "facturadetalle"
+      ]
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 163,
+  "fields": {
+    "name": "FacturaRegistrar",
+    "permissions": [
+      [
+        "add_factura",
+        "factura",
+        "factura"
+      ],
+      [
+        "add_facturadetalle",
+        "factura",
+        "facturadetalle"
+      ]
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 164,
+  "fields": {
+    "name": "FacturaEditar",
+    "permissions": [
+      [
+        "change_factura",
+        "factura",
+        "factura"
+      ],
+      [
+        "change_facturadetalle",
+        "factura",
+        "facturadetalle"
+      ]
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 165,
+  "fields": {
+    "name": "FacturaVisualizar",
+    "permissions": [
+      [
+        "view_factura",
+        "factura",
+        "factura"
+      ],
+      [
+        "view_facturadetalle",
+        "factura",
+        "facturadetalle"
+      ]
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 166,
+  "fields": {
+    "name": "FacturaEliminar",
+    "permissions": [
+      [
+        "delete_factura",
+        "factura",
+        "factura"
+      ],
+      [
+        "delete_facturadetalle",
+        "factura",
+        "facturadetalle"
+      ]
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 167,
+  "fields": {
+    "name": "Parametros Tributarios",
+    "permissions": [
+      [
+        "add_parametrotributario",
+        "factura",
+        "parametrotributario"
+      ],
+      [
+        "change_parametrotributario",
+        "factura",
+        "parametrotributario"
+      ],
+      [
+        "delete_parametrotributario",
+        "factura",
+        "parametrotributario"
+      ],
+      [
+        "view_parametrotributario",
+        "factura",
+        "parametrotributario"
+      ]
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 168,
+  "fields": {
+    "name": "Parametro TributarioRegistrar",
+    "permissions": [
+      [
+        "add_parametrotributario",
+        "factura",
+        "parametrotributario"
+      ]
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 169,
+  "fields": {
+    "name": "Parametro TributarioEditar",
+    "permissions": [
+      [
+        "change_parametrotributario",
+        "factura",
+        "parametrotributario"
+      ]
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 170,
+  "fields": {
+    "name": "Parametro TributarioEliminar",
+    "permissions": [
+      [
+        "delete_parametrotributario",
+        "factura",
+        "parametrotributario"
+      ]
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 171,
+  "fields": {
+    "name": "Parametro TributarioVisualizar",
+    "permissions": [
+      [
+        "view_parametrotributario",
+        "factura",
+        "parametrotributario"
+      ]
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 172,
+  "fields": {
+    "name": "Plan Articulos",
+    "permissions": [
+      [
+        "add_planarticulo",
+        "factura",
+        "planarticulo"
+      ],
+      [
+        "change_planarticulo",
+        "factura",
+        "planarticulo"
+      ],
+      [
+        "delete_planarticulo",
+        "factura",
+        "planarticulo"
+      ],
+      [
+        "view_planarticulo",
+        "factura",
+        "planarticulo"
+      ]
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 173,
+  "fields": {
+    "name": "Plan ArticuloRegistrar",
+    "permissions": [
+      [
+        "add_planarticulo",
+        "factura",
+        "planarticulo"
+      ]
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 174,
+  "fields": {
+    "name": "Plan ArticuloEditar",
+    "permissions": [
+      [
+        "change_planarticulo",
+        "factura",
+        "planarticulo"
+      ]
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 175,
+  "fields": {
+    "name": "Plan ArticuloEliminar",
+    "permissions": [
+      [
+        "delete_planarticulo",
+        "factura",
+        "planarticulo"
+      ]
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 176,
+  "fields": {
+    "name": "Plan ArticuloVisualizar",
+    "permissions": [
+      [
+        "view_planarticulo",
+        "factura",
+        "planarticulo"
+      ]
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 177,
+  "fields": {
+    "name": "Cuotas",
+    "permissions": [
+      [
+        "add_cuotaformacion",
+        "home",
+        "cuotaformacion"
+      ],
+      [
+        "change_cuotaformacion",
+        "home",
+        "cuotaformacion"
+      ],
+      [
+        "delete_cuotaformacion",
+        "home",
+        "cuotaformacion"
+      ],
+      [
+        "view_cuotaformacion",
+        "home",
+        "cuotaformacion"
+      ],
+      [
+        "add_inscripcioncuota",
+        "inscripcion",
+        "inscripcioncuota"
+      ],
+      [
+        "change_inscripcioncuota",
+        "inscripcion",
+        "inscripcioncuota"
+      ],
+      [
+        "delete_inscripcioncuota",
+        "inscripcion",
+        "inscripcioncuota"
+      ],
+      [
+        "view_inscripcioncuota",
+        "inscripcion",
+        "inscripcioncuota"
+      ]
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 178,
+  "fields": {
+    "name": "CuotaRegistrar",
+    "permissions": [
+      [
+        "add_cuotaformacion",
+        "home",
+        "cuotaformacion"
+      ],
+      [
+        "add_inscripcioncuota",
+        "inscripcion",
+        "inscripcioncuota"
+      ]
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 179,
+  "fields": {
+    "name": "CuotaEditar",
+    "permissions": [
+      [
+        "change_cuotaformacion",
+        "home",
+        "cuotaformacion"
+      ],
+      [
+        "change_inscripcioncuota",
+        "inscripcion",
+        "inscripcioncuota"
+      ]
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 180,
+  "fields": {
+    "name": "CuotaVisualizar",
+    "permissions": [
+      [
+        "view_cuotaformacion",
+        "home",
+        "cuotaformacion"
+      ],
+      [
+        "view_inscripcioncuota",
+        "inscripcion",
+        "inscripcioncuota"
+      ]
+    ]
+  }
+},
+{
+  "model": "auth.group",
+  "pk": 181,
+  "fields": {
+    "name": "CuotaEliminar",
+    "permissions": [
+      [
+        "delete_cuotaformacion",
+        "home",
+        "cuotaformacion"
+      ],
+      [
+        "delete_inscripcioncuota",
+        "inscripcion",
+        "inscripcioncuota"
+      ]
+    ]
+  }
 }
 ]
