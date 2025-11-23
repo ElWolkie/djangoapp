@@ -20,7 +20,7 @@ from apps.solicitud.models import Solicitud
 from apps.asientoContable.models import AsientoContable, DetalleAsiento
 from apps.planCuenta.models import PlanCuenta
 from apps.periodoContable.models import periodoContable
-from apps.cuentaBanco.models import Banco, CuentaBanco
+from apps.cuentaBanco.models import Banco
 from rest_framework_simplejwt.tokens import RefreshToken
 from apps.factura.models import Nota, NotaRelacionada, Pago, PlanArticulo, PagoTemporal
 from apps.factura.utils import create_nota_relacionada_robusta
@@ -1001,59 +1001,11 @@ class AsientoContableSerializer(serializers.ModelSerializer):
         fields = ['idAsiento', 'numeroAsiento', 'fechaAsiento', 'conceptoAsiento', 'idPeriodo', 'fechaAsientoDigital', 'detalles']
 
 
-# Si tienes modelo CuentaBanco, mejor serializarlo anidado:
-class CuentaBancoSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = CuentaBanco  # ajusta si tu clase se llama distinto
-        fields = ('idCuentaBanco', 'banco', 'numeroCuentaBanco', 'tipoProducto')
-
 class ConfiguracionSerializer(serializers.ModelSerializer):
-    nombre_banco = serializers.SerializerMethodField(read_only=True)
-    numero_cuenta = serializers.SerializerMethodField(read_only=True)
-    tipo_cuenta = serializers.SerializerMethodField(read_only=True)
-    idCuentaBanco = serializers.SerializerMethodField(read_only=True)  # devolvemos info bruta si existe
-
-    def get_idCuentaBanco(self, obj):
-        # intentar retornar representación simple del objeto relacionado (si existe)
-        try:
-            cuenta = getattr(obj, 'idCuentaBanco', None)
-            if cuenta is None:
-                return None
-            # devolver campos básicos (no dependemos de otro serializer)
-            return {
-                'pk': getattr(cuenta, 'pk', None) or getattr(cuenta, 'idCuentaBanco', None),
-                'banco': getattr(cuenta, 'banco', None) or getattr(cuenta, 'nombre', None),
-                'numeroCuentaBanco': getattr(cuenta, 'numeroCuentaBanco', None) or getattr(cuenta, 'numero_cuenta', None),
-                'tipoProducto': getattr(cuenta, 'tipoProducto', None) or getattr(cuenta, 'tipo_cuenta', None),
-            }
-        except Exception:
-            return None
-
-    def _safe_from_obj(self, obj, *attrs):
-        for a in attrs:
-            val = getattr(obj, a, None)
-            if val not in (None, ''):
-                return val
-        return ''
-
-    def get_nombre_banco(self, obj):
-        cuenta = getattr(obj, 'idCuentaBanco', None)
-        if cuenta:
-            return self._safe_from_obj(cuenta, 'banco', 'nombre', 'nombreBanco')
-        return self._safe_from_obj(obj, 'nombre_banco', 'banco')
-
-    def get_numero_cuenta(self, obj):
-        cuenta = getattr(obj, 'idCuentaBanco', None)
-        if cuenta:
-            return self._safe_from_obj(cuenta, 'numeroCuentaBanco', 'numero_cuenta', 'numeroCuenta')
-        return self._safe_from_obj(obj, 'numero_cuenta', 'numeroCuenta')
-
-    def get_tipo_cuenta(self, obj):
-        cuenta = getattr(obj, 'idCuentaBanco', None)
-        if cuenta:
-            return self._safe_from_obj(cuenta, 'tipoProducto', 'tipo_cuenta', 'tipoCuenta')
-        return self._safe_from_obj(obj, 'tipo_cuenta', 'tipoCuenta')
-
+    nombre_banco = serializers.CharField(source='idCuentaBanco.banco', read_only=True)
+    numero_cuenta = serializers.CharField(source='idCuentaBanco.numeroCuentaBanco', read_only=True)
+    tipo_cuenta = serializers.CharField(source='idCuentaBanco.tipoProducto', read_only=True)
+    
     class Meta:
         model = Configuracion
         fields = [

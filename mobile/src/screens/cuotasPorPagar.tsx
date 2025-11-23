@@ -122,10 +122,6 @@ const CuotasPorPagarScreen = () => {
   const [observaciones, setObservaciones] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  // Configuración de cuenta bancaria (cargada desde API)
-  const [configuracion, setConfiguracion] = useState<any>(null);
-  const [loadingConfig, setLoadingConfig] = useState<boolean>(false);
-
   const detectPagoInscripcionConfirmado = (ins: any) => {
     if (ins?.pago_inscripcion_confirmada === true || ins?.pagoInscripcionConfirmado === true || ins?.inscripcionPagoConfirmado === true) return true;
 
@@ -147,440 +143,387 @@ const CuotasPorPagarScreen = () => {
     );
   };
 
-  // Cargar configuración (cuenta bancaria) al montar
-  useEffect(() => {
-    let mounted = true;
-    const loadConfig = async () => {
-      setLoadingConfig(true);
-      try {
-        const res = await api.get('/api/configuracion/');
-        // soportar varias formas de respuesta:
-        // - res.data puede ser directamente el objeto config
-        // - res.data puede ser wrapper { success: true, data: {...} }
-        // - o el servidor puede devolver el objeto directamente (res.data === {...})
-        let cfg: any = null;
-        if (res && res.data) {
-          if (res.data.data) cfg = res.data.data;     // wrapper { success: true, data: {...} }
-          else cfg = res.data;                       // objeto directo
-        } else if (res) {
-          cfg = res;
-        }
-        // Si accidentalmente recibes { success:true, data:{data:...} } esta línea intenta destripar más
-        if (cfg && cfg.data && typeof cfg.data === 'object' && Object.keys(cfg).length === 1) {
-          cfg = cfg.data;
-        }
-
-        if (mounted) setConfiguracion(cfg);
-      } catch (e: any) {
-        console.warn('[Cuotas] No se pudo cargar configuracion de cuenta bancaria', e?.response?.data ?? e);
-        if (mounted) setConfiguracion(null);
-      } finally {
-        if (mounted) setLoadingConfig(false);
-      }
-    };
-    loadConfig();
-    return () => { mounted = false; };
-  }, []);
-
   const loadInscripciones = useCallback(async () => {
-  setLoading(true);
-  try {
-    if (!user) {
-      setInscripciones([]);
-      return;
-    }
-
-    // Intentar cargar configuración (para mostrar datos de cuenta en modal)
+    setLoading(true);
     try {
-      console.log('[Cuotas] cargando /api/configuracion/');
-      const cfgRes = await api.get('/api/configuracion/');
-      // tu endpoint puede devolver { success: true, data: {...} } o el objeto directamente
-      const cfgData = cfgRes.data?.data ?? cfgRes.data ?? null;
-      if (cfgData) {
-        // opcional: puedes guardar en un estado si lo necesitas en la pantalla
-        // setConfiguracion(cfgData);
-        console.log('[Cuotas] configuracion cargada:', cfgData);
-      } else {
-        console.warn('[Cuotas] respuesta /api/configuracion/ vacía o inesperada:', cfgRes.data);
+      if (!user) {
+        setInscripciones([]);
+        return;
       }
-    } catch (err: any) {
-      console.warn('[Cuotas] No se pudo cargar configuracion de cuenta bancaria ', err?.response?.data ?? err);
-      // no hacemos throw: la pantalla sigue funcionando sin la config
-    }
 
-    const userCedRaw = (user.cedula ?? user.username ?? '').toString();
-    const cedulaDigits = normalizeCedula(userCedRaw) || userCedRaw;
-    const candidates = [userCedRaw, cedulaDigits, `V-${cedulaDigits}`, `E-${cedulaDigits}`].filter(Boolean);
-    console.log('[Cuotas] probaré estas variantes de cédula:', candidates);
+      const userCedRaw = (user.cedula ?? user.username ?? '').toString();
+      const cedulaDigits = normalizeCedula(userCedRaw) || userCedRaw;
+      const candidates = [userCedRaw, cedulaDigits, `V-${cedulaDigits}`, `E-${cedulaDigits}`].filter(Boolean);
+      console.log('[Cuotas] probaré estas variantes de cédula:', candidates);
 
-    // helpers locales
-    const normalizeResponse = (res: any) => {
-      if (!res) return [];
-      if (res.data !== undefined) {
-        if (Array.isArray(res.data)) return res.data;
-        if (Array.isArray(res.data.results)) return res.data.results;
-        if (Array.isArray(res.data.data)) return res.data.data;
-        return Array.isArray(res.data) ? res.data : [];
-      }
-      if (Array.isArray(res)) return res;
-      if (Array.isArray(res.results)) return res.results;
-      return [];
-    };
-
-    const fetchInscripciones = async (ced: string) => {
-      try {
-        const endpoint = `/api/inscripcion/usuario/?cedula=${encodeURIComponent(ced)}`;
-        console.log('[Cuotas] GET', endpoint);
-        const res = await api.get(endpoint);
-        const d = normalizeResponse(res);
-        console.log('[Cuotas-debug] respuesta inscripciones para', ced, '->', d.length);
-        // Filtrar solo las inscripciones que pertenecen al usuario actual (por cédula)
-        const filtered = d.filter((ins: any) => isUserInscripcionOwner(ins, userCedRaw));
-        console.log('[Cuotas-debug] inscripciones después del filtro:', filtered.length);
-        return filtered;
-      } catch (err: any) {
-        console.warn('[Cuotas] error fetching inscripciones para', ced, err?.response?.data ?? err);
+      const normalizeResponse = (res: any) => {
+        if (!res) return [];
+        if (res.data !== undefined) {
+          if (Array.isArray(res.data)) return res.data;
+          if (Array.isArray(res.data.results)) return res.data.results;
+          if (Array.isArray(res.data.data)) return res.data.data;
+          return Array.isArray(res.data) ? res.data : [];
+        }
+        if (Array.isArray(res)) return res;
+        if (Array.isArray(res.results)) return res.results;
         return [];
-      }
-    };
-
-    // Buscar inscripciones probando variantes de cédula
-    let insData: any[] = [];
-    for (const cand of candidates) {
-      insData = await fetchInscripciones(cand);
-      if (insData && insData.length > 0) {
-        console.log('[Cuotas] encontrada inscripciones con variante:', cand);
-        break;
-      }
-    }
-
-    // Cargar notas y pagos globales (servidor)
-    let notasResp: any[] = [];
-    let pagosResp: any[] = [];
-    try {
-      const r = await api.get('/api/notas/usuario/autenticado/');
-      notasResp = normalizeResponse(r);
-    } catch (err: any) {
-      console.warn('[Cuotas] error cargando notas:', err?.response?.data ?? err);
-      notasResp = [];
-    }
-    try {
-      const p = await api.get('/api/pagos/');
-      pagosResp = normalizeResponse(p);
-    } catch (err: any) {
-      console.warn('[Cuotas] error cargando pagos:', err?.response?.data ?? err);
-      pagosResp = [];
-    }
-
-    console.log('[Cuotas-debug] counts -> ins:', insData.length, 'notas:', notasResp.length, 'pagos:', pagosResp.length);
-
-    // --- Helpers para matching robusto ---
-    const isConfirmed = (obj: any) => {
-      if (obj == null) return false;
-      if (obj === true) return true;
-      if (obj === 1 || obj === '1') return true;
-      const s = String(obj).toLowerCase();
-      if (s === 'true' || s === 't' || s === 'yes' || s === 'si') return true;
-
-      if (typeof obj === 'object') {
-        const candidates = [
-          obj?.confirmado,
-          obj?.confirmado_pago,
-          obj?.confirmadoPago,
-          obj?.estado,
-          obj?.estadoPago,
-          obj?.estado_nota,
-          obj?.status,
-          obj?.statusPago,
-        ];
-
-        for (const cand of candidates) {
-          if (cand === true) return true;
-          if (cand === 1 || cand === '1') return true;
-          const candS = String(cand ?? '').toUpperCase();
-          if (candS === 'PAGADO' || candS === 'PAGADA' || candS === 'CONFIRMADO' || candS === 'APROBADO') return true;
-          if (String(cand ?? '').toLowerCase() === 'true') return true;
-        }
-
-        const notaObj = obj?.idNota ?? obj?.nota ?? obj?.nota_detail ?? obj?.idNota_detail;
-        if (notaObj) {
-          const estadoNota = (notaObj?.estado ?? notaObj?.estadoNota ?? notaObj?.status ?? '').toString().toUpperCase();
-          if (estadoNota === 'PAGADO' || estadoNota === 'PAGADA') {
-            return true;
-          }
-          if (notaObj?.confirmado === true || String(notaObj?.confirmado).toLowerCase() === 'true') return true;
-        }
-      }
-
-      return false;
-    };
-
-    const normalizeNumber = (v: any) => {
-      if (v == null || v === '') return null;
-      const x = typeof v === 'object' ? (v?.id ?? v?.pk ?? v?.idCuota ?? null) : v;
-      const n = Number(x);
-      return !isNaN(n) && n > 0 ? n : null;
-    };
-
-    const getAllIdsFromCuota = (c: any) => {
-      const ids = new Set<number>();
-      const cand = [
-        c.id, c.pk, c.idInscripcionCuota, c.idInscripcionCuota?.id,
-        c.idCuota, c.id_cuota, c.cuota,
-        c.__raw && (c.__raw.idCuota ?? c.__raw.cuota ?? c.__raw.idCuota_id),
-        c.__raw && (c.__raw.id ?? c.__raw.pk),
-        c.__raw && c.__raw.idCuota && (c.__raw.idCuota.idCuota ?? c.__raw.idCuota.id ?? c.__raw.idCuota.pk)
-      ];
-      for (const x of cand) {
-        const n = normalizeNumber(x);
-        if (n) ids.add(n);
-      }
-      return Array.from(ids);
-    };
-
-    const extractRelatedIdFromRel = (rel: any) => {
-      if (!rel) return null;
-      const rc = rel?.idCuota ?? rel?.idCuota_id ?? rel?.id ?? rel?.cuota ?? null;
-      return normalizeNumber(rc);
-    };
-
-    const getPersonaIdFromIns = (ins: any) => {
-      return ins?.idPersona?.id ?? ins?.idPersona?.idPersona ?? ins?.idPersona ?? ins?.persona ?? null;
-    };
-    const getPersonaIdFromNotaOrPago = (obj: any) => {
-      if (!obj) return null;
-      return obj?.idPersona?.id ?? obj?.idPersona ?? obj?.persona?.id ?? obj?.persona ?? null;
-    };
-    const samePersona = (obj: any, ins: any) => {
-      const pidIns = getPersonaIdFromIns(ins);
-      const pidObj = getPersonaIdFromNotaOrPago(obj);
-      if (pidIns && pidObj) {
-        try {
-          return Number(pidIns) === Number(pidObj);
-        } catch { /* fallthrough */ }
-      }
-      const cedIns = (ins?.idPersona?.cedula ?? ins?.cedula ?? '').toString().replace(/\D/g,'');
-      const cedObj = (obj?.idPersona?.cedula ?? obj?.cedula ?? obj?.cedulaPersona ?? '').toString().replace(/\D/g,'');
-      if (cedIns && cedObj) return cedIns === cedObj;
-      return false;
-    };
-
-    // marcar arrays de notas/pagos como "no usadas"
-    const unusedNotas = (Array.isArray(notasResp) ? notasResp.slice() : []).map(n => ({ ...n, __used: false }));
-    const unusedPagos = (Array.isArray(pagosResp) ? pagosResp.slice() : []).map(p => ({ ...p, __used: false }));
-
-    const applyRawCuotaState = (c: any) => {
-      const rawEstado = (c.estadoPago ?? c.estado ?? (c.__raw && (c.__raw.estadoPago ?? c.__raw.estado)) ?? '').toString().toUpperCase();
-      if (rawEstado === 'PAGADO' || rawEstado === 'PAGADA' || rawEstado.includes('PAGAD')) {
-        c.estadoPago = 'PAGADO';
-        c.pagoConfirmado = true;
-        c.disabled = true;
-        return true;
-      }
-      return false;
-    };
-
-    // enrich inscripciones
-    const enriched = (insData || []).map((ins: any) => {
-      const insId = normalizeNumber(ins?.idInscripcion ?? ins?.id ?? ins?.pk) ?? null;
-      const cuotasRaw = extractCuotasFromInscripcion(ins);
-      const notasIns = ins?.notas ?? ins?.notas_prefetch ?? ins?.nota_inscripcion_detail ?? [];
-      const cuotas = (cuotasRaw || []).map((c: any) => ({
-        ...c,
-        pendingPayment: false,
-        pagoConfirmado: false,
-        pagoTemporalId: null,
-        disabled: false,
-      }));
-
-      const usedRelatedIds = new Set<number>();
-      const usedMontoCount = new Map<any, number>();
-
-      for (let i = 0; i < cuotas.length; i++) {
-        const c = cuotas[i];
-        const cuotaIds = getAllIdsFromCuota(c);
-        const monto = Number(c.valorCuota ?? 0);
-
-        if (applyRawCuotaState(c)) {
-          console.log('[Cuotas-debug] cuota marcada PAGADO por estado en la propia cuota:', insId, c.nombreCuota);
-          continue;
-        }
-
-        // 1) match por nota local (prioritario) — solo si nota pertenece a la misma persona/inscripción
-        let matchedLocal = false;
-        for (const nota of (Array.isArray(notasIns) ? notasIns : [])) {
-          try {
-            const tipo = String(nota?.tipoArticulo ?? nota?.tipo ?? '').toUpperCase();
-            if (tipo !== 'CUOTA') continue;
-            const relatedId = extractRelatedIdFromRel(Array.isArray(nota?.relaciones) && nota.relaciones.length ? nota.relaciones[0] : (nota?.relaciones_detail?.[0] ?? null));
-            const montoNota = Number(nota?.totalNota ?? nota?.total ?? nota?.monto ?? 0);
-            const notaConfirmada = isConfirmed(nota);
-
-            const personaMatch = samePersona(nota, ins) || (nota?.relaciones && nota.relaciones.some((r: any) => {
-              const rid = extractRelatedIdFromRel(r);
-              return rid && cuotaIds.includes(rid);
-            }));
-            if (!personaMatch) continue;
-
-            if (relatedId && cuotaIds.includes(relatedId)) {
-              c.estadoPago = notaConfirmada ? 'PAGADO' : 'PENDIENTE';
-              c.pagoConfirmado = !!notaConfirmada;
-              c.pendingPayment = !notaConfirmada;
-              c.disabled = true;
-              matchedLocal = true; break;
-            } else if ((!relatedId) && montoNota && montoNota === monto) {
-              c.estadoPago = notaConfirmada ? 'PAGADO' : 'PENDIENTE';
-              c.pagoConfirmado = !!notaConfirmada;
-              c.pendingPayment = !notaConfirmada;
-              c.disabled = true;
-              matchedLocal = true; break;
-            }
-          } catch { /* skip */ }
-        }
-        if (matchedLocal) { console.log('[Cuotas-debug] cuota marcada por nota local:', insId, c.nombreCuota); continue; }
-
-        // 2) match por pagos locales (solo si mismo inscripcion/persona)
-        let matchedPagoLocal = false;
-        for (const pago of unusedPagos) {
-          if (pago.__used) continue;
-          try {
-            const pagoIns = normalizeNumber(pago?.idInscripcion ?? pago?.inscripcion ?? pago?.inscripcion_id);
-            if (pagoIns && insId && pagoIns !== insId) continue;
-            if (!pagoIns && !samePersona(pago, ins)) continue;
-
-            const notaRel = pago?.idNota ?? pago?.nota ?? pago?.nota_detail ?? pago?.idNota_detail ?? null;
-            let relatedId = null;
-            if (notaRel && Array.isArray(notaRel?.relaciones) && notaRel.relaciones.length) {
-              relatedId = extractRelatedIdFromRel(notaRel.relaciones[0]);
-            }
-            if (!relatedId && (pago?.idCuota || pago?.cuota_id)) {
-              relatedId = normalizeNumber(pago?.idCuota ?? pago?.cuota_id);
-            }
-
-            const montoPago = Number(pago?.monto ?? pago?.amount ?? 0);
-            const confirmado = isConfirmed(pago);
-
-            if (relatedId && cuotaIds.includes(relatedId)) {
-              pago.__used = true;
-              usedRelatedIds.add(relatedId);
-              c.estadoPago = confirmado ? 'PAGADO' : 'PENDIENTE';
-              c.pagoConfirmado = confirmado;
-              c.pendingPayment = !confirmado;
-              c.disabled = true;
-              matchedPagoLocal = true;
-              break;
-            }
-            // match by monto solo si la persona coincide
-            if ((!relatedId) && montoPago && montoPago === monto && samePersona(pago, ins)) {
-              pago.__used = true;
-              const key = `${montoPago}-${getPersonaIdFromNotaOrPago(pago) || 'anon'}`;
-              usedMontoCount.set(key, (usedMontoCount.get(key) ?? 0) + 1);
-              c.estadoPago = confirmado ? 'PAGADO' : 'PENDIENTE';
-              c.pagoConfirmado = confirmado;
-              c.pendingPayment = !confirmado;
-              c.disabled = true;
-              matchedPagoLocal = true;
-              break;
-            }
-          } catch { /* skip */ }
-        }
-        if (matchedPagoLocal) { console.log('[Cuotas-debug] cuota marcada por pago local:', insId, c.nombreCuota); continue; }
-
-        // 3) match por notas/pagos globales (con restricción de persona)
-        let matchedGlobal = false;
-        for (const nota of unusedNotas) {
-          if (nota.__used) continue;
-          try {
-            const tipo = String(nota?.tipoArticulo ?? nota?.tipo ?? '').toUpperCase();
-            if (tipo !== 'CUOTA') continue;
-            if (!samePersona(nota, ins)) continue;
-
-            const relatedId = extractRelatedIdFromRel(Array.isArray(nota?.relaciones) && nota.relaciones.length ? nota.relaciones[0] : (nota?.relaciones_detail?.[0] ?? null));
-            const montoNota = Number(nota?.totalNota ?? nota?.total ?? nota?.monto ?? 0);
-            const notaConfirmada = isConfirmed(nota);
-
-            if (relatedId && cuotaIds.includes(relatedId) && !usedRelatedIds.has(relatedId)) {
-              nota.__used = true; usedRelatedIds.add(relatedId);
-              c.estadoPago = notaConfirmada ? 'PAGADO' : 'PENDIENTE';
-              c.pagoConfirmado = !!notaConfirmada;
-              c.pendingPayment = !notaConfirmada;
-              c.disabled = true;
-              matchedGlobal = true; break;
-            }
-            if ((!relatedId) && montoNota && montoNota === monto) {
-              nota.__used = true;
-              usedMontoCount.set(montoNota, (usedMontoCount.get(montoNota) ?? 0) + 1);
-              c.estadoPago = notaConfirmada ? 'PAGADO' : 'PENDIENTE';
-              c.pagoConfirmado = !!notaConfirmada;
-              c.pendingPayment = !notaConfirmada;
-              c.disabled = true;
-              matchedGlobal = true; break;
-            }
-          } catch { /* skip */ }
-        }
-        if (matchedGlobal) { console.log('[Cuotas-debug] cuota marcada por nota global:', insId, c.nombreCuota); continue; }
-
-        // fallback
-        c.estadoPago = String(c.estadoPago ?? '').toUpperCase() || 'EN ESPERA';
-      }
-
-      // normalizar estados finales
-      for (const c of cuotas) {
-        if (c.pagoConfirmado) {
-          c.estadoPago = 'PAGADO';
-          c.pendingPayment = false;
-          c.disabled = true;
-        } else if (String(c.estadoPago ?? '').toUpperCase() === 'PAGADO' && !c.pagoConfirmado) {
-          c.pagoConfirmado = true;
-          c.pendingPayment = false;
-          c.disabled = true;
-        }
-      }
-
-      const pagoInscripcionConfirmado = detectPagoInscripcionConfirmado(ins);
-      if (!pagoInscripcionConfirmado) {
-        for (const q of cuotas) {
-          q.disabled = true; q._blockedByInscripcion = true;
-          q.estadoPago = String(q.estadoPago ?? '').toUpperCase() || 'BLOQUEADA';
-        }
-      } else {
-        const firstUnpaidIndex = cuotas.findIndex((q: any) => {
-          const st = String(q.estadoPago ?? '').toUpperCase();
-          return (st === 'EN ESPERA' || st === '' ) && !q.pendingPayment && !q.pagoConfirmado;
-        });
-        for (let i = 0; i < cuotas.length; i++) {
-          const q = cuotas[i];
-          const estado = String(q.estadoPago ?? '').toUpperCase();
-          q.disabled = estado === 'PAGADO' || estado === 'PENDIENTE' || (firstUnpaidIndex !== -1 && i !== firstUnpaidIndex);
-        }
-      }
-
-      return {
-        ...ins,
-        cuotas,
-        pago_inscripcion_confirmada: detectPagoInscripcionConfirmado(ins),
-        todasLasCuotasPagadas: areAllCuotasPaid(cuotas),
       };
-    });
 
-    console.log('[Cuotas-debug] enriched inscripciones (final):', enriched);
+      const fetchInscripciones = async (ced: string) => {
+        try {
+          const endpoint = `/api/inscripcion/usuario/?cedula=${encodeURIComponent(ced)}`;
+          console.log('[Cuotas] GET', endpoint);
+          const res = await api.get(endpoint);
+          const d = normalizeResponse(res);
+          console.log('[Cuotas-debug] respuesta inscripciones para', ced, '->', d.length);
 
-    // Filtrar inscripciones: mostrar solo las que tienen cuotas pendientes O no tienen pago de inscripción confirmado
-    const filteredInscripciones = enriched.filter(ins =>
-      !ins.todasLasCuotasPagadas || !ins.pago_inscripcion_confirmada
-    );
+          // Filtrar solo las inscripciones que pertenecen al usuario actual
+          const filtered = d.filter((ins: any) => isUserInscripcionOwner(ins, userCedRaw));
+          console.log('[Cuotas-debug] inscripciones después del filtro:', filtered.length);
 
-    setInscripciones(filteredInscripciones);
-  } catch (e: any) {
-    console.error('Error cargando inscripciones en CuotasPorPagar', e?.response?.data ?? e);
-    Alert.alert('Error', e?.response?.data?.detail ?? 'No se pudieron cargar las inscripciones');
-    setInscripciones([]);
-  } finally {
-    setLoading(false);
-    setRefreshing(false);
-  }
-}, [user]);
+          return filtered;
+        } catch (err: any) {
+          console.warn('[Cuotas] error fetching inscripciones para', ced, err?.response?.data ?? err);
+          return [];
+        }
+      };
 
+      let insData: any[] = [];
+      for (const cand of candidates) {
+        insData = await fetchInscripciones(cand);
+        if (insData && insData.length > 0) { 
+          console.log('[Cuotas] encontrada inscripciones con variante:', cand); 
+          break; 
+        }
+      }
+
+      let notasResp: any[] = [];
+      let pagosResp: any[] = [];
+      try {
+        const r = await api.get('/api/notas/usuario/autenticado/');
+        notasResp = normalizeResponse(r);
+      } catch (err: any) {
+        console.warn('[Cuotas] error cargando notas:', err?.response?.data ?? err);
+        notasResp = [];
+      }
+      try {
+        const p = await api.get('/api/pagos/');
+        pagosResp = normalizeResponse(p);
+      } catch (err: any) {
+        console.warn('[Cuotas] error cargando pagos:', err?.response?.data ?? err);
+        pagosResp = [];
+      }
+
+      console.log('[Cuotas-debug] counts -> ins:', insData.length, 'notas:', notasResp.length, 'pagos:', pagosResp.length);
+
+      const isConfirmed = (obj: any) => {
+        if (obj == null) return false;
+        if (obj === true) return true;
+        if (obj === 1 || obj === '1') return true;
+        const s = String(obj).toLowerCase();
+        if (s === 'true' || s === 't' || s === 'yes' || s === 'si') return true;
+
+        if (typeof obj === 'object') {
+          const candidates = [
+            obj?.confirmado,
+            obj?.confirmado_pago,
+            obj?.confirmadoPago,
+            obj?.estado,
+            obj?.estadoPago,
+            obj?.estado_nota,
+            obj?.status,
+            obj?.statusPago,
+          ];
+
+          for (const cand of candidates) {
+            if (cand === true) return true;
+            if (cand === 1 || cand === '1') return true;
+            const candS = String(cand ?? '').toUpperCase();
+            if (candS === 'PAGADO' || candS === 'PAGADA' || candS === 'CONFIRMADO' || candS === 'APROBADO') return true;
+            if (String(cand ?? '').toLowerCase() === 'true') return true;
+          }
+
+          const notaObj = obj?.idNota ?? obj?.nota ?? obj?.nota_detail ?? obj?.idNota_detail;
+          if (notaObj) {
+            const estadoNota = (notaObj?.estado ?? notaObj?.estadoNota ?? notaObj?.status ?? '').toString().toUpperCase();
+            if (estadoNota === 'PAGADO' || estadoNota === 'PAGADA') {
+              console.log('[Cuotas-debug] isConfirmed detectó estado PAGADO dentro de idNota/nota:', estadoNota, notaObj);
+              return true;
+            }
+            if (notaObj?.confirmado === true || String(notaObj?.confirmado).toLowerCase() === 'true') return true;
+          }
+        }
+
+        return false;
+      };
+
+      const normalizeNumber = (v: any) => {
+        if (v == null || v === '') return null;
+        const x = typeof v === 'object' ? (v?.id ?? v?.pk ?? v?.idCuota ?? null) : v;
+        const n = Number(x);
+        return !isNaN(n) && n > 0 ? n : null;
+      };
+
+      const getAllIdsFromCuota = (c: any) => {
+        const ids = new Set<number>();
+        const cand = [
+          c.id, c.pk, c.idInscripcionCuota, c.idInscripcionCuota?.id,
+          c.idCuota, c.id_cuota, c.cuota,
+          c.__raw && (c.__raw.idCuota ?? c.__raw.cuota ?? c.__raw.idCuota_id),
+          c.__raw && (c.__raw.id ?? c.__raw.pk),
+          c.__raw && c.__raw.idCuota && (c.__raw.idCuota.idCuota ?? c.__raw.idCuota.id ?? c.__raw.idCuota.pk)
+        ];
+        for (const x of cand) {
+          const n = normalizeNumber(x);
+          if (n) ids.add(n);
+        }
+        return Array.from(ids);
+      };
+
+      const extractRelatedIdFromRel = (rel: any) => {
+        if (!rel) return null;
+        const rc = rel?.idCuota ?? rel?.idCuota_id ?? rel?.id ?? rel?.cuota ?? null;
+        return normalizeNumber(rc);
+      };
+
+      const unusedNotas = (Array.isArray(notasResp) ? notasResp.slice() : []).map(n => ({ ...n, __used: false }));
+      const unusedPagos = (Array.isArray(pagosResp) ? pagosResp.slice() : []).map(p => ({ ...p, __used: false }));
+
+      const applyRawCuotaState = (c: any) => {
+        const rawEstado = (c.estadoPago ?? c.estado ?? (c.__raw && (c.__raw.estadoPago ?? c.__raw.estado)) ?? '').toString().toUpperCase();
+        if (rawEstado === 'PAGADO' || rawEstado === 'PAGADA' || rawEstado.includes('PAGAD')) {
+          c.estadoPago = 'PAGADO';
+          c.pagoConfirmado = true;
+          c.disabled = true;
+          return true;
+        }
+        return false;
+      };
+
+      const enriched = (insData || []).map((ins: any) => {
+        const insId = normalizeNumber(ins?.idInscripcion ?? ins?.id ?? ins?.pk) ?? null;
+        const cuotasRaw = extractCuotasFromInscripcion(ins);
+        const notasIns = ins?.notas ?? ins?.notas_prefetch ?? ins?.nota_inscripcion_detail ?? [];
+        const cuotas = (cuotasRaw || []).map((c: any) => ({
+          ...c,
+          pendingPayment: false,
+          pagoConfirmado: false,
+          pagoTemporalId: null,
+          disabled: false,
+        }));
+
+        const usedRelatedIds = new Set<number>();
+        const usedMontoCount = new Map<number, number>();
+
+        for (let i = 0; i < cuotas.length; i++) {
+          const c = cuotas[i];
+          const cuotaIds = getAllIdsFromCuota(c);
+          const monto = Number(c.valorCuota ?? 0);
+
+          if (applyRawCuotaState(c)) {
+            console.log('[Cuotas-debug] cuota marcada PAGADO por estado en la propia cuota:', insId, c.nombreCuota);
+            continue;
+          }
+
+          let matchedLocal = false;
+          for (const nota of (Array.isArray(notasIns) ? notasIns : [])) {
+            try {
+              const tipo = String(nota?.tipoArticulo ?? nota?.tipo ?? '').toUpperCase();
+              const estado = String(nota?.estado ?? '').toUpperCase();
+              if (tipo !== 'CUOTA') continue;
+              const relatedId = extractRelatedIdFromRel(Array.isArray(nota?.relaciones) && nota.relaciones.length ? nota.relaciones[0] : (nota?.relaciones_detail?.[0] ?? null));
+              const montoNota = Number(nota?.totalNota ?? nota?.total ?? nota?.monto ?? 0);
+              const notaConfirmada = isConfirmed(nota);
+
+              if (relatedId && cuotaIds.includes(relatedId) && !usedRelatedIds.has(relatedId)) {
+                c.estadoPago = notaConfirmada ? 'PAGADO' : 'PENDIENTE';
+                c.pagoConfirmado = !!notaConfirmada;
+                c.pendingPayment = !notaConfirmada;
+                c.disabled = true;
+                usedRelatedIds.add(relatedId);
+                matchedLocal = true; break;
+              } else if ((!relatedId) && montoNota && montoNota === monto && (usedMontoCount.get(montoNota) ?? 0) === 0) {
+                c.estadoPago = notaConfirmada ? 'PAGADO' : 'PENDIENTE';
+                c.pagoConfirmado = !!notaConfirmada;
+                c.pendingPayment = !notaConfirmada;
+                c.disabled = true;
+                usedMontoCount.set(montoNota, 1);
+                matchedLocal = true; break;
+              }
+            } catch { /* skip */ }
+          }
+          if (matchedLocal) { console.log('[Cuotas-debug] cuota marcada por nota local:', insId, c.nombreCuota); continue; }
+
+          let matchedPagoLocal = false;
+          for (const pago of unusedPagos) {
+            if (pago.__used) continue;
+            try {
+              const notaRel = pago?.idNota ?? pago?.nota ?? pago?.nota_detail ?? pago?.idNota_detail ?? null;
+              let relatedId = null;
+              if (notaRel && Array.isArray(notaRel?.relaciones) && notaRel.relaciones.length) {
+                relatedId = extractRelatedIdFromRel(notaRel.relaciones[0]);
+              }
+              if (!relatedId && (pago?.idCuota || pago?.cuota_id)) {
+                relatedId = normalizeNumber(pago?.idCuota ?? pago?.cuota_id);
+              }
+
+              let pagoIns = null;
+              if (pago?.idInscripcion || pago?.inscripcion || pago?.inscripcion_id) {
+                pagoIns = normalizeNumber(pago?.idInscripcion ?? pago?.inscripcion ?? pago?.inscripcion_id);
+              } else if (notaRel && Array.isArray(notaRel?.relaciones) && notaRel.relaciones.length) {
+                pagoIns = normalizeNumber(notaRel.relaciones[0]?.idInscripcion ?? notaRel.relaciones[0]?.idInscripcion_id);
+              }
+
+              const montoPago = Number(pago?.monto ?? pago?.amount ?? 0);
+              const confirmado = isConfirmed(pago);
+
+              if (relatedId && cuotaIds.includes(relatedId) && (!pagoIns || pagoIns === insId)) {
+                pago.__used = true;
+                usedRelatedIds.add(relatedId);
+                c.estadoPago = confirmado ? 'PAGADO' : 'PENDIENTE';
+                c.pagoConfirmado = confirmado;
+                c.pendingPayment = !confirmado;
+                c.disabled = true;
+                matchedPagoLocal = true;
+                break;
+              }
+              if ((!relatedId) && montoPago && montoPago === monto && (usedMontoCount.get(montoPago) ?? 0) === 0) {
+                pago.__used = true;
+                usedMontoCount.set(montoPago, 1);
+                c.estadoPago = confirmado ? 'PAGADO' : 'PENDIENTE';
+                c.pagoConfirmado = confirmado;
+                c.pendingPayment = !confirmado;
+                c.disabled = true;
+                matchedPagoLocal = true;
+                break;
+              }
+            } catch { /* skip */ }
+          }
+          if (matchedPagoLocal) { console.log('[Cuotas-debug] cuota marcada por pago local:', insId, c.nombreCuota); continue; }
+
+          let matchedGlobal = false;
+          for (const nota of unusedNotas) {
+            if (nota.__used) continue;
+            try {
+              const tipo = String(nota?.tipoArticulo ?? nota?.tipo ?? '').toUpperCase();
+              if (tipo !== 'CUOTA') continue;
+              const relatedId = extractRelatedIdFromRel(Array.isArray(nota?.relaciones) && nota.relaciones.length ? nota.relaciones[0] : (nota?.relaciones_detail?.[0] ?? null));
+              const montoNota = Number(nota?.totalNota ?? nota?.total ?? nota?.monto ?? 0);
+              const notaConfirmada = isConfirmed(nota);
+
+              if (relatedId && cuotaIds.includes(relatedId) && !usedRelatedIds.has(relatedId)) {
+                nota.__used = true; usedRelatedIds.add(relatedId);
+                c.estadoPago = notaConfirmada ? 'PAGADO' : 'PENDIENTE';
+                c.pagoConfirmado = !!notaConfirmada;
+                c.pendingPayment = !notaConfirmada;
+                c.disabled = true;
+                matchedGlobal = true; break;
+              }
+              if ((!relatedId) && montoNota && montoNota === monto && (usedMontoCount.get(montoNota) ?? 0) === 0) {
+                nota.__used = true; usedMontoCount.set(montoNota, 1);
+                c.estadoPago = notaConfirmada ? 'PAGADO' : 'PENDIENTE';
+                c.pagoConfirmado = !!notaConfirmada;
+                c.pendingPayment = !notaConfirmada;
+                c.disabled = true;
+                matchedGlobal = true; break;
+              }
+            } catch { /* skip */ }
+          }
+          if (matchedGlobal) { console.log('[Cuotas-debug] cuota marcada por nota global:', insId, c.nombreCuota); continue; }
+
+          for (const pago of unusedPagos) {
+            if (pago.__used) continue;
+            try {
+              const notaRel = pago?.idNota ?? pago?.nota ?? pago?.nota_detail ?? pago?.idNota_detail ?? null;
+              let relatedId = null;
+              if (notaRel && Array.isArray(notaRel?.relaciones) && notaRel.relaciones.length) {
+                relatedId = extractRelatedIdFromRel(notaRel.relaciones[0]);
+              }
+              if (!relatedId && (pago?.idCuota || pago?.cuota_id)) {
+                relatedId = normalizeNumber(pago?.idCuota ?? pago?.cuota_id);
+              }
+              const montoPago = Number(pago?.monto ?? pago?.amount ?? 0);
+              const confirmado = isConfirmed(pago);
+
+              if (relatedId && cuotaIds.includes(relatedId) && !usedRelatedIds.has(relatedId)) {
+                pago.__used = true; usedRelatedIds.add(relatedId);
+                c.estadoPago = confirmado ? 'PAGADO' : 'PENDIENTE';
+                c.pagoConfirmado = confirmado;
+                c.pendingPayment = !confirmado;
+                c.disabled = true;
+                matchedGlobal = true; break;
+              }
+              if ((!relatedId) && montoPago && montoPago === monto && (usedMontoCount.get(montoPago) ?? 0) === 0) {
+                pago.__used = true; usedMontoCount.set(montoPago, 1);
+                c.estadoPago = confirmado ? 'PAGADO' : 'PENDIENTE';
+                c.pagoConfirmado = confirmado;
+                c.pendingPayment = !confirmado;
+                c.disabled = true;
+                matchedGlobal = true; break;
+              }
+            } catch { /* skip */ }
+          }
+          if (matchedGlobal) { console.log('[Cuotas-debug] cuota marcada por pago global:', insId, c.nombreCuota); continue; }
+
+          c.estadoPago = String(c.estadoPago ?? '').toUpperCase() || 'EN ESPERA';
+        }
+
+        for (const c of cuotas) {
+          if (c.pagoConfirmado) {
+            c.estadoPago = 'PAGADO';
+            c.pendingPayment = false;
+            c.disabled = true;
+          } else if (String(c.estadoPago ?? '').toUpperCase() === 'PAGADO' && !c.pagoConfirmado) {
+            c.pagoConfirmado = true;
+            c.pendingPayment = false;
+            c.disabled = true;
+          }
+        }
+
+        const pagoInscripcionConfirmado = detectPagoInscripcionConfirmado(ins);
+        if (!pagoInscripcionConfirmado) {
+          for (const q of cuotas) {
+            q.disabled = true; q._blockedByInscripcion = true;
+            q.estadoPago = String(q.estadoPago ?? '').toUpperCase() || 'BLOQUEADA';
+          }
+        } else {
+          const firstUnpaidIndex = cuotas.findIndex((q: any) => {
+            const st = String(q.estadoPago ?? '').toUpperCase();
+            return (st === 'EN ESPERA' || st === '' ) && !q.pendingPayment && !q.pagoConfirmado;
+          });
+          for (let i = 0; i < cuotas.length; i++) {
+            const q = cuotas[i];
+            const estado = String(q.estadoPago ?? '').toUpperCase();
+            q.disabled = estado === 'PAGADO' || estado === 'PENDIENTE' || (firstUnpaidIndex !== -1 && i !== firstUnpaidIndex);
+          }
+        }
+
+        return {
+          ...ins,
+          cuotas,
+          pago_inscripcion_confirmada: detectPagoInscripcionConfirmado(ins),
+          // Agregamos flag para saber si todas están pagadas
+          todasLasCuotasPagadas: areAllCuotasPaid(cuotas),
+        };
+      });
+
+      console.log('[Cuotas-debug] enriched inscripciones (final):', enriched);
+
+      // Filtrar inscripciones: mostrar solo las que tienen cuotas pendientes O no tienen pago de inscripción confirmado
+      const filteredInscripciones = enriched.filter(ins => 
+        !ins.todasLasCuotasPagadas || !ins.pago_inscripcion_confirmada
+      );
+
+      setInscripciones(filteredInscripciones);
+    } catch (e: any) {
+      console.error('Error cargando inscripciones en CuotasPorPagar', e?.response?.data ?? e);
+      Alert.alert('Error', e?.response?.data?.detail ?? 'No se pudieron cargar las inscripciones');
+      setInscripciones([]);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [user]);
 
   // Recargar cuando la pantalla recibe foco
   useFocusEffect(
@@ -655,14 +598,7 @@ const CuotasPorPagarScreen = () => {
       };
 
       console.log('[Pago Cuota] Enviando payload:', payload);
-      // Ajusta el endpoint si tu backend usa otro path para pagos de cuota
-      const res = await api.post('/api/cuota/pago/create/', payload).catch(async (e) => {
-        // si tu API anterior era /api/pagos/cuota/create/ intenta ese fallback
-        if (e?.response?.status === 404) {
-          return await api.post('/api/pagos/cuota/create/', payload);
-        }
-        throw e;
-      });
+      const res = await api.post('/api/pagos/cuota/create/', payload);
 
       if (res.status === 200 || res.status === 201) {
         const data = res.data?.data ?? res.data;
@@ -739,97 +675,6 @@ const CuotasPorPagarScreen = () => {
     } finally {
       setSubmitting(false);
     }
-  };
-
-  // Componente reutilizable de cuenta bancaria (sólo dentro del modal)
-  const InfoCuentaBancaria = () => {
-    // Fallbacks múltiples por nombres distintos que puede devolver el serializer/backend
-    const banco = configuracion?.nombre_banco
-      || configuracion?.idCuentaBanco?.banco
-      || configuracion?.banco
-      || configuracion?.nombreBanco
-      || '';
-
-    const tipoCuenta = configuracion?.tipo_cuenta
-      || configuracion?.idCuentaBanco?.tipoProducto
-      || configuracion?.tipoCuenta
-      || configuracion?.tipo_cuenta
-      || '';
-
-    const numeroCuenta = configuracion?.numero_cuenta
-      || configuracion?.idCuentaBanco?.numeroCuentaBanco
-      || configuracion?.numero_cuenta
-      || configuracion?.numeroCuenta
-      || '';
-
-    const cedulaRif = configuracion?.cedulaCuenta || configuracion?.rif || configuracion?.rifCuenta || '';
-
-    const titular = configuracion?.nombreInstitucion || configuracion?.institucion || '';
-
-    if (loadingConfig) {
-      return (
-        <View style={styles.cuentaBancariaCard}>
-          <View style={styles.cuentaHeader}>
-            <Icon name="bank" size={20} color="#2dce89" />
-            <Text style={styles.cuentaTitle}>Información para Transferencia</Text>
-          </View>
-          <View style={{ padding: 12 }}>
-            <ActivityIndicator size="small" />
-            <Text style={{ marginTop: 8, color: '#666' }}>Cargando cuenta bancaria...</Text>
-          </View>
-        </View>
-      );
-    }
-
-    return (
-      <View style={styles.cuentaBancariaCard}>
-        <View style={styles.cuentaHeader}>
-          <Icon name="bank" size={20} color="#2dce89" />
-          <Text style={styles.cuentaTitle}>Información para Transferencia</Text>
-        </View>
-
-        <View style={styles.cuentaGrid}>
-          <View style={styles.cuentaItem}>
-            <Text style={styles.cuentaLabel}>Banco:</Text>
-            <Text style={styles.cuentaValue}>{banco || 'No especificado'}</Text>
-          </View>
-
-          <View style={styles.cuentaItem}>
-            <Text style={styles.cuentaLabel}>Tipo de Cuenta:</Text>
-            <Text style={styles.cuentaValue}>{tipoCuenta || 'No especificado'}</Text>
-          </View>
-
-          <View style={styles.cuentaItem}>
-            <Text style={styles.cuentaLabel}>Número de Cuenta:</Text>
-            <Text style={[styles.cuentaValue, styles.cuentaDestacado]}>
-              {numeroCuenta || 'No especificado'}
-            </Text>
-          </View>
-
-          <View style={styles.cuentaItem}>
-            <Text style={styles.cuentaLabel}>Cédula/RIF:</Text>
-            <Text style={[styles.cuentaValue, styles.cuentaDestacado]}>
-              {cedulaRif || 'No especificado'}
-            </Text>
-          </View>
-
-          <View style={styles.cuentaItem}>
-            <Text style={styles.cuentaLabel}>Titular:</Text>
-            <Text style={styles.cuentaValue}>{titular || 'Institución'}</Text>
-          </View>
-        </View>
-
-        <View style={styles.cuentaInstrucciones}>
-          <Text style={styles.instruccionesTitle}>📋 Instrucciones:</Text>
-          <Text style={styles.instruccionesText}>
-            1. Realice la transferencia a la cuenta mostrada arriba{'\n'}
-            2. Guarde el número de referencia de la transferencia{'\n'}
-            3. Complete el formulario con la referencia y fecha{'\n'}
-            4. Envíe el comprobante por correo si es requerido
-          </Text>
-        </View>
-      </View>
-    );
   };
 
   const renderInscripcionItem = ({ item }: { item: InscripcionLite }) => {
@@ -977,7 +822,7 @@ const CuotasPorPagarScreen = () => {
         />
       )}
 
-      {/* MODAL DE PAGO - ahora contiene InfoCuentaBancaria */}
+      {/* MODAL DE PAGO - IDÉNTICO AL DE INSCRIPCIÓN */}
       <Modal
         isVisible={modalVisible}
         onBackdropPress={() => !submitting && closeModal()}
@@ -1019,9 +864,6 @@ const CuotasPorPagarScreen = () => {
                   </View>
                 </View>
               </View>
-
-              {/* INFO DE CUENTA BANCARIA DENTRO DEL MODAL */}
-              <InfoCuentaBancaria />
 
               {/* Información de Pago */}
               <View style={styles.formSection}>
@@ -1086,7 +928,7 @@ const CuotasPorPagarScreen = () => {
   );
 };
 
-/* ESTILOS ACTUALIZADOS - IDÉNTICOS AL DE INSCRIPCIÓN + estilos de cuenta bancaria */
+/* ESTILOS ACTUALIZADOS - IDÉNTICOS AL DE INSCRIPCIÓN */
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f7fa' },
 
@@ -1700,68 +1542,6 @@ const styles = StyleSheet.create({
   },
   submitButtonTextSmall: {
     fontSize: 13,
-  },
-
-  // ===== estilos de cuenta bancaria =====
-  cuentaBancariaCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 12,
-    marginVertical: 10,
-    borderWidth: 1,
-    borderColor: '#eef2f6',
-  },
-  cuentaHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  cuentaTitle: {
-    marginLeft: 8,
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1f3b6e',
-  },
-  cuentaGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: 6,
-  },
-  cuentaItem: {
-    width: '50%',
-    paddingVertical: 6,
-  },
-  cuentaLabel: {
-    fontSize: 12,
-    color: '#6c757d',
-    marginBottom: 2,
-  },
-  cuentaValue: {
-    fontSize: 14,
-    color: '#213547',
-    fontWeight: '600',
-  },
-  cuentaDestacado: {
-    fontWeight: '800',
-    color: '#0b2545',
-  },
-  cuentaInstrucciones: {
-    marginTop: 10,
-    backgroundColor: '#f8fafc',
-    padding: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#eef6f8',
-  },
-  instruccionesTitle: {
-    fontWeight: '700',
-    color: '#0b3b2f',
-    marginBottom: 6,
-  },
-  instruccionesText: {
-    color: '#495057',
-    fontSize: 13,
-    lineHeight: 18,
   },
 });
 
