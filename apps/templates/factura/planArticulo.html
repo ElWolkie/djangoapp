@@ -36,8 +36,8 @@
             <label for="planCuentaDebe">Plan de Cuenta (Debe):</label>
             <div class="input-group">
                 <input type="text" id="planCuentaDebe" class="form-control text-dark" placeholder="Seleccione un plan de cuenta para el Debe" readonly required />
-                <button type="button" id="buscarPlanCuentaDebe" class="btn btn-warning" data-toggle="modal" data-target="#planCuentaDebeModal">
-                    <i class="fas fa-search"></i>
+                <button type="button" id="buscarPlanCuentaDebe" title="Doble click para abrir" class="btn btn-warning" data-toggle="modal" data-target="#planCuentaDebeModal">
+                    <i class="fas fa-search" ></i>
                 </button>
             </div>
             <input type="hidden" id="idPlanCuentaDebe" name="idPlanCuentaDebe" required />
@@ -47,7 +47,7 @@
             <label for="planCuentaHaber">Plan de Cuenta (Haber):</label>
             <div class="input-group">
                 <input type="text" id="planCuentaHaber" class="form-control text-dark" placeholder="Seleccione un plan de cuenta para el Haber" readonly required />
-                <button type="button" id="buscarPlanCuentaHaber" class="btn btn-warning" data-toggle="modal" data-target="#planCuentaHaberModal">
+                <button type="button" id="buscarPlanCuentaHaber" title="Doble click para abrir" class="btn btn-warning" data-toggle="modal" data-target="#planCuentaHaberModal">
                     <i class="fas fa-search"></i>
                 </button>
             </div>
@@ -72,7 +72,7 @@
 
 <!-- Modal para seleccionar Plan de Cuenta (Debe) -->
 <div class="modal fade" id="planCuentaDebeModal" tabindex="-1" role="dialog" aria-labelledby="planCuentaDebeModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title" id="planCuentaDebeModalLabel">Seleccionar Plan de Cuenta (Debe)</h5>
@@ -96,13 +96,19 @@
               <tr>
                 <th>Código</th>
                 <th>Nombre</th>
+                <th>Seleccionar</th>
               </tr>
             </thead>
             <tbody>
               {% for cuenta in cuentas_plan %}
                 <tr data-id="{{ cuenta.idPlanCuenta }}" data-nombre="{{ cuenta.codigoPlanCuenta }} - {{ cuenta.nombrePlanCuenta }}" style="cursor:pointer;">
-                  <td>{{ cuenta.codigoPlanCuenta }}</td>
-                  <td>{{ cuenta.nombrePlanCuenta }}</td>
+                  <td class="align-self-start text-left" >{{ cuenta.codigoPlanCuenta }}</td>
+                  <td class="align-self-start text-left" >{{ cuenta.nombrePlanCuenta }}</td>
+                   <td>
+                    <button class="btn btn-sm btn-warning btn-select">
+                      <i class="fas fa-check"></i> Elegir
+                    </button>
+                  </td>
                 </tr>
               {% endfor %}
             </tbody>
@@ -118,7 +124,7 @@
   
   <!-- Modal para seleccionar Plan de Cuenta (Haber) -->
   <div class="modal fade" id="planCuentaHaberModal" tabindex="-1" role="dialog" aria-labelledby="planCuentaHaberModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title" id="planCuentaHaberModalLabel">Seleccionar Plan de Cuenta (Haber)</h5>
@@ -142,13 +148,19 @@
               <tr>
                 <th>Código</th>
                 <th>Nombre</th>
+                <th>Seleccionar</th>
               </tr>
             </thead>
             <tbody>
               {% for cuenta in cuentas_plan %}
                 <tr data-id="{{ cuenta.idPlanCuenta }}" data-nombre="{{ cuenta.codigoPlanCuenta }} - {{ cuenta.nombrePlanCuenta }}" style="cursor:pointer;">
-                  <td>{{ cuenta.codigoPlanCuenta }}</td>
-                  <td>{{ cuenta.nombrePlanCuenta }}</td>
+                  <td class="align-self-start text-left" >{{ cuenta.codigoPlanCuenta }}</td>
+                  <td class="align-self-start text-left" >{{ cuenta.nombrePlanCuenta }}</td>
+                  <td>
+                    <button class="btn btn-sm btn-warning btn-select" >
+                      <i class="fas fa-check"></i> Elegir
+                    </button>
+                  </td>
                 </tr>
               {% endfor %}
             </tbody>
@@ -166,7 +178,7 @@
 {% block javascripts %}
 <script src="{% static 'assets/js/jquery-3.6.0.min.js' %}"></script>
 <script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="{% static 'assets/js/sweetalert2@11.js' %}"></script>
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
@@ -207,7 +219,15 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       pagination.appendChild(prevLi);
 
-      for (let i = 1; i <= totalPages; i++) {
+      const maxVisiblePages = 5;
+      let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+      let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+      if (endPage - startPage + 1 < maxVisiblePages) {
+        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+      }
+
+      for (let i = startPage; i <= endPage; i++) {
         const li = document.createElement('li');
         li.className = `page-item ${i === currentPage ? 'active' : ''}`;
         li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
@@ -253,10 +273,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Activar búsqueda y paginación para las tablas de los modales ---
   filterTable('tablaPlanCuentaDebe', 'searchPlanCuentaDebeInput');
-  paginateTable('tablaPlanCuentaDebe', 5);
+  paginateTable('tablaPlanCuentaDebe', 12);
 
   filterTable('tablaPlanCuentaHaber', 'searchPlanCuentaHaberInput');
-  paginateTable('tablaPlanCuentaHaber', 5);
+  paginateTable('tablaPlanCuentaHaber', 12);
 
   // --- Función para manejar selección en los modales ---
   const handleSeleccionDebe = (tr) => {
@@ -264,7 +284,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const nombre = tr.getAttribute('data-nombre');
     document.getElementById('planCuentaDebe').value = nombre;
     document.getElementById('idPlanCuentaDebe').value = id;
-    bootstrap.Modal.getInstance(document.getElementById('planCuentaDebeModal')).hide();
+    const modalDebe = document.getElementById('planCuentaDebeModal');
+    if (modalDebe) {
+      modalDebe.style.display = 'none';
+      modalDebe.classList.remove('show');
+      document.body.classList.remove('modal-open');
+      const backdrop = document.querySelector('.modal-backdrop');
+      if (backdrop) backdrop.remove();
+
+      // Reinicializar el modal para que se pueda abrir nuevamente con un clic
+      modalDebe.removeAttribute('aria-hidden');
+      modalDebe.setAttribute('aria-modal', 'true');
+    }
   };
 
   const handleSeleccionHaber = (tr) => {
@@ -272,7 +303,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const nombre = tr.getAttribute('data-nombre');
     document.getElementById('planCuentaHaber').value = nombre;
     document.getElementById('idPlanCuentaHaber').value = id;
-    bootstrap.Modal.getInstance(document.getElementById('planCuentaHaberModal')).hide();
+    const modalHaber = document.getElementById('planCuentaHaberModal');
+    if (modalHaber) {
+      modalHaber.style.display = 'none';
+      modalHaber.classList.remove('show');
+      document.body.classList.remove('modal-open');
+      const backdrop = document.querySelector('.modal-backdrop');
+      if (backdrop) backdrop.remove();
+
+      // Reinicializar el modal para que se pueda abrir nuevamente con un clic
+      modalHaber.removeAttribute('aria-hidden');
+      modalHaber.setAttribute('aria-modal', 'true');
+    }
   };
 
   // --- Event listeners para las tablas de los modales ---

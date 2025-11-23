@@ -142,9 +142,9 @@
         <tbody>
           {% for plan in planes %}
           <tr>
-            <td class=" text-center">{{ plan.codigoPlanCuenta }}</td>
-           <td class=" text-center">{{ plan.nombrePlanCuenta }}</td>
-            <td class=" text-center">{{ plan.get_tipoPlanCuenta_display }}</td>
+            <td class="align-self-start text-left">{{ plan.codigoPlanCuenta }}</td>
+           <td class="align-self-start text-left">{{ plan.nombrePlanCuenta }}</td>
+            <td class="align-self-start text-left">{{ plan.get_tipoPlanCuenta_display }}</td>
             <td lass=" text-center">{{ plan.nivelPlanCuenta }}</td>
             <td>
               {% if plan.estadoPlanCuenta %}

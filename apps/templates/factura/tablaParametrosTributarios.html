@@ -77,29 +77,27 @@
 
   <div class="card shadow-sm">
     <div class="table-responsive">
-      <table id="parametrosTable" class="table table-striped table-hover align-middle text-gray-dark">
+      <table id="parametrosTable" class="table table-striped table-hover align-middle text-gray-dark table-sm" style="font-size:0.9rem;">
         <thead class="table-light">
           <tr>
-            <th>ID</th>
             <th>Tipo</th>
             <th>Aplica a</th>
             <th>Porcentaje</th>
             <th>Valor Fijo</th>
             <th>Fecha Inicio</th>
             <th>Fecha Fin</th>
-            <th class="actions-column">Acciones</th>
+            <th class="actions-column">Acción</th>
           </tr>
         </thead>
         <tbody>
           {% for parametro in parametros %}
           <tr>
-            <td class="text-center" >{{ parametro.idPT }}</td>
-            <td class="text-center">{{ parametro.get_tipo_display }}</td>
-            <td class="text-center">{{ parametro.get_aplica_a_display }}</td>
-            <td class="text-center" >{{ parametro.porcentaje }}%</td>
-            <td class="text-center" >{{ parametro.valor_fijo|default:"-" }}</td>
-            <td class="text-center" >{{ parametro.fecha_inicio|date:"d/m/Y" }}</td>
-            <td class="text-center" >{{ parametro.fecha_fin|default:"-" }}</td>
+            <td class="align-self-start text-left" >{{ parametro.get_tipo_display }}</td>
+            <td class="align-self-start text-left" >{{ parametro.get_aplica_a_display }}</td>
+            <td class="align-self-start text-left"  >{{ parametro.porcentaje }}%</td>
+            <td class="align-self-start text-left"  >{{ parametro.valor_fijo|default:"-" }}</td>
+            <td class="align-self-start text-left"  >{{ parametro.fecha_inicio|date:"d/m/Y" }}</td>
+            <td class="align-self-start text-left"  >{{ parametro.fecha_fin|default:"-" }}</td>
             <td class="actions-column">
               <div class="d-flex gap-2">
                 <a href="{% url 'parametro_tributario_edit' parametro.idPT %}" class="btn btn-primary btn-sm">
