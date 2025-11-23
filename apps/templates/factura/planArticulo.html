@@ -97,8 +97,8 @@
             <label for="planCuentaDebe">Plan de Cuenta (Debe):</label>
             <div class="input-group">
                 <input type="text" id="planCuentaDebe" class="form-control text-dark" placeholder="Seleccione un plan de cuenta para el Debe" readonly required />
-                <button type="button" id="buscarPlanCuentaDebe" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#planCuentaDebeModal">
-                    <i class="fas fa-search"></i>
+                <button type="button" id="buscarPlanCuentaDebe" title="Doble click para abrir" class="btn btn-warning" data-toggle="modal" data-target="#planCuentaDebeModal">
+                    <i class="fas fa-search" ></i>
                 </button>
             </div>
             <input type="hidden" id="idPlanCuentaDebe" name="idPlanCuentaDebe" required />
@@ -108,7 +108,7 @@
             <label for="planCuentaHaber">Plan de Cuenta (Haber):</label>
             <div class="input-group">
                 <input type="text" id="planCuentaHaber" class="form-control text-dark" placeholder="Seleccione un plan de cuenta para el Haber" readonly required />
-                <button type="button" id="buscarPlanCuentaHaber" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#planCuentaHaberModal">
+                <button type="button" id="buscarPlanCuentaHaber" title="Doble click para abrir" class="btn btn-warning" data-toggle="modal" data-target="#planCuentaHaberModal">
                     <i class="fas fa-search"></i>
                 </button>
             </div>
@@ -128,22 +128,53 @@
   </form>
 </div>
 
-<!-- Modal Debe -->
-<div class="modal fade" id="planCuentaDebeModal" tabindex="-1" aria-labelledby="planCuentaDebeModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="planCuentaDebeModalLabel"><i class="fas fa-search me-2"></i> Seleccionar Plan de Cuenta (Debe)</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        <div class="row mb-3">
-          <div class="col-md-8">
-            <div class="input-group">
-              <span class="input-group-text"><i class="fas fa-search"></i></span>
-              <input class="form-control" id="searchPlanCuentaDebeInput" type="text" placeholder="Buscar...">
+<!-- Modal para seleccionar Plan de Cuenta (Debe) -->
+<div class="modal fade" id="planCuentaDebeModal" tabindex="-1" role="dialog" aria-labelledby="planCuentaDebeModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="planCuentaDebeModalLabel">Seleccionar Plan de Cuenta (Debe)</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row mb-3">
+            <div class="col-md-8">
+              <div class="input-group">
+                <div class="input-group-prepend">
+                  <span class="input-group-text" style="background-color: #bcbcbc; border: none;">
+                    <i class="fas fa-search text-warning"></i>
+                  </span>
+                </div>
+                <input class="form-control" id="searchPlanCuentaDebeInput" type="text" placeholder="Buscar..." onkeyup="filterTable('tablaPlanCuentaDebe', 'searchPlanCuentaDebeInput')">
+              </div>
             </div>
           </div>
+          <table class="table table-sm  table-striped table-hover" id="tablaPlanCuentaDebe">
+            <thead>
+              <tr>
+                <th>Código</th>
+                <th>Nombre</th>
+                <th>Seleccionar</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for cuenta in cuentas_plan %}
+                <tr data-id="{{ cuenta.idPlanCuenta }}" data-nombre="{{ cuenta.codigoPlanCuenta }} - {{ cuenta.nombrePlanCuenta }}" style="cursor:pointer;">
+                  <td class="align-self-start text-left" >{{ cuenta.codigoPlanCuenta }}</td>
+                  <td class="align-self-start text-left" >{{ cuenta.nombrePlanCuenta }}</td>
+                   <td>
+                    <button class="btn btn-sm btn-warning btn-select">
+                      <i class="fas fa-check"></i> Elegir
+                    </button>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          <p id="mensajeSinRegistrosDebe" class="text-center text-muted" style="display: none;">No hay registros disponibles</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
         </div>
         <table class="table table-sm table-striped table-hover" id="tablaPlanCuentaDebe">
           <thead>
@@ -165,26 +196,54 @@
       </div>
     </div>
   </div>
-</div>
-
-<!-- Modal Haber -->
-<div class="modal fade" id="planCuentaHaberModal" tabindex="-1" aria-labelledby="planCuentaHaberModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title text-white" id="planCuentaHaberModalLabel"><i class="fas fa-search me-2"></i> Seleccionar Plan de Cuenta (Haber)</h5>
-        <button type="button" class="btn btn-sm btn-icon-only text-white" data-bs-dismiss="modal" aria-label="Close" style="position:absolute; top:.75rem; right:.75rem;">
-          <i class="fas fa-times"></i>
-        </button>
-      </div>
-      <div class="modal-body">
-        <div class="row mb-3">
-          <div class="col-md-8">
-            <div class="input-group">
-              <span class="input-group-text"><i class="fas fa-search"></i></span>
-              <input class="form-control" id="searchPlanCuentaHaberInput" type="text" placeholder="Buscar...">
+  
+  <!-- Modal para seleccionar Plan de Cuenta (Haber) -->
+  <div class="modal fade" id="planCuentaHaberModal" tabindex="-1" role="dialog" aria-labelledby="planCuentaHaberModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="planCuentaHaberModalLabel">Seleccionar Plan de Cuenta (Haber)</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row mb-3">
+            <div class="col-md-8">
+              <div class="input-group">
+                <div class="input-group-prepend">
+                  <span class="input-group-text" style="background-color: #bcbcbc; border: none;">
+                    <i class="fas fa-search text-warning"></i>
+                  </span>
+                </div>
+                <input class="form-control" id="searchPlanCuentaHaberInput" type="text" placeholder="Buscar..." onkeyup="filterTable('tablaPlanCuentaHaber', 'searchPlanCuentaHaberInput')">
+              </div>
             </div>
           </div>
+          <table class="table table-sm  table-striped table-hover" id="tablaPlanCuentaHaber">
+            <thead>
+              <tr>
+                <th>Código</th>
+                <th>Nombre</th>
+                <th>Seleccionar</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for cuenta in cuentas_plan %}
+                <tr data-id="{{ cuenta.idPlanCuenta }}" data-nombre="{{ cuenta.codigoPlanCuenta }} - {{ cuenta.nombrePlanCuenta }}" style="cursor:pointer;">
+                  <td class="align-self-start text-left" >{{ cuenta.codigoPlanCuenta }}</td>
+                  <td class="align-self-start text-left" >{{ cuenta.nombrePlanCuenta }}</td>
+                  <td>
+                    <button class="btn btn-sm btn-warning btn-select" >
+                      <i class="fas fa-check"></i> Elegir
+                    </button>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          <p id="mensajeSinRegistrosHaber" class="text-center text-muted" style="display: none;">No hay registros disponibles</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
         </div>
         <table class="table table-sm table-striped table-hover" id="tablaPlanCuentaHaber">
           <thead>
@@ -219,26 +278,132 @@ document.addEventListener('DOMContentLoaded', () => {
   const paginateTable = (tableId, rowsPerPage) => { /* mismo código que ya tienes */ };
   const filterTable = (tableId, inputId) => { /* mismo código que ya tienes */ };
 
-  filterTable('tablaPlanCuentaDebe', 'searchPlanCuentaDebeInput');
-  paginateTable('tablaPlanCuentaDebe', 5);
+    const pagination = document.createElement('ul');
+    pagination.className = 'pagination justify-content-center';
+    paginationContainer.appendChild(pagination);
 
-  filterTable('tablaPlanCuentaHaber', 'searchPlanCuentaHaberInput');
-  paginateTable('tablaPlanCuentaHaber', 5);
+    let currentPage = 1;
 
-  const handleSeleccion = (tr, inputId, hiddenId, modalId) => {
-    document.getElementById(inputId).value = tr.getAttribute('data-nombre');
-    document.getElementById(hiddenId).value = tr.getAttribute('data-id');
-    bootstrap.Modal.getInstance(document.getElementById(modalId)).hide();
+    const displayRows = () => {
+      const start = (currentPage - 1) * rowsPerPage;
+      const end = start + rowsPerPage;
+      rows.forEach((row, index) => {
+        row.style.display = index >= start && index < end ? '' : 'none';
+      });
+    };
+
+    const setupPagination = () => {
+      const totalPages = Math.ceil(rows.length / rowsPerPage);
+      pagination.innerHTML = '';
+
+      const prevLi = document.createElement('li');
+      prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+      prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Anterior">&laquo;</a>`;
+      prevLi.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (currentPage > 1) currentPage--;
+        displayRows();
+        setupPagination();
+      });
+      pagination.appendChild(prevLi);
+
+      const maxVisiblePages = 5;
+      let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+      let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+      if (endPage - startPage + 1 < maxVisiblePages) {
+        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+      }
+
+      for (let i = startPage; i <= endPage; i++) {
+        const li = document.createElement('li');
+        li.className = `page-item ${i === currentPage ? 'active' : ''}`;
+        li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+        li.addEventListener('click', (e) => {
+          e.preventDefault();
+          currentPage = i;
+          displayRows();
+          setupPagination();
+        });
+        pagination.appendChild(li);
+      }
+
+      const nextLi = document.createElement('li');
+      nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+      nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Siguiente">&raquo;</a>`;
+      nextLi.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (currentPage < totalPages) currentPage++;
+        displayRows();
+        setupPagination();
+      });
+      pagination.appendChild(nextLi);
+    };
+
+    displayRows();
+    setupPagination();
   };
 
-  document.getElementById('tablaPlanCuentaDebe').addEventListener('click', e => {
-    const tr = e.target.closest('tr');
-    if(tr) handleSeleccion(tr, 'planCuentaDebe', 'idPlanCuentaDebe', 'planCuentaDebeModal');
-  });
-  document.getElementById('tablaPlanCuentaHaber').addEventListener('click', e => {
-    const tr = e.target.closest('tr');
-    if(tr) handleSeleccion(tr, 'planCuentaHaber', 'idPlanCuentaHaber', 'planCuentaHaberModal');
-  });
+  // --- Función para filtrar tablas ---
+  const filterTable = (tableId, inputId) => {
+    const input = document.getElementById(inputId);
+    const table = document.getElementById(tableId);
+    const rows = table.querySelectorAll('tbody tr');
+
+    input.addEventListener('keyup', () => {
+      const filter = input.value.toUpperCase();
+      rows.forEach((row) => {
+        const text = row.textContent || row.innerText;
+        row.style.display = text.toUpperCase().includes(filter) ? '' : 'none';
+      });
+    });
+  };
+
+  // --- Activar búsqueda y paginación para las tablas de los modales ---
+  filterTable('tablaPlanCuentaDebe', 'searchPlanCuentaDebeInput');
+  paginateTable('tablaPlanCuentaDebe', 12);
+
+  filterTable('tablaPlanCuentaHaber', 'searchPlanCuentaHaberInput');
+  paginateTable('tablaPlanCuentaHaber', 12);
+
+  // --- Función para manejar selección en los modales ---
+  const handleSeleccionDebe = (tr) => {
+    const id = tr.getAttribute('data-id');
+    const nombre = tr.getAttribute('data-nombre');
+    document.getElementById('planCuentaDebe').value = nombre;
+    document.getElementById('idPlanCuentaDebe').value = id;
+    const modalDebe = document.getElementById('planCuentaDebeModal');
+    if (modalDebe) {
+      modalDebe.style.display = 'none';
+      modalDebe.classList.remove('show');
+      document.body.classList.remove('modal-open');
+      const backdrop = document.querySelector('.modal-backdrop');
+      if (backdrop) backdrop.remove();
+
+      // Reinicializar el modal para que se pueda abrir nuevamente con un clic
+      modalDebe.removeAttribute('aria-hidden');
+      modalDebe.setAttribute('aria-modal', 'true');
+    }
+  };
+
+  const handleSeleccionHaber = (tr) => {
+    const id = tr.getAttribute('data-id');
+    const nombre = tr.getAttribute('data-nombre');
+    document.getElementById('planCuentaHaber').value = nombre;
+    document.getElementById('idPlanCuentaHaber').value = id;
+    const modalHaber = document.getElementById('planCuentaHaberModal');
+    if (modalHaber) {
+      modalHaber.style.display = 'none';
+      modalHaber.classList.remove('show');
+      document.body.classList.remove('modal-open');
+      const backdrop = document.querySelector('.modal-backdrop');
+      if (backdrop) backdrop.remove();
+
+      // Reinicializar el modal para que se pueda abrir nuevamente con un clic
+      modalHaber.removeAttribute('aria-hidden');
+      modalHaber.setAttribute('aria-modal', 'true');
+    }
+  };
 
   const form = document.querySelector('#planArticuloForm');
   form.addEventListener('submit', async (event) => {
