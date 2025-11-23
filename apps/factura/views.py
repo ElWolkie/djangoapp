@@ -218,7 +218,7 @@ def nota_list(request):
     """
     Vista para listar todas las notas.
     """
-    notas = Nota.objects.all()
+    notas = Nota.objects.all().order_by('-idNota')
     return render(request, 'factura/tablaNotas.html', {'notas': notas})
 
 def factura_detail(request, pk):
@@ -243,8 +243,8 @@ def generar_numero_nota():
 
 @transaction.atomic
 def nota_create(request):
-    personas = Personas.objects.all()
-    empresas = empresa.objects.all()
+    personas = Personas.objects.all().order_by('-idPersona')
+    empresas = empresa.objects.all().order_by('-idEmpresa')
     tasas = Tasa.objects.select_related('idMoneda') \
         .values('idMoneda__idMoneda', 'idMoneda__nombreMoneda') \
         .annotate(ultima_idTasa=Max('idTasa'), ultima_tasa=Max('montoTasa'))
