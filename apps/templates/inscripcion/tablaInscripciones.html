@@ -97,11 +97,19 @@
   color: #8898aa;
   flex-grow: 1;
 }
+   .container-balance {
+    max-width: 1500px;
+    margin: 2rem auto;
+    padding: 2rem;
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  }
 </style>
 {% endblock stylesheets %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="container-balance mt-4">
   <h2 class="text-center mb-4">Lista de Inscripciones</h2>
 
   <div class="row mb-3">
@@ -180,7 +188,7 @@
               {% elif inscripcion.estadoPago == "PENDIENTE" %}
               <span class="badge bg-danger text-white"><i class="fas fa-clock me-1"></i> Pendiente</span>
               {% else %}
-              <span class="badge bg-secondary text-white">{{ inscripcion.estadoPago }}</span>
+              <span class="badge bg-info text-white">{{ inscripcion.estadoPago }}</span>
               {% endif %}
             </td>
 
@@ -193,7 +201,7 @@
             </td>
 
             <td class="actions-column">
-            <div class="d-flex gap-2">
+            <div class="d-flex gap-2  justify-content-center align-items-center">
                 <!-- Botón Ver más (siempre visible) -->
                 {% if perms.inscripcion.view_inscripcion %}
                 <button class="btn btn-info btn-sm view-details-btn"

@@ -85,11 +85,19 @@
     color: #8898aa;
     flex-grow: 1;
   }
+     .container-balance {
+    max-width: 1500px;
+    margin: 2rem auto;
+    padding: 2rem;
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  }
 </style>
 {% endblock stylesheets %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="container-balance mt-4">
   <h2 class="text-center mb-4">Lista de Honorarios</h2>
 
   <div class="row mb-3">
@@ -153,20 +161,20 @@
         <thead class="table-light">
           <tr>
             <th>#</th>
-            <th>Cédula</th>
-            <th>Cargo</th>
-            <th>Materia</th>
-            <th>Estado</th>
+            <th  class="align-self-start text-left">Cédula</th>
+            <th class="align-self-start text-left">Cargo</th>
+            <th class="align-self-start text-left">Materia</th>
+            <th class="text-center">Estado</th>
             <th class="actions-column">Acciones</th>
           </tr>
         </thead>
         <tbody>
           {% for honorario in honorarios %}
           <tr>
-            <td class="text-center">{{ forloop.counter }}</td>
-            <td class="text-center">{{ honorario.idPersona.cedula }}</td>
-            <td class="text-center">{{ honorario.idCargo.nombreCargo }}</td>
-            <td class="text-center">{{ honorario.idMateria.nombreMateria }}</td>
+            <td  class="align-self-start text-left">{{ forloop.counter }}</td>
+            <td class="align-self-start text-left">{{ honorario.idPersona.cedula }}</td>
+            <td class="align-self-start text-left">{{ honorario.idCargo.nombreCargo }}</td>
+            <td class="align-self-start text-left">{{ honorario.idMateria.nombreMateria }}</td>
             <td>
               {% if honorario.estadoHonorario == "ACTIVO" %}
                 <span class="badge bg-success text-white">
@@ -179,7 +187,7 @@
               {% endif %}
             </td>
             <td class="actions-column">
-            <div class="d-flex gap-2">
+            <div class="d-flex gap-2 justify-content-center align-items-center">
                 <!-- Botón Ver más (siempre visible) -->
                 {% if perms.honorario.view_honorario %}
                 <button class="btn btn-info btn-sm view-details-btn"
