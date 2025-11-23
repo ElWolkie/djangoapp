@@ -10,6 +10,7 @@ class Honorario(models.Model):
     idMateria = models.ForeignKey(Materia, on_delete=models.CASCADE)
     horas = models.PositiveIntegerField()
     monto = models.DecimalField(max_digits=15, decimal_places=2)
+    estadoPago = models.CharField(max_length=10, db_index=True, default='PENDIENTE')  # Estado de pago de la Solicitud
     estadoHonorario = models.CharField(max_length=10, db_index=True)
     fechaHonorario = models.DateField(auto_now_add=True)
 

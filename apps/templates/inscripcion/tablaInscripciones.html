@@ -272,7 +272,7 @@
                     
                     <!-- Botón Pagar (solo si está pendiente y no tiene nota) -->
                     {% if inscripcion.estadoPago == 'PENDIENTE' %}
-                    <a href="{% url 'nota_create' %}?inscripcion={{ inscripcion.idFormacion.valorInscripcion }}&idP={{ inscripcion.idPersona.idPersona }}&id={{ inscripcion.idInscripcion }}" 
+                    <a href="{% url 'nota_create' %}?inscripcion={{ inscripcion.idCohorte.idFormacion.valorInscripcion }}&idP={{ inscripcion.idPersona.idPersona }}&id={{ inscripcion.idInscripcion }}" 
                       title="Pagar" 
                       class="btn btn-warning btn-sm">
                         <i class="fas fa-money-bill-wave"></i>
