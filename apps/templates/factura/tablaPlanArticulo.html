@@ -84,8 +84,8 @@
           {% for plan in planes %}
           <tr>
             <td class="text-center"  >{{ plan.idPlanArti }}</td>
-            <td class="text-center" >{{ plan.tipoArticulo }}</td>
-            <td class="text-center" >{{ plan.idPlanCuenta }}</td>
+            <td class="align-self-start text-left" >{{ plan.tipoArticulo }}</td>
+            <td class="align-self-start text-left" >{{ plan.idPlanCuenta }}</td>
             <td class="text-center" >{{ plan.tipo|yesno:"debe,haber" }}</td>
             <td class="actions-column">
               <div class="d-flex gap-2">
