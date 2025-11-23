@@ -34,11 +34,19 @@
   }
   .modal-dialog { max-width: 700px; }
   .modal.fade.show { background-color: rgba(0,0,0,0.5); }
+     .container-balance {
+    max-width: 1500px;
+    margin: 2rem auto;
+    padding: 2rem;
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  } 
 </style>
 {% endblock stylesheets %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="container-balance mt-4">
   <h2 class="text-center mb-4">Lista de Notas</h2>
 
   <div class="row mb-3">
@@ -73,31 +81,29 @@
       <table id="notasTable" class="table table-striped table-hover align-middle text-gray-dark">
         <thead class="table-light">
           <tr>
-            <th>ID</th>
-            <th>Tipo</th>
-            <th>Artículo</th>
-            <th>Número Nota</th>
-           
-            <th>Total</th>
-            <th>Fecha Emisión</th>
-            <th>Estado</th>
+            <th class="align-self-start text-left">ID</th>
+            <th class="align-self-start text-left">Tipo</th>
+            <th class="align-self-start text-left">Artículo</th>
+            <th class="align-self-start text-left">Número Nota</th>
+            <th class="align-self-start text-left">Total</th>
+            <th class="text-center">Fecha Emisión</th>
+            <th class="text-center">Estado</th>
             <th class="actions-column">Acciones</th>
           </tr>
         </thead>
         <tbody>
           {% for nota in notas %}
           <tr>
-            <td class="text-center">{{ nota.idNota }}</td>
-            <td class="text-center">{{ nota.tipoOperacion }}</td>
-            <td class="text-center">{{ nota.tipoArticulo }}</td>
-            <td class="text-center">{{ nota.numeroNota }}</td>
-            <td class="text-center">{{ nota.totalNota }}</td>
-
+            <td class="align-self-start text-left">{{ nota.idNota }}</td>
+            <td class="align-self-start text-left">{{ nota.tipoOperacion }}</td>
+            <td class="align-self-start text-left">{{ nota.tipoArticulo }}</td>
+            <td class="align-self-start text-left">{{ nota.numeroNota }}</td>
+            <td class="align-self-start text-left">{{ nota.totalNota }}</td>
             <td class="text-center">{{ nota.fechaEmision|date:"d/m/Y" }}</td>
             <td class="text-center">{{ nota.estado }}</td>
             
             <td class="actions-column">
-              <div class="d-flex gap-2">
+              <div class="d-flex gap-2 justify-content-center">
                 <!-- {% if perms.factura.change_nota %}
                   <a class="btn btn-primary btn-sm">
                     <i class="fas fa-edit"></i>
@@ -192,7 +198,7 @@ document.addEventListener('DOMContentLoaded', function () {
     paginationContainer.appendChild(pagination);
     
     // Configuración
-    const rowsPerPage = 5;
+    const rowsPerPage = 10;
     let currentPage = 1;
     let filteredRows = rows;
     
