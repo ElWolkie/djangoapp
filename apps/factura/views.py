@@ -1740,6 +1740,7 @@ def pago_create(request, pk=None):
                                             # 3. Asociar el asiento IGTF a la nota
                                             IDasiento_igtf = AsientoContable.objects.get(pk=asiento_igtf_id)  # Obtén la instancia
                                             nota.asiento_igtf = IDasiento_igtf  # Asigna la instancia
+                                            nota.estadoIGTF = 'PARCIAL'
                                             nota.save()
                                             
 
