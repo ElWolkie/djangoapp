@@ -148,23 +148,31 @@
       </div>
     </div>
     
-    <div class="row">
-      <!-- Tiempo de Respuesta -->
-      <div class="col-md-6">
-        <div class="form-group">
-          <label for="tiempoServicio" class="form-label">
-            <i class="fas fa-clock"></i> Tiempo de Respuesta
-          </label>
-          <div class="input-group">
-            <i class="fas fa-hourglass-half input-icon"></i>
-            <input type="text" id="tiempoServicio" name="tiempoServicio"
-                   class="form-control input-with-icon"
-                   placeholder="Ej: 4 días"
-                   maxlength="20" data-required="true" required>
-          <div class="invalid-feedback">Por favor, ingrese el tiempo de respuesta.</div>
-        </div>
-        </div>
+  <div class="row">
+  <!-- Tiempo de Respuesta -->
+  <div class="col-md-6">
+    <div class="form-group">
+      <label for="tiempoServicioCantidad" class="form-label">
+        <i class="fas fa-clock"></i> Tiempo de Respuesta
+      </label>
+      <div class="input-group">
+        <i class="fas fa-hourglass-half input-icon"></i>
+        <input type="text" id="tiempoServicioCantidad" 
+               class="form-control input-with-icon"
+               placeholder="Ej: 4"
+               maxlength="4" data-required="true" required>
+        <select id="tiempoServicioUnidad" class="form-control" style="max-width: 120px;" required>
+          <option value="horas">HORAS</option>
+          <option value="días" selected>DÍAS</option>
+          <option value="semanas">SEMANAS</option>
+          <option value="meses">MESES</option>
+          <option value="años">AÑOS</option>
+        </select>
+        <div class="invalid-feedback">Por favor, ingrese el tiempo de respuesta.</div>
       </div>
+      <input type="hidden" id="tiempoServicio" name="tiempoServicio" value="">
+    </div>
+  </div>
       
       <!-- Precio -->
       <div class="col-md-6">
@@ -222,33 +230,77 @@ if (nombreEl) {
 }
 
 (function(){
-  const qtyEl = document.getElementById('diasServicioCantidad');
-  const unidadEl = document.getElementById('unidadDuracion');
-  const hiddenDias = document.getElementById('diasServicio');
+  const cantidadEl = document.getElementById('tiempoServicioCantidad');
+  const unidadEl = document.getElementById('tiempoServicioUnidad');
+  const hiddenTiempo = document.getElementById('tiempoServicio');
 
-  function updateDiasHidden() {
-    if (!hiddenDias) return;
-    const qty = (qtyEl?.value || '').replace(/\D/g, '').slice(0,4);
-    const unit = unidadEl?.value || '';
-    hiddenDias.value = qty ? `${qty} ${unit}` : '';
+  function updateTiempoHidden() {
+    if (!hiddenTiempo) return;
+    const cantidad = (cantidadEl?.value || '').replace(/\D/g, '').slice(0,4);
+    const unidad = unidadEl?.value || '';
+    
+    if (cantidad && unidad) {
+      hiddenTiempo.value = `${cantidad} ${unidad}`;
+    } else {
+      hiddenTiempo.value = '';
+    }
   }
 
-  if (qtyEl) {
-    qtyEl.addEventListener('input', function(){
+  // Solo números en el input de cantidad
+  if (cantidadEl) {
+    cantidadEl.addEventListener('input', function(){
+      // Permitir solo números
       this.value = this.value.replace(/\D/g, '').slice(0,4);
-      updateDiasHidden();
+      updateTiempoHidden();
+      
+      // Validación visual
+      if (this.value.trim() === '') {
+        this.classList.remove('is-valid');
+        this.classList.add('is-invalid');
+      } else {
+        this.classList.remove('is-invalid');
+        this.classList.add('is-valid');
+      }
     });
   }
-  if (unidadEl) unidadEl.addEventListener('change', updateDiasHidden);
 
+  // Actualizar cuando cambie la unidad
+  if (unidadEl) {
+    unidadEl.addEventListener('change', function() {
+      updateTiempoHidden();
+      
+      // Validación visual del select
+      if (this.value) {
+        this.classList.remove('is-invalid');
+        this.classList.add('is-valid');
+      }
+    });
+  }
+
+  // Actualizar antes de enviar el formulario
   const servicioForm = document.getElementById('servicioForm');
   if (servicioForm) {
     servicioForm.addEventListener('submit', function(e){
-      updateDiasHidden();
+      updateTiempoHidden();
     }, true);
   }
-  updateDiasHidden();
+  
+  // Inicializar
+  updateTiempoHidden();
 })();
+
+// Forzar mayúsculas en todos los inputs de texto (excepto password, email, hidden)
+function activarMayusculasInputs() {
+  document.addEventListener('input', function(e) {
+    if (e.target.tagName === 'INPUT' && 
+        !e.target.type.match(/password|hidden|email|number/) &&
+        e.target.id !== 'tiempoServicioCantidad' && // Excluir el campo de cantidad
+        e.target.id !== 'precioServicio') { // Excluir el campo de precio
+      e.target.value = e.target.value.toUpperCase();
+    }
+  });
+}
+activarMayusculasInputs();
 
 // Configuración del campo de monto
   const precioServicioInput = document.getElementById('precioServicio');

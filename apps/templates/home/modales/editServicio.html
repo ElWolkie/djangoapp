@@ -163,11 +163,11 @@
                    maxlength="4" data-required="true" required inputmode="numeric" pattern="^[0-9]{1,4}$"
                    value="{% if servicio.tiempoServicio %}{{ servicio.tiempoServicio|solo_digitos}}{% endif %}">
             <select id="unidadTiempoRespuesta" name="unidadTiempoRespuesta" class="form-control ms-2" style="max-width: 140px;">
-              <option value="DÍAS" {% if servicio.tiempoServicio and "DÍAS" in servicio.tiempoServicio %}selected{% endif %}>Días</option>
-              <option value="HORAS" {% if servicio.tiempoServicio and "HORAS" in servicio.tiempoServicio %}selected{% endif %}>Horas</option>
-              <option value="SEMANAS" {% if servicio.tiempoServicio and "SEMANAS" in servicio.tiempoServicio %}selected{% endif %}>Semanas</option>
-              <option value="MESES" {% if servicio.tiempoServicio and "MESES" in servicio.tiempoServicio %}selected{% endif %}>Meses</option>
-              <option value="AÑOS" {% if servicio.tiempoServicio and "AÑOS" in servicio.tiempoServicio %}selected{% endif %}>Años</option>
+              <option value="DÍAS" {% if servicio.tiempoServicio and "DÍAS" in servicio.tiempoServicio %}selected{% endif %}>DÍAS</option>
+              <option value="HORAS" {% if servicio.tiempoServicio and "HORAS" in servicio.tiempoServicio %}selected{% endif %}>HORAS</option>
+              <option value="SEMANAS" {% if servicio.tiempoServicio and "SEMANAS" in servicio.tiempoServicio %}selected{% endif %}>SEMANAS</option>
+              <option value="MESES" {% if servicio.tiempoServicio and "MESES" in servicio.tiempoServicio %}selected{% endif %}>MESES</option>
+              <option value="AÑOS" {% if servicio.tiempoServicio and "AÑOS" in servicio.tiempoServicio %}selected{% endif %}>AÑOS</option>
             </select>
             <input type="hidden" id="tiempoServicio" name="tiempoServicio" value="{{ servicio.tiempoServicio|default:'' }}">
             <div class="invalid-feedback">Por favor, ingrese el tiempo de respuesta.</div>

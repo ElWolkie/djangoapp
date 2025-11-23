@@ -3163,269 +3163,328 @@ def reporte_facturas_pdf(request):
     p.save()
     return response
 
+
+
 def factura_generar_pdf(request, pk):
     factura = get_object_or_404(Factura, pk=pk)
     nota = factura.nota
     detalles = FacturaDetalle.objects.filter(idFactura=factura)
-    pagos = Pago.objects.filter(idNota=nota).order_by('fechaPago')
+    
+    # Obtener todos los pagos relacionados con esta nota
+    pagos = Pago.objects.filter(idNota=nota).select_related(
+        'idTasa__idMoneda'
+    ).order_by('fechaPago')
+    
+    # Obtener todos los pagos IGTF relacionados
+    pagos_igtf = PagoIGTF.objects.filter(idPago__idNota=nota).select_related(
+        'idPago__idTasa__idMoneda',
+        'idPago'
+    )
+    
+    # Crear un diccionario para acceder rápidamente al IGTF de cada pago
+    igtf_por_pago = {}
+    for pago_igtf in pagos_igtf:
+        igtf_por_pago[pago_igtf.idPago.idPago] = pago_igtf
+
     config = Configuracion.objects.order_by('-fechaConfiguracion').first()
 
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="factura_{factura.numeroFactura}.pdf"'
-    p = canvas.Canvas(response, pagesize=letter)
+    
+    # CAMBIO PRINCIPAL: Usar orientación horizontal
+    p = canvas.Canvas(response, pagesize=landscape(letter))
     p.setTitle("Reporte de Factura Individual")
-    width, height = letter
-    logo_width, logo_height, logo_margin = 80, 80, 15
+    width, height = landscape(letter)  # Ahora width=792, height=612
 
-    # --- Encabezado institucional ---
-    y = height - 40
-    p.setFont("Helvetica-Bold", 14)
+    # ===== CONFIGURACIÓN DE DISEÑO - PUEDES MODIFICAR ESTOS VALORES =====
+    
+    # Márgenes
+    MARGEN_IZQUIERDO = 40
+    MARGEN_SUPERIOR = height - 40
+    MARGEN_DERECHO = width - 40
+    MARGEN_INFERIOR = 40
+    
+    # Espaciados
+    ESPACIO_ENTRE_SECCIONES = 15
+    ESPACIO_ENTRE_LINEAS = 12
+    ESPACIO_ENTRE_FILAS = 8
+    
+    # Dimensiones de la tabla de pagos
+    ALTURA_FILA_ENCABEZADO = 20
+    ALTURA_FILA_NORMAL = 16
+    ALTURA_FILA_EXPANDIDA = 25  # Para filas con texto que ocupa múltiples líneas
+    
+    # Anchuras de columnas para la tabla de pagos (en puntos)
+    # ¡AJUSTA ESTOS VALORES PARA MODIFICAR EL ANCHO DE LAS COLUMNAS!
+    ANCHO_COLUMNAS = {
+        'fecha': 70,
+        'monto': 80,
+        'moneda': 50,
+        'tasa': 60,
+        'forma_pago': 90,
+        'referencia': 100,
+        'igtf_porcentaje': 50,
+        'igtf_monto': 70
+    }
+    
+    # Calcula el ancho total de la tabla
+    ANCHO_TOTAL_TABLA = sum(ANCHO_COLUMNAS.values())
+    
+    # Posición x inicial para centrar la tabla
+    X_INICIAL_TABLA = (width - ANCHO_TOTAL_TABLA) / 2
+    
+    # ===== FIN DE CONFIGURACIÓN =====
+
+    # --- Encabezado institucional (más compacto) ---
+    y = MARGEN_SUPERIOR
+    p.setFont("Helvetica-Bold", 10)  # Fuente más pequeña
     p.drawCentredString(width / 2, y, config.nombreInstitucion if config else "NOMBRE DE LA FUNDACIÓN")
-    y -= 18
-    p.setFont("Helvetica", 11)
+    y -= 14  # Menos espacio
+    p.setFont("Helvetica", 8)
     p.drawCentredString(width / 2, y, f"RIF: {config.rif if config else 'J-XXXXXXXX-X'}")
-    y -= 16
-    p.setFont("Helvetica", 10)
-    p.drawCentredString(width / 2, y, "Dirección Fiscal:")
-    y -= 14
-    p.drawCentredString(width / 2, y, "AV. ALBERTO RAVELL CON AV. INTERCOMUNAL")
-    y -= 14
-    p.drawCentredString(width / 2, y, "JOSE ANTONIO PAEZ, LOCAL UPTYAB,")
-    y -= 14
-    p.drawCentredString(width / 2, y, "INDEPENDENCIA – EDO YARACUY")
-    y -= 20
-    p.line(30, y, width - 30, y)
-    y -= 20
+    y -= 12
+    p.setFont("Helvetica", 7)  # Fuente más pequeña
+    p.drawCentredString(width / 2, y, "AV. ALBERTO RAVELL CON AV. INTERCOMUNAL, JOSE ANTONIO PAEZ")
+    y -= 10
+    p.drawCentredString(width / 2, y, "LOCAL UPTYAB, INDEPENDENCIA – EDO YARACUY")
+    y -= ESPACIO_ENTRE_SECCIONES
+    p.line(MARGEN_IZQUIERDO, y, MARGEN_DERECHO, y)
+    y -= ESPACIO_ENTRE_SECCIONES
 
-    # --- Datos de la factura ---
-    p.setFont("Helvetica-Bold", 11)
-    p.drawString(40, y, f"Factura N°: {factura.numeroFactura}")
-    y -= 16
-    p.setFont("Helvetica", 10)
-    p.drawString(40, y, f"Fecha de Emisión: {factura.fechaEmision.strftime('%d/%m/%Y')}")
-    y -= 16
+    # --- Datos de la factura (en dos columnas para ahorrar espacio) ---
+    p.setFont("Helvetica-Bold", 8)
+    p.drawString(MARGEN_IZQUIERDO, y, f"Factura N°: {factura.numeroFactura}")
+    p.drawString(width / 2, y, f"Fecha: {factura.fechaEmision.strftime('%d/%m/%Y')}")
+    y -= ESPACIO_ENTRE_LINEAS
     
     nombre_cliente = "N/A"
     rif_cliente = "N/A"
     direccion_cliente = "N/A"
 
-    # Obtener información del cliente 
     if hasattr(nota, 'idPersona') and nota.idPersona:
         nombre_cliente = getattr(nota.idPersona, 'nombreCompleto', 
                                 f"{getattr(nota.idPersona, 'nombres', '')} {getattr(nota.idPersona, 'apellidos', '')}".strip())
         rif_cliente = getattr(nota.idPersona, 'cedula', 'N/A')
         direccion_cliente = getattr(nota.idPersona, 'direccion', 'N/A')
-    # Si no hay persona, intentar obtener información de la empresa
     elif hasattr(nota, 'idEmpresa') and nota.idEmpresa:
         nombre_cliente = getattr(nota.idEmpresa, 'nombreEmpresa', 'N/A')
         rif_cliente = getattr(nota.idEmpresa, 'rif', 'N/A')
         direccion_cliente = getattr(nota.idEmpresa, 'direccionEmpresa', 'N/A')
-    p.drawString(40, y, f"Cliente: {nombre_cliente}")
-    y -= 16
-    p.drawString(40, y, f"RIF/Cédula: {rif_cliente}")
-    y -= 16
-    p.drawString(40, y, f"Dirección: {direccion_cliente}")
-    y -= 20
-    p.line(30, y, width - 30, y)
-    y -= 20
+    
+    p.setFont("Helvetica", 8)
+    p.drawString(MARGEN_IZQUIERDO, y, f"Cliente: {nombre_cliente}")
+    y -= ESPACIO_ENTRE_LINEAS
+    p.drawString(MARGEN_IZQUIERDO, y, f"RIF/Cédula: {rif_cliente}")
+    p.drawString(width / 2, y, f"Dirección: {direccion_cliente[:40]}" if len(direccion_cliente) > 40 else f"Dirección: {direccion_cliente}")
+    y -= ESPACIO_ENTRE_SECCIONES
+    p.line(MARGEN_IZQUIERDO, y, MARGEN_DERECHO, y)
+    y -= ESPACIO_ENTRE_SECCIONES
 
-    # --- Tabla de detalles de la factura ---
-    p.setFont("Helvetica-Bold", 10)
-    p.drawString(40, y, "Descripción")
-    p.drawString(260, y, "Cantidad")
-    p.drawString(330, y, "Precio Unitario")
-    p.drawString(430, y, "Subtotal Exento")
-    y -= 10
-    p.line(30, y, width - 30, y)
-    y -= 18
-    p.setFont("Helvetica", 10)
-    # Obtener el símbolo de la moneda desde la configuración
+    # --- Tabla de detalles de la factura (más compacta) ---
+    p.setFont("Helvetica-Bold", 8)
+    p.drawString(MARGEN_IZQUIERDO, y, "Descripción")
+    p.drawString(MARGEN_IZQUIERDO + 250, y, "Cantidad")
+    p.drawString(MARGEN_IZQUIERDO + 320, y, "P. Unitario")
+    p.drawString(MARGEN_IZQUIERDO + 420, y, "Subtotal")
+    y -= 8
+    p.line(MARGEN_IZQUIERDO, y, MARGEN_DERECHO, y)
+    y -= 12
+    
     moneda_simbolo = config.moneda.simboloMoneda if config and hasattr(config, 'moneda') and hasattr(config.moneda, 'simboloMoneda') else ""
 
     for det in detalles:
-        p.drawString(40, y, det.descripcion[:40])
-        y -= 14
-        p.setFont("Helvetica-Oblique", 9)
-        p.drawString(50, y, f"Artículo: {det.tipoItem}")
-        p.setFont("Helvetica", 10)
-        p.drawRightString(300, y, f"{det.cantidad:.2f}")
-        p.drawRightString(400, y, f"{det.precioUnitario:.2f} {moneda_simbolo}")
-        p.drawRightString(510, y, f"{det.subtotal:.2f} {moneda_simbolo}")
-        y -= 18
-        if y < 120:
-            p.showPage()
-            y = height - 80
-    p.line(30, y, width - 30, y)
+        if y < 200:  # Si nos quedamos sin espacio, compactamos más
+            p.setFont("Helvetica", 7)
+        p.drawString(MARGEN_IZQUIERDO, y, det.descripcion[:35] + "..." if len(det.descripcion) > 35 else det.descripcion)
+        p.drawString(MARGEN_IZQUIERDO + 250, y, f"{det.cantidad:.2f}")
+        p.drawString(MARGEN_IZQUIERDO + 320, y, f"{det.precioUnitario:.2f}")
+        p.drawString(MARGEN_IZQUIERDO + 420, y, f"{det.subtotal:.2f}")
+        y -= 10
+        p.setFont("Helvetica-Oblique", 6)
+        p.drawString(MARGEN_IZQUIERDO + 10, y, f"Artículo: {det.tipoItem}")
+        y -= 8
+        p.setFont("Helvetica", 7)
+    
+    p.line(MARGEN_IZQUIERDO, y, MARGEN_DERECHO, y)
+    y -= ESPACIO_ENTRE_SECCIONES
+
+    # --- Totales (en dos columnas para ahorrar espacio vertical) ---
+    col1_x = MARGEN_IZQUIERDO + 300
+    col2_x = MARGEN_IZQUIERDO + 500
+    
+    p.setFont("Helvetica", 7)
+    p.drawRightString(col1_x, y, f"Subtotal Exento: {factura.subtotalExento:.2f} {moneda_simbolo}")
+    p.drawRightString(col2_x, y, f"Subtotal Gravado: {factura.subtotalGravado:.2f} {moneda_simbolo}")
+    y -= ESPACIO_ENTRE_LINEAS
+    
+    p.drawRightString(col1_x, y, f"IVA (16%): {factura.iva:.2f} {moneda_simbolo}")
+    p.drawRightString(col2_x, y, f"IVA Retenido: {factura.ivaRetenido if factura.ivaRetenido else 0:.2f} {moneda_simbolo}")
+    y -= ESPACIO_ENTRE_LINEAS
+    
+    p.drawRightString(col1_x, y, f"ISLR Retenido: {factura.islrRetenido if factura.islrRetenido else 0:.2f} {moneda_simbolo}")
+    p.drawRightString(col2_x, y, f"Descuento: {factura.descuento:.2f} {moneda_simbolo}")
+    y -= ESPACIO_ENTRE_LINEAS
+    
+    p.setFont("Helvetica-Bold", 8)
+    p.drawRightString(col2_x, y, f"TOTAL: {factura.totalVenta:.2f} {moneda_simbolo}")
+    y -= ESPACIO_ENTRE_SECCIONES
+
+    # --- PAGOS REALIZADOS EN FORMA DE TABLA COMPACTA ---
+    p.setFont("Helvetica-Bold", 9)
+    p.drawCentredString(width / 2, y, "PAGOS REALIZADOS")
     y -= 20
-
-    # --- Totales y resumen ---
-    p.setFont("Helvetica", 10)
-    p.drawRightString(510, y, f"Subtotal Exento:      {factura.subtotalExento:.2f} {moneda_simbolo}")
-    y -= 16
-    p.drawRightString(510, y, f"Subtotal Gravado:     {factura.subtotalGravado:.2f} {moneda_simbolo}")
-    y -= 16
-    p.drawRightString(510, y, f"IVA (16%):            {factura.iva:.2f} {moneda_simbolo}")
-    y -= 16
-    p.drawRightString(510, y, f"IVA Retenido (75%):   {factura.ivaRetenido if factura.ivaRetenido else 0:.2f} {moneda_simbolo}")
-    y -= 16
-    p.drawRightString(510, y, f"ISLR Retenido (3%):   {factura.islrRetenido if factura.islrRetenido else 0:.2f} {moneda_simbolo}")
-    y -= 16
-    p.drawRightString(510, y, f"Descuento:            {factura.descuento:.2f} {moneda_simbolo}")
-    y -= 16
-    p.line(250, y, width - 30, y)
-    y -= 18
-    p.setFont("Helvetica-Bold", 11)
-    p.drawRightString(510, y - 8, f"TOTAL:                {factura.totalVenta:.2f} {moneda_simbolo}")
-    y -= 16
-
-    # --- CORRECCIÓN: USAR LA TASA DE LA NOTA PARA CONVERSIÓN A BOLÍVARES ---
-    # Usar la tasa histórica de la nota (no buscar tasas activas)
-    tasa_nota = nota.idTasa
-    if tasa_nota and tasa_nota.idMoneda.idMoneda != 1:  # Si no es bolívares
-        # Buscar tasa de bolívares en la fecha de emisión de la nota
-        tasa_bolivares = Tasa.objects.filter(
-            idMoneda__idMoneda=1,
-            fechaTasa__lte=nota.fechaEmision
-        ).order_by('-fechaTasa').first()
-        
-        if tasa_bolivares and to_decimal(tasa_bolivares.montoTasa) > Decimal('0'):
-            # Calcular total en bolívares usando la tasa histórica de la nota
-            total_bolivares = (factura.totalVenta * to_decimal(tasa_nota.montoTasa)) / to_decimal(tasa_bolivares.montoTasa)
-            p.drawRightString(510, y -12, f"TOTAL EN Bs:          {total_bolivares:.2f} Bs")
-            p.setFont("Helvetica-Oblique", 7.5)
-            p.drawString(40, y - 12, f"(**) Usando tasa histórica de la nota: {tasa_nota.idMoneda.nombreMoneda} = {to_decimal(tasa_nota.montoTasa):.2f} Bs (fecha: {tasa_nota.fechaTasa.strftime('%d/%m/%Y')})")
-            p.setFont("Helvetica", 10)
-            y -= 16
-    else:
-        # Si ya está en bolívares, mostrar el mismo monto
-        p.drawRightString(510, y - 14, f"TOTAL EN Bs:          {factura.totalVenta:.2f} Bs")
-        y -= 16
-
-    # --- CALCULAR TOTAL EN BOLÍVARES DE TODOS LOS PAGOS USANDO SUS TASAS HISTÓRICAS ---
-    total_pagado_bs = Decimal('0.00')
-    if pagos.exists():
-        for pago in pagos:
-            # USAR LA TASA HISTÓRICA DEL PAGO (pago.idTasa) - NO BUSCAR TASAS ACTIVAS
-            tasa_pago = pago.idTasa  # Esta es la tasa histórica registrada en el pago
-            
-            if tasa_pago.idMoneda.idMoneda != 1:  # Si no es bolívares
-                # Buscar tasa de bolívares en la fecha del pago
-                tasa_bolivares_pago = Tasa.objects.filter(
-                    idMoneda__idMoneda=1,
-                    fechaTasa__lte=pago.fechaPago
-                ).order_by('-fechaTasa').first()
-                
-                if tasa_bolivares_pago and to_decimal(tasa_bolivares_pago.montoTasa) > Decimal('0'):
-                    # Convertir a bolívares usando la tasa histórica del pago
-                    monto_pago_bs = (to_decimal(pago.monto) * to_decimal(tasa_pago.montoTasa)) / to_decimal(tasa_bolivares_pago.montoTasa)
-                    total_pagado_bs += monto_pago_bs
-            else:
-                # Si ya es bolívares, sumar directamente
-                total_pagado_bs += to_decimal(pago.monto)
-
-        # Mostrar el total acumulado de todos los pagos en bolívares
-        p.drawRightString(510, y -18, f"TOTAL PAGADO Bs:      {total_pagado_bs:.2f} Bs")
-        p.setFont("Helvetica-Oblique", 7.5)
-        p.drawString(40, y - 18, "(*) Incluye la suma de todos los pagos convertidos a Bs según tasa histórica de cada pago")
-        p.setFont("Helvetica", 10)
-        y -= 20
-
-    y -= 17.5
-    p.line(30, y, width - 30, y)
-    y -= 17.5
-
-    # --- Pagos realizados - USANDO TASAS HISTÓRICAS DE CADA PAGO ---
-    p.setFont("Helvetica-Bold", 10)
-    p.drawString(40, y, "Pagos realizados:")
-    y -= 16
-    p.setFont("Helvetica", 10)
     
     if pagos.exists():
-        # Función para dividir texto en múltiples líneas
-        def draw_wrapped_text(text, x, y, max_width, line_height=14):
-            words = text.split()
-            lines = []
-            current_line = []
-            
-            for word in words:
-                test_line = current_line + [word]
-                test_text = ' '.join(test_line)
-                text_width = p.stringWidth(test_text, "Helvetica", 10)
-                
-                if text_width <= max_width:
-                    current_line.append(word)
-                else:
-                    if current_line:
-                        lines.append(' '.join(current_line))
-                    current_line = [word]
-            
-            if current_line:
-                lines.append(' '.join(current_line))
-            
-            # Dibujar todas las líneas
-            for line in lines:
-                p.drawString(x, y, line)
-                y -= line_height
-                if y < 80:
-                    p.showPage()
-                    y = height - 80
-                    p.setFont("Helvetica", 10)  # Restaurar fuente después del salto de página
-            
-            return y
-
-        # Ancho máximo disponible para los textos de pago
-        max_text_width = width - 100  # 50px izquierda + 50px derecha
+        # Dibujar encabezados de la tabla
+        x_actual = X_INICIAL_TABLA
+        p.setFont("Helvetica-Bold", 7)
         
-        for pago in pagos:
-            # CORRECCIÓN: USAR LA TASA HISTÓRICA DEL PAGO (pago.idTasa)
-            tasa_pago = pago.idTasa  # Esta es la tasa histórica registrada en el pago
-            moneda_simbolo = tasa_pago.idMoneda.simboloMoneda if tasa_pago and tasa_pago.idMoneda else ""
-            tasa_pago_valor = to_decimal(tasa_pago.montoTasa) if tasa_pago else Decimal('0')
-            fecha_tasa_pago = tasa_pago.fechaTasa.strftime('%d/%m/%Y') if tasa_pago and tasa_pago.fechaTasa else "N/A"
-
-            # Calcular monto en bolívares usando la tasa histórica del pago
-            monto_bolivares = ""
-            if tasa_pago and tasa_pago.idMoneda.idMoneda != 1:
-                # Buscar tasa de bolívares en la fecha del pago
-                tasa_bolivares = Tasa.objects.filter(
-                    idMoneda__idMoneda=1,
-                    fechaTasa__lte=pago.fechaPago
-                ).order_by('-fechaTasa').first()
-                
-                if tasa_bolivares:
-                    tasa_bolivares_valor = to_decimal(tasa_bolivares.montoTasa)
-                    monto_pago_valor = to_decimal(pago.monto)
-                    if tasa_bolivares_valor > Decimal('0'):
-                        monto_bolivares_valor = monto_pago_valor * tasa_pago_valor / tasa_bolivares_valor
-                        monto_bolivares = f" | Monto Bs: {monto_bolivares_valor:.2f}"
-                    else:
-                        monto_bolivares = " | Monto Bs: Error (tasa cero)"
-                else:
-                    monto_bolivares = " | Monto Bs: No hay tasa BS"
+        # Fondo del encabezado
+        p.setFillColorRGB(0.8, 0.8, 0.8)
+        p.rect(x_actual, y, ANCHO_TOTAL_TABLA, -ALTURA_FILA_ENCABEZADO, fill=1, stroke=0)
+        p.setFillColorRGB(0, 0, 0)
+        
+        # Texto de encabezados - ¡AJUSTA ESTOS TÍTULOS SEGÚN TUS NECESIDADES!
+        p.drawString(x_actual + 2, y - 12, "FECHA")
+        x_actual += ANCHO_COLUMNAS['fecha']
+        
+        p.drawString(x_actual + 2, y - 12, "MONTO")
+        x_actual += ANCHO_COLUMNAS['monto']
+        
+        p.drawString(x_actual + 2, y - 12, "MONEDA")
+        x_actual += ANCHO_COLUMNAS['moneda']
+        
+        p.drawString(x_actual + 2, y - 12, "TASA")
+        x_actual += ANCHO_COLUMNAS['tasa']
+        
+        p.drawString(x_actual + 2, y - 12, "FORMA PAGO")
+        x_actual += ANCHO_COLUMNAS['forma_pago']
+        
+        p.drawString(x_actual + 2, y - 12, "REFERENCIA")
+        x_actual += ANCHO_COLUMNAS['referencia']
+        
+        p.drawString(x_actual + 2, y - 12, "IGTF %")
+        x_actual += ANCHO_COLUMNAS['igtf_porcentaje']
+        
+        p.drawString(x_actual + 2, y - 12, "IGTF MONTO")
+        
+        # Línea inferior del encabezado
+        p.setLineWidth(0.5)
+        p.line(X_INICIAL_TABLA, y - ALTURA_FILA_ENCABEZADO, 
+               X_INICIAL_TABLA + ANCHO_TOTAL_TABLA, y - ALTURA_FILA_ENCABEZADO)
+        
+        y -= ALTURA_FILA_ENCABEZADO + 2
+        p.setFont("Helvetica", 6)  # Fuente más pequeña para datos
+        
+        # Función para dibujar texto con ajuste automático
+        def dibujar_texto_ajustado(texto, x, y, ancho_maximo, fuente=p, tamanio=6):
+            """Dibuja texto ajustándolo al ancho máximo, recortando si es necesario"""
+            texto_str = str(texto)
+            if p.stringWidth(texto_str, "Helvetica", tamanio) <= ancho_maximo - 4:
+                p.drawString(x + 2, y, texto_str)
+                return 1  # Una línea
             else:
-                monto_bolivares = f" | Monto Bs: {to_decimal(pago.monto):.2f}"
-
-            # Construir el texto completo del pago con la tasa histórica
-            texto_pago = f"Fecha: {pago.fechaPago.strftime('%d/%m/%Y')} | Monto: {pago.monto:.2f} {moneda_simbolo} | Tasa: {tasa_pago_valor:.2f} | Fecha tasa: {fecha_tasa_pago} | Forma: {pago.formaPago} | Referencia: {pago.referencia or ''}{monto_bolivares}"
+                # Recortar texto y agregar "..."
+                for i in range(len(texto_str), 0, -1):
+                    texto_recortado = texto_str[:i] + "..."
+                    if p.stringWidth(texto_recortado, "Helvetica", tamanio) <= ancho_maximo - 4:
+                        p.drawString(x + 2, y, texto_recortado)
+                        return 1
+                return 1
+        
+        # Dibujar filas de datos
+        for i, pago in enumerate(pagos):
+            # Alternar colores de fondo para mejor legibilidad
+            if i % 2 == 0:
+                p.setFillColorRGB(0.95, 0.95, 0.95)
+                p.rect(X_INICIAL_TABLA, y, ANCHO_TOTAL_TABLA, -ALTURA_FILA_NORMAL, fill=1, stroke=0)
+                p.setFillColorRGB(0, 0, 0)
             
-            # Dibujar el texto con wrap automático
-            y = draw_wrapped_text(texto_pago, 50, y, max_text_width)
+            x_actual = X_INICIAL_TABLA
             
+            # Fecha
+            fecha_texto = pago.fechaPago.strftime('%d/%m/%y')  # Formato más corto
+            dibujar_texto_ajustado(fecha_texto, x_actual, y - 10, ANCHO_COLUMNAS['fecha'])
+            x_actual += ANCHO_COLUMNAS['fecha']
+            
+            # Monto
+            monto_texto = f"{pago.monto:.2f}"
+            dibujar_texto_ajustado(monto_texto, x_actual, y - 10, ANCHO_COLUMNAS['monto'])
+            x_actual += ANCHO_COLUMNAS['monto']
+            
+            # Moneda (símbolo solamente)
+            moneda_simbolo_pago = pago.idTasa.idMoneda.simboloMoneda
+            dibujar_texto_ajustado(moneda_simbolo_pago, x_actual, y - 10, ANCHO_COLUMNAS['moneda'])
+            x_actual += ANCHO_COLUMNAS['moneda']
+            
+            # Tasa
+            tasa_pago_valor = to_decimal_precise(pago.idTasa.montoTasa)
+            tasa_texto = f"{tasa_pago_valor:.2f}"
+            dibujar_texto_ajustado(tasa_texto, x_actual, y - 10, ANCHO_COLUMNAS['tasa'])
+            x_actual += ANCHO_COLUMNAS['tasa']
+            
+            # Forma de Pago (abreviada)
+            forma_pago_abrev = pago.formaPago[:14] if pago.formaPago else ""
+            dibujar_texto_ajustado(forma_pago_abrev, x_actual, y - 10, ANCHO_COLUMNAS['forma_pago'])
+            x_actual += ANCHO_COLUMNAS['forma_pago']
+            
+            # Referencia
+            referencia = pago.referencia or ""
+            dibujar_texto_ajustado(referencia, x_actual, y - 10, ANCHO_COLUMNAS['referencia'])
+            x_actual += ANCHO_COLUMNAS['referencia']
+            
+            # IGTF Porcentaje
+            pago_igtf = igtf_por_pago.get(pago.idPago)
+            igtf_porcentaje_texto = ""
+            igtf_monto_texto = ""
+            if pago_igtf:
+                monto_igtf = to_decimal_precise(pago_igtf.montoIGTF)
+                porcentaje_igtf = (monto_igtf / to_decimal_precise(pago.monto)) * 100 if to_decimal_precise(pago.monto) > 0 else 0
+                igtf_porcentaje_texto = f"{porcentaje_igtf:.1f}%"
+                igtf_monto_texto = f"{monto_igtf:.2f}"
+            
+            dibujar_texto_ajustado(igtf_porcentaje_texto, x_actual, y - 10, ANCHO_COLUMNAS['igtf_porcentaje'])
+            x_actual += ANCHO_COLUMNAS['igtf_porcentaje']
+            
+            # IGTF Monto
+            dibujar_texto_ajustado(igtf_monto_texto, x_actual, y - 10, ANCHO_COLUMNAS['igtf_monto'])
+            
+            # Dibujar bordes de la fila
+            p.setLineWidth(0.1)
+            p.rect(X_INICIAL_TABLA, y, ANCHO_TOTAL_TABLA, -ALTURA_FILA_NORMAL)
+            
+            y -= ALTURA_FILA_NORMAL + 1
+            
+            # Si nos quedamos sin espacio vertical, compactamos más
+            if y < 100:
+                ALTURA_FILA_NORMAL = 12
+                p.setFont("Helvetica", 5)
     else:
-        p.drawString(50, y, "No se han registrado pagos para esta factura.")
-        y -= 14
-    p.line(30, y, width - 30, y)
-    y -= 20
+        p.drawString(MARGEN_IZQUIERDO, y, "No se han registrado pagos para esta factura.")
+        y -= 20
 
-    # --- Firma autorizada ---
-    p.setFont("Helvetica-Bold", 11)
-    p.drawCentredString(width / 2, y, f"FIRMA AUTORIZADA: ")
-    y -= 20
-    p.line(30, y, width - 30, y)
-
-    p.showPage()
+    # --- Firma autorizada al final ---
+    y -= 170
+    p.setFont("Helvetica-Bold", 8)
+    p.drawCentredString(width / 2, y, "FIRMA AUTORIZADA")
+    y -= 15
+    p.drawCentredString(width / 2, y - 10, "_________________________")
     p.save()
     return response
+
+def obtener_nombre_tipo_igtf(tipo_igtf):
+    """Convierte códigos de tipo IGTF en nombres legibles"""
+    nombres = {
+        'IGTF_NACIONAL_VENTAS_EFECTIVO': 'Ventas Nacional Efectivo',
+        'IGTF_NACIONAL_VENTAS_DIGITAL': 'Ventas Nacional Digital',
+        'IGTF_DIVISA_VENTAS_EFECTIVO': 'Ventas Divisa Efectivo',
+        'IGTF_DIVISA_VENTAS_DIGITAL': 'Ventas Divisa Digital',
+        'IGTF_NACIONAL_COMPRAS_EFECTIVO': 'Compras Nacional Efectivo',
+        'IGTF_NACIONAL_COMPRAS_DIGITAL': 'Compras Nacional Digital',
+        'IGTF_DIVISA_COMPRAS_EFECTIVO': 'Compras Divisa Efectivo',
+        'IGTF_DIVISA_COMPRAS_DIGITAL': 'Compras Divisa Digital',
+    }
+    return nombres.get(tipo_igtf, tipo_igtf)
 
 def reporte_pagos_pdf(request):
     # Trae todos los pagos
@@ -3450,18 +3509,18 @@ def reporte_pagos_pdf(request):
         y = height - 40
         if logo_path and os.path.exists(logo_path):
             p.drawImage(logo_path, width - 120, y - 60, width=80, height=65, preserveAspectRatio=True, mask='auto')
-        p.setFont("Helvetica-Bold", 13)
+        p.setFont("Helvetica-Bold", 11)
         p.drawString(140, y, nombre_institucion)
         y -= 18
-        p.setFont("Helvetica", 11)
+        p.setFont("Helvetica", 10)
         p.drawString(140, y, f"RIF: {rif_institucion}")
         y -= 16
-        p.setFont("Helvetica", 10)
+        p.setFont("Helvetica", 9)
         p.drawString(140, y, direccion1)
         y -= 14
         p.drawString(140, y, direccion2)
         y -= 18
-        p.setFont("Helvetica-Bold", 13)
+        p.setFont("Helvetica-Bold", 11)
         p.drawString(140, y, "REPORTE DE PAGOS")
         y -= 10
         p.line(30, y, width - 30, y)
@@ -3472,7 +3531,7 @@ def reporte_pagos_pdf(request):
         fecha_generacion = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
         p.drawString(40, 20, f"Generado el: {fecha_generacion}")
         p.setFont("Helvetica-Bold", 10)
-        p.drawString(width - 200, 20, "Firma autorizada")
+        p.drawString(width - 100, 20, "Firma autorizada")
 
     # Datos de la tabla
     headers = [

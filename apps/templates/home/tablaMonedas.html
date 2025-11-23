@@ -73,27 +73,31 @@
         <input class="form-control" id="searchInput" type="text" placeholder="Buscar...">
       </div>
     </div>
-    <div class="col-md-4 text-end">
-      {% if perms.home.add_moneda %}
-          <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#monedaModal">
-            <i class="fas fa-plus-circle me-1"></i> Registrar Moneda
-          </button>
+    <!-- Columna de botones de acción -->
+  <div class="col-md-4 text-end">
+    {% if perms.home.add_moneda %}
+    <div class="d-inline-flex gap-2">
+      <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#monedaModal">
+        <i class="fas fa-plus-circle me-1"></i> Registrar Moneda
+      </button>
 
-        <button class="btn btn-warning ms-2"
-                data-bs-toggle="modal"
-                data-bs-target="#confirmarActualizacionModal" title="Actualizar monedas de fuente externa">
-          <i class="fas fa-coins me-1"></i> Actualizar
-        </button>
-      {% endif %}
-      </form>
+      <button class="btn btn-warning btn-lg"
+              data-bs-toggle="modal"
+              data-bs-target="#confirmarActualizacionModal" 
+              title="Actualizar monedas de fuente externa">
+        <i class="fas fa-coins me-1"></i> Actualizar
+      </button>
     </div>
-
-    <div class="col-md-4 text-end">
-            <a href="{% url 'reporte_monedas_pdf' %}" class="btn btn-outline-danger" target="_blank">
-        <i class="fas fa-file-pdf"></i> Descargar PDF
-      </a>
-    </div>
+    {% endif %}
   </div>
+
+  <!-- Columna de descarga PDF -->
+  <div class="col-md-4 text-end">
+    <a href="{% url 'reporte_monedas_pdf' %}" class="btn btn-outline-danger" target="_blank">
+      <i class="fas fa-file-pdf"></i> Descargar PDF
+    </a>
+  </div>
+</div>
 
   <div class="mb-3">
     <a href="?mostrar_inactivos={% if mostrar_inactivos %}false{% else %}true{% endif %}"
