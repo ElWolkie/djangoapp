@@ -728,17 +728,12 @@ class ConfiguracionAPIView(APIView):
             configuracion = Configuracion.objects.first()
             if not configuracion:
                 return Response({'success': False, 'message': 'No hay configuración registrada en el sistema'}, status=404)
-
             serializer = ConfiguracionSerializer(configuracion)
-            # devolver el objeto directamente (no wrapper) para simplicidad en el frontend
             return Response(serializer.data, status=200)
-
         except Exception as e:
-            return Response({
-                'success': False,
-                'message': f'Error al obtener configuración: {str(e)}'
-            }, status=500)
-
+            # imprime la traza en logs, eso ayuda si vuelve a 500
+            logger.exception("Error obteniendo configuracion: %s", str(e))
+            return Response({'success': False, 'message': f'Error al obtener configuración: {str(e)}'}, status=500)
 
 def normalize_cedula_digits(s: str) -> str:
     if not s:

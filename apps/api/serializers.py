@@ -1008,22 +1008,51 @@ class CuentaBancoSerializer(serializers.ModelSerializer):
         fields = ('idCuentaBanco', 'banco', 'numeroCuentaBanco', 'tipoProducto')
 
 class ConfiguracionSerializer(serializers.ModelSerializer):
-    # Exponer idCuentaBanco como objeto anidado
-    idCuentaBanco = CuentaBancoSerializer(read_only=True)
-
-    # Campos "derivados" para compatibilidad con frontend
     nombre_banco = serializers.SerializerMethodField(read_only=True)
     numero_cuenta = serializers.SerializerMethodField(read_only=True)
     tipo_cuenta = serializers.SerializerMethodField(read_only=True)
+    idCuentaBanco = serializers.SerializerMethodField(read_only=True)  # devolvemos info bruta si existe
+
+    def get_idCuentaBanco(self, obj):
+        # intentar retornar representación simple del objeto relacionado (si existe)
+        try:
+            cuenta = getattr(obj, 'idCuentaBanco', None)
+            if cuenta is None:
+                return None
+            # devolver campos básicos (no dependemos de otro serializer)
+            return {
+                'pk': getattr(cuenta, 'pk', None) or getattr(cuenta, 'idCuentaBanco', None),
+                'banco': getattr(cuenta, 'banco', None) or getattr(cuenta, 'nombre', None),
+                'numeroCuentaBanco': getattr(cuenta, 'numeroCuentaBanco', None) or getattr(cuenta, 'numero_cuenta', None),
+                'tipoProducto': getattr(cuenta, 'tipoProducto', None) or getattr(cuenta, 'tipo_cuenta', None),
+            }
+        except Exception:
+            return None
+
+    def _safe_from_obj(self, obj, *attrs):
+        for a in attrs:
+            val = getattr(obj, a, None)
+            if val not in (None, ''):
+                return val
+        return ''
 
     def get_nombre_banco(self, obj):
-        return getattr(obj.idCuentaBanco, 'banco', None) or getattr(obj, 'nombre_banco', None) or ''
+        cuenta = getattr(obj, 'idCuentaBanco', None)
+        if cuenta:
+            return self._safe_from_obj(cuenta, 'banco', 'nombre', 'nombreBanco')
+        return self._safe_from_obj(obj, 'nombre_banco', 'banco')
 
     def get_numero_cuenta(self, obj):
-        return getattr(obj.idCuentaBanco, 'numeroCuentaBanco', None) or getattr(obj, 'numero_cuenta', None) or ''
+        cuenta = getattr(obj, 'idCuentaBanco', None)
+        if cuenta:
+            return self._safe_from_obj(cuenta, 'numeroCuentaBanco', 'numero_cuenta', 'numeroCuenta')
+        return self._safe_from_obj(obj, 'numero_cuenta', 'numeroCuenta')
 
     def get_tipo_cuenta(self, obj):
-        return getattr(obj.idCuentaBanco, 'tipoProducto', None) or getattr(obj, 'tipo_cuenta', None) or ''
+        cuenta = getattr(obj, 'idCuentaBanco', None)
+        if cuenta:
+            return self._safe_from_obj(cuenta, 'tipoProducto', 'tipo_cuenta', 'tipoCuenta')
+        return self._safe_from_obj(obj, 'tipo_cuenta', 'tipoCuenta')
 
     class Meta:
         model = Configuracion
@@ -1036,14 +1065,13 @@ class ConfiguracionSerializer(serializers.ModelSerializer):
             'firma',
             'moneda',
             'descuento',
-            'idCuentaBanco',   # ahora será el objeto anidado
+            'idCuentaBanco',
             'cedulaCuenta',
             'fechaConfiguracion',
             'nombre_banco',
             'numero_cuenta',
             'tipo_cuenta'
         ]
-
 
 class SecurityAnswerSerializer(serializers.Serializer):
     cedula = serializers.CharField()
