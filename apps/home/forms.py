@@ -392,7 +392,8 @@ class ConfiguracionForm(forms.ModelForm):
             'class': 'form-control text-dark',
             'placeholder': 'Seleccione una cuenta bancaria'
         }),
-        empty_label="Seleccione una cuenta bancaria..."
+        empty_label="Seleccione una cuenta bancaria...",
+        required=False
     )
 
     cedulaCuenta = forms.CharField(
@@ -400,7 +401,8 @@ class ConfiguracionForm(forms.ModelForm):
             'class': 'form-control text-dark', 
             'placeholder': 'Ej: V-12345678', 
             'maxlength': 20
-        })
+        }),
+        required=False
     )
     descuento = forms.DecimalField(
         max_digits=5, 
