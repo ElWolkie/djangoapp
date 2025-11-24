@@ -1701,7 +1701,7 @@ def pago_create(request, pk=None):
                                 if not cuenta_debe or not cuenta_haber:
                                     # Si no se encuentran las cuentas contables, no se realiza ninguna acción
                                     return
-                                if monto_igtf > Decimal('0.00'):
+                                if pago.idNota.igtfAplicado > Decimal('0.00'):
                                     # 1. Crear NUEVO asiento para IGTF
                                     asiento_igtf = AsientoContable.objects.create(
                                         numeroAsiento=f"IGTF-{nota.numeroNota}",
@@ -2234,9 +2234,9 @@ def pago_createigtf(request, pk=None):
                         # Obtener el plan de cuenta para el Debe (Caja/Banco) según la forma de pago
                         plan_cuenta_debe = None
                         if pago.formaPago == 'EFECTIVO':
-                            plan_cuenta_debe = PlanCuenta.objects.filter(codigoPlanCuenta='11000101').first()
+                            plan_cuenta_debe = PlanCuenta.objects.filter(codigoPlanCuenta='110001').first()
                             if not plan_cuenta_debe:
-                                return JsonResponse({'success': False, 'message': 'No se encontró el plan de cuenta con código 11000101 para Caja.'}, status=400)
+                                return JsonResponse({'success': False, 'message': 'No se encontró el plan de cuenta con código 110001 para Caja.'}, status=400)
                         else:
                             # Asegúrate de que 'idPlanCuentaDebe' se envíe en el POST cuando la forma de pago no es EFECTIVO
                             plan_cuenta_debe_id = request.POST.get('idPlanCuentaDebe')
@@ -2267,9 +2267,9 @@ def pago_createigtf(request, pk=None):
                             print(f"AJUSTE: La diferencia {diferencia_final} está dentro de la tolerancia. Se considera pago final.")
 
                             # ¡IMPORTANTE! Debes crear esta cuenta en tu plan de cuentas y usar el código correcto aquí.
-                            cuenta_ajuste_gasto = PlanCuenta.objects.filter(codigoPlanCuenta='52000104').first()
+                            cuenta_ajuste_gasto = PlanCuenta.objects.filter(codigoPlanCuenta='510018').first()
                             if not cuenta_ajuste_gasto:
-                                raise ValueError("No se encontró la cuenta contable para 'GASTOS POR REDONDEO DE CONVERSIÓN MONETARIA' (COD: 52000104).")
+                                raise ValueError("No se encontró la cuenta contable para 'GASTOS POR REDONDEO DE CONVERSIÓN MONETARIA' (COD: 510018).")
 
                             # Detalle 1: Ingreso a Caja/Banco (DEBE)
                             DetalleAsiento.objects.create(idAsiento=asiento_pago, idMoneda=moneda_pago, idPlanCuenta=plan_cuenta_debe, debe=float(monto_pago_convertido), haber=0.00)
