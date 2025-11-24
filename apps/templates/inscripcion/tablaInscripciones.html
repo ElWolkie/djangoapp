@@ -172,7 +172,7 @@
             <th>Cohorte</th>
             <th>Estatus</th>
             <th>Estado</th>
-            <th class="actions-column">Acciones</th>
+            <th class="actions-column text-left">Acciones</th>
           </tr>
         </thead>
         <tbody>
@@ -201,7 +201,7 @@
             </td>
 
             <td class="actions-column">
-            <div class="d-flex gap-2  justify-content-center align-items-center">
+            <div class="d-flex gap-2 flex-wrap justify-content-left">
                 <!-- Botón Ver más (siempre visible) -->
                 {% if perms.inscripcion.view_inscripcion %}
                 <button class="btn btn-info btn-sm view-details-btn"
@@ -728,22 +728,27 @@ $(function(){
                 <td>${cuota.id}</td>
                 <td>${cuota.nombre}</td>
                 <td>${cuota.valor}</td>
-                <td>
+                <td >
                   ${
-                  cuota.estado === "PAGADO"
+                  cuota.estadoPago === "PAGADO"
                     ? '<span class="badge bg-success text-white"><i class="fas fa-check-circle me-1"></i> Pagado</span>'
-                    : cuota.estado === "PENDIENTE"
+                    : cuota.estadoPago === "PENDIENTE"
                     ? '<span class="badge bg-warning text-dark"><i class="fas fa-clock me-1"></i> Pendiente</span>'
-                    : cuota.estado === "EN ESPERA"
-                      ? '<span class="badge bg-info text-dark"><i class="fas fa-hourglass-half me-1"></i> En espera</span>'
-                      : `<span class="badge bg-light text-dark">${cuota.estado}</span>`
+                    : cuota.estadoPago === "EN ESPERA"
+                    ? '<span class="badge bg-info text-dark"><i class="fas fa-hourglass-half me-1"></i> En espera</span>'
+                    : `<span class="badge bg-light text-dark">${cuota.estadoPago}</span>`
                   }
                 </td>
                 <td>
                   ${
-                    cuota.estado === "EN ESPERA"
+                    cuota.estadoPago == "PENDIENTE"
                       ? `<a href="{% url 'nota_create' %}?cuota=${cuota.valor}&idP=${cuota.idPersona}&idC=${cuota.id}" class="btn btn-sm btn-warning" title="Pagar"><i class="fas fa-money-bill-wave"></i></a>`
-                      : '<button class="btn btn-sm btn-secondary" disabled title="No disponible"><i class="fas fa-ban"></i></button>'
+                      : ''
+                  }
+                  ${
+                    cuota.estadoPago == "PARCIAL"
+                      ? `<a href="{% url 'pago_create' %}?nota=${cuota.idNota}" class="btn btn-sm btn-success" title="Pagar"><i class="fas fa-money-bill-wave"></i></a>`
+                      : ''
                   }
                 </td>
               </tr>

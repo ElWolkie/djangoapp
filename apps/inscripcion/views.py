@@ -400,7 +400,15 @@ def reporte_inscripcion_pdf(request):
     # Manejo de parámetros de paginación
     start = int(request.GET.get('start', 1))
     end = int(request.GET.get('end', 0))
-    inscripciones = list(Inscripcion.objects.select_related('idPersona', 'idCohorte', 'idTF', 'idFormacion').all())
+    inscripciones = list(
+        Inscripcion.objects.select_related(
+            'idPersona',
+            'idCohorte',
+            'idCohorte__idFormacion'
+        ).prefetch_related(
+            'cuotas'  # ManyToManyField through InscripcionCuota
+        ).all()
+    )
     
     if end == 0 or end > len(inscripciones):
         end = len(inscripciones)
@@ -482,9 +490,9 @@ def reporte_inscripcion_pdf(request):
     for ins in inscripciones:
         persona = f"{ins.idPersona.cedula}" if ins.idPersona else ""
         cohorte = ins.idCohorte.nombreCohorte if ins.idCohorte else ""
-        tipo_formacion = ins.idTF.nombreTipoFormacion if ins.idTF else ""
-        formacion = ins.idFormacion.nombreFormacion if ins.idFormacion else ""
-        estado = ins.estado if hasattr(ins, 'estado') else "ACTIVO"
+        tipo_formacion = ins.idCohorte.idFormacion.idTF.nombreTipoFormacion if ins.idCohorte.idFormacion.idTF else ""
+        formacion = ins.idCohorte.idFormacion.nombreFormacion if ins.idCohorte.idFormacion else ""
+        estado = ins.is_active if hasattr(ins, 'estado') else "ACTIVO"
         fecha = ins.fechaInscripcion.strftime("%d/%m/%Y") if ins.fechaInscripcion else ""
         
         data.append([
@@ -665,18 +673,16 @@ def ver_cuotas_inscripcion(request, pk):
 
     cuotas_data = [
         {
-            'id': cuota.idCuota.idCuota,
+            'id': cuota.id,
             'nombre': cuota.idCuota.nombreCuota,
             'valor': float(cuota.idCuota.valorCuota),
-            'estado': cuota.estadoPago,
+            'estadoPago': cuota.estadoPago,
             'monto_pagado': float(cuota.montoPagado),
             'fecha_pago': cuota.fechaPago.strftime('%Y-%m-%d') if cuota.fechaPago else None,
-            'idPersona': cuota.idInscripcion.idPersona.idPersona if cuota.idInscripcion.idPersona else None
+            'idPersona': cuota.idInscripcion.idPersona.idPersona if cuota.idInscripcion.idPersona else None,
+            'idNota': NotaRelacionada.objects.filter(idCuota=cuota).values_list('idNota__idNota', flat=True).first()  # Obtener idNota relacionado
         }
         for cuota in cuotas
     ]
 
     return JsonResponse({'success': True, 'cuotas': cuotas_data})
-
-
-
