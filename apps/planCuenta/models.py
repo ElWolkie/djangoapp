@@ -12,7 +12,8 @@ class PlanCuenta(models.Model):
         ('pasivo', 'Pasivo'),
         ('patrimonio', 'Patrimonio'),
         ('ingreso', 'Ingreso'),
-        ('gasto', 'Gasto'),
+        ('egreso', 'Egreso'),
+        ('costos', 'Costos'),
     ]
     
 
@@ -172,7 +173,8 @@ class PlanCuenta(models.Model):
             'pasivo': '2', 
             'patrimonio': '3',
             'ingreso': '4',
-            'gasto': '5'
+            'egreso': '5',
+            'costos': '6'
         }
         return type_prefix_map.get(self.tipoPlanCuenta, '0')
 
@@ -180,9 +182,10 @@ class PlanCuenta(models.Model):
         """Asigna naturaleza automáticamente según el tipo"""
         naturaleza_map = {
             'activo': 'deudora',
-            'gasto': 'deudora', 
+            'egreso': 'deudora', 
             'pasivo': 'acreedora',
             'patrimonio': 'acreedora',
             'ingreso': 'acreedora',
+            'costos': 'deudora'
         }
         self.naturalezaPlanCuenta = naturaleza_map.get(self.tipoPlanCuenta)
