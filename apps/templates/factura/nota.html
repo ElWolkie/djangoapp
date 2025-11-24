@@ -674,7 +674,7 @@
             </thead>
             <tbody>
               {% for cuota in cuotas %}
-                <tr data-id="{{ cuota.idCuota.idCuota }}" data-nombre="{{ cuota.idCuota.nombreCuota }}" data-valor="{{ cuota.idCuota.valorCuota }}" data-idIn="{{ cuota.idInscripcion.idInscripcion }}" data-persona-id="{{ cuota.idInscripcion.idPersona.idPersona }}">
+                <tr data-id="{{ cuota.id}}" data-nombre="{{ cuota.idCuota.nombreCuota }}" data-valor="{{ cuota.idCuota.valorCuota }}" data-idIn="{{ cuota.idInscripcion.idInscripcion }}" data-persona-id="{{ cuota.idInscripcion.idPersona.idPersona }}">
                   <td>{{ cuota.id}}</td>
                   <td>{{ cuota.idInscripcion.idInscripcion }}</td>
                   <td>{{ cuota.idCuota.nombreCuota }}</td>
