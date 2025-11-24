@@ -1491,22 +1491,32 @@ def pago_create(request, pk=None):
                         es_pago_final_con_ajuste = Decimal('0.0') < diferencia_final <= TOLERANCIA_REDONDEO
                         es_pago_final_exacto = es_cero_con_tolerancia(diferencia_final)
                         es_pago_parcial = diferencia_final > TOLERANCIA_REDONDEO
-                       #=================================================================
-                        #@@@@LOGICA IGTF CORREGIDA@@@@
-                        #=================================================================
+
+                        # ==================================================================
+                        # @@@@LOGICA IGTF CORREGIDA@@@@
+                        # ==================================================================
                         # Calcular y registrar IGTF de forma segura y precisa
+                        monto_igtf_final = Decimal('0.00')
                         try:
                             nota = pago.idNota
                             tipo_operacion = nota.tipoOperacion if nota else None
 
-                            # Determinar si la moneda es nacional (idMoneda == 1)
+                            # CORRECCIÓN: Determinar si la moneda es BOLIVARES (nacional) de forma consistente
                             moneda_pago = getattr(pago.idTasa, 'idMoneda', None)
                             moneda_nota = getattr(nota.idTasa, 'idMoneda', None)
+                            
+                            # BOLIVARES = es_nacional = True, DIVISA = es_nacional = False
                             es_nacional = False
-                            if moneda_pago and getattr(moneda_pago, 'idMoneda', None) == 1:
-                                es_nacional = True
-                            elif moneda_nota and getattr(moneda_nota, 'idMoneda', None) == 1:
-                                es_nacional = True
+                            if moneda_pago:
+                                # Verificar si la moneda del pago es BOLIVAR (ID=1)
+                                es_nacional = getattr(moneda_pago, 'idMoneda', None) == 1
+                            elif moneda_nota:
+                                # Si no hay moneda de pago, usar la moneda de la nota
+                                es_nacional = getattr(moneda_nota, 'idMoneda', None) == 1
+                            
+                            print(f"[IGTF DEBUG] Moneda pago: {getattr(moneda_pago, 'nombreMoneda', 'N/A')} (ID: {getattr(moneda_pago, 'idMoneda', 'N/A')})")
+                            print(f"[IGTF DEBUG] Moneda nota: {getattr(moneda_nota, 'nombreMoneda', 'N/A')} (ID: {getattr(moneda_nota, 'idMoneda', 'N/A')})")
+                            print(f"[IGTF DEBUG] Es nacional (BOLIVARES): {es_nacional}")
 
                             # Determinar tipo IGTF según operación y forma de pago
                             if tipo_operacion == 'COBRO':
@@ -1522,26 +1532,28 @@ def pago_create(request, pk=None):
                             else:
                                 tipo_igtf = None
 
-                            if not tipo_igtf:
-                                # No hay tipo IGTF determinado; continuar sin IGTF
-                                tipo_igtf = None
+                            print(f"[IGTF DEBUG] Tipo operación: {tipo_operacion}, Forma pago: {pago.formaPago}")
+                            print(f"[IGTF DEBUG] Tipo IGTF determinado: {tipo_igtf}")
 
                             if tipo_igtf:
                                 parametro_igtf = ParametroTributario.objects.filter(tipo=tipo_igtf, activo=True).first()
+                                print(f"[IGTF DEBUG] Parámetro encontrado: {parametro_igtf}")
+                                if parametro_igtf:
+                                    print(f"[IGTF DEBUG] Porcentaje del parámetro: {parametro_igtf.porcentaje}%")
                             else:
                                 parametro_igtf = None
-
-                            if not parametro_igtf:
-                                # No hay parámetro activo para este tipo; no aplicar IGTF
-                                parametro_igtf = None
+                                print("[IGTF DEBUG] No se determinó tipo IGTF")
 
                             if parametro_igtf:
                                 # Convertir valores a Decimal de forma segura
                                 monto_pago_dec = to_decimal_precise(pago.monto)
                                 porcentaje_dec = to_decimal_precise(parametro_igtf.porcentaje)
 
+                                print(f"[IGTF DEBUG] Monto pago: {monto_pago_dec}, Porcentaje: {porcentaje_dec}%")
+
                                 # monto_igtf en moneda del pago
                                 monto_igtf = (monto_pago_dec * porcentaje_dec / Decimal('100')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                                print(f"[IGTF DEBUG] Monto IGTF calculado: {monto_igtf}")
 
                                 # Si la nota tiene otra moneda y necesitamos convertir, usar tasas históricas
                                 monto_igtf_convertido = monto_igtf
@@ -1551,11 +1563,13 @@ def pago_create(request, pk=None):
                                     if tasa_pago_obj and tasa_nota_obj:
                                         tasa_pago_val = to_decimal_precise(tasa_pago_obj.montoTasa)
                                         tasa_nota_val = to_decimal_precise(tasa_nota_obj.montoTasa)
-                                        if tasa_nota_val > Decimal('0'):
+                                        print(f"[IGTF DEBUG] Tasa pago: {tasa_pago_val}, Tasa nota: {tasa_nota_val}")
+                                        if tasa_nota_val > Decimal('0') and tasa_pago_val != tasa_nota_val:
                                             monto_igtf_convertido = (monto_igtf * tasa_pago_val / tasa_nota_val).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-                                except Exception:
+                                            print(f"[IGTF DEBUG] Monto IGTF convertido: {monto_igtf_convertido}")
+                                except Exception as e:
+                                    print(f"[IGTF DEBUG] Error en conversión de tasas: {e}")
                                     # Si falla la conversión de tasas, mantener monto_igtf en moneda original
-                                    monto_igtf_convertido = monto_igtf
 
                                 # ✅ CORRECCIÓN: SIEMPRE sumar al igtfAplicado, excepto cuando ya está PAGADO
                                 if nota.estadoIGTF != 'PAGADO':
@@ -1565,7 +1579,8 @@ def pago_create(request, pk=None):
                                         nota_igtf_actual = Decimal('0.00')
                                     
                                     # Sumar el nuevo IGTF al acumulado
-                                    nota.igtfAplicado = (nota_igtf_actual + monto_igtf_convertido).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                                    nuevo_igtf_acumulado = (nota_igtf_actual + monto_igtf_convertido).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                                    nota.igtfAplicado = nuevo_igtf_acumulado
                                     
                                     # ✅ CORRECCIÓN: Actualizar estado IGTF según corresponda
                                     if monto_igtf_convertido > Decimal('0.00'):
@@ -1578,19 +1593,27 @@ def pago_create(request, pk=None):
                                             nota.estadoIGTF = 'NO_APLICA'
                                 
                                 nota.save()
-                                print(f"[IGTF] Aplicado: {monto_igtf_convertido} | Acumulado: {nota.igtfAplicado} | Estado: {nota.estadoIGTF}")
+                                print(f"[IGTF FINAL] Aplicado: {monto_igtf_convertido} | Acumulado: {nota.igtfAplicado} | Estado: {nota.estadoIGTF}")
+                                
+                                # Guardar la variable para uso posterior
+                                monto_igtf_final = monto_igtf_convertido
+                            else:
+                                print("[IGTF DEBUG] No se aplicará IGTF - parámetro no encontrado")
+                                monto_igtf_final = Decimal('0.00')
 
                         except Exception as ex:
                             # No interrumpir el flujo por errores en IGTF; registrar en consola para debugging
                             print(f"Advertencia: error al calcular/registrar IGTF: {ex}")
                             import traceback
                             print(traceback.format_exc())
-                        #===============================================FIN===============
+                            monto_igtf_final = Decimal('0.00')
+                        # ===============================================FIN===============
+
                         DetalleAsiento.objects.filter(idAsiento=asiento_pago).delete()
 
                         if es_pago_final_con_ajuste:
                             # --- CASO 1: PAGO FINAL CON AJUSTE POR REDONDEO (Asiento Compuesto de 3 líneas) ---
-                            print(f"AJUSTE: La diferencia {diferencia_final} está dentro de la tol=erancia. Se considera pago final.")
+                            print(f"AJUSTE: La diferencia {diferencia_final} está dentro de la tolerancia. Se considera pago final.")
 
                             # ¡IMPORTANTE! Debes crear esta cuenta en tu plan de cuentas y usar el código correcto aquí.
                             cuenta_ajuste_gasto = PlanCuenta.objects.filter(codigoPlanCuenta='510018').first()
@@ -1773,7 +1796,7 @@ def pago_create(request, pk=None):
                                     'referencia': pago.referencia,
                                     'estado_igtf': pago.idNota.estadoIGTF,
                                     'pagar_igtf': pagar_igtf,
-                                    'monto_igtf': f"{float(monto_igtf):.2f} {pago.idTasa.idMoneda.simboloMoneda}"
+                                    'monto_igtf': f"{float(monto_igtf_final):.2f} {pago.idTasa.idMoneda.simboloMoneda}"
                                 },
                                 'IGTF': pago.idNota.estadoIGTF,
                                 'url_igtf': f"{reverse('pago_createigtf')}?nota={pago.idNota.idNota}"
@@ -1870,7 +1893,6 @@ def pago_create(request, pk=None):
         'monedas': tasas_activas,
         'notas_json': json.dumps(notas_data, cls=DecimalEncoder) 
     })
-
 def pago_createigtf(request, pk=None):
     """
     Vista para crear un nuevo pago y generar un asiento contable asociado.
