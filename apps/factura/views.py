@@ -698,7 +698,7 @@ def crear_relacion_nota(nota, request):
     id_honorario = request.POST.get('idHonorario')
     id_solicitud = request.POST.get('idSolicitud')
     id_cuota = request.POST.get('idCuota')  # Agregar idCuota
-
+    print(f"Crear relación nota - idInscripcion: {id_inscripcion}, idHonorario: {id_honorario}, idSolicitud: {id_solicitud}, idCuota: {id_cuota}")
     # Solo crea el registro si alguno de los IDs está presente
     if id_inscripcion or id_honorario or id_solicitud or id_cuota:  # Incluir idCuota
         NotaRelacionada.objects.create(
@@ -1724,51 +1724,84 @@ def pago_create(request, pk=None):
                                 if not cuenta_debe or not cuenta_haber:
                                     # Si no se encuentran las cuentas contables, no se realiza ninguna acción
                                     return
-                                if pago.idNota.igtfAplicado > Decimal('0.00'):
-                                    # 1. Crear NUEVO asiento para IGTF
-                                    asiento_igtf = AsientoContable.objects.create(
-                                        numeroAsiento=f"IGTF-{nota.numeroNota}",
-                                        fechaAsiento=pago.fechaPago,  # o fecha actual
-                                        conceptoAsiento=f"Pago IGTF - Nota {nota.numeroNota}",
-                                        idPeriodo=periodo_activo
-                                    )
-
-                                    # 2.Crear los detalles en el NUEVO asiento
+                               # ✅ CORRECCIÓN: CREAR ASIENTO IGTF CON EL MONTO ACUMULADO TOTAL, NO SOLO DEL PAGO ACTUAL
+                                # ✅ CORRECCIÓN: CREAR ASIENTO IGTF CON EL MONTO ACUMULADO TOTAL, NO SOLO DEL PAGO ACTUAL
+                                if pago.idNota.igtfAplicado > Decimal('0.00') and pago.idNota.estadoIGTF == 'PENDIENTE':
+                                    monto_igtf_acumulado = to_decimal_precise(pago.idNota.igtfAplicado)
+                                    print(f"[IGTF ASIENTO] Creando asiento contable para IGTF ACUMULADO: {monto_igtf_acumulado}")
+                                    
+                                    # Consultar el PlanArticulo para determinar las cuentas contables
                                     plan_articulos = PlanArticulo.objects.filter(tipoArticulo='IGTF')
-                                    if plan_articulos.exists():
-                                        cuenta_debe = plan_articulos.filter(tipo=True).first()
-                                        cuenta_haber = plan_articulos.filter(tipo=False).first()
-                                        # Obtener el ID del asiento IGTF de manera segura
-                                        asiento_igtf_id = getattr(asiento_igtf, 'idAsiento', None) or getattr(asiento_igtf, 'pk', None)
+                                    if not plan_articulos.exists():
+                                        print("[IGTF ASIENTO] ERROR: No se encontraron planes de artículo para IGTF")
+                                    else:
+                                        # Determinar las cuentas contables para el Debe y el Haber
+                                        cuenta_debe = plan_articulos.filter(tipo=True).first()  # `tipo=True` indica que es Debe
+                                        cuenta_haber = plan_articulos.filter(tipo=False).first()  # `tipo=False` indica que es Haber
 
-                                        if cuenta_debe and cuenta_haber:
-                                            # ✅ CORRECCIÓN: Usar monto_igtf_final en lugar de IGTFF
-                                            monto_igtf_float = float(monto_igtf_final)
-                                            print(f"[IGTF ASIENTO] Monto a registrar: {monto_igtf_float}")
-                                            
-                                            # 2. Crear los detalles en el NUEVO asiento
-                                            DetalleAsiento.objects.create(
-                                                idAsiento=asiento_igtf,
-                                                idMoneda=nota.idTasa.idMoneda,
-                                                idPlanCuenta=cuenta_debe.idPlanCuenta,
-                                                debe=monto_igtf_float,
-                                                haber=0.00
-                                            )
+                                        if not cuenta_debe or not cuenta_haber:
+                                            print("[IGTF ASIENTO] ERROR: No se encontraron las cuentas contables para IGTF")
+                                        else:
+                                            try:
+                                                # 1. Crear NUEVO asiento para IGTF
+                                                asiento_igtf = AsientoContable.objects.create(
+                                                    numeroAsiento=f"IGTF-{nota.numeroNota}-COMPLETO",
+                                                    fechaAsiento=pago.fechaPago,
+                                                    conceptoAsiento=f"IGTF ACUMULADO - Nota {nota.numeroNota}",
+                                                    idPeriodo=periodo_activo
+                                                )
 
-                                            DetalleAsiento.objects.create(
-                                                idAsiento=asiento_igtf,
-                                                idMoneda=nota.idTasa.idMoneda,
-                                                idPlanCuenta=cuenta_haber.idPlanCuenta,
-                                                debe=0.00,
-                                                haber=monto_igtf_float
-                                            )
+                                                # ✅ CORRECCIÓN: Usar el monto acumulado total, no solo del pago actual
+                                                monto_igtf_float = float(monto_igtf_acumulado)
+                                                print(f"[IGTF ASIENTO] Monto acumulado a registrar: {monto_igtf_float}")
+                                                
+                                                # 2. Crear los detalles en el NUEVO asiento
+                                                DetalleAsiento.objects.create(
+                                                    idAsiento=asiento_igtf,
+                                                    idMoneda=nota.idTasa.idMoneda,  # Moneda de la nota (DOLAR)
+                                                    idPlanCuenta=cuenta_debe.idPlanCuenta,
+                                                    debe=monto_igtf_float,
+                                                    haber=0.00
+                                                )
 
-                                            # 3. Asociar el asiento IGTF a la nota
-                                            IDasiento_igtf = AsientoContable.objects.get(pk=asiento_igtf_id)  # Obtén la instancia
-                                            nota.asiento_igtf = IDasiento_igtf  # Asigna la instancia
-                                            nota.estadoIGTF = 'PARCIAL'
-                                            nota.save()
-                                            
+                                                DetalleAsiento.objects.create(
+                                                    idAsiento=asiento_igtf,
+                                                    idMoneda=nota.idTasa.idMoneda,  # Moneda de la nota (DOLAR)
+                                                    idPlanCuenta=cuenta_haber.idPlanCuenta,
+                                                    debe=0.00,
+                                                    haber=monto_igtf_float
+                                                )
+
+                                                # 3. Asociar el asiento IGTF a la nota y marcar como PAGADO
+                                                nota.asiento_igtf = asiento_igtf
+                                                nota.estadoIGTF = 'PAGADO'
+                                                nota.save()
+                                                
+                                                print(f"[IGTF ASIENTO] Asiento creado exitosamente: {asiento_igtf.numeroAsiento}")
+                                                print(f"[IGTF ASIENTO] Detalles: DEBE {cuenta_debe.idPlanCuenta.codigoPlanCuenta} - {monto_igtf_acumulado}")
+                                                print(f"[IGTF ASIENTO] Detalles: HABER {cuenta_haber.idPlanCuenta.codigoPlanCuenta} - {monto_igtf_acumulado}")
+                                                
+                                                # ✅ CORRECCIÓN: También crear el registro en PagoIGTF si no existe para el monto acumulado
+                                                try:
+                                                    if not PagoIGTF.objects.filter(idPago=pago, tipoIGTF__contains='ACUMULADO').exists():
+                                                        # Buscar el tipo IGTF principal usado en los pagos anteriores
+                                                        pagos_anteriores_igtf = PagoIGTF.objects.filter(idPago__idNota=nota).exclude(idPago=pago)
+                                                        tipo_principal = pagos_anteriores_igtf.first().tipoIGTF if pagos_anteriores_igtf.exists() else 'IGTF_ACUMULADO'
+                                                        
+                                                        PagoIGTF.objects.create(
+                                                            idPago=pago,
+                                                            tipoIGTF=f"{tipo_principal}_ACUMULADO",
+                                                            montoIGTF=monto_igtf_acumulado,
+                                                            porcentajeIGTF=Decimal('3.00')  # O el porcentaje correspondiente
+                                                        )
+                                                        print(f"[IGTF ASIENTO] Registro PagoIGTF acumulado creado: {monto_igtf_acumulado}")
+                                                except Exception as e:
+                                                    print(f"[IGTF ASIENTO] Advertencia al crear PagoIGTF acumulado: {e}")
+                                                
+                                            except Exception as e:
+                                                print(f"[IGTF ASIENTO] ERROR al crear asiento IGTF acumulado: {e}")
+                                                import traceback
+                                                print(traceback.format_exc())
 
                             # Actualizar estado de entidades relacionadas a 'PARCIAL'
                             nota_relacionada = NotaRelacionada.objects.filter(idNota=pago.idNota).first()
@@ -1898,6 +1931,7 @@ def pago_create(request, pk=None):
         'monedas': tasas_activas,
         'notas_json': json.dumps(notas_data, cls=DecimalEncoder) 
     })
+
 def pago_createigtf(request, pk=None):
     """
     Vista para crear un nuevo pago y generar un asiento contable asociado.
