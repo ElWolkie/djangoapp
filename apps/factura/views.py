@@ -1742,20 +1742,25 @@ def pago_create(request, pk=None):
                                         asiento_igtf_id = getattr(asiento_igtf, 'idAsiento', None) or getattr(asiento_igtf, 'pk', None)
 
                                         if cuenta_debe and cuenta_haber:
+                                            # ✅ CORRECCIÓN: Usar monto_igtf_final en lugar de IGTFF
+                                            monto_igtf_float = float(monto_igtf_final)
+                                            print(f"[IGTF ASIENTO] Monto a registrar: {monto_igtf_float}")
+                                            
+                                            # 2. Crear los detalles en el NUEVO asiento
                                             DetalleAsiento.objects.create(
-                                                idAsiento_id=asiento_igtf_id,
+                                                idAsiento=asiento_igtf,
                                                 idMoneda=nota.idTasa.idMoneda,
                                                 idPlanCuenta=cuenta_debe.idPlanCuenta,
-                                                debe=float(IGTFF),
+                                                debe=monto_igtf_float,
                                                 haber=0.00
                                             )
 
                                             DetalleAsiento.objects.create(
-                                                idAsiento_id=asiento_igtf_id,
+                                                idAsiento=asiento_igtf,
                                                 idMoneda=nota.idTasa.idMoneda,
                                                 idPlanCuenta=cuenta_haber.idPlanCuenta,
                                                 debe=0.00,
-                                                haber=float(IGTFF)
+                                                haber=monto_igtf_float
                                             )
 
                                             # 3. Asociar el asiento IGTF a la nota
