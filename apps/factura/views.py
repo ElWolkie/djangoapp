@@ -3297,8 +3297,8 @@ def factura_generar_pdf(request, pk):
             p.setFont("Helvetica", 7)
         p.drawString(MARGEN_IZQUIERDO, y, det.descripcion[:35] + "..." if len(det.descripcion) > 35 else det.descripcion)
         p.drawString(MARGEN_IZQUIERDO + 250, y, f"{det.cantidad:.2f}")
-        p.drawString(MARGEN_IZQUIERDO + 320, y, f"{det.precioUnitario:.2f}")
-        p.drawString(MARGEN_IZQUIERDO + 420, y, f"{det.subtotal:.2f}")
+        p.drawString(MARGEN_IZQUIERDO + 320, y, f"{det.precioUnitario:.2f} {moneda_simbolo}")
+        p.drawString(MARGEN_IZQUIERDO + 420, y, f"{det.subtotal:.2f} {moneda_simbolo}")
         y -= 10
         p.setFont("Helvetica-Oblique", 6)
         p.drawString(MARGEN_IZQUIERDO + 10, y, f"Artículo: {det.tipoItem}")
@@ -3419,7 +3419,7 @@ def factura_generar_pdf(request, pk):
             
             # Tasa
             tasa_pago_valor = to_decimal_precise(pago.idTasa.montoTasa)
-            tasa_texto = f"{tasa_pago_valor:.2f}"
+            tasa_texto = f"{tasa_pago_valor:.2f} Bs"
             dibujar_texto_ajustado(tasa_texto, x_actual, y - 10, ANCHO_COLUMNAS['tasa'])
             x_actual += ANCHO_COLUMNAS['tasa']
             
@@ -3433,7 +3433,7 @@ def factura_generar_pdf(request, pk):
             dibujar_texto_ajustado(referencia, x_actual, y - 10, ANCHO_COLUMNAS['referencia'])
             x_actual += ANCHO_COLUMNAS['referencia']
             
-            # IGTF Porcentaje
+             # IGTF Porcentaje
             pago_igtf = igtf_por_pago.get(pago.idPago)
             igtf_porcentaje_texto = ""
             igtf_monto_texto = ""
@@ -3441,14 +3441,15 @@ def factura_generar_pdf(request, pk):
                 monto_igtf = to_decimal_precise(pago_igtf.montoIGTF)
                 porcentaje_igtf = (monto_igtf / to_decimal_precise(pago.monto)) * 100 if to_decimal_precise(pago.monto) > 0 else 0
                 igtf_porcentaje_texto = f"{porcentaje_igtf:.1f}%"
-                igtf_monto_texto = f"{monto_igtf:.2f}"
+                
+                # Monto y simbolo
+                igtf_monto_texto = f"{monto_igtf:.2f} {moneda_simbolo_pago}"
             
             dibujar_texto_ajustado(igtf_porcentaje_texto, x_actual, y - 10, ANCHO_COLUMNAS['igtf_porcentaje'])
             x_actual += ANCHO_COLUMNAS['igtf_porcentaje']
             
             # IGTF Monto
             dibujar_texto_ajustado(igtf_monto_texto, x_actual, y - 10, ANCHO_COLUMNAS['igtf_monto'])
-            
             # Dibujar bordes de la fila
             p.setLineWidth(0.1)
             p.rect(X_INICIAL_TABLA, y, ANCHO_TOTAL_TABLA, -ALTURA_FILA_NORMAL)
