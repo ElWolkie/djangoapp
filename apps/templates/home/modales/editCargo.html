@@ -4,30 +4,113 @@
 <link rel="stylesheet" href="/static/assets/css/styleForms.css" />
 <link rel="stylesheet" href="/static/assets/css/argon.css" />
 <style>
-/* estilo igual que los anteriores */
-.persona-container { background: linear-gradient(135deg,#f8fafc 0%,#eef2f6 100%); border-radius:1rem; box-shadow:0 0.5rem 1.5rem rgba(0,0,0,0.1); padding:1.5rem; margin:0.5rem auto; max-width:95%; width:100%; }
-.persona-header { text-align:center; margin-bottom:1.5rem; position:relative; padding-bottom:1rem; }
-.persona-header h2 { color:#343a40; font-weight:700; font-size:1.3rem; margin-bottom:.5rem; }
-.form-group { margin-bottom:1.2rem; position:relative; }
-.form-label { font-weight:700; color:#495057; margin-bottom:.5rem; display:flex; align-items:center; font-size:.95rem; }
-.form-label i { margin-right:8px; color:#fd7e14; font-size:.95rem; }
-.form-control { border-radius:.5rem; padding:.75rem 1.25rem; border:1px solid #ced4da; background:#fff; height:48px; font-size:.95rem; }
-.input-icon { position:absolute; left:12px; top:50%; transform:translateY(-50%); color:#6c757d; z-index:2; font-size:.9rem; }
-.input-with-icon { padding-left:40px; }
-.btn-submit { background:linear-gradient(135deg,#ffc107 0%,#fd7e14 100%); border:none; color:#fff; font-weight:600; padding:.75rem 2rem; border-radius:.5rem; box-shadow:0 4px 6px rgba(0,0,0,.1); font-size:1rem; }
-.modal-body { padding:.75rem; }
-#modalMessages .alert { margin-bottom:.5rem; }
+/* AISLAR ESTILOS SOLO PARA EL MODAL */
+.persona-container { 
+    background: linear-gradient(135deg,#f8fafc 0%,#eef2f6 100%); 
+    border-radius:1rem; 
+    box-shadow:0 0.5rem 1.5rem rgba(0,0,0,0.1); 
+    padding:1.5rem; 
+    margin:0.5rem auto; 
+    max-width:95%; 
+    width:100%; 
+}
+.persona-container .persona-header { 
+    text-align:center; 
+    margin-bottom:1.5rem; 
+    position:relative; 
+    padding-bottom:1rem; 
+}
+.persona-container .persona-header h2 { 
+    color:#343a40; 
+    font-weight:700; 
+    font-size:1.3rem; 
+    margin-bottom:.5rem; 
+}
+.persona-container .form-group { 
+    margin-bottom:1.2rem; 
+    position:relative; 
+}
+.persona-container .form-label { 
+    font-weight:700; 
+    color:#495057; 
+    margin-bottom:.5rem; 
+    display:flex; 
+    align-items:center; 
+    font-size:.95rem; 
+}
+.persona-container .form-label i { 
+    margin-right:8px; 
+    color:#fd7e14; 
+    font-size:.95rem; 
+}
+.persona-container .form-control { 
+    border-radius:.5rem; 
+    padding:.75rem 1.25rem; 
+    border:1px solid #ced4da; 
+    background:#fff; 
+    height:48px; 
+    font-size:.95rem; 
+}
+.persona-container .input-icon { 
+    position:absolute; 
+    left:12px; 
+    top:50%; 
+    transform:translateY(-50%); 
+    color:#6c757d; 
+    z-index:2; 
+    font-size:.9rem; 
+}
+.persona-container .input-with-icon { 
+    padding-left:40px; 
+}
+.persona-container .btn-submit { 
+    background:linear-gradient(135deg,#ffc107 0%,#fd7e14 100%); 
+    border:none; 
+    color:#fff; 
+    font-weight:600; 
+    padding:.75rem 2rem; 
+    border-radius:.5rem; 
+    box-shadow:0 4px 6px rgba(0,0,0,.1); 
+    font-size:1rem; 
+    transition: all 0.3s ease;
+}
+.persona-container .btn-submit:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 8px rgba(0,0,0,.15);
+}
+.persona-container .btn-submit:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
 
-/* ESTILO PARA CENTRAR EL BOTÓN */
-.text-center { 
+/* ESTILOS ESPECÍFICOS PARA EL MODAL */
+.persona-container .text-center { 
     text-align: center !important; 
     display: flex !important;
     justify-content: center !important;
     width: 100% !important;
 }
 
-.mt-2 {
+.persona-container .mt-2 {
     margin-top: 1rem !important;
+}
+
+.persona-container #modalMessages .alert { 
+    margin-bottom:.5rem; 
+}
+
+/* Validación específica para el modal */
+.persona-container .is-invalid {
+    border-color: #dc3545 !important;
+}
+
+.persona-container .invalid-feedback {
+    display: block;
+    width: 100%;
+    margin-top: 0.25rem;
+    font-size: 0.875em;
+    color: #dc3545;
 }
 </style>
 {% endblock stylesheets %}
@@ -79,11 +162,18 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
   form.addEventListener('submit', function(e) {
-    if (!form.checkValidity()) { e.preventDefault(); e.stopPropagation(); form.classList.add('was-validated'); return; }
+    if (!form.checkValidity()) { 
+        e.preventDefault(); 
+        e.stopPropagation(); 
+        form.classList.add('was-validated'); 
+        return; 
+    }
 
     e.preventDefault();
     modalMessages.innerHTML = '';
-    const btn = form.querySelector('button[type="submit"]'); btn.disabled = true;
+    const btn = form.querySelector('button[type="submit"]'); 
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Guardando...';
 
     $.ajax({
       url: form.action,
@@ -93,21 +183,34 @@ document.addEventListener('DOMContentLoaded', function() {
       headers: { 'X-Requested-With': 'XMLHttpRequest' }
     }).done(function(resp){
       if (resp.success) {
-        Swal.fire({ icon: 'success', title: 'Cargo actualizado', text: resp.message || 'Cambios guardados', confirmButtonColor: '#ffc107' })
-        .then(()=> window.location.reload());
+        Swal.fire({ 
+            icon: 'success', 
+            title: 'Cargo actualizado', 
+            text: resp.message || 'Cambios guardados', 
+            confirmButtonColor: '#ffc107' 
+        }).then(()=> window.location.reload());
       } else {
         if (resp.errors) {
           Object.entries(resp.errors).forEach(([f, msgs]) => {
             const el = form.querySelector('[name="'+f+'"]');
-            if (el) { el.classList.add('is-invalid'); const fb = el.nextElementSibling; if (fb && fb.classList.contains('invalid-feedback')) fb.textContent = msgs.join(', '); }
-            else modalMessages.insertAdjacentHTML('beforeend', '<div class="alert alert-danger">'+ msgs.join(', ') +'</div>');
+            if (el) { 
+                el.classList.add('is-invalid'); 
+                const fb = el.closest('.form-group').querySelector('.invalid-feedback');
+                if (fb) fb.textContent = msgs.join(', ');
+            } else {
+                modalMessages.insertAdjacentHTML('beforeend', '<div class="alert alert-danger">'+ msgs.join(', ') +'</div>');
+            }
           });
         } else if (resp.message) {
           modalMessages.innerHTML = '<div class="alert alert-danger">'+ resp.message +'</div>';
         }
       }
-    }).fail(function(){ modalMessages.innerHTML = '<div class="alert alert-danger">Error en servidor.</div>'; })
-      .always(function(){ btn.disabled = false; });
+    }).fail(function(){ 
+        modalMessages.innerHTML = '<div class="alert alert-danger">Error en servidor.</div>'; 
+    }).always(function(){ 
+        btn.disabled = false; 
+        btn.innerHTML = '<i class="fas fa-save me-2"></i> Guardar';
+    });
   }, false);
 });
 </script>
