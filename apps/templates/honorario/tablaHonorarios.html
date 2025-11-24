@@ -164,6 +164,7 @@
             <th  class="align-self-start text-left">Cédula</th>
             <th class="align-self-start text-left">Cargo</th>
             <th class="align-self-start text-left">Materia</th>
+            <th class="text-center">Estatus</th>
             <th class="text-center">Estado</th>
             <th class="actions-column">Acciones</th>
           </tr>
@@ -175,6 +176,15 @@
             <td class="align-self-start text-left">{{ honorario.idPersona.cedula }}</td>
             <td class="align-self-start text-left">{{ honorario.idCargo.nombreCargo }}</td>
             <td class="align-self-start text-left">{{ honorario.idMateria.nombreMateria }}</td>
+             <td>
+              {% if honorario.estadoPago == "PAGADO" %}
+              <span class="badge bg-success text-white"><i class="fas fa-check-circle me-1"></i> Pagado</span>
+              {% elif honorario.estadoPago == "PENDIENTE" %}
+              <span class="badge bg-danger text-white"><i class="fas fa-clock me-1"></i> Pendiente</span>
+              {% else %}
+              <span class="badge bg-info text-white">{{ honorario.estadoPago }}</span>
+              {% endif %}
+            </td>
             <td>
               {% if honorario.estadoHonorario == "ACTIVO" %}
                 <span class="badge bg-success text-white">
