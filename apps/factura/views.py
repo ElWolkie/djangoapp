@@ -1593,7 +1593,7 @@ def pago_create(request, pk=None):
                             print(f"AJUSTE: La diferencia {diferencia_final} está dentro de la tol=erancia. Se considera pago final.")
 
                             # ¡IMPORTANTE! Debes crear esta cuenta en tu plan de cuentas y usar el código correcto aquí.
-                            cuenta_ajuste_gasto = PlanCuenta.objects.filter(codigoPlanCuenta='52000104').first()
+                            cuenta_ajuste_gasto = PlanCuenta.objects.filter(codigoPlanCuenta='510018').first()
                             if not cuenta_ajuste_gasto:
                                 raise ValueError("No se encontró la cuenta contable para 'GASTOS POR REDONDEO DE CONVERSIÓN MONETARIA' (COD: 510018).")
 

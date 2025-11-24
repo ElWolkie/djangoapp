@@ -7,70 +7,12 @@
 <link rel="stylesheet" href="{% static 'assets/css/styleForms.css' %}">
 <link rel="stylesheet" href="{% static 'assets/css/argon.css' %}">
 <style>
-  /* Inputs más grandes y visibles */
   .form-control {
-    font-size: 1rem;
-    border-radius: 0.5rem;
-    padding: 0.75rem 1rem;
-    width: 100%;
+    font-size: 0.9rem;
   }
   .form-group label {
-    font-weight: 600;
+    font-weight: bold;
   }
-
-  /* Modal más grande y moderno */
-  .modal-dialog { max-width: 800px; }
-  .modal-content {
-    border-radius: 1rem;
-    box-shadow: 0 0.5rem 1.5rem rgba(0,0,0,0.15);
-  }
-  .modal-header {
-    background: linear-gradient(135deg, #5e72e4 0%, #825ee4 100%);
-    color: #fff;
-  }
-  .modal-header h5 {
-    margin: 0;
-    display: flex;
-    align-items: center;
-    font-weight: 700;
-  }
-  .modal-header h5 i { margin-right: 0.5rem; }
-  .modal-body { max-height: 500px; overflow-y: auto; padding-right: 1rem; }
-
-  /* Tabla dentro del modal */
-  #tablaPlanCuentaDebe, #tablaPlanCuentaHaber {
-    width: 100%;
-    table-layout: fixed;
-  }
-  #tablaPlanCuentaDebe tbody, #tablaPlanCuentaHaber tbody {
-    display: block;
-    max-height: 400px;
-    overflow-y: auto;
-  }
-  #tablaPlanCuentaDebe thead, #tablaPlanCuentaHaber thead,
-  #tablaPlanCuentaDebe tbody tr, #tablaPlanCuentaHaber tbody tr {
-    display: table;
-    width: 100%;
-    table-layout: fixed;
-  }
-
-  {% comment %} /* Botones */
-  .btn-warning {
-    background: linear-gradient(135deg, #fd7e14 0%, #ffc107 100%);
-    color: #fff;
-    border-radius: 0.5rem;
-  }
-  .btn-warning:hover {
-    background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
-    color: #fff;
-  }
-
-  /* Lupa dentro de los input-group */
-  .input-group-text {
-    background-color: #bcbcbc;
-    border: none;
-  }
-  .input-group-text i { color: #fd7e14; } {% endcomment %}
 </style>
 {% endblock stylesheets %}
 
@@ -79,16 +21,13 @@
   <h2 class="text-center mb-4">{% if plan_articulo %}Editar{% else %}Registrar{% endif %} Plan de Artículo</h2>
 
   <form method="post" id="planArticuloForm" action="{% url 'plan_articulo_create' %}">
-    {% csrf_token %}
+         {% csrf_token %}
     <div class="form-group mb-3">
       <label for="tipoArticulo">Tipo de Artículo</label>
-      <select id="tipoArticulo" name="tipoArticulo" class="form-control" required>
-          <option value="" disabled {% if not form.instance.tipoArticulo %}selected{% endif %}>Seleccione...</option>
-          {% for key, value in form.fields.tipoArticulo.choices %}
-              {% if key != "" %}
-                  <option value="{{ key }}" {% if form.instance.tipoArticulo == key %}selected{% endif %}>{{ value }}</option>
-              {% endif %}
-          {% endfor %}
+      <select id="tipoArticulo" name="tipoArticulo" class="form-control">
+        {% for key, value in form.fields.tipoArticulo.choices %}
+          <option value="{{ key }}" {% if form.instance.tipoArticulo == key %}selected{% endif %}>{{ value }}</option>
+        {% endfor %}
       </select>
     </div>
 
@@ -116,14 +55,17 @@
             <div class="invalid-feedback">Por favor seleccione un plan de cuenta para el Haber.</div>
         </div>
     </div>
-
-    <div class="text-center mt-4">
-        <a href="{% url 'plan_articulo_list' %}" class="btn btn-secondary">
+  
+    <div class="text-center">
+          <a href="{% url 'plan_articulo_list' %}" class="btn btn-secondary mt-4">
             <i class="fas fa-arrow-left me-1"></i> Cancelar
         </a>
-        <button type="submit" class="btn btn-warning">
+
+
+        <button type="submit" class="btn btn-warning mt-4">
             <i class="fas fa-save me-1"></i> Guardar
         </button>
+      
     </div>
   </form>
 </div>
@@ -176,23 +118,6 @@
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
         </div>
-        <table class="table table-sm table-striped table-hover" id="tablaPlanCuentaDebe">
-          <thead>
-            <tr><th>Código</th><th>Nombre</th></tr>
-          </thead>
-          <tbody>
-            {% for cuenta in cuentas_plan %}
-            <tr data-id="{{ cuenta.idPlanCuenta }}" data-nombre="{{ cuenta.codigoPlanCuenta }} - {{ cuenta.nombrePlanCuenta }}" style="cursor:pointer;">
-              <td>{{ cuenta.codigoPlanCuenta }}</td>
-              <td>{{ cuenta.nombrePlanCuenta }}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-        <p id="mensajeSinRegistrosDebe" class="text-center text-muted" style="display: none;">No hay registros disponibles</p>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
       </div>
     </div>
   </div>
@@ -245,27 +170,9 @@
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
         </div>
-        <table class="table table-sm table-striped table-hover" id="tablaPlanCuentaHaber">
-          <thead>
-            <tr><th>Código</th><th>Nombre</th></tr>
-          </thead>
-          <tbody>
-            {% for cuenta in cuentas_plan %}
-            <tr data-id="{{ cuenta.idPlanCuenta }}" data-nombre="{{ cuenta.codigoPlanCuenta }} - {{ cuenta.nombrePlanCuenta }}" style="cursor:pointer;">
-              <td>{{ cuenta.codigoPlanCuenta }}</td>
-              <td>{{ cuenta.nombrePlanCuenta }}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-        <p id="mensajeSinRegistrosHaber" class="text-center text-muted" style="display: none;">No hay registros disponibles</p>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
       </div>
     </div>
   </div>
-</div>
 {% endblock content %}
 
 {% block javascripts %}
@@ -275,8 +182,13 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-  const paginateTable = (tableId, rowsPerPage) => { /* mismo código que ya tienes */ };
-  const filterTable = (tableId, inputId) => { /* mismo código que ya tienes */ };
+  // --- Función para paginar tablas ---
+  const paginateTable = (tableId, rowsPerPage) => {
+    const table = document.getElementById(tableId);
+    const rows = table.querySelectorAll('tbody tr');
+    const paginationContainer = document.createElement('div');
+    paginationContainer.className = 'pagination-container mt-3';
+    table.parentNode.insertBefore(paginationContainer, table.nextSibling);
 
     const pagination = document.createElement('ul');
     pagination.className = 'pagination justify-content-center';
@@ -405,25 +317,75 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  const form = document.querySelector('#planArticuloForm');
-  form.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    const formData = new FormData(form);
-    const url = form.action;
-    try {
-      const response = await fetch(url, { method: 'POST', body: formData, headers: { 'X-CSRFToken': formData.get('csrfmiddlewaretoken') }});
-      const result = await response.json();
-      if(response.ok && result.success){
-        Swal.fire({title:'Éxito', text: result.message || 'Operación realizada correctamente.', icon:'success', confirmButtonText:'OK'})
-        .then(()=>{ if(result.url) window.location.href=result.url; });
-      } else {
-        Swal.fire({title:'Error', text: result.message || 'Ocurrió un error al procesar la solicitud.', icon:'error', confirmButtonText:'OK'});
+  // --- Event listeners para las tablas de los modales ---
+  const tablaDebe = document.getElementById('tablaPlanCuentaDebe');
+  if (tablaDebe) {
+    tablaDebe.addEventListener('click', (event) => {
+      const fila = event.target.closest('tr');
+      if (fila && fila.hasAttribute('data-id')) {
+        handleSeleccionDebe(fila);
       }
-    } catch(error){
-      Swal.fire({title:'Error', text:'Error de conexión con el servidor.', icon:'error', confirmButtonText:'OK'});
-      console.error(error);
+    });
+  }
+
+  const tablaHaber = document.getElementById('tablaPlanCuentaHaber');
+  if (tablaHaber) {
+    tablaHaber.addEventListener('click', (event) => {
+      const fila = event.target.closest('tr');
+      if (fila && fila.hasAttribute('data-id')) {
+        handleSeleccionHaber(fila);
+      }
+    });
+  }
+
+  // --- Función para manejar envío del formulario con alertas SweetAlert ---
+  const form = document.querySelector('#planArticuloForm');
+form.addEventListener('submit', async (event) => {
+  event.preventDefault();
+
+  const formData = new FormData(form);
+  const url = form.action;
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'X-CSRFToken': formData.get('csrfmiddlewaretoken'),
+      },
+    });
+
+    const result = await response.json();
+
+    if (response.ok && result.success) {
+      Swal.fire({
+        title: 'Éxito',
+        text: result.message || 'Operación realizada correctamente.',
+        icon: 'success',
+        confirmButtonText: 'OK',
+      }).then(() => {
+        // Redirigir solo después de mostrar la alerta
+        if (result.url) {
+          window.location.href = result.url;
+        }
+      });
+    } else {
+      Swal.fire({
+        title: 'Error',
+        text: result.message || 'Ocurrió un error al procesar la solicitud.',
+        icon: 'error',
+        confirmButtonText: 'OK',
+      });
     }
-  });
+  } catch (error) {
+    Swal.fire({
+      title: 'Error',
+      text: 'Error de conexión con el servidor.',
+      icon: 'error',
+      confirmButtonText: 'OK',
+    });
+  }
+});
 });
 </script>
 {% endblock javascripts %}

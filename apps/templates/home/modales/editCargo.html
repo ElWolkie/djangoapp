@@ -17,6 +17,18 @@
 .btn-submit { background:linear-gradient(135deg,#ffc107 0%,#fd7e14 100%); border:none; color:#fff; font-weight:600; padding:.75rem 2rem; border-radius:.5rem; box-shadow:0 4px 6px rgba(0,0,0,.1); font-size:1rem; }
 .modal-body { padding:.75rem; }
 #modalMessages .alert { margin-bottom:.5rem; }
+
+/* ESTILO PARA CENTRAR EL BOTÓN */
+.text-center { 
+    text-align: center !important; 
+    display: flex !important;
+    justify-content: center !important;
+    width: 100% !important;
+}
+
+.mt-2 {
+    margin-top: 1rem !important;
+}
 </style>
 {% endblock stylesheets %}
 
@@ -38,6 +50,7 @@
           <div class="input-group" style="position:relative;">
             <i class="fas fa-user-tie input-icon"></i>
             <input id="nombreCargo" name="nombreCargo" type="text" class="form-control input-with-icon" value="{{ cargo.nombreCargo }}" maxlength="40" required />
+          </div>
           <div class="invalid-feedback">Por favor ingrese un nombre válido (solo letras y espacios).</div>
         </div>
       </div>
