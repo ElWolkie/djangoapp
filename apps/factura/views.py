@@ -1723,7 +1723,7 @@ def pago_create(request, pk=None):
                                                 idAsiento_id=asiento_igtf_id,
                                                 idMoneda=nota.idTasa.idMoneda,
                                                 idPlanCuenta=cuenta_debe.idPlanCuenta,
-                                                debe=float(monto_igtf),
+                                                debe=float(IGTFF),
                                                 haber=0.00
                                             )
 
@@ -1732,7 +1732,7 @@ def pago_create(request, pk=None):
                                                 idMoneda=nota.idTasa.idMoneda,
                                                 idPlanCuenta=cuenta_haber.idPlanCuenta,
                                                 debe=0.00,
-                                                haber=float(monto_igtf)
+                                                haber=float(IGTFF)
                                             )
 
                                             # 3. Asociar el asiento IGTF a la nota
