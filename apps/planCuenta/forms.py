@@ -52,10 +52,11 @@ class PlanCuentaForm(forms.ModelForm):
         # Validar coherencia de naturaleza con tipo de cuenta
         naturaleza_map = {
             'activo': 'deudora',
-            'gasto': 'deudora',
+            'egreso': 'deudora',
             'pasivo': 'acreedora',
             'patrimonio': 'acreedora',
             'ingreso': 'acreedora',
+            'costos': 'deudora',
         }
         naturaleza_esperada = naturaleza_map.get(tipo_cuenta)
         if naturaleza != naturaleza_esperada:

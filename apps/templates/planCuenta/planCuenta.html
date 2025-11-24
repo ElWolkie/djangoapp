@@ -188,7 +188,8 @@
             <option value="pasivo">Pasivo</option>
             <option value="patrimonio">Patrimonio</option>
             <option value="ingreso">Ingreso</option>
-            <option value="gasto">Gasto</option>
+            <option value="egreso">Egreso</option>
+            <option value="costos">Costos</option>
           </select>
           <div class="invalid-feedback">Por favor, seleccione un tipo.</div>
         </div>
@@ -346,10 +347,11 @@
     // Mapa de naturaleza según el tipo de cuenta
     const naturalezaMap = {
       'activo': 'deudora',
-      'gasto': 'deudora',
+      'egreso': 'deudora',
       'pasivo': 'acreedora',
       'patrimonio': 'acreedora',
       'ingreso': 'acreedora',
+      'costos': 'deudora',
     };
 
     // Función para actualizar el input oculto con el valor del select
