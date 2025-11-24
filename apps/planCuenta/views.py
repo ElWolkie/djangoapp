@@ -1,6 +1,6 @@
 from datetime import datetime
 from django.shortcuts import render, get_object_or_404
-from django.http import HttpResponseRedirect, JsonResponse, HttpResponse
+from django.http import JsonResponse, HttpResponse
 from django.contrib.auth.decorators import login_required, permission_required
 from django.db.models import Subquery, Q
 from django.db import transaction
@@ -131,48 +131,26 @@ def editar_plan(request, pk):
         form = PlanCuentaForm(request.POST, instance=plan_obj)
         if form.is_valid():
             form.save()
-            # Si es AJAX devolver JSON (para el handler JS)
-            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-                return JsonResponse({
-                    'success': True,
-                    'message': 'Plan de Cuenta actualizado exitosamente.',
-                    'redirect_url': reverse('plan_cuenta_list')
-                })
-            # Si no es AJAX, redirigir normalmente
-            return HttpResponseRedirect(reverse('plan_cuenta_list'))
+            return JsonResponse({
+                'success': True,
+                'message': 'Plan de Cuenta actualizado exitosamente.',
+                'redirect_url': reverse('plan_cuenta_list')
+            })
         else:
-            # Errores: si AJAX enviamos JSON con errores, si no, renderizamos la plantilla con errores
-            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-                # convertir errores QueryDict->listas para JSON si hace falta
-                errors = {k: list(v) for k, v in form.errors.items()}
-                return JsonResponse({'success': False, 'errors': errors}, status=400)
-            else:
-                # render con errores (para envío tradicional)
-                nivel_actual = plan_obj.nivelPlanCuenta
-                cuentas_padre = PlanCuenta.objects.filter(
-                    estadoPlanCuenta=True,
-                    nivelPlanCuenta__lt=nivel_actual
-                ).exclude(idPlanCuenta=plan_obj.idPlanCuenta).order_by('codigoPlanCuenta')
-                return render(request, 'planCuenta/editarPlanCuenta.html', {
-                    'form': form,
-                    'plan': plan_obj,
-                    'cuentas_padre': cuentas_padre,
-                    'idPlan': plan_obj.idPlanCuenta,
-                    'nombrePlan': plan_obj.nombrePlanCuenta,
-                    'codigoPlan': plan_obj.codigoPlanCuenta,
-                    'tipoPlan': plan_obj.tipoPlanCuenta,
-                    'nivelPlan': plan_obj.nivelPlanCuenta,
-                    'cuentaPadre': plan_obj.cuentaPadre,
-                    'estadoPlan': plan_obj.estadoPlanCuenta,
-                    'fechaPlan': plan_obj.fechaPlanCuenta,
-                })
+            return JsonResponse({'success': False, 'errors': form.errors})
     else:
         form = PlanCuentaForm(instance=plan_obj)
+        # Solo mostrar como posibles padres:
+        # - cuentas activas
+        # - nivel menor al de la cuenta actual
+        # - que no sean la cuenta actual
         nivel_actual = plan_obj.nivelPlanCuenta
         cuentas_padre = PlanCuenta.objects.filter(
             estadoPlanCuenta=True,
-            nivelPlanCuenta__lt=nivel_actual
-        ).exclude(idPlanCuenta=plan_obj.idPlanCuenta).order_by('codigoPlanCuenta')
+            nivelPlanCuenta__lt=nivel_actual  # Solo niveles menores
+        ).exclude(
+            idPlanCuenta=plan_obj.idPlanCuenta  # No puede ser su propio padre
+        ).order_by('codigoPlanCuenta')
         return render(request, 'planCuenta/editarPlanCuenta.html', {
             'form': form,
             'plan': plan_obj,
